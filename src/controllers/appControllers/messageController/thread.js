@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
-const { emitRead } = require('@/socket');
+const { emitRead } = require('../../../socket');
 
 // GET /api/message/thread/:userId?before=<ISO date>&limit=<n> — the
 // conversation between the caller and :userId, newest-first internally but

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { buildOAuthDialogUrl } = require('@/utils/githubClient');
+const { buildOAuthDialogUrl } = require('../../../utils/githubClient');
 
 // repo: full read/write on repos this account can access (needed to create
 // repos and to eventually show private repos). read:org: list org repos the

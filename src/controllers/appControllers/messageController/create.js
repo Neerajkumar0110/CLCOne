@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
 const buildReplySnapshot = require('./buildReplySnapshot');
-const { emitMessage } = require('@/socket');
+const { emitMessage } = require('../../../socket');
 
 // POST /api/message/create — text-only message. Use /message/upload instead
 // for one with an attachment. Optional body.replyTo is the _id of the

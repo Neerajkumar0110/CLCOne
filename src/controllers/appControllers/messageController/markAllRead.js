@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { emitRead } = require('@/socket');
+const { emitRead } = require('../../../socket');
 
 // PATCH /api/message/read-all — "Mark all as read" in the notification
 // bell: marks every unread message addressed to the caller as read, across

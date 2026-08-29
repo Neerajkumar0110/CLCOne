@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { notifyUser } = require('@/notify');
+const { notifyUser } = require('../../../notify');
 
 const Model = mongoose.model('Ticket');
 

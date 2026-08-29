@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const graph = require('@/utils/googleAdsClient');
+const graph = require('../../../utils/googleAdsClient');
 const { requireConnection, getFreshAccessToken } = require('./_helpers');
 
 // GET /api/google/ads?campaignId=<id>

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const graph = require('@/utils/metaGraphClient');
+const graph = require('../../../utils/metaGraphClient');
 const { findConnection, decryptedPageToken } = require('./_helpers');
 
 // Meta's field_data[].name values vary by field type — normalize before

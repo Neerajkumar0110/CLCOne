@@ -13,7 +13,7 @@ function startGoogleWebhookRetryJob() {
   setInterval(async () => {
     try {
       const GoogleWebhookLog = mongoose.model('GoogleWebhookLog');
-      const { processWebhookLog } = require('@/controllers/appControllers/googleController/webhook');
+      const { processWebhookLog } = require('../controllers/appControllers/googleController/webhook');
 
       const due = await GoogleWebhookLog.find({
         removed: false,

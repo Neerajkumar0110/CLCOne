@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { otpEmail } = require('@/emailTemplate/otpEmail');
+const { otpEmail } = require('../../../emailTemplate/otpEmail');
 
 const BRAND_NAME = 'Career Lab Consulting';
 

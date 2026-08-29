@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const tokenCrypto = require('@/utils/linkedinTokenCrypto');
+const tokenCrypto = require('../../../utils/linkedinTokenCrypto');
 
 // There's exactly one org-wide LinkedIn connection (see plan: this app has
 // no multi-tenancy anywhere else). This finds it regardless of status so

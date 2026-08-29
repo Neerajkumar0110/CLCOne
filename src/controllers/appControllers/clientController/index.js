@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const createCRUDController = require('@/controllers/middlewaresControllers/createCRUDController');
+const createCRUDController = require('../../middlewaresControllers/createCRUDController');
 
 const summary = require('./summary');
 

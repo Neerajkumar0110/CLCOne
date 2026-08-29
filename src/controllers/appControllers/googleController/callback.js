@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
-const graph = require('@/utils/googleAdsClient');
-const tokenCrypto = require('@/utils/googleTokenCrypto');
+const graph = require('../../../utils/googleAdsClient');
+const tokenCrypto = require('../../../utils/googleTokenCrypto');
 const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA

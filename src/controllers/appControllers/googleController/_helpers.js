@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const tokenCrypto = require('@/utils/googleTokenCrypto');
-const graph = require('@/utils/googleAdsClient');
+const tokenCrypto = require('../../../utils/googleTokenCrypto');
+const graph = require('../../../utils/googleAdsClient');
 
 // There's exactly one org-wide Google Ads connection (see plan: this app has
 // no multi-tenancy anywhere else). This finds it regardless of status so

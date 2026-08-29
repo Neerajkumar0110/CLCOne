@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('@/config/roles');
+const { MANAGEMENT_ROLES } = require('../../../config/roles');
 
 const RANGE_DAYS = { '1W': 7, '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

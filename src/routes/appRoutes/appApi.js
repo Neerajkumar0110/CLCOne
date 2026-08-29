@@ -1,10 +1,10 @@
 const express = require('express');
-const { catchErrors } = require('@/handlers/errorHandlers');
+const { catchErrors } = require('../../handlers/errorHandlers');
 const router = express.Router();
 
-const appControllers = require('@/controllers/appControllers');
-const { routesList } = require('@/models/utils');
-const { singleStorageUpload } = require('@/middlewares/uploadMiddleware');
+const appControllers = require('../../controllers/appControllers');
+const { routesList } = require('../../models/utils');
+const { singleStorageUpload } = require('../../middlewares/uploadMiddleware');
 
 const routerApp = (entity, controller) => {
   router.route(`/${entity}/create`).post(catchErrors(controller['create']));

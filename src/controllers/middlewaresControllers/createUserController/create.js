@@ -8,8 +8,8 @@ const {
   SUPER_ADMIN_ROLES,
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
-} = require('@/config/roles');
-const { notify } = require('@/notify');
+} = require('../../../config/roles');
+const { notify } = require('../../../notify');
 
 // Creates a new loginable user (e.g. Admin) + its password record (login
 // itself is passwordless/OTP-only — see login.js — so no password is

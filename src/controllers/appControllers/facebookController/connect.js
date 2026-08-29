@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { buildOAuthDialogUrl } = require('@/utils/metaGraphClient');
+const { buildOAuthDialogUrl } = require('../../../utils/metaGraphClient');
 
 // Only the permissions this integration actually implements — pages_show_list
 // + pages_read_engagement to list Pages, pages_manage_ads + pages_manage_metadata

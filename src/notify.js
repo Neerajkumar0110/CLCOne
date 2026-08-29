@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('@/config/roles');
-const { emitNotification } = require('@/socket');
+const { MANAGEMENT_ROLES } = require('./config/roles');
+const { emitNotification } = require('./socket');
 
 // Who sees a given notification, mirroring the same role-tier access rule
 // already used server-side by dashboard/performance/report (see

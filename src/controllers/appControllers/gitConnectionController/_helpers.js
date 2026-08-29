@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const tokenCrypto = require('@/utils/githubTokenCrypto');
-const github = require('@/utils/githubClient');
+const tokenCrypto = require('../../../utils/githubTokenCrypto');
+const github = require('../../../utils/githubClient');
 
 // Unlike Google Ads/Facebook (one org-wide connection), every admin connects
 // their own GitHub account, so lookups are always scoped to the requesting

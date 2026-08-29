@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const vercel = require('@/utils/vercelClient');
-const tokenCrypto = require('@/utils/vercelTokenCrypto');
+const vercel = require('../../../utils/vercelClient');
+const tokenCrypto = require('../../../utils/vercelTokenCrypto');
 const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { buildOAuthDialogUrl } = require('@/utils/googleAdsClient');
+const { buildOAuthDialogUrl } = require('../../../utils/googleAdsClient');
 
 // adwords manages campaigns; openid+email are required too — callback.js
 // calls Google's userinfo endpoint right after the token exchange to identify

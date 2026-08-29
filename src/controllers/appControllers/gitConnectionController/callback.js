@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const github = require('@/utils/githubClient');
-const tokenCrypto = require('@/utils/githubTokenCrypto');
+const github = require('../../../utils/githubClient');
+const tokenCrypto = require('../../../utils/githubTokenCrypto');
 const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA

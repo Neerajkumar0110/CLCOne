@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const graph = require('@/utils/metaGraphClient');
-const tokenCrypto = require('@/utils/metaTokenCrypto');
+const graph = require('../../../utils/metaGraphClient');
+const tokenCrypto = require('../../../utils/metaTokenCrypto');
 const { findConnection, sanitizeConnection, decryptedUserToken } = require('./_helpers');
 
 // GET /api/facebook/connection — real status, never a hard-coded boolean.

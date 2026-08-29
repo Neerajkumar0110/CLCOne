@@ -1,4 +1,4 @@
-const client = require('@/utils/linkedinAdsClient');
+const client = require('../../../utils/linkedinAdsClient');
 const { requireConnection, decryptedAccessToken } = require('./_helpers');
 
 // GET /api/linkedin/ad-accounts — real Ad Accounts fetched from LinkedIn

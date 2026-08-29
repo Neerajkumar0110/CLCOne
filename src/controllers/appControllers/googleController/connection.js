@@ -1,4 +1,4 @@
-const graph = require('@/utils/googleAdsClient');
+const graph = require('../../../utils/googleAdsClient');
 const { findConnection, sanitizeConnection, getFreshAccessToken } = require('./_helpers');
 
 // GET /api/google/connection — real status, never a hard-coded boolean.

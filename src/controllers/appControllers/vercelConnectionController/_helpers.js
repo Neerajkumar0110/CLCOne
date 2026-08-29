@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const tokenCrypto = require('@/utils/vercelTokenCrypto');
+const tokenCrypto = require('../../../utils/vercelTokenCrypto');
 
 // Every admin connects their own Vercel account — lookups are always scoped
 // to the requesting admin's id, mirroring gitConnectionController/_helpers.js.

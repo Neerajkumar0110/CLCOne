@@ -1,4 +1,4 @@
-const graph = require('@/utils/metaGraphClient');
+const graph = require('../../../utils/metaGraphClient');
 const { requireConnection, decryptedUserToken } = require('./_helpers');
 
 // GET /api/facebook/pages — real Pages fetched from Meta right now, never

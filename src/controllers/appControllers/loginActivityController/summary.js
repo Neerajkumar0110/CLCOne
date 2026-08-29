@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getOnlineUserIds } = require('@/socket');
+const { getOnlineUserIds } = require('../../../socket');
 const { dayRange, isSameDayAsToday } = require('./_dayRange');
 
 // GET /api/loginactivity/summary?date=YYYY-MM-DD&page=1&limit=10 — every

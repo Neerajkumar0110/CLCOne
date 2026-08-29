@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 const Model = mongoose.model('Payment');
 const Invoice = mongoose.model('Invoice');
-const custom = require('@/controllers/pdfController');
+const custom = require('../../pdfController');
 
-const { calculate } = require('@/helpers');
-const { increaseBySettingKey } = require('@/middlewares/settings');
-const { notify } = require('@/notify');
+const { calculate } = require('../../../helpers');
+const { increaseBySettingKey } = require('../../../middlewares/settings');
+const { notify } = require('../../../notify');
 
 const create = async (req, res) => {
   // Creating a new document in the collection

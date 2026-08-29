@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('@/config/roles');
+const { MANAGEMENT_ROLES } = require('../../../config/roles');
 
 // GET /api/report/number-lookup?phone=<digits> — every call ever logged
 // against that exact number, newest first. Management-only, same as

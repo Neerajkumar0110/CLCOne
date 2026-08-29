@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const client = require('@/utils/linkedinAdsClient');
+const client = require('../../../utils/linkedinAdsClient');
 const { requireConnection, decryptedAccessToken } = require('./_helpers');
 
 // GET /api/linkedin/campaign-groups

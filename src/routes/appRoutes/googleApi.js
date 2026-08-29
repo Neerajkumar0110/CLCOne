@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
-const { catchErrors } = require('@/handlers/errorHandlers');
-const controller = require('@/controllers/appControllers/googleController');
+const { catchErrors } = require('../../handlers/errorHandlers');
+const controller = require('../../controllers/appControllers/googleController');
 
 // Mounted at /api/google with adminAuth.isValidAuthToken already applied
 // (see app.js) — every route here requires a logged-in admin. The OAuth

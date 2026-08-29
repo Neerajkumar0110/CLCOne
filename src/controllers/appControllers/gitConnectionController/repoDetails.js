@@ -1,4 +1,4 @@
-const github = require('@/utils/githubClient');
+const github = require('../../../utils/githubClient');
 const { requireConnection, getFreshAccessToken } = require('./_helpers');
 const { summarizeRepo } = require('./repos');
 

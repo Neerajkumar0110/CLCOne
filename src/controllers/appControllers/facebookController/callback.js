@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const graph = require('@/utils/metaGraphClient');
-const tokenCrypto = require('@/utils/metaTokenCrypto');
+const graph = require('../../../utils/metaGraphClient');
+const tokenCrypto = require('../../../utils/metaTokenCrypto');
 const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA

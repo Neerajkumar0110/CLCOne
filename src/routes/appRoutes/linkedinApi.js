@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
-const { catchErrors } = require('@/handlers/errorHandlers');
-const { singleStorageUpload } = require('@/middlewares/uploadMiddleware');
-const controller = require('@/controllers/appControllers/linkedinController');
+const { catchErrors } = require('../../handlers/errorHandlers');
+const { singleStorageUpload } = require('../../middlewares/uploadMiddleware');
+const controller = require('../../controllers/appControllers/linkedinController');
 
 // Mounted at /api/linkedin with adminAuth.isValidAuthToken already applied
 // (see app.js) — every route here requires a logged-in admin. The OAuth

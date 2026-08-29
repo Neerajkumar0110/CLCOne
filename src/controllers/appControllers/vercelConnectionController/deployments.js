@@ -1,4 +1,4 @@
-const vercel = require('@/utils/vercelClient');
+const vercel = require('../../../utils/vercelClient');
 const { requireConnection, decryptedAccessToken } = require('./_helpers');
 
 function summarizeDeployment(d) {

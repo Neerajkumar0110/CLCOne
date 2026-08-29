@@ -26,7 +26,7 @@ const MAX_ATTEMPTS = 5;
 function startLinkedInLeadPoller() {
   setInterval(async () => {
     try {
-      const { runPollCycle, retrySyncLog } = require('@/controllers/appControllers/linkedinController/leadSync');
+      const { runPollCycle, retrySyncLog } = require('../controllers/appControllers/linkedinController/leadSync');
 
       // 1. Fresh poll — the primary path.
       await runPollCycle();

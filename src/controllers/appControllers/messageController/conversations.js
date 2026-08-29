@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
-const { getOnlineUserIds } = require('@/socket');
+const { getOnlineUserIds } = require('../../../socket');
 
 // GET /api/message/conversations — every other registered admin ("jitne
 // register hai sab yaha par show ho"), each with their last message and

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const graph = require('@/utils/metaGraphClient');
+const graph = require('../../../utils/metaGraphClient');
 const { requireConnection, decryptedUserToken } = require('./_helpers');
 
 // GET /api/facebook/campaigns

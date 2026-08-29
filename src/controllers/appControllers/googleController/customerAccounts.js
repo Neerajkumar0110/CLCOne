@@ -1,4 +1,4 @@
-const graph = require('@/utils/googleAdsClient');
+const graph = require('../../../utils/googleAdsClient');
 const { requireConnection, getFreshAccessToken } = require('./_helpers');
 
 // GET /api/google/customer-accounts — real Google Ads accounts fetched right

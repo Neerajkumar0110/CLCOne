@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const graph = require('@/utils/metaGraphClient');
+const graph = require('../../../utils/metaGraphClient');
 const { requireConnection, decryptedPageToken } = require('./_helpers');
 
 // Meta lead form "questions" only support a fixed vocabulary of built-in

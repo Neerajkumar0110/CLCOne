@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const tokenCrypto = require('@/utils/metaTokenCrypto');
+const tokenCrypto = require('../../../utils/metaTokenCrypto');
 
 // There's exactly one org-wide Facebook connection (see plan: this app has
 // no multi-tenancy anywhere else). This finds it regardless of status so

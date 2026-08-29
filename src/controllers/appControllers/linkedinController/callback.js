@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const client = require('@/utils/linkedinAdsClient');
-const tokenCrypto = require('@/utils/linkedinTokenCrypto');
+const client = require('../../../utils/linkedinAdsClient');
+const tokenCrypto = require('../../../utils/linkedinTokenCrypto');
 const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA

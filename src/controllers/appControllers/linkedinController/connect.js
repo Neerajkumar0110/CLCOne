@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { buildOAuthDialogUrl } = require('@/utils/linkedinAdsClient');
+const { buildOAuthDialogUrl } = require('../../../utils/linkedinAdsClient');
 
 // Only the permissions this integration actually implements — r_ads to read
 // ad accounts/campaigns, r_ads_leadgen_automation to read Lead Gen Forms and

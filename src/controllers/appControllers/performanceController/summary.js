@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('@/config/roles');
+const { MANAGEMENT_ROLES } = require('../../../config/roles');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 

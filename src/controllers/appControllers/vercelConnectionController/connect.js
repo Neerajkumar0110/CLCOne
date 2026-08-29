@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { buildInstallUrl } = require('@/utils/vercelClient');
+const { buildInstallUrl } = require('../../../utils/vercelClient');
 
 // GET /api/vercel/connect (authenticated) — mints a short-lived `state`
 // identifying the connecting admin (this app's frontend auth is bearer-token,

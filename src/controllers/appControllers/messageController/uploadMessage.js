@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
 const buildReplySnapshot = require('./buildReplySnapshot');
-const { emitMessage } = require('@/socket');
+const { emitMessage } = require('../../../socket');
 
 function fileTypeFromMime(mime = '') {
   if (mime.startsWith('image/')) return 'image';

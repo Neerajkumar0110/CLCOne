@@ -12,7 +12,7 @@ function startFacebookWebhookRetryJob() {
   setInterval(async () => {
     try {
       const FacebookWebhookLog = mongoose.model('FacebookWebhookLog');
-      const { processWebhookLog } = require('@/controllers/appControllers/facebookController/webhook');
+      const { processWebhookLog } = require('../controllers/appControllers/facebookController/webhook');
 
       const due = await FacebookWebhookLog.find({
         removed: false,

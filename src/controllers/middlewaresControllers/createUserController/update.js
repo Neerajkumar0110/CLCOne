@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
-const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES } = require('@/config/roles');
+const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES } = require('../../../config/roles');
 
 // Lets an admin change another user's role/position (and name/surname) after
 // creation — e.g. promoting an Executive, or correcting a Team Manager's title.

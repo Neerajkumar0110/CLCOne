@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const client = require('@/utils/linkedinAdsClient');
+const client = require('../../../utils/linkedinAdsClient');
 const { findConnection, isTokenExpired, decryptedAccessToken } = require('./_helpers');
 
 // LinkedIn has NO webhook for Lead Gen Forms — this file (together with
