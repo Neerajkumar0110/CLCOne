@@ -3,9 +3,11 @@ const { globSync } = require('glob');
 
 const toGlobPattern = (relativePattern) => join(__dirname, relativePattern).split(sep).join('/');
 
-const appModelsFiles = globSync(toGlobPattern('../appModels/**/*.js'));
+// Matches both .js and .cjs: Vercel's serverless build recompiles source
+// files to .cjs, so a plain *.js glob finds nothing at runtime there.
+const appModelsFiles = globSync(toGlobPattern('../appModels/**/*.{js,cjs}'));
 
-const pattern = toGlobPattern('../**/*.js');
+const pattern = toGlobPattern('../**/*.{js,cjs}');
 
 const modelsFiles = globSync(pattern).map((filePath) => {
   const fileNameWithExtension = basename(filePath);
