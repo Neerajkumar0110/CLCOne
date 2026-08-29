@@ -1,0 +1,1730 @@
+.calls-page {
+  width: 100%;
+  padding: 24px;
+  background: #f5f6f8;
+  min-height: calc(100vh - 70px);
+  color: #1f1f1f;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.calls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.calls-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.calls-header p {
+  margin: 5px 0 0;
+  color: #8c8c8c;
+  font-size: 13px;
+}
+
+.call-status-online {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: #f6ffed;
+  color: #389e0d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.call-status-online span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+/* =========================
+   MAIN
+========================= */
+
+.calls-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.35fr)
+    minmax(350px, 0.75fr);
+  gap: 18px;
+}
+
+.calls-left {
+  min-width: 0;
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+.call-search {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.call-search svg {
+  color: #8c8c8c;
+  flex-shrink: 0;
+}
+
+.call-search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #1f1f1f;
+  background: transparent;
+}
+
+.call-search input::placeholder {
+  color: #bfbfbf;
+}
+
+.clear-search {
+  border: none;
+  background: transparent;
+  color: #8c8c8c;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* =========================
+   SECTION
+========================= */
+
+.call-section {
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section-title small {
+  font-size: 11px;
+  color: #8c8c8c;
+  font-weight: 400;
+}
+
+/* =========================
+   CONTACT HEADER
+========================= */
+
+.contacts-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.contacts-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contacts-heading small {
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f0f5ff;
+  color: #1677ff;
+  font-size: 10px;
+}
+
+/* =========================
+   IMPORT
+========================= */
+
+.import-contacts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1677ff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.import-contacts-btn:hover {
+  background: #f0f7ff;
+  border-color: #91caff;
+  box-shadow:
+    0 2px 6px rgba(22, 119, 255, 0.08);
+}
+
+.import-contacts-btn:active {
+  transform: translateY(1px);
+}
+
+/* =========================
+   CONTACT LIST
+========================= */
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-card {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.contact-card:hover,
+.contact-card.selected {
+  background: #f5f8ff;
+}
+
+.contact-avatar {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-info strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.contact-info span {
+  font-size: 12px;
+  color: #595959;
+}
+
+.contact-info small {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+.contact-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.contact-name-row strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   OUTCOME BADGE
+========================= */
+
+.outcome-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 150px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outcome-success {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.outcome-warning {
+  background: #fffbe6;
+  color: #d48806;
+}
+
+.outcome-danger {
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.outcome-info {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+/* =========================
+   OUTCOME SELECT
+========================= */
+
+.call-outcome-select {
+  width: 145px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  outline: none;
+  background: white;
+  color: #595959;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.call-outcome-select:focus {
+  border-color: #91caff;
+  box-shadow:
+    0 0 0 2px rgba(22, 119, 255, 0.08);
+}
+
+/* =========================
+   CALL BUTTON
+========================= */
+
+.small-call-btn,
+.recent-call-btn {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e6f4ff;
+  color: #1677ff;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.small-call-btn:hover,
+.recent-call-btn:hover {
+  background: #1677ff;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* =========================
+   EMPTY CONTACTS
+========================= */
+
+.empty-contacts {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8c8c8c;
+  text-align: center;
+}
+
+.empty-contacts div {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  font-size: 20px;
+}
+
+.empty-contacts strong {
+  color: #595959;
+  font-size: 13px;
+}
+
+.empty-contacts span {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+/* =========================
+   PAGINATION
+========================= */
+
+.pagination-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding-top: 16px;
+  margin-top: 10px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.pagination-info {
+  color: #8c8c8c;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pagination-info strong {
+  color: #595959;
+  font-weight: 600;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: white;
+  color: #595959;
+  font-size: 11px;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: #91caff;
+  color: #1677ff;
+  background: #f0f5ff;
+}
+
+.pagination button.active {
+  background: #1677ff;
+  border-color: #1677ff;
+  color: white;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-arrow {
+  padding: 0 10px !important;
+}
+
+.pagination-dots {
+  padding: 0 3px;
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+/* =========================
+   RECENT CALLS
+========================= */
+
+.recent-section {
+  margin-top: 16px;
+}
+
+.recent-call {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #fafafa;
+}
+
+.recent-call:last-child {
+  border-bottom: none;
+}
+
+.call-history-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-history-icon.outgoing {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.call-history-icon.missed {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+
+.recent-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-info strong {
+  font-size: 12.5px;
+}
+
+.recent-info span {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+.recent-outcome {
+  max-width: 130px;
+  padding: 4px 7px;
+  border-radius: 10px;
+  background: #f5f5f5;
+  color: #595959;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.recent-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.recent-meta span {
+  font-size: 11.5px;
+}
+
+.recent-meta small {
+  font-size: 10px;
+  color: #bfbfbf;
+}
+
+/* =========================
+   DIALER
+========================= */
+
+.dialer-panel {
+  position: relative;
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  min-height: 600px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.dialer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.dialer-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.dialer-header span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+.dialer-online {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: #f6ffed;
+  color: #389e0d !important;
+  font-size: 9px !important;
+  font-weight: 600;
+}
+
+.dialer-online span {
+  width: 6px;
+  height: 6px;
+  margin: 0 !important;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+/* =========================
+   DIAL DISPLAY
+========================= */
+
+.dial-display {
+  padding: 26px 20px 20px;
+  text-align: center;
+}
+
+.dial-number {
+  min-height: 30px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  word-break: break-all;
+}
+
+/* =========================
+   KEYPAD
+========================= */
+
+.dial-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 65px);
+  justify-content: center;
+  gap: 12px;
+}
+
+.dial-pad button {
+  width: 65px;
+  height: 65px;
+  border: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.dial-pad button:hover {
+  background: #f0f5ff;
+  border-color: #adc6ff;
+}
+
+.dial-pad button:active {
+  transform: scale(0.95);
+}
+
+.dial-pad strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.dial-pad small {
+  font-size: 8px;
+  color: #8c8c8c;
+  letter-spacing: 1px;
+}
+
+/* =========================
+   DIAL ACTIONS
+========================= */
+
+.dial-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.dial-delete {
+  width: 45px;
+  height: 45px;
+  border: none;
+  background: transparent;
+  color: #8c8c8c;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.dial-delete:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dial-call {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #52c41a;
+  color: white;
+  cursor: pointer;
+  box-shadow:
+    0 5px 15px rgba(82, 196, 26, 0.25);
+  transition: 0.15s ease;
+}
+
+.dial-call:hover:not(:disabled) {
+  background: #389e0d;
+  transform: scale(1.05);
+}
+
+.dial-call:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* =========================
+   ACTIVE CALL
+========================= */
+
+.active-call {
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.active-call-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #52c41a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52c41a;
+  box-shadow:
+    0 0 0 5px rgba(82, 196, 26, 0.12);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(82, 196, 26, 0.35);
+  }
+
+  70% {
+    box-shadow:
+      0 0 0 8px rgba(82, 196, 26, 0);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(82, 196, 26, 0);
+  }
+}
+
+.active-avatar {
+  width: 82px;
+  height: 82px;
+  margin-top: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.active-call h2 {
+  margin: 18px 0 4px;
+  font-size: 20px;
+}
+
+.active-phone {
+  margin: 0;
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.call-timer {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #595959;
+}
+
+/* =========================
+   CONTROLS
+========================= */
+
+.active-controls {
+  display: grid;
+  grid-template-columns: repeat(4, 70px);
+  gap: 14px;
+  margin-top: 40px;
+}
+
+.active-controls button {
+  height: 70px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  background: #fafafa;
+  color: #595959;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.active-controls button:hover,
+.active-controls button.active {
+  background: #f0f5ff;
+  border-color: #adc6ff;
+  color: #1677ff;
+}
+
+.active-controls span {
+  font-size: 10px;
+}
+
+.keypad-symbol,
+.add-symbol {
+  font-size: 22px !important;
+}
+
+.add-symbol {
+  font-weight: 400;
+}
+
+/* =========================
+   END CALL
+========================= */
+
+.end-call {
+  margin-top: 40px;
+  width: 180px;
+  height: 46px;
+  border: none;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: #ff4d4f;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.end-call:hover {
+  background: #d9363e;
+  transform: translateY(-1px);
+}
+
+/* =========================
+   OUTCOME MODAL
+========================= */
+
+.outcome-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.outcome-modal {
+  width: 100%;
+  max-width: 430px;
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.18);
+  animation: modalIn 0.18s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-header p {
+  margin: 5px 0 0;
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+.modal-close {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: #f5f5f5;
+  color: #595959;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+}
+
+.modal-contact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 18px;
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+
+.modal-avatar {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.modal-contact div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.modal-contact strong {
+  font-size: 13px;
+}
+
+.modal-contact span {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+.modal-label {
+  display: block;
+  margin-top: 20px;
+  margin-bottom: 7px;
+  color: #595959;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.modal-outcome-select {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 7px;
+  outline: none;
+  background: white;
+  color: #1f1f1f;
+  font-size: 12px;
+}
+
+.modal-outcome-select:focus {
+  border-color: #1677ff;
+  box-shadow:
+    0 0 0 2px rgba(22, 119, 255, 0.08);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.modal-cancel,
+.modal-save {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-cancel {
+  border: 1px solid #d9d9d9;
+  background: white;
+  color: #595959;
+}
+
+.modal-cancel:hover {
+  background: #fafafa;
+}
+
+.modal-save {
+  border: 1px solid #1677ff;
+  background: #1677ff;
+  color: white;
+}
+
+.modal-save:hover:not(:disabled) {
+  background: #0958d9;
+}
+
+.modal-save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+  .call-outcome-select {
+    width: 120px;
+  }
+
+  .contact-card {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .calls-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dialer-panel {
+    min-height: 600px;
+  }
+}
+
+@media (max-width: 700px) {
+  .calls-page {
+    padding: 16px;
+  }
+
+  .calls-header {
+    align-items: flex-start;
+  }
+
+  .call-status-online {
+    display: none;
+  }
+
+  .contact-card {
+    flex-wrap: wrap;
+  }
+
+  .contact-info {
+    min-width: calc(100% - 100px);
+  }
+
+  .call-outcome-select {
+    width: calc(100% - 52px);
+    margin-left: 54px;
+  }
+
+  .pagination-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pagination {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pagination-pages {
+    overflow-x: auto;
+    max-width: 180px;
+  }
+
+  .recent-outcome {
+    display: none;
+  }
+
+  .active-controls {
+    grid-template-columns: repeat(2, 70px);
+  }
+}
+
+@media (max-width: 480px) {
+  .calls-page {
+    padding: 12px;
+  }
+
+  .calls-header h1 {
+    font-size: 19px;
+  }
+
+  .call-section {
+    padding: 12px;
+  }
+
+  .dial-pad {
+    gap: 9px;
+  }
+
+  .dial-pad button {
+    width: 60px;
+    height: 60px;
+  }
+
+  .active-avatar {
+    margin-top: 35px;
+  }
+
+  .active-controls {
+    margin-top: 30px;
+    gap: 10px;
+  }
+
+  .end-call {
+    margin-top: 30px;
+  }
+
+  .outcome-modal {
+    padding: 16px;
+  }
+}
+
+/* =========================================
+   CALL OUTCOME
+========================================= */
+
+.contact-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.outcome-badge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 3px 7px;
+  border-radius: 20px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.outcome-success {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.outcome-warning {
+  background: #fffbe6;
+  color: #d48806;
+}
+
+.outcome-danger {
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.outcome-info {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+.call-outcome-select {
+  width: 135px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: #fff;
+  color: #595959;
+  font-size: 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.call-outcome-select:hover,
+.call-outcome-select:focus {
+  border-color: #91caff;
+}
+
+.empty-contacts {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  color: #8c8c8c;
+}
+
+.empty-contacts div {
+  font-size: 30px;
+  opacity: 0.5;
+}
+
+.empty-contacts strong {
+  font-size: 13px;
+  color: #595959;
+}
+
+.empty-contacts span {
+  font-size: 11px;
+}
+
+/* =========================================
+   SEARCH CLEAR
+========================================= */
+
+.clear-search {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #8c8c8c;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-search:hover {
+  color: #1677ff;
+}
+
+/* =========================================
+   PAGINATION
+========================================= */
+
+.pagination-wrapper {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.pagination-info {
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+.pagination-info strong {
+  color: #595959;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  color: #595959;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pagination-pages button {
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: #91caff;
+  color: #1677ff;
+}
+
+.pagination button.active {
+  background: #1677ff;
+  border-color: #1677ff;
+  color: white;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-arrow {
+  min-width: 70px !important;
+}
+
+.pagination-dots {
+  width: 25px;
+  text-align: center;
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+/* =========================================
+   DIALER STATUS
+========================================= */
+
+.dialer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dialer-online {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 15px;
+  background: #f6ffed;
+  color: #389e0d;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.dialer-online span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+/* =========================================
+   CALL ACTIVITY
+========================================= */
+
+.call-activity {
+  margin: 28px 18px 18px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 18px;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.activity-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.activity-header span {
+  display: block;
+  margin-top: 3px;
+  color: #8c8c8c;
+  font-size: 10px;
+}
+
+.activity-header > strong {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  background: #f0f5ff;
+  color: #1677ff;
+  font-size: 10px;
+}
+
+.activity-filters {
+  margin-bottom: 10px;
+}
+
+.activity-filters select {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #e8e8e8;
+  border-radius: 7px;
+  background: #fff;
+  color: #595959;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+}
+
+.activity-filters select:hover,
+.activity-filters select:focus {
+  border-color: #91caff;
+}
+
+.activity-list {
+  max-height: 270px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 5px;
+  border-bottom: 1px solid #fafafa;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f0f5ff;
+  color: #1677ff;
+}
+
+.activity-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-info strong {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-info span {
+  font-size: 9px;
+  color: #8c8c8c;
+}
+
+.activity-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.activity-right small {
+  color: #bfbfbf;
+  font-size: 9px;
+}
+
+.activity-empty {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #8c8c8c;
+}
+
+.activity-empty span {
+  font-size: 11px;
+}
+
+.activity-empty small {
+  font-size: 9px;
+}
+
+.activity-more {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f5f5;
+  text-align: center;
+  color: #8c8c8c;
+  font-size: 9px;
+}
+
+/* RECENT OUTCOME */
+
+.recent-outcome {
+  max-width: 120px;
+  font-size: 10px;
+}
+
+/* =========================================
+   MODAL
+========================================= */
+
+.outcome-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+}
+
+.outcome-modal {
+  width: 100%;
+  max-width: 430px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-header p {
+  margin: 5px 0 0;
+  color: #8c8c8c;
+  font-size: 11px;
+}
+
+.modal-close {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 50%;
+  color: #595959;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.modal-contact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8f9fb;
+}
+
+.modal-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.modal-contact div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.modal-contact strong {
+  font-size: 13px;
+}
+
+.modal-contact span {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+.modal-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #595959;
+}
+
+.modal-outcome-select {
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 7px;
+  outline: none;
+  font-size: 12px;
+}
+
+.modal-outcome-select:focus {
+  border-color: #1677ff;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-cancel {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #595959;
+}
+
+.modal-save {
+  border: 1px solid #1677ff;
+  background: #1677ff;
+  color: white;
+}
+
+.modal-save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  .call-outcome-select {
+    width: 110px;
+  }
+
+  .recent-outcome {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .pagination-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pagination {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .contact-card {
+    flex-wrap: wrap;
+  }
+
+  .call-outcome-select {
+    width: calc(100% - 55px);
+    margin-left: 54px;
+  }
+
+  .call-activity {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .outcome-modal {
+    padding: 18px;
+  }
+}

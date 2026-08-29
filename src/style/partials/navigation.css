@@ -1,0 +1,241 @@
+/* Base extracted from careerlabconsulting.com (meta theme-color: #020617);
+   accent retuned to match the login page's deep navy/teal theme (frontend/
+   src/style/partials/login.css) so the same color story carries through
+   the whole app shell, not just the auth screen. */
+:root {
+  --nav-bg: #020617;
+  --nav-bg-elevated: #0b1220;
+  --nav-border: #1e293b;
+  --nav-text: #cbd5e1;
+  --nav-text-muted: #64748b;
+  --nav-accent: #0e7490;
+  --nav-accent-soft: rgba(14, 116, 144, 0.22);
+}
+
+@keyframes navBgDrift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.navigation {
+  position: fixed;
+  height: 100vh;
+  overflow: hidden;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  background: var(--nav-bg) !important;
+  border-right: 1px solid var(--nav-border);
+}
+
+.navigation.ant-layout-sider {
+  background: var(--nav-bg) !important;
+}
+
+.navigation .ant-layout-sider-children {
+  /* Slow, low-contrast drift — this sits on screen throughout real work
+     (unlike the login page's more vivid version), so the motion is subtle
+     enough not to be distracting. */
+  background: linear-gradient(165deg, #020617 0%, #042430 45%, #0c3a4e 75%, #020617 100%);
+  background-size: 200% 200%;
+  animation: navBgDrift 34s ease-in-out infinite;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.logo {
+  height: 45px;
+  margin: 15px 15px 30px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 160px;
+  flex-shrink: 0;
+}
+
+/* Menu overrides */
+.navigation .ant-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
+
+  /* Menu available height lega */
+  flex: 1;
+
+  /* Vertical scroll */
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding-inline: 0 !important;
+
+  /* Firefox — hide scrollbar */
+  scrollbar-width: none;
+}
+
+.navigation .ant-menu::-webkit-scrollbar {
+  /* Chrome/Safari/Edge — hide scrollbar */
+  display: none;
+}
+
+.navigation .ant-menu-item {
+  color: var(--nav-text) !important;
+  border-radius: 6px;
+  margin: 10px !important;
+  width: calc(100% - 20px) !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+}
+
+.navigation .ant-menu-item a {
+  color: inherit;
+}
+
+.navigation .ant-menu-item:hover {
+  background: var(--nav-accent-soft) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.28);
+  transform: translateX(2px);
+}
+
+.navigation .ant-menu-item-selected {
+  background: var(--nav-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 18px rgba(14, 116, 144, 0.42);
+}
+
+.navigation .ant-menu-item-selected a {
+  color: #fff !important;
+}
+
+/* When collapsed, center the icon-only items — antd's default icon margin
+   pushes it left (to leave room for a label that no longer exists), so we
+   reset that margin and center the item content with flex instead. */
+.navigation .ant-menu-inline-collapsed {
+  width: 100% !important;
+}
+
+.navigation .ant-menu-inline-collapsed .ant-menu-item {
+  margin: 10px !important;
+  width: calc(100% - 20px) !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.navigation .ant-menu-inline-collapsed .ant-menu-item .ant-menu-item-icon,
+.navigation .ant-menu-inline-collapsed .ant-menu-item .anticon {
+  margin: 0 !important;
+  font-size: 18px;
+}
+
+.navigation .ant-menu-inline-collapsed .ant-menu-item .ant-menu-title-content {
+  display: none;
+}
+
+/* Ant Design renders its own trigger wrapper with position:fixed by default — override it
+   so our trigger sits inline at the bottom of the sidebar instead of floating separately. */
+.navigation .ant-layout-sider-trigger {
+  position: relative !important;
+  width: 100% !important;
+  flex-shrink: 0;
+}
+
+/* Nav item count badge (Support's open tickets, Communication's unread
+   messages) — sits right after the label (not pushed to the item's far
+   edge, which is what an inline-flex label with a plain gap avoids — a
+   block-level flex span stretches to the title-content's full width and
+   space-between then flings the badge to the far edge) and keeps bouncing
+   to draw the eye for as long as the count is above zero. */
+.hub-nav-badge {
+  display: inline-flex;
+}
+
+.hub-nav-badge .ant-badge-count {
+  animation: hub-nav-badge-bounce 1s ease-in-out infinite;
+}
+
+@keyframes hub-nav-badge-bounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px); }
+  50% { transform: translateY(0); }
+}
+
+/* Collapse trigger */
+.navigation-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  width: 100%;
+  color: var(--nav-text-muted);
+  background: var(--nav-bg-elevated);
+  border-top: 1px solid var(--nav-border);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.navigation-trigger:hover {
+  color: var(--nav-accent);
+  background: var(--nav-accent-soft);
+}
+
+/* Mobile drawer */
+.navigation-drawer .ant-drawer-body {
+  padding: 0;
+  background: var(--nav-bg);
+}
+
+.sidebar-wraper {
+  background: var(--nav-bg);
+  display: block;
+}
+
+.mobile-sidebar-wraper {
+  display: none;
+}
+
+.mobile-sidebar-wraper .ant-drawer-body {
+  padding: 12px 0px !important;
+}
+
+/* .ant-btn.mobile-sidebar-btn {
+  display: none;
+} */
+
+.tabsNavigation span {
+  background-color: transparent;
+}
+
+.tabsNavigation:hover span {
+  box-shadow: 0px 0px 30px 8px rgba(0, 115, 255, 0.15);
+  background-color: transparent;
+}
+
+@media only screen and (max-width: 768px) {
+  .sidebar-wraper {
+    display: none;
+  }
+
+  .navigation {
+    height: 100%;
+  }
+
+  /* .ant-btn.mobile-sidebar-btn {
+    display: block;
+    position: absolute;
+    top: 21px;
+  } */
+
+  .mobile-sidebar-wraper {
+    display: block;
+  }
+}

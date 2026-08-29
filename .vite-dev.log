@@ -1,0 +1,326 @@
+
+> idurar-erp-crm@4.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v5.4.8[39m  [2mready in [0m[1m234[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m8:31:36 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m8:31:36 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m8:31:36 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m8:39:35 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m8:39:55 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m8:46:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m8:46:05 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m8:46:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m10:13:59 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:03 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:12 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:25 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:33 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:42 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:47 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:14:54 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:15:00 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:15:14 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:15:19 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:15:27 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:15:33 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:16:13 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:33:56 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:35:33 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:35:40 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:35:56 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:36:03 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:37:00 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:37:12 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:37:28 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:37:54 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m10:38:01 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:43:12 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:43:21 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:43:39 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:43:49 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:44:07 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:44:12 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m11:52:29 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/RootApp.jsx, /src/pages/ResetPassword.jsx, /src/pages/Login.jsx, /src/pages/Logout.jsx[22m
+[2m11:52:38 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/RootApp.jsx[22m
+[2m11:52:48 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/ResetPassword.jsx, /src/pages/Login.jsx, /src/pages/Logout.jsx[22m
+[2m11:52:56 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/ResetPassword.jsx, /src/pages/Login.jsx, /src/pages/Logout.jsx[22m
+[2m11:53:03 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/forms/LoginForm.jsx[22m
+[2m11:53:08 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/forms/LoginForm.jsx[22m
+[2m11:53:27 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m11:53:43 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/ResetPassword.jsx, /src/pages/Login.jsx, /src/pages/Logout.jsx[22m
+[2m11:53:47 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m11:53:54 am[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m12:03:23 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/forms/LoginForm.jsx[22m
+[2m12:03:32 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m12:04:03 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:04:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:04:19 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:04:34 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:26:27 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:26:33 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m12:26:43 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx[22m
+[2m12:26:43 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m12:26:43 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m12:26:53 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx[22m
+[2m12:26:53 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m12:26:53 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m12:27:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx[22m
+[2m12:27:05 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m12:27:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m1:27:47 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m1:28:20 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m1:28:34 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m1:30:55 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m1:31:24 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/forms/OtpForm.jsx[22m
+[2m1:31:50 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m1:32:23 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m1:32:29 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m1:42:45 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Login.jsx[22m
+[2m2:08:01 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m2:08:14 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m2:08:53 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m2:09:11 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m2:21:29 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m2:21:29 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:21:29 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m2:21:37 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m2:21:37 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:21:37 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m2:21:46 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m2:21:56 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m2:22:03 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m2:22:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m2:22:12 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:22:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m2:22:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m2:22:21 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:22:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m2:22:42 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m2:22:42 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:22:42 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m3:47:57 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m3:47:57 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:47:57 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m3:48:03 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m3:48:03 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:48:03 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m3:48:19 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m3:48:19 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:48:19 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m3:48:30 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/NewTicketModal/index.jsx[22m
+[2m3:48:30 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/components/NewTicketModal/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:48:30 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx, /src/pages/UserManagement/index.jsx, /src/pages/Finance/index.jsx[22m
+[2m3:48:40 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/ticketsContext/index.jsx[22m
+[2m3:48:40 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/ticketsContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:48:40 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/pages/Dashboard/Dashboard.jsx, /src/pages/UserManagement/index.jsx, /src/pages/Finance/index.jsx[22m
+[2m3:48:52 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:11 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:22 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:28 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:35 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:41 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:49:47 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Finance/index.jsx[22m
+[2m3:50:19 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m3:50:34 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m3:50:40 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m3:50:48 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/Navigation/NavigationContainer.jsx[22m
+[2m3:50:54 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m3:50:54 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:50:54 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m3:51:01 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/routes.jsx[22m
+[2m3:51:01 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/router/routes.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:51:01 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/router/AppRouter.jsx[22m
+[2m4:00:35 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx, /src/pages/UserManagement/index.jsx[22m
+[2m4:00:35 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m4:00:35 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m4:01:18 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m4:01:33 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m4:01:55 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/UserManagement/index.jsx[22m
+[2m4:02:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx[22m
+[2m4:02:12 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m4:02:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m4:02:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/context/permissionContext/index.jsx[22m
+[2m4:02:21 pm[22m [36m[1m[vite][22m[39m [33mhmr invalidate [39m[2m/src/context/permissionContext/index.jsx[22m Could not Fast Refresh. Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m4:02:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/apps/IdurarOs.jsx, /src/apps/Navigation/NavigationContainer.jsx, /src/router/RequirePermission.jsx[22m
+[2m4:23:15 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:39:47 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m4:40:09 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:40:20 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:40:48 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:41:13 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:41:46 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:41:46 pm[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\idurar-erp-crm\frontend\src\pages\Dashboard\Dashboard.jsx: Expected corresponding JSX closing tag for <div>. (406:10)
+
+[0m [90m 404 |[31m               [33m<[31m[33m/[31m[33mPanel[31m[33m>[31m
+ [90m 405 |[31m             [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+[31m[1m>[22m[31m[90m 406 |[31m           [33m<[31m[33m/[31m[33m>[31m
+ [90m     |[31m           [31m[1m^[22m[31m
+ [90m 407 |[31m         )}
+ [90m 408 |[31m       [33m<[31m[33m/[31m[33mmain[31m[33m>[31m
+ [90m 409 |[31m     [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/idurar-erp-crm/frontend/src/pages/Dashboard/Dashboard.jsx[39m:406:10
+[33m  404|                </Panel>
+  405|              </div>
+  406|            </>
+     |            ^
+  407|          )}
+  408|        </main>[39m
+      at constructor (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:362:19)
+      at JSXParserMixin.raise (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:3260:19)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6773:14)
+      at JSXParserMixin.jsxParseElement (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6800:17)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6810:19)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseMaybeAssignAllowIn (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:17)
+      at JSXParserMixin.parseParenAndDistinguishExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11195:28)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10851:23)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6815:20)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at JSXParserMixin.parseConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10397:29)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10389:17)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at JSXParserMixin.parseExpressionBase (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10302:23)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10298:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10298:17)
+      at JSXParserMixin.jsxParseExpressionContainer (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6683:31)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6762:36)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6749:32)
+      at JSXParserMixin.jsxParseElement (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6800:17)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6810:19)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseMaybeAssignAllowIn (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:17)
+      at JSXParserMixin.parseParenAndDistinguishExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11195:28)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10851:23)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6815:20)
+[2m4:41:46 pm[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\idurar-erp-crm\frontend\src\pages\Dashboard\Dashboard.jsx: Expected corresponding JSX closing tag for <div>. (406:10)
+
+[0m [90m 404 |[31m               [33m<[31m[33m/[31m[33mPanel[31m[33m>[31m
+ [90m 405 |[31m             [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+[31m[1m>[22m[31m[90m 406 |[31m           [33m<[31m[33m/[31m[33m>[31m
+ [90m     |[31m           [31m[1m^[22m[31m
+ [90m 407 |[31m         )}
+ [90m 408 |[31m       [33m<[31m[33m/[31m[33mmain[31m[33m>[31m
+ [90m 409 |[31m     [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/idurar-erp-crm/frontend/src/pages/Dashboard/Dashboard.jsx[39m:406:10
+[33m  404|                </Panel>
+  405|              </div>
+  406|            </>
+     |            ^
+  407|          )}
+  408|        </main>[39m
+      at constructor (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:362:19)
+      at JSXParserMixin.raise (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:3260:19)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6773:14)
+      at JSXParserMixin.jsxParseElement (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6800:17)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6810:19)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseMaybeAssignAllowIn (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:17)
+      at JSXParserMixin.parseParenAndDistinguishExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11195:28)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10851:23)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6815:20)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at JSXParserMixin.parseConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10397:29)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10389:17)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at JSXParserMixin.parseExpressionBase (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10302:23)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10298:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10298:17)
+      at JSXParserMixin.jsxParseExpressionContainer (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6683:31)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6762:36)
+      at JSXParserMixin.jsxParseElementAt (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6749:32)
+      at JSXParserMixin.jsxParseElement (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6800:17)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6810:19)
+      at JSXParserMixin.parseExprSubscripts (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10584:23)
+      at JSXParserMixin.parseUpdate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10569:21)
+      at JSXParserMixin.parseMaybeUnary (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10549:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10403:61)
+      at JSXParserMixin.parseExprOps (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10408:23)
+      at JSXParserMixin.parseMaybeConditional (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10385:23)
+      at JSXParserMixin.parseMaybeAssign (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10348:21)
+      at C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:39
+      at JSXParserMixin.allowInAnd (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11933:12)
+      at JSXParserMixin.parseMaybeAssignAllowIn (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10318:17)
+      at JSXParserMixin.parseParenAndDistinguishExpression (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:11195:28)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:10851:23)
+      at JSXParserMixin.parseExprAtom (C:\idurar-erp-crm\frontend\node_modules\@babel\parser\lib\index.js:6815:20)
+[2m4:42:17 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:46:16 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m4:46:25 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m4:47:15 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.jsx[22m
+[2m4:47:59 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Dashboard/Dashboard.css[22m
+[2m4:51:02 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/charts/DonutChart.jsx[22m
+[2m4:51:13 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/charts/DonutChart.jsx[22m
+[2m4:51:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/charts/DonutChart.jsx[22m
+[2m4:51:37 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m4:51:47 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css[22m
+[2m5:00:13 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Reports/index.jsx[22m
+[2m5:00:24 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Reports/index.jsx[22m
+[2m5:00:34 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Reports/index.jsx[22m
+[2m5:00:50 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Reports/index.jsx[22m
+[2m5:01:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Reports/index.jsx[22m
+[2m5:01:35 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Customer/index.jsx[22m
+[2m5:01:46 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Customer/index.jsx[22m
+[2m5:01:54 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Customer/index.jsx[22m
+[2m5:02:05 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Customer/index.jsx[22m
+[2m5:02:12 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Customer/index.jsx[22m
+[2m5:54:23 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:54:34 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:54:43 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:54:52 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:55:04 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:55:16 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:55:23 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:55:50 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:55:55 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:56:01 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:56:16 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m5:57:31 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m6:04:17 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m6:04:30 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m6:04:53 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Leads/index.jsx[22m
+[2m6:05:14 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/style/app.css, /src/style/partials/leadsAnthropic.css[22m

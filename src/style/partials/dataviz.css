@@ -1,0 +1,189 @@
+/* =========================================================
+   DATAVIZ — shared chrome for LineAreaChart and DonutChart
+   (frontend/src/components/charts/). Colors reuse this app's
+   own --hub-* brand tokens (featureHub.css) as the categorical
+   ramp — this app runs a single fixed light theme, so no dark
+   variant is defined here.
+========================================================= */
+
+.viz-root {
+  --viz-text-primary: var(--hub-text, #101828);
+  --viz-text-secondary: var(--hub-text-soft, #344054);
+  --viz-muted: var(--hub-muted, #667085);
+  --viz-gridline: var(--hub-border, #e7eaf0);
+  --viz-muted-fill: #eef0f4;
+  --viz-surface: #ffffff;
+}
+
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--viz-text-secondary);
+}
+
+.viz-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viz-legend-item i {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.viz-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.viz-gridline {
+  stroke: var(--viz-gridline);
+  stroke-width: 1;
+}
+
+.viz-axis-label {
+  fill: var(--viz-muted);
+  font-size: 10.5px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.viz-empty-label {
+  fill: var(--viz-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.viz-crosshair {
+  stroke: var(--viz-muted);
+  stroke-width: 1;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.viz-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  background: var(--viz-text-primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  min-width: 130px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.22);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.viz-tooltip-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.viz-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.viz-tooltip-key {
+  width: 10px;
+  height: 0;
+  border-top: 2px solid;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.viz-tooltip-label {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.viz-tooltip-value {
+  font-weight: 700;
+}
+
+/* ---------- Donut ---------- */
+
+.viz-donut-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.viz-donut svg circle {
+  cursor: pointer;
+}
+
+.viz-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.viz-donut-center strong {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--viz-text-primary);
+  line-height: 1.2;
+}
+
+.viz-donut-center span {
+  font-size: 11px;
+  color: var(--viz-muted);
+}
+
+.viz-legend-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.viz-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  cursor: default;
+  transition: opacity 0.15s ease;
+}
+
+.viz-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.viz-legend-label {
+  flex: 1;
+  color: var(--viz-text-secondary);
+  font-weight: 600;
+}
+
+.viz-legend-value {
+  color: var(--viz-text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

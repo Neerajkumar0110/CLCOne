@@ -1,0 +1,88 @@
+.notification::-webkit-scrollbar {
+  width: 4px;
+  height: 60px;
+}
+.notification::-webkit-scrollbar-thumb {
+  background: #0e7490;
+  border-radius: 4px;
+}
+.headerIcon {
+  position: relative;
+}
+
+.headerIcon.ant-avatar {
+  float: right;
+  margin-left: 10px;
+  margin-top: 15px;
+  color: var(--nav-text);
+  background: transparent;
+}
+.headerIcon.ant-avatar :hover {
+  background: var(--nav-accent-soft);
+  box-shadow: 0px 0px 10px 4px rgba(14, 116, 144, 0.3);
+  cursor: pointer;
+}
+
+.headerIcon .last {
+  margin-right: 30px;
+}
+
+.profileDropdown {
+  display: flex;
+  min-width: 200px;
+}
+.profileDropdownInfo {
+  float: left;
+  display: inline;
+  padding-left: 15px;
+}
+
+.profileDropdownInfo p {
+  margin: 0;
+  color: var(--nav-text);
+}
+
+.app-header .anticon {
+  color: var(--nav-text);
+}
+
+/* Profile avatar (top-right, opens the account dropdown) — actually wired
+   up to the real element via className="header-avatar-trigger" on the
+   <Avatar> in HeaderContainer.jsx; the older ".headerIcon.ant-avatar :hover"
+   rule above never matched anything since no element carries both classes. */
+.header-avatar-trigger {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.header-avatar-trigger:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.28) !important;
+}
+
+/* Notification bell trigger (apps/Header/NotificationBell) */
+.header-bell-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-top: 4px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+}
+
+.header-bell-trigger:hover {
+  background: var(--nav-accent-soft, rgba(14, 116, 144, 0.22));
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Same slow drifting gradient as the sidebar (see navBgDrift in
+   navigation.css) — the header sits on every page too, so it carries the
+   same animated theme instead of a flat color. */
+.app-header {
+  background: linear-gradient(100deg, #0b1220 0%, #0c2733 55%, #0b1220 100%) !important;
+  background-size: 200% 200%;
+  animation: navBgDrift 34s ease-in-out infinite;
+}
