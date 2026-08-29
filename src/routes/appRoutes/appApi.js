@@ -1,0 +1,98 @@
+const express = require('express');
+const { catchErrors } = require('@/handlers/errorHandlers');
+const router = express.Router();
+
+const appControllers = require('@/controllers/appControllers');
+const { routesList } = require('@/models/utils');
+const { singleStorageUpload } = require('@/middlewares/uploadMiddleware');
+
+const routerApp = (entity, controller) => {
+  router.route(`/${entity}/create`).post(catchErrors(controller['create']));
+  router.route(`/${entity}/read/:id`).get(catchErrors(controller['read']));
+  router.route(`/${entity}/update/:id`).patch(catchErrors(controller['update']));
+  router.route(`/${entity}/delete/:id`).delete(catchErrors(controller['delete']));
+  router.route(`/${entity}/search`).get(catchErrors(controller['search']));
+  router.route(`/${entity}/list`).get(catchErrors(controller['list']));
+  router.route(`/${entity}/listAll`).get(catchErrors(controller['listAll']));
+  router.route(`/${entity}/filter`).get(catchErrors(controller['filter']));
+  router.route(`/${entity}/summary`).get(catchErrors(controller['summary']));
+
+  if (entity === 'invoice' || entity === 'quote' || entity === 'payment') {
+    router.route(`/${entity}/mail`).post(catchErrors(controller['mail']));
+  }
+
+  if (entity === 'quote') {
+    router.route(`/${entity}/convert/:id`).get(catchErrors(controller['convert']));
+  }
+
+  if (entity === 'lead') {
+    router
+      .route(`/${entity}/import`)
+      .post(
+        singleStorageUpload({ entity: 'lead', fieldName: 'file', fileType: 'default' }),
+        catchErrors(controller['import'])
+      );
+    router.route(`/${entity}/export`).get(catchErrors(controller['export']));
+    router.route(`/${entity}/team-stats`).get(catchErrors(controller['teamStats']));
+  }
+
+  if (entity === 'team') {
+    router.route(`/${entity}/mine`).get(catchErrors(controller['mine']));
+  }
+
+  if (entity === 'call') {
+    router.route(`/${entity}/agent-stats`).get(catchErrors(controller['agentStats']));
+  }
+
+  if (entity === 'ticket') {
+    router.route(`/${entity}/mine`).get(catchErrors(controller['mine']));
+    router.route(`/${entity}/stats`).get(catchErrors(controller['stats']));
+    router.route(`/${entity}/category-counts`).get(catchErrors(controller['categoryCounts']));
+  }
+
+  if (entity === 'message') {
+    router
+      .route(`/${entity}/upload`)
+      .post(
+        singleStorageUpload({ entity: 'message', fieldName: 'file', fileType: 'default' }),
+        catchErrors(controller['uploadMessage'])
+      );
+    router.route(`/${entity}/thread/:userId`).get(catchErrors(controller['thread']));
+    router.route(`/${entity}/conversations`).get(catchErrors(controller['conversations']));
+    router.route(`/${entity}/read-all`).patch(catchErrors(controller['markAllRead']));
+  }
+
+  if (entity === 'notification') {
+    router.route(`/${entity}/mine`).get(catchErrors(controller['mine']));
+    router.route(`/${entity}/read-all`).patch(catchErrors(controller['markAllRead']));
+    router.route(`/${entity}/:id/read`).patch(catchErrors(controller['markRead']));
+  }
+
+  if (entity === 'loginactivity') {
+    router.route(`/${entity}/detail/:adminId`).get(catchErrors(controller['detail']));
+  }
+};
+
+routesList.forEach(({ entity, controllerName }) => {
+  const controller = appControllers[controllerName];
+  routerApp(entity, controller);
+});
+
+// Dashboard has no Mongoose model of its own — it's a read-only aggregate
+// over Call/Lead/Team, so it doesn't go through the generic routerApp/CRUD wiring.
+router.route('/dashboard/summary').get(catchErrors(appControllers.dashboardController.summary));
+
+// Same story — a read-only aggregate over Call/Payment/Team, not a model of its own.
+router.route('/performance/summary').get(catchErrors(appControllers.performanceController.summary));
+
+// Same story again — aggregates over Call/Lead/Payment/Client/Team. Both
+// endpoints self-restrict to management roles inside the controller (see
+// reportController/summary.js), unlike dashboard/performance which degrade
+// gracefully for everyone else.
+router.route('/report/summary').get(catchErrors(appControllers.reportController.summary));
+router.route('/report/number-lookup').get(catchErrors(appControllers.reportController.numberLookup));
+
+// Same story again — no model of its own, just live process/DB info for the About page.
+router.route('/about/info').get(catchErrors(appControllers.aboutController.info));
+
+module.exports = router;
