@@ -28,7 +28,7 @@ export function defaultMatrixForRole(role) {
       // Admin, Sales Manager) — the backend /api/report/* endpoints enforce
       // this too (403 for anyone else), this just keeps the nav item honest.
       (LEAD_TIER_ROLES.includes(role) && mod !== "User Management" && mod !== "Payments" && mod !== "Reports") ||
-      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Leads", "Calls"].includes(mod)) ||
+      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales"].includes(mod)) ||
       (isFinance && ["Dashboard", "Invoices", "Payments", "Finance"].includes(mod));
 
     const canEdit =

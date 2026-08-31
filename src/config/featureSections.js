@@ -49,6 +49,7 @@ import {
   MobileOutlined,
   ContactsOutlined,
   SolutionOutlined,
+  PhoneOutlined,
   FieldTimeOutlined,
   ScheduleOutlined,
   CoffeeOutlined,
@@ -97,6 +98,13 @@ export const FEATURE_SECTIONS = [
         kpis: ['Open Deals', 'Pipeline Value', 'Weighted Value', 'Avg Deal Age'],
         columns: ['Deal', 'Account', 'Stage', 'Value', 'Owner', 'Close Date'],
       },
+      // Leads / Customers / Calls live under Sales now. `embed` renders the
+      // existing full-featured pages (ads integrations, imports, etc.) inside
+      // the section shell — see EMBED in pages/ModuleScaffold. Old top-level
+      // routes /leads /customer /calls still resolve for saved links.
+      { key: 'leads', label: 'Leads', Icon: SolutionOutlined, embed: 'leads' },
+      { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer' },
+      { key: 'calls', label: 'Calls', Icon: PhoneOutlined, embed: 'calls' },
       {
         key: 'deals',
         label: 'Deals',
@@ -546,6 +554,127 @@ export const FEATURE_SECTIONS = [
 
   // ===========================================================================
   {
+    key: 'project-management',
+    label: 'Project Management',
+    module: 'Project Management',
+    route: '/project-management',
+    Icon: ProjectOutlined,
+    blurb: 'Delivery projects, tasks, service handovers and approvals.',
+    tabs: [
+      {
+        key: 'overview',
+        label: 'Overview',
+        Icon: DashboardOutlined,
+        readOnly: true,
+        note: 'Live counts across every project area. Numbers update as records are added in the other tabs.',
+        stats: [
+          { label: 'Active Projects', entity: 'opsproject', filter: 'status', equal: 'In Progress' },
+          { label: 'Planned Projects', entity: 'opsproject', filter: 'status', equal: 'Planned' },
+          { label: 'On Hold', entity: 'opsproject', filter: 'status', equal: 'On Hold' },
+          { label: 'Blocked', entity: 'opsproject', filter: 'status', equal: 'Blocked' },
+          { label: 'Completed Projects', entity: 'opsproject', filter: 'status', equal: 'Completed' },
+          { label: 'Total Projects', entity: 'opsproject' },
+          { label: 'Deliveries In Progress', entity: 'opsdelivery', filter: 'status', equal: 'In Delivery' },
+          { label: 'Awaiting Client', entity: 'opsdelivery', filter: 'status', equal: 'Awaiting Client' },
+          { label: 'Delivered', entity: 'opsdelivery', filter: 'status', equal: 'Delivered' },
+          { label: 'Approvals Pending', entity: 'approval', filter: 'status', equal: 'Pending' },
+          { label: 'Approvals In Review', entity: 'approval', filter: 'status', equal: 'In Review' },
+          { label: 'Approved', entity: 'approval', filter: 'status', equal: 'Approved' },
+        ],
+      },
+      {
+        key: 'projects',
+        label: 'Projects & Tasks',
+        Icon: ProjectOutlined,
+        entity: 'opsproject',
+        fields: [
+          ...grp('Project', [
+            T('name', 'Name', { required: true }),
+            T('code', 'Code', { table: false }),
+            T('client', 'Client'),
+            SEL('type', 'Type', ['Implementation', 'Consulting', 'Support', 'Internal', 'Retainer'], { table: false }),
+            T('owner', 'Owner'),
+            T('team', 'Team', { table: false }),
+          ]),
+          ...grp('Status', [
+            SEL('priority', 'Priority', ['Low', 'Medium', 'High', 'Critical']),
+            SEL('status', 'Status', ['Planned', 'In Progress', 'On Hold', 'Blocked', 'Completed', 'Cancelled']),
+            SEL('healthStatus', 'Health', ['On Track', 'At Risk', 'Off Track'], { table: false }),
+            NUM('progress', 'Progress %'),
+          ]),
+          ...grp('Dates & effort', [
+            DT('startDate', 'Start date', { table: false }),
+            DT('dueDate', 'Due date'),
+            DT('completedDate', 'Completed date', { table: false }),
+            NUM('budget', 'Budget', { table: false }),
+            NUM('billedAmount', 'Billed', { table: false }),
+            NUM('estimatedHours', 'Est. hours', { table: false }),
+            NUM('loggedHours', 'Logged hours', { table: false }),
+          ]),
+          ...grp('Notes', [AREA('description', 'Description')]),
+        ],
+      },
+      {
+        key: 'delivery',
+        label: 'Service Delivery',
+        Icon: DeploymentUnitOutlined,
+        entity: 'opsdelivery',
+        fields: [
+          ...grp('Engagement', [
+            T('engagement', 'Engagement', { required: true }),
+            T('client', 'Client'),
+            T('service', 'Service', { table: false }),
+            SEL('stage', 'Stage', ['Kickoff', 'Discovery', 'Build', 'Review', 'UAT', 'Handover', 'Closed']),
+            T('owner', 'Owner'),
+          ]),
+          ...grp('Status', [
+            SEL('status', 'Status', ['In Delivery', 'Awaiting Client', 'Blocked', 'On Hold', 'Delivered']),
+            SEL('health', 'Health', ['Green', 'Amber', 'Red']),
+            BOOL('signedOff', 'Signed off'),
+            NUM('cycleTimeDays', 'Cycle time (days)', { table: false }),
+          ]),
+          ...grp('Dates', [
+            DT('startDate', 'Started', { table: false }),
+            DT('eta', 'ETA'),
+            DT('deliveredDate', 'Delivered date', { table: false }),
+            AREA('notes', 'Notes'),
+          ]),
+        ],
+      },
+      {
+        key: 'approvals',
+        label: 'Approvals',
+        Icon: CheckSquareOutlined,
+        entity: 'approval',
+        fields: [
+          ...grp('Request', [
+            T('title', 'Title', { required: true }),
+            SEL('type', 'Type', ['Discount', 'Purchase Order', 'Expense', 'Leave', 'Budget', 'Contract', 'Hiring', 'Other']),
+            T('requestedBy', 'Requested by'),
+            SEL('department', 'Department', DEPARTMENTS, { table: false }),
+            SEL('priority', 'Priority', ['Low', 'Normal', 'High', 'Urgent']),
+          ]),
+          ...grp('Decision', [
+            NUM('amount', 'Amount'),
+            SEL('currency', 'Currency', CURRENCY, { table: false }),
+            T('currentStage', 'Current stage', { table: false }),
+            T('approver', 'Approver', { table: false }),
+            SEL('status', 'Status', ['Draft', 'Pending', 'In Review', 'Approved', 'Rejected', 'Withdrawn']),
+          ]),
+          ...grp('Dates', [
+            DT('requestedDate', 'Requested date', { table: false }),
+            DT('dueDate', 'Due date', { table: false }),
+            DT('decisionDate', 'Decision date', { table: false }),
+            AREA('justification', 'Justification'),
+            AREA('decisionNote', 'Decision note'),
+          ]),
+        ],
+      },
+    ],
+  },
+
+  // ===========================================================================
+  {
     key: 'lms',
     label: 'LMS',
     module: 'LMS',
@@ -752,8 +881,8 @@ export const FEATURE_SECTIONS = [
   // ===========================================================================
   {
     key: 'hr',
-    label: 'HR',
-    module: 'HR',
+    label: 'HRMS',
+    module: 'HRMS',
     route: '/hr',
     Icon: IdcardOutlined,
     blurb: 'People, hiring, attendance, leave, payroll and performance.',

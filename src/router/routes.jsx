@@ -78,22 +78,24 @@ let routes = {
         </RequirePermission>
       ),
     },
+    // Leads / Customers / Calls moved under Sales (rendered as sub-tabs at
+    // /sales/*). These top-level paths stay for old links; all gated by Sales.
     {
       path: '/customer',
       element: (
-        <RequirePermission module="Customer">
+        <RequirePermission module="Sales">
           <Customer />
         </RequirePermission>
       ),
     },
-{
-  path: '/calls',
-  element: (
-    <RequirePermission module="Calls">
-      <Calls />
-    </RequirePermission>
-  ),
-},
+    {
+      path: '/calls',
+      element: (
+        <RequirePermission module="Sales">
+          <Calls />
+        </RequirePermission>
+      ),
+    },
     {
       path: '/performance',
       element: (
@@ -105,7 +107,7 @@ let routes = {
     {
       path: '/leads',
       element: (
-        <RequirePermission module="Leads">
+        <RequirePermission module="Sales">
           <Leads />
         </RequirePermission>
       ),

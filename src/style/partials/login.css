@@ -4,19 +4,7 @@
    matches the rest of the app (blue accent, shadows, radii).
 ========================================================= */
 
-/* ---------- Page shell: gradient background + floating card ---------- */
-
-@keyframes authBgDrift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
+/* ---------- Page shell: dark star-field + centered card ---------- */
 
 .auth-page-bg {
   position: relative;
@@ -27,266 +15,162 @@
   justify-content: center;
   padding: 32px 20px;
   overflow: hidden;
-  background: linear-gradient(120deg, #071427 0%, #0c4a6e 30%, #0e7490 60%, #0f3a3a 100%);
-  background-size: 250% 250%;
-  animation: authBgDrift 18s ease-in-out infinite;
+  /* Very dark midnight navy — almost black at a glance, with a barely
+     noticeable navy gradient built from several soft *linear* layers (no
+     radial glow, no visible bands):
+       - base: midnight navy, centre stays darkest
+       - left edge: a touch brighter deep navy-blue
+       - right edge: faint blue/purple tint
+       - bottom-left: slightly brighter navy
+       - top + all corners: pulled darker toward near-black          */
+  background-color: #03091c;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(1, 4, 12, 0.6) 0%,
+      rgba(1, 4, 12, 0) 26%,
+      rgba(1, 4, 12, 0) 80%,
+      rgba(1, 4, 12, 0.34) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(17, 32, 63, 0.32) 0%,
+      rgba(17, 32, 63, 0.05) 30%,
+      rgba(17, 32, 63, 0) 46%
+    ),
+    linear-gradient(
+      270deg,
+      rgba(33, 29, 56, 0.24) 0%,
+      rgba(33, 29, 56, 0.04) 32%,
+      rgba(33, 29, 56, 0) 48%
+    ),
+    linear-gradient(
+      22deg,
+      rgba(20, 37, 70, 0.3) 0%,
+      rgba(20, 37, 70, 0.05) 26%,
+      rgba(20, 37, 70, 0) 44%
+    ),
+    linear-gradient(180deg, #050b20 0%, #03091c 50%, #030a1e 100%);
 }
 
-/* Big soft shapes drifting behind the card — the "sabse piche background"
-   animation, distinct from (and slower than) the blobs inside the side
-   panel so the whole page feels alive, not just the card. */
-.auth-page-blob {
+/* Animated star-field lives on this canvas — see
+   modules/AuthModule/StarField.jsx. Sits behind the card and ignores
+   pointer events. */
+.auth-star-canvas {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(2px);
-  animation: authBlobFloat 16s ease-in-out infinite;
-}
-
-.auth-page-blob-1 {
-  width: 340px;
-  height: 340px;
-  top: -8%;
-  left: -6%;
-  background: radial-gradient(circle at 35% 35%, rgba(56, 189, 248, 0.45), rgba(56, 189, 248, 0) 70%);
-  animation-duration: 20s;
-}
-
-.auth-page-blob-2 {
-  width: 420px;
-  height: 420px;
-  bottom: -12%;
-  right: -8%;
-  background: radial-gradient(circle at 35% 35%, rgba(13, 148, 136, 0.5), rgba(13, 148, 136, 0) 70%);
-  animation-duration: 24s;
-  animation-delay: -6s;
-}
-
-.auth-page-blob-3 {
-  width: 200px;
-  height: 200px;
-  top: 55%;
-  left: 6%;
-  background: radial-gradient(circle at 35% 35%, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0) 70%);
-  animation-duration: 14s;
-  animation-delay: -3s;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .auth-card {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 1000px;
-  min-height: 620px;
-  background: #fff;
-  border-radius: 28px;
-  box-shadow: 0 30px 80px rgba(3, 24, 39, 0.45);
-  display: flex;
+  max-width: 420px;
+  border-radius: 24px;
   overflow: hidden;
+  /* Liquid glass — a dark translucent frosted panel the star-field drifts
+     behind. Text inside is overridden to light (see the .auth-card scoped
+     rules further down). */
+  background: linear-gradient(155deg, rgba(24, 39, 70, 0.55) 0%, rgba(11, 19, 38, 0.42) 100%);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 30px 80px rgba(2, 8, 20, 0.6),
+    0 2px 12px rgba(2, 8, 20, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.auth-card-side {
-  flex: 0 0 44%;
-  min-height: 620px;
-}
-
-.auth-card-main {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-/* ---------- Left panel: gradient + blobs + wave ---------- */
-
-.auth-side {
-  position: relative;
-  height: 100%;
-  min-height: 620px;
-  overflow: hidden;
-  background: linear-gradient(160deg, #071427 0%, #0c3a5c 45%, #0e7490 100%);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 48px 40px;
-}
-
-@keyframes authGlowPulse {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.12);
-  }
-}
-
-/* Warm amber glow against the deep blue/teal base — the "best combination"
-   accent, animated independently of the cooler blue/teal blobs below. */
-.auth-side-glow {
+/* Soft specular sheen across the top of the glass. */
+.auth-card::before {
+  content: '';
   position: absolute;
-  top: -10%;
-  right: -15%;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.55), rgba(251, 191, 36, 0) 70%);
-  filter: blur(6px);
-  animation: authGlowPulse 7s ease-in-out infinite;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(130% 60% at 26% 0%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 55%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-@keyframes authBlobFloat {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(10px, -16px) scale(1.06);
-  }
-  66% {
-    transform: translate(-8px, 10px) scale(0.96);
+/* No backdrop-filter support (older browsers) → solid dark card instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .auth-card {
+    background: rgba(14, 22, 43, 0.94);
   }
 }
 
-@keyframes authWavePulse {
-  0%,
-  100% {
-    opacity: 0.14;
-  }
-  50% {
-    opacity: 0.24;
-  }
+/* ---------- Light text on the glass ---------- */
+
+.auth-card .auth-title {
+  color: #f1f5f9;
 }
 
-.auth-side-blob {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
-  filter: blur(1px);
-  animation: authBlobFloat 9s ease-in-out infinite;
+.auth-card .auth-title-accent {
+  color: #38bdf8;
 }
 
-.auth-side-blob-1 {
-  width: 130px;
-  height: 130px;
-  top: 14%;
-  left: 18%;
-  background: radial-gradient(circle at 35% 35%, #38bdf8, #0c4a6e 80%);
-  opacity: 0.85;
-  animation-duration: 10s;
+.auth-card .auth-subtitle {
+  color: rgba(226, 232, 240, 0.74);
 }
 
-.auth-side-blob-2 {
-  width: 170px;
-  height: 170px;
-  bottom: 10%;
-  left: 8%;
-  background: radial-gradient(circle at 35% 35%, #0d9488, #0f3a3a 85%);
-  opacity: 0.85;
-  animation-duration: 13s;
-  animation-delay: -3s;
+.auth-card .auth-subtitle strong {
+  color: #f8fafc;
 }
 
-.auth-side-blob-3 {
-  width: 46px;
-  height: 46px;
-  bottom: 22%;
-  left: 42%;
-  background: radial-gradient(circle at 35% 35%, #67e8f9, #0e7490 85%);
-  opacity: 0.8;
-  animation-duration: 7s;
-  animation-delay: -1.5s;
+.auth-card .ant-form-item-label > label {
+  color: #e2e8f0;
 }
 
-.auth-side-blob-gold {
-  width: 90px;
-  height: 90px;
-  top: 38%;
-  right: 14%;
-  background: radial-gradient(circle at 35% 35%, #fde68a, #f59e0b 85%);
-  opacity: 0.65;
-  filter: blur(2px);
-  animation-duration: 11s;
-  animation-delay: -5s;
+.auth-card .auth-input-underline.ant-input,
+.auth-card .auth-input-underline.ant-input-affix-wrapper {
+  border-bottom-color: rgba(255, 255, 255, 0.26);
 }
 
-.auth-side-wave {
-  position: absolute;
-  top: 0;
-  right: -1px;
-  width: 60px;
-  height: 100%;
-  color: #fff;
-  opacity: 0.14;
-  animation: authWavePulse 6s ease-in-out infinite;
+.auth-card .auth-input-underline.ant-input,
+.auth-card .auth-input-underline .ant-input {
+  color: #f1f5f9;
+  background: transparent;
 }
 
-.auth-side-logo {
-  position: relative;
-  z-index: 1;
-  width: 220px;
-  max-width: 60%;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin-bottom: 40px;
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.3));
+.auth-card .auth-input-underline input::placeholder,
+.auth-card .auth-input-underline .ant-input::placeholder {
+  color: rgba(226, 232, 240, 0.42);
 }
 
-.auth-side-copy {
-  position: relative;
-  z-index: 1;
+.auth-card .auth-input-underline .anticon,
+.auth-card .auth-input-underline .site-form-item-icon {
+  color: rgba(226, 232, 240, 0.55);
 }
 
-.auth-side-copy h1 {
-  color: #fff;
-  font-size: 26px;
-  font-weight: 800;
-  margin: 0 0 10px;
-  line-height: 1.25;
+.auth-card .ant-checkbox-wrapper {
+  color: #e2e8f0;
 }
 
-.auth-side-copy p {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13.5px;
-  line-height: 1.5;
-  margin: 0;
-  max-width: 300px;
-  letter-spacing: 0.2px;
+.auth-card .auth-link-row .ant-btn-link {
+  color: #38bdf8;
 }
 
-.auth-side-footer {
-  position: relative;
-  z-index: 1;
-  margin-top: 56px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-/* ---------- Right panel: greeting + form ---------- */
+/* ---------- Card body: logo + title + form ---------- */
 
 .auth-form-panel {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
-  padding: 40px 30px;
+  padding: 44px 38px 40px;
 }
 
-.auth-greeting {
-  font-size: 14px;
-  color: var(--hub-text, #101828);
-  font-weight: 500;
-}
-
-.auth-greeting-time {
-  font-size: 15px;
-  font-weight: 700;
-  color: #0e7490;
-  margin-bottom: 14px;
+.auth-logo {
+  display: block;
+  width: 190px;
+  max-width: 70%;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto 26px;
 }
 
 .auth-title {
@@ -294,6 +178,7 @@
   font-weight: 700;
   color: var(--hub-text, #101828);
   margin: 0 0 22px;
+  text-align: center;
 }
 
 .auth-title-accent {
@@ -319,42 +204,9 @@
   border-bottom-color: var(--hub-blue, #2563eb);
 }
 
-@media (max-width: 820px) {
-  .auth-card {
-    flex-direction: column;
-    max-width: 460px;
-    /* Content-sized on mobile — the 620px min-height that keeps the
-       desktop two-column card balanced just leaves a huge dead-space gap
-       once the layout stacks into one column. */
-    min-height: 0;
-  }
-
-  .auth-card-side,
-  .auth-side {
-    min-height: 200px;
-  }
-
-  .auth-card-side {
-    flex: none;
-  }
-
-  .auth-card-main {
-    /* Top-aligned instead of vertically centered — centering a short form
-       in an unconstrained-height column just pushes it down with empty
-       space above it. */
-    align-items: flex-start;
-  }
-
-  .auth-side-copy h1 {
-    font-size: 22px;
-  }
-
-  .auth-side-copy p {
-    font-size: 12.5px;
-  }
-
+@media (max-width: 480px) {
   .auth-form-panel {
-    padding: 28px 26px 36px;
+    padding: 34px 24px 32px;
   }
 }
 
@@ -443,6 +295,7 @@
   line-height: 1.5;
   margin-bottom: 22px;
   display: block;
+  text-align: center;
 }
 
 .auth-subtitle strong {
@@ -475,6 +328,33 @@
 .login-form .login-form-button:not(:disabled):active,
 .auth-step .login-form-button:not(:disabled):active {
   transform: translateY(0);
+}
+
+/* While submitting, antd's default disabled/loading style greys the button
+   to near-invisible on the dark glass — keep the gradient, just dim it. */
+.auth-card .login-form-button.ant-btn[disabled],
+.auth-card .login-form-button.ant-btn-loading,
+.auth-card .login-form-button.ant-btn[disabled]:hover {
+  background: linear-gradient(90deg, var(--hub-blue, #2563eb), #0d9488) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border: none !important;
+  opacity: 0.7;
+}
+
+/* antd's <Spin> drops a pale overlay + heavy blur over the form while
+   loading, which reads as an ugly box on the glass. Soften both. */
+.auth-card .ant-spin-blur {
+  opacity: 0.45;
+}
+
+.auth-card .ant-spin-blur::after {
+  background: transparent !important;
+}
+
+.auth-card .ant-spin .anticon-loading,
+.auth-card .ant-spin .ant-spin-dot i {
+  color: #7dd3fc;
+  background-color: #7dd3fc;
 }
 
 .auth-link-row {

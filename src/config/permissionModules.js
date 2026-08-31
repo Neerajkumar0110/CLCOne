@@ -9,24 +9,22 @@ export const PERMISSION_MODULES = [
   'Dashboard',
   // Business sections (expandable sidebar submenus — see config/featureSections.js).
   // One permission module gates the whole section and all its scaffold sub-modules.
+  // Sales now also covers Leads / Customers / Calls (moved in as sub-tabs).
   'Sales',
   'Marketing',
   'Operations',
+  'Project Management',
   'LMS',
-  'HR',
+  'HRMS',
   'Messenger',
-  // Sales pipeline
-  'Leads',
-  'Customer',
-  'Calls',
   'Communication',
-  // Analytics
-  'Performance',
+  // Analytics (Reports ▸ nests Performance in the sidebar)
   'Reports',
-  // Billing & finance
+  'Performance',
+  // Billing & finance (Finance ▸ nests Invoices + Payments in the sidebar)
+  'Finance',
   'Invoices',
   'Payments',
-  'Finance',
   // Administration
   'User Management',
   'Support',
@@ -48,18 +46,16 @@ export const MODULE_NAV_KEY = {
   Sales: 'sales',
   Marketing: 'marketing',
   Operations: 'operations',
+  'Project Management': 'project-management',
   LMS: 'lms',
-  HR: 'hr',
+  HRMS: 'hr',
   Messenger: 'messenger',
-  Leads: 'leads',
-  Customer: 'customer',
-  Calls: 'calls',
   Communication: 'communication',
-  Performance: 'performance',
   Reports: 'reports',
+  Performance: 'performance',
+  Finance: 'finance',
   Invoices: 'invoice',
   Payments: 'payment',
-  Finance: 'finance',
   'User Management': 'user-management',
   Support: 'support',
   'Git Management': 'git-management',

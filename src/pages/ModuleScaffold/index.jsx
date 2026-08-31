@@ -10,7 +10,11 @@ import { findFeatureTab } from '@/config/featureSections';
 const TeamChat = lazy(() =>
   import('@/pages/Communication').then((m) => ({ default: m.TeamChat }))
 );
-const EMBED = { teamChat: TeamChat };
+// Sales' Leads / Customers / Calls sub-tabs reuse the existing full pages.
+const Leads = lazy(() => import('@/pages/Leads'));
+const Customer = lazy(() => import('@/pages/Customer'));
+const Calls = lazy(() => import('@/pages/Calls'));
+const EMBED = { teamChat: TeamChat, leads: Leads, customer: Customer, calls: Calls };
 
 /**
  * SectionHub — renders ONE sub-module of a feature section. Navigation between

@@ -17,15 +17,12 @@ import useResponsive from '@/hooks/useResponsive';
 
 import {
   SettingOutlined,
-  CustomerServiceOutlined,
   ContainerOutlined,
   DashboardOutlined,
   CreditCardOutlined,
   MenuOutlined,
   ReconciliationOutlined,
-  PhoneOutlined,
   TrophyOutlined,
-  SolutionOutlined,
   BarChartOutlined,
   TeamOutlined,
   FundOutlined,
@@ -124,53 +121,31 @@ function Sidebar({ collapsible, isMobile = false }) {
       label: translate('dashboard'),
     },
 
-    // ---- New business sections ----
+    // ---- New business sections ---- (Sales now carries Leads / Customers /
+    // Calls as sub-tabs — see config/featureSections.js)
     ...featureItems,
 
-    // ---- Sales pipeline ----
+    // ---- Analytics: Reports ▸ (Overview + Performance) ----
     {
-      key: 'leads',
-      icon: <SolutionOutlined />,
-      label: 'Leads',
-    },
-    {
-      key: 'customer',
-      icon: <CustomerServiceOutlined />,
-      label: translate('customers'),
-    },
-    {
-      key: 'calls',
-      icon: <PhoneOutlined />,
-      label: 'Calls',
-    },
-
-    // ---- Analytics ----
-    {
-      key: 'performance',
-      icon: <TrophyOutlined />,
-      label: 'Performance',
-    },
-    {
-      key: 'reports',
+      key: 'reports-group',
       label: 'Reports',
       icon: <BarChartOutlined />,
+      children: [
+        { key: 'reports', label: 'Overview', icon: <BarChartOutlined /> },
+        { key: 'performance', label: 'Performance', icon: <TrophyOutlined /> },
+      ],
     },
 
-    // ---- Billing & finance ----
+    // ---- Billing & finance: Finance ▸ (Overview + Invoices + Payments) ----
     {
-      key: 'invoice',
-      icon: <ContainerOutlined />,
-      label: translate('invoices'),
-    },
-    {
-      key: 'payment',
-      icon: <CreditCardOutlined />,
-      label: translate('payments'),
-    },
-    {
-      key: 'finance',
+      key: 'finance-group',
       label: 'Finance',
       icon: <FundOutlined />,
+      children: [
+        { key: 'finance', label: 'Overview', icon: <FundOutlined /> },
+        { key: 'invoice', label: translate('invoices'), icon: <ContainerOutlined /> },
+        { key: 'payment', label: translate('payments'), icon: <CreditCardOutlined /> },
+      ],
     },
 
     // ---- Administration ----
@@ -213,10 +188,20 @@ function Sidebar({ collapsible, isMobile = false }) {
     },
   ];
 
-  const visibleItems = items.filter((item) => {
-    const mod = NAV_KEY_MODULE[item.key];
+  const canSeeKey = (key) => {
+    const mod = NAV_KEY_MODULE[key];
     return mod ? canView(mod) : true;
-  });
+  };
+  const visibleItems = items
+    .map((item) =>
+      item.children ? { ...item, children: item.children.filter((c) => canSeeKey(c.key)) } : item
+    )
+    .filter((item) => {
+      const mod = NAV_KEY_MODULE[item.key];
+      if (mod) return canView(mod); // parent-gated (feature sections)
+      if (item.children) return item.children.length > 0; // pure grouping node
+      return true;
+    });
 
   const onMenuClick = ({ key }) => {
     const path = routeByKey[key] || '/' + key;
@@ -230,8 +215,11 @@ function Sidebar({ collapsible, isMobile = false }) {
   const [openKeys, setOpenKeys] = useState([]);
   useEffect(() => {
     const active = FEATURE_SECTIONS.find((s) => currentPath.startsWith(s.key + '/'));
-    if (active) {
-      setOpenKeys((prev) => (prev.includes(active.key) ? prev : [...prev, active.key]));
+    let want = active ? active.key : null;
+    if (!want && (currentPath === 'reports' || currentPath === 'performance')) want = 'reports-group';
+    if (!want && ['finance', 'invoice', 'payment'].includes(currentPath)) want = 'finance-group';
+    if (want) {
+      setOpenKeys((prev) => (prev.includes(want) ? prev : [...prev, want]));
     }
   }, [currentPath]);
 
