@@ -53,7 +53,10 @@ function Attachment({ attachment }) {
   );
 }
 
-function TeamChat() {
+// Also rendered on its own as the Messenger section's "Team Chat" tab
+// (pages/ModuleScaffold SectionHub) — it has no hub-page wrapper of its own,
+// so it embeds cleanly.
+export function TeamChat() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const { socket, onlineIds } = useSocket();
   const { conversations, markConversationRead, bumpConversationPreview, setActiveConversationId } = useMessages();

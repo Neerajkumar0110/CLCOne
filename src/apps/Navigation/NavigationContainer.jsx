@@ -7,6 +7,7 @@ import { usePermission } from '@/context/permissionContext';
 import { useTickets } from '@/context/ticketsContext';
 import { useMessages } from '@/context/messagesContext';
 import { MODULE_NAV_KEY } from '@/config/permissionModules';
+import { FEATURE_SECTIONS } from '@/config/featureSections';
 
 import useLanguage from '@/locale/useLanguage';
 import careerLabIcon from '@/style/images/Horizontal-1-transparent.png';
@@ -19,20 +20,14 @@ import {
   CustomerServiceOutlined,
   ContainerOutlined,
   DashboardOutlined,
-  TagOutlined,
-  TagsOutlined,
-  UserOutlined,
   CreditCardOutlined,
   MenuOutlined,
-  FileOutlined,
-  FilterOutlined,
   ReconciliationOutlined,
   PhoneOutlined,
   TrophyOutlined,
   SolutionOutlined,
   BarChartOutlined,
   TeamOutlined,
-  MessageOutlined,
   FundOutlined,
   QuestionCircleOutlined,
   GithubOutlined,
@@ -68,29 +63,75 @@ function Sidebar({ collapsible, isMobile = false }) {
   const navigate = useNavigate();
 
   const routeByKey = {
+    // Overview
     dashboard: '/',
+    // Sales pipeline
+    leads: '/leads',
     customer: '/customer',
     calls: '/calls',
+    communication: '/communication',
+    // Analytics
     performance: '/performance',
-    leads: '/leads',
+    reports: '/reports',
+    // Billing & finance
     invoice: '/invoice',
     payment: '/payment',
-    reports: '/reports',
-    'user-management': '/user-management',
-    communication: '/communication',
     finance: '/finance',
+    // Administration
+    'user-management': '/user-management',
     support: '/support',
-    generalSettings: '/settings',
-    about: '/about',
     'git-management': '/git-management',
     'vercel-management': '/vercel-management',
+    generalSettings: '/settings',
+    about: '/about',
   };
 
+  // The six new sections (Sales, Marketing, Operations, LMS, HR, Messenger)
+  // from config/featureSections.js — each an EXPANDABLE submenu whose children
+  // are its sub-modules, routing to /<section>/<tab>. Team Chat lives inside
+  // Messenger, so that section carries the unread-message badge.
+  const featureItems = FEATURE_SECTIONS.map((section) => {
+    const SectionIcon = section.Icon;
+    const label =
+      section.key === 'messenger' && totalUnread > 0 ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {section.label}
+          <Badge count={totalUnread} size="small" className="hub-nav-badge" />
+        </span>
+      ) : (
+        section.label
+      );
+    return {
+      key: section.key,
+      icon: SectionIcon ? <SectionIcon /> : undefined,
+      label,
+      children: section.tabs.map((tab) => {
+        const TabIcon = tab.Icon;
+        return {
+          key: `${section.key}/${tab.key}`,
+          icon: TabIcon ? <TabIcon /> : undefined,
+          label: tab.label,
+        };
+      }),
+    };
+  });
+
   const items = [
+    // ---- Overview ----
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
       label: translate('dashboard'),
+    },
+
+    // ---- New business sections ----
+    ...featureItems,
+
+    // ---- Sales pipeline ----
+    {
+      key: 'leads',
+      icon: <SolutionOutlined />,
+      label: 'Leads',
     },
     {
       key: 'customer',
@@ -102,16 +143,20 @@ function Sidebar({ collapsible, isMobile = false }) {
       icon: <PhoneOutlined />,
       label: 'Calls',
     },
+
+    // ---- Analytics ----
     {
       key: 'performance',
       icon: <TrophyOutlined />,
       label: 'Performance',
     },
     {
-      key: 'leads',
-      icon: <SolutionOutlined />,
-      label: 'Leads',
+      key: 'reports',
+      label: 'Reports',
+      icon: <BarChartOutlined />,
     },
+
+    // ---- Billing & finance ----
     {
       key: 'invoice',
       icon: <ContainerOutlined />,
@@ -123,31 +168,16 @@ function Sidebar({ collapsible, isMobile = false }) {
       label: translate('payments'),
     },
     {
-      key: 'reports',
-      label: 'Reports',
-      icon: <BarChartOutlined />,
+      key: 'finance',
+      label: 'Finance',
+      icon: <FundOutlined />,
     },
+
+    // ---- Administration ----
     {
       key: 'user-management',
       label: 'User Management',
       icon: <TeamOutlined />,
-    },
-    {
-      key: 'communication',
-      label: (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          Communication
-          {totalUnread > 0 && (
-            <Badge count={totalUnread} size="small" className="hub-nav-badge" />
-          )}
-        </span>
-      ),
-      icon: <MessageOutlined />,
-    },
-    {
-      key: 'finance',
-      label: 'Finance',
-      icon: <FundOutlined />,
     },
     {
       key: 'support',
@@ -189,9 +219,21 @@ function Sidebar({ collapsible, isMobile = false }) {
   });
 
   const onMenuClick = ({ key }) => {
-    const path = routeByKey[key];
+    const path = routeByKey[key] || '/' + key;
     if (path) navigate(path);
   };
+
+  // Keep the feature section that owns the current route expanded, while
+  // still letting the user open/close the others. Not controlled while
+  // collapsed — antd shows submenus as flyout popups there.
+  const collapsedNow = collapsible ? isNavMenuClose : false;
+  const [openKeys, setOpenKeys] = useState([]);
+  useEffect(() => {
+    const active = FEATURE_SECTIONS.find((s) => currentPath.startsWith(s.key + '/'));
+    if (active) {
+      setOpenKeys((prev) => (prev.includes(active.key) ? prev : [...prev, active.key]));
+    }
+  }, [currentPath]);
 
   useEffect(() => {
     if (location)
@@ -266,8 +308,9 @@ function Sidebar({ collapsible, isMobile = false }) {
         mode="inline"
         theme={'dark'}
         selectedKeys={[currentPath]}
-        inlineCollapsed={collapsible ? isNavMenuClose : false}
+        inlineCollapsed={collapsedNow}
         onClick={onMenuClick}
+        {...(collapsedNow ? {} : { openKeys, onOpenChange: setOpenKeys })}
         style={{
           width: '100%',
         }}

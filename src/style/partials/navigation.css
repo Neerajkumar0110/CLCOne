@@ -114,6 +114,89 @@
   color: #fff !important;
 }
 
+/* ---- Expandable feature sections (Sales / Marketing / … / Messenger) ---- */
+.navigation .ant-menu-submenu-title {
+  color: var(--nav-text) !important;
+  border-radius: 6px;
+  margin: 8px 10px !important;
+  width: calc(100% - 20px) !important;
+  font-weight: 600;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.navigation .ant-menu-submenu-title:hover {
+  background: var(--nav-accent-soft) !important;
+  color: #fff !important;
+}
+
+.navigation .ant-menu-submenu-arrow {
+  color: var(--nav-text-muted) !important;
+}
+
+.navigation .ant-menu-submenu-open > .ant-menu-submenu-title,
+.navigation .ant-menu-submenu-open > .ant-menu-submenu-title .ant-menu-submenu-arrow,
+.navigation .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #fff !important;
+}
+
+/* Nested sub-module list sits on a slightly inset, darker panel */
+.navigation .ant-menu-sub.ant-menu-inline {
+  background: rgba(2, 6, 23, 0.5) !important;
+  border-radius: 8px;
+  margin: 0 10px 6px !important;
+  padding: 4px 0 !important;
+}
+
+.navigation .ant-menu-sub.ant-menu-inline .ant-menu-item {
+  margin: 3px 8px !important;
+  width: calc(100% - 16px) !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  font-size: 12.5px;
+  padding-left: 38px !important;
+  border-radius: 6px;
+}
+
+.navigation .ant-menu-sub.ant-menu-inline .ant-menu-item .anticon {
+  font-size: 13px;
+  min-width: 13px;
+}
+
+.navigation .ant-menu-sub.ant-menu-inline .ant-menu-item:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.navigation .ant-menu-sub.ant-menu-inline .ant-menu-item-selected {
+  background: var(--nav-accent) !important;
+  box-shadow: none;
+}
+
+/* Collapsed sidebar — sections open as dark flyout popups */
+.ant-menu-submenu-popup .ant-menu {
+  background: var(--nav-bg-elevated) !important;
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  padding: 4px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.ant-menu-submenu-popup .ant-menu-item {
+  color: var(--nav-text) !important;
+  border-radius: 6px;
+  margin: 2px 0 !important;
+}
+
+.ant-menu-submenu-popup .ant-menu-item:hover {
+  background: var(--nav-accent-soft) !important;
+  color: #fff !important;
+}
+
+.ant-menu-submenu-popup .ant-menu-item-selected {
+  background: var(--nav-accent) !important;
+  color: #fff !important;
+}
+
 /* When collapsed, center the icon-only items — antd's default icon margin
    pushes it left (to leave room for a label that no longer exists), so we
    reset that margin and center the item content with flex instead. */

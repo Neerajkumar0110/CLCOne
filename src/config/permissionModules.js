@@ -5,22 +5,35 @@
 //
 // Mirrors the sidebar nav tabs — everything except Payment Mode, Taxes and Quote.
 export const PERMISSION_MODULES = [
+  // Overview
   'Dashboard',
+  // Business sections (expandable sidebar submenus — see config/featureSections.js).
+  // One permission module gates the whole section and all its scaffold sub-modules.
+  'Sales',
+  'Marketing',
+  'Operations',
+  'LMS',
+  'HR',
+  'Messenger',
+  // Sales pipeline
+  'Leads',
   'Customer',
   'Calls',
+  'Communication',
+  // Analytics
   'Performance',
-  'Leads',
+  'Reports',
+  // Billing & finance
   'Invoices',
   'Payments',
-  'Reports',
-  'User Management',
-  'Communication',
   'Finance',
-  'Settings',
-  'About',
+  // Administration
+  'User Management',
   'Support',
   'Git Management',
   'Vercel Management',
+  'Settings',
+  'About',
 ];
 
 // The module list a ticket can be raised against — every module except
@@ -32,21 +45,27 @@ export const TICKET_CATEGORY_MODULES = PERMISSION_MODULES.filter((m) => m !== 'S
 // Maps a permission module name to the sidebar nav item key (NavigationContainer.jsx).
 export const MODULE_NAV_KEY = {
   Dashboard: 'dashboard',
+  Sales: 'sales',
+  Marketing: 'marketing',
+  Operations: 'operations',
+  LMS: 'lms',
+  HR: 'hr',
+  Messenger: 'messenger',
+  Leads: 'leads',
   Customer: 'customer',
   Calls: 'calls',
+  Communication: 'communication',
   Performance: 'performance',
-  Leads: 'leads',
+  Reports: 'reports',
   Invoices: 'invoice',
   Payments: 'payment',
-  Reports: 'reports',
-  'User Management': 'user-management',
-  Communication: 'communication',
   Finance: 'finance',
-  Settings: 'generalSettings',
-  About: 'about',
+  'User Management': 'user-management',
   Support: 'support',
   'Git Management': 'git-management',
   'Vercel Management': 'vercel-management',
+  Settings: 'generalSettings',
+  About: 'about',
 };
 
 // Roles that bypass the permission matrix entirely and always see every module.

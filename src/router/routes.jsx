@@ -2,6 +2,27 @@ import { lazy } from 'react';
 
 import { Navigate } from 'react-router-dom';
 import RequirePermission from './RequirePermission';
+import { FEATURE_SECTIONS, FEATURE_ROUTES } from '@/config/featureSections';
+
+const SectionHub = lazy(() => import('@/pages/ModuleScaffold'));
+
+// One route per sub-tab (/sales/deals, /hr/leave, …) — the sidebar submenu
+// links straight to these. Plus a /<section> → first-tab redirect. Every
+// route is gated behind its section's permission module.
+const featureRoutes = [
+  ...FEATURE_SECTIONS.map((section) => ({
+    path: section.route,
+    element: <Navigate to={`${section.route}/${section.tabs[0].key}`} replace />,
+  })),
+  ...FEATURE_ROUTES.map(({ path, section, tab }) => ({
+    path,
+    element: (
+      <RequirePermission module={section.module}>
+        <SectionHub section={section} tab={tab} />
+      </RequirePermission>
+    ),
+  })),
+];
 
 const Logout = lazy(() => import('@/pages/Logout.jsx'));
 const NotFound = lazy(() => import('@/pages/NotFound.jsx'));
@@ -207,6 +228,9 @@ let routes = {
       path: '/profile',
       element: <Profile />,
     },
+
+    ...featureRoutes,
+
     {
       path: '*',
       element: <NotFound />,
