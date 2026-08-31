@@ -12,8 +12,9 @@ import { useEffect, useRef } from 'react';
 // particle count, a brightness floor so mid/far stars remain visible, and
 // a world spread wide enough that far stars still reach the edges. No
 // halos, trails, streaks, sparkles or 2D sideways drift. HTML canvas +
-// requestAnimationFrame, one canvas, DPR-capped, resize-aware. Honours
-// prefers-reduced-motion with a single static frame.
+// requestAnimationFrame, one canvas, DPR-capped, resize-aware. Always
+// animates (so it looks identical on every machine); under
+// prefers-reduced-motion it simply drifts slower instead of freezing.
 export default function StarField() {
   const canvasRef = useRef(null);
 
@@ -21,11 +22,22 @@ export default function StarField() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!ctx) return;
+
+    // Decorative background — always animates so it looks the same on every
+    // machine. When the OS asks for reduced motion (Windows "Animation
+    // effects" off, macOS "Reduce motion") we just drift much slower rather
+    // than freezing the field entirely.
+    let reduceMotion = false;
+    try {
+      reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) {
+      reduceMotion = false;
+    }
 
     const Z_FAR = 1400; // spawn depth
     const Z_NEAR = 1; // camera plane
-    const SPEED = 65; // world units / second the camera advances — calm
+    const SPEED = reduceMotion ? 22 : 65; // world units / second the camera advances — calm
 
     let width = 0;
     let height = 0;
@@ -133,36 +145,22 @@ export default function StarField() {
       raf = requestAnimationFrame(animate);
     };
 
-    const drawStatic = () => {
-      ctx.clearRect(0, 0, width, height);
-      const cx = width / 2;
-      const cy = height / 2;
-      for (const s of stars) {
-        const k = focal / s.z;
-        const px = cx + s.x * k;
-        const py = cy + s.y * k;
-        if (px < 0 || px > width || py < 0 || py > height) continue;
-        const depth = 1 - s.z / Z_FAR;
-        const r = Math.max(0.6, 0.5 + depth * depth * 2.2 * s.size);
-        drawStar(px, py, r, Math.min(1, (0.45 + 0.55 * depth) * s.lum), r > 1.5);
-      }
-      ctx.globalAlpha = 1;
-    };
-
     resize();
-    if (reduceMotion) {
-      drawStatic();
-    } else {
-      raf = requestAnimationFrame(animate);
-    }
+    raf = requestAnimationFrame(animate);
 
-    const onResize = () => {
-      resize();
-      if (reduceMotion) drawStatic();
-    };
+    const onResize = () => resize();
     window.addEventListener('resize', onResize);
+
+    // Some machines mount the canvas before layout settles (0×0 on the
+    // first frame → nothing to draw). Re-measure shortly after mount so
+    // the field always fills the viewport.
+    const settle = setTimeout(() => {
+      if (canvas.clientWidth !== width || canvas.clientHeight !== height) resize();
+    }, 250);
+
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(settle);
       window.removeEventListener('resize', onResize);
     };
   }, []);

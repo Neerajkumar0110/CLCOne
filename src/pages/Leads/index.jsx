@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Tooltip, Collapse, ConfigProvider } from "antd";
+import { Tooltip, Collapse, ConfigProvider, message } from "antd";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
@@ -22,6 +22,7 @@ import {
   PlusOutlined,
   LeftOutlined,
   RightOutlined,
+  DeleteOutlined,
   FacebookOutlined,
   LinkOutlined,
   RocketOutlined,
@@ -89,6 +90,31 @@ function DetailField({ label, value }) {
   );
 }
 
+// Extra detail that doesn't get its own table column (email + location +
+// secondary phone) — rendered inside a Tooltip when the user hovers a
+// lead's name in the Unassigned Leads table. Returns null when the lead
+// has none of it, so no empty tooltip pops up.
+function leadHoverDetail(lead) {
+  const rows = [
+    ["Email", lead.email],
+    ["Alt. Phone", lead.alternatePhone],
+    ["City", lead.city],
+    ["State", lead.state],
+    ["Country", lead.country],
+    ["Zipcode", lead.zipcode],
+  ].filter(([, v]) => v);
+  if (rows.length === 0) return null;
+  return (
+    <div style={{ display: "grid", gap: 3, fontSize: 12, lineHeight: 1.5, padding: "2px 0" }}>
+      {rows.map(([k, v]) => (
+        <div key={k}>
+          <span style={{ opacity: 0.6 }}>{k}:</span> {v}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Shared across every lead table (Captured Leads, Unassigned Leads, All
 // Leads) — the capture-form custom questions (budget/timeline/message) are
 // saved on every Lead but don't fit any table's columns, so they only show
@@ -115,6 +141,11 @@ function LeadDetailModal({ lead, onClose }) {
           />
           <DetailField label="Team" value={lead.team || "Unassigned"} />
           <DetailField label="Position" value={lead.position} />
+          <DetailField label="Alt. Phone" value={lead.alternatePhone} />
+          <DetailField label="City" value={lead.city} />
+          <DetailField label="State" value={lead.state} />
+          <DetailField label="Country" value={lead.country} />
+          <DetailField label="Zipcode" value={lead.zipcode} />
           <DetailField label="Budget Range" value={lead.budgetRange} />
           <DetailField label="How Soon to Start" value={lead.howSoonToStart} />
         </div>
@@ -870,6 +901,7 @@ function ImportExport() {
   const [selectAllLoading, setSelectAllLoading] = useState(false);
   const [assignTeams, setAssignTeams] = useState([]);
   const [assigning, setAssigning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Keep the distribution map in sync as teams are added/removed elsewhere.
   useEffect(() => {
@@ -883,7 +915,10 @@ function ImportExport() {
 
   const loadHistory = async (targetPage = 1) => {
     setHistoryLoading(true);
-    const res = await request.list({ entity: "leadimportbatch", options: { page: targetPage, items: 10 } });
+    const res = await request.list({
+      entity: "leadimportbatch",
+      options: { page: targetPage, items: 10, sortBy: "created", sortValue: -1 },
+    });
     setHistory(res?.success ? res.result : []);
     setHistoryPages(res?.pagination?.pages || 1);
     setHistoryCount(res?.pagination?.count || 0);
@@ -969,6 +1004,43 @@ function ImportExport() {
     setAssigning(false);
     setAssignTeams([]);
     setSelectedLeadIds([]);
+    loadUnassigned(1);
+  };
+
+  // Permanently remove unassigned leads — one row, or every checked row.
+  // After a delete the current page can end up empty, so step back a page
+  // when that happens.
+  const reloadAfterDelete = () => {
+    const nextPage = unassigned.length <= 1 && unassignedPage > 1 ? unassignedPage - 1 : unassignedPage;
+    loadUnassigned(nextPage);
+  };
+
+  const deleteOneUnassigned = async (lead) => {
+    if (deleting) return;
+    if (!window.confirm(`Delete lead "${lead.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    // deleteLeadRaw skips request.js's per-call toast — we show one summary
+    // message ourselves so a bulk delete pops a single notice, not N.
+    await deleteLeadRaw(lead._id);
+    setSelectedLeadIds((prev) => prev.filter((x) => x !== lead._id));
+    setDeleting(false);
+    message.success("1 lead deleted");
+    reloadAfterDelete();
+  };
+
+  const deleteSelectedUnassigned = async () => {
+    if (deleting || selectedLeadIds.length === 0) return;
+    const total = selectedLeadIds.length;
+    if (!window.confirm(`Delete ${total} selected lead${total === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setDeleting(true);
+    const results = await Promise.allSettled(selectedLeadIds.map((id) => deleteLeadRaw(id)));
+    const ok = results.filter((r) => r.status === "fulfilled" && r.value?.success !== false).length;
+    const failed = total - ok;
+    setSelectedLeadIds([]);
+    setDeleting(false);
+    // One message at the top, whatever the count.
+    if (failed > 0) message.warning(`${ok} lead${ok === 1 ? "" : "s"} deleted · ${failed} failed`);
+    else message.success(`${ok} lead${ok === 1 ? "" : "s"} deleted`);
     loadUnassigned(1);
   };
 
@@ -1323,10 +1395,10 @@ function ImportExport() {
           </table>
         </div>
 
-        {historyPages > 1 && (
+        {!historyLoading && history.length > 0 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
             <span style={{ fontSize: 12, color: "#8c8c8c" }}>
-              Page {historyPage} of {historyPages} · {historyCount} imports total
+              Page {historyPage} of {historyPages} · {historyCount} import{historyCount === 1 ? "" : "s"} total
             </span>
             <div className="hub-row" style={{ gap: 8 }}>
               <button
@@ -1382,19 +1454,20 @@ function ImportExport() {
                 <th>Source</th>
                 <th>Status</th>
                 <th>Imported</th>
+                <th style={{ width: 60, textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {unassignedLoading && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="hub-empty">Loading unassigned leads…</div>
                   </td>
                 </tr>
               )}
               {!unassignedLoading && unassigned.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="hub-empty">Every lead has been given to a team. 🎉</div>
                   </td>
                 </tr>
@@ -1411,16 +1484,18 @@ function ImportExport() {
                       />
                     </td>
                     <td>
-                      <div
-                        className="hub-person"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => setViewLead(l)}
-                      >
-                        <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
-                          {l.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      <Tooltip title={leadHoverDetail(l)} placement="right">
+                        <div
+                          className="hub-person"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setViewLead(l)}
+                        >
+                          <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
+                            {l.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                          </div>
+                          {l.name}
                         </div>
-                        {l.name}
-                      </div>
+                      </Tooltip>
                     </td>
                     <td>{l.phone || "—"}</td>
                     <td>{l.source || "—"}</td>
@@ -1428,11 +1503,44 @@ function ImportExport() {
                       <span className={`hub-badge ${STATUS_META[l.status]}`}>{l.status}</span>
                     </td>
                     <td>{new Date(l.created).toLocaleDateString()}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <Tooltip title="Delete this lead">
+                        <button
+                          type="button"
+                          className="hub-btn"
+                          disabled={deleting}
+                          onClick={() => deleteOneUnassigned(l)}
+                          style={{ color: "#dc2626", borderColor: "#f3c9c9", padding: "4px 10px" }}
+                        >
+                          <DeleteOutlined />
+                        </button>
+                      </Tooltip>
+                    </td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
+
+        {selectedLeadIds.length > 0 && (
+          <div
+            className="hub-row"
+            style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 12 }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#101828" }}>
+              {selectedLeadIds.length} lead{selectedLeadIds.length === 1 ? "" : "s"} selected
+            </span>
+            <button
+              type="button"
+              className="hub-btn"
+              disabled={deleting}
+              onClick={deleteSelectedUnassigned}
+              style={{ color: "#dc2626", borderColor: "#f3c9c9" }}
+            >
+              <DeleteOutlined /> {deleting ? "Deleting…" : `Delete Selected (${selectedLeadIds.length})`}
+            </button>
+          </div>
+        )}
 
         {teamNames.length > 0 && (
           <div
@@ -1511,7 +1619,7 @@ function ImportExport() {
           </div>
         )}
 
-        {unassignedPages > 1 && (
+        {!unassignedLoading && unassigned.length > 0 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
             <span style={{ fontSize: 12, color: "#8c8c8c" }}>
               Page {unassignedPage} of {unassignedPages} · {unassignedCount} unassigned total
@@ -1574,6 +1682,18 @@ const PLATFORM_SOURCE_MAP = {
   "LinkedIn Ads": "LinkedIn Ads",
   Website: "Website",
 };
+
+// DELETE a lead without request.js's automatic per-call success toast, so
+// a bulk delete can show a single summary message instead of one toast
+// per row. Same auth-header pattern as the disconnect helpers below.
+async function deleteLeadRaw(id) {
+  const auth = storePersist.get("auth");
+  const token = auth?.current?.token;
+  const res = await axios.delete(`${API_BASE_URL}lead/delete/${id}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return res.data;
+}
 
 // Raw axios call for the one action request.js's helpers don't fit — DELETE
 // with no id suffix. Mirrors downloadLeadsExport's auth-header pattern above.
