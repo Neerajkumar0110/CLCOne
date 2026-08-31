@@ -28,6 +28,15 @@ const schema = new mongoose.Schema({
   color: String,
   image: String,
 
+  // Optional location / secondary-contact detail — populated mainly by
+  // bulk imports whose file carries these columns; surfaced on hover in
+  // the Unassigned Leads table and in the lead detail modal.
+  alternatePhone: String,
+  city: String,
+  state: String,
+  country: String,
+  zipcode: String,
+
   // Set when this lead came in through a bulk import — lets a batch's rows
   // be looked up later via GET /api/lead/filter?filter=importBatch&equal=<id>.
   importBatch: { type: mongoose.Schema.ObjectId, ref: 'LeadImportBatch' },

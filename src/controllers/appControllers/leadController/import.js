@@ -5,10 +5,21 @@ const XLSX = require('xlsx');
 
 const AVATAR_COLORS = ['#2563EB', '#722ED1', '#13C2C2', '#FA8C16', '#EB2F96', '#52C41A'];
 
+// Lead.status is an enum — anything outside this list (e.g. "Interested",
+// "Not Connected" from an exported report) fails schema validation and
+// would drop the whole row, so unknown values fall back to "New".
+const STATUS_VALUES = ['New', 'Contacted', 'Qualified', 'Won', 'Lost'];
+const normalizeStatus = (raw) => {
+  if (!raw) return 'New';
+  const hit = STATUS_VALUES.find((s) => s.toLowerCase() === String(raw).trim().toLowerCase());
+  return hit || 'New';
+};
+
 function parseRows(diskPath) {
   const ext = path.extname(diskPath).toLowerCase();
   if (ext === '.csv') {
-    const content = fs.readFileSync(diskPath, 'utf8');
+    // utf8 read + strip a leading BOM so the first header isn't "﻿Name".
+    const content = fs.readFileSync(diskPath, 'utf8').replace(/^﻿/, '');
     const workbook = XLSX.read(content, { type: 'string' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     return XLSX.utils.sheet_to_json(sheet, { defval: '' });
@@ -18,24 +29,58 @@ function parseRows(diskPath) {
   return XLSX.utils.sheet_to_json(sheet, { defval: '' });
 }
 
-// Looks up a column by any of the given aliases, matching header names
-// case-insensitively (so "Client Name", "CLIENT NAME" and "name" all hit
-// the same `name` alias).
-const field = (row, ...keys) => {
-  const byLowerKey = {};
-  for (const k of Object.keys(row)) byLowerKey[k.trim().toLowerCase()] = row[k];
-  for (const k of keys) {
-    const v = byLowerKey[k.toLowerCase()];
-    if (v !== undefined && v !== '') return String(v).trim();
+// Normalise a header/alias down to bare lowercase alphanumerics so
+// "Contact Number", "contact_number", "CONTACTNUMBER" and "Contact No."
+// all collapse to the same key — makes column matching forgiving of
+// whatever casing/spacing/punctuation the uploaded file happens to use.
+const norm = (s) => String(s).replace(/^﻿/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Looks up a column by any of the given aliases (each normalised the same
+// way as the row's headers). Returns '' when nothing matches or the cell
+// is blank.
+const field = (row, ...aliases) => {
+  const byKey = {};
+  for (const k of Object.keys(row)) byKey[norm(k)] = row[k];
+  for (const alias of aliases) {
+    const v = byKey[norm(alias)];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
   }
   return '';
 };
 
+const NAME_ALIASES = [
+  'name', 'fullname', 'full name', 'clientname', 'client name', 'leadname', 'lead name',
+  'customername', 'contactname', 'candidatename', 'studentname', 'applicantname', 'personname',
+];
+const PHONE_ALIASES = [
+  'phone', 'phonenumber', 'phone number', 'phoneno', 'mobile', 'mobilenumber', 'mobile number',
+  'mobileno', 'contact', 'contactnumber', 'contact number', 'contactno', 'whatsapp',
+  'whatsappnumber', 'number', 'primaryphone', 'cell', 'cellphone', 'telephone', 'tel',
+];
+const EMAIL_ALIASES = ['email', 'emailaddress', 'email address', 'emailid', 'email id', 'mail', 'e-mail'];
+const SOURCE_ALIASES = ['source', 'leadsource', 'lead source', 'utmsource', 'channel'];
+const STATUS_ALIASES = ['status', 'leadstatus', 'lead status', 'stage'];
+const POSITION_ALIASES = [
+  'position', 'designation', 'role', 'jobtitle', 'job title', 'title', 'course', 'interest',
+  'interestedin', 'program', 'department',
+];
+const ALT_PHONE_ALIASES = [
+  'alternatecontactnumber', 'alternate contact number', 'alternatephone', 'alternate phone',
+  'alternatecontact', 'altphone', 'alt phone', 'secondaryphone', 'secondary phone',
+  'alternatenumber', 'alternate number', 'phone2',
+];
+const CITY_ALIASES = ['city', 'town'];
+const STATE_ALIASES = ['state', 'province', 'region'];
+const COUNTRY_ALIASES = ['country', 'nation'];
+const ZIP_ALIASES = ['zipcode', 'zip', 'zip code', 'pincode', 'pin code', 'pin', 'postalcode', 'postal code', 'postcode'];
+
 // POST /api/lead/import (multipart: file=<csv|xlsx>, team=<optional single target team>,
 // distribution=<optional JSON [{team,count}, ...] to manually split rows across teams>)
 // Bulk-creates Leads from a spreadsheet and records one LeadImportBatch summary
-// row (powers "Recent Import History"). Expected columns (case-insensitive):
-// name, phone, source, position, status.
+// row (powers "Recent Import History"). Column headers are matched loosely
+// (case / spacing / punctuation insensitive) against a wide alias list, so
+// files exported from other tools ("Lead Name", "Contact Number", "Lead
+// Status", …) import without needing to be renamed first.
 //
 // When `distribution` is provided, rows are handed out to teams in the order
 // given (first `count` rows to the first team, next `count` to the second,
@@ -82,7 +127,8 @@ const importLeads = async (req, res) => {
     return res.status(400).json({
       success: false,
       result: null,
-      message: 'Could not read the uploaded file. Use a .csv or .xlsx file with a header row (name, phone, source, position, status).',
+      message:
+        'Could not read the uploaded file. Use a .csv or .xlsx file with a header row (e.g. name, phone, email, source, status).',
     });
   }
 
@@ -97,39 +143,70 @@ const importLeads = async (req, res) => {
     importedBy: req.admin ? `${req.admin.name} ${req.admin.surname || ''}`.trim() : undefined,
   }).save();
 
+  // Build every valid doc up front, then bulk-insert in chunks — a
+  // per-row `await save()` loop takes minutes (and times out on
+  // serverless) for a file with thousands of rows.
+  const docs = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const name = field(row, 'name', 'full name', 'client name');
+    let name = field(row, ...NAME_ALIASES);
+    if (!name) {
+      // Fall back to a "First Name" + "Last Name" pair if there's no single
+      // name column.
+      const first = field(row, 'firstname', 'first name', 'fname', 'givenname');
+      const last = field(row, 'lastname', 'last name', 'lname', 'surname', 'familyname');
+      name = [first, last].filter(Boolean).join(' ').trim();
+    }
     if (!name) {
       errors.push(`Row ${i + 2}: missing name`);
       continue;
     }
     const rowTeam = rowTeams ? rowTeams[i] || '' : team;
+    docs.push({
+      name,
+      phone: field(row, ...PHONE_ALIASES),
+      email: field(row, ...EMAIL_ALIASES) || undefined,
+      source: field(row, ...SOURCE_ALIASES) || 'Import',
+      position: field(row, ...POSITION_ALIASES),
+      status: normalizeStatus(field(row, ...STATUS_ALIASES)),
+      alternatePhone: field(row, ...ALT_PHONE_ALIASES) || undefined,
+      city: field(row, ...CITY_ALIASES) || undefined,
+      state: field(row, ...STATE_ALIASES) || undefined,
+      country: field(row, ...COUNTRY_ALIASES) || undefined,
+      zipcode: field(row, ...ZIP_ALIASES) || undefined,
+      team: rowTeam,
+      color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      importBatch: batch._id,
+    });
+  }
+
+  const CHUNK = 500;
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const slice = docs.slice(i, i + CHUNK);
     try {
-      const lead = await new Lead({
-        name,
-        phone: field(row, 'phone', 'Phone'),
-        source: field(row, 'source', 'Source') || 'Import',
-        position: field(row, 'position', 'Position'),
-        status: field(row, 'status', 'Status') || 'New',
-        team: rowTeam,
-        color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-        importBatch: batch._id,
-      }).save();
-      created.push(lead);
+      // ordered:false → a bad row doesn't abort the rest of the chunk.
+      const inserted = await Lead.insertMany(slice, { ordered: false });
+      created.push(...inserted);
     } catch (err) {
-      errors.push(`Row ${i + 2}: ${err.message}`);
+      if (err && Array.isArray(err.insertedDocs)) created.push(...err.insertedDocs);
+      const writeErrors = (err && err.writeErrors) || [];
+      writeErrors.forEach((we) => {
+        errors.push(`Row ~${i + (we.index || 0) + 2}: ${we.errmsg || we.err?.errmsg || 'insert failed'}`);
+      });
+      if (writeErrors.length === 0) errors.push(`Rows ${i + 2}-${i + slice.length + 1}: ${err.message}`);
     }
   }
 
   batch.successCount = created.length;
-  batch.failedCount = errors.length;
-  batch.errors = errors.slice(0, 50);
+  batch.failedCount = rows.length - created.length;
+  batch.rowErrors = errors.slice(0, 50);
   await batch.save();
 
   return res.status(200).json({
     success: true,
-    result: { batch, leads: created },
+    // Only a sample of the created docs — a big import can produce
+    // thousands, and the client just needs the batch summary + message.
+    result: { batch, leads: created.slice(0, 100) },
     message: `Imported ${created.length} of ${rows.length} leads.`,
   });
 };
