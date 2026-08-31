@@ -1946,9 +1946,17 @@
   background: linear-gradient(180deg, var(--hub-bg-soft), #fff);
 }
 .crud-modal .ant-modal-body {
-  padding: 20px 24px 8px;
-  max-height: 62vh;
+  padding: 16px 24px 10px;
+  max-height: 66vh;
   overflow-y: auto;
+  /* hidden scrollbar — still scrolls */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.crud-modal .ant-modal-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 .crud-modal .ant-modal-footer {
   margin: 0;
@@ -1992,12 +2000,88 @@
   color: var(--hub-text);
 }
 
-/* two-column grid form with grouped sections */
+/* collapsible sections + two-column grid form */
+.crud-form {
+  margin-top: 2px;
+}
+.crud-section + .crud-section {
+  margin-top: 2px;
+}
+.crud-section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  margin: 6px 0 12px;
+  border: 1px solid var(--hub-border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--hub-blue-soft), #fff);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--hub-blue);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.crud-section:first-child .crud-section-head {
+  margin-top: 0;
+}
+.crud-section-head:hover {
+  border-color: var(--hub-blue);
+  background: var(--hub-blue-soft);
+}
+.crud-section-head:focus-visible {
+  outline: none;
+  box-shadow: var(--hub-focus-ring);
+}
+.crud-section-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hub-blue);
+  flex-shrink: 0;
+}
+.crud-section-name {
+  flex: 1;
+  text-align: left;
+}
+.crud-section-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--hub-muted);
+  background: #fff;
+  border: 1px solid var(--hub-border);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.crud-section-chevron {
+  font-size: 10px;
+  color: var(--hub-muted);
+  transition: transform 0.2s ease;
+}
+.crud-section-chevron.open {
+  transform: rotate(90deg);
+}
+/* grid-rows 1fr↔0fr gives a smooth height collapse without knowing the height */
+.crud-section-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.22s ease;
+}
+.crud-section-body.is-collapsed {
+  grid-template-rows: 0fr;
+}
+.crud-section-body > .crud-form-grid {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .crud-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 18px;
-  margin-top: 2px;
 }
 .crud-form-grid .ant-form-item {
   margin-bottom: 15px;
@@ -2030,34 +2114,6 @@
   background: var(--hub-bg-soft);
   color: var(--hub-muted);
   font-size: 11px;
-}
-
-/* section divider inside the form */
-.crud-form-group {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 0 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--hub-border);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--hub-blue);
-}
-.crud-form-group::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--hub-blue);
-  flex-shrink: 0;
-}
-.crud-form-grid .ant-form-item:first-of-type + .crud-form-group,
-.crud-form-grid > .crud-form-group:first-child {
-  margin-top: 2px;
 }
 
 /* input hover / focus polish */

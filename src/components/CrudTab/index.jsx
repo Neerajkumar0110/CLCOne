@@ -36,12 +36,16 @@ import {
   ClockCircleOutlined,
   IdcardOutlined,
   ProfileOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 
 import { request } from '@/request';
 
 const PAGE_SIZE = 10;
-const HUB_TOKENS = { colorPrimary: 'var(--hub-blue)', borderRadius: 9 };
+// antd derives its palette from these, so they must be real colours — a
+// CSS var (var(--hub-blue)) can't be resolved at token-compute time and the
+// primary button falls back to black. Keep in sync with --hub-blue.
+const HUB_TOKENS = { colorPrimary: '#0e7490', borderRadius: 9 };
 const BADGE_FIELDS = new Set([
   'status', 'stage', 'priority', 'feeStatus', 'paymentStatus', 'health',
   'healthStatus', 'consent', 'ratingLabel', 'condition',
@@ -109,6 +113,8 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  // { [groupName]: true } — which form sections are folded shut.
+  const [collapsed, setCollapsed] = useState({});
   const [form] = Form.useForm();
 
   const HeadIcon = icon || null;
@@ -116,6 +122,31 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   const searchFields = useMemo(
     () => fields.filter((f) => SEARCHABLE_TYPES.has(f.type)).map((f) => f.name),
     [fields]
+  );
+
+  // Fields split into consecutive `group` runs → one collapsible section each.
+  const sections = useMemo(() => {
+    const out = [];
+    fields.forEach((f) => {
+      const g = f.group || '';
+      const last = out[out.length - 1];
+      if (last && last.group === g) last.items.push(f);
+      else out.push({ group: g, items: [f] });
+    });
+    return out;
+  }, [fields]);
+
+  // Add: only the first section open (keeps the modal short — the rest are a
+  // click away). Edit: everything open so existing data is all visible.
+  const buildCollapsed = useCallback(
+    (isEdit) => {
+      const c = {};
+      sections.forEach((s, i) => {
+        if (s.group) c[s.group] = isEdit ? false : i > 0;
+      });
+      return c;
+    },
+    [sections]
   );
 
   const load = useCallback(
@@ -154,6 +185,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   const openAdd = () => {
     setEditing(null);
     form.resetFields();
+    setCollapsed(buildCollapsed(false));
     setModalOpen(true);
   };
 
@@ -167,6 +199,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
       else values[f.name] = v;
     });
     form.setFieldsValue(values);
+    setCollapsed(buildCollapsed(true));
     setModalOpen(true);
   };
 
@@ -174,7 +207,18 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
     let values;
     try {
       values = await form.validateFields();
-    } catch {
+    } catch (err) {
+      // Reveal any folded section that now holds an invalid field.
+      const bad = new Set((err?.errorFields || []).map((e) => e.name?.[0]));
+      if (bad.size) {
+        setCollapsed((prev) => {
+          const next = { ...prev };
+          sections.forEach((s) => {
+            if (s.group && s.items.some((f) => bad.has(f.name))) next[s.group] = false;
+          });
+          return next;
+        });
+      }
       return;
     }
     const payload = {};
@@ -205,8 +249,6 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
       load(Math.min(page, lastPage), q);
     }
   };
-
-  let lastGroup = null;
 
   return (
     <ConfigProvider theme={{ token: HUB_TOKENS }}>
@@ -342,52 +384,76 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
         maskClosable={false}
         width={780}
       >
-        <Form form={form} layout="vertical" preserve={false} className="crud-form-grid">
-          {fields.map((f) => {
-            const groupHeading =
-              f.group && f.group !== lastGroup ? (
-                <div className="crud-form-group" key={`g-${f.group}`}>
-                  {f.group}
-                </div>
-              ) : null;
-            lastGroup = f.group || lastGroup;
-
-            const full = f.type === 'textarea';
+        <Form
+          form={form}
+          layout="vertical"
+          preserve={false}
+          scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
+          className="crud-form"
+        >
+          {sections.map((section, gi) => {
+            const isCollapsed = section.group ? !!collapsed[section.group] : false;
             return (
-              <React.Fragment key={f.name}>
-                {groupHeading}
-                <Form.Item
-                  name={f.name}
-                  label={
-                    <span className="crud-lbl">
-                      <span className="crud-lbl-icon">{iconForField(f)}</span>
-                      {f.label}
-                    </span>
-                  }
-                  valuePropName={f.type === 'bool' ? 'checked' : 'value'}
-                  className={full ? 'crud-form-full' : undefined}
-                  rules={f.required ? [{ required: true, message: `${f.label} is required` }] : undefined}
-                >
-                  {f.type === 'textarea' ? (
-                    <Input.TextArea rows={2} />
-                  ) : f.type === 'number' ? (
-                    <InputNumber style={{ width: '100%' }} />
-                  ) : f.type === 'date' ? (
-                    <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
-                  ) : f.type === 'bool' ? (
-                    <Switch />
-                  ) : f.type === 'select' ? (
-                    <Select
-                      allowClear
-                      showSearch
-                      optionFilterProp="label"
-                      options={(f.options || []).map((o) => ({ label: o, value: o }))}
-                    />
-                  ) : (
-                    <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} />
-                  )}
-                </Form.Item>
-              </React.Fragment>
+              <div className="crud-section" key={section.group || `g${gi}`}>
+                {section.group && (
+                  <button
+                    type="button"
+                    className="crud-section-head"
+                    aria-expanded={!isCollapsed}
+                    onClick={() =>
+                      setCollapsed((c) => ({ ...c, [section.group]: !c[section.group] }))
+                    }
+                  >
+                    <span className="crud-section-dot" />
+                    <span className="crud-section-name">{section.group}</span>
+                    <span className="crud-section-count">{section.items.length}</span>
+                    <RightOutlined className={`crud-section-chevron${isCollapsed ? '' : ' open'}`} />
+                  </button>
+                )}
+                <div className={`crud-section-body${isCollapsed ? ' is-collapsed' : ''}`}>
+                  <div className="crud-form-grid">
+                    {section.items.map((f) => {
+                      const full = f.type === 'textarea';
+                      return (
+                        <Form.Item
+                          key={f.name}
+                          name={f.name}
+                          label={
+                            <span className="crud-lbl">
+                              <span className="crud-lbl-icon">{iconForField(f)}</span>
+                              {f.label}
+                            </span>
+                          }
+                          valuePropName={f.type === 'bool' ? 'checked' : 'value'}
+                          className={full ? 'crud-form-full' : undefined}
+                          rules={
+                            f.required ? [{ required: true, message: `${f.label} is required` }] : undefined
+                          }
+                        >
+                          {f.type === 'textarea' ? (
+                            <Input.TextArea rows={2} />
+                          ) : f.type === 'number' ? (
+                            <InputNumber style={{ width: '100%' }} />
+                          ) : f.type === 'date' ? (
+                            <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                          ) : f.type === 'bool' ? (
+                            <Switch />
+                          ) : f.type === 'select' ? (
+                            <Select
+                              allowClear
+                              showSearch
+                              optionFilterProp="label"
+                              options={(f.options || []).map((o) => ({ label: o, value: o }))}
+                            />
+                          ) : (
+                            <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} />
+                          )}
+                        </Form.Item>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             );
           })}
         </Form>
