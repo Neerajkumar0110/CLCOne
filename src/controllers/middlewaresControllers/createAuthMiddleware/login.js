@@ -49,6 +49,9 @@ const login = async (req, res, { userModel }) => {
   try {
     await issueOtp({ user, UserPasswordModel });
   } catch (err) {
+    // Log the real cause (mail failure, missing password record, DB error)
+    // — the client message stays generic, but this shows up in Vercel logs.
+    console.error('login: issueOtp failed:', err);
     return res.status(500).json({
       success: false,
       result: null,

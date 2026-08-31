@@ -47,6 +47,7 @@ const resendOtp = async (req, res, { userModel }) => {
   try {
     await issueOtp({ user, UserPasswordModel });
   } catch (err) {
+    console.error('resendOtp: issueOtp failed:', err);
     return res.status(500).json({
       success: false,
       result: null,

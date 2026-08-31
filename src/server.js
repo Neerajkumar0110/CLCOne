@@ -14,6 +14,18 @@ if (major < 20) {
 require('dotenv').config({ path: '.env' });
 require('dotenv').config({ path: '.env.local' });
 
+// Fail fast on a misconfigured .env instead of 500-ing at request time
+// (mirrors the same check in api/index.js for the Vercel deployment).
+const missingEnv = ['DATABASE', 'JWT_SECRET'].filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.log(`\n🚫 Missing required environment variable(s): ${missingEnv.join(', ')}`);
+  console.log('   Add them to backend/.env (see backend/.env.example) and restart.\n');
+  process.exit(1);
+}
+if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  console.log('⚠️  GMAIL_USER / GMAIL_APP_PASSWORD not set — OTP login emails will fail.');
+}
+
 mongoose.connect(process.env.DATABASE);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

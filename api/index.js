@@ -1,5 +1,8 @@
 let app;
 let bootError;
+// Assigned inside the try below; awaited by the exported handler before
+// every request. Default keeps the fallback export working if boot fails.
+let connectDb = () => Promise.resolve();
 
 try {
   const path = require('path');
@@ -8,9 +11,49 @@ try {
   require('dotenv').config({ path: path.join(__dirname, '../.env') });
   require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 
-  if (mongoose.connection.readyState === 0) {
-    mongoose.connect(process.env.DATABASE);
+  // The local .env file is NOT bundled into the Vercel function (see
+  // vercel.json `includeFiles`), so in production every value must be set
+  // in the Vercel project's Environment Variables. Fail the boot with a
+  // clear message instead of silently 500-ing later — e.g. a missing
+  // JWT_SECRET lets login + the OTP email succeed but makes verifyOtp's
+  // jwt.sign() throw "secretOrPrivateKey must have a value" on every call.
+  const requiredEnv = ['DATABASE', 'JWT_SECRET'];
+  const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+  if (missingEnv.length > 0) {
+    throw new Error(
+      `Missing required environment variable(s): ${missingEnv.join(', ')}. ` +
+        'Set them in the Vercel project settings (Production scope) and redeploy.'
+    );
   }
+  for (const key of ['GMAIL_USER', 'GMAIL_APP_PASSWORD']) {
+    if (!process.env[key]) console.warn(`[boot] ${key} is not set — OTP login emails will fail.`);
+  }
+
+  // Serverless connection handling: cache one connect promise across
+  // invocations and await it on every request (see the handler at the
+  // bottom). A fire-and-forget connect() lets a request start handling
+  // while the socket is still "connecting", so queries buffer and then
+  // throw "buffered timed out after 10000ms"; a rejected connect() that
+  // nothing awaits can also wedge a warm instance so it fails on every
+  // later request. Nulling the cached promise on failure lets the next
+  // request retry cleanly.
+  mongoose.set('bufferTimeoutMS', 15000);
+  connectDb = () => {
+    if (mongoose.connection.readyState === 1) return Promise.resolve();
+    if (!connectDb.promise) {
+      connectDb.promise = mongoose
+        .connect(process.env.DATABASE, {
+          serverSelectionTimeoutMS: 10000,
+          socketTimeoutMS: 45000,
+          maxPoolSize: 5,
+        })
+        .catch((err) => {
+          connectDb.promise = null;
+          throw err;
+        });
+    }
+    return connectDb.promise;
+  };
 
   mongoose.connection.on('error', (error) => {
     console.error(`MongoDB connection error: ${error.message}`);
@@ -126,7 +169,19 @@ try {
 }
 
 module.exports = app
-  ? app
+  ? async (req, res) => {
+      try {
+        await connectDb();
+      } catch (err) {
+        console.error('Request aborted — database connection failed:', err.message);
+        res.statusCode = 503;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(
+          JSON.stringify({ success: false, message: 'Database connection failed', error: err.message })
+        );
+      }
+      return app(req, res);
+    }
   : (req, res) => {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
