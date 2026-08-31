@@ -1851,39 +1851,76 @@
   }
 }
 
-/* CrudTab (components/CrudTab) — two-column modal form with group headings */
-.crud-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 16px;
-  margin-top: 4px;
+/* ---------------- CrudTab (components/CrudTab) ---------------- */
+
+/* card header title with the sub-module icon */
+.crud-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.crud-title .anticon {
+  color: var(--hub-blue);
+  font-size: 15px;
+}
+.crud-title .hub-badge {
+  margin-left: 2px;
 }
 
-.crud-form-grid .ant-form-item {
-  margin-bottom: 14px;
-  min-width: 0;
+/* inline search field */
+.crud-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 6px 0 11px;
+  border: 1px solid var(--hub-border-strong);
+  border-radius: var(--hub-r-sm);
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
-.crud-form-grid .crud-form-full {
-  grid-column: 1 / -1;
+.crud-search:focus-within {
+  border-color: var(--hub-blue);
+  box-shadow: var(--hub-focus-ring);
 }
-
-.crud-form-group {
-  grid-column: 1 / -1;
-  margin: 8px 0 2px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--hub-border);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.crud-search .anticon {
   color: var(--hub-muted);
+  font-size: 13px;
+}
+.crud-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  width: 170px;
+  color: var(--hub-text);
+}
+.crud-search-go,
+.crud-search-clear {
+  border: none;
+  background: var(--hub-bg-soft);
+  color: var(--hub-text-soft);
+  height: 24px;
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.crud-search-go:hover,
+.crud-search-clear:hover {
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue);
 }
 
-@media (max-width: 560px) {
-  .crud-form-grid {
-    grid-template-columns: 1fr;
-  }
+/* table row hover */
+.crud-table tbody tr {
+  transition: background 0.12s ease;
+}
+.crud-table tbody tr:hover {
+  background: var(--hub-bg-soft);
 }
 
 /* Keep long text cells from blowing out the table width */
@@ -1894,6 +1931,167 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+/* ---- Add / Edit modal ---- */
+.crud-modal .ant-modal-content {
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.crud-modal .ant-modal-header {
+  margin: 0;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--hub-border);
+  background: linear-gradient(180deg, var(--hub-bg-soft), #fff);
+}
+.crud-modal .ant-modal-body {
+  padding: 20px 24px 8px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+.crud-modal .ant-modal-footer {
+  margin: 0;
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--hub-border);
+}
+.crud-modal .ant-modal-footer .ant-btn {
+  border-radius: var(--hub-r-sm);
+  font-weight: 600;
+}
+
+.crud-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.crud-modal-title-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue);
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.crud-modal-title-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--hub-muted);
+}
+.crud-modal-title-main {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hub-text);
+}
+
+/* two-column grid form with grouped sections */
+.crud-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 18px;
+  margin-top: 2px;
+}
+.crud-form-grid .ant-form-item {
+  margin-bottom: 15px;
+  min-width: 0;
+}
+.crud-form-grid .crud-form-full {
+  grid-column: 1 / -1;
+}
+.crud-form-grid .ant-form-item-label {
+  padding-bottom: 4px;
+}
+.crud-form-grid .ant-form-item-label > label {
+  height: auto;
+  font-size: 12.5px;
+  color: var(--hub-text-soft);
+}
+
+.crud-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.crud-lbl-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--hub-bg-soft);
+  color: var(--hub-muted);
+  font-size: 11px;
+}
+
+/* section divider inside the form */
+.crud-form-group {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--hub-border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--hub-blue);
+}
+.crud-form-group::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hub-blue);
+  flex-shrink: 0;
+}
+.crud-form-grid .ant-form-item:first-of-type + .crud-form-group,
+.crud-form-grid > .crud-form-group:first-child {
+  margin-top: 2px;
+}
+
+/* input hover / focus polish */
+.crud-form-grid .ant-input,
+.crud-form-grid .ant-input-number,
+.crud-form-grid .ant-input-number-input,
+.crud-form-grid .ant-picker,
+.crud-form-grid .ant-select .ant-select-selector {
+  border-radius: 9px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.crud-form-grid .ant-input:hover,
+.crud-form-grid .ant-input-number:hover,
+.crud-form-grid .ant-picker:hover,
+.crud-form-grid .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+  border-color: var(--hub-blue);
+  background: var(--hub-blue-soft);
+}
+.crud-form-grid .ant-input:focus,
+.crud-form-grid .ant-input-focused,
+.crud-form-grid .ant-input-number-focused,
+.crud-form-grid .ant-picker-focused,
+.crud-form-grid .ant-select-focused .ant-select-selector {
+  background: #fff;
+  box-shadow: var(--hub-focus-ring) !important;
+}
+
+@media (max-width: 640px) {
+  .crud-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .crud-modal .ant-modal-body {
+    max-height: 70vh;
+  }
 }
 
 /* Row action buttons in CrudTab (components/CrudTab) */

@@ -70,6 +70,7 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
           fields={tab.fields}
           fixedFilter={tab.fixedFilter}
           title={tab.label}
+          icon={tab.Icon}
         />
       ) : tab.stats ? (
         <SectionOverview key={`${section.key}/${tab.key}`} stats={tab.stats} note={tab.note} />

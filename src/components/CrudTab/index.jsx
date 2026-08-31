@@ -17,24 +17,69 @@ import {
   DeleteOutlined,
   ReloadOutlined,
   SearchOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  LinkOutlined,
+  DollarOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  TeamOutlined,
+  FileTextOutlined,
+  EnvironmentOutlined,
+  TagOutlined,
+  TagsOutlined,
+  BankOutlined,
+  NumberOutlined,
+  CheckSquareOutlined,
+  AppstoreOutlined,
+  FormOutlined,
+  ClockCircleOutlined,
+  IdcardOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 
 import { request } from '@/request';
 
 const PAGE_SIZE = 10;
-const HUB_TOKENS = { colorPrimary: 'var(--hub-blue)', borderRadius: 8 };
+const HUB_TOKENS = { colorPrimary: 'var(--hub-blue)', borderRadius: 9 };
 const BADGE_FIELDS = new Set([
-  'status',
-  'stage',
-  'priority',
-  'feeStatus',
-  'paymentStatus',
-  'health',
-  'healthStatus',
-  'consent',
-  'ratingLabel',
+  'status', 'stage', 'priority', 'feeStatus', 'paymentStatus', 'health',
+  'healthStatus', 'consent', 'ratingLabel', 'condition',
 ]);
 const SEARCHABLE_TYPES = new Set(['text', 'textarea', 'email', 'tel', 'url', 'select']);
+
+// A field → icon, keyed on the field name first, then the input type.
+function iconForField(f) {
+  const n = f.name.toLowerCase();
+  if (/email/.test(n)) return <MailOutlined />;
+  if (/phone|mobile|whatsapp|contactphone|^tel/.test(n)) return <PhoneOutlined />;
+  if (/url|link|website|meetinglink|joinurl|thumbnail|resume|receipt|file/.test(n)) return <LinkOutlined />;
+  if (/amount|price|cost|ctc|salary|budget|revenue|\bfee|pay(roll|slip|ment|date)?|emi|netpay|gross|deduction|allowance|hra|\bpf\b|esi|tds|spend|value|throttle|points|fnf/.test(n))
+    return <DollarOutlined />;
+  if (/date|dob|\bday\b|joined|joiningdate|expiry|issued|scheduled|deadline|refreshed|onboarded|contractend|lastworking|resignation|settled/.test(n))
+    return <CalendarOutlined />;
+  if (/owner|manager|employee$|assignedto|trainer|instructor|approver|recruiter|reviewer|coordinator|counselor|buddy|givenby|publishedby|uploadedby|raisedby|contact$|contactperson|contactname|handoverto|issuedby/.test(n))
+    return <UserOutlined />;
+  if (/department|team|audience/.test(n)) return <TeamOutlined />;
+  if (/notes|description|reason|feedback|comment|goals|remark|resolution|justification|body|message|agenda|terms|criteria|outcomes|strengths|improvements|prerequisites|decisionnote/.test(n))
+    return <FileTextOutlined />;
+  if (/address|location|venue|city|region|applicablelocations/.test(n)) return <EnvironmentOutlined />;
+  if (/^tags$/.test(n)) return <TagsOutlined />;
+  if (/company|account|client|vendor|organisation|organization/.test(n)) return <BankOutlined />;
+  if (/employeeid|enrollmentid|certificateid|assettag|\bcode\b|serialnumber|number$|gstin|\bpan\b|uan|\bsku\b|hsncode|invoiceref|quoteref|utm|templateref/.test(n))
+    return <IdcardOutlined />;
+  if (/clockin|clockout|starttime|endtime|jointime|leavetime|time$|hours/.test(n)) return <ClockCircleOutlined />;
+  if (/status|stage|priority|category|type$|mode|level|channel|shift|awardtype|exittype|leavetype|doctype|lifecycle|visibility|paymentmode|source|objective|triggertype/.test(n))
+    return <AppstoreOutlined />;
+  if (/name|title|subject|topic|engagement|program/.test(n)) return <TagOutlined />;
+
+  if (f.type === 'number') return <NumberOutlined />;
+  if (f.type === 'date') return <CalendarOutlined />;
+  if (f.type === 'bool') return <CheckSquareOutlined />;
+  if (f.type === 'textarea') return <FileTextOutlined />;
+  if (f.type === 'select') return <ProfileOutlined />;
+  return <FormOutlined />;
+}
 
 function formatCell(field, value) {
   if (field.type === 'bool') return value ? 'Yes' : 'No';
@@ -48,24 +93,25 @@ function formatCell(field, value) {
 }
 
 /**
- * CrudTab — a searchable paginated GET list + Add / Edit / Delete for one
- * entity, driven by a `fields` spec (config/featureSections.js). Talks to the
- * generic IDURAR CRUD endpoints: /api/<entity>/{list,create,update,delete}.
+ * CrudTab — searchable paginated GET list + Add / Edit / Delete for one
+ * entity, driven by a `fields` spec (config/featureSections.js). Uses the
+ * generic IDURAR endpoints: /api/<entity>/{list,create,update,delete}.
  */
-export default function CrudTab({ entity, fields, fixedFilter, title }) {
+export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [count, setCount] = useState(0);
   const [query, setQuery] = useState('');
-  const [q, setQ] = useState(''); // debounced/applied search term
+  const [q, setQ] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
+  const HeadIcon = icon || null;
   const tableFields = useMemo(() => fields.filter((f) => f.table !== false).slice(0, 7), [fields]);
   const searchFields = useMemo(
     () => fields.filter((f) => SEARCHABLE_TYPES.has(f.type)).map((f) => f.name),
@@ -167,28 +213,27 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
       <div className="hub-stack">
         <div className="hub-card">
           <div className="hub-card-header">
-            <h3>
+            <h3 className="crud-title">
+              {HeadIcon ? <HeadIcon /> : null}
               {title}
-              <span className="hub-badge hub-badge-gray" style={{ marginLeft: 8 }}>
-                {count}
-              </span>
+              <span className="hub-badge hub-badge-gray">{count}</span>
             </h3>
             <div className="hub-row" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <div className="hub-row" style={{ gap: 0 }}>
+              <div className="crud-search">
+                <SearchOutlined />
                 <input
-                  className="hub-input"
-                  style={{ width: 200 }}
                   placeholder="Search…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && runSearch()}
                 />
-                <button type="button" className="hub-btn" onClick={runSearch} title="Search">
-                  <SearchOutlined />
-                </button>
-                {q && (
-                  <button type="button" className="hub-btn" onClick={clearSearch}>
-                    Clear
+                {q ? (
+                  <button type="button" className="crud-search-clear" onClick={clearSearch} title="Clear">
+                    ×
+                  </button>
+                ) : (
+                  <button type="button" className="crud-search-go" onClick={runSearch} title="Search">
+                    Go
                   </button>
                 )}
               </div>
@@ -202,13 +247,13 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
           </div>
 
           <div className="hub-table-wrapper">
-            <table className="hub-table">
+            <table className="hub-table crud-table">
               <thead>
                 <tr>
                   {tableFields.map((f) => (
                     <th key={f.name}>{f.label}</th>
                   ))}
-                  <th style={{ width: 110, textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: 96, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,10 +307,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
           </div>
 
           {pages > 1 && (
-            <div
-              className="hub-row"
-              style={{ justifyContent: 'center', gap: 12, marginTop: 14, alignItems: 'center' }}
-            >
+            <div className="hub-row" style={{ justifyContent: 'center', gap: 12, marginTop: 14, alignItems: 'center' }}>
               <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1, q)}>
                 Prev
               </button>
@@ -281,7 +323,16 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
       </div>
 
       <Modal
-        title={`${editing ? 'Edit' : 'Add'} — ${title}`}
+        className="crud-modal"
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon">{HeadIcon ? <HeadIcon /> : <FormOutlined />}</span>
+            <span>
+              <span className="crud-modal-title-kicker">{editing ? 'Edit record' : 'New record'}</span>
+              <span className="crud-modal-title-main">{title}</span>
+            </span>
+          </span>
+        }
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={submit}
@@ -289,7 +340,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
         confirmLoading={saving}
         destroyOnClose
         maskClosable={false}
-        width={720}
+        width={780}
       >
         <Form form={form} layout="vertical" preserve={false} className="crud-form-grid">
           {fields.map((f) => {
@@ -307,12 +358,15 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
                 {groupHeading}
                 <Form.Item
                   name={f.name}
-                  label={f.label}
+                  label={
+                    <span className="crud-lbl">
+                      <span className="crud-lbl-icon">{iconForField(f)}</span>
+                      {f.label}
+                    </span>
+                  }
                   valuePropName={f.type === 'bool' ? 'checked' : 'value'}
                   className={full ? 'crud-form-full' : undefined}
-                  rules={
-                    f.required ? [{ required: true, message: `${f.label} is required` }] : undefined
-                  }
+                  rules={f.required ? [{ required: true, message: `${f.label} is required` }] : undefined}
                 >
                   {f.type === 'textarea' ? (
                     <Input.TextArea rows={2} />
@@ -323,7 +377,12 @@ export default function CrudTab({ entity, fields, fixedFilter, title }) {
                   ) : f.type === 'bool' ? (
                     <Switch />
                   ) : f.type === 'select' ? (
-                    <Select allowClear options={(f.options || []).map((o) => ({ label: o, value: o }))} />
+                    <Select
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                      options={(f.options || []).map((o) => ({ label: o, value: o }))}
+                    />
                   ) : (
                     <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} />
                   )}
