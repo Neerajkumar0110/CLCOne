@@ -36,6 +36,7 @@ const Payment = lazy(() => import('@/pages/Payment/index'));
 
 const Settings = lazy(() => import('@/pages/Settings/Settings'));
 const Calls = lazy(() => import('@/pages/Calls'));
+const Calling = lazy(() => import('@/pages/Calling'));
 
 const Performance = lazy(() => import('@/pages/Performance'));
 const Leads = lazy(() => import('@/pages/Leads'));
@@ -93,6 +94,14 @@ let routes = {
       element: (
         <RequirePermission module="Sales">
           <Calls />
+        </RequirePermission>
+      ),
+    },
+    {
+      path: '/calling',
+      element: (
+        <RequirePermission module="Calling">
+          <Calling />
         </RequirePermission>
       ),
     },

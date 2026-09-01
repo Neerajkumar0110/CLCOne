@@ -18,6 +18,8 @@ export const PERMISSION_MODULES = [
   'HRMS',
   'Messenger',
   'Communication',
+  // Call center (VICIdial-ready; mock provider by default)
+  'Calling',
   // Analytics (Reports ▸ nests Performance in the sidebar)
   'Reports',
   'Performance',
@@ -51,6 +53,7 @@ export const MODULE_NAV_KEY = {
   HRMS: 'hr',
   Messenger: 'messenger',
   Communication: 'communication',
+  Calling: 'calling',
   Reports: 'reports',
   Performance: 'performance',
   Finance: 'finance',

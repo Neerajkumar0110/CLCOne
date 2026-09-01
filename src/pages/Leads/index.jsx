@@ -7,6 +7,20 @@ import { request } from "@/request";
 import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import {
+  STAGE_NAMES,
+  QUICK_FILTERS,
+  stageForStatus,
+  stageConfig,
+  stageColor,
+  subStatusesFor,
+  defaultSubStatus,
+  isValidSubStatus,
+  leadStageSub,
+  badgeClassForStatus,
+  toDatetimeLocal,
+  toDateInput,
+} from "@/config/leadStages";
+import {
   UserAddOutlined,
   EditOutlined,
   ImportOutlined,
@@ -23,6 +37,9 @@ import {
   LeftOutlined,
   RightOutlined,
   DeleteOutlined,
+  CloseOutlined,
+  FilterOutlined,
+  RiseOutlined,
   FacebookOutlined,
   LinkOutlined,
   RocketOutlined,
@@ -71,13 +88,14 @@ function TeamBadgeList({ teams, max = 2 }) {
   );
 }
 
-const STATUS_META = {
-  New: "hub-badge-blue",
-  Contacted: "hub-badge-yellow",
-  Qualified: "hub-badge-purple",
-  Won: "hub-badge-green",
-  Lost: "hub-badge-red",
-};
+// Back-compat shim: every call site does `STATUS_META[lead.status]` to get a
+// hub-badge-* class. Statuses are now the ~28 combined pipeline values (see
+// config/leadStages.js), so resolve the class through the stage lookup
+// instead of a fixed 5-key map.
+const STATUS_META = new Proxy(
+  {},
+  { get: (_t, key) => badgeClassForStatus(typeof key === "string" ? key : "") }
+);
 
 function DetailField({ label, value }) {
   return (
@@ -136,11 +154,35 @@ function LeadDetailModal({ lead, onClose }) {
           <DetailField label="Phone" value={lead.phone} />
           <DetailField label="Source" value={lead.source} />
           <DetailField
-            label="Status"
-            value={lead.status && <span className={`hub-badge ${STATUS_META[lead.status]}`}>{lead.status}</span>}
+            label="Stage"
+            value={
+              (lead.stage || lead.status) && (
+                <span className={`hub-badge ${STATUS_META[lead.stage || lead.status]}`}>
+                  {lead.stage || stageForStatus(lead.status)}
+                </span>
+              )
+            }
           />
+          <DetailField label="Sub-Status" value={lead.subStatus} />
+          <DetailField label="Assigned To" value={lead.assignedUserName || (lead.assignedUser && lead.assignedUser.name)} />
           <DetailField label="Team" value={lead.team || "Unassigned"} />
           <DetailField label="Position" value={lead.position} />
+          <DetailField label="Stage Updated" value={lead.stageUpdatedAt ? new Date(lead.stageUpdatedAt).toLocaleString() : null} />
+          <DetailField label="Last Contact" value={lead.lastContactAt ? new Date(lead.lastContactAt).toLocaleString() : null} />
+          <DetailField label="Next Follow-up" value={lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toLocaleString() : null} />
+          {lead.callBackAt && (
+            <DetailField label="Call Back On" value={new Date(lead.callBackAt).toLocaleString()} />
+          )}
+          {lead.meetingAt && (
+            <DetailField label="Meeting On" value={new Date(lead.meetingAt).toLocaleString()} />
+          )}
+          {lead.futureFollowUpAt && (
+            <DetailField label="Expected Follow-up" value={new Date(lead.futureFollowUpAt).toLocaleDateString()} />
+          )}
+          {lead.enrolledAt && (
+            <DetailField label="Enrolled On" value={new Date(lead.enrolledAt).toLocaleDateString()} />
+          )}
+          {lead.registrationLink && <DetailField label="Registration Link" value={lead.registrationLink} />}
           <DetailField label="Alt. Phone" value={lead.alternatePhone} />
           <DetailField label="City" value={lead.city} />
           <DetailField label="State" value={lead.state} />
@@ -149,6 +191,40 @@ function LeadDetailModal({ lead, onClose }) {
           <DetailField label="Budget Range" value={lead.budgetRange} />
           <DetailField label="How Soon to Start" value={lead.howSoonToStart} />
         </div>
+
+        {lead.remarks && (
+          <div>
+            <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+              Remarks / Notes
+            </div>
+            <div style={{ fontSize: 13, color: "#101828", padding: "10px 12px", background: "#f8f9fc", border: "1px solid #f0f0f0", borderRadius: 8 }}>
+              {lead.remarks}
+            </div>
+          </div>
+        )}
+
+        {Array.isArray(lead.stageHistory) && lead.stageHistory.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+              Stage Change History
+            </div>
+            <div style={{ display: "grid", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+              {[...lead.stageHistory].reverse().map((h, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#334155", display: "flex", gap: 8, alignItems: "baseline" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: stageColor(h.toStage), flexShrink: 0, marginTop: 5 }} />
+                  <span style={{ flex: 1 }}>
+                    <strong>{h.fromStage ? `${h.fromStage} → ` : ""}{h.toStage}</strong>
+                    {h.toSubStatus ? ` · ${h.toSubStatus}` : ""}
+                    {h.remarks ? <span style={{ color: "#64748b" }}> — {h.remarks}</span> : ""}
+                    <span style={{ color: "#94a3b8" }}>
+                      {" "}· {h.changedByName || "system"} · {h.at ? new Date(h.at).toLocaleString() : ""}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
@@ -217,15 +293,28 @@ async function downloadLeadsExport(format, team) {
   URL.revokeObjectURL(url);
 }
 
-function AddLeadModal({ open, onClose, onAdd, teamNames }) {
-  const blank = {
+function AddLeadModal({ open, onClose, onAdd, teamNames, admins }) {
+  const blank = () => ({
     name: "",
     phone: "",
+    email: "",
     source: "Website",
     team: teamNames[0] || "",
     position: POSITIONS[0],
-  };
+    stage: "New Lead",
+    subStatus: defaultSubStatus("New Lead"),
+    callBackAt: null,
+    meetingAt: null,
+    futureFollowUpAt: null,
+    enrolledAt: null,
+    nextFollowUpAt: null,
+    registrationLink: "",
+    registrationLinkSharedAt: null,
+    assignedUser: null,
+    remarks: "",
+  });
   const [form, setForm] = useState(blank);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     setForm((f) => ({ ...f, team: f.team || teamNames[0] || "" }));
@@ -235,18 +324,22 @@ function AddLeadModal({ open, onClose, onAdd, teamNames }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const submit = () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      setErr("Client name is required.");
+      return;
+    }
+    const pErr = pipelineFormError(form);
+    if (pErr) {
+      setErr(pErr);
+      return;
+    }
     onAdd({
-      name: form.name,
-      phone: form.phone,
-      source: form.source,
-      team: form.team,
-      position: form.position,
+      ...form,
       image: null,
-      status: "New",
       color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
     });
-    setForm(blank);
+    setForm(blank());
+    setErr("");
     onClose();
   };
 
@@ -255,8 +348,8 @@ function AddLeadModal({ open, onClose, onAdd, teamNames }) {
       open={open}
       onClose={onClose}
       title="Add New Lead"
-      subtitle="Assign the lead to a team and position"
-      width={460}
+      subtitle="Set the stage, sub-status and owner"
+      width={520}
       footer={
         <>
           <button type="button" className="hub-btn" onClick={onClose}>Cancel</button>
@@ -271,10 +364,24 @@ function AddLeadModal({ open, onClose, onAdd, teamNames }) {
           <label>Client Name</label>
           <input className="hub-input" value={form.name} onChange={set("name")} placeholder="e.g. Rohan Malhotra" />
         </div>
-
         <div className="hub-form-row">
           <label>Phone</label>
           <input className="hub-input" value={form.phone} onChange={set("phone")} placeholder="+91 90000 00000" />
+        </div>
+      </div>
+
+      <div className="hub-grid-2">
+        <div className="hub-form-row">
+          <label>Email</label>
+          <input className="hub-input" value={form.email} onChange={set("email")} placeholder="name@example.com" />
+        </div>
+        <div className="hub-form-row">
+          <label>Source</label>
+          <select className="hub-select" value={form.source} onChange={set("source")}>
+            {["Website", "Facebook Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -286,7 +393,6 @@ function AddLeadModal({ open, onClose, onAdd, teamNames }) {
             {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-
         <div className="hub-form-row">
           <label>Position</label>
           <select className="hub-select" value={form.position} onChange={set("position")}>
@@ -295,35 +401,266 @@ function AddLeadModal({ open, onClose, onAdd, teamNames }) {
         </div>
       </div>
 
-      <div className="hub-form-row">
-        <label>Source</label>
-        <select className="hub-select" value={form.source} onChange={set("source")}>
-          {["Website", "Facebook Ads", "Referral", "Cold Call", "WhatsApp"].map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
+      <PipelineFields form={form} setForm={setForm} admins={admins} />
+
+      {err && (
+        <div style={{ marginTop: 8 }}>
+          <span className="hub-badge hub-badge-red">{err}</span>
+        </div>
+      )}
     </HubModal>
   );
 }
 
-// Lets a lead's Position, Team and Status be updated after creation —
-// same "edit later" pattern as User Management's Edit User modal.
-const STATUSES = ["New", "Contacted", "Qualified", "Won", "Lost"];
+// Returns the client-side validation error for a lead form's pipeline
+// selection, or "" when valid. Mirrors the backend rules in
+// leadController/stageValidation.js.
+function pipelineFormError(form) {
+  const cfg = stageConfig(form.stage);
+  if (!cfg) return "Pick a lead stage.";
+  if (!isValidSubStatus(form.stage, form.subStatus)) return "Pick a sub-status for this stage.";
+  if (cfg.requiresCallBack && !form.callBackAt) return "Callback date & time are mandatory for “Call Back”.";
+  if (cfg.meetingSubStatuses && cfg.meetingSubStatuses.includes(form.subStatus) && !form.meetingAt)
+    return `Meeting date & time are required for “${form.subStatus}”.`;
+  return "";
+}
 
-function EditLeadModal({ lead, onClose, onSave, teamNames }) {
+// One reusable block: Stage + dependent Sub-Status + whatever extra
+// date/link fields the chosen stage needs + assigned user, follow-up and
+// remarks. Reads/writes `form` via `setForm`.
+function PipelineFields({ form, setForm, admins = [], showChangeReason = false }) {
+  const cfg = stageConfig(form.stage) || {};
+  const subs = subStatusesFor(form.stage);
+  const patch = (p) => setForm((f) => ({ ...f, ...p }));
+
+  const onStage = (e) => {
+    const stage = e.target.value;
+    patch({
+      stage,
+      subStatus: defaultSubStatus(stage),
+      // drop stage-specific captures that no longer apply
+      callBackAt: stage === "Call Back" ? form.callBackAt : null,
+      meetingAt: stage === "Sales Meeting" ? form.meetingAt : null,
+      futureFollowUpAt: stage === "Future Prospects" ? form.futureFollowUpAt : null,
+      enrolledAt: stage === "Enrolled" ? form.enrolledAt : null,
+      registrationLink: stage === "Opportunity" ? form.registrationLink : "",
+    });
+  };
+
+  const needMeeting = cfg.meetingSubStatuses && cfg.meetingSubStatuses.includes(form.subStatus);
+  const needLink = cfg.linkSubStatuses && cfg.linkSubStatuses.includes(form.subStatus);
+
+  return (
+    <>
+      <div className="hub-grid-2">
+        <div className="hub-form-row">
+          <label>Lead Stage</label>
+          <select className="hub-select" value={form.stage} onChange={onStage}>
+            {STAGE_NAMES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div className="hub-form-row">
+          <label>Sub-Status</label>
+          <select
+            className="hub-select"
+            value={form.subStatus}
+            onChange={(e) => patch({ subStatus: e.target.value })}
+          >
+            {subs.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {cfg.description && (
+        <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: -4, marginBottom: 6 }}>
+          {cfg.description}
+        </div>
+      )}
+
+      {cfg.requiresCallBack && (
+        <div className="hub-form-row">
+          <label>
+            Callback Date &amp; Time <span style={{ color: "#ef4444" }}>*</span>
+          </label>
+          <input
+            type="datetime-local"
+            className="hub-input"
+            value={toDatetimeLocal(form.callBackAt)}
+            onChange={(e) =>
+              patch({ callBackAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+            }
+          />
+        </div>
+      )}
+
+      {form.stage === "Sales Meeting" && (
+        <div className="hub-form-row">
+          <label>
+            Meeting Date &amp; Time {needMeeting && <span style={{ color: "#ef4444" }}>*</span>}
+          </label>
+          <input
+            type="datetime-local"
+            className="hub-input"
+            value={toDatetimeLocal(form.meetingAt)}
+            onChange={(e) =>
+              patch({ meetingAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+            }
+          />
+        </div>
+      )}
+
+      {form.stage === "Future Prospects" && (
+        <div className="hub-form-row">
+          <label>Expected Follow-up Date</label>
+          <input
+            type="date"
+            className="hub-input"
+            value={toDateInput(form.futureFollowUpAt)}
+            onChange={(e) =>
+              patch({ futureFollowUpAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+            }
+          />
+        </div>
+      )}
+
+      {form.stage === "Enrolled" && (
+        <div className="hub-form-row">
+          <label>Registration / Enrollment Date</label>
+          <input
+            type="date"
+            className="hub-input"
+            value={toDateInput(form.enrolledAt)}
+            onChange={(e) =>
+              patch({ enrolledAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+            }
+          />
+        </div>
+      )}
+
+      {needLink && (
+        <div className="hub-grid-2">
+          <div className="hub-form-row">
+            <label>Registration Link</label>
+            <input
+              className="hub-input"
+              placeholder="https://…"
+              value={form.registrationLink || ""}
+              onChange={(e) => patch({ registrationLink: e.target.value })}
+            />
+          </div>
+          <div className="hub-form-row">
+            <label>Link Shared On</label>
+            <input
+              type="date"
+              className="hub-input"
+              value={toDateInput(form.registrationLinkSharedAt)}
+              onChange={(e) =>
+                patch({
+                  registrationLinkSharedAt: e.target.value
+                    ? new Date(e.target.value).toISOString()
+                    : null,
+                })
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="hub-grid-2">
+        <div className="hub-form-row">
+          <label>Assigned To</label>
+          <select
+            className="hub-select"
+            value={form.assignedUser || ""}
+            onChange={(e) => patch({ assignedUser: e.target.value || null })}
+          >
+            <option value="">Unassigned</option>
+            {admins.map((a) => (
+              <option key={a._id} value={a._id}>
+                {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="hub-form-row">
+          <label>Next Follow-up</label>
+          <input
+            type="datetime-local"
+            className="hub-input"
+            value={toDatetimeLocal(form.nextFollowUpAt)}
+            onChange={(e) =>
+              patch({ nextFollowUpAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+            }
+          />
+        </div>
+      </div>
+
+      <div className="hub-form-row">
+        <label>Remarks / Notes</label>
+        <textarea
+          className="hub-input"
+          rows={2}
+          value={form.remarks || ""}
+          onChange={(e) => patch({ remarks: e.target.value })}
+        />
+      </div>
+
+      {showChangeReason && (
+        <div className="hub-form-row">
+          <label>Reason for this stage change (optional)</label>
+          <input
+            className="hub-input"
+            placeholder="e.g. Customer asked to be contacted next week"
+            value={form.stageRemarks || ""}
+            onChange={(e) => patch({ stageRemarks: e.target.value })}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+
+function EditLeadModal({ lead, onClose, onSave, teamNames, admins }) {
   const [form, setForm] = useState(null);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    if (lead) setForm({ ...lead });
+    if (!lead) return;
+    const { stage, subStatus } = leadStageSub(lead);
+    setForm({
+      ...lead,
+      stage,
+      subStatus,
+      assignedUser:
+        lead.assignedUser && typeof lead.assignedUser === "object"
+          ? lead.assignedUser._id
+          : lead.assignedUser || null,
+      stageRemarks: "",
+    });
+    setErr("");
   }, [lead]);
 
   if (!lead || !form) return null;
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const origin = leadStageSub(lead);
+  const stageChanged = form.stage !== origin.stage || form.subStatus !== origin.subStatus;
 
   const submit = () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      setErr("Client name is required.");
+      return;
+    }
+    const pErr = pipelineFormError(form);
+    if (pErr) {
+      setErr(pErr);
+      return;
+    }
     onSave(form);
   };
 
@@ -332,8 +669,8 @@ function EditLeadModal({ lead, onClose, onSave, teamNames }) {
       open={!!lead}
       onClose={onClose}
       title={`Edit — ${lead.name}`}
-      subtitle="Update this lead's team, position or status"
-      width={460}
+      subtitle="Stage, sub-status, schedule, owner & notes"
+      width={540}
       footer={
         <>
           <button type="button" className="hub-btn" onClick={onClose}>Cancel</button>
@@ -348,7 +685,6 @@ function EditLeadModal({ lead, onClose, onSave, teamNames }) {
           <label>Client Name</label>
           <input className="hub-input" value={form.name} onChange={set("name")} />
         </div>
-
         <div className="hub-form-row">
           <label>Phone</label>
           <input className="hub-input" value={form.phone} onChange={set("phone")} />
@@ -358,26 +694,55 @@ function EditLeadModal({ lead, onClose, onSave, teamNames }) {
       <div className="hub-grid-2">
         <div className="hub-form-row">
           <label>Team</label>
-          <select className="hub-select" value={form.team} onChange={set("team")}>
+          <select className="hub-select" value={form.team || ""} onChange={set("team")}>
             {teamNames.length === 0 && <option value="">No teams yet</option>}
+            <option value="">Unassigned</option>
             {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-
         <div className="hub-form-row">
           <label>Position</label>
-          <select className="hub-select" value={form.position} onChange={set("position")}>
+          <select className="hub-select" value={form.position || POSITIONS[0]} onChange={set("position")}>
             {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="hub-form-row">
-        <label>Status</label>
-        <select className="hub-select" value={form.status} onChange={set("status")}>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
+      <PipelineFields
+        form={form}
+        setForm={setForm}
+        admins={admins}
+        showChangeReason={stageChanged}
+      />
+
+      {err && (
+        <div style={{ marginTop: 8 }}>
+          <span className="hub-badge hub-badge-red">{err}</span>
+        </div>
+      )}
+
+      {Array.isArray(lead.stageHistory) && lead.stageHistory.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 6 }}>
+            Stage Change History
+          </div>
+          <div style={{ display: "grid", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+            {[...lead.stageHistory].reverse().map((h, i) => (
+              <div key={i} style={{ fontSize: 12, color: "#334155", display: "flex", gap: 8, alignItems: "baseline" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: stageColor(h.toStage), flexShrink: 0, marginTop: 5 }} />
+                <span style={{ flex: 1 }}>
+                  <strong>{h.fromStage ? `${h.fromStage} → ` : ""}{h.toStage}</strong>
+                  {h.toSubStatus ? ` · ${h.toSubStatus}` : ""}
+                  {h.remarks ? <span style={{ color: "#64748b" }}> — {h.remarks}</span> : ""}
+                  <span style={{ color: "#94a3b8" }}>
+                    {" "}· {h.changedByName || "system"} · {h.at ? new Date(h.at).toLocaleString() : ""}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </HubModal>
   );
 }
@@ -522,9 +887,324 @@ function DuplicateWarningModal({ duplicate, onCancel, onAddAnyway }) {
   );
 }
 
+// "Lead Stages" dashboard card — donut + summary tiles on the left, a
+// proportional-bar breakdown table on the right. No chart lib: the donut is
+// stroke-dasharray arcs on one circle, which stay crisp and keep an exact
+// click target. Every stage (donut arc, tile, or row) is a drill-in
+// trigger via onSelect.
+function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSelect }) {
+  const [expanded, setExpanded] = useState({});
+  const pct = (n) => (total ? (n / total) * 100 : 0);
+  const nonZero = stages.filter((s) => s.count > 0);
+  const top2 = [...stages].sort((a, b) => b.count - a.count).slice(0, 2);
+  const newLead = stages.find((s) => s.stage === "New Lead")?.count || 0;
+  // "Converted" = anything that has moved past the New Lead stage.
+  const convRate = total ? ((total - newLead) / total) * 100 : 0;
+
+  const SIZE = 260;
+  const STROKE = 34;
+  const R = (SIZE - STROKE) / 2;
+  const CIRC = 2 * Math.PI * R;
+  let dashAccum = 0;
+
+  const COLS = "minmax(96px,1.1fr) 2fr 40px 48px";
+
+  return (
+    <div className="hub-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 14 }}>
+          <div
+            style={{
+              width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center",
+              background: "linear-gradient(135deg,#eef2ff,#e0e7ff)", color: "#6366f1", fontSize: 19, flexShrink: 0,
+            }}
+          >
+            <FilterOutlined />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Lead Stages</h3>
+            <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 2 }}>
+              Track your leads&rsquo; progress across every stage
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f6f7fb", borderRadius: 12, padding: "8px 14px" }}>
+          <TeamOutlined style={{ color: "#6366f1" }} />
+          <div style={{ lineHeight: 1.15 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{total}</div>
+            <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.4 }}>Total Leads</div>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="hub-empty">Loading lead stages…</div>
+      ) : (
+        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
+          <div style={{ flex: "0 0 280px", maxWidth: 320, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ flex: 1, background: "#f8fafc", borderRadius: 18, padding: 16, display: "grid", placeItems: "center" }}>
+              <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: "100%", maxWidth: 188 }}>
+                <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke="#eceef3" strokeWidth={STROKE} />
+                {total > 0 &&
+                  nonZero.map((s) => {
+                    const len = (pct(s.count) / 100) * CIRC;
+                    const gap = nonZero.length > 1 ? 2.5 : 0;
+                    const shown = Math.max(0, len - gap);
+                    const node = (
+                      <circle
+                        key={s.stage}
+                        cx={SIZE / 2}
+                        cy={SIZE / 2}
+                        r={R}
+                        fill="none"
+                        stroke={s.color}
+                        strokeWidth={STROKE}
+                        strokeDasharray={`${shown} ${CIRC - shown}`}
+                        strokeDashoffset={-dashAccum}
+                        transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => onSelect(s.stage)}
+                      >
+                        <title>{`${s.stage}: ${s.count} (${Math.round(pct(s.count))}%)`}</title>
+                      </circle>
+                    );
+                    dashAccum += len;
+                    return node;
+                  })}
+                <circle cx={SIZE / 2} cy={SIZE / 2} r={R - STROKE / 2 - 2} fill="#fff" />
+                <text
+                  x="50%"
+                  y="46%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{ fontSize: 40, fontWeight: 800, fill: "#0f172a" }}
+                >
+                  {total}
+                </text>
+                <text
+                  x="50%"
+                  y="59%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{ fontSize: 13, fontWeight: 600, fill: "#94a3b8" }}
+                >
+                  Total Leads
+                </text>
+              </svg>
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              {top2.map((s) => (
+                <button
+                  key={s.stage}
+                  type="button"
+                  onClick={() => s.count && onSelect(s.stage)}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    textAlign: "left",
+                    position: "relative",
+                    background: activeStage === s.stage ? "#eef2ff" : "#f8fafc",
+                    border: `1.5px solid ${activeStage === s.stage ? s.color : "transparent"}`,
+                    borderRadius: 14,
+                    padding: "12px 13px 24px",
+                    cursor: s.count ? "pointer" : "default",
+                    font: "inherit",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 21, fontWeight: 800, color: "#0f172a" }}>{s.count}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.stage}
+                  </div>
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      bottom: 9,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: s.count ? s.color : "#94a3b8",
+                    }}
+                  >
+                    {Math.round(pct(s.count))}%
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#f1effe", borderRadius: 14, padding: "12px 14px" }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#fff", display: "grid", placeItems: "center", color: "#7c3aed", flexShrink: 0 }}>
+                <RiseOutlined />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11.5, color: "#8578b3" }}>Lead Conversion Rate</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#6d28d9" }}>{convRate.toFixed(2)}%</div>
+              </div>
+              <RightOutlined style={{ color: "#b4a9d6", fontSize: 12 }} />
+            </div>
+          </div>
+
+          <div style={{ flex: "1 1 340px", minWidth: 300 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: COLS,
+                gap: 10,
+                padding: "0 6px 8px",
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: "#94a3b8",
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+              }}
+            >
+              <span>Stage</span>
+              <span />
+              <span style={{ textAlign: "right" }}>Leads</span>
+              <span style={{ textAlign: "right" }}>%</span>
+            </div>
+
+            {stages.map((s) => {
+              const p = pct(s.count);
+              const on = activeStage === s.stage;
+              const isOpen = !!expanded[s.stage];
+              const subs = s.subStatuses || [];
+              return (
+                <div key={s.stage}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (subs.length > 1) setExpanded((e) => ({ ...e, [s.stage]: !e[s.stage] }));
+                      onSelect(s.stage);
+                    }}
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: COLS,
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "7px 6px",
+                      border: "none",
+                      borderRadius: 6,
+                      background: on && !activeSub ? "#eef2ff" : "transparent",
+                      cursor: "pointer",
+                      font: "inherit",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      {subs.length > 1 ? (
+                        <span style={{ fontSize: 8, color: "#94a3b8", width: 8, flexShrink: 0 }}>
+                          {isOpen ? "▼" : "▶"}
+                        </span>
+                      ) : (
+                        <span style={{ width: 8, flexShrink: 0 }} />
+                      )}
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          color: s.count ? "#1e293b" : "#94a3b8",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {s.stage}
+                      </span>
+                    </span>
+                    <span style={{ height: 6, borderRadius: 999, background: "#eef0f4", overflow: "hidden" }}>
+                      <span
+                        style={{
+                          display: "block",
+                          height: "100%",
+                          width: `${s.count ? Math.max(p, 2) : 0}%`,
+                          background: s.color,
+                          borderRadius: 999,
+                          transition: "width 0.35s ease",
+                        }}
+                      />
+                    </span>
+                    <span style={{ textAlign: "right", fontSize: 11.5, fontWeight: 700, color: s.count ? "#0f172a" : "#cbd5e1" }}>
+                      {s.count}
+                    </span>
+                    <span style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: s.count ? s.color : "#cbd5e1" }}>
+                      {Math.round(p)}%
+                    </span>
+                  </button>
+
+                  {isOpen &&
+                    subs.map((ss) => {
+                      const sp = pct(ss.count);
+                      const sOn = activeStage === s.stage && activeSub === ss.subStatus;
+                      return (
+                        <button
+                          key={ss.subStatus}
+                          type="button"
+                          onClick={() => onSelect(s.stage, ss.subStatus)}
+                          style={{
+                            width: "100%",
+                            display: "grid",
+                            gridTemplateColumns: COLS,
+                            gap: 10,
+                            alignItems: "center",
+                            padding: "5px 6px 5px 22px",
+                            border: "none",
+                            borderRadius: 6,
+                            background: sOn ? "#eef2ff" : "transparent",
+                            cursor: "pointer",
+                            font: "inherit",
+                            textAlign: "left",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 10.5,
+                              color: ss.count ? "#475569" : "#a8b0bd",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {ss.subStatus}
+                          </span>
+                          <span style={{ height: 4, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                            <span
+                              style={{
+                                display: "block",
+                                height: "100%",
+                                width: `${ss.count ? Math.max(sp, 2) : 0}%`,
+                                background: s.color,
+                                opacity: 0.7,
+                                borderRadius: 999,
+                              }}
+                            />
+                          </span>
+                          <span style={{ textAlign: "right", fontSize: 10.5, fontWeight: 600, color: ss.count ? "#334155" : "#cbd5e1" }}>
+                            {ss.count}
+                          </span>
+                          <span style={{ textAlign: "right", fontSize: 10, fontWeight: 600, color: "#94a3b8" }}>
+                            {Math.round(sp)}%
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AllLeads() {
   const { teamNames } = useTeams();
-  const [status, setStatus] = useState("All");
   const [teamStats, setTeamStats] = useState([]);
   const [teamStatsLoading, setTeamStatsLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -539,7 +1219,111 @@ function AllLeads() {
   const [activeTeam, setActiveTeam] = useState(null);
   const [teamLeads, setTeamLeads] = useState({});
 
+  // Lead Stages dashboard + the filtered Lead List it drills into.
+  const [stageData, setStageData] = useState({ stages: [], total: 0 });
+  const [stageLoading, setStageLoading] = useState(true);
+  const [stageError, setStageError] = useState(false);
+  const [admins, setAdmins] = useState([]);
+
+  const [drillStage, setDrillStage] = useState(null); // stage name | "Other" | null
+  const [drillSub, setDrillSub] = useState(null);
+  const BLANK_FILTERS = {
+    quick: "",
+    subStatus: "",
+    assignedUser: "",
+    source: "",
+    q: "",
+    callbackFrom: "",
+    callbackTo: "",
+    followUpFrom: "",
+    followUpTo: "",
+    createdFrom: "",
+    createdTo: "",
+  };
+  const [filters, setFilters] = useState(BLANK_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [drill, setDrill] = useState({ leads: [], page: 1, pages: 1, count: 0, loading: false });
+
+  const listActive =
+    !!drillStage || !!filters.quick || Object.entries(filters).some(([k, v]) => k !== "quick" && v);
+
   const normalizePhone = (p) => (p || "").replace(/\D/g, "");
+
+  const loadStageStats = async () => {
+    setStageLoading(true);
+    setStageError(false);
+    const res = await request.get({ entity: "lead/stage-stats" });
+    if (res?.success) setStageData(res.result);
+    else setStageError(true);
+    setStageLoading(false);
+  };
+
+  const loadAdmins = async () => {
+    const res = await request.list({ entity: "admin", options: { items: 500 } });
+    setAdmins(res?.success ? res.result : []);
+  };
+
+  const loadLeadList = async (targetPage = 1, over = {}) => {
+    const stage = over.stage !== undefined ? over.stage : drillStage;
+    const sub = over.sub !== undefined ? over.sub : drillSub;
+    const f = { ...filters, ...(over.filters || {}) };
+    setDrill((d) => ({ ...d, loading: true }));
+
+    const params = new URLSearchParams({ page: String(targetPage), items: "12" });
+    if (stage) params.set("stage", stage);
+    if (sub) params.set("subStatus", sub);
+    Object.entries(f).forEach(([k, v]) => {
+      if (v) params.set(k, v);
+    });
+
+    const res = await request.get({ entity: `lead/by-stage?${params.toString()}` });
+    setDrill({
+      leads: res?.success ? res.result : [],
+      page: targetPage,
+      pages: res?.pagination?.pages || 1,
+      count: res?.pagination?.count || 0,
+      loading: false,
+    });
+  };
+
+  const selectStage = (stage, sub = null) => {
+    // Re-clicking the exact same selection closes the list.
+    if (drillStage === stage && drillSub === (sub || null) && !filters.quick) {
+      setDrillStage(null);
+      setDrillSub(null);
+      return;
+    }
+    setDrillStage(stage);
+    setDrillSub(sub || null);
+    setFilters((f) => ({ ...f, quick: "", subStatus: sub || "" }));
+    loadLeadList(1, { stage, sub, filters: { ...filters, quick: "", subStatus: sub || "" } });
+  };
+
+  const applyQuickFilter = (qf) => {
+    if (filters.quick === qf.key && drillStage === (qf.stage || null)) {
+      setFilters((f) => ({ ...f, quick: "" }));
+      setDrillStage(null);
+      setDrillSub(null);
+      return;
+    }
+    const nextFilters = { ...BLANK_FILTERS, quick: qf.quick || "" };
+    setFilters(nextFilters);
+    setDrillStage(qf.stage || (qf.quick ? "Call Back" : null));
+    setDrillSub(null);
+    loadLeadList(1, { stage: qf.stage || (qf.quick ? "Call Back" : null), sub: null, filters: nextFilters });
+  };
+
+  const updateFilter = (patch) => {
+    const next = { ...filters, ...patch };
+    setFilters(next);
+    loadLeadList(1, { filters: next });
+  };
+
+  const clearList = () => {
+    setDrillStage(null);
+    setDrillSub(null);
+    setFilters(BLANK_FILTERS);
+  };
 
   const loadTeamStats = async () => {
     setTeamStatsLoading(true);
@@ -566,6 +1350,8 @@ function AllLeads() {
 
   useEffect(() => {
     loadTeamStats();
+    loadStageStats();
+    loadAdmins();
   }, []);
 
   const handlePanelChange = (key) => {
@@ -582,7 +1368,9 @@ function AllLeads() {
   const refreshAfterMutation = async () => {
     setTeamLeads({});
     await loadTeamStats();
+    await loadStageStats();
     if (activeTeam) await loadTeamLeads(activeTeam, 1);
+    if (listActive) await loadLeadList(drill.page);
   };
 
   const createLead = async (lead) => {
@@ -620,10 +1408,289 @@ function AllLeads() {
     if (res?.success) await refreshAfterMutation();
   };
 
-  const statuses = ["All", "New", "Contacted", "Qualified", "Won", "Lost"];
-
   return (
     <div className="hub-stack">
+      {stageError ? (
+        <div className="hub-card">
+          <div className="hub-card-header"><h3>Lead Stages</h3></div>
+          <div className="hub-empty">
+            Couldn&rsquo;t load lead stages.{" "}
+            <button type="button" className="hub-btn" style={{ marginLeft: 8 }} onClick={loadStageStats}>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : (
+        <LeadStageBoard
+          stages={stageData.stages}
+          total={stageData.total}
+          loading={stageLoading}
+          activeStage={drillStage}
+          activeSub={drillSub}
+          onSelect={selectStage}
+        />
+      )}
+
+      <div className="hub-card">
+        <div className="hub-card-header">
+          <h3>Lead List</h3>
+          <div className="hub-row" style={{ gap: 8 }}>
+            <button
+              type="button"
+              className="hub-btn"
+              onClick={() => setShowFilters((v) => !v)}
+              style={showFilters ? { background: "var(--hub-blue)", color: "#fff", borderColor: "var(--hub-blue)" } : undefined}
+            >
+              <FilterOutlined /> Filters
+            </button>
+            {listActive && (
+              <button type="button" className="hub-btn" onClick={clearList}>
+                <CloseOutlined /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick filters */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          {QUICK_FILTERS.map((qf) => {
+            const on =
+              qf.key === "all"
+                ? !listActive
+                : filters.quick === qf.key || (qf.stage && drillStage === qf.stage && !drillSub && !filters.quick);
+            const c = qf.stage ? stageColor(qf.stage) : qf.key === "callback-overdue" ? "#ef4444" : "#2563eb";
+            return (
+              <button
+                key={qf.key}
+                type="button"
+                onClick={() => (qf.key === "all" ? clearList() : applyQuickFilter(qf))}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 999,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: `1px solid ${on ? c : "#e2e8f0"}`,
+                  background: on ? c : "#fff",
+                  color: on ? "#fff" : "#475569",
+                }}
+              >
+                {qf.stage && (
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? "#fff" : c }} />
+                )}
+                {qf.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Advanced filters */}
+        {showFilters && (
+          <div
+            style={{
+              border: "1px solid #eef0f4",
+              borderRadius: 12,
+              padding: 14,
+              background: "#fafbfd",
+              marginBottom: 12,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 10,
+            }}
+          >
+            <div className="hub-form-row">
+              <label>Stage</label>
+              <select
+                className="hub-select"
+                value={drillStage || ""}
+                onChange={(e) => selectStage(e.target.value || null)}
+              >
+                <option value="">All stages</option>
+                {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="hub-form-row">
+              <label>Sub-Status</label>
+              <select
+                className="hub-select"
+                value={filters.subStatus}
+                disabled={!drillStage}
+                onChange={(e) => {
+                  setDrillSub(e.target.value || null);
+                  updateFilter({ subStatus: e.target.value });
+                }}
+              >
+                <option value="">All</option>
+                {(drillStage ? subStatusesFor(drillStage) : []).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="hub-form-row">
+              <label>Assigned User</label>
+              <select
+                className="hub-select"
+                value={filters.assignedUser}
+                onChange={(e) => updateFilter({ assignedUser: e.target.value })}
+              >
+                <option value="">Anyone</option>
+                {admins.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="hub-form-row">
+              <label>Source</label>
+              <select
+                className="hub-select"
+                value={filters.source}
+                onChange={(e) => updateFilter({ source: e.target.value })}
+              >
+                <option value="">Any</option>
+                {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="hub-form-row">
+              <label>Search (name / phone / email)</label>
+              <input
+                className="hub-input"
+                value={filters.q}
+                onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && loadLeadList(1)}
+                placeholder="Type & press Enter"
+              />
+            </div>
+            <div className="hub-form-row">
+              <label>Callback from → to</label>
+              <div className="hub-row" style={{ gap: 6 }}>
+                <input type="date" className="hub-input" value={filters.callbackFrom} onChange={(e) => updateFilter({ callbackFrom: e.target.value })} />
+                <input type="date" className="hub-input" value={filters.callbackTo} onChange={(e) => updateFilter({ callbackTo: e.target.value })} />
+              </div>
+            </div>
+            <div className="hub-form-row">
+              <label>Follow-up from → to</label>
+              <div className="hub-row" style={{ gap: 6 }}>
+                <input type="date" className="hub-input" value={filters.followUpFrom} onChange={(e) => updateFilter({ followUpFrom: e.target.value })} />
+                <input type="date" className="hub-input" value={filters.followUpTo} onChange={(e) => updateFilter({ followUpTo: e.target.value })} />
+              </div>
+            </div>
+            <div className="hub-form-row">
+              <label>Created from → to</label>
+              <div className="hub-row" style={{ gap: 6 }}>
+                <input type="date" className="hub-input" value={filters.createdFrom} onChange={(e) => updateFilter({ createdFrom: e.target.value })} />
+                <input type="date" className="hub-input" value={filters.createdTo} onChange={(e) => updateFilter({ createdTo: e.target.value })} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!listActive ? (
+          <div className="hub-empty">
+            Pick a stage above, a quick filter, or open Filters to browse the lead list.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 8 }}>
+              {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}
+              {drillStage ? ` · ${drillStage}` : ""}
+              {drillSub ? ` · ${drillSub}` : ""}
+            </div>
+            <div className="hub-table-wrapper">
+              <table className="hub-table">
+                <thead>
+                  <tr>
+                    <th>Client Name</th>
+                    <th>Phone</th>
+                    <th>Stage / Sub-Status</th>
+                    <th>Assigned</th>
+                    <th>Next Follow-up</th>
+                    <th>Call Back</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drill.loading && (
+                    <tr><td colSpan={7}><div className="hub-empty">Loading…</div></td></tr>
+                  )}
+                  {!drill.loading && drill.leads.length === 0 && (
+                    <tr><td colSpan={7}><div className="hub-empty">No leads match these filters.</div></td></tr>
+                  )}
+                  {!drill.loading &&
+                    drill.leads.map((l) => {
+                      const overdue =
+                        l.stage === "Call Back" && l.callBackAt && new Date(l.callBackAt) < new Date();
+                      return (
+                        <tr key={l._id}>
+                          <td>
+                            <div className="hub-person" style={{ cursor: "pointer" }} onClick={() => setViewLead(l)}>
+                              <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
+                                {l.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                              </div>
+                              {l.name}
+                            </div>
+                          </td>
+                          <td>{l.phone || "—"}</td>
+                          <td>
+                            <span className={`hub-badge ${STATUS_META[l.stage || l.status]}`}>
+                              {l.stage || stageForStatus(l.status)}
+                            </span>
+                            <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>{l.subStatus || "—"}</div>
+                          </td>
+                          <td>{l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}</td>
+                          <td>{l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toLocaleDateString() : "—"}</td>
+                          <td>
+                            {l.callBackAt ? (
+                              <span style={{ color: overdue ? "#dc2626" : "#334155", fontWeight: overdue ? 700 : 400 }}>
+                                {new Date(l.callBackAt).toLocaleString()}
+                                {overdue ? " · overdue" : ""}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="hub-btn"
+                              style={{ padding: "5px 12px" }}
+                              onClick={() => setEditLead(l)}
+                            >
+                              <EditOutlined /> Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {drill.pages > 1 && (
+              <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
+                <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+                  Page {drill.page} of {drill.pages} · {drill.count} total
+                </span>
+                <div className="hub-row" style={{ gap: 8 }}>
+                  <button type="button" className="hub-btn" disabled={drill.page <= 1} onClick={() => loadLeadList(drill.page - 1)}>
+                    <LeftOutlined /> Prev
+                  </button>
+                  <button type="button" className="hub-btn" disabled={drill.page >= drill.pages} onClick={() => loadLeadList(drill.page + 1)}>
+                    Next <RightOutlined />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {teamStats.length > 0 && (
         <div className="hub-card">
           <div className="hub-card-header">
@@ -662,30 +1729,14 @@ function AllLeads() {
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>Lead Status Filter</h3>
-
-          <div className="hub-row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div className="hub-pill-filter">
-              {statuses.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`hub-pill-btn ${status === s ? "active" : ""}`}
-                  onClick={() => setStatus(s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              className="hub-btn hub-btn-primary"
-              onClick={() => setAddOpen(true)}
-            >
-              <UserAddOutlined /> Add Lead
-            </button>
-          </div>
+          <h3><TeamOutlined /> Browse by Team</h3>
+          <button
+            type="button"
+            className="hub-btn hub-btn-primary"
+            onClick={() => setAddOpen(true)}
+          >
+            <UserAddOutlined /> Add Lead
+          </button>
         </div>
 
         {teamStatsLoading && <div className="hub-empty">Loading teams…</div>}
@@ -702,7 +1753,7 @@ function AllLeads() {
               expandIconPosition="end"
               items={teamStats.map((t) => {
                 const cache = teamLeads[t.team];
-                const rows = (cache?.leads || []).filter((l) => status === "All" || l.status === status);
+                const rows = cache?.leads || [];
                 return {
                   key: t.team,
                   label: (
@@ -740,7 +1791,7 @@ function AllLeads() {
                             {cache && !cache.loading && rows.length === 0 && (
                               <tr>
                                 <td colSpan={6}>
-                                  <div className="hub-empty">No leads match this status yet.</div>
+                                  <div className="hub-empty">No leads in this team yet.</div>
                                 </td>
                               </tr>
                             )}
@@ -769,7 +1820,12 @@ function AllLeads() {
                                   <td>{l.phone}</td>
                                   <td>{l.position}</td>
                                   <td>
-                                    <span className={`hub-badge ${STATUS_META[l.status]}`}>{l.status}</span>
+                                    <span className={`hub-badge ${STATUS_META[l.stage || l.status]}`}>
+                                      {l.stage || stageForStatus(l.status)}
+                                    </span>
+                                    {l.subStatus && (
+                                      <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>{l.subStatus}</div>
+                                    )}
                                   </td>
                                   <td>
                                     <button
@@ -836,6 +1892,7 @@ function AllLeads() {
         onClose={() => setAddOpen(false)}
         onAdd={handleAddLead}
         teamNames={teamNames}
+        admins={admins}
       />
 
       <DuplicateWarningModal
@@ -850,6 +1907,7 @@ function AllLeads() {
         lead={editLead}
         onClose={() => setEditLead(null)}
         teamNames={teamNames}
+        admins={admins}
         onSave={async (updates) => {
           await saveLeadEdit(editLead._id, updates);
           setEditLead(null);
@@ -3819,6 +4877,139 @@ function LinkedInCampaignSetup({ connection }) {
   );
 }
 
+// Dedicated Callbacks / task view — every lead in the "Call Back" stage
+// with a scheduled time, split into Overdue / Today / Upcoming. Overdue
+// rows are highlighted. Click a row to open the lead and reschedule /
+// advance its stage.
+function CallbacksBoard() {
+  const { teamNames } = useTeams();
+  const [data, setData] = useState({ overdue: [], today: [], upcoming: [], counts: {} });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [admins, setAdmins] = useState([]);
+  const [editLead, setEditLead] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(false);
+    const res = await request.get({ entity: "lead/callbacks?days=45" });
+    if (res?.success) setData(res.result);
+    else setError(true);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    request.list({ entity: "admin", options: { items: 500 } }).then((r) => setAdmins(r?.success ? r.result : []));
+  }, []);
+
+  const saveLeadEdit = async (leadId, updates) => {
+    const res = await request.update({ entity: "lead", id: leadId, jsonData: updates });
+    if (res?.success) {
+      setEditLead(null);
+      load();
+    }
+  };
+
+  const Group = ({ title, leads, tone }) => (
+    <div className="hub-card">
+      <div className="hub-card-header">
+        <h3>
+          {title}{" "}
+          <span className={`hub-badge ${tone === "red" ? "hub-badge-red" : tone === "amber" ? "hub-badge-yellow" : "hub-badge-blue"}`}>
+            {leads.length}
+          </span>
+        </h3>
+      </div>
+      {leads.length === 0 ? (
+        <div className="hub-empty">Nothing here.</div>
+      ) : (
+        <div className="hub-table-wrapper">
+          <table className="hub-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Phone</th>
+                <th>Callback At</th>
+                <th>Assigned</th>
+                <th>Team</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l._id} style={tone === "red" ? { background: "#fef2f2" } : undefined}>
+                  <td>
+                    <div className="hub-person" style={{ cursor: "pointer" }} onClick={() => setEditLead(l)}>
+                      <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
+                        {l.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      </div>
+                      {l.name}
+                    </div>
+                  </td>
+                  <td>{l.phone || "—"}</td>
+                  <td style={tone === "red" ? { color: "#dc2626", fontWeight: 700 } : undefined}>
+                    {l.callBackAt ? new Date(l.callBackAt).toLocaleString() : "—"}
+                  </td>
+                  <td>{l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}</td>
+                  <td>{l.team || "Unassigned"}</td>
+                  <td>
+                    <button type="button" className="hub-btn" style={{ padding: "5px 12px" }} onClick={() => setEditLead(l)}>
+                      <EditOutlined /> Open
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="hub-stack">
+      <div className="hub-card">
+        <div className="hub-card-header">
+          <h3><InboxOutlined /> Callbacks</h3>
+          <button type="button" className="hub-btn" onClick={load}>Refresh</button>
+        </div>
+        <div style={{ fontSize: 12.5, color: "#8c8c8c" }}>
+          Leads in the “Call Back” stage. Overdue callbacks are highlighted so nothing slips.
+        </div>
+      </div>
+
+      {loading && <div className="hub-card"><div className="hub-empty">Loading callbacks…</div></div>}
+      {error && !loading && (
+        <div className="hub-card">
+          <div className="hub-empty">
+            Couldn&rsquo;t load callbacks.
+            <button type="button" className="hub-btn" style={{ marginLeft: 8 }} onClick={load}>Retry</button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          <Group title="Overdue" leads={data.overdue} tone="red" />
+          <Group title="Today" leads={data.today} tone="amber" />
+          <Group title="Upcoming" leads={data.upcoming} tone="blue" />
+        </>
+      )}
+
+      <EditLeadModal
+        lead={editLead}
+        onClose={() => setEditLead(null)}
+        teamNames={teamNames}
+        admins={admins}
+        onSave={async (updates) => {
+          await saveLeadEdit(editLead._id, updates);
+        }}
+      />
+    </div>
+  );
+}
+
 export default function Leads() {
   const [tab, setTab] = useState("all");
 
@@ -3827,13 +5018,14 @@ export default function Leads() {
       <div className="hub-header">
         <div>
           <h2>Lead Management</h2>
-          <p>Track lead status, import or export your list, and manage your capture form</p>
+          <p>Track lead stages &amp; sub-statuses, work callbacks, import/export and manage the capture form</p>
         </div>
       </div>
 
       <HubTabs
         tabs={[
-          { key: "all", label: "All Leads" },
+          { key: "all", label: "Lead Stages" },
+          { key: "callbacks", label: "Callbacks" },
           { key: "io", label: "Import / Export" },
           { key: "form", label: "Capture Form" },
         ]}
@@ -3842,6 +5034,7 @@ export default function Leads() {
       />
 
       {tab === "all" && <AllLeads />}
+      {tab === "callbacks" && <CallbacksBoard />}
       {tab === "io" && <ImportExport />}
       {tab === "form" && <CaptureForm />}
     </div>

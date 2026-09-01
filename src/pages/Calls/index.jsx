@@ -599,6 +599,14 @@ function CallStatusLog() {
   const [range, setRange] = useState("1M");
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+
+  const PER_PAGE = 10;
+
+  // Any change to what's being shown resets to the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [status, range, viewMode, selectedPerson]);
 
   const statuses = ["All", "Connected", "Missed", "No Answer", "Busy", "Voicemail"];
 
@@ -660,6 +668,10 @@ function CallStatusLog() {
     status === "All"
       ? rangedFiltered
       : rangedFiltered.filter((c) => c.status === status);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   const counts = statuses.reduce((acc, s) => {
     acc[s] =
@@ -784,7 +796,7 @@ function CallStatusLog() {
 
               {!showLoading &&
                 !showNoTeam &&
-                filtered.map((c) => (
+                pageRows.map((c) => (
                   <tr key={c._id}>
                     <td>
                       <div className="hub-person">
@@ -808,6 +820,34 @@ function CallStatusLog() {
             </tbody>
           </table>
         </div>
+
+        {!showLoading && !showNoTeam && filtered.length > 0 && (
+          <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
+            <span style={{ fontSize: 12, color: "var(--hub-muted, #8c8c8c)" }}>
+              Page {currentPage} of {totalPages} · {filtered.length} call{filtered.length === 1 ? "" : "s"}
+              {" · showing "}
+              {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filtered.length)}
+            </span>
+            <div className="hub-row" style={{ gap: 8 }}>
+              <button
+                type="button"
+                className="hub-btn"
+                disabled={currentPage <= 1}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                className="hub-btn"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

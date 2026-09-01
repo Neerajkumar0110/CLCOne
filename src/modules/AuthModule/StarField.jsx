@@ -37,7 +37,7 @@ export default function StarField() {
 
     const Z_FAR = 1400; // spawn depth
     const Z_NEAR = 1; // camera plane
-    const SPEED = reduceMotion ? 22 : 65; // world units / second the camera advances — calm
+    const SPEED = reduceMotion ? 44 : 130; // world units / second the camera advances
 
     let width = 0;
     let height = 0;

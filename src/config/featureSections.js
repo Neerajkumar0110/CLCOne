@@ -30,7 +30,6 @@ import {
   FileTextOutlined,
   ShoppingCartOutlined,
   AppstoreOutlined,
-  AimOutlined,
   MailOutlined,
   FilterOutlined,
   BarChartOutlined,
@@ -94,9 +93,8 @@ export const FEATURE_SECTIONS = [
         key: 'pipeline',
         label: 'Pipeline',
         Icon: FunnelPlotOutlined,
-        readOnly: true,
-        kpis: ['Open Deals', 'Pipeline Value', 'Weighted Value', 'Avg Deal Age'],
-        columns: ['Deal', 'Account', 'Stage', 'Value', 'Owner', 'Close Date'],
+        // Live weighted-funnel board computed from the Deals tab (salesdeal).
+        embed: 'salesPipeline',
       },
       // Leads / Customers / Calls live under Sales now. `embed` renders the
       // existing full-featured pages (ads integrations, imports, etc.) inside
@@ -229,14 +227,6 @@ export const FEATURE_SECTIONS = [
             AREA('description', 'Description'),
           ]),
         ],
-      },
-      {
-        key: 'forecast',
-        label: 'Targets & Forecast',
-        Icon: AimOutlined,
-        readOnly: true,
-        kpis: ['Quarter Target', 'Achieved', 'Gap', 'Forecast'],
-        columns: ['Owner / Team', 'Target', 'Committed', 'Best Case', 'Achieved', 'Attainment'],
       },
     ],
   },

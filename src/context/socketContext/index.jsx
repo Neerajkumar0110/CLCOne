@@ -1,50 +1,70 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { io } from "socket.io-client";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectAuth } from "@/redux/auth/selectors";
-import { BASE_URL } from "@/config/serverApiConfig";
+import { silentPost } from "@/request/silent";
 
-// One socket.io connection for the whole app, authenticated with the same
-// JWT as the REST API (see backend/src/socket.js). Currently only Team Chat
-// (pages/Communication) listens on it, but it's app-level so presence/online
-// status stays accurate even when that page isn't open.
+// The backend runs on Vercel serverless, which can't hold a persistent
+// socket.io connection, so "real-time" here is short-interval polling:
+//
+//   - presence  → POST /api/presence/ping every PRESENCE_INTERVAL (heartbeat
+//                 + "who's online" in one call), driving `onlineIds`.
+//   - messages  → messagesContext / Communication poll the REST thread +
+//                 conversation list themselves.
+//
+// `socket` is kept in the context value as a tiny no-op event emitter so the
+// existing `socket.on("message:new" | "message:read" | "notification:new")`
+// call-sites stay valid without a null check; those events simply never fire
+// now — the pollers below are the delivery path.
 const SocketContext = createContext(null);
+
+const PRESENCE_INTERVAL_MS = 15000;
+
+function makeNoopEmitter() {
+  return { on() {}, off() {}, emit() {}, connected: false };
+}
 
 export function SocketProvider({ children }) {
   const { current } = useSelector(selectAuth);
   const token = current?.token;
-  const [socket, setSocket] = useState(null);
   const [onlineIds, setOnlineIds] = useState(new Set());
+  const emitterRef = useRef(makeNoopEmitter());
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token) {
+      setOnlineIds(new Set());
+      return undefined;
+    }
 
-    const s = io(BASE_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+    let cancelled = false;
 
-    s.on("presence:snapshot", ({ userIds }) => setOnlineIds(new Set(userIds)));
-    s.on("presence:update", ({ userId, online }) => {
-      setOnlineIds((prev) => {
-        const next = new Set(prev);
-        if (online) next.add(userId);
-        else next.delete(userId);
-        return next;
-      });
-    });
+    // silentPost (not the `request` helper) so a failed heartbeat doesn't
+    // pop request.js's error toast every interval — a missed beat is
+    // silent and the next tick recovers.
+    const ping = async () => {
+      const data = await silentPost("presence/ping");
+      if (!cancelled && data?.success && Array.isArray(data.result?.onlineIds)) {
+        setOnlineIds(new Set(data.result.onlineIds));
+      }
+    };
 
-    setSocket(s);
+    ping();
+    const id = setInterval(ping, PRESENCE_INTERVAL_MS);
+
+    // Ping again the moment the tab regains focus so presence feels snappy
+    // after the machine wakes / the user comes back.
+    const onFocus = () => ping();
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      s.disconnect();
-      setSocket(null);
+      cancelled = true;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
       setOnlineIds(new Set());
     };
   }, [token]);
 
   return (
-    <SocketContext.Provider value={{ socket, onlineIds }}>
+    <SocketContext.Provider value={{ socket: emitterRef.current, onlineIds }}>
       {children}
     </SocketContext.Provider>
   );

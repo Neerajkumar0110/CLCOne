@@ -7,6 +7,7 @@ import { useSocket } from "@/context/socketContext";
 import { useMessages } from "@/context/messagesContext";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { request } from "@/request";
+import { silentGet } from "@/request/silent";
 import { BASE_URL } from "@/config/serverApiConfig";
 import { initials, colorForName, displayName } from "@/utils/adminDisplay";
 import { PaperClipOutlined, SendOutlined, CloseOutlined, RollbackOutlined } from "@ant-design/icons";
@@ -58,7 +59,7 @@ function Attachment({ attachment }) {
 // so it embeds cleanly.
 export function TeamChat() {
   const currentAdmin = useSelector(selectCurrentAdmin);
-  const { socket, onlineIds } = useSocket();
+  const { onlineIds } = useSocket();
   const { conversations, markConversationRead, bumpConversationPreview, setActiveConversationId } = useMessages();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -107,49 +108,36 @@ export function TeamChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations.length]);
 
-  // Real-time inbound messages for whichever thread is currently open —
-  // the conversation list itself (preview/unread count) is already kept in
-  // sync by messagesContext regardless of what's open here.
+  // Near-real-time for the open thread: re-fetch it on a short interval
+  // (the backend has no live socket on serverless — see context/
+  // socketContext). GET /message/thread also marks incoming messages read
+  // server-side, so keeping it open flips the other side's ticks too.
+  // Merge rather than replace so an optimistic just-sent bubble isn't
+  // dropped in the gap before the server round-trips it back.
   useEffect(() => {
-    if (!socket) return undefined;
+    if (!activeUserId) return undefined;
+    let cancelled = false;
 
-    const onMessage = (msg) => {
-      const otherId = msg.from === currentAdmin?._id ? msg.to : msg.from;
-      if (otherId !== activeUserId) return;
-      // The sender's own socket is in both rooms too (see emitMessage in
-      // backend/src/socket.js), so this same event also lands back on the
-      // tab that just sent it — which also appends via sendText/sendFile's
-      // REST response, in no guaranteed order. appendMessage no-ops if the
-      // other path already added it.
-      setThread((prev) => appendMessage(prev, msg));
+    const poll = async () => {
+      const res = await silentGet("message/thread/" + activeUserId);
+      if (cancelled || !res?.success) return;
+      setThread((prev) => {
+        if (!prev || !prev.messages) return res.result;
+        const byId = new Map(res.result.messages.map((m) => [m._id, m]));
+        for (const m of prev.messages) if (!byId.has(m._id)) byId.set(m._id, m);
+        const messages = [...byId.values()].sort(
+          (a, b) => new Date(a.createdAt || a.created) - new Date(b.createdAt || b.created)
+        );
+        return { ...res.result, messages };
+      });
     };
 
-    socket.on("message:new", onMessage);
-    return () => socket.off("message:new", onMessage);
-  }, [socket, currentAdmin, activeUserId]);
-
-  // The other person just opened this thread — flip every message I sent
-  // them from single tick to double (see emitRead in backend/src/socket.js).
-  useEffect(() => {
-    if (!socket) return undefined;
-
-    const onRead = ({ readerId, readAt }) => {
-      if (readerId !== activeUserId) return;
-      setThread((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.from === currentAdmin?._id && !m.readAt ? { ...m, readAt } : m
-              ),
-            }
-          : prev
-      );
+    const id = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
     };
-
-    socket.on("message:read", onRead);
-    return () => socket.off("message:read", onRead);
-  }, [socket, currentAdmin, activeUserId]);
+  }, [activeUserId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

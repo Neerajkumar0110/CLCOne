@@ -29,6 +29,7 @@ import {
   QuestionCircleOutlined,
   GithubOutlined,
   CloudServerOutlined,
+  PhoneOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -66,6 +67,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     leads: '/leads',
     customer: '/customer',
     calls: '/calls',
+    calling: '/calling',
     communication: '/communication',
     // Analytics
     performance: '/performance',
@@ -124,6 +126,13 @@ function Sidebar({ collapsible, isMobile = false }) {
     // ---- New business sections ---- (Sales now carries Leads / Customers /
     // Calls as sub-tabs — see config/featureSections.js)
     ...featureItems,
+
+    // ---- Call center (VICIdial-ready, mock by default) ----
+    {
+      key: 'calling',
+      label: 'Calls',
+      icon: <PhoneOutlined />,
+    },
 
     // ---- Analytics: Reports ▸ (Overview + Performance) ----
     {
