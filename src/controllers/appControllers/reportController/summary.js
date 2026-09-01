@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES } = require('../../../config/roles');
+const { stageForStatus } = require('../../../config/leadStages');
 
 const RANGE_DAYS = { '1W': 7, '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -53,7 +54,9 @@ const summary = async (req, res) => {
   if (scopeTeam) leadMatch.team = scopeTeam;
   const leads = await Lead.find(leadMatch).select('status created').lean();
   const totalLeads = leads.length;
-  const wonLeads = leads.filter((l) => l.status === 'Won').length;
+  // "Won" == the "Enrolled" pipeline stage now (legacy 'Won' folds in via
+  // stageForStatus — see config/leadStages.js).
+  const wonLeads = leads.filter((l) => stageForStatus(l.status) === 'Enrolled').length;
 
   // ---- Payments & new Clients — real per-agent data via createdBy, resolved
   // to a team in JS since neither model carries a team field of its own. ----

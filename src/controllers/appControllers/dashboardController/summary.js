@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES } = require('../../../config/roles');
+const { stageForStatus } = require('../../../config/leadStages');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 
@@ -73,7 +74,9 @@ const summary = async (req, res) => {
   const connectRatePct = totalCalls ? Math.round((connected / totalCalls) * 100) : 0;
 
   const totalLeads = leads.length;
-  const wonLeads = leads.filter((l) => l.status === 'Won').length;
+  // "Won" is now the "Enrolled" pipeline stage — stageForStatus also folds
+  // the legacy 'Won' value in (see config/leadStages.js).
+  const wonLeads = leads.filter((l) => stageForStatus(l.status) === 'Enrolled').length;
   const conversionRatePct = totalLeads ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
   const outcome = { Connected: 0, Missed: 0, 'No Answer': 0, Busy: 0, Voicemail: 0 };

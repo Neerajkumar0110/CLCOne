@@ -1,5 +1,6 @@
 const createCRUDController = require('../middlewaresControllers/createCRUDController');
 const { routesList } = require('../../models/utils');
+const callingModelGuards = require('./callingModelGuards');
 
 // Requiring each controller by a literal path (rather than discovering
 // directories with glob + a dynamic require) so bundlers that statically
@@ -24,6 +25,7 @@ const controllerModules = {
   teamController: require('./teamController'),
   ticketController: require('./ticketController'),
   vercelConnectionController: require('./vercelConnectionController'),
+  ...callingModelGuards,
 };
 
 const appControllers = () => {

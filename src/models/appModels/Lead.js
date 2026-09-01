@@ -1,4 +1,33 @@
 const mongoose = require('mongoose');
+const { STAGE_NAMES, resolveStageSub } = require('../../config/leadStages');
+
+// One entry per stage / sub-status change — the full audit trail the UI
+// renders in the lead detail panel.
+const stageHistorySchema = new mongoose.Schema(
+  {
+    fromStage: String,
+    fromSubStatus: String,
+    toStage: String,
+    toSubStatus: String,
+    changedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    changedByName: String,
+    remarks: String,
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+// Lightweight call log kept on the lead itself (separate from the global
+// Call model, which is telephony-driven). Populated from the lead panel.
+const callLogSchema = new mongoose.Schema(
+  {
+    outcome: String, // Connected / No Answer / Busy / Wrong Number / ...
+    notes: String,
+    byName: String,
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const schema = new mongoose.Schema({
   removed: {
@@ -17,28 +46,63 @@ const schema = new mongoose.Schema({
   phone: String,
   email: String,
   source: String,
+
+  // ── Pipeline ──────────────────────────────────────────────────────────
+  // `stage` + `subStatus` are the real fields (dependent dropdowns in the
+  // UI). `status` is a denormalised mirror ("<stage> - <subStatus>") kept
+  // in sync by the hooks below so older code that reads `lead.status`
+  // keeps working. Validation of the (stage, subStatus) pair lives in the
+  // lead create/update controllers + config/leadStages.js.
+  stage: {
+    type: String,
+    enum: STAGE_NAMES,
+    default: 'New Lead',
+    index: true,
+  },
+  subStatus: {
+    type: String,
+    default: 'Newly Generated',
+    index: true,
+  },
   status: {
     type: String,
-    enum: ['New', 'Contacted', 'Qualified', 'Won', 'Lost'],
-    default: 'New',
+    default: 'New Lead',
   },
+
+  // When `stage` last changed (not sub-status-only edits).
+  stageUpdatedAt: { type: Date, default: Date.now },
+  lastContactAt: Date,
+  nextFollowUpAt: Date,
+
+  // Stage-specific captured detail.
+  callBackAt: Date, // Call Back — mandatory date + time
+  meetingAt: Date, // Sales Meeting — Meeting Scheduled / Rescheduled
+  futureFollowUpAt: Date, // Future Prospects — expected follow-up date
+  enrolledAt: Date, // Enrolled — registration date
+  registrationLink: String, // Opportunity → Registration Link Shared
+  registrationLinkSharedAt: Date,
+
+  // Ownership + free-text.
+  assignedUser: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  assignedUserName: String,
+  remarks: String,
+
+  stageHistory: { type: [stageHistorySchema], default: [] },
+  callHistory: { type: [callLogSchema], default: [] },
+
   // Team name (matches Team.name) this lead has been assigned/contributed to.
   team: String,
   position: String,
   color: String,
   image: String,
 
-  // Optional location / secondary-contact detail — populated mainly by
-  // bulk imports whose file carries these columns; surfaced on hover in
-  // the Unassigned Leads table and in the lead detail modal.
+  // Optional location / secondary-contact detail — mainly from bulk imports.
   alternatePhone: String,
   city: String,
   state: String,
   country: String,
   zipcode: String,
 
-  // Set when this lead came in through a bulk import — lets a batch's rows
-  // be looked up later via GET /api/lead/filter?filter=importBatch&equal=<id>.
   importBatch: { type: mongoose.Schema.ObjectId, ref: 'LeadImportBatch' },
 
   // Capture-form custom questions (Website + Facebook Lead Ads).
@@ -46,9 +110,7 @@ const schema = new mongoose.Schema({
   howSoonToStart: String,
   message: String,
 
-  // Facebook/Meta lead-ads tracing — set only for source === 'Facebook Ads'.
-  // facebookLeadId is unique+sparse so it only enforces uniqueness on actual
-  // Facebook leads, and doubles as the duplicate-webhook guard.
+  // Facebook/Meta lead-ads tracing.
   facebookLeadId: { type: String, unique: true, sparse: true },
   pageId: String,
   metaFormId: String,
@@ -58,17 +120,14 @@ const schema = new mongoose.Schema({
   adId: { type: mongoose.Schema.ObjectId, ref: 'FacebookAd' },
   rawMetaData: mongoose.Schema.Types.Mixed,
 
-  // Google Ads lead-ads tracing — set only for source === 'Google Ads'.
-  // Plain Strings holding Google's raw ids (not ObjectId refs) — see the
-  // adId cast-error note above; the Google/LinkedIn webhook handlers only
-  // ever have the platform's own raw id, never this app's local _id.
+  // Google Ads lead-ads tracing.
   googleLeadId: { type: String, unique: true, sparse: true },
   googleCampaignId: String,
   googleAdGroupId: String,
   googleAdId: String,
   rawGoogleData: mongoose.Schema.Types.Mixed,
 
-  // LinkedIn lead-ads tracing — set only for source === 'LinkedIn Ads'.
+  // LinkedIn lead-ads tracing.
   linkedinLeadId: { type: String, unique: true, sparse: true },
   organizationId: String,
   linkedinFormId: String,
@@ -84,6 +143,38 @@ const schema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Keep stage / subStatus / status internally consistent. stage+subStatus
+// are authoritative (they always have at least a schema default); `status`
+// is always re-derived from them so older code that reads `lead.status`
+// stays correct. A legacy webhook/import that sets only `status: 'New'`
+// still lands on stage 'New Lead' via the schema default.
+schema.pre('save', function syncPipeline(next) {
+  const r = resolveStageSub({ stage: this.stage, subStatus: this.subStatus, status: this.status });
+  this.stage = r.stage;
+  this.subStatus = r.subStatus;
+  this.status = r.status;
+  if (this.isModified('stage') && !this.isModified('stageUpdatedAt')) {
+    this.stageUpdatedAt = new Date();
+  }
+  next();
+});
+
+schema.pre('findOneAndUpdate', function syncPipelineUpdate(next) {
+  const u = this.getUpdate() || {};
+  const target = u.$set || u;
+  if (target.stage !== undefined || target.subStatus !== undefined || target.status !== undefined) {
+    const r = resolveStageSub({
+      stage: target.stage,
+      subStatus: target.subStatus,
+      status: target.stage === undefined ? target.status : undefined,
+    });
+    target.stage = r.stage;
+    target.subStatus = r.subStatus;
+    target.status = r.status;
+  }
+  next();
 });
 
 module.exports = mongoose.model('Lead', schema);

@@ -28,6 +28,14 @@ const adminSchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  // Heartbeat timestamp for presence — refreshed by POST /api/presence/ping
+  // every few seconds while the app is open in a tab. "Online" = this is
+  // within the last PRESENCE_WINDOW_MS (see presenceController). Used instead
+  // of a live socket because the backend runs on serverless (no persistent
+  // connections).
+  lastSeenAt: {
+    type: Date,
+  },
   role: {
     type: String,
     default: 'owner',

@@ -2,18 +2,9 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
+const { normalizeImported } = require('../../../config/leadStages');
 
 const AVATAR_COLORS = ['#2563EB', '#722ED1', '#13C2C2', '#FA8C16', '#EB2F96', '#52C41A'];
-
-// Lead.status is an enum — anything outside this list (e.g. "Interested",
-// "Not Connected" from an exported report) fails schema validation and
-// would drop the whole row, so unknown values fall back to "New".
-const STATUS_VALUES = ['New', 'Contacted', 'Qualified', 'Won', 'Lost'];
-const normalizeStatus = (raw) => {
-  if (!raw) return 'New';
-  const hit = STATUS_VALUES.find((s) => s.toLowerCase() === String(raw).trim().toLowerCase());
-  return hit || 'New';
-};
 
 function parseRows(diskPath) {
   const ext = path.extname(diskPath).toLowerCase();
@@ -59,7 +50,8 @@ const PHONE_ALIASES = [
 ];
 const EMAIL_ALIASES = ['email', 'emailaddress', 'email address', 'emailid', 'email id', 'mail', 'e-mail'];
 const SOURCE_ALIASES = ['source', 'leadsource', 'lead source', 'utmsource', 'channel'];
-const STATUS_ALIASES = ['status', 'leadstatus', 'lead status', 'stage'];
+const STATUS_ALIASES = ['status', 'leadstatus', 'lead status', 'stage', 'leadstage', 'lead stage'];
+const SUBSTATUS_ALIASES = ['substatus', 'sub status', 'sub-status', 'substage', 'sub stage', 'leadsubstatus'];
 const POSITION_ALIASES = [
   'position', 'designation', 'role', 'jobtitle', 'job title', 'title', 'course', 'interest',
   'interestedin', 'program', 'department',
@@ -162,13 +154,20 @@ const importLeads = async (req, res) => {
       continue;
     }
     const rowTeam = rowTeams ? rowTeams[i] || '' : team;
+    const pipeline = normalizeImported(
+      field(row, ...STATUS_ALIASES),
+      field(row, ...SUBSTATUS_ALIASES)
+    );
     docs.push({
       name,
       phone: field(row, ...PHONE_ALIASES),
       email: field(row, ...EMAIL_ALIASES) || undefined,
       source: field(row, ...SOURCE_ALIASES) || 'Import',
       position: field(row, ...POSITION_ALIASES),
-      status: normalizeStatus(field(row, ...STATUS_ALIASES)),
+      stage: pipeline.stage,
+      subStatus: pipeline.subStatus,
+      status: pipeline.status,
+      stageUpdatedAt: new Date(),
       alternatePhone: field(row, ...ALT_PHONE_ALIASES) || undefined,
       city: field(row, ...CITY_ALIASES) || undefined,
       state: field(row, ...STATE_ALIASES) || undefined,

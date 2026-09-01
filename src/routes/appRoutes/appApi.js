@@ -34,6 +34,9 @@ const routerApp = (entity, controller) => {
       );
     router.route(`/${entity}/export`).get(catchErrors(controller['export']));
     router.route(`/${entity}/team-stats`).get(catchErrors(controller['teamStats']));
+    router.route(`/${entity}/stage-stats`).get(catchErrors(controller['stageStats']));
+    router.route(`/${entity}/by-stage`).get(catchErrors(controller['byStage']));
+    router.route(`/${entity}/callbacks`).get(catchErrors(controller['callbacks']));
   }
 
   if (entity === 'team') {
@@ -94,5 +97,15 @@ router.route('/report/number-lookup').get(catchErrors(appControllers.reportContr
 
 // Same story again — no model of its own, just live process/DB info for the About page.
 router.route('/about/info').get(catchErrors(appControllers.aboutController.info));
+
+// Presence heartbeat — no model of its own, just stamps Admin.lastSeenAt and
+// returns who's currently online. Polled by the client instead of a socket
+// (serverless can't hold a persistent socket.io connection).
+// .default fallback: Vercel's Rolldown build lazy-wraps local requires (see
+// the note in backend/api/index.js) — reading `.default` unwraps it; on a
+// plain Node run `.default` is undefined and we use the module as-is.
+const presenceControllerMod = require('../../controllers/appControllers/presenceController');
+const presenceController = presenceControllerMod.default || presenceControllerMod;
+router.route('/presence/ping').post(catchErrors(presenceController.ping));
 
 module.exports = router;

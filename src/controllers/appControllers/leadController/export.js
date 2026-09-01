@@ -1,7 +1,20 @@
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 
-const EXPORT_COLUMNS = ['name', 'phone', 'source', 'team', 'position', 'status'];
+const EXPORT_COLUMNS = [
+  'name',
+  'phone',
+  'email',
+  'source',
+  'team',
+  'position',
+  'stage',
+  'subStatus',
+  'assignedUserName',
+  'callBackAt',
+  'nextFollowUpAt',
+  'status',
+];
 
 // GET /api/lead/export?format=csv|excel&team=<optional filter>
 // Streams a CSV or .xlsx file of all (non-removed) leads, or just one team's.
