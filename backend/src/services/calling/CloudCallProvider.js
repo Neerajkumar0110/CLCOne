@@ -84,6 +84,42 @@ const ADAPTERS = {
         : { ok: false, error: (json && json.RestException && json.RestException.Message) || 'Exotel rejected the call.' };
     },
   },
+
+  // Edesy number masking — POST https://voice-api.edesy.in/v1/masking/calls
+  // party_a (agent) is dialled first, then party_b (customer); Edesy picks
+  // the masked caller-ID from your purchased number pool, so caller_id is
+  // NOT sent. Both numbers are bare 10-digit Indian mobile numbers.
+  // Correlation is by the returned call_sid (no custom-reference field on
+  // this API) — the /api/cloud-call/webhook handler matches on it.
+  edesy: {
+    buildClickToCall(cfg, { agentNumber, customerNumber }) {
+      return {
+        url: `${cfg.apiBase}/masking/calls`,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfg.apiKey || cfg.apiToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: {
+          party_a: agentNumber,
+          party_b: customerNumber,
+          max_duration_sec: 3600,
+        },
+      };
+    },
+    parseClickToCall(json, httpOk) {
+      const d = (json && json.data) || {};
+      if (httpOk && d.call_sid) return { ok: true, providerCallId: d.call_sid };
+      // Edesy error shape: { error: { code, message } }
+      const err =
+        (json && json.error && (json.error.message || json.error.code)) ||
+        (json && json.message) ||
+        (typeof (json && json.error) === 'string' ? json.error : '') ||
+        'Edesy rejected the call request.';
+      return { ok: false, error: String(err) };
+    },
+  },
 };
 
 class CloudCallProvider extends CallingProvider {
@@ -100,12 +136,13 @@ class CloudCallProvider extends CallingProvider {
   }
 
   get _ready() {
-    return !!(this._cfg.apiToken && this._cfg.callerId);
+    // Tata/Exotel authenticate with apiToken; Edesy with its vp_ apiKey.
+    return !!((this._cfg.apiToken || this._cfg.apiKey) && this._cfg.callerId);
   }
 
   async _clickToCall({ agentNumber, customerNumber, callerId, crmCallId }) {
     if (!this._ready) {
-      return { ok: false, error: 'Cloud calling not configured (CLOUD_CALL_API_TOKEN / CLOUD_CALL_CALLER_ID).', code: 'not_configured' };
+      return { ok: false, error: 'Cloud calling not configured (CLOUD_CALL_API_TOKEN or CLOUD_CALL_API_KEY, plus CLOUD_CALL_CALLER_ID).', code: 'not_configured' };
     }
     const spec = this._adapter.buildClickToCall(this._cfg, {
       agentNumber,
@@ -146,7 +183,7 @@ class CloudCallProvider extends CallingProvider {
       label: `Cloud Calling · ${this._cfg.provider}`,
       detail: this._ready
         ? `${this._cfg.provider} · caller ID ${this._cfg.callerId} · calls bridge on the provider (agent phone rings first)`
-        : 'Set CLOUD_CALL_API_TOKEN and CLOUD_CALL_CALLER_ID (and CLOUD_CALL_PROVIDER / API_BASE).',
+        : 'Set CLOUD_CALL_API_TOKEN or CLOUD_CALL_API_KEY, and CLOUD_CALL_CALLER_ID (plus CLOUD_CALL_PROVIDER / API_BASE).',
       sipOutboundEnabled: this._ready,
     };
   }

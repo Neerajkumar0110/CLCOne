@@ -36,7 +36,7 @@ const config = {
   // customer, and bridges the two. Call events + recording URL come back
   // on the /api/cloud-call/webhook endpoint.
   cloud: {
-    provider: (process.env.CLOUD_CALL_PROVIDER || 'tata').toLowerCase(), // tata | exotel | ozonetel | knowlarity | servetel | twilio
+    provider: (process.env.CLOUD_CALL_PROVIDER || 'tata').toLowerCase(), // edesy | tata | exotel | ozonetel | knowlarity | servetel | twilio
     apiBase: (process.env.CLOUD_CALL_API_BASE || 'https://api-smartflo.tatateleservices.com').replace(/\/+$/, ''),
     accountSid: process.env.CLOUD_CALL_ACCOUNT_SID || '',
     apiKey: process.env.CLOUD_CALL_API_KEY || '',
@@ -86,8 +86,8 @@ function publicConfig() {
     vicidial: 'VICIdial (legacy)',
     cloud: 'Cloud Calling API',
   };
-  const cloudLabels = { tata: 'Tata Smartflo', exotel: 'Exotel', ozonetel: 'Ozonetel', knowlarity: 'Knowlarity', servetel: 'Servetel', twilio: 'Twilio' };
-  const cloudReady = !!(config.cloud.apiToken && config.cloud.callerId);
+  const cloudLabels = { edesy: 'Edesy Number Masking', tata: 'Tata Smartflo', exotel: 'Exotel', ozonetel: 'Ozonetel', knowlarity: 'Knowlarity', servetel: 'Servetel', twilio: 'Twilio' };
+  const cloudReady = !!((config.cloud.apiToken || config.cloud.apiKey) && config.cloud.callerId);
   return {
     provider: config.provider,
     testMode: config.isMock,

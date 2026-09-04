@@ -27,6 +27,11 @@ const fileUpload = require('express-fileupload');
 // create our Express app
 const app = express();
 
+// Behind a reverse proxy (Nginx on the VPS, or Vercel's edge) the client IP
+// arrives in X-Forwarded-For. Trust the first hop so express-rate-limit keys
+// on the real IP instead of the proxy's, and req.protocol reflects https.
+app.set('trust proxy', 1);
+
 app.use(
   cors({
     origin: true,
