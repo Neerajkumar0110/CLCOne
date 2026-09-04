@@ -46,20 +46,39 @@ function mapStatus(raw) {
 const cloudWebhook = async (req, res) => {
   const CallRecord = mongoose.model('CallRecord');
   const secretExpected = callingConfig.cloud.webhookSecret;
-  const secretGot = req.query.secret || req.get('x-webhook-secret') || req.get('x-smartflo-signature');
+  const secretGot = req.query.secret || req.get('x-webhook-secret');
 
   if (secretExpected) {
-    if (!timingSafeEq(secretGot, secretExpected)) {
+    // Two accepted proofs:
+    //   1. plain shared secret in ?secret= / x-webhook-secret (Smartflo-style)
+    //   2. HMAC-SHA256(raw body, secret) in a signature header (Edesy-style) —
+    //      compared both bare-hex and "sha256=" prefixed.
+    const rawBody = req.rawBody || JSON.stringify(req.body || {});
+    const sigHeader =
+      req.get('x-edesy-signature') ||
+      req.get('x-webhook-signature') ||
+      req.get('x-signature') ||
+      req.get('x-smartflo-signature');
+    let ok = secretGot && timingSafeEq(secretGot, secretExpected);
+    if (!ok && sigHeader) {
+      const digest = crypto.createHmac('sha256', secretExpected).update(rawBody).digest('hex');
+      ok = timingSafeEq(sigHeader, digest) || timingSafeEq(sigHeader, `sha256=${digest}`);
+    }
+    if (!ok) {
       return res.status(401).json({ success: false, message: 'bad secret' });
     }
   }
 
-  const b = { ...(req.body || {}), ...(req.query || {}) };
+  // Edesy nests the call fields under `data` with `event` + `call_sid` at the
+  // top level; flatten so the pick() calls below see one namespace.
+  const body = req.body || {};
+  const nested = body.data && typeof body.data === 'object' ? body.data : {};
+  const b = { ...body, ...nested, ...(req.query || {}) };
 
   // Correlate: our id first (custom_identifier we sent), then the
   // provider's own call id.
   const crmId = pick(b, 'custom_identifier', 'customField', 'CustomField', 'custom_field', 'crmCallId');
-  const providerCallId = pick(b, 'call_id', 'callId', 'CallSid', 'uuid', 'Sid', 'call_uuid');
+  const providerCallId = pick(b, 'call_sid', 'call_id', 'callId', 'CallSid', 'uuid', 'Sid', 'call_uuid');
 
   let rec = null;
   if (crmId && mongoose.isValidObjectId(crmId)) {
@@ -73,11 +92,18 @@ const cloudWebhook = async (req, res) => {
     return res.status(200).json({ success: true, message: 'no matching call' });
   }
 
-  const status = mapStatus(pick(b, 'status', 'call_status', 'CallStatus', 'callstate', 'state', 'dial_status'));
+  const status = mapStatus(pick(b, 'status', 'call_status', 'CallStatus', 'callstate', 'state', 'dial_status', 'event'));
   const answeredAt = toDate(pick(b, 'answer_stamp', 'answered_at', 'answer_time', 'AnswerTime', 'start_stamp'));
   const endedAt = toDate(pick(b, 'end_stamp', 'ended_at', 'end_time', 'EndTime', 'hangup_time'));
-  const durationSec = Number(pick(b, 'billsec', 'duration', 'call_duration', 'CallDuration', 'conversation_duration')) || 0;
-  const recordingUrl = pick(b, 'recording_url', 'recordingUrl', 'RecordingUrl', 'recording', 'record_url');
+  const durationSec =
+    Number(pick(b, 'billsec', 'duration_sec', 'bill_duration_sec', 'duration', 'call_duration', 'CallDuration', 'conversation_duration')) || 0;
+  let recordingUrl = pick(b, 'recording_url', 'recordingUrl', 'RecordingUrl', 'recording', 'record_url');
+  // Edesy sends a storage-relative path (e.g. "recordings/2026/05/11/x.wav");
+  // make it absolute against the API host so the player can fetch it.
+  if (recordingUrl && !/^https?:\/\//i.test(recordingUrl)) {
+    const origin = String(callingConfig.cloud.apiBase || '').replace(/\/v\d+$/, '');
+    if (origin) recordingUrl = `${origin}/${String(recordingUrl).replace(/^\/+/, '')}`;
+  }
   const hangupCause = pick(b, 'hangup_cause', 'HangupCause', 'reason', 'disconnected_by');
 
   // Only ever move forward: dialing → connected → completed/failed.
