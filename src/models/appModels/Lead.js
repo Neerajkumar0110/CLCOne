@@ -110,6 +110,23 @@ const schema = new mongoose.Schema({
   howSoonToStart: String,
   message: String,
 
+  // Campaign attribution for leads that come in through the hosted
+  // landing page / embeddable website form. Populated from the page's
+  // query string (?utm_source=…&utm_campaign=…&gclid=…) so every ad's
+  // leads are traceable without any ad-platform OAuth — this is what
+  // lights up the Marketing Analytics Hub "Global Leads Platform".
+  attribution: {
+    utmSource: String,
+    utmMedium: String,
+    utmCampaign: String,
+    utmContent: String,
+    utmTerm: String,
+    gclid: String,
+    fbclid: String,
+    landingPage: String,
+    referrer: String,
+  },
+
   // Facebook/Meta lead-ads tracing.
   facebookLeadId: { type: String, unique: true, sparse: true },
   pageId: String,

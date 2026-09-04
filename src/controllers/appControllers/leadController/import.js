@@ -126,6 +126,32 @@ const importLeads = async (req, res) => {
 
   const errors = [];
   const created = [];
+  const duplicates = [];
+
+  // Dedupe key for a lead: its phone's last 10 digits (so "+91 70170
+  // 55778", "07017055778" and "7017055778" all match), else name+email
+  // lowercased. Rows with neither can't be matched and are always imported.
+  const digits = (s) => String(s || '').replace(/\D/g, '');
+  const dedupeKey = (name, phone, email) => {
+    const d = digits(phone);
+    const p = d.length > 10 ? d.slice(-10) : d;
+    if (p.length >= 7) return `p:${p}`;
+    if (email) return `n:${String(name).trim().toLowerCase()}|${String(email).trim().toLowerCase()}`;
+    return null;
+  };
+
+  // Load every existing lead's key once, so an import never re-adds a
+  // contact that's already in the CRM.
+  const existingKeys = new Set();
+  const existing = await Lead.find({ removed: false })
+    .select('phone email name')
+    .limit(500000)
+    .lean();
+  for (const l of existing) {
+    const k = dedupeKey(l.name, l.phone, l.email);
+    if (k) existingKeys.add(k);
+  }
+  const seenInFile = new Set();
 
   const batch = await new LeadImportBatch({
     fileName: req.upload.fileName,
@@ -153,6 +179,22 @@ const importLeads = async (req, res) => {
       errors.push(`Row ${i + 2}: missing name`);
       continue;
     }
+
+    const rowPhone = field(row, ...PHONE_ALIASES);
+    const rowEmail = field(row, ...EMAIL_ALIASES);
+    const key = dedupeKey(name, rowPhone, rowEmail);
+    if (key) {
+      if (existingKeys.has(key)) {
+        duplicates.push({ name, phone: rowPhone, email: rowEmail || undefined, reason: 'already in CRM', row: i + 2 });
+        continue;
+      }
+      if (seenInFile.has(key)) {
+        duplicates.push({ name, phone: rowPhone, email: rowEmail || undefined, reason: 'repeated in file', row: i + 2 });
+        continue;
+      }
+      seenInFile.add(key);
+    }
+
     const rowTeam = rowTeams ? rowTeams[i] || '' : team;
     const pipeline = normalizeImported(
       field(row, ...STATUS_ALIASES),
@@ -160,8 +202,8 @@ const importLeads = async (req, res) => {
     );
     docs.push({
       name,
-      phone: field(row, ...PHONE_ALIASES),
-      email: field(row, ...EMAIL_ALIASES) || undefined,
+      phone: rowPhone,
+      email: rowEmail || undefined,
       source: field(row, ...SOURCE_ALIASES) || 'Import',
       position: field(row, ...POSITION_ALIASES),
       stage: pipeline.stage,
@@ -197,16 +239,19 @@ const importLeads = async (req, res) => {
   }
 
   batch.successCount = created.length;
-  batch.failedCount = rows.length - created.length;
+  batch.duplicateCount = duplicates.length;
+  batch.duplicates = duplicates.slice(0, 1000);
+  batch.failedCount = rows.length - created.length - duplicates.length;
   batch.rowErrors = errors.slice(0, 50);
   await batch.save();
 
+  const dupMsg = duplicates.length ? ` ${duplicates.length} duplicate${duplicates.length === 1 ? '' : 's'} skipped.` : '';
   return res.status(200).json({
     success: true,
     // Only a sample of the created docs — a big import can produce
     // thousands, and the client just needs the batch summary + message.
-    result: { batch, leads: created.slice(0, 100) },
-    message: `Imported ${created.length} of ${rows.length} leads.`,
+    result: { batch, leads: created.slice(0, 100), duplicates: duplicates.slice(0, 200) },
+    message: `Imported ${created.length} of ${rows.length} leads.${dupMsg}`,
   });
 };
 

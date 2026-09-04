@@ -27,6 +27,14 @@ const schema = new mongoose.Schema({
     type: String,
     default: '#2563EB',
   },
+
+  // "System" dimension for the Sales B2B/B2C dashboard (see
+  // config/salesSystems.js). Nullable so existing teams keep working until
+  // classified. Every Lead / Call / Deal inherits its System from its team.
+  businessType: { type: String, enum: ['B2B', 'B2C', null], default: null },
+  region: { type: String, enum: ['India', 'USA', null], default: null },
+  systemType: { type: String, enum: ['Human', 'AI', null], default: null },
+
   created: {
     type: Date,
     default: Date.now,

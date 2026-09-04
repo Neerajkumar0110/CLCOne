@@ -108,4 +108,28 @@ const presenceControllerMod = require('../../controllers/appControllers/presence
 const presenceController = presenceControllerMod.default || presenceControllerMod;
 router.route('/presence/ping').post(catchErrors(presenceController.ping));
 
+// Sales B2B/B2C combined dashboard — aggregates Lead/Call/CallRecord scoped
+// to teams matching a "System" filter (Team.businessType/region/systemType),
+// + manual monthly cost rows (SalesCost) for the CAC / ROI ratios.
+const salesDashMod = require('../../controllers/appControllers/salesDashboardController');
+const salesDash = salesDashMod.default || salesDashMod;
+router.route('/sales-dashboard/summary').get(catchErrors(salesDash.summary));
+router.route('/sales-dashboard/marketing').get(catchErrors(salesDash.marketingSummary));
+router.route('/sales-dashboard/config').get(catchErrors(salesDash.config));
+router.route('/sales-dashboard/team/:id').patch(catchErrors(salesDash.setTeamSystem));
+router.route('/sales-dashboard/cost').post(catchErrors(salesDash.upsertCost));
+router.route('/sales-dashboard/cost/:id').delete(catchErrors(salesDash.deleteCost));
+
+// Marketing Analytics Hub — ~60 config-driven dashboards (config/marketingDashboards.js).
+// Leaves are computed from real CRM data (leads by channel/region, campaigns) or
+// from manual monthly metric rows (MarketingMetric) with ratios derived from
+// METRIC_TEMPLATES formulas. No model of its own for the aggregate reads.
+const marketingHubMod = require('../../controllers/appControllers/marketingHubController');
+const marketingHub = marketingHubMod.default || marketingHubMod;
+router.route('/marketing-hub/tree').get(catchErrors(marketingHub.tree));
+router.route('/marketing-hub/dashboard/:key').get(catchErrors(marketingHub.dashboard));
+router.route('/marketing-hub/metrics/:key').get(catchErrors(marketingHub.listMetrics));
+router.route('/marketing-hub/metrics/:key').post(catchErrors(marketingHub.saveMetric));
+router.route('/marketing-hub/metrics/:key/:id').delete(catchErrors(marketingHub.deleteMetric));
+
 module.exports = router;

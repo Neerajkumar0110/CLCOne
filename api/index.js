@@ -88,6 +88,8 @@ try {
     Invoice: unwrap(require('../src/models/appModels/Invoice')),
     Lead: unwrap(require('../src/models/appModels/Lead')),
     LeadImportBatch: unwrap(require('../src/models/appModels/LeadImportBatch')),
+    SalesCost: unwrap(require('../src/models/appModels/SalesCost')),
+    MarketingMetric: unwrap(require('../src/models/appModels/MarketingMetric')),
     // Calling / call-center module.
     CallCampaign: unwrap(require('../src/models/appModels/CallCampaign')),
     CallLead: unwrap(require('../src/models/appModels/CallLead')),

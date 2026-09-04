@@ -23,6 +23,13 @@ const schema = new mongoose.Schema({
   totalRows: { type: Number, default: 0 },
   successCount: { type: Number, default: 0 },
   failedCount: { type: Number, default: 0 },
+  // Rows skipped because a matching lead already exists (by phone, or by
+  // name+email when no phone) or the same contact repeats within the file.
+  duplicateCount: { type: Number, default: 0 },
+  duplicates: {
+    type: [{ name: String, phone: String, email: String, reason: String, row: Number }],
+    default: [],
+  },
   rowErrors: { type: [String], default: [] },
   importedBy: String,
 

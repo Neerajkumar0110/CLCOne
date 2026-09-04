@@ -20,6 +20,10 @@ const adminSchema = new Schema({
   },
   name: { type: String, required: true },
   surname: { type: String },
+  // Agent's own phone number. Used by CALLING_PROVIDER=cloud (Tata Smartflo
+  // etc.) — the provider rings this number first, then bridges the customer.
+  // Digits (E.164 or local); the provider adapter normalises it.
+  phone: { type: String, trim: true },
   photo: {
     type: String,
     trim: true,

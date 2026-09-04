@@ -1,10 +1,15 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../services/calling/dispositions');
+const { getProvider } = require('../../../services/calling');
 
-// Device-originated ("click-to-call") calls. The actual voice call happens
-// on the agent's own phone / softphone via a tel: link — the CRM only
-// tracks it (contact, timing, disposition, notes, callback). Works with
-// ANY CALLING_PROVIDER, no server needed. Never records audio.
+// "Call this lead" from a lead row / the agent screen.
+//
+//  • CALLING_PROVIDER=cloud  → the provider (Tata Smartflo / …) rings the
+//    agent's phone first, then the customer, and bridges — a real, recorded,
+//    server-placed call. Returns { record, bridged:true }.
+//  • otherwise                → device tel: link: the call runs on the
+//    agent's own phone / softphone; the CRM just tracks it (contact, timing,
+//    disposition, notes, callback). Returns { record, tel:'tel:…' }.
 
 const digits = (s) => String(s || '').replace(/[^\d+]/g, '');
 const validPhone = (s) => {
@@ -33,6 +38,32 @@ const dial = async (req, res) => {
         { $set: { status: 'Dialing', lastAttemptAt: new Date(), assignedAgent: req.admin._id }, $inc: { attempts: 1 } }
       );
     }
+  }
+
+  // Cloud provider (Tata Smartflo / …): place a real bridged call — the
+  // provider rings the agent's phone, then the customer.
+  const provider = getProvider();
+  if (provider.name === 'cloud' && typeof provider.placeCall === 'function') {
+    const r = await provider.placeCall({
+      agent: req.admin,
+      agentPhone: b.agentPhone || undefined, // per-call override / first-time set
+      phone: String(b.phone).trim(),
+      contactName: contactName || 'Manual Call',
+      callLead: b.callLead || undefined,
+      campaign,
+    });
+    // Remember the agent's number for next time if they supplied one.
+    if (r.ok && b.agentPhone && !req.admin.phone) {
+      await mongoose.model('Admin').updateOne({ _id: req.admin._id }, { $set: { phone: String(b.agentPhone).trim() } });
+    }
+    if (!r.ok) {
+      return res.status(502).json({ success: false, result: null, message: r.error || 'Provider could not place the call.' });
+    }
+    return res.status(200).json({
+      success: true,
+      result: { record: r.callRecord, bridged: true },
+      message: 'Calling your phone now — pick up, then you\'ll be connected to the customer.',
+    });
   }
 
   const now = new Date();

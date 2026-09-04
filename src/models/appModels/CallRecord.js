@@ -81,9 +81,12 @@ const schema = new mongoose.Schema({
 
   recording: { type: recordingSchema, default: () => ({}) },
 
-  provider: { type: String, default: 'mock' }, // mock | telephony | vicidial
+  provider: { type: String, default: 'mock' }, // mock | telephony | vicidial | cloud | manual
   providerCallId: String,
   isMock: { type: Boolean, default: true },
+  // Last raw payload from a cloud calling provider webhook (Tata Smartflo /
+  // Exotel / …) — shape varies by provider, kept verbatim for tracing.
+  providerRaw: { type: mongoose.Schema.Types.Mixed },
 
   // ── Correlation (spec §14) — CRM ↔ VICIdial ↔ Asterisk ──────────────
   // `_id` IS the CRM call id (crm_call_id). These link it to the other

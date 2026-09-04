@@ -16,6 +16,7 @@ const erpApiRouter = require('./routes/appRoutes/appApi');
 const callingApiRouter = require('./routes/appRoutes/callingApi');
 const telephonyWebhookRouter = require('./routes/appRoutes/telephonyWebhookApi');
 const telephonyHmacAuth = require('./middlewares/telephonyHmacAuth');
+const cloudCallWebhookRouter = require('./routes/appRoutes/cloudCallWebhookApi');
 const facebookApiRouter = require('./routes/appRoutes/facebookApi');
 const googleApiRouter = require('./routes/appRoutes/googleApi');
 const linkedinApiRouter = require('./routes/appRoutes/linkedinApi');
@@ -57,6 +58,10 @@ app.use(compression());
 // routers and protected by an HMAC signature instead of a CRM login
 // (the telephony server has no CRM session). See spec §12–14.
 app.use('/api/telephony', telephonyHmacAuth, telephonyWebhookRouter);
+
+// Cloud calling provider (Tata Smartflo / Exotel / …) status callbacks —
+// also before the bearer gate; the router checks its own shared secret.
+app.use('/api/cloud-call', cloudCallWebhookRouter);
 
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
