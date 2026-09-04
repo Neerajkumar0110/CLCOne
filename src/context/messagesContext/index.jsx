@@ -4,11 +4,14 @@ import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { request } from "@/request";
 import { silentGet } from "@/request/silent";
 import { playNotificationSound } from "@/utils/notificationSound";
+import { startPoll } from "@/utils/poll";
 
 // How often the conversation list (previews + unread badges) is re-fetched.
 // This is the DM "real-time" path now that the backend has no live socket
-// (Vercel serverless) — see context/socketContext.
-const POLL_INTERVAL_MS = 4000;
+// (Vercel serverless) — see context/socketContext. Polling is paused while
+// the tab is hidden (see startPoll), so this only runs when someone is
+// actually looking at the app.
+const POLL_INTERVAL_MS = 10000;
 
 // Single source of truth for "who's in my directory, and how many unread
 // messages from each" — shared by the sidebar's Communication badge, the
@@ -57,9 +60,8 @@ export function MessagesProvider({ children }) {
   useEffect(() => {
     if (!currentAdmin?._id) return undefined;
     prevUnreadRef.current = null;
-    refreshConversations();
-    const id = setInterval(refreshConversations, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    // startPoll fires the first call itself and pauses while the tab is hidden.
+    return startPoll(refreshConversations, POLL_INTERVAL_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAdmin?._id]);
 

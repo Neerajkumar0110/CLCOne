@@ -21,10 +21,21 @@ export default function AgentScreen() {
   const [note, setNote] = useState("");
   const noteInit = useRef(false);
 
-  // Quick-call (click-to-call) form on the idle screen.
+  // Quick-call form on the idle screen.
   const [qcPhone, setQcPhone] = useState("");
   const [qcName, setQcName] = useState("");
   const [qcErr, setQcErr] = useState("");
+  const [qcMsg, setQcMsg] = useState("");
+  // Agent's own number — needed when CALLING_PROVIDER=cloud (provider rings
+  // this first). Remembered per-device.
+  const [qcMy, setQcMy] = useState(() => {
+    try { return localStorage.getItem("calling.agentPhone") || ""; } catch { return ""; }
+  });
+  const [prov, setProv] = useState(null);
+  useEffect(() => {
+    request.get({ entity: "calling/status" }).then((r) => r?.success && setProv(r.result));
+  }, []);
+  const isCloud = prov?.provider === "cloud";
 
   const refresh = async () => {
     const r = await request.get({ entity: "calling/agent/active" });
@@ -74,13 +85,26 @@ export default function AgentScreen() {
 
   const startQuickCall = async () => {
     setQcErr("");
+    setQcMsg("");
     if (qcPhone.replace(/\D/g, "").length < 8) return setQcErr("Enter a valid phone number.");
+    if (isCloud && qcMy.replace(/\D/g, "").length < 8) return setQcErr("Enter your own number — the provider rings you first.");
+    if (isCloud) {
+      try { localStorage.setItem("calling.agentPhone", qcMy); } catch { /* ignore */ }
+    }
     const r = await request.post({
       entity: "calling/manual/dial",
-      jsonData: { phone: qcPhone, contactName: qcName || undefined },
+      jsonData: {
+        phone: qcPhone,
+        contactName: qcName || undefined,
+        agentPhone: isCloud ? qcMy : undefined,
+      },
     });
     if (r?.success) {
-      openTel(r.result.tel);
+      if (r.result?.bridged) {
+        setQcMsg(r.message || "Calling your phone now — pick up to connect.");
+      } else if (r.result?.tel) {
+        openTel(r.result.tel);
+      }
       setQcPhone("");
       setQcName("");
       refresh();
@@ -104,14 +128,24 @@ export default function AgentScreen() {
         </div>
 
         <div className="hub-card">
-          <div className="hub-card-header"><h3><MobileOutlined /> Quick Call (from your phone)</h3></div>
+          <div className="hub-card-header">
+            <h3><MobileOutlined /> Quick Call {isCloud ? "" : "(from your phone)"}</h3>
+            {prov && <span className={`hub-badge ${isCloud ? "hub-badge-green" : "hub-badge-gray"}`}>{prov.label}</span>}
+          </div>
           <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
-            Opens your device dialer / softphone. The voice call runs on your phone; the CRM logs the contact,
-            timing, disposition and notes.
+            {isCloud
+              ? "The provider rings your number first — pick up, then it connects you to the customer. The call is recorded and logged."
+              : "Opens your device dialer / softphone. The voice call runs on your phone; the CRM logs the contact, timing, disposition and notes."}
           </div>
           <div className="hub-grid-2">
+            {isCloud && (
+              <div className="hub-form-row">
+                <label>Your Number (rings first)</label>
+                <input className="hub-input" value={qcMy} onChange={(e) => setQcMy(e.target.value)} placeholder="+91 90000 00000" />
+              </div>
+            )}
             <div className="hub-form-row">
-              <label>Phone Number</label>
+              <label>Customer Phone Number</label>
               <input className="hub-input" value={qcPhone} onChange={(e) => setQcPhone(e.target.value)} placeholder="+91 98765 43210" />
             </div>
             <div className="hub-form-row">
@@ -124,6 +158,7 @@ export default function AgentScreen() {
               <PhoneOutlined /> Call
             </button>
             {qcErr && <span className="hub-badge hub-badge-red">{qcErr}</span>}
+            {qcMsg && <span className="hub-badge hub-badge-green">{qcMsg}</span>}
           </div>
         </div>
       </div>

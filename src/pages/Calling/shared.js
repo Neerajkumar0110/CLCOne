@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { request } from "@/request";
+import { startPoll } from "@/utils/poll";
 
 // ── formatting ──────────────────────────────────────────────────────────
 export function fmtDuration(sec) {
@@ -62,21 +63,13 @@ export const CAMPAIGN_STATUSES = ["Draft", "Scheduled", "Active", "Paused", "Com
 export const CAMPAIGN_TYPES = ["Outbound", "Inbound", "Blended", "Survey", "Follow-up"];
 export const PRIORITIES = ["Low", "Normal", "High", "Urgent"];
 
-// ── polling hook: calls loader() now + every intervalMs while mounted ────
+// ── polling hook: calls loader() now + every intervalMs while mounted AND
+// while the tab is visible (paused in the background — see utils/poll). ────
 export function usePoll(loader, intervalMs, deps = []) {
   const savedLoader = useRef(loader);
   savedLoader.current = loader;
   useEffect(() => {
-    let alive = true;
-    const run = () => {
-      if (alive) savedLoader.current();
-    };
-    run();
-    const id = setInterval(run, intervalMs);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
+    return startPoll(() => savedLoader.current(), intervalMs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }

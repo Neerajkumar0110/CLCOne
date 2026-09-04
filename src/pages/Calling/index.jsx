@@ -66,7 +66,7 @@ export default function Calling() {
             }}
           >
             <ExperimentOutlined />
-            {provider.testMode ? "TEST MODE — simulated calls" : "VICIdial connected"}
+            {provider.testMode ? "TEST MODE — simulated calls" : "Live calling"}
             <span style={{ opacity: 0.7, fontWeight: 500 }}>· {provider.label}</span>
           </div>
         )}
@@ -85,7 +85,7 @@ export default function Calling() {
           }}
         >
           Calling is running with the <strong>mock provider</strong>. No real calls are placed. Set{" "}
-          <code>CALLING_PROVIDER=vicidial</code> and the VICIDIAL_* / SIP_* environment variables to go live —
+          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Tata Smartflo) to go live —
           the rest of the CRM is unaffected.
         </div>
       )}

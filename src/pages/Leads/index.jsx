@@ -2164,7 +2164,7 @@ function ImportExport() {
     setImporting(false);
 
     if (res?.success) {
-      setImportResult({ ok: true, message: res.message });
+      setImportResult({ ok: true, message: res.message, duplicates: res.result?.duplicates || [] });
       setFile(null);
       clearDistribution();
       loadHistory(1);
@@ -2339,6 +2339,29 @@ function ImportExport() {
               <span className={`hub-badge ${importResult.ok ? "hub-badge-green" : "hub-badge-red"}`}>
                 {importResult.message}
               </span>
+              {importResult.duplicates?.length > 0 && (
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ cursor: "pointer", fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+                    {importResult.duplicates.length} duplicate lead{importResult.duplicates.length === 1 ? "" : "s"} skipped — view
+                  </summary>
+                  <div className="hub-table-wrapper" style={{ marginTop: 6, maxHeight: 220, overflowY: "auto" }}>
+                    <table className="hub-table">
+                      <thead><tr><th>Row</th><th>Name</th><th>Phone</th><th>Email</th><th>Reason</th></tr></thead>
+                      <tbody>
+                        {importResult.duplicates.map((d, i) => (
+                          <tr key={i}>
+                            <td>{d.row || "—"}</td>
+                            <td>{d.name}</td>
+                            <td>{d.phone || "—"}</td>
+                            <td>{d.email || "—"}</td>
+                            <td><span className="hub-badge hub-badge-yellow">{d.reason}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
             </div>
           )}
 
@@ -2410,6 +2433,7 @@ function ImportExport() {
                 <th>File</th>
                 <th>Teams</th>
                 <th>Rows</th>
+                <th>Duplicates</th>
                 <th>Status</th>
                 <th>Date</th>
               </tr>
@@ -2417,14 +2441,14 @@ function ImportExport() {
             <tbody>
               {historyLoading && (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="hub-empty">Loading import history…</div>
                   </td>
                 </tr>
               )}
               {!historyLoading && history.length === 0 && (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="hub-empty">No imports yet.</div>
                   </td>
                 </tr>
@@ -2441,6 +2465,13 @@ function ImportExport() {
                       )}
                     </td>
                     <td>{h.successCount} / {h.totalRows}</td>
+                    <td>
+                      {h.duplicateCount > 0 ? (
+                        <span className="hub-badge hub-badge-yellow">{h.duplicateCount} skipped</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>
                       <span className={`hub-badge ${h.failedCount > 0 ? "hub-badge-red" : "hub-badge-green"}`}>
                         {h.failedCount > 0 ? `${h.failedCount} row${h.failedCount === 1 ? "" : "s"} failed` : "Completed"}
@@ -2712,17 +2743,23 @@ function ImportExport() {
 const FIELD_LIBRARY = [
   { key: "name", label: "Full Name", type: "Text" },
   { key: "email", label: "Email Address", type: "Email" },
+  { key: "phone", label: "Phone Number", type: "Text" },
   { key: "whatsapp", label: "WhatsApp Number", type: "WhatsApp" },
-  { key: "source", label: "How did you hear about us?", type: "Dropdown", options: ["Facebook", "Instagram", "Google Search", "Referral", "Other"] },
+  { key: "course", label: "Course / Interest", type: "Text" },
+  { key: "city", label: "City", type: "Text" },
+  { key: "source", label: "How did you hear about us?", type: "Dropdown", options: ["Facebook", "Instagram", "Google Search", "LinkedIn", "YouTube", "Referral", "Other"] },
   { key: "budget", label: "Budget Range", type: "Dropdown", options: ["Under ₹10,000", "₹10,000 – ₹25,000", "₹25,000 – ₹50,000", "₹50,000+"] },
-  { key: "howSoon", label: "How Soon to Start?", type: "Dropdown", options: ["Immediate", "1 Week", "7 Days", "15 Days", "30 Days"] },
+  { key: "howSoon", label: "How Soon to Start?", type: "Dropdown", options: ["Immediate", "Within 1 Week", "Within 15 Days", "Within 30 Days", "Just exploring"] },
   { key: "message", label: "Message", type: "Textarea" },
 ];
 
 const DEFAULT_ENABLED = {
   name: true,
   email: true,
-  whatsapp: true,
+  phone: true,
+  whatsapp: false,
+  course: true,
+  city: false,
   source: true,
   budget: false,
   howSoon: false,
@@ -2794,6 +2831,11 @@ function CaptureForm() {
   const [saveMessage, setSaveMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [viewLead, setViewLead] = useState(null);
+
+  // Hosted landing-page link builder (for pointing ads straight at the CRM).
+  const [lpCampaign, setLpCampaign] = useState("");
+  const [lpSource, setLpSource] = useState("Facebook");
+  const [lpCopyMessage, setLpCopyMessage] = useState("");
 
   // Real Facebook connection state — never a hard-coded boolean.
   const [connection, setConnection] = useState(null);
@@ -3161,6 +3203,7 @@ function CaptureForm() {
 
     const snippet = `<form id="clc-lead-form">
     ${fieldHtml}
+    <input type="text" name="company_website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true" />
     <button type="submit">Submit</button>
   </form>
   <script>
@@ -3168,6 +3211,12 @@ function CaptureForm() {
       e.preventDefault();
       var data = {};
       new FormData(e.target).forEach(function (v, k) { data[k] = v; });
+      // Forward campaign attribution from the page URL so every ad's leads are tagged.
+      var qp = new URLSearchParams(location.search);
+      ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','fbclid','campaign','source'].forEach(function (k) {
+        if (qp.get(k)) data[k] = qp.get(k);
+      });
+      data.landing_page = location.href;
       fetch('${endpoint}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3239,7 +3288,69 @@ function CaptureForm() {
             );
           })}
         </div>
+        <div style={{ fontSize: 12, color: "#667085", marginTop: 10 }}>
+          <strong>Facebook / Google / LinkedIn Ads connections niche optional hain</strong> — sirf leads ke
+          auto-sync ke liye. Bina kisi account connect kiye, <strong>Website</strong> ka
+          <em> Hosted Landing Page</em> link ya <em>Embed Code</em> use karke abhi se ads chala ke leads le sakte ho.
+        </div>
       </div>
+
+      {platform === "Website" && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3><LinkOutlined /> Hosted Landing Page — point your ads here</h3>
+            <span className="hub-badge hub-badge-green">No connection needed</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "#667085", marginBottom: 12 }}>
+            Ye ek ready lead-capture page hai jo aapke saved form fields se banta hai. Iska link
+            Facebook / Instagram / Google / YouTube ad ke <strong>destination URL</strong> me daalo —
+            leads seedhe CRM me aayenge, campaign ke naam se tag hoke (Marketing → Analytics Hub me dikhega).
+          </div>
+          <div className="hub-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
+            <div>
+              <label>Campaign name (optional)</label>
+              <input className="hub-input" placeholder="e.g. diwali-sale-2026" value={lpCampaign}
+                onChange={(e) => setLpCampaign(e.target.value)} />
+            </div>
+            <div>
+              <label>Source</label>
+              <select className="hub-select" value={lpSource} onChange={(e) => setLpSource(e.target.value)}>
+                {["Facebook", "Instagram", "Google Ads", "YouTube", "LinkedIn", "Referral", "Other"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(() => {
+            const base = `${BASE_URL}public/lead-form/website`;
+            const qs = new URLSearchParams();
+            if (lpSource) qs.set("utm_source", lpSource);
+            if (lpCampaign.trim()) qs.set("utm_campaign", lpCampaign.trim().replace(/\s+/g, "-").toLowerCase());
+            const url = qs.toString() ? `${base}?${qs.toString()}` : base;
+            return (
+              <div style={{ marginTop: 12 }}>
+                <div style={{
+                  fontFamily: "monospace", fontSize: 12, background: "#f8fafc", border: "1px solid #e2e8f0",
+                  borderRadius: 8, padding: "10px 12px", wordBreak: "break-all", color: "#0f172a",
+                }}>{url}</div>
+                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" className="hub-btn hub-btn-primary" onClick={async () => {
+                    try { await navigator.clipboard.writeText(url); setLpCopyMessage("Link copied!"); }
+                    catch { setLpCopyMessage("Copy failed — select the text manually."); }
+                    setTimeout(() => setLpCopyMessage(""), 2500);
+                  }}><CopyOutlined /> Copy Link</button>
+                  <a className="hub-btn" href={url} target="_blank" rel="noreferrer"><LinkOutlined /> Open / Preview</a>
+                  {lpCopyMessage && <span className="hub-badge hub-badge-blue">{lpCopyMessage}</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: 8 }}>
+                  Tip: har alag ad ke liye alag <strong>Campaign name</strong> rakho — Analytics Hub me har campaign
+                  ki leads / cost / ROI alag dikhegi. Form fields niche "Form Fields" me on/off karke <strong>Save Form</strong> dabao.
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {platform === "Facebook Ads" && (
         <div className="hub-card">

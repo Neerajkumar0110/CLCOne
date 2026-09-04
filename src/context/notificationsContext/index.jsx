@@ -4,10 +4,12 @@ import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { request } from "@/request";
 import { silentGet } from "@/request/silent";
 import { playNotificationSound } from "@/utils/notificationSound";
+import { startPoll } from "@/utils/poll";
 
 // Poll interval for event notifications — the "real-time" path now that the
 // backend has no live socket on serverless (see context/socketContext).
-const POLL_INTERVAL_MS = 10000;
+// Paused while the tab is hidden (see startPoll).
+const POLL_INTERVAL_MS = 20000;
 
 // App-wide event notifications (Leads/Tickets/Invoices/Payments/User
 // Management — see backend/src/notify.js) — distinct from messagesContext,
@@ -39,9 +41,8 @@ export function NotificationsProvider({ children }) {
   useEffect(() => {
     if (!currentAdmin?._id) return undefined;
     latestIdRef.current = null;
-    refreshNotifications();
-    const id = setInterval(refreshNotifications, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    // startPoll fires the first call itself and pauses while the tab is hidden.
+    return startPoll(refreshNotifications, POLL_INTERVAL_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAdmin?._id]);
 

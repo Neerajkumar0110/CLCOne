@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { useSelector } from "react-redux";
 import { selectAuth } from "@/redux/auth/selectors";
 import { silentPost } from "@/request/silent";
+import { startPoll } from "@/utils/poll";
 
 // The backend runs on Vercel serverless, which can't hold a persistent
 // socket.io connection, so "real-time" here is short-interval polling:
@@ -17,7 +18,7 @@ import { silentPost } from "@/request/silent";
 // now — the pollers below are the delivery path.
 const SocketContext = createContext(null);
 
-const PRESENCE_INTERVAL_MS = 15000;
+const PRESENCE_INTERVAL_MS = 25000;
 
 function makeNoopEmitter() {
   return { on() {}, off() {}, emit() {}, connected: false };
@@ -47,18 +48,14 @@ export function SocketProvider({ children }) {
       }
     };
 
-    ping();
-    const id = setInterval(ping, PRESENCE_INTERVAL_MS);
-
-    // Ping again the moment the tab regains focus so presence feels snappy
-    // after the machine wakes / the user comes back.
-    const onFocus = () => ping();
-    window.addEventListener("focus", onFocus);
+    // startPoll fires ping() now, then every interval, and pauses entirely
+    // while the tab is hidden (re-pinging the moment it's visible again) —
+    // so a backgrounded tab sends no heartbeat traffic at all.
+    const stop = startPoll(ping, PRESENCE_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
+      stop();
       setOnlineIds(new Set());
     };
   }, [token]);

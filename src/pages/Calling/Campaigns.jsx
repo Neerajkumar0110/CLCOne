@@ -513,13 +513,18 @@ function CampaignDetail({ campaign, meta, onBack, onAction }) {
                         style={{ padding: "4px 10px" }}
                         title="Call from your phone"
                         onClick={async () => {
+                          let agentPhone;
+                          try { agentPhone = localStorage.getItem("calling.agentPhone") || undefined; } catch { /* ignore */ }
                           const r = await request.post({
                             entity: "calling/manual/dial",
-                            jsonData: { phone: l.phone, contactName: l.name, callLead: l._id, campaign: campaign._id },
+                            jsonData: { phone: l.phone, contactName: l.name, callLead: l._id, campaign: campaign._id, agentPhone },
                           });
                           if (r?.success) {
-                            openTel(r.result.tel);
+                            if (r.result?.tel) openTel(r.result.tel);
+                            // bridged (cloud provider): the provider rings the agent's phone — nothing to open.
                             load(page);
+                          } else {
+                            window.alert(r?.message || "Could not start the call.");
                           }
                         }}
                       >

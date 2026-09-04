@@ -16,7 +16,19 @@ const Customer = lazy(() => import('@/pages/Customer'));
 const Calls = lazy(() => import('@/pages/Calls'));
 // Sales' Pipeline tab — live funnel computed from the Deals (salesdeal) list.
 const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
-const EMBED = { teamChat: TeamChat, leads: Leads, customer: Customer, calls: Calls, salesPipeline: SalesPipeline };
+const SalesDashboard = lazy(() => import('@/pages/SalesDashboard'));
+const MarketingDashboard = lazy(() => import('@/pages/MarketingDashboard'));
+const MarketingHub = lazy(() => import('@/pages/MarketingHub'));
+const EMBED = {
+  teamChat: TeamChat,
+  leads: Leads,
+  customer: Customer,
+  calls: Calls,
+  salesPipeline: SalesPipeline,
+  salesDashboard: SalesDashboard,
+  marketingDashboard: MarketingDashboard,
+  marketingHub: MarketingHub,
+};
 
 /**
  * SectionHub — renders ONE sub-module of a feature section. Navigation between

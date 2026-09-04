@@ -8,6 +8,7 @@ import { useMessages } from "@/context/messagesContext";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { request } from "@/request";
 import { silentGet } from "@/request/silent";
+import { startPoll } from "@/utils/poll";
 import { BASE_URL } from "@/config/serverApiConfig";
 import { initials, colorForName, displayName } from "@/utils/adminDisplay";
 import { PaperClipOutlined, SendOutlined, CloseOutlined, RollbackOutlined } from "@ant-design/icons";
@@ -132,10 +133,11 @@ export function TeamChat() {
       });
     };
 
-    const id = setInterval(poll, 3000);
+    // Visibility-aware: no thread polling while the tab is in the background.
+    const stop = startPoll(poll, 3000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stop();
     };
   }, [activeUserId]);
 

@@ -87,8 +87,16 @@ export const FEATURE_SECTIONS = [
     module: 'Sales',
     route: '/sales',
     Icon: RiseOutlined,
-    blurb: 'Pipeline, deals, quotes, orders and forecasting for the sales desk.',
+    blurb: 'B2B/B2C dashboard, pipeline, deals, quotes, orders and forecasting for the sales desk.',
     tabs: [
+      {
+        key: 'dashboard',
+        label: 'B2B / B2C Dashboard',
+        Icon: BarChartOutlined,
+        // Combined System dashboard — advanced ratios by Business/Region/AI,
+        // computed from Team-scoped Lead/Call data + manual monthly costs.
+        embed: 'salesDashboard',
+      },
       {
         key: 'pipeline',
         label: 'Pipeline',
@@ -241,12 +249,24 @@ export const FEATURE_SECTIONS = [
     blurb: 'Campaigns, email/SMS, automation, segments and attribution.',
     tabs: [
       {
-        key: 'overview',
-        label: 'Overview',
+        key: 'dashboard',
+        label: 'B2B / B2C Dashboard',
+        Icon: BarChartOutlined,
+        // Combined marketing dashboard — cost / ROI ratios by System +
+        // per-source ROI. Team-scoped Lead/Call data + monthly SalesCost.
+        embed: 'marketingDashboard',
+      },
+      {
+        key: 'analytics-hub',
+        label: 'Analytics Hub',
         Icon: DashboardOutlined,
-        readOnly: true,
-        kpis: ['Leads (30d)', 'MQLs', 'Cost / Lead', 'Campaign ROI'],
-        columns: ['Channel', 'Spend', 'Leads', 'MQLs', 'CPL', 'ROI'],
+        // ~60 config-driven sub-dashboards (Online Visibility, Web Analytics,
+        // Campaigns, ORM, Global Leads Platform, Social & Content, Blog & DA,
+        // Email, WhatsApp, Automation, Affiliate, Influencer, Persona) — each
+        // India/USA + B2B/B2C + System filters. Real CRM data where it exists
+        // (leads by channel/region, campaigns); manual monthly metrics for the
+        // rest, with advance ratios derived from formulas. See MarketingHub.
+        embed: 'marketingHub',
       },
       {
         key: 'campaigns',
