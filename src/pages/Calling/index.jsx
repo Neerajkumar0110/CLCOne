@@ -85,7 +85,7 @@ export default function Calling() {
           }}
         >
           Calling is running with the <strong>mock provider</strong>. No real calls are placed. Set{" "}
-          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Tata Smartflo) to go live —
+          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Edesy) to go live —
           the rest of the CRM is unaffected.
         </div>
       )}
