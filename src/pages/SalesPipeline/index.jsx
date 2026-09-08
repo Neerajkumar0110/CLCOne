@@ -146,14 +146,14 @@ export default function SalesPipeline() {
                   style={{
                     flex: "1 1 150px",
                     minWidth: 140,
-                    background: "#f8fafc",
+                    background: "var(--hub-bg-soft)",
                     border: "1px solid #eef0f4",
                     borderRadius: 12,
                     padding: "12px 14px",
                   }}
                 >
                   <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{k.label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{k.value}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)", marginTop: 4 }}>{k.value}</div>
                 </div>
               ))}
             </div>
@@ -171,7 +171,7 @@ export default function SalesPipeline() {
                       flex: "1 1 160px",
                       minWidth: 150,
                       textAlign: "left",
-                      border: `1.5px solid ${on ? s.color : "#e2e8f0"}`,
+                      border: `1.5px solid ${on ? s.color : "var(--hub-border)"}`,
                       background: on ? "#f5f7ff" : "#fff",
                       borderRadius: 12,
                       padding: "12px 14px",
@@ -181,9 +181,9 @@ export default function SalesPipeline() {
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a" }}>{s.stage}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--hub-text)" }}>{s.stage}</span>
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 6 }}>{s.count}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "var(--hub-text)", marginTop: 6 }}>{s.count}</div>
                     <div style={{ fontSize: 12, color: "#64748b" }}>{money(s.value, stats.currency)}</div>
                   </button>
                 );

@@ -58,7 +58,7 @@ function TreeNode({ node, depth, activeKey, onPick, openMap, toggle }) {
           display: "block", width: "100%", textAlign: "left", cursor: "pointer",
           padding: "6px 10px", paddingLeft: 12 + depth * 12, fontSize: 12.5,
           border: "none", borderRadius: 8, marginBottom: 1,
-          background: on ? PALETTE.blue : "transparent", color: on ? "#fff" : "#334155",
+          background: on ? PALETTE.blue : "transparent", color: on ? "#fff" : "var(--hub-text-soft)",
           fontWeight: on ? 700 : 500,
         }}>
         {node.label}
@@ -74,7 +74,7 @@ function TreeNode({ node, depth, activeKey, onPick, openMap, toggle }) {
           cursor: "pointer", padding: "7px 10px", paddingLeft: 8 + depth * 12,
           border: "none", background: "transparent", borderRadius: 8,
           fontSize: depth === 0 ? 12.5 : 12, fontWeight: depth === 0 ? 800 : 600,
-          color: depth === 0 ? "#0f172a" : "#475569", textTransform: depth === 0 ? "uppercase" : "none",
+          color: depth === 0 ? "#0f172a" : "var(--hub-text-soft)", textTransform: depth === 0 ? "uppercase" : "none",
           letterSpacing: depth === 0 ? 0.3 : 0,
         }}>
         {open ? <DownOutlined style={{ fontSize: 9 }} /> : <RightOutlined style={{ fontSize: 9 }} />}
@@ -172,7 +172,7 @@ export default function MarketingHub() {
         <ChipRow value={biz} onChange={setBiz} items={BUSINESS_FILTERS} tone={PALETTE.blue} />
         <div style={{ marginTop: 8 }}><ChipRow value={sys} onChange={setSys} items={SYSTEM_FILTERS} tone={PALETTE.purple} /></div>
         <div style={{ marginTop: 8 }}><ChipRow value={reg} onChange={setReg} items={REGION_FILTERS} tone={PALETTE.cyan} /></div>
-        <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 10 }}>
+        <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 10 }}>
           {leaf ? <><strong>{leaf.label}</strong> · {loading ? "loading…" : sourceBadge(data?.source)}</> : "Pick a dashboard from the left."}
         </div>
       </div>
@@ -430,7 +430,7 @@ function MetricEntry({ leaf, inputs, rows, defaults, onSaved }) {
         <button type="button" className="hub-btn hub-btn-primary" disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save Month"}
         </button>
-        <span style={{ fontSize: 11.5, color: "#8c8c8c", marginLeft: 10 }}>
+        <span style={{ fontSize: 11.5, color: "var(--hub-muted)", marginLeft: 10 }}>
           Ratios below are derived automatically from these inputs.
         </span>
       </div>
@@ -465,8 +465,8 @@ function MetricEntry({ leaf, inputs, rows, defaults, onSaved }) {
 // ── small shared bits ─────────────────────────────────────────────────
 function Mini({ label, value, tone = "#0f172a" }) {
   return (
-    <div style={{ minWidth: 0, background: "#f8fafc", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 14px" }}>
-      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+    <div style={{ minWidth: 0, background: "var(--hub-bg-soft)", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 14px" }}>
+      <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 800, color: tone, marginTop: 3 }}>{value}</div>
     </div>
   );
@@ -477,8 +477,8 @@ function NumbersTable({ rows }) {
     <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 12 }}>
       <tbody>{rows.map(([k, v], i) => (
         <tr key={`${k}-${i}`} style={{ borderTop: "1px solid #f1f5f9" }}>
-          <td style={{ padding: "6px 4px", fontWeight: 600, color: "#475569" }}>{k}</td>
-          <td style={{ padding: "6px 4px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>{v}</td>
+          <td style={{ padding: "6px 4px", fontWeight: 600, color: "var(--hub-text-soft)" }}>{k}</td>
+          <td style={{ padding: "6px 4px", textAlign: "right", color: "var(--hub-text)", fontWeight: 700 }}>{v}</td>
         </tr>
       ))}</tbody>
     </table>
@@ -500,7 +500,7 @@ function ChipRow({ value, onChange, items, tone }) {
         const on = value === it.key;
         return (
           <button key={it.key} type="button" onClick={() => onChange(it.key)}
-            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "#e2e8f0"}`, background: on ? tone : "#fff", color: on ? "#fff" : "#475569" }}>
+            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "var(--hub-border)"}`, background: on ? tone : "#fff", color: on ? "#fff" : "var(--hub-text-soft)" }}>
             {it.label}
           </button>
         );

@@ -1,0 +1,377 @@
+/* =========================================================
+   Analytics dashboard shell — shares the --hub-* tokens so
+   light / dark both work with zero per-rule overrides.
+========================================================= */
+
+.dash-shell {
+  gap: 16px;
+}
+
+/* Header ------------------------------------------------------------------ */
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--hub-text);
+}
+.dash-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--hub-muted);
+}
+.dash-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Filter bar ----------------------------------------------------------------*/
+.dash-filter-card {
+  padding: 14px 16px;
+}
+.dash-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dash-filterbar-spacer {
+  flex: 1 1 auto;
+}
+.dash-quick {
+  gap: 2px;
+}
+.dash-scope-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--hub-yellow);
+}
+
+/* Segmented B2B / B2C control -------------------------------------------- */
+.dash-seg {
+  display: inline-flex;
+  background: var(--hub-bg-soft);
+  border: 1px solid var(--hub-border);
+  border-radius: 999px;
+  padding: 3px;
+}
+.dash-seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--hub-muted);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.dash-seg-btn.active {
+  background: var(--hub-blue);
+  color: #fff;
+  box-shadow: var(--hub-shadow-sm);
+}
+.dash-seg-disabled {
+  opacity: 0.5;
+}
+.dash-seg-disabled .dash-seg-btn {
+  cursor: not-allowed;
+}
+
+.dash-badge-count {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--hub-blue);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* KPI grid ------------------------------------------------------------------*/
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1100px) {
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .dash-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.dash-kpi {
+  text-align: left;
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  border-radius: var(--hub-r-lg);
+  padding: 14px 16px;
+  box-shadow: var(--hub-shadow-xs);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  min-width: 0;
+}
+.dash-kpi-click {
+  cursor: pointer;
+  font: inherit;
+}
+.dash-kpi-click:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hub-shadow-md);
+}
+.dash-kpi-active {
+  border-color: var(--hub-blue);
+  box-shadow: 0 0 0 3px var(--hub-blue-soft);
+}
+.dash-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hub-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--hub-text);
+  margin-top: 4px;
+  letter-spacing: -0.01em;
+}
+.dash-kpi-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.dash-kpi-delta {
+  font-size: 12px;
+  font-weight: 800;
+}
+.dash-kpi-prev {
+  font-size: 11px;
+  color: var(--hub-muted);
+}
+.dash-kpi-spark {
+  margin-top: 8px;
+  height: 30px;
+}
+
+/* Ratios -----------------------------------------------------------------*/
+.dash-ratio-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+}
+.dash-ratio {
+  background: var(--hub-bg-soft);
+  border: 1px solid var(--hub-border);
+  border-radius: var(--hub-r-md);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.dash-ratio-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hub-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-ratio-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--hub-text);
+  margin-top: 2px;
+}
+.dash-ratio-sub {
+  font-size: 10.5px;
+  color: var(--hub-muted);
+  min-height: 13px;
+}
+.dash-ratio-delta {
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Charts ---------------------------------------------------------------- */
+.dash-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .dash-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-chart-card {
+    grid-column: auto !important;
+  }
+}
+.dash-chart-card {
+  min-width: 0;
+}
+.dash-numbers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.dash-numbers th,
+.dash-numbers td {
+  padding: 6px 6px;
+  border-top: 1px solid var(--hub-border);
+  color: var(--hub-text-soft);
+}
+.dash-numbers th {
+  text-align: right;
+  color: var(--hub-muted);
+  font-weight: 700;
+}
+.dash-numbers th:first-child {
+  text-align: left;
+}
+
+/* Funnel -------------------------------------------------------------- */
+.dash-funnel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dash-funnel-stage {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hub-r-md);
+  padding: 8px 10px;
+  font: inherit;
+}
+.dash-funnel-stage.clickable {
+  cursor: pointer;
+}
+.dash-funnel-stage.clickable:hover {
+  background: var(--hub-bg-soft);
+}
+.dash-funnel-stage.active {
+  border-color: var(--hub-blue);
+  background: var(--hub-blue-soft);
+}
+.dash-funnel-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--hub-text);
+  margin-bottom: 5px;
+}
+.dash-funnel-track {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--hub-bg-soft);
+  overflow: hidden;
+}
+.dash-funnel-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+.dash-funnel-sub {
+  font-size: 10.5px;
+  color: var(--hub-muted);
+  margin-top: 4px;
+}
+
+/* Table ---------------------------------------------------------------- */
+.dash-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--hub-border);
+  border-radius: var(--hub-r-sm);
+  padding: 4px 10px;
+  background: var(--hub-surface);
+}
+.dash-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--hub-text);
+  font-size: 13px;
+  width: 150px;
+}
+.dash-drill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue-dark);
+  font-size: 12px;
+}
+.dash-drill-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex;
+}
+.dash-table-el td {
+  color: var(--hub-text-soft);
+}
+.dash-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--hub-muted);
+}
+.dash-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.dash-detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--hub-muted);
+  font-weight: 700;
+}
+.dash-detail-value {
+  font-size: 13.5px;
+  color: var(--hub-text);
+  margin-top: 2px;
+}
+
+.dash-drawer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Stagger the fade-up a touch by index (set via --d inline). */
+.dash-kpi.hub-fade-up {
+  animation-delay: var(--d, 0ms);
+}

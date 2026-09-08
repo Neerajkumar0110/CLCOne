@@ -109,13 +109,14 @@ export const FEATURE_SECTIONS = [
       // the section shell — see EMBED in pages/ModuleScaffold. Old top-level
       // routes /leads /customer /calls still resolve for saved links.
       { key: 'leads', label: 'Leads', Icon: SolutionOutlined, embed: 'leads' },
-      { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer' },
+      { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer', dashboard: 'customers' },
       { key: 'calls', label: 'Calls', Icon: PhoneOutlined, embed: 'calls' },
       {
         key: 'deals',
         label: 'Deals',
         Icon: DollarOutlined,
         entity: 'salesdeal',
+        dashboard: 'deals',
         fields: [
           ...grp('Overview', [
             T('title', 'Title', { required: true }),
@@ -152,6 +153,7 @@ export const FEATURE_SECTIONS = [
         label: 'Quotes',
         Icon: FileTextOutlined,
         entity: 'salesquote',
+        dashboard: 'quotes',
         fields: [
           ...grp('Quote', [
             T('number', 'Quote #', { required: true }),
@@ -182,6 +184,7 @@ export const FEATURE_SECTIONS = [
         label: 'Orders',
         Icon: ShoppingCartOutlined,
         entity: 'salesorder',
+        dashboard: 'orders',
         fields: [
           ...grp('Order', [
             T('number', 'Order #', { required: true }),
@@ -212,6 +215,7 @@ export const FEATURE_SECTIONS = [
         label: 'Products',
         Icon: AppstoreOutlined,
         entity: 'product',
+        dashboard: 'products',
         fields: [
           ...grp('Product', [
             T('name', 'Name', { required: true }),
@@ -696,9 +700,9 @@ export const FEATURE_SECTIONS = [
         key: 'overview',
         label: 'Overview',
         Icon: DashboardOutlined,
-        readOnly: true,
-        kpis: ['Active Students', 'Live Batches', 'Avg Completion', 'Certificates (30d)'],
-        columns: ['Batch', 'Course', 'Students', 'Progress', 'Status'],
+        // Analytics shell (Interns / Students lens) — progress, attendance,
+        // completion. Was a static placeholder before.
+        dashboard: 'interns',
       },
       {
         key: 'courses',

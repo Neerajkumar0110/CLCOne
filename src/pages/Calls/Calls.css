@@ -1728,3 +1728,52 @@
     padding: 18px;
   }
 }
+/* ============================================================
+   DARK MODE — the Calls page (Team Overview / Auto Dialer) has
+   its own light palette above; retint the surfaces + text so it
+   matches the rest of the app when data-theme="dark".
+   ============================================================ */
+:root[data-theme='dark'] .calls-page,
+:root[data-theme='dark'] .calls-layout,
+:root[data-theme='dark'] .calls-left,
+:root[data-theme='dark'] .calls-right {
+  background: transparent;
+  color: var(--hub-text);
+}
+:root[data-theme='dark'] .call-section,
+:root[data-theme='dark'] .contact-card,
+:root[data-theme='dark'] .activity-item,
+:root[data-theme='dark'] .dialer-panel,
+:root[data-theme='dark'] .dial-display,
+:root[data-theme='dark'] .outcome-modal,
+:root[data-theme='dark'] .modal-contact,
+:root[data-theme='dark'] .call-activity,
+:root[data-theme='dark'] .activity-list,
+:root[data-theme='dark'] .contacts-list {
+  background: var(--hub-surface);
+  border-color: var(--hub-border);
+  color: var(--hub-text-soft);
+}
+:root[data-theme='dark'] .call-search input,
+:root[data-theme='dark'] .call-outcome-select,
+:root[data-theme='dark'] .modal-outcome-select,
+:root[data-theme='dark'] .dial-pad button,
+:root[data-theme='dark'] .keypad-symbol,
+:root[data-theme='dark'] .activity-filters button {
+  background: var(--hub-surface-2);
+  color: var(--hub-text-soft);
+  border-color: var(--hub-border);
+}
+:root[data-theme='dark'] .contact-name-row,
+:root[data-theme='dark'] .contact-info,
+:root[data-theme='dark'] .activity-info,
+:root[data-theme='dark'] .modal-label,
+:root[data-theme='dark'] .dial-number,
+:root[data-theme='dark'] .dialer-header,
+:root[data-theme='dark'] .calls-header,
+:root[data-theme='dark'] .section-title {
+  color: var(--hub-text);
+}
+:root[data-theme='dark'] .dial-display {
+  background: var(--hub-surface-2);
+}

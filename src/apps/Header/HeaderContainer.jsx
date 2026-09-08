@@ -2,18 +2,20 @@ import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, Dropdown, Layout, Badge, Button } from 'antd';
 
-import { LogoutOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
+import { LogoutOutlined, ToolOutlined, UserOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
 
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 
 import { FILE_BASE_URL } from '@/config/serverApiConfig';
 
 import useLanguage from '@/locale/useLanguage';
+import { useTheme } from '@/context/themeContext';
 
 import NotificationBell from './NotificationBell';
 
 export default function HeaderContent() {
   const currentAdmin = useSelector(selectCurrentAdmin);
+  const { isDark, toggleTheme } = useTheme();
   const { Header } = Layout;
 
   const translate = useLanguage();
@@ -124,6 +126,15 @@ export default function HeaderContent() {
       </Dropdown>
 
       <NotificationBell />
+
+      <Button
+        type="text"
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        onClick={toggleTheme}
+        icon={isDark ? <SunOutlined /> : <MoonOutlined />}
+        className="header-theme-toggle"
+        style={{ fontSize: 16 }}
+      />
 
       {/* <AppsButton /> */}
     </Header>

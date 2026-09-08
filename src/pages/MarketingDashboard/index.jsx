@@ -106,7 +106,7 @@ export default function MarketingDashboard() {
         </div>
         <ChipRow value={biz} onChange={setBiz} items={BUSINESS_FILTERS} tone={PALETTE.blue} />
         <div style={{ marginTop: 8 }}><ChipRow value={sys} onChange={setSys} items={SYSTEM_FILTERS} tone={PALETTE.purple} /></div>
-        <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 10 }}>
+        <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 10 }}>
           {loading ? "Loading…" : data ? `${data.system} · ${t.leads || 0} leads · ${money(t.cost?.marketing)} marketing spend · ${range}` : ""}
           {data?.note && <span className="hub-badge hub-badge-yellow" style={{ marginLeft: 8 }}>{data.note}</span>}
         </div>
@@ -183,8 +183,8 @@ export default function MarketingDashboard() {
 
 function Mini({ label, value, tone = "#0f172a" }) {
   return (
-    <div style={{ minWidth: 0, background: "#f8fafc", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 14px" }}>
-      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+    <div style={{ minWidth: 0, background: "var(--hub-bg-soft)", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 14px" }}>
+      <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 800, color: tone, marginTop: 3 }}>{value}</div>
     </div>
   );
@@ -195,8 +195,8 @@ function NumbersTable({ rows }) {
     <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 12 }}>
       <tbody>{rows.map(([k, v]) => (
         <tr key={k} style={{ borderTop: "1px solid #f1f5f9" }}>
-          <td style={{ padding: "6px 4px", fontWeight: 600, color: "#475569" }}>{k}</td>
-          <td style={{ padding: "6px 4px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>{v}</td>
+          <td style={{ padding: "6px 4px", fontWeight: 600, color: "var(--hub-text-soft)" }}>{k}</td>
+          <td style={{ padding: "6px 4px", textAlign: "right", color: "var(--hub-text)", fontWeight: 700 }}>{v}</td>
         </tr>
       ))}</tbody>
     </table>
@@ -212,7 +212,7 @@ function ChipRow({ value, onChange, items, tone }) {
         const on = value === it.key;
         return (
           <button key={it.key} type="button" onClick={() => onChange(it.key)}
-            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "#e2e8f0"}`, background: on ? tone : "#fff", color: on ? "#fff" : "#475569" }}>
+            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "var(--hub-border)"}`, background: on ? tone : "#fff", color: on ? "#fff" : "var(--hub-text-soft)" }}>
             {it.label}
           </button>
         );
@@ -272,7 +272,7 @@ function CostEditor({ cfg, onSaved }) {
       </div>
       <div style={{ marginTop: 10 }}>
         <button type="button" className="hub-btn hub-btn-primary" onClick={save}>Save Cost Row</button>
-        <span style={{ fontSize: 11.5, color: "#8c8c8c", marginLeft: 10 }}>Source-tagged rows drive per-source ROI; blank = whole slice.</span>
+        <span style={{ fontSize: 11.5, color: "var(--hub-muted)", marginLeft: 10 }}>Source-tagged rows drive per-source ROI; blank = whole slice.</span>
       </div>
       {(cfg.costs || []).length > 0 && (
         <div className="hub-table-wrapper" style={{ marginTop: 12 }}>
