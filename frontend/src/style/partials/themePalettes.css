@@ -1,0 +1,132 @@
+/* =========================================================================
+   THEME PALETTES  —  <html data-palette="…"> remaps the --hub-* design tokens
+   so every .hub-* class, the analytics shell, MarketingHub and every antd
+   surface (via ConfigProvider in context/themeContext.jsx) picks up the
+   selected theme. Source palette values: frontend/src/config/themes.js.
+   `blueLight` == the base :root palette, so it needs no override here.
+   ========================================================================= */
+
+/* ---- Green Fresh 🟢 ---- */
+:root[data-palette='greenFresh'] {
+  --hub-surface: #f0fdf4;
+  --hub-surface-2: #e7fbee;
+  --hub-bg-soft: #e7fbee;
+  --hub-page-bg: #ecfdf3;
+  --hub-text: #0f172a;
+  --hub-text-soft: #1e293b;
+  --hub-muted: #475569;
+  --hub-border: #bbf7d0;
+  --hub-border-strong: #86efac;
+  --hub-blue: #22c55e;
+  --hub-blue-dark: #16a34a;
+  --hub-blue-soft: #dcfce7;
+  --hub-focus-ring: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+:root[data-palette='greenFresh'] body {
+  background: var(--hub-page-bg) !important;
+  color: var(--hub-text);
+}
+
+/* ---- Purple Gradient 🟣 ---- */
+:root[data-palette='purpleGradient'] {
+  --hub-surface: #f6f0ff;
+  --hub-surface-2: #efe7ff;
+  --hub-bg-soft: #efe7ff;
+  --hub-page-bg: #f3e8ff;
+  --hub-text: #1e1b4b;
+  --hub-text-soft: #312e81;
+  --hub-muted: #6b7280;
+  --hub-border: #c4b5fd;
+  --hub-border-strong: #a78bfa;
+  --hub-blue: #7c3aed;
+  --hub-blue-dark: #6d28d9;
+  --hub-blue-soft: #ede9fe;
+  --hub-focus-ring: 0 0 0 4px rgba(124, 58, 237, 0.2);
+}
+:root[data-palette='purpleGradient'] body {
+  background: linear-gradient(160deg, #f8f3ff, #f3e8ff) !important;
+  color: var(--hub-text);
+}
+
+/* ---- Orange Warm 🟠 ---- */
+:root[data-palette='orangeWarm'] {
+  --hub-surface: #fff7ed;
+  --hub-surface-2: #ffefdc;
+  --hub-bg-soft: #ffefdc;
+  --hub-page-bg: #fff9f0;
+  --hub-text: #1f2937;
+  --hub-text-soft: #374151;
+  --hub-muted: #6b7280;
+  --hub-border: #fed7aa;
+  --hub-border-strong: #fdba74;
+  --hub-blue: #f97316;
+  --hub-blue-dark: #ea580c;
+  --hub-blue-soft: #ffedd5;
+  --hub-focus-ring: 0 0 0 4px rgba(249, 115, 22, 0.2);
+}
+:root[data-palette='orangeWarm'] body {
+  background: var(--hub-page-bg) !important;
+  color: var(--hub-text);
+}
+
+/* ---- Dark 🌑 (also carries data-theme="dark"; this refines the accent
+        + surfaces to the palette spec: card #1E293B, accent #8B5CF6) ---- */
+:root[data-palette='dark'] {
+  --hub-surface: #1e293b;
+  --hub-surface-2: #243244;
+  --hub-bg-soft: #1a2536;
+  --hub-page-bg: #0f172a;
+  --hub-text: #f8fafc;
+  --hub-text-soft: #cbd5e1;
+  --hub-muted: #94a3b8;
+  --hub-border: #334155;
+  --hub-border-strong: #45566e;
+  --hub-blue: #8b5cf6;
+  --hub-blue-dark: #7c3aed;
+  --hub-blue-soft: #2a2140;
+  --hub-focus-ring: 0 0 0 4px rgba(139, 92, 246, 0.28);
+}
+
+/* ---- Cross-palette: make sure NO text / placeholder is left on a default
+        colour. These consume the (now palette-scoped) --hub-* tokens. ---- */
+:root[data-palette] body {
+  color: var(--hub-text);
+}
+:root[data-palette] .hub-input::placeholder,
+:root[data-palette] .hub-select::placeholder,
+:root[data-palette] input::placeholder,
+:root[data-palette] textarea::placeholder,
+:root[data-palette] .ant-input::placeholder,
+:root[data-palette] .ant-input-affix-wrapper input::placeholder,
+:root[data-palette] .ant-picker-input > input::placeholder,
+:root[data-palette] .ant-select-selection-placeholder,
+:root[data-palette] .ant-input-number-input::placeholder {
+  color: var(--hub-muted) !important;
+  opacity: 1;
+}
+:root[data-palette] .ant-select-selection-item,
+:root[data-palette] .ant-picker-input > input,
+:root[data-palette] .ant-input,
+:root[data-palette] .ant-input-number-input {
+  color: var(--hub-text);
+}
+
+/* Header theme picker */
+.theme-picker {
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 10px;
+  cursor: pointer;
+  outline: none;
+}
+.theme-picker:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+.theme-picker option {
+  color: #0f172a;
+}

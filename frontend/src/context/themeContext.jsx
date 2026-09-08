@@ -1,52 +1,75 @@
 import React, { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from "react";
 import { ConfigProvider, theme as antdTheme } from "antd";
 import storePersist from "@/redux/storePersist";
+import { THEMES, THEME_LIST, DEFAULT_THEME_KEY } from "@/config/themes";
 
-// App-wide light / dark mode. The chosen mode is:
-//   • stamped on <html data-theme="…"> so featureHub.css token overrides
-//     (:root[data-theme="dark"]) and any [data-theme] CSS take effect,
-//   • fed to antd via ConfigProvider algorithm (dark/defaultAlgorithm),
-//   • persisted to localStorage under "theme".
-// Charts read the mode through useTheme() and re-theme via chartTheme.js.
-const KEY = "theme";
+// App-wide theming. The chosen palette is:
+//   • stamped on <html data-palette="…"> (+ data-theme="light|dark" for the
+//     palette's mode) so featureHub.css / themePalettes.css token overrides
+//     take effect,
+//   • fed to antd via ConfigProvider (algorithm + colour tokens) so every
+//     antd surface, text and placeholder follows,
+//   • persisted to localStorage.
+// Charts read isDark through useTheme() and re-theme via chartTheme.js.
+const MODE_KEY = "theme";
+const PAL_KEY = "palette";
 const ThemeContext = createContext(null);
 
-function readInitial() {
-  const saved = storePersist.get(KEY);
+function readMode() {
+  const saved = storePersist.get(MODE_KEY);
   if (saved === "dark" || saved === "light") return saved;
   if (typeof window !== "undefined" && window.matchMedia) {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
   return "light";
 }
+function readPalette() {
+  const saved = storePersist.get(PAL_KEY);
+  if (saved && THEMES[saved]) return saved;
+  // fall back from the legacy light/dark mode flag
+  return readMode() === "dark" ? "dark" : DEFAULT_THEME_KEY;
+}
 
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState(readInitial);
+  const [paletteKey, setPaletteKey] = useState(readPalette);
+  const theme = THEMES[paletteKey] || THEMES[DEFAULT_THEME_KEY];
+  const mode = theme.mode; // 'light' | 'dark'
+  const isDark = mode === "dark";
 
-  // Keep <html data-theme> in sync before paint to avoid a flash.
+  // Keep <html> attributes in sync before paint to avoid a flash.
   useLayoutEffect(() => {
-    document.documentElement.setAttribute("data-theme", mode);
-  }, [mode]);
+    const el = document.documentElement;
+    el.setAttribute("data-theme", mode);
+    el.setAttribute("data-palette", paletteKey);
+  }, [mode, paletteKey]);
 
-  const setTheme = useCallback((next) => {
-    const value = next === "dark" ? "dark" : "light";
-    storePersist.set(KEY, value);
-    setMode(value);
+  const setPalette = useCallback((key) => {
+    if (!THEMES[key]) return;
+    storePersist.set(PAL_KEY, key);
+    storePersist.set(MODE_KEY, THEMES[key].mode);
+    setPaletteKey(key);
   }, []);
 
+  // Sun/moon quick toggle — flips between the current palette's light form and
+  // the Dark palette.
   const toggleTheme = useCallback(() => {
-    setMode((m) => {
-      const value = m === "dark" ? "light" : "dark";
-      storePersist.set(KEY, value);
-      return value;
+    setPaletteKey((cur) => {
+      const next = THEMES[cur]?.mode === "dark" ? DEFAULT_THEME_KEY : "dark";
+      storePersist.set(PAL_KEY, next);
+      storePersist.set(MODE_KEY, THEMES[next].mode);
+      return next;
     });
   }, []);
 
-  const isDark = mode === "dark";
+  const setTheme = useCallback(
+    (next) => setPalette(next === "dark" ? "dark" : DEFAULT_THEME_KEY),
+    [setPalette]
+  );
 
+  const t = theme.tokens;
   const value = useMemo(
-    () => ({ mode, isDark, setTheme, toggleTheme }),
-    [mode, isDark, setTheme, toggleTheme]
+    () => ({ mode, isDark, palette: paletteKey, theme, palettes: THEME_LIST, setPalette, setTheme, toggleTheme }),
+    [mode, isDark, paletteKey, theme, setPalette, setTheme, toggleTheme]
   );
 
   return (
@@ -54,7 +77,20 @@ export function ThemeProvider({ children }) {
       <ConfigProvider
         theme={{
           algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-          token: { colorPrimary: "#0e7490", colorLink: "#1640D6", borderRadius: 6 },
+          token: {
+            colorPrimary: t.accent,
+            colorLink: t.accent,
+            colorText: t.textPrimary,
+            colorTextSecondary: t.textSecondary,
+            colorTextTertiary: t.textSecondary,
+            colorTextPlaceholder: t.textSecondary,
+            colorBorder: t.border,
+            colorBorderSecondary: t.border,
+            colorBgContainer: t.cardBg,
+            colorBgElevated: t.cardBg,
+            colorBgLayout: t.cardBg,
+            borderRadius: 6,
+          },
         }}
       >
         {children}
@@ -66,9 +102,16 @@ export function ThemeProvider({ children }) {
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    // Safe fallback so components used outside the provider (tests, storybook)
-    // still render in light mode instead of throwing.
-    return { mode: "light", isDark: false, setTheme: () => {}, toggleTheme: () => {} };
+    return {
+      mode: "light",
+      isDark: false,
+      palette: DEFAULT_THEME_KEY,
+      theme: THEMES[DEFAULT_THEME_KEY],
+      palettes: THEME_LIST,
+      setPalette: () => {},
+      setTheme: () => {},
+      toggleTheme: () => {},
+    };
   }
   return ctx;
 }

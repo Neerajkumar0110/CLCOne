@@ -169,13 +169,11 @@
 /* --- remove fills from grouping-only wrappers --- */
 :root[data-theme='dark'] .hub-page[data-section='sales'] .hub-stack,
 :root[data-theme='dark'] .hub-page[data-section='sales'] .hub-row,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-header,
 :root[data-theme='dark'] .hub-page[data-section='sales'] .hub-grid-2,
 :root[data-theme='dark'] .hub-page[data-section='sales'] .hub-grid-3,
 :root[data-theme='dark'] .hub-page[data-section='sales'] .dash-shell,
 :root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-stack,
 :root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-row,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-header,
 :root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-grid-2,
 :root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-grid-3,
 :root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-shell {
@@ -2001,6 +1999,40 @@
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 22px;
+}
+
+/* In the analytics sections the page headers (breadcrumb .section-head and a
+   page's own .hub-header) are cards — surface + soft shadow — in BOTH themes;
+   tokens flip automatically. Matches the dashboards' .dash-header. */
+.hub-page[data-section='sales'] .section-head,
+.hub-page[data-section='sales'] .hub-header,
+.hub-page[data-section='marketing'] .section-head,
+.hub-page[data-section='marketing'] .hub-header {
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  border-radius: var(--hub-r-lg);
+  box-shadow: var(--hub-shadow-sm);
+  padding: 20px 24px;
+}
+
+/* One consistent vertical rhythm for the whole section (both themes): the
+   nested page carries no padding, and every stacked block uses the same
+   18px gap. */
+.hub-page[data-section='sales'] .hub-page,
+.hub-page[data-section='marketing'] .hub-page {
+  padding: 0;
+}
+.hub-page[data-section='sales'] .section-head,
+.hub-page[data-section='sales'] .hub-header,
+.hub-page[data-section='sales'] .hub-tabbar,
+.hub-page[data-section='marketing'] .section-head,
+.hub-page[data-section='marketing'] .hub-header,
+.hub-page[data-section='marketing'] .hub-tabbar {
+  margin-bottom: 18px;
+}
+.hub-page[data-section='sales'] .hub-stack,
+.hub-page[data-section='marketing'] .hub-stack {
+  gap: 18px;
 }
 
 .section-head-icon {

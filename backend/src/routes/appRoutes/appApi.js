@@ -131,6 +131,11 @@ router.route('/marketing-hub/dashboard/:key').get(catchErrors(marketingHub.dashb
 router.route('/marketing-hub/metrics/:key').get(catchErrors(marketingHub.listMetrics));
 router.route('/marketing-hub/metrics/:key').post(catchErrors(marketingHub.saveMetric));
 router.route('/marketing-hub/metrics/:key/:id').delete(catchErrors(marketingHub.deleteMetric));
+// Premium marketing-intelligence add-ons: cross-channel rollup, side-by-side
+// comparison (India/USA · B2B/B2C · Human/AI), and drill-through record lists.
+router.route('/marketing-hub/master').get(catchErrors(marketingHub.master));
+router.route('/marketing-hub/compare').get(catchErrors(marketingHub.compare));
+router.route('/marketing-hub/rows/:key').get(catchErrors(marketingHub.rows));
 
 // Advanced Analytics — one shared shell, 9 module dashboards (overview,
 // leads, customers, interns, calls, deals, quotes, orders, products).

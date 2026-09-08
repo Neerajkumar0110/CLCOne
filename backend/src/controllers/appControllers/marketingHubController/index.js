@@ -6,6 +6,8 @@ const {
   CHANNEL_SOURCES,
 } = require('../../../config/marketingDashboards');
 const { teamSystemFilter } = require('../../../config/salesSystems');
+const { windowFromQuery } = require('../analyticsController/shared');
+const { buildPremium } = require('./premium');
 
 const QUALIFIED_STAGES = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
 const MEETING_REACHED = ['Sales Meeting', 'Opportunity', 'Enrolled'];
@@ -47,10 +49,10 @@ function evalFormula(formula, vals) {
 }
 
 // ── manual dashboards: sum typed inputs across the range, derive ratios ──
-async function computeManual(leaf, q) {
+async function computeManual(leaf, q, from, to) {
   const MarketingMetric = mongoose.model('MarketingMetric');
   const tpl = METRIC_TEMPLATES[leaf.template] || { inputs: [], ratios: [] };
-  const { from, to } = rangeFromQuery(q);
+  if (!from || !to) ({ from, to } = rangeFromQuery(q));
   const months = monthsInRange(from, to);
 
   const match = { removed: false, dashboardKey: leaf.key, month: { $in: months } };
@@ -100,10 +102,10 @@ async function computeManual(leaf, q) {
 }
 
 // ── leads dashboards: real CRM lead data, sliced by channel + region ──
-async function computeLeads(leaf, q) {
+async function computeLeads(leaf, q, from, to) {
   const Lead = mongoose.model('Lead');
   const Team = mongoose.model('Team');
-  const { from, to } = rangeFromQuery(q);
+  if (!from || !to) ({ from, to } = rangeFromQuery(q));
   const months = monthsInRange(from, to);
   const region = q.region || leaf.region || null;
 
@@ -200,9 +202,9 @@ async function computeLeads(leaf, q) {
 }
 
 // ── campaigns dashboards: the `campaign` marketing model ──
-async function computeCampaigns(leaf, q) {
+async function computeCampaigns(leaf, q, from, to) {
   const Campaign = mongoose.model('Campaign');
-  const { from, to } = rangeFromQuery(q);
+  if (!from || !to) ({ from, to } = rangeFromQuery(q));
   const months = monthsInRange(from, to);
   const region = q.region || leaf.region || null;
 
@@ -285,23 +287,47 @@ const tree = async (_req, res) =>
     message: 'ok',
   });
 
+// dispatch to the right compute*() for a leaf + explicit window
+async function computeFor(leaf, q, from, to) {
+  if (leaf.source === 'leads') return computeLeads(leaf, q, from, to);
+  if (leaf.source === 'campaigns') return computeCampaigns(leaf, q, from, to);
+  return computeManual(leaf, q, from, to);
+}
+
 // GET /api/marketing-hub/dashboard/:key?region=&businessType=&systemType=&from=&to=
+// Premium payload: KPI cards with previous-period % change + sparkline series,
+// ratio strip, trend/breakdown charts, marketing funnel, table meta, facets.
 const dashboard = async (req, res) => {
   const leaf = LEAF_BY_KEY[req.params.key];
   if (!leaf) {
     return res.status(404).json({ success: false, result: null, message: 'Unknown dashboard' });
   }
-  let data;
-  if (leaf.source === 'leads') data = await computeLeads(leaf, req.query);
-  else if (leaf.source === 'campaigns') data = await computeCampaigns(leaf, req.query);
-  else data = await computeManual(leaf, req.query);
+  const { from, to, prevFrom, prevTo } = windowFromQuery(req.query);
 
-  const { from, to } = rangeFromQuery(req.query);
-  return res.status(200).json({
-    success: true,
-    result: { key: leaf.key, label: leaf.label, range: { from, to }, ...data },
-    message: 'ok',
+  const [cur, prev, manualRows] = await Promise.all([
+    computeFor(leaf, req.query, from, to),
+    computeFor(leaf, req.query, prevFrom, prevTo),
+    leaf.source === 'manual'
+      ? mongoose
+          .model('MarketingMetric')
+          .find({ removed: false, dashboardKey: leaf.key })
+          .sort({ month: -1 })
+          .limit(400)
+          .lean()
+          .then((rows) =>
+            rows.map((r) => ({ id: String(r._id), month: r.month, region: r.region, businessType: r.businessType, systemType: r.systemType, ...(r.values || {}) }))
+          )
+      : Promise.resolve([]),
+  ]);
+
+  const result = buildPremium(leaf, cur, prev, from, to, {
+    prevFrom,
+    prevTo,
+    businessType: req.query.businessType || null,
+    systemType: req.query.systemType || null,
+    manualRows,
   });
+  return res.status(200).json({ success: true, result, message: 'ok' });
 };
 
 // GET /api/marketing-hub/metrics/:key  — raw rows for the entry table
@@ -362,4 +388,32 @@ const deleteMetric = async (req, res) => {
   return res.status(200).json({ success: true, result: null, message: 'Row removed' });
 };
 
-module.exports = { tree, dashboard, listMetrics, saveMetric, deleteMetric };
+// shared with master.js / compare.js / rows.js
+const internals = {
+  computeFor,
+  computeLeads,
+  computeCampaigns,
+  computeManual,
+  monthsInRange,
+  monthKey,
+  rangeFromQuery,
+  evalFormula,
+  QUALIFIED_STAGES,
+  MEETING_REACHED,
+  LOST_STAGES,
+};
+
+const masterMod = require('./master')(internals);
+const { compare } = require('./compare')({ ...internals, computeMaster: masterMod.computeMaster });
+const { rows } = require('./rows')(internals);
+
+module.exports = {
+  tree,
+  dashboard,
+  listMetrics,
+  saveMetric,
+  deleteMetric,
+  master: masterMod.master,
+  compare,
+  rows,
+};

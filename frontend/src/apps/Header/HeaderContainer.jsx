@@ -15,7 +15,7 @@ import NotificationBell from './NotificationBell';
 
 export default function HeaderContent() {
   const currentAdmin = useSelector(selectCurrentAdmin);
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, palette, setPalette, palettes } = useTheme();
   const { Header } = Layout;
 
   const translate = useLanguage();
@@ -88,11 +88,14 @@ export default function HeaderContent() {
     <Header
       className="app-header"
       style={{
-        padding: '20px',
+        padding: '0 20px',
+        height: 64,
+        lineHeight: 'normal',
         display: 'flex',
         flexDirection: 'row-reverse',
+        alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: ' 15px',
+        gap: '14px',
         position: 'sticky',
         top: 0,
         zIndex: 100,
@@ -127,14 +130,35 @@ export default function HeaderContent() {
 
       <NotificationBell />
 
-      <Button
-        type="text"
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      <button
+        type="button"
+        className={`theme-toggle ${isDark ? 'is-dark' : ''}`}
         onClick={toggleTheme}
-        icon={isDark ? <SunOutlined /> : <MoonOutlined />}
-        className="header-theme-toggle"
-        style={{ fontSize: 16 }}
-      />
+        role="switch"
+        aria-checked={isDark}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? 'Light mode' : 'Dark mode'}
+      >
+        <span className="theme-toggle-track">
+          <SunOutlined className="tt-icon tt-sun" />
+          <MoonOutlined className="tt-icon tt-moon" />
+          <span className="theme-toggle-knob" />
+        </span>
+      </button>
+
+      <select
+        className="theme-picker"
+        value={palette}
+        onChange={(e) => setPalette(e.target.value)}
+        aria-label="Colour theme"
+        title="Colour theme"
+      >
+        {(palettes || []).map((p) => (
+          <option key={p.key} value={p.key}>
+            {p.emoji} {p.label}
+          </option>
+        ))}
+      </select>
 
       {/* <AppsButton /> */}
     </Header>
