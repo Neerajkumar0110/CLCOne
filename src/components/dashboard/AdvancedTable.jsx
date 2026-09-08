@@ -349,15 +349,58 @@ export default function AdvancedTable({
         </div>
       </div>
 
-      <Modal open={!!viewRow} onCancel={() => setViewRow(null)} footer={null} title="Record details">
+      <Modal
+        open={!!viewRow}
+        onCancel={() => setViewRow(null)}
+        footer={null}
+        title={null}
+        width={560}
+        className="dash-detail-modal"
+        centered
+      >
         {viewRow && (
-          <div className="dash-detail-grid">
-            {columns.map((c) => (
-              <div key={c.key}>
-                <div className="dash-detail-label">{c.label}</div>
-                <div className="dash-detail-value">{cellText(c, viewRow[c.key])}</div>
+          <div className="dash-detail">
+            <div className="dash-detail-head">
+              <div className="dash-detail-avatar">
+                {String(viewRow[columns[0]?.key] || "?")
+                  .trim()
+                  .slice(0, 2)
+                  .toUpperCase()}
               </div>
-            ))}
+              <div className="dash-detail-headtext">
+                <div className="dash-detail-title">
+                  {cellText(columns[0] || {}, viewRow[columns[0]?.key]) || "Record"}
+                </div>
+                {columns[1] && (
+                  <div className="dash-detail-sub">
+                    {columns[1].label}: {cellText(columns[1], viewRow[columns[1].key])}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="dash-detail-grid">
+              {columns.map((c) => (
+                <div className="dash-detail-tile" key={c.key}>
+                  <div className="dash-detail-label">{c.label}</div>
+                  <div className="dash-detail-value">
+                    {c.type === "badge" && viewRow[c.key] ? (
+                      <span className={`hub-badge ${badgeClassFor(viewRow[c.key])}`}>
+                        {viewRow[c.key]}
+                      </span>
+                    ) : (
+                      cellText(c, viewRow[c.key])
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="dash-detail-actions">
+              <button type="button" className="hub-btn hub-btn-primary" onClick={() => setViewRow(null)}>
+                Close
+              </button>
+            </div>
           </div>
         )}
       </Modal>
