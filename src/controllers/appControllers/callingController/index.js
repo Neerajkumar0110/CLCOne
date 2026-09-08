@@ -11,6 +11,7 @@ const callbacks = require('./callbacks');
 const recordings = require('./recordings');
 const reports = require('./reports');
 const manualDial = require('./manualDial');
+const ivrFlows = require('./ivrFlows');
 
 module.exports = {
   status: meta.status,
@@ -56,4 +57,10 @@ module.exports = {
   recordingStream: recordings.stream,
 
   reportSummary: reports.summary,
+
+  ivrFlowList: ivrFlows.list,
+  ivrFlowRead: ivrFlows.read,
+  ivrFlowCreate: ivrFlows.create,
+  ivrFlowUpdate: ivrFlows.update,
+  ivrFlowRemove: ivrFlows.remove,
 };

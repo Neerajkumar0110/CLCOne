@@ -19,9 +19,11 @@ const status = async (req, res) => {
 const meta = async (req, res) => {
   const Admin = mongoose.model('Admin');
   const Team = mongoose.model('Team');
-  const [agents, teams] = await Promise.all([
+  const IvrFlow = mongoose.model('IvrFlow');
+  const [agents, teams, ivrFlows] = await Promise.all([
     Admin.find({ removed: false, enabled: true }).select('name surname role email').sort({ name: 1 }).lean(),
     Team.find({ removed: false }).select('name color members').lean(),
+    IvrFlow.find({ removed: false }).select('name direction enabled').sort({ name: 1 }).lean(),
   ]);
   return res.status(200).json({
     success: true,
@@ -37,6 +39,8 @@ const meta = async (req, res) => {
         email: a.email,
       })),
       teams,
+      ivrFlows,
+      ivrConfigured: publicCallingConfig().ivrConfigured,
       tier: callingTier(req),
     },
     message: 'ok',

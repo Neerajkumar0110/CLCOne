@@ -26,6 +26,16 @@ const schema = new mongoose.Schema({
   callerId: String, // outbound caller-ID number
   dialRatio: { type: Number, default: 1 }, // lines per available agent
 
+  // ── auto-dialer engine (CloudCallProvider.tick / callingDialerTick job) ──
+  // When true and status==='Active', the engine feeds Available agents the
+  // next lead without an agent pressing "dial next".
+  autoDial: { type: Boolean, default: true },
+  maxAttempts: { type: Number, default: 3 }, // per lead before it's parked as Failed
+  retryDelayMin: { type: Number, default: 30 }, // wait between attempts on a soft outcome
+
+  // Inbound campaigns: the IVR menu callers land in (Edesy voice-agent).
+  ivrFlow: { type: mongoose.Schema.ObjectId, ref: 'IvrFlow' },
+
   status: {
     type: String,
     enum: ['Draft', 'Scheduled', 'Active', 'Paused', 'Completed', 'Cancelled'],

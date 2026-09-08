@@ -68,3 +68,8 @@ startGoogleWebhookRetryJob();
 // enter the app (see jobs/linkedinLeadPoller.js), not just a retry path.
 const startLinkedInLeadPoller = require('./jobs/linkedinLeadPoller');
 startLinkedInLeadPoller();
+
+// Calling auto-dialer heartbeat — feeds Available agents the next lead on
+// Active campaigns, clears stuck calls (no-op unless CALLING_PROVIDER is set).
+const startCallingDialerTick = require('./jobs/callingDialerTick');
+startCallingDialerTick();

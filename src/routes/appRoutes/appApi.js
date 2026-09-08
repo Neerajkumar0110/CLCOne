@@ -132,4 +132,13 @@ router.route('/marketing-hub/metrics/:key').get(catchErrors(marketingHub.listMet
 router.route('/marketing-hub/metrics/:key').post(catchErrors(marketingHub.saveMetric));
 router.route('/marketing-hub/metrics/:key/:id').delete(catchErrors(marketingHub.deleteMetric));
 
+// Advanced Analytics — one shared shell, 9 module dashboards (overview,
+// leads, customers, interns, calls, deals, quotes, orders, products).
+// :module/summary returns the uniform {kpis,ratios,charts,funnel,table,facets}
+// payload; :module/rows backs the server-mode data tables (leads, calls).
+const analyticsMod = require('../../controllers/appControllers/analyticsController');
+const analytics = analyticsMod.default || analyticsMod;
+router.route('/analytics/:module/summary').get(catchErrors(analytics.summary));
+router.route('/analytics/:module/rows').get(catchErrors(analytics.rows));
+
 module.exports = router;

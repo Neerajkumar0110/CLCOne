@@ -45,6 +45,15 @@ const config = {
     region: process.env.CLOUD_CALL_REGION || '',
     timeoutMs: Number(process.env.CLOUD_CALL_TIMEOUT_MS || 8000),
     webhookSecret: process.env.CLOUD_CALL_WEBHOOK_SECRET || '',
+
+    // ── Edesy Voice-Agent platform (IVR menus, DTMF, in-call transfer) ──
+    // A DIFFERENT product from number-masking above: its own base URL + key
+    // (key is `vp_live_` / `vp_test_` prefixed) + workspace. Leave blank to
+    // keep masking-only behaviour (no IVR, transfer is a soft "no").
+    voiceBase: (process.env.CLOUD_CALL_VOICE_BASE || 'https://voice-agent.edesy.in/api/v1').replace(/\/+$/, ''),
+    voiceKey: process.env.CLOUD_CALL_VOICE_KEY || '',
+    workspaceId: process.env.CLOUD_CALL_WORKSPACE_ID || '',
+    voiceAgentId: process.env.CLOUD_CALL_AGENT_ID || '', // default voice-agent / flow for outbound
   },
 
   // Legacy stub config (unused unless CALLING_PROVIDER=vicidial).
@@ -88,6 +97,7 @@ function publicConfig() {
   };
   const cloudLabels = { edesy: 'Edesy Number Masking', tata: 'Tata Smartflo', exotel: 'Exotel', ozonetel: 'Ozonetel', knowlarity: 'Knowlarity', servetel: 'Servetel', twilio: 'Twilio' };
   const cloudReady = !!((config.cloud.apiToken || config.cloud.apiKey) && config.cloud.callerId);
+  const voiceAgentReady = !!(config.cloud.voiceKey && config.cloud.voiceBase);
   return {
     provider: config.provider,
     testMode: config.isMock,
@@ -97,6 +107,8 @@ function publicConfig() {
         : labels[config.provider] || config.provider,
     telephonyConfigured: !!(config.telephony.apiUrl && config.telephony.apiKey && config.telephony.hmacSecret),
     cloudConfigured: cloudReady,
+    // IVR menus + in-call transfer need the Edesy voice-agent product.
+    ivrConfigured: voiceAgentReady,
   };
 }
 
