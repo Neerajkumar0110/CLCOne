@@ -21,6 +21,13 @@ router.route('/campaigns/:id').patch(requireTier('manager'), catchErrors(c.campa
 router.route('/campaigns/:id').delete(requireTier('admin'), catchErrors(c.campaignRemove));
 router.route('/campaigns/:id/action').post(requireTier('manager'), catchErrors(c.campaignAction));
 
+// ── IVR flows (inbound menus / outbound surveys) ───────────────────────
+router.route('/ivr-flows').get(catchErrors(c.ivrFlowList));
+router.route('/ivr-flows').post(requireTier('manager'), catchErrors(c.ivrFlowCreate));
+router.route('/ivr-flows/:id').get(catchErrors(c.ivrFlowRead));
+router.route('/ivr-flows/:id').patch(requireTier('manager'), catchErrors(c.ivrFlowUpdate));
+router.route('/ivr-flows/:id').delete(requireTier('admin'), catchErrors(c.ivrFlowRemove));
+
 // ── campaign leads ─────────────────────────────────────────────────────
 router.route('/campaigns/:id/leads').get(catchErrors(c.leadList));
 router.route('/campaigns/:id/leads').post(requireTier('manager'), catchErrors(c.leadCreate));

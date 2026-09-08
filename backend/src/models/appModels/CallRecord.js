@@ -73,11 +73,26 @@ const schema = new mongoose.Schema({
   notes: String,
   transferredTo: String, // team or agent label
   transferredToAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  transferredToNumber: String, // external number the call was handed to
   transferStatus: {
     type: String,
     enum: ['none', 'requested', 'ringing', 'completed', 'failed'],
     default: 'none',
   },
+
+  // ── IVR (inbound menu / outbound survey) — DTMF digits the caller pressed,
+  // labelled against the IvrFlow option they matched. Also mirrored onto the
+  // linked CallLead for reporting.
+  ivrFlow: { type: mongoose.Schema.ObjectId, ref: 'IvrFlow' },
+  ivrResponses: [
+    {
+      _id: false,
+      promptKey: String, // which menu / gather node
+      digit: String, // raw DTMF ("1", "2", "*", "#", or a multi-digit string)
+      label: String, // human meaning from the IvrFlow option
+      at: { type: Date, default: Date.now },
+    },
+  ],
 
   recording: { type: recordingSchema, default: () => ({}) },
 

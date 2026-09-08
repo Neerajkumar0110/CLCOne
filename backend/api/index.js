@@ -96,6 +96,7 @@ try {
     CallRecord: unwrap(require('../src/models/appModels/CallRecord')),
     CallCallback: unwrap(require('../src/models/appModels/CallCallback')),
     AgentCallState: unwrap(require('../src/models/appModels/AgentCallState')),
+    IvrFlow: unwrap(require('../src/models/appModels/IvrFlow')),
     TelephonyEvent: unwrap(require('../src/models/appModels/TelephonyEvent')),
     LinkedInCampaign: unwrap(require('../src/models/appModels/LinkedInCampaign')),
     LinkedInCampaignGroup: unwrap(require('../src/models/appModels/LinkedInCampaignGroup')),

@@ -345,7 +345,7 @@ function LiveDialer() {
 
             {!teamLoading && !contactsLoading && team && contactsPages > 1 && (
               <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+                <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>
                   Page {contactsPage} of {contactsPages}
                 </span>
                 <div className="hub-row" style={{ gap: 6 }}>
@@ -985,7 +985,7 @@ function PlayerModal({ recording, onClose }) {
             value={volume}
             onChange={(e) => setVolume(Number(e.target.value))}
           />
-          <span style={{ fontSize: 11, color: "#8c8c8c", minWidth: 28 }}>{volume}%</span>
+          <span style={{ fontSize: 11, color: "var(--hub-muted)", minWidth: 28 }}>{volume}%</span>
         </div>
       </div>
     </HubModal>
@@ -1042,11 +1042,11 @@ function DownloadModal({ recording, onClose }) {
           <div className="hub-download-ring-label">{progress}%</div>
         </div>
 
-        <div style={{ fontSize: 13, color: "#1f1f1f", fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: "var(--hub-text)", fontWeight: 600 }}>
           {progress < 100 ? "Downloading…" : "Download complete"}
         </div>
 
-        <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+        <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>
           {downloadedMb} MB of {fakeSizeMb} MB
         </div>
 
@@ -1448,7 +1448,7 @@ function AutoDialer() {
               {COUNTRY_META[c].flag} {c}
             </button>
           ))}
-          <span style={{ fontSize: 12, color: "#667085", alignSelf: "center", marginLeft: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--hub-muted)", alignSelf: "center", marginLeft: 6 }}>
             Calling hours: {COUNTRY_META[country].hours}
           </span>
         </div>
@@ -1479,7 +1479,7 @@ function AutoDialer() {
           <h3>Campaign Controls</h3>
 
           <div className="hub-row" style={{ alignItems: "center", gap: 14 }}>
-            <span style={{ fontSize: 12.5, color: "#8c8c8c" }}>
+            <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
               {running ? "Campaign running" : "Campaign paused"}
             </span>
             <div

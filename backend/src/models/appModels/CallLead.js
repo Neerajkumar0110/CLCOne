@@ -40,6 +40,18 @@ const schema = new mongoose.Schema({
   lastAttemptAt: Date,
   lastDisposition: String,
   assignedAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  dncAt: Date, // set when a call/IVR marks this number Do-Not-Call
+
+  // Latest IVR / survey answers captured for this lead (labelled DTMF).
+  ivrResponses: [
+    {
+      _id: false,
+      promptKey: String,
+      digit: String,
+      label: String,
+      at: { type: Date, default: Date.now },
+    },
+  ],
 
   crmLead: { type: mongoose.Schema.ObjectId, ref: 'Lead' },
   importBatch: String,

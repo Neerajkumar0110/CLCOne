@@ -15,6 +15,10 @@ const CAMPAIGN_FIELDS = [
   'priority',
   'callerId',
   'dialRatio',
+  'autoDial',
+  'maxAttempts',
+  'retryDelayMin',
+  'ivrFlow',
 ];
 
 // GET /api/calling/campaigns

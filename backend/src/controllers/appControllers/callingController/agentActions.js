@@ -86,18 +86,23 @@ const transfer = async (req, res) => {
   if (!rec) return;
   let toAgent = null;
   if (req.body.toAgent) {
-    toAgent = await mongoose.model('Admin').findById(req.body.toAgent).select('name surname').lean();
+    toAgent = await mongoose
+      .model('Admin')
+      .findById(req.body.toAgent)
+      .select('name surname phone mobile contactNumber')
+      .lean();
   }
   const r = await provider().transfer({
     callRecord: rec,
     target: req.body.target || (toAgent ? `${toAgent.name} ${toAgent.surname || ''}`.trim() : 'Queue'),
     toAgent,
+    toNumber: req.body.toNumber || undefined,
     actorName: actorName(req),
   });
   return res.status(r.ok ? 200 : 400).json({
     success: r.ok,
     result: r.callRecord,
-    message: r.ok ? `Transferred to ${req.body.target || 'agent'} (test mode)` : r.error,
+    message: r.ok ? `Transferred to ${req.body.target || 'agent'}` : r.error,
   });
 };
 

@@ -214,14 +214,14 @@ export default function Customer() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, flexWrap: "wrap", gap: 10 }}>
-          <span style={{ fontSize: 12, color: "#667085" }}>
+          <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
             Showing {pageItems.length === 0 ? 0 : (page - 1) * pageSize + 1}–{(page - 1) * pageSize + pageItems.length} of {filtered.length}
           </span>
           <div className="hub-btn-group">
             <button type="button" className="hub-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
-            <span style={{ alignSelf: "center", fontSize: 12.5, color: "#344054" }}>Page {page} of {totalPages}</span>
+            <span style={{ alignSelf: "center", fontSize: 12.5, color: "var(--hub-text-soft)" }}>Page {page} of {totalPages}</span>
             <button type="button" className="hub-btn" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
               Next
             </button>

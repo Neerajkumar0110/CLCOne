@@ -100,10 +100,10 @@ const STATUS_META = new Proxy(
 function DetailField({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+      <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: 13.5, color: "#101828" }}>{value || "—"}</div>
+      <div style={{ fontSize: 13.5, color: "var(--hub-text)" }}>{value || "—"}</div>
     </div>
   );
 }
@@ -194,10 +194,10 @@ function LeadDetailModal({ lead, onClose }) {
 
         {lead.remarks && (
           <div>
-            <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
               Remarks / Notes
             </div>
-            <div style={{ fontSize: 13, color: "#101828", padding: "10px 12px", background: "#f8f9fc", border: "1px solid #f0f0f0", borderRadius: 8 }}>
+            <div style={{ fontSize: 13, color: "var(--hub-text)", padding: "10px 12px", background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)", borderRadius: 8 }}>
               {lead.remarks}
             </div>
           </div>
@@ -205,18 +205,18 @@ function LeadDetailModal({ lead, onClose }) {
 
         {Array.isArray(lead.stageHistory) && lead.stageHistory.length > 0 && (
           <div>
-            <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
               Stage Change History
             </div>
             <div style={{ display: "grid", gap: 6, maxHeight: 180, overflowY: "auto" }}>
               {[...lead.stageHistory].reverse().map((h, i) => (
-                <div key={i} style={{ fontSize: 12, color: "#334155", display: "flex", gap: 8, alignItems: "baseline" }}>
+                <div key={i} style={{ fontSize: 12, color: "var(--hub-text-soft)", display: "flex", gap: 8, alignItems: "baseline" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: stageColor(h.toStage), flexShrink: 0, marginTop: 5 }} />
                   <span style={{ flex: 1 }}>
                     <strong>{h.fromStage ? `${h.fromStage} → ` : ""}{h.toStage}</strong>
                     {h.toSubStatus ? ` · ${h.toSubStatus}` : ""}
                     {h.remarks ? <span style={{ color: "#64748b" }}> — {h.remarks}</span> : ""}
-                    <span style={{ color: "#94a3b8" }}>
+                    <span style={{ color: "var(--hub-muted)" }}>
                       {" "}· {h.changedByName || "system"} · {h.at ? new Date(h.at).toLocaleString() : ""}
                     </span>
                   </span>
@@ -227,20 +227,20 @@ function LeadDetailModal({ lead, onClose }) {
         )}
 
         <div>
-          <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
+          <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
             Message
           </div>
           <div
             style={{
-              fontSize: 13, color: "#101828", padding: "10px 12px",
-              background: "#f8f9fc", border: "1px solid #f0f0f0", borderRadius: 8, minHeight: 44,
+              fontSize: 13, color: "var(--hub-text)", padding: "10px 12px",
+              background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)", borderRadius: 8, minHeight: 44,
             }}
           >
             {lead.message || "—"}
           </div>
         </div>
 
-        <div style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+        <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>
           Captured {lead.created ? new Date(lead.created).toLocaleString() : "—"}
         </div>
       </div>
@@ -476,7 +476,7 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
       </div>
 
       {cfg.description && (
-        <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: -4, marginBottom: 6 }}>
+        <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: -4, marginBottom: 6 }}>
           {cfg.description}
         </div>
       )}
@@ -723,18 +723,18 @@ function EditLeadModal({ lead, onClose, onSave, teamNames, admins }) {
 
       {Array.isArray(lead.stageHistory) && lead.stageHistory.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 6 }}>
             Stage Change History
           </div>
           <div style={{ display: "grid", gap: 6, maxHeight: 160, overflowY: "auto" }}>
             {[...lead.stageHistory].reverse().map((h, i) => (
-              <div key={i} style={{ fontSize: 12, color: "#334155", display: "flex", gap: 8, alignItems: "baseline" }}>
+              <div key={i} style={{ fontSize: 12, color: "var(--hub-text-soft)", display: "flex", gap: 8, alignItems: "baseline" }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: stageColor(h.toStage), flexShrink: 0, marginTop: 5 }} />
                 <span style={{ flex: 1 }}>
                   <strong>{h.fromStage ? `${h.fromStage} → ` : ""}{h.toStage}</strong>
                   {h.toSubStatus ? ` · ${h.toSubStatus}` : ""}
                   {h.remarks ? <span style={{ color: "#64748b" }}> — {h.remarks}</span> : ""}
-                  <span style={{ color: "#94a3b8" }}>
+                  <span style={{ color: "var(--hub-muted)" }}>
                     {" "}· {h.changedByName || "system"} · {h.at ? new Date(h.at).toLocaleString() : ""}
                   </span>
                 </span>
@@ -837,7 +837,7 @@ function FollowUpModal({ lead, onClose }) {
               rows={5}
               value={message}
               readOnly
-              style={{ resize: "vertical", fontFamily: "inherit", background: "#f8f9fc" }}
+              style={{ resize: "vertical", fontFamily: "inherit", background: "var(--hub-bg-soft)" }}
             />
           </div>
         </>
@@ -871,12 +871,12 @@ function DuplicateWarningModal({ duplicate, onCancel, onAddAnyway }) {
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{duplicate.name}</div>
-              <div style={{ fontSize: 12, color: "#667085" }}>{duplicate.phone}</div>
+              <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{duplicate.phone}</div>
             </div>
           </div>
-          <div style={{ fontSize: 12.5, color: "#667085" }}>
-            Team: <strong style={{ color: "#101828" }}>{duplicate.team}</strong> · Position:{" "}
-            <strong style={{ color: "#101828" }}>{duplicate.position}</strong> · Status:{" "}
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
+            Team: <strong style={{ color: "var(--hub-text)" }}>{duplicate.team}</strong> · Position:{" "}
+            <strong style={{ color: "var(--hub-text)" }}>{duplicate.position}</strong> · Status:{" "}
             <span className={`hub-badge ${STATUS_META[duplicate.status]}`} style={{ marginLeft: 2 }}>
               {duplicate.status}
             </span>
@@ -916,23 +916,23 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
           <div
             style={{
               width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center",
-              background: "linear-gradient(135deg,#eef2ff,#e0e7ff)", color: "#6366f1", fontSize: 19, flexShrink: 0,
+              background: "var(--hub-blue-soft)", color: "var(--hub-blue)", fontSize: 19, flexShrink: 0,
             }}
           >
             <FilterOutlined />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Lead Stages</h3>
-            <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 2 }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--hub-text)" }}>Lead Stages</h3>
+            <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginTop: 2 }}>
               Track your leads&rsquo; progress across every stage
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f6f7fb", borderRadius: 12, padding: "8px 14px" }}>
-          <TeamOutlined style={{ color: "#6366f1" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--hub-bg-soft)", borderRadius: 12, padding: "8px 14px" }}>
+          <TeamOutlined style={{ color: "var(--hub-blue)" }} />
           <div style={{ lineHeight: 1.15 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{total}</div>
-            <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.4 }}>Total Leads</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--hub-text)" }}>{total}</div>
+            <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>Total Leads</div>
           </div>
         </div>
       </div>
@@ -942,9 +942,9 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
       ) : (
         <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
           <div style={{ flex: "0 0 280px", maxWidth: 320, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ flex: 1, background: "#f8fafc", borderRadius: 18, padding: 16, display: "grid", placeItems: "center" }}>
+            <div style={{ flex: 1, background: "var(--hub-bg-soft)", borderRadius: 18, padding: 16, display: "grid", placeItems: "center" }}>
               <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: "100%", maxWidth: 188 }}>
-                <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke="#eceef3" strokeWidth={STROKE} />
+                <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" style={{ stroke: "var(--hub-border)" }} strokeWidth={STROKE} />
                 {total > 0 &&
                   nonZero.map((s) => {
                     const len = (pct(s.count) / 100) * CIRC;
@@ -971,13 +971,13 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                     dashAccum += len;
                     return node;
                   })}
-                <circle cx={SIZE / 2} cy={SIZE / 2} r={R - STROKE / 2 - 2} fill="#fff" />
+                <circle cx={SIZE / 2} cy={SIZE / 2} r={R - STROKE / 2 - 2} style={{ fill: "var(--hub-surface)" }} />
                 <text
                   x="50%"
                   y="46%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  style={{ fontSize: 40, fontWeight: 800, fill: "#0f172a" }}
+                  style={{ fontSize: 40, fontWeight: 800, fill: "var(--hub-text)" }}
                 >
                   {total}
                 </text>
@@ -986,7 +986,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                   y="59%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  style={{ fontSize: 13, fontWeight: 600, fill: "#94a3b8" }}
+                  style={{ fontSize: 13, fontWeight: 600, fill: "var(--hub-muted)" }}
                 >
                   Total Leads
                 </text>
@@ -1004,7 +1004,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                     minWidth: 0,
                     textAlign: "left",
                     position: "relative",
-                    background: activeStage === s.stage ? "#eef2ff" : "#f8fafc",
+                    background: activeStage === s.stage ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
                     border: `1.5px solid ${activeStage === s.stage ? s.color : "transparent"}`,
                     borderRadius: 14,
                     padding: "12px 13px 24px",
@@ -1014,7 +1014,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ width: 9, height: 9, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 21, fontWeight: 800, color: "#0f172a" }}>{s.count}</span>
+                    <span style={{ fontSize: 21, fontWeight: 800, color: "var(--hub-text)" }}>{s.count}</span>
                   </div>
                   <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {s.stage}
@@ -1026,7 +1026,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                       bottom: 9,
                       fontSize: 12,
                       fontWeight: 700,
-                      color: s.count ? s.color : "#94a3b8",
+                      color: s.count ? s.color : "var(--hub-muted)",
                     }}
                   >
                     {Math.round(pct(s.count))}%
@@ -1035,15 +1035,15 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
               ))}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#f1effe", borderRadius: 14, padding: "12px 14px" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#fff", display: "grid", placeItems: "center", color: "#7c3aed", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--hub-purple-soft)", borderRadius: 14, padding: "12px 14px" }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--hub-surface)", display: "grid", placeItems: "center", color: "var(--hub-purple)", flexShrink: 0 }}>
                 <RiseOutlined />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11.5, color: "#8578b3" }}>Lead Conversion Rate</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#6d28d9" }}>{convRate.toFixed(2)}%</div>
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Lead Conversion Rate</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-purple)" }}>{convRate.toFixed(2)}%</div>
               </div>
-              <RightOutlined style={{ color: "#b4a9d6", fontSize: 12 }} />
+              <RightOutlined style={{ color: "var(--hub-muted)", fontSize: 12 }} />
             </div>
           </div>
 
@@ -1056,7 +1056,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                 padding: "0 6px 8px",
                 fontSize: 9.5,
                 fontWeight: 700,
-                color: "#94a3b8",
+                color: "var(--hub-muted)",
                 letterSpacing: 0.5,
                 textTransform: "uppercase",
               }}
@@ -1089,7 +1089,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                       padding: "7px 6px",
                       border: "none",
                       borderRadius: 6,
-                      background: on && !activeSub ? "#eef2ff" : "transparent",
+                      background: on && !activeSub ? "var(--hub-blue-soft)" : "transparent",
                       cursor: "pointer",
                       font: "inherit",
                       textAlign: "left",
@@ -1097,7 +1097,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                       {subs.length > 1 ? (
-                        <span style={{ fontSize: 8, color: "#94a3b8", width: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 8, color: "var(--hub-muted)", width: 8, flexShrink: 0 }}>
                           {isOpen ? "▼" : "▶"}
                         </span>
                       ) : (
@@ -1108,7 +1108,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                         style={{
                           fontSize: 11.5,
                           fontWeight: 600,
-                          color: s.count ? "#1e293b" : "#94a3b8",
+                          color: s.count ? "#1e293b" : "var(--hub-muted)",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -1117,7 +1117,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                         {s.stage}
                       </span>
                     </span>
-                    <span style={{ height: 6, borderRadius: 999, background: "#eef0f4", overflow: "hidden" }}>
+                    <span style={{ height: 6, borderRadius: 999, background: "var(--hub-border)", overflow: "hidden" }}>
                       <span
                         style={{
                           display: "block",
@@ -1129,10 +1129,10 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                         }}
                       />
                     </span>
-                    <span style={{ textAlign: "right", fontSize: 11.5, fontWeight: 700, color: s.count ? "#0f172a" : "#cbd5e1" }}>
+                    <span style={{ textAlign: "right", fontSize: 11.5, fontWeight: 700, color: s.count ? "#0f172a" : "var(--hub-muted)" }}>
                       {s.count}
                     </span>
-                    <span style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: s.count ? s.color : "#cbd5e1" }}>
+                    <span style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: s.count ? s.color : "var(--hub-muted)" }}>
                       {Math.round(p)}%
                     </span>
                   </button>
@@ -1155,7 +1155,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                             padding: "5px 6px 5px 22px",
                             border: "none",
                             borderRadius: 6,
-                            background: sOn ? "#eef2ff" : "transparent",
+                            background: sOn ? "var(--hub-blue-soft)" : "transparent",
                             cursor: "pointer",
                             font: "inherit",
                             textAlign: "left",
@@ -1164,7 +1164,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                           <span
                             style={{
                               fontSize: 10.5,
-                              color: ss.count ? "#475569" : "#a8b0bd",
+                              color: ss.count ? "#475569" : "var(--hub-muted)",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
@@ -1172,7 +1172,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                           >
                             {ss.subStatus}
                           </span>
-                          <span style={{ height: 4, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                          <span style={{ height: 4, borderRadius: 999, background: "var(--hub-border)", overflow: "hidden" }}>
                             <span
                               style={{
                                 display: "block",
@@ -1184,10 +1184,10 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
                               }}
                             />
                           </span>
-                          <span style={{ textAlign: "right", fontSize: 10.5, fontWeight: 600, color: ss.count ? "#334155" : "#cbd5e1" }}>
+                          <span style={{ textAlign: "right", fontSize: 10.5, fontWeight: 600, color: ss.count ? "#334155" : "var(--hub-muted)" }}>
                             {ss.count}
                           </span>
-                          <span style={{ textAlign: "right", fontSize: 10, fontWeight: 600, color: "#94a3b8" }}>
+                          <span style={{ textAlign: "right", fontSize: 10, fontWeight: 600, color: "var(--hub-muted)" }}>
                             {Math.round(sp)}%
                           </span>
                         </button>
@@ -1473,9 +1473,9 @@ function AllLeads() {
                   fontSize: 11.5,
                   fontWeight: 600,
                   cursor: "pointer",
-                  border: `1px solid ${on ? c : "#e2e8f0"}`,
-                  background: on ? c : "#fff",
-                  color: on ? "#fff" : "#475569",
+                  border: `1px solid ${on ? c : "var(--hub-border)"}`,
+                  background: on ? c : "var(--hub-surface)",
+                  color: on ? "#fff" : "var(--hub-text-soft)",
                 }}
               >
                 {qf.stage && (
@@ -1491,10 +1491,10 @@ function AllLeads() {
         {showFilters && (
           <div
             style={{
-              border: "1px solid #eef0f4",
+              border: "1px solid var(--hub-border)",
               borderRadius: 12,
               padding: 14,
-              background: "#fafbfd",
+              background: "var(--hub-bg-soft)",
               marginBottom: 12,
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
@@ -1597,7 +1597,7 @@ function AllLeads() {
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
               {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}
               {drillStage ? ` · ${drillStage}` : ""}
               {drillSub ? ` · ${drillSub}` : ""}
@@ -1641,13 +1641,13 @@ function AllLeads() {
                             <span className={`hub-badge ${STATUS_META[l.stage || l.status]}`}>
                               {l.stage || stageForStatus(l.status)}
                             </span>
-                            <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>{l.subStatus || "—"}</div>
+                            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>{l.subStatus || "—"}</div>
                           </td>
                           <td>{l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}</td>
                           <td>{l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toLocaleDateString() : "—"}</td>
                           <td>
                             {l.callBackAt ? (
-                              <span style={{ color: overdue ? "#dc2626" : "#334155", fontWeight: overdue ? 700 : 400 }}>
+                              <span style={{ color: overdue ? "#dc2626" : "var(--hub-text-soft)", fontWeight: overdue ? 700 : 400 }}>
                                 {new Date(l.callBackAt).toLocaleString()}
                                 {overdue ? " · overdue" : ""}
                               </span>
@@ -1674,7 +1674,7 @@ function AllLeads() {
 
             {drill.pages > 1 && (
               <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-                <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+                <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
                   Page {drill.page} of {drill.pages} · {drill.count} total
                 </span>
                 <div className="hub-row" style={{ gap: 8 }}>
@@ -1704,8 +1704,8 @@ function AllLeads() {
                   flex: "1 1 150px",
                   minWidth: 150,
                   maxWidth: 220,
-                  background: "#fff",
-                  border: "1px solid var(--hub-border, #eef0f4)",
+                  background: "var(--hub-surface)",
+                  border: "1px solid var(--hub-border)",
                   borderRadius: 10,
                   padding: "14px 16px",
                   position: "relative",
@@ -1714,11 +1714,11 @@ function AllLeads() {
                 }}
               >
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: t.color || "var(--hub-blue)" }} />
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#667085", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hub-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {t.team}
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: "#101828" }}>{t.leadCount}</div>
-                <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: "var(--hub-text)" }}>{t.leadCount}</div>
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
                   <UserOutlined /> {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
                 </div>
               </div>
@@ -1761,7 +1761,7 @@ function AllLeads() {
                       <span style={{ width: 9, height: 9, borderRadius: "50%", background: t.color || "var(--hub-blue)", flexShrink: 0 }} />
                       <span style={{ fontWeight: 600, fontSize: 13.5 }}>{t.team}</span>
                       <span className="hub-badge hub-badge-blue">{t.leadCount} lead{t.leadCount === 1 ? "" : "s"}</span>
-                      <span style={{ fontSize: 11.5, color: "#8c8c8c", display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 11.5, color: "var(--hub-muted)", display: "flex", alignItems: "center", gap: 4 }}>
                         <UserOutlined /> {t.memberCount}
                       </span>
                     </div>
@@ -1824,7 +1824,7 @@ function AllLeads() {
                                       {l.stage || stageForStatus(l.status)}
                                     </span>
                                     {l.subStatus && (
-                                      <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>{l.subStatus}</div>
+                                      <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>{l.subStatus}</div>
                                     )}
                                   </td>
                                   <td>
@@ -1855,7 +1855,7 @@ function AllLeads() {
 
                       {cache && cache.pages > 1 && (
                         <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-                          <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+                          <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
                             Page {cache.page} of {cache.pages} · {cache.count} leads total
                           </span>
                           <div className="hub-row" style={{ gap: 8 }}>
@@ -2207,11 +2207,11 @@ function ImportExport() {
               borderRadius: 10,
               padding: "32px 20px",
               textAlign: "center",
-              background: dragging ? "var(--hub-blue-soft)" : "#fafbfd",
+              background: dragging ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
               transition: "all 0.2s ease",
             }}
           >
-            <div style={{ fontSize: 13, color: "#8c8c8c", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, color: "var(--hub-muted)", marginBottom: 10 }}>
               Drag &amp; drop a CSV or Excel file here, or
             </div>
 
@@ -2226,7 +2226,7 @@ function ImportExport() {
             </label>
 
             {file && (
-              <div style={{ marginTop: 14, fontSize: 12.5, color: "#1f1f1f" }}>
+              <div style={{ marginTop: 14, fontSize: 12.5, color: "var(--hub-text)" }}>
                 <FileTextOutlined /> {file.name} — ready to import
               </div>
             )}
@@ -2240,10 +2240,10 @@ function ImportExport() {
             ) : (
               <div
                 style={{
-                  border: "1px solid #eef0f4",
+                  border: "1px solid var(--hub-border)",
                   borderRadius: 12,
                   padding: 14,
-                  background: "#fafbfd",
+                  background: "var(--hub-bg-soft)",
                 }}
               >
                 <div className="hub-row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -2319,13 +2319,13 @@ function ImportExport() {
                         }}
                       />
                     </div>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "#667085" }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--hub-muted)" }}>
                       {allocatedTotal}/{splitTotal}
                     </span>
                   </div>
                 )}
 
-                <div style={{ marginTop: 10, fontSize: 12, color: "#8c8c8c" }}>
+                <div style={{ marginTop: 10, fontSize: 12, color: "var(--hub-muted)" }}>
                   {allocatedTotal > 0
                     ? `${allocatedTotal} lead${allocatedTotal === 1 ? "" : "s"} allocated across ${allocatedTeams} team${allocatedTeams === 1 ? "" : "s"}. Rows beyond this count import unassigned.`
                     : "No counts set — every row will import without a team."}
@@ -2377,7 +2377,7 @@ function ImportExport() {
             <h3><ExportOutlined /> Export Leads</h3>
           </div>
 
-          <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
             Downloads leads (name, phone, source, team, position, status) — optionally filtered to one team.
           </div>
 
@@ -2486,7 +2486,7 @@ function ImportExport() {
 
         {!historyLoading && history.length > 0 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
               Page {historyPage} of {historyPages} · {historyCount} import{historyCount === 1 ? "" : "s"} total
             </span>
             <div className="hub-row" style={{ gap: 8 }}>
@@ -2517,7 +2517,7 @@ function ImportExport() {
           {unassignedCount > 0 && <span className="hub-badge hub-badge-yellow">{unassignedCount}</span>}
         </div>
 
-        <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 14 }}>
+        <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
           Leads that haven't been given to any team yet — import rows left over after a manual split, or added without a team.
         </div>
 
@@ -2616,7 +2616,7 @@ function ImportExport() {
             className="hub-row"
             style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 12 }}
           >
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#101828" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--hub-text)" }}>
               {selectedLeadIds.length} lead{selectedLeadIds.length === 1 ? "" : "s"} selected
             </span>
             <button
@@ -2635,15 +2635,15 @@ function ImportExport() {
           <div
             style={{
               marginTop: 16,
-              border: "1px solid #eef0f4",
+              border: "1px solid var(--hub-border)",
               borderRadius: 12,
               padding: 14,
-              background: selectedLeadIds.length > 0 ? "var(--hub-blue-soft)" : "#fafbfd",
+              background: selectedLeadIds.length > 0 ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
               transition: "background 0.2s ease",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: "#101828" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--hub-text)" }}>
                 Assign {selectedLeadIds.length > 0 ? `${selectedLeadIds.length} selected lead${selectedLeadIds.length === 1 ? "" : "s"}` : "selected leads"} to teams
               </div>
 
@@ -2672,7 +2672,7 @@ function ImportExport() {
                     padding: "6px 12px",
                     borderRadius: 999,
                     border: `1px solid ${assignTeams.includes(t) ? "var(--hub-blue)" : "#e3e9f5"}`,
-                    background: assignTeams.includes(t) ? "var(--hub-blue-soft)" : "#fff",
+                    background: assignTeams.includes(t) ? "var(--hub-blue-soft)" : "var(--hub-surface)",
                     fontSize: 12.5,
                     fontWeight: 600,
                     cursor: "pointer",
@@ -2691,7 +2691,7 @@ function ImportExport() {
             </div>
 
             <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+              <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
                 {selectedLeadIds.length > 0 && assignTeams.length > 0
                   ? `${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? "" : "s"} will be split equally across ${assignTeams.length} team${assignTeams.length === 1 ? "" : "s"}.`
                   : "Select leads above and check one or more teams."}
@@ -2710,7 +2710,7 @@ function ImportExport() {
 
         {!unassignedLoading && unassigned.length > 0 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
               Page {unassignedPage} of {unassignedPages} · {unassignedCount} unassigned total
             </span>
             <div className="hub-row" style={{ gap: 8 }}>
@@ -3288,7 +3288,7 @@ function CaptureForm() {
             );
           })}
         </div>
-        <div style={{ fontSize: 12, color: "#667085", marginTop: 10 }}>
+        <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 10 }}>
           <strong>Facebook / Google / LinkedIn Ads connections niche optional hain</strong> — sirf leads ke
           auto-sync ke liye. Bina kisi account connect kiye, <strong>Website</strong> ka
           <em> Hosted Landing Page</em> link ya <em>Embed Code</em> use karke abhi se ads chala ke leads le sakte ho.
@@ -3301,7 +3301,7 @@ function CaptureForm() {
             <h3><LinkOutlined /> Hosted Landing Page — point your ads here</h3>
             <span className="hub-badge hub-badge-green">No connection needed</span>
           </div>
-          <div style={{ fontSize: 12.5, color: "#667085", marginBottom: 12 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 12 }}>
             Ye ek ready lead-capture page hai jo aapke saved form fields se banta hai. Iska link
             Facebook / Instagram / Google / YouTube ad ke <strong>destination URL</strong> me daalo —
             leads seedhe CRM me aayenge, campaign ke naam se tag hoke (Marketing → Analytics Hub me dikhega).
@@ -3330,8 +3330,8 @@ function CaptureForm() {
             return (
               <div style={{ marginTop: 12 }}>
                 <div style={{
-                  fontFamily: "monospace", fontSize: 12, background: "#f8fafc", border: "1px solid #e2e8f0",
-                  borderRadius: 8, padding: "10px 12px", wordBreak: "break-all", color: "#0f172a",
+                  fontFamily: "monospace", fontSize: 12, background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)",
+                  borderRadius: 8, padding: "10px 12px", wordBreak: "break-all", color: "var(--hub-text)",
                 }}>{url}</div>
                 <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                   <button type="button" className="hub-btn hub-btn-primary" onClick={async () => {
@@ -3342,7 +3342,7 @@ function CaptureForm() {
                   <a className="hub-btn" href={url} target="_blank" rel="noreferrer"><LinkOutlined /> Open / Preview</a>
                   {lpCopyMessage && <span className="hub-badge hub-badge-blue">{lpCopyMessage}</span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: 8 }}>
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 8 }}>
                   Tip: har alag ad ke liye alag <strong>Campaign name</strong> rakho — Analytics Hub me har campaign
                   ki leads / cost / ROI alag dikhegi. Form fields niche "Form Fields" me on/off karke <strong>Save Form</strong> dabao.
                 </div>
@@ -3361,7 +3361,7 @@ function CaptureForm() {
             </span>
           </div>
 
-          <div style={{ fontSize: 12.5, color: "#667085", marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
             Connect a real Facebook account, then pick the Page and Ad Account leads from
             your Facebook ads should flow into — no manual entry, no hard-coded IDs.
           </div>
@@ -3406,7 +3406,7 @@ function CaptureForm() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 11.5, color: "#8c8c8c", marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
                 {connection.webhookSubscribed ? (
                   <span className="hub-badge hub-badge-green">Webhook subscribed — new leads arrive automatically</span>
                 ) : connection.page ? (
@@ -3436,7 +3436,7 @@ function CaptureForm() {
             </span>
           </div>
 
-          <div style={{ fontSize: 12.5, color: "#667085", marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
             Connect a real Google Ads account, then pick the account leads from your
             Google Ads Lead Form campaigns should flow into.
           </div>
@@ -3471,7 +3471,7 @@ function CaptureForm() {
               {googleConnection.customer ? (
                 <div style={{ paddingTop: 14, borderTop: "1px solid var(--hub-border)", marginBottom: 16 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Connect leads from Google Ads</div>
-                  <div style={{ fontSize: 11.5, color: "#8c8c8c", marginBottom: 10 }}>
+                  <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 10 }}>
                     In Google Ads, open your Lead Form asset → Connect to a CRM using webhook integration →
                     paste the URL and key below.
                   </div>
@@ -3498,7 +3498,7 @@ function CaptureForm() {
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize: 11.5, color: "#8c8c8c", marginBottom: 14 }}>
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
                   Select a Google Ads account to see the webhook URL and key to paste into Google Ads.
                 </div>
               )}
@@ -3540,7 +3540,7 @@ function CaptureForm() {
             </span>
           </div>
 
-          <div style={{ fontSize: 12.5, color: "#667085", marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
             Connect a real LinkedIn account, then set the Organization and Ad Account leads from
             your LinkedIn ads should flow into.
           </div>
@@ -3591,7 +3591,7 @@ function CaptureForm() {
                     {savingOrg ? "Saving…" : "Save Organization"}
                   </button>
                   {linkedinConnection.organization && (
-                    <div style={{ fontSize: 11.5, color: "#8c8c8c", marginTop: 6 }}>
+                    <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 6 }}>
                       Current: {linkedinConnection.organization.name} · {linkedinConnection.organization.id}
                     </div>
                   )}
@@ -3611,7 +3611,7 @@ function CaptureForm() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 11.5, color: "#8c8c8c", marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
                 <span className="hub-badge hub-badge-blue">
                   LinkedIn has no live webhook — new leads are pulled by a background sync every few minutes
                 </span>
@@ -3646,13 +3646,13 @@ function CaptureForm() {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "10px 12px",
-                  border: "1px solid #f0f0f0",
+                  border: "1px solid var(--hub-border)",
                   borderRadius: 8,
                 }}
               >
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{f.label}</div>
-                  <div style={{ fontSize: 11, color: "#8c8c8c" }}>{f.type} field</div>
+                  <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>{f.type} field</div>
                 </div>
 
                 <button
@@ -3703,7 +3703,7 @@ function CaptureForm() {
                     {creatingForm ? "Creating…" : "Create Meta Lead Form"}
                   </button>
                   {!connection?.connected && (
-                    <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>Connect Facebook and select a Page first.</span>
+                    <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Connect Facebook and select a Page first.</span>
                   )}
                 </>
               )}
@@ -3727,16 +3727,16 @@ function CaptureForm() {
 
           <div
             style={{
-              border: "1px solid #f0f0f0",
+              border: "1px solid var(--hub-border)",
               borderRadius: 10,
               padding: 20,
-              background: "#fafbfd",
+              background: "var(--hub-bg-soft)",
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
               Get in touch with us
             </div>
-            <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 16 }}>
               Fill this form and our team will reach out within 24 hours.
             </div>
 
@@ -3756,7 +3756,7 @@ function CaptureForm() {
                         height: 60,
                         border: "1px solid #e3e9f5",
                         borderRadius: 6,
-                        background: "#fff",
+                        background: "var(--hub-surface)",
                       }}
                     />
                   ) : f.type === "Dropdown" ? (
@@ -3772,7 +3772,7 @@ function CaptureForm() {
                         height: 32,
                         border: "1px solid #e3e9f5",
                         borderRadius: 6,
-                        background: "#fff",
+                        background: "var(--hub-surface)",
                       }}
                     />
                   )}
@@ -3843,7 +3843,7 @@ function CaptureForm() {
 
         {capturedPages > 1 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
               Page {capturedPage} of {capturedPages} · {capturedCount} leads total
             </span>
             <div className="hub-row" style={{ gap: 8 }}>
@@ -4596,7 +4596,7 @@ function GoogleCampaignSetup({ connection }) {
                   <input className="hub-input" value={description2} onChange={(e) => setDescription2(e.target.value)} />
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 10 }}>
                 Google requires at least 3 headlines and 2 descriptions for a Responsive Search Ad.
               </div>
               <button
@@ -5049,7 +5049,7 @@ function CallbacksBoard() {
             </thead>
             <tbody>
               {leads.map((l) => (
-                <tr key={l._id} style={tone === "red" ? { background: "#fef2f2" } : undefined}>
+                <tr key={l._id} style={tone === "red" ? { background: "var(--hub-red-soft)" } : undefined}>
                   <td>
                     <div className="hub-person" style={{ cursor: "pointer" }} onClick={() => setEditLead(l)}>
                       <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
@@ -5085,7 +5085,7 @@ function CallbacksBoard() {
           <h3><InboxOutlined /> Callbacks</h3>
           <button type="button" className="hub-btn" onClick={load}>Refresh</button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#8c8c8c" }}>
+        <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
           Leads in the “Call Back” stage. Overdue callbacks are highlighted so nothing slips.
         </div>
       </div>
