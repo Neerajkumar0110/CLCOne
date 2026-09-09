@@ -8,18 +8,39 @@ export default function AutoDialer() {
   const [campId, setCampId] = useState("");
   const [state, setState] = useState(null);
   const [myStatus, setMyStatus] = useState("Offline");
+  const [busy, setBusy] = useState(false);
   const campIdRef = useRef("");
   campIdRef.current = campId;
 
-  useEffect(() => {
-    request.get({ entity: "calling/campaigns?items=100" }).then((r) => {
-      if (r?.success) {
-        setCampaigns(r.result);
+  const loadCampaigns = async (keepId) => {
+    const r = await request.get({ entity: "calling/campaigns?items=100" });
+    if (r?.success) {
+      setCampaigns(r.result);
+      if (!keepId) {
         const active = r.result.find((c) => c.status === "Active") || r.result[0];
         if (active) setCampId(active._id);
       }
-    });
+    }
+  };
+
+  useEffect(() => {
+    loadCampaigns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const camp = campaigns.find((c) => c._id === campId) || null;
+  const campOn = camp?.status === "Active";
+
+  // OFF -> click -> ON (campaign Active, auto-dialer starts feeding agents).
+  const toggleCampaign = async () => {
+    if (!camp || busy) return;
+    setBusy(true);
+    const action = campOn ? "pause" : "start";
+    const r = await request.post({ entity: `calling/campaigns/${camp._id}/action`, jsonData: { action } });
+    if (!r?.success) window.alert(r?.message || "Could not change the campaign.");
+    await loadCampaigns(true);
+    setBusy(false);
+  };
 
   usePoll(
     async () => {
@@ -58,17 +79,71 @@ export default function AutoDialer() {
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><ThunderboltOutlined /> Auto Dialer</h3>
-          <select className="hub-select" style={{ maxWidth: 260 }} value={campId} onChange={(e) => setCampId(e.target.value)}>
-            <option value="">— pick a campaign —</option>
-            {campaigns.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name} ({c.status})
-              </option>
-            ))}
-          </select>
+          <div className="hub-row" style={{ gap: 10, alignItems: "center" }}>
+            <select className="hub-select" style={{ maxWidth: 260 }} value={campId} onChange={(e) => setCampId(e.target.value)}>
+              <option value="">— pick a campaign —</option>
+              {campaigns.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name} ({c.status})
+                </option>
+              ))}
+            </select>
+
+            {camp && (
+              <button
+                type="button"
+                onClick={toggleCampaign}
+                disabled={busy || ["Completed", "Cancelled"].includes(camp.status)}
+                title={campOn ? "Campaigning is ON — click to stop" : "Campaigning is OFF — click to start"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 14px 6px 8px",
+                  borderRadius: 999,
+                  border: `1px solid ${campOn ? "#16a34a" : "#cbd5e1"}`,
+                  background: campOn ? "#16a34a" : "#f1f5f9",
+                  color: campOn ? "#fff" : "#475569",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                <span
+                  style={{
+                    width: 34,
+                    height: 20,
+                    borderRadius: 999,
+                    background: campOn ? "rgba(255,255,255,.35)" : "#cbd5e1",
+                    position: "relative",
+                    transition: "background .15s",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: campOn ? 16 : 2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transition: "left .15s",
+                    }}
+                  />
+                </span>
+                {busy ? "…" : campOn ? "Campaigning ON" : "Start Campaigning"}
+              </button>
+            )}
+          </div>
         </div>
 
         {!campId && <div className="hub-empty">Pick a campaign to see the dialer.</div>}
+        {camp && !campOn && !["Completed", "Cancelled"].includes(camp.status) && (
+          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, marginBottom: 12 }}>
+            Campaign is <strong>{camp.status}</strong> — no calls will be placed. Toggle <strong>Start Campaigning</strong> above to go live.
+          </div>
+        )}
 
         {campId && state && (
           <>

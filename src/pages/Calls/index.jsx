@@ -136,6 +136,14 @@ function LiveDialer() {
   const [callSeconds, setCallSeconds] = useState(0);
   const timerRef = useRef(null);
 
+  // Real calling: the provider rings THIS number first, then the customer.
+  const [agentPhone, setAgentPhone] = useState(() => {
+    try { return localStorage.getItem("calling.agentPhone") || ""; } catch { return ""; }
+  });
+  const [activeCallId, setActiveCallId] = useState(null);
+  const [callMsg, setCallMsg] = useState("");
+  const [dialing, setDialing] = useState(false);
+
   const loadRecentCalls = async () => {
     if (!currentAdmin?.name) return;
     setRecentLoading(true);
@@ -198,33 +206,54 @@ function LiveDialer() {
       (contact.phone || "").includes(search)) &&
       (tagFilter === "All" || contact.status === tagFilter)
   );
-  const startCall = (contact) => {
+  const startCall = async (contact) => {
+    if (dialing || isCalling) return;
+    const num = String(contact.phone || "").replace(/[^\d+]/g, "");
+    if (num.replace(/\D/g, "").length < 8) {
+      window.alert("Enter a valid phone number.");
+      return;
+    }
+    if (agentPhone.replace(/\D/g, "").length < 8) {
+      window.alert('Enter "Your number" first — the provider rings you before the customer.');
+      return;
+    }
+    try { localStorage.setItem("calling.agentPhone", agentPhone); } catch { /* ignore */ }
+
     const initials =
       contact.initials || contact.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
     setSelectedContact({ ...contact, initials });
-    setIsCalling(true);
-    setIsMuted(false);
-    setIsSpeaker(false);
+    setDialing(true);
+    setCallMsg("");
+
+    const r = await request.post({
+      entity: "calling/manual/dial",
+      jsonData: { phone: num, contactName: contact.name, agentPhone },
+    });
+    setDialing(false);
+
+    if (r?.success) {
+      setActiveCallId(r.result?.record?._id || null);
+      setIsCalling(true);
+      setIsMuted(false);
+      setIsSpeaker(false);
+      setCallMsg(r.message || "Calling your phone — pick up to connect to the customer.");
+    } else {
+      setSelectedContact(null);
+      window.alert(r?.message || "Could not start the call.");
+    }
   };
 
   const endCall = async () => {
     setIsCalling(false);
-    if (selectedContact && team && currentAdmin) {
-      await request.create({
-        entity: "call",
-        jsonData: {
-          lead: selectedContact._id || undefined,
-          contactName: selectedContact.name,
-          phone: selectedContact.phone,
-          direction: "Outgoing",
-          status: "Connected",
-          duration: callSeconds,
-          team: team.name,
-          calledBy: currentAdmin.name,
-        },
+    setCallMsg("");
+    if (activeCallId) {
+      await request.post({
+        entity: `calling/manual/end/${activeCallId}`,
+        jsonData: { talkSeconds: callSeconds },
       });
-      loadRecentCalls();
+      setActiveCallId(null);
     }
+    loadRecentCalls();
   };
 
   const dialKey = (key) => {
@@ -433,6 +462,16 @@ function LiveDialer() {
                 </div>
               </div>
 
+              <div className="hub-form-row" style={{ padding: "0 16px", marginBottom: 8 }}>
+                <label style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Your number (provider rings you first)</label>
+                <input
+                  className="hub-input"
+                  value={agentPhone}
+                  onChange={(e) => setAgentPhone(e.target.value)}
+                  placeholder="+91 90000 00000"
+                />
+              </div>
+
               <div className="dial-display">
                 <div className="dial-number">
                   {dialNumber || "Enter phone number"}
@@ -493,8 +532,13 @@ function LiveDialer() {
 
               <div className="active-call-status">
                 <span className="pulse" />
-                Connected
+                {callMsg ? "Ringing your phone…" : "Connected"}
               </div>
+              {callMsg && (
+                <p style={{ fontSize: 12, color: "var(--hub-muted)", textAlign: "center", margin: "0 16px 8px", maxWidth: 300 }}>
+                  {callMsg}
+                </p>
+              )}
 
               <div
                 className="active-avatar"
@@ -1357,7 +1401,8 @@ function ActiveCallPanel({ call, onEnd, minimized, onToggleMinimize }) {
 }
 
 function AutoDialer() {
-  const [running, setRunning] = useState(true);
+  // Off by default — the operator toggles it on to start campaigning.
+  const [running, setRunning] = useState(false);
   const [pacing, setPacing] = useState("Predictive");
   const [queue, setQueue] = useState(dialerQueueSeed);
   const [viewMode, setViewMode] = useState("Team");
