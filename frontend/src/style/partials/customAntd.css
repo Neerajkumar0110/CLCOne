@@ -1,11 +1,11 @@
 .ant-layout {
-  background: #f4f6fb !important;
+  background: var(--hub-page-bg, #f4f6fb) !important;
 }
 .site-layout .site-layout-background {
-  background: #fff;
+  background: var(--hub-page-bg, #fff);
 }
 [data-theme='dark'] .site-layout .site-layout-background {
-  background: #141414;
+  background: var(--hub-page-bg, #141414);
 }
 
 .headerIcon .ant-dropdown-menu {

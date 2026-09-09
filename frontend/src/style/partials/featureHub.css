@@ -36,7 +36,7 @@
   --hub-border: #e7eaf0;
   --hub-border-strong: #d0d5dd;
   --hub-bg-soft: #f8f9fc;
-  --hub-page-bg: #f4f6fb;
+  --hub-page-bg: linear-gradient(135deg, #f7fbff 0%, #f4f6fb 54%, #fffaf0 100%);
 
   /* Elevation */
   --hub-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
@@ -90,7 +90,7 @@
   --hub-border: #26303f;
   --hub-border-strong: #3a465a;
   --hub-bg-soft: #141a24;
-  --hub-page-bg: #0d1219;
+  --hub-page-bg: linear-gradient(135deg, #0b111b 0%, #0d1219 58%, #17150f 100%);
 
   --hub-surface: #131a24;
   --hub-surface-2: #182130;
@@ -340,7 +340,7 @@
 .hub-page {
   width: 100%;
   padding: 28px 32px 48px;
-  /* background: var(--hub-page-bg); */
+  background: var(--hub-page-bg);
   min-height: 100%;
 }
 
@@ -375,7 +375,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  background: #ffffff;
+  background: var(--hub-surface);
   border: 1px solid var(--hub-border);
   padding: 5px;
   border-radius: var(--hub-r-md);
@@ -449,7 +449,7 @@
 /* ---------- Card / Panel ---------- */
 
 .hub-card {
-  background: #ffffff;
+  background: var(--hub-surface);
   border: 1px solid var(--hub-border);
   border-radius: var(--hub-r-lg);
   padding: 24px 26px;
@@ -561,7 +561,7 @@
 }
 
 .hub-kpi {
-  background: #ffffff;
+  background: var(--hub-surface);
   border: 1px solid var(--hub-border);
   border-radius: var(--hub-r-lg);
   padding: 20px 22px;
@@ -2172,7 +2172,7 @@
   padding: 0 6px 0 11px;
   border: 1px solid var(--hub-border-strong);
   border-radius: var(--hub-r-sm);
-  background: #fff;
+  background: var(--hub-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .crud-search:focus-within {
@@ -2312,7 +2312,7 @@
   margin: 6px 0 12px;
   border: 1px solid var(--hub-border);
   border-radius: 10px;
-  background: linear-gradient(180deg, var(--hub-blue-soft), #fff);
+  background: linear-gradient(180deg, var(--hub-blue-soft), var(--hub-surface));
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
@@ -2347,7 +2347,7 @@
   font-size: 10px;
   font-weight: 700;
   color: var(--hub-muted);
-  background: #fff;
+  background: var(--hub-surface);
   border: 1px solid var(--hub-border);
   border-radius: 999px;
   padding: 1px 7px;
@@ -2433,7 +2433,7 @@
 .crud-form-grid .ant-input-number-focused,
 .crud-form-grid .ant-picker-focused,
 .crud-form-grid .ant-select-focused .ant-select-selector {
-  background: #fff;
+  background: var(--hub-surface);
   box-shadow: var(--hub-focus-ring) !important;
 }
 
@@ -2472,4 +2472,64 @@
   border-color: var(--hub-red);
   color: var(--hub-red);
   background: var(--hub-red-soft);
+}
+
+/* Shared theme bridge for sections that render Ant Design controls or older
+   feature markup. Keeping these selectors here makes the palette consistent
+   without changing section-specific behavior. */
+:root[data-theme='dark'] .ant-card,
+:root[data-theme='dark'] .ant-modal-content,
+:root[data-theme='dark'] .ant-modal-header,
+:root[data-theme='dark'] .ant-modal-body,
+:root[data-theme='dark'] .ant-popover-inner,
+:root[data-theme='dark'] .ant-dropdown-menu,
+:root[data-theme='dark'] .ant-picker-panel-container,
+:root[data-theme='dark'] .ant-select-dropdown {
+  background: var(--hub-surface);
+  color: var(--hub-text);
+  border-color: var(--hub-border);
+}
+
+:root[data-theme='dark'] .ant-card-head,
+:root[data-theme='dark'] .ant-modal-header,
+:root[data-theme='dark'] .ant-table-thead > tr > th,
+:root[data-theme='dark'] .ant-dropdown-menu-item {
+  background: var(--hub-surface-2);
+  color: var(--hub-text);
+  border-color: var(--hub-border);
+}
+
+:root[data-theme='dark'] .ant-input,
+:root[data-theme='dark'] .ant-input-affix-wrapper,
+:root[data-theme='dark'] .ant-input-number,
+:root[data-theme='dark'] .ant-picker,
+:root[data-theme='dark'] .ant-select-selector,
+:root[data-theme='dark'] textarea {
+  background: var(--hub-surface-2);
+  color: var(--hub-text);
+  border-color: var(--hub-border);
+}
+
+:root[data-theme='dark'] .ant-input::placeholder,
+:root[data-theme='dark'] .ant-input-number input::placeholder,
+:root[data-theme='dark'] textarea::placeholder {
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .ant-typography,
+:root[data-theme='dark'] .ant-form-item-label > label,
+:root[data-theme='dark'] .ant-table,
+:root[data-theme='dark'] .ant-table-tbody > tr > td,
+:root[data-theme='dark'] .ant-dropdown-menu-item {
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .ant-table-tbody > tr > td,
+:root[data-theme='dark'] .ant-table-thead > tr > th {
+  border-color: var(--hub-border);
+}
+
+:root[data-theme='dark'] .ant-table-tbody > tr:hover > td,
+:root[data-theme='dark'] .ant-dropdown-menu-item:hover {
+  background: var(--hub-blue-soft);
 }
