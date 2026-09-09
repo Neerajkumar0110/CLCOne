@@ -73,3 +73,14 @@ startLinkedInLeadPoller();
 // Active campaigns, clears stuck calls (no-op unless CALLING_PROVIDER is set).
 const startCallingDialerTick = require('./jobs/callingDialerTick');
 startCallingDialerTick();
+
+// LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
+// failed inbound webhook events, runs the nightly reconcile. No-op until
+// MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).
+const startLmsSyncTick = require('./jobs/lmsSyncTick');
+startLmsSyncTick();
+
+// LMS live-class worker — lifecycle transitions (scheduled->upcoming, auto
+// start/end per policy), BBB recording polling, and class notifications.
+const startLmsLiveTick = require('./jobs/lmsLiveTick');
+startLmsLiveTick();
