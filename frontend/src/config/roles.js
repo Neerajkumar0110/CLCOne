@@ -18,6 +18,21 @@ export const ROLES = [
   "Finance",
 ];
 
+// Solid, high-contrast colors used by the Roles & Permissions selector.
+// Keeping these beside the role names prevents every selected role from
+// falling back to the generic dashboard blue.
+export const ROLE_COLORS = {
+  Admin: "#b91c1c",
+  "Sales Manager": "#c2410c",
+  "Team Manager": "#7c3aed",
+  "Team Leader": "#0f766e",
+  "Team Coordinator": "#0369a1",
+  "Senior Executive": "#4f46e5",
+  Executive: "#475569",
+  "Sales Intern": "#15803d",
+  Finance: "#a16207",
+};
+
 // Roles whose accounts exist but are never offered in the role dropdown.
 export const KNOWN_NON_SELECTABLE_ROLES = ["owner", "Super Admin"];
 

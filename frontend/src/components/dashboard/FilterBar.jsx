@@ -1,6 +1,6 @@
 import React from "react";
 import dayjs from "dayjs";
-import { DatePicker } from "antd";
+import { DatePicker, Select } from "antd";
 import { ReloadOutlined, FilterOutlined } from "@ant-design/icons";
 import BusinessTypeToggle from "./BusinessTypeToggle";
 import { PRESETS, QUICK_DAYS } from "./dateRanges";
@@ -27,18 +27,13 @@ export default function FilterBar({
 }) {
   return (
     <div className="dash-filterbar">
-      <select
-        className="hub-select"
-        style={{ maxWidth: 170 }}
+      <Select
+        className="dash-filter-select"
+        style={{ width: 170 }}
         value={presetKey}
-        onChange={(e) => onPreset(e.target.value)}
-      >
-        {PRESETS.map((p) => (
-          <option key={p.key} value={p.key}>
-            {p.label}
-          </option>
-        ))}
-      </select>
+        onChange={onPreset}
+        options={PRESETS.map((p) => ({ value: p.key, label: p.label }))}
+      />
 
       <div className="hub-pill-filter dash-quick">
         {QUICK_DAYS.map((d) => (
@@ -66,19 +61,14 @@ export default function FilterBar({
       )}
 
       {dateBasisOptions && dateBasisOptions.length > 1 && (
-        <select
-          className="hub-select"
-          style={{ maxWidth: 170 }}
+        <Select
+          className="dash-filter-select"
+          style={{ width: 170 }}
           value={dateBasis}
-          onChange={(e) => onDateBasis(e.target.value)}
+          onChange={onDateBasis}
           title="Which date the range applies to"
-        >
-          {dateBasisOptions.map((o) => (
-            <option key={o.key} value={o.key}>
-              by {o.label}
-            </option>
-          ))}
-        </select>
+          options={dateBasisOptions.map((o) => ({ value: o.key, label: `by ${o.label}` }))}
+        />
       )}
 
       <BusinessTypeToggle mode={businessTypeMode} value={businessType} onChange={onBusinessType} />

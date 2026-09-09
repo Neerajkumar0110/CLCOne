@@ -12,7 +12,7 @@ import SystemSettings from "./SystemSettings";
 export default function SalesDashboard() {
   const [showSettings, setShowSettings] = useState(false);
   return (
-    <>
+    <>cd
       <DashboardShell
         module="leads"
         config={DASH_CONFIGS.leads}

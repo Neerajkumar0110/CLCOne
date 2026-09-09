@@ -208,13 +208,13 @@ export function TeamChat() {
           instead of clipping and scrolling internally. */}
       <div style={{ display: "flex", height: 560 }}>
         {/* Contact list — every registered admin, not just a fixed team */}
-        <div style={{ width: 240, borderRight: "1px solid #f0f0f0", flexShrink: 0, overflowY: "auto" }}>
-          <div style={{ padding: "14px 16px", fontSize: 12.5, fontWeight: 700, color: "#8c8c8c" }}>
+        <div className="hub-chat-people-list" style={{ width: 240, flexShrink: 0, overflowY: "auto" }}>
+          <div className="hub-chat-people-heading">
             PEOPLE
           </div>
 
           {conversations.length === 0 && (
-            <div style={{ padding: "10px 16px", fontSize: 12.5, color: "#8c8c8c" }}>No other users yet.</div>
+            <div className="hub-chat-people-empty">No other users yet.</div>
           )}
 
           {conversations.map((c) => {
@@ -228,16 +228,13 @@ export function TeamChat() {
             return (
               <div
                 key={c.user._id}
+                className={`hub-chat-person ${activeUserId === c.user._id ? "active" : ""}`}
                 onClick={() => openThread(c.user._id)}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
                   padding: "10px 16px",
-                  cursor: "pointer",
-                  background: activeUserId === c.user._id ? "#f0f6ff" : "transparent",
-                  borderLeft: activeUserId === c.user._id ? "3px solid #2563eb" : "3px solid transparent",
-                  transition: "all 0.15s ease",
                 }}
               >
                 <div style={{ position: "relative" }}>
@@ -258,16 +255,8 @@ export function TeamChat() {
                   />
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{name}</div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "#8c8c8c",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
+                  <div className="hub-chat-person-name">{name}</div>
+                  <div className="hub-chat-person-preview">
                     {preview}
                   </div>
                 </div>
