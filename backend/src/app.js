@@ -17,6 +17,10 @@ const callingApiRouter = require('./routes/appRoutes/callingApi');
 const telephonyWebhookRouter = require('./routes/appRoutes/telephonyWebhookApi');
 const telephonyHmacAuth = require('./middlewares/telephonyHmacAuth');
 const cloudCallWebhookRouter = require('./routes/appRoutes/cloudCallWebhookApi');
+const lmsWebhookRouter = require('./routes/appRoutes/lmsWebhookApi');
+const lmsLivePublicRouter = require('./routes/appRoutes/lmsLivePublicApi');
+const lmsBbbWebhookRouter = require('./routes/appRoutes/lmsBbbWebhookApi');
+const lmsApiRouter = require('./routes/appRoutes/lmsApi');
 const facebookApiRouter = require('./routes/appRoutes/facebookApi');
 const googleApiRouter = require('./routes/appRoutes/googleApi');
 const linkedinApiRouter = require('./routes/appRoutes/linkedinApi');
@@ -68,10 +72,23 @@ app.use('/api/telephony', telephonyHmacAuth, telephonyWebhookRouter);
 // also before the bearer gate; the router checks its own shared secret.
 app.use('/api/cloud-call', cloudCallWebhookRouter);
 
+// Moodle (local_crmbridge) → CRM event webhooks. Before the bearer gate;
+// every request is HMAC-signed with MOODLE_WEBHOOK_HMAC_SECRET.
+app.use('/api/lms/webhook', lmsWebhookRouter);
+
+// Live-class one-time join redirect + leave beacon + mock room — before the
+// bearer gate; guarded by a single-use short-lived ticket / per-session key.
+app.use('/api/lms/live', lmsLivePublicRouter);
+
+// BigBlueButton event callbacks — before the bearer gate; token / checksum
+// checked in the handler, idempotent.
+app.use('/api/lms/webhooks', lmsBbbWebhookRouter);
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
+app.use('/api/lms', adminAuth.isValidAuthToken, lmsApiRouter);
 app.use('/api/facebook', adminAuth.isValidAuthToken, facebookApiRouter);
 app.use('/api/google', adminAuth.isValidAuthToken, googleApiRouter);
 app.use('/api/linkedin', adminAuth.isValidAuthToken, linkedinApiRouter);

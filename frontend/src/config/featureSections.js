@@ -87,11 +87,11 @@ export const FEATURE_SECTIONS = [
     module: 'Sales',
     route: '/sales',
     Icon: RiseOutlined,
-    blurb: 'B2B/B2C dashboard, pipeline, deals, quotes, orders and forecasting for the sales desk.',
+    blurb: 'Dashboard, pipeline, deals, quotes, orders and forecasting for the sales desk.',
     tabs: [
       {
         key: 'dashboard',
-        label: 'B2B / B2C Dashboard',
+        label: 'Dashboard',
         Icon: BarChartOutlined,
         // Combined System dashboard — advanced ratios by Business/Region/AI,
         // computed from Team-scoped Lead/Call data + manual monthly costs.
@@ -254,7 +254,7 @@ export const FEATURE_SECTIONS = [
     tabs: [
       {
         key: 'dashboard',
-        label: 'B2B / B2C Dashboard',
+        label: 'Dashboard',
         Icon: BarChartOutlined,
         // Combined marketing dashboard — cost / ROI ratios by System +
         // per-source ROI. Team-scoped Lead/Call data + monthly SalesCost.
@@ -697,6 +697,16 @@ export const FEATURE_SECTIONS = [
     blurb: 'Courses, batches, students, live classes, attendance and certificates.',
     tabs: [
       {
+        key: 'my-learning',
+        label: 'My Learning',
+        Icon: LaptopOutlined,
+        // Student portal shell over Moodle — My Courses / Continue Learning /
+        // account state. Reads /api/lms/portal/* (backend services/lms/).
+        // Phase 2 of the Moodle LMS Build Blueprint; deeper phases add the
+        // course player, live classes, assignments and exams.
+        embed: 'lmsStudentPortal',
+      },
+      {
         key: 'overview',
         label: 'Overview',
         Icon: DashboardOutlined,
@@ -759,9 +769,15 @@ export const FEATURE_SECTIONS = [
           ...grp('Schedule', [
             DT('startDate', 'Start'),
             DT('endDate', 'End', { table: false }),
-            T('schedule', 'Schedule', { table: false }),
+            T('classDays', 'Class days', { table: false }),      // e.g. Mon,Wed,Fri
+            T('classTime', 'Class time', { table: false }),      // e.g. 10:00
+            NUM('classDurationMin', 'Class duration (min)', { table: false }),
+            T('schedule', 'Schedule (free text)', { table: false }),
             T('venue', 'Venue', { table: false }),
-            URLF('meetingLink', 'Meeting link'),
+            // No manual meeting link — on save, the system auto-creates the
+            // live-class schedule (one session per class day) with a unique
+            // BigBlueButton room each. See the Live Classes tab +
+            // backend services/lms/liveClassService.js + recurrence.js.
           ]),
           ...grp('Seats', [
             NUM('seats', 'Seats'),
@@ -815,53 +831,28 @@ export const FEATURE_SECTIONS = [
         key: 'classes',
         label: 'Live Classes',
         Icon: VideoCameraOutlined,
-        entity: 'liveclass',
-        fields: [
-          ...grp('Session', [
-            T('topic', 'Topic', { required: true }),
-            T('course', 'Course', { table: false }),
-            T('batch', 'Batch'),
-            T('trainer', 'Trainer'),
-            SEL('status', 'Status', ['Scheduled', 'Live', 'Completed', 'Cancelled', 'Rescheduled']),
-          ]),
-          ...grp('Schedule', [
-            DT('scheduledAt', 'Date / time'),
-            NUM('durationMin', 'Duration (min)', { table: false }),
-            SEL('mode', 'Mode', ['Zoom', 'Google Meet', 'MS Teams', 'In-person'], { table: false }),
-            URLF('joinUrl', 'Join URL'),
-          ]),
-          ...grp('Attendance & assets', [
-            NUM('registeredCount', 'Registered', { table: false }),
-            NUM('attendedCount', 'Attended', { table: false }),
-            URLF('recordingUrl', 'Recording URL'),
-            URLF('materialsUrl', 'Materials URL'),
-            AREA('agenda', 'Agenda'),
-            AREA('notes', 'Notes'),
-          ]),
-        ],
+        // Auto-generated per batch/course. Cards show course, batch, teacher,
+        // date/time, lifecycle status (Scheduled/Upcoming/Live/Ended/Recording)
+        // + role-aware Start/Join/End/Watch buttons — the meeting URL is never
+        // exposed. See pages/Lms/LiveClasses + /api/lms/live-classes.
+        embed: 'lmsLiveClasses',
+      },
+      {
+        key: 'recordings',
+        label: 'Recordings',
+        Icon: VideoCameraOutlined,
+        // Role-scoped: student -> own enrolled courses; teacher -> own classes;
+        // admin -> all + manage. See pages/Lms/Recordings + /api/lms/recordings.
+        embed: 'lmsRecordings',
       },
       {
         key: 'attendance',
         label: 'Attendance',
         Icon: CheckSquareOutlined,
-        entity: 'attendancerecord',
-        fields: [
-          ...grp('Record', [
-            T('student', 'Student', { required: true }),
-            T('batch', 'Batch'),
-            T('course', 'Course', { table: false }),
-            T('sessionTopic', 'Session topic', { table: false }),
-            DT('date', 'Date'),
-            SEL('status', 'Status', ['Present', 'Absent', 'Late', 'Left Early', 'Excused']),
-          ]),
-          ...grp('Timing', [
-            T('joinTime', 'Join time', { table: false }),
-            T('leaveTime', 'Leave time', { table: false }),
-            NUM('durationMin', 'Duration (min)', { table: false }),
-            SEL('markedBy', 'Marked by', ['Auto', 'Manual'], { table: false }),
-            T('remarks', 'Remarks', { table: false }),
-          ]),
-        ],
+        // Auto-captured from join/leave events. Admin/teacher -> dashboard
+        // (KPIs, filters, table, export). Student -> own attendance only.
+        // See pages/Lms/Attendance + /api/lms/{admin,teacher,student}/attendance.
+        embed: 'lmsAttendance',
       },
       {
         key: 'certificates',

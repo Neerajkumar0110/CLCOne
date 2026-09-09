@@ -105,6 +105,21 @@ const update = async (userModel, req, res) => {
     });
   }
 
+  // Push name / role / active-state changes to Moodle (no-op until the LMS
+  // is configured — services/lms/, jobs/lmsSyncTick.js).
+  try {
+    if (userModel === 'Admin') {
+      const lmsQueue = require('../../../services/lms').queue;
+      if (result.removed) {
+        await lmsQueue.enqueue('user.suspend', { crmUserId: String(result._id) }, { dedupeKey: `user.suspend:${result._id}` });
+      } else {
+        await lmsQueue.enqueue('user.update', { crmUserId: String(result._id) }, { dedupeKey: `user.provision:${result._id}` });
+      }
+    }
+  } catch (e) {
+    console.error('lms enqueue (user.update) failed:', e.message);
+  }
+
   return res.status(200).json({
     success: true,
     result: {

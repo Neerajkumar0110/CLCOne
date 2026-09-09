@@ -132,6 +132,20 @@ const create = async (userModel, req, res) => {
     link: '/user-management',
   });
 
+  // Mirror the new user into Moodle (no-op until the LMS is configured — see
+  // services/lms/, jobs/lmsSyncTick.js).
+  try {
+    if (userModel === 'Admin') {
+      await require('../../../services/lms').queue.enqueue(
+        'user.provision',
+        { crmUserId: String(newUser._id) },
+        { dedupeKey: `user.provision:${newUser._id}` }
+      );
+    }
+  } catch (e) {
+    console.error('lms enqueue (user.provision) failed:', e.message);
+  }
+
   return res.status(200).json({
     success: true,
     result: {

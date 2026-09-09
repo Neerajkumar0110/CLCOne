@@ -93,7 +93,7 @@ export default function MarketingDashboard() {
     <div className="hub-stack" style={{ minWidth: 0 }}>
       <div className="hub-card">
         <div className="hub-card-header" style={{ flexWrap: "wrap", gap: 10 }}>
-          <h3><NotificationOutlined /> Marketing — B2B / B2C Combined Dashboard</h3>
+          <h3><NotificationOutlined /> Marketing Dashboard</h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             <select className="hub-select" style={{ maxWidth: 96 }} value={range} onChange={(e) => setRange(e.target.value)}>
               {Object.keys(RANGES).map((r) => <option key={r} value={r}>{r}</option>)}

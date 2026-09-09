@@ -1,0 +1,166 @@
+/* =============================================================================
+   LMS — Student portal shell (pages/Lms/StudentPortal). Reuses the --hub-*
+   design tokens from featureHub.css so light/dark come for free.
+   ========================================================================== */
+
+.lms-portal {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lms-portal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.lms-portal-head h2 {
+  margin: 0 0 2px;
+  font-size: 20px;
+  color: var(--hub-text);
+}
+.lms-portal-head p {
+  margin: 0;
+  color: var(--hub-muted);
+  font-size: 13px;
+}
+.lms-portal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* stat cards */
+.lms-stat.ant-card .ant-card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lms-stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--hub-r-sm);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--hub-blue);
+  background: var(--hub-blue-soft);
+  flex: none;
+}
+.lms-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
+}
+.lms-stat-label {
+  font-size: 12px;
+  color: var(--hub-muted);
+}
+
+/* section heading */
+.lms-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 -4px;
+}
+.lms-section-title h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--hub-text-soft);
+}
+
+/* course cards */
+.lms-course-card .lms-course-thumb {
+  height: 116px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--hub-bg-soft);
+}
+.lms-course-thumb--blank {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  color: var(--hub-border-strong);
+}
+.lms-course-title {
+  font-weight: 600;
+  color: var(--hub-text);
+  margin-bottom: 8px;
+  min-height: 40px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lms-course-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--hub-muted);
+}
+
+.lms-portal-foot {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hub-border);
+  font-size: 12px;
+  color: var(--hub-muted);
+}
+
+/* ── Live Classes cards ─────────────────────────────────────────────── */
+.lms-live-card.ant-card { border-radius: var(--hub-r-md); }
+.lms-live-card.lms-live-live.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }
+.lms-live-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.lms-live-provider { font-size: 11px; color: var(--hub-muted); font-family: ui-monospace, monospace; }
+.lms-live-title { font-weight: 600; color: var(--hub-text); line-height: 1.3; }
+.lms-live-sub { font-size: 12px; color: var(--hub-muted); margin-top: 2px; }
+.lms-live-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--hub-text-soft);
+}
+.lms-live-meta .anticon { margin-right: 4px; color: var(--hub-muted); }
+.lms-live-rec { display: inline-block; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.lms-live-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hub-border);
+}
+.lms-live-done { font-size: 12px; color: var(--hub-muted); }
+.lms-live-online { color: var(--hub-red); font-weight: 600; }
+.lms-livenow .lms-livenow-row { display: flex; flex-direction: column; gap: 6px; }
+.lms-live-card.lms-live-live.ant-card,
+.lms-live-card.lms-live-starting.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }
+.lms-live-card.lms-live-recording_available.ant-card { border-color: var(--hub-green); }
+
+.lms-kpi.ant-card .ant-statistic-title { font-size: 12px; color: var(--hub-muted); }
+.lms-kpi.ant-card .ant-statistic-content { font-size: 20px; color: var(--hub-text); }
+
+@media (max-width: 640px) {
+  .lms-portal-head {
+    flex-direction: column;
+  }
+  .lms-portal-actions {
+    width: 100%;
+  }
+}
