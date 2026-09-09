@@ -173,7 +173,7 @@ export default function Attendance() {
   // teacher dashboard fallback inside Dashboard(role='teacher'); we surface the
   // student view by default and let managers see the full dashboard.
   return (
-    <div className="lms-portal">
+    <div className="lms-portal lms-section-attendance">
       <div className="lms-portal-head">
         <div>
           <h2><CheckSquareOutlined /> Attendance</h2>

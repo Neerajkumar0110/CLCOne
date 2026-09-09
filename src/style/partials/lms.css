@@ -9,6 +9,115 @@
   gap: 20px;
 }
 
+/* Section identities: quiet premium surfaces that keep the LMS easy to scan. */
+.lms-section-student,
+.lms-section-live,
+.lms-section-recordings,
+.lms-section-attendance {
+  position: relative;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: var(--hub-r-lg);
+  box-shadow: 0 14px 34px rgba(73, 59, 104, 0.08);
+  overflow: hidden;
+}
+
+.lms-section-student::before,
+.lms-section-live::before,
+.lms-section-recordings::before,
+.lms-section-attendance::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 3px;
+  border-radius: 0 0 8px 8px;
+  background: var(--lms-accent);
+}
+
+.lms-section-student {
+  --lms-accent: #7c3aed;
+  --lms-accent-soft: #f1eaff;
+  background: #fff8d9;
+}
+
+.lms-section-live {
+  --lms-accent: #eab308;
+  background: linear-gradient(135deg, #fff8dc 0%, #ffffff 68%);
+}
+
+.lms-section-recordings {
+  --lms-accent: #d97706;
+  --lms-accent-soft: #fff4cf;
+  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 62%, #fff5fb 100%);
+}
+
+.lms-section-attendance {
+  --lms-accent: #d97706;
+  background: linear-gradient(135deg, #f7f1ff 0%, #fff9df 100%);
+}
+
+.lms-section-student .ant-card,
+.lms-section-live .ant-card,
+.lms-section-recordings .ant-card,
+.lms-section-attendance .ant-card {
+  border-color: rgba(117, 94, 160, 0.16);
+  box-shadow: 0 5px 18px rgba(73, 59, 104, 0.06);
+}
+
+.lms-section-student .lms-portal-head h2,
+.lms-section-live .lms-portal-head h2,
+.lms-section-recordings .lms-portal-head h2,
+.lms-section-attendance .lms-portal-head h2 {
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.lms-student-hero {
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: #050505;
+  box-shadow: 0 10px 24px rgba(15, 15, 15, 0.16);
+}
+.lms-student-hero h2,
+.lms-student-hero p {
+  color: #ffffff;
+}
+.lms-student-hero p {
+  opacity: 0.78;
+}
+.lms-student-hero h2 .anticon {
+  color: #facc15;
+}
+.lms-section-student > .ant-row .ant-card,
+.lms-section-student > .lms-section-title + .ant-row .ant-card,
+.lms-section-student > .ant-card {
+  background: #ffffff;
+}
+
+:root[data-theme='dark'] .lms-section-student,
+:root[data-theme='dark'] .lms-section-live,
+:root[data-theme='dark'] .lms-section-recordings,
+:root[data-theme='dark'] .lms-section-attendance {
+  border-color: var(--hub-border);
+  background: var(--hub-surface-2);
+  box-shadow: var(--hub-shadow-md);
+}
+
+:root[data-theme='dark'] .lms-section-student .ant-card,
+:root[data-theme='dark'] .lms-section-live .ant-card,
+:root[data-theme='dark'] .lms-section-recordings .ant-card,
+:root[data-theme='dark'] .lms-section-attendance .ant-card {
+  border-color: var(--hub-border);
+  box-shadow: var(--hub-shadow-sm);
+}
+
+:root[data-theme='dark'] .lms-student-hero {
+  background: #000000;
+  border: 1px solid #202020;
+}
+
 .lms-portal-head {
   display: flex;
   justify-content: space-between;
@@ -18,13 +127,20 @@
 }
 .lms-portal-head h2 {
   margin: 0 0 2px;
-  font-size: 20px;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--hub-text);
+}
+.lms-portal-head h2 .anticon {
+  color: var(--lms-accent, var(--hub-blue));
+  margin-right: 8px;
 }
 .lms-portal-head p {
   margin: 0;
   color: var(--hub-muted);
   font-size: 13px;
+  line-height: 1.55;
 }
 .lms-portal-actions {
   display: flex;
@@ -37,6 +153,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 18px;
+}
+.lms-stat.ant-card {
+  border: 0;
+  border-left: 4px solid var(--lms-accent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.lms-stat.ant-card:hover,
+.lms-course-card.ant-card:hover,
+.lms-live-card.ant-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(73, 59, 104, 0.13);
 }
 .lms-stat-icon {
   width: 40px;
@@ -45,8 +173,8 @@
   display: grid;
   place-items: center;
   font-size: 18px;
-  color: var(--hub-blue);
-  background: var(--hub-blue-soft);
+  color: var(--lms-accent, var(--hub-blue));
+  background: var(--lms-accent-soft, var(--hub-blue-soft));
   flex: none;
 }
 .lms-stat-value {
@@ -70,13 +198,14 @@
 }
 .lms-section-title h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--hub-text-soft);
 }
 
 /* course cards */
 .lms-course-card .lms-course-thumb {
-  height: 116px;
+  height: 132px;
   background-size: cover;
   background-position: center;
   background-color: var(--hub-bg-soft);
@@ -88,7 +217,7 @@
   color: var(--hub-border-strong);
 }
 .lms-course-title {
-  font-weight: 600;
+  font-weight: 800;
   color: var(--hub-text);
   margin-bottom: 8px;
   min-height: 40px;
@@ -106,6 +235,44 @@
   font-size: 12px;
   color: var(--hub-muted);
 }
+.lms-course-card.ant-card {
+  overflow: hidden;
+  border: 0;
+  border-top: 3px solid var(--lms-accent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.lms-course-card .ant-card-actions {
+  background: transparent;
+  border-top-color: var(--hub-border);
+}
+.lms-course-card .ant-card-actions > li > span {
+  color: var(--lms-accent);
+  font-weight: 700;
+}
+
+.lms-section-student .ant-col:nth-child(2) .lms-stat,
+.lms-section-student .ant-col:nth-child(2) .lms-course-card {
+  --lms-accent: #db2777;
+  --lms-accent-soft: #fce7f3;
+}
+
+.lms-section-student .ant-col:nth-child(3) .lms-stat,
+.lms-section-student .ant-col:nth-child(3) .lms-course-card {
+  --lms-accent: #d97706;
+  --lms-accent-soft: #fff4cf;
+}
+
+.lms-section-recordings .ant-select:hover .ant-select-selector,
+.lms-section-recordings .ant-picker:hover,
+.lms-section-recordings .ant-select-focused .ant-select-selector,
+.lms-section-recordings .ant-picker-focused {
+  border-color: var(--lms-accent) !important;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12) !important;
+}
+
+.lms-section-recordings .ant-table-tbody > tr:hover > td {
+  background: #fff8e6;
+}
 
 .lms-portal-foot {
   margin-top: 4px;
@@ -117,6 +284,11 @@
 
 /* ── Live Classes cards ─────────────────────────────────────────────── */
 .lms-live-card.ant-card { border-radius: var(--hub-r-md); }
+.lms-live-card.ant-card {
+  border: 0;
+  border-top: 3px solid var(--lms-accent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
 .lms-live-card.lms-live-live.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }
 .lms-live-top {
   display: flex;
@@ -146,6 +318,10 @@
   padding-top: 10px;
   border-top: 1px solid var(--hub-border);
 }
+.lms-live-actions .ant-btn {
+  font-weight: 700;
+  border-radius: 7px;
+}
 .lms-live-done { font-size: 12px; color: var(--hub-muted); }
 .lms-live-online { color: var(--hub-red); font-weight: 600; }
 .lms-livenow .lms-livenow-row { display: flex; flex-direction: column; gap: 6px; }
@@ -155,6 +331,44 @@
 
 .lms-kpi.ant-card .ant-statistic-title { font-size: 12px; color: var(--hub-muted); }
 .lms-kpi.ant-card .ant-statistic-content { font-size: 20px; color: var(--hub-text); }
+
+.lms-section-recordings .ant-table-wrapper,
+.lms-section-attendance .ant-table-wrapper {
+  border: 1px solid var(--hub-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--hub-surface);
+}
+.lms-section-recordings .ant-table-thead > tr > th,
+.lms-section-attendance .ant-table-thead > tr > th {
+  background: color-mix(in srgb, var(--lms-accent) 9%, var(--hub-surface));
+  color: var(--hub-text-soft);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lms-section-recordings .ant-table-tbody > tr:hover > td,
+.lms-section-attendance .ant-table-tbody > tr:hover > td {
+  background: color-mix(in srgb, var(--lms-accent) 6%, var(--hub-surface));
+}
+
+@media (max-width: 640px) {
+  .lms-section-student,
+  .lms-section-live,
+  .lms-section-recordings,
+  .lms-section-attendance {
+    padding: 20px 14px;
+    border-radius: 14px;
+  }
+  .lms-section-student::before,
+  .lms-section-live::before,
+  .lms-section-recordings::before,
+  .lms-section-attendance::before {
+    left: 14px;
+    right: 14px;
+  }
+}
 
 @media (max-width: 640px) {
   .lms-portal-head {

@@ -92,7 +92,7 @@ export default function Recordings() {
   ];
 
   return (
-    <div className="lms-portal">
+    <div className="lms-portal lms-section-recordings">
       <div className="lms-portal-head">
         <div>
           <h2><PlaySquareOutlined /> Recordings</h2>

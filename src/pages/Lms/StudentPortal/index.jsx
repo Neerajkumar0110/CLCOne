@@ -84,7 +84,7 @@ export default function StudentPortal() {
 
   if (loading) {
     return (
-      <div className="lms-portal">
+      <div className="lms-portal lms-section-student">
         <Skeleton active paragraph={{ rows: 2 }} />
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
           {[0, 1, 2].map((i) => (
@@ -105,8 +105,8 @@ export default function StudentPortal() {
   const counts = (me && me.counts) || {};
 
   return (
-    <div className="lms-portal">
-      <div className="lms-portal-head">
+    <div className="lms-portal lms-section-student">
+      <div className="lms-portal-head lms-student-hero">
         <div>
           <h2>Welcome back, {name.split(' ')[0]}</h2>
           <p>Your courses, progress and upcoming sessions in one place.</p>
