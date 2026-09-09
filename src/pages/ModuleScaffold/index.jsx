@@ -21,6 +21,12 @@ const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
 const SalesDashboard = lazy(() => import('@/pages/SalesDashboard'));
 const MarketingDashboard = lazy(() => import('@/pages/MarketingDashboard'));
 const MarketingHub = lazy(() => import('@/pages/MarketingHub'));
+// LMS "My Learning" tab — the student portal shell over Moodle (pages/Lms).
+const LmsStudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
+// LMS "Live Classes" tab — auto meeting rooms per batch/course.
+const LmsLiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
+const LmsRecordings = lazy(() => import('@/pages/Lms/Recordings'));
+const LmsAttendance = lazy(() => import('@/pages/Lms/Attendance'));
 const EMBED = {
   teamChat: TeamChat,
   leads: Leads,
@@ -30,6 +36,10 @@ const EMBED = {
   salesDashboard: SalesDashboard,
   marketingDashboard: MarketingDashboard,
   marketingHub: MarketingHub,
+  lmsStudentPortal: LmsStudentPortal,
+  lmsLiveClasses: LmsLiveClasses,
+  lmsRecordings: LmsRecordings,
+  lmsAttendance: LmsAttendance,
 };
 
 /**
