@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { getProvider, callingConfig } = require('../services/calling');
 
 // Drives the calling auto-dialer. Same in-process-poller shape as the
@@ -15,13 +16,21 @@ function startCallingDialerTick() {
   if (callingConfig.isMock) return;
 
   let running = false;
+  let quietUntil = 0; // suppress repeat error logs during an outage
   setInterval(async () => {
     if (running) return; // never overlap ticks
+    // Skip while the DB isn't connected (e.g. local dev with no internet) —
+    // tick() only touches Mongo, so there's nothing to do and every call
+    // would just throw. 1 = connected.
+    if (mongoose.connection.readyState !== 1) return;
     running = true;
     try {
       await getProvider().tick();
     } catch (err) {
-      console.error('callingDialerTick job error:', err.message);
+      if (Date.now() > quietUntil) {
+        console.error('callingDialerTick job error:', err.message);
+        quietUntil = Date.now() + 60 * 1000; // at most one log per minute
+      }
     } finally {
       running = false;
     }
