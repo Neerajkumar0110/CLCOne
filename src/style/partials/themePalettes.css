@@ -108,7 +108,98 @@
 :root[data-palette] .ant-picker-input > input,
 :root[data-palette] .ant-input,
 :root[data-palette] .ant-input-number-input {
-  color: var(--hub-text);
+  color: var(--hub-text) !important;
+  font-weight: 700;
+}
+
+:root[data-palette] .ant-select-selection-placeholder {
+  color: var(--hub-muted) !important;
+  font-weight: 600;
+}
+
+:root[data-palette] .ant-select-item-option,
+:root[data-palette] .ant-select-item-option-content,
+:root[data-palette] .ant-select-item-option-active:not(.ant-select-item-option-disabled),
+:root[data-palette] .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  color: var(--hub-text) !important;
+  font-weight: 700;
+}
+
+:root[data-palette] .ant-select-item-option-active:not(.ant-select-item-option-disabled),
+:root[data-palette] .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--hub-blue-soft) !important;
+}
+
+:root[data-palette] .dash-filterbar .ant-select-selection-item,
+:root[data-palette] .dash-filterbar .ant-select-arrow,
+:root[data-palette] .dash-drawer-fields label,
+:root[data-palette] .dash-filterbar .hub-btn:not(.hub-btn-primary),
+:root[data-palette] .dash-filterbar .hub-pill-btn:not(.active),
+:root[data-palette] .dash-filterbar .dash-seg-btn:not(.active) {
+  color: var(--hub-text) !important;
+  font-weight: 700;
+}
+
+:root[data-palette] .dash-filterbar .hub-btn-primary,
+:root[data-palette] .dash-filterbar .hub-pill-btn.active,
+:root[data-palette] .dash-filterbar .dash-seg-btn.active {
+  color: #fff !important;
+  font-weight: 800;
+}
+
+/* Keep every dashboard filter hover state on the same active palette color.
+   The explicit selectors prevent the readable inactive text rule above from
+   overriding the intended hover accent. */
+:root[data-palette] .dash-filterbar .hub-btn:not(:disabled):hover,
+:root[data-palette] .dash-filterbar .hub-pill-btn:hover,
+:root[data-palette] .dash-filterbar .dash-seg-btn:not(:disabled):hover {
+  background: var(--hub-blue-soft) !important;
+  border-color: var(--hub-blue) !important;
+  color: var(--hub-blue) !important;
+}
+
+:root[data-palette] .dash-filterbar .hub-btn-primary:not(:disabled):hover,
+:root[data-palette] .dash-filterbar .hub-pill-btn.active:hover,
+:root[data-palette] .dash-filterbar .dash-seg-btn.active:hover {
+  background: var(--hub-blue) !important;
+  border-color: var(--hub-blue) !important;
+  color: #fff !important;
+}
+
+:root[data-palette] .dash-filterbar .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+:root[data-palette] .dash-filterbar .ant-select-focused .ant-select-selector {
+  border-color: var(--hub-blue) !important;
+  box-shadow: var(--hub-focus-ring) !important;
+}
+
+/* Reports uses the shared hub controls instead of the analytics shell's
+   dash-filterbar wrapper. Keep its filters on the same palette contract. */
+:root[data-palette] .reports-page .hub-select,
+:root[data-palette] .reports-page .hub-input,
+:root[data-palette] .reports-page .hub-pill-filter,
+:root[data-palette] .reports-page .hub-btn {
+  background: var(--hub-surface) !important;
+  border-color: var(--hub-border) !important;
+  color: var(--hub-text) !important;
+  font-weight: 700;
+}
+
+:root[data-palette] .reports-page .hub-btn:hover,
+:root[data-palette] .reports-page .hub-pill-btn:hover,
+:root[data-palette] .reports-page .hub-select:hover,
+:root[data-palette] .reports-page .hub-input:hover {
+  background: var(--hub-blue-soft) !important;
+  border-color: var(--hub-blue) !important;
+  color: var(--hub-blue) !important;
+}
+
+:root[data-palette] .reports-page .hub-pill-btn.active,
+:root[data-palette] .reports-page .hub-btn-primary,
+:root[data-palette] .reports-page .hub-btn-primary:hover {
+  background: var(--hub-blue) !important;
+  border-color: var(--hub-blue) !important;
+  color: #fff !important;
+  font-weight: 800;
 }
 
 /* Header theme picker */

@@ -28,6 +28,7 @@ import {
   BELOW_TEAM_MANAGER_ROLES,
   ROLE_ALIASES,
   DEFAULT_FALLBACK_ROLE,
+  ROLE_COLORS,
 } from "@/config/roles";
 
 const AVATAR_COLORS = ["#2563EB", "#722ED1", "#13C2C2", "#FA8C16", "#EB2F96", "#52C41A"];
@@ -964,12 +965,8 @@ function RolesPermissions() {
             <button
               key={role}
               type="button"
-              className="hub-btn"
-              style={
-                selectedRole === role
-                  ? { background: "#2563eb", borderColor: "#2563eb", color: "#fff" }
-                  : {}
-              }
+              className={`hub-btn role-color-button ${selectedRole === role ? "selected" : ""}`}
+              style={{ "--role-color": ROLE_COLORS[role] || "#475569" }}
               onClick={() => setSelectedRole(role)}
             >
               {role}

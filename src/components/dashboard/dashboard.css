@@ -42,6 +42,17 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+.dash-filterbar .ant-select-selection-item,
+.dash-filterbar .ant-select-selection-placeholder,
+.dash-filterbar .ant-select-arrow {
+  color: var(--hub-text) !important;
+  font-weight: 700;
+}
+.dash-filterbar .hub-btn,
+.dash-filterbar .hub-pill-btn,
+.dash-filterbar .dash-seg-btn {
+  font-weight: 700;
+}
 .dash-filterbar-spacer {
   flex: 1 1 auto;
 }
@@ -52,6 +63,7 @@
   margin-top: 8px;
   font-size: 12px;
   color: var(--hub-yellow);
+  font-weight: 700;
 }
 
 /* Segmented B2B / B2C control -------------------------------------------- */

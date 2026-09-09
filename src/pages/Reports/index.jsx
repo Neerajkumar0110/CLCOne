@@ -1026,7 +1026,7 @@ export default function Reports() {
   const [tab, setTab] = useState("overview");
 
   return (
-    <div className="hub-page">
+    <div className="hub-page reports-page">
       <div className="hub-header">
         <div>
           <h2>Advanced Reporting</h2>
