@@ -137,7 +137,7 @@ export default function LiveClasses() {
 
   if (loading) {
     return (
-      <div className="lms-portal">
+      <div className="lms-portal lms-section-live">
         <Skeleton active paragraph={{ rows: 1 }} />
         <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
           {[0, 1, 2].map((i) => (
@@ -151,7 +151,7 @@ export default function LiveClasses() {
   }
 
   return (
-    <div className="lms-portal">
+    <div className="lms-portal lms-section-live">
       <div className="lms-portal-head">
         <div>
           <h2><VideoCameraOutlined /> Live Classes</h2>

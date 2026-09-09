@@ -253,7 +253,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   return (
     <ConfigProvider theme={{ token: HUB_TOKENS }}>
       <div className="hub-stack">
-        <div className="hub-card">
+        <div className={`hub-card crud-entity-${entity}`}>
           <div className="hub-card-header">
             <h3 className="crud-title">
               {HeadIcon ? <HeadIcon /> : null}
