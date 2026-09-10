@@ -77,4 +77,21 @@ async function sendBatchClassEmail(recipients, payload) {
   return { sent };
 }
 
-module.exports = { sendBatchClassEmail, ready };
+// Generic best-effort fan-out — used by announcements, certificate issue, etc.
+async function sendMail(recipients, { subject, html, text }) {
+  if (!ready()) return { sent: 0, skipped: 'email not configured' };
+  const list = [...new Set((recipients || []).map((r) => String(r || '').trim().toLowerCase()).filter((e) => /.+@.+\..+/.test(e)))];
+  if (!list.length) return { sent: 0 };
+  let sent = 0;
+  for (const to of list) {
+    try {
+      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text });
+      sent += 1;
+    } catch (e) {
+      console.error('[lms] sendMail failed for', to, ':', e.message);
+    }
+  }
+  return { sent };
+}
+
+module.exports = { sendBatchClassEmail, sendMail, ready };
