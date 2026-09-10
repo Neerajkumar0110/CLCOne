@@ -565,8 +565,10 @@ export default function Settings() {
   const [active, setActive] = useState("account");
   const ActiveSection = SECTION_COMPONENTS[active];
 
+  // Settings UI update: this module hook lets the shared Purple Gradient
+  // palette style the page and navigation without changing settings logic.
   return (
-    <div className="hub-page">
+    <div className="hub-page settings-module-shell">
       <div className="hub-header">
         <div>
           <h2>Settings</h2>

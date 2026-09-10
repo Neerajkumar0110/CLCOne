@@ -11,8 +11,11 @@ import SystemSettings from "./SystemSettings";
 // ALL | B2B | B2C toggle and the legacy /sales-dashboard ratios).
 export default function SalesDashboard() {
   const [showSettings, setShowSettings] = useState(false);
+
+  // UI update: the shared Purple Gradient default and Sales dashboard styles
+  // are applied through this module wrapper; dashboard logic remains unchanged.
   return (
-    <>
+    <div className="sales-dashboard-ui">
       <DashboardShell
         module="leads"
         config={DASH_CONFIGS.leads}
@@ -36,6 +39,6 @@ export default function SalesDashboard() {
       >
         <SystemSettings />
       </HubModal>
-    </>
+    </div>
   );
 }
