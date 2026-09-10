@@ -205,6 +205,12 @@ async function evaluate(req, res) {
   }
   try {
     if (s.status === 'evaluated') require('../../../services/lms/certificateEngine').evaluateSafe(s.student, a.course);
+    const realtime = require('../../../services/lms/realtime');
+    if (s.status === 'evaluated') {
+      realtime.notify([s.student], { type: 'lms.assignment.evaluated', title: `"${a.title}" graded — ${s.marks ?? '?'}/${a.maxMarks}`, body: s.feedback || '', link: '/learn/assignments', actorName: req.admin.name });
+    } else if (s.status === 'resubmit_requested') {
+      realtime.notify([s.student], { type: 'lms.assignment.resubmit', title: `Resubmission requested — "${a.title}"`, body: s.feedback || '', link: '/learn/assignments', actorName: req.admin.name });
+    }
   } catch (e) {
     /* non-fatal */
   }

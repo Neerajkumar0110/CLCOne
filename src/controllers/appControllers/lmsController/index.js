@@ -80,6 +80,8 @@ module.exports = {
   // dedicated LMS panels (Teacher / Student)
   teacherDashboard: panel.teacherDashboard,
   studentDashboard: panel.studentDashboard,
+  lmsMyUpdates: panel.myUpdates,
+  teacherLiveAnalytics: panel.teacherLiveAnalytics,
 
   // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager
   curriculumOutline: curriculum.outline,

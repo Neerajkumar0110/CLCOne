@@ -520,6 +520,12 @@ async function mirrorQuizScoreToRoster(attempt, quiz) {
   }
   try {
     require('../../../services/lms/certificateEngine').evaluateSafe(attempt.student, quiz.course);
+    require('../../../services/lms/realtime').notify([attempt.student], {
+      type: 'lms.quiz.result',
+      title: `Quiz "${quiz.title}" — ${attempt.percent}% ${attempt.passed ? '· Passed' : '· Not passed'}`,
+      body: `${attempt.totalScore}/${attempt.maxScore}`,
+      link: '/learn/quizzes',
+    });
   } catch (e) {
     /* non-fatal */
   }

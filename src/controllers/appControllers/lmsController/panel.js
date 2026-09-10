@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../config/roles');
+const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../config/roles');
 
 // Dashboards for the two dedicated LMS panels:
 //   GET /api/lms/teacher/dashboard   (role: Teacher, or a manager)
@@ -224,4 +224,124 @@ async function studentDashboard(req, res) {
   });
 }
 
-module.exports = { teacherDashboard, studentDashboard };
+// GET /api/lms/my/updates — lightweight poll for the panel: unread LMS
+// notifications + what's live right now (for the sidebar "LIVE NOW" pill).
+async function myUpdates(req, res) {
+  const admin = req.admin;
+  const Notification = mongoose.model('Notification');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const Student = mongoose.model('Student');
+
+  const [unread, recent] = await Promise.all([
+    Notification.countDocuments({ recipient: admin._id, module: 'LMS', readAt: null, removed: false }),
+    Notification.find({ recipient: admin._id, module: 'LMS', removed: false }).sort({ created: -1 }).limit(12).lean(),
+  ]);
+
+  let liveQuery = null;
+  if (isManager(admin) || LMS_TEACHER_ROLES?.includes?.(admin.role)) {
+    liveQuery = { status: { $in: ['live', 'starting'] }, $or: [{ teacherCrmUser: admin._id }, { teacherName: rx(admin.name) }] };
+  } else {
+    const rows = await Student.find({ removed: false, email: rx(admin.email || '') }).select('batch').lean();
+    const batches = [...new Set(rows.map((r) => r.batch).filter(Boolean))];
+    liveQuery = batches.length ? { status: { $in: ['live', 'starting'] }, batchName: { $in: batches } } : null;
+  }
+  const live = liveQuery
+    ? await LmsLiveSession.find({ removed: false, ...liveQuery }).select('title courseTitle batchName status').limit(10).lean()
+    : [];
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      unread,
+      notifications: recent.map((n) => ({ id: String(n._id), type: n.type, title: n.title, body: n.body, link: n.link, at: n.created, read: !!n.readAt })),
+      liveNow: live.map((s) => ({ id: String(s._id), title: s.title, course: s.courseTitle, batch: s.batchName })),
+    },
+  });
+}
+
+// GET /api/lms/teacher/live-analytics — the spec's "LIVE CLASS ANALYTICS".
+async function teacherLiveAnalytics(req, res) {
+  const admin = req.admin;
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const LiveRecording = mongoose.model('LiveRecording');
+  const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
+
+  const [sessions, recordings] = await Promise.all([
+    LmsLiveSession.find({ removed: false, $or: [{ teacherCrmUser: admin._id }, { teacherName: rx(teacherName) }] })
+      .select('status scheduledStart scheduledDurationMin actualStart actualEnd participants title courseTitle batchName').lean(),
+    LiveRecording.find({ removed: false, $or: [{ teacherCrmUser: admin._id }, { teacherName: rx(teacherName) }] })
+      .select('views durationMin className').lean(),
+  ]);
+
+  const ended = sessions.filter((s) => ['ended', 'recording_processing', 'recording_available'].includes(s.status));
+  let liveMin = 0;
+  let joinDelaySum = 0;
+  let joinDelayN = 0;
+  let durSum = 0;
+  let partTotal = 0;
+  const perStudent = {};
+
+  for (const s of ended) {
+    const start = s.actualStart ? new Date(s.actualStart) : s.scheduledStart ? new Date(s.scheduledStart) : null;
+    const dur = s.actualStart && s.actualEnd ? Math.max(0, Math.round((new Date(s.actualEnd) - new Date(s.actualStart)) / 60000)) : (s.scheduledDurationMin || 60);
+    liveMin += dur;
+    durSum += dur;
+    for (const p of s.participants || []) {
+      partTotal += 1;
+      const key = p.email || p.name || String(p.crmUser || 'x');
+      perStudent[key] = perStudent[key] || { name: p.name, email: p.email, attended: 0, missed: 0, durationSum: 0, pctSum: 0, n: 0, last: null };
+      const ps = perStudent[key];
+      ps.n += 1;
+      ps.attended += 1;
+      ps.durationSum += p.totalDurationMin || 0;
+      ps.pctSum += p.attendancePct || 0;
+      if (!ps.last || (s.scheduledStart && new Date(s.scheduledStart) > new Date(ps.last))) ps.last = s.scheduledStart;
+      if (start && p.firstJoinAt) {
+        joinDelaySum += Math.max(0, Math.round((new Date(p.firstJoinAt) - start) / 60000));
+        joinDelayN += 1;
+      }
+    }
+  }
+
+  const totalClasses = sessions.length;
+  const recViews = recordings.reduce((a, r) => a + (r.views || 0), 0);
+  const recMinutes = recordings.reduce((a, r) => a + (r.durationMin || 0), 0);
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      totals: {
+        totalClasses,
+        completedClasses: ended.length,
+        totalLiveHours: Math.round((liveMin / 60) * 10) / 10,
+        avgAttendancePct: partTotal ? Math.round(ended.reduce((a, s) => a + (s.participants || []).reduce((x, p) => x + (p.attendancePct || 0), 0), 0) / partTotal) : 0,
+        avgJoinDelayMin: joinDelayN ? Math.round(joinDelaySum / joinDelayN) : 0,
+        avgDurationMin: ended.length ? Math.round(durSum / ended.length) : 0,
+        totalParticipants: partTotal,
+        recordingViews: recViews,
+        recordingMinutesAvailable: recMinutes,
+      },
+      perStudent: Object.values(perStudent)
+        .map((ps) => ({
+          name: ps.name,
+          email: ps.email,
+          classesAttended: ps.attended,
+          classesMissed: Math.max(0, ended.length - ps.attended),
+          attendancePct: ps.n ? Math.round(ps.pctSum / ps.n) : 0,
+          avgDurationMin: ps.n ? Math.round(ps.durationSum / ps.n) : 0,
+          lastClassAt: ps.last,
+        }))
+        .sort((a, b) => b.classesAttended - a.classesAttended)
+        .slice(0, 100),
+      byClass: ended.slice(-15).map((s) => ({
+        title: s.title,
+        course: s.courseTitle,
+        date: s.scheduledStart,
+        present: (s.participants || []).filter((p) => ['PRESENT', 'LATE'].includes(p.attendanceStatus)).length,
+        total: (s.participants || []).length,
+      })),
+    },
+  });
+}
+
+module.exports = { teacherDashboard, studentDashboard, myUpdates, teacherLiveAnalytics };
