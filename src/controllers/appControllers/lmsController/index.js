@@ -9,6 +9,8 @@ const liveclass = require('./liveclass');
 const scope = require('./liveScope');
 const bbbWebhook = require('./bbbWebhook');
 const panel = require('./panel');
+const curriculum = require('./curriculum');
+const learning = require('./learning');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -73,6 +75,26 @@ module.exports = {
   // dedicated LMS panels (Teacher / Student)
   teacherDashboard: panel.teacherDashboard,
   studentDashboard: panel.studentDashboard,
+
+  // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager
+  curriculumOutline: curriculum.outline,
+  curriculumAddModule: curriculum.addModule,
+  curriculumUpdateModule: curriculum.updateModule,
+  curriculumDeleteModule: curriculum.deleteModule,
+  curriculumAddChapter: curriculum.addChapter,
+  curriculumUpdateChapter: curriculum.updateChapter,
+  curriculumDeleteChapter: curriculum.deleteChapter,
+  curriculumAddLesson: curriculum.addLesson,
+  curriculumUpdateLesson: curriculum.updateLesson,
+  curriculumDeleteLesson: curriculum.deleteLesson,
+  curriculumReorder: curriculum.reorder,
+
+  // student learning surface (outline + progress)
+  learnMyCourses: learning.myCourses,
+  learnCourseOutline: learning.courseOutline,
+  learnLessonDetail: learning.lessonDetail,
+  learnSaveProgress: learning.saveProgress,
+  learnMarkComplete: learning.markComplete,
 
   // role-scoped reads
   studentLiveClasses: scope.studentLiveClasses,

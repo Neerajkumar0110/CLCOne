@@ -34,6 +34,23 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
 // ── add a student to a running batch (manager, or the batch's teacher) ──
 router.route('/batches/:id/students').post(catchErrors(lms.liveAddStudent));
 
+// ── curriculum builder (Course → Module → Chapter → Lesson) — teacher/manager ──
+router.route('/courses/:courseId/outline').get(catchErrors(lms.curriculumOutline));
+router.route('/courses/:courseId/modules').post(catchErrors(lms.curriculumAddModule));
+router.route('/courses/:courseId/reorder').post(catchErrors(lms.curriculumReorder));
+router.route('/modules/:id').patch(catchErrors(lms.curriculumUpdateModule)).delete(catchErrors(lms.curriculumDeleteModule));
+router.route('/modules/:id/chapters').post(catchErrors(lms.curriculumAddChapter));
+router.route('/chapters/:id').patch(catchErrors(lms.curriculumUpdateChapter)).delete(catchErrors(lms.curriculumDeleteChapter));
+router.route('/chapters/:id/lessons').post(catchErrors(lms.curriculumAddLesson));
+router.route('/lessons/:id').patch(catchErrors(lms.curriculumUpdateLesson)).delete(catchErrors(lms.curriculumDeleteLesson));
+
+// ── student learning surface ────────────────────────────────────────
+router.route('/learn').get(catchErrors(lms.learnMyCourses));
+router.route('/learn/:courseId').get(catchErrors(lms.learnCourseOutline));
+router.route('/lessons/:id/view').get(catchErrors(lms.learnLessonDetail));
+router.route('/lessons/:id/progress').post(catchErrors(lms.learnSaveProgress));
+router.route('/lessons/:id/complete').post(catchErrors(lms.learnMarkComplete));
+
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/recordings/:id/play').get(catchErrors(lms.liveRecordingPlay));
