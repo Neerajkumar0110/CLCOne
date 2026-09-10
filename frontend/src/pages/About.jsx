@@ -44,8 +44,10 @@ export default function About() {
     ["License", info?.license ?? "…"],
   ];
 
+  // About UI update: the module hook applies the default Purple Gradient
+  // background and readable palette-aware text to this screen.
   return (
-    <div className="hub-page">
+    <div className="hub-page about-module-shell">
       <div className="hub-header">
         <div>
           <h2>About</h2>
