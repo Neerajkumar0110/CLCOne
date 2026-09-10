@@ -30,6 +30,7 @@ class AmiClient extends EventEmitter {
     this.sock = net.createConnection({ host, port }, () => {
       this.connected = true;
       this._retryMs = 2000;
+      setTimeout(() => { if (this.sock && !this._loginSent) this._login(); }, 250);
     });
     this.sock.setEncoding('utf8');
     this.sock.on('data', (chunk) => this._onData(chunk));
@@ -37,6 +38,7 @@ class AmiClient extends EventEmitter {
     this.sock.on('close', () => {
       this.connected = false;
       this.loggedIn = false;
+      this._loginSent = false;
       this.sock = null;
       for (const [, p] of this.pending) {
         clearTimeout(p.timer);
@@ -51,6 +53,7 @@ class AmiClient extends EventEmitter {
 
   _onData(chunk) {
     this.buf += chunk;
+    if (!this._loginSent && this.buf.indexOf("Asterisk Call Manager") === 0 && this.buf.indexOf(String.fromCharCode(10)) !== -1) this._login();
     let idx;
     while ((idx = this.buf.indexOf('\r\n\r\n')) !== -1) {
       const raw = this.buf.slice(0, idx);
@@ -75,7 +78,7 @@ class AmiClient extends EventEmitter {
   }
 
   _onMessage(msg) {
-    if (msg._greeting && !this.loggedIn) return this._login();
+    if (msg._greeting && !this.loggedIn && !msg.Response && !msg.ActionID) return this._login();
 
     if (msg.ActionID && this.pending.has(msg.ActionID)) {
       const p = this.pending.get(msg.ActionID);
@@ -95,6 +98,8 @@ class AmiClient extends EventEmitter {
   }
 
   _login() {
+    if (this._loginSent) return;
+    this._loginSent = true;
     const id = this._id();
     this._raw({
       Action: 'Login',
