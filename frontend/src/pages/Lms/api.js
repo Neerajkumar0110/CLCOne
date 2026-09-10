@@ -83,6 +83,26 @@ const lmsApi = {
   // ── dedicated panels ─────────────────────────────────────────────
   teacherDashboard: (f = {}) => request.get({ entity: `lms/teacher/dashboard${qs(f)}` }),
   studentDashboard: (f = {}) => request.get({ entity: `lms/student/dashboard${qs(f)}` }),
+
+  // ── curriculum builder (teacher) ─────────────────────────────────
+  courseOutline: (courseId) => request.get({ entity: `lms/courses/${courseId}/outline` }),
+  addModule: (courseId, body) => request.post({ entity: `lms/courses/${courseId}/modules`, jsonData: body }),
+  updateModule: (id, body) => request.patch({ entity: `lms/modules/${id}`, jsonData: body }),
+  deleteModule: (id) => request.del({ entity: `lms/modules/${id}` }),
+  addChapter: (moduleId, body) => request.post({ entity: `lms/modules/${moduleId}/chapters`, jsonData: body }),
+  updateChapter: (id, body) => request.patch({ entity: `lms/chapters/${id}`, jsonData: body }),
+  deleteChapter: (id) => request.del({ entity: `lms/chapters/${id}` }),
+  addLesson: (chapterId, body) => request.post({ entity: `lms/chapters/${chapterId}/lessons`, jsonData: body }),
+  updateLesson: (id, body) => request.patch({ entity: `lms/lessons/${id}`, jsonData: body }),
+  deleteLesson: (id) => request.del({ entity: `lms/lessons/${id}` }),
+  reorderCurriculum: (courseId, body) => request.post({ entity: `lms/courses/${courseId}/reorder`, jsonData: body }),
+
+  // ── learning surface (student) ──────────────────────────────────
+  myLearnCourses: () => request.get({ entity: 'lms/learn' }),
+  learnCourse: (courseId) => request.get({ entity: `lms/learn/${courseId}` }),
+  lessonView: (id) => request.get({ entity: `lms/lessons/${id}/view` }),
+  lessonProgress: (id, body) => request.post({ entity: `lms/lessons/${id}/progress`, jsonData: body }),
+  lessonComplete: (id) => request.post({ entity: `lms/lessons/${id}/complete`, jsonData: {} }),
 };
 
 export default lmsApi;

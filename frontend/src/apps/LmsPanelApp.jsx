@@ -36,7 +36,8 @@ const StudentDashboard = lazy(() => import('@/pages/Lms/StudentDashboard'));
 const LiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
 const Attendance = lazy(() => import('@/pages/Lms/Attendance'));
-const StudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
+const CourseBuilder = lazy(() => import('@/pages/Lms/CourseBuilder'));
+const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -47,7 +48,7 @@ const ComingSoon = ({ title }) => (
 // [path, label, icon, element]
 const TEACHER_NAV = [
   ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
-  ['/teacher/courses', 'My Courses', <ReadOutlined />, <ComingSoon title="My Courses" />],
+  ['/teacher/courses', 'My Courses', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
@@ -64,7 +65,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
-  ['/learn/courses', 'My Courses', <BookOutlined />, <StudentPortal />],
+  ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
