@@ -156,6 +156,10 @@ const lmsApi = {
 
   // ── analytics ─────────────────────────────────────────────────
   teacherAnalytics: (f = {}) => request.get({ entity: `lms/teacher/analytics${qs(f)}` }),
+  teacherLiveAnalytics: (f = {}) => request.get({ entity: `lms/teacher/live-analytics${qs(f)}` }),
+
+  // ── panel real-time poll ─────────────────────────────────────
+  updates: () => request.get({ entity: 'lms/my/updates' }),
 };
 
 export default lmsApi;

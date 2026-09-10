@@ -1,5 +1,6 @@
-import React, { Suspense, lazy, useMemo, useState } from 'react';
-import { Layout, Menu, Button, Grid, Drawer, Empty } from 'antd';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Layout, Menu, Button, Grid, Drawer, Empty, Badge, Dropdown, List, Tag, message } from 'antd';
+import lmsApi from '@/pages/Lms/api';
 import {
   DashboardOutlined,
   ReadOutlined,
@@ -112,6 +113,48 @@ export default function LmsPanelApp() {
     setDrawer(false);
   };
 
+  // ── lightweight real-time: poll /api/lms/my/updates every 20s ──
+  const [updates, setUpdates] = useState({ unread: 0, notifications: [], liveNow: [] });
+  const lastTopId = useRef(null);
+  const pollUpdates = useCallback(async () => {
+    try {
+      const res = await lmsApi.updates();
+      const u = (res && res.result) || { unread: 0, notifications: [], liveNow: [] };
+      setUpdates(u);
+      const top = u.notifications && u.notifications[0];
+      if (top && lastTopId.current && top.id !== lastTopId.current && !top.read) {
+        message.info(top.title);
+      }
+      if (top) lastTopId.current = top.id;
+    } catch (e) {
+      /* silent */
+    }
+  }, []);
+  useEffect(() => {
+    pollUpdates();
+    const iv = setInterval(pollUpdates, 20000);
+    const onVis = () => document.visibilityState === 'visible' && pollUpdates();
+    document.addEventListener('visibilitychange', onVis);
+    // also refresh when a live-class socket event bubbles (VPS deployments)
+    const onLive = () => pollUpdates();
+    window.addEventListener('lms:liveclass', onLive);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('lms:liveclass', onLive);
+    };
+  }, [pollUpdates]);
+
+  const notifItems = (updates.notifications || []).slice(0, 10).map((n) => ({
+    key: n.id,
+    label: (
+      <div style={{ maxWidth: 320, whiteSpace: 'normal', padding: '2px 0' }} onClick={() => n.link && navigate(n.link.replace(/^\/(learn|teacher)/, base))}>
+        <div style={{ fontWeight: n.read ? 400 : 600, fontSize: 13 }}>{n.title}</div>
+        {n.body ? <div style={{ fontSize: 12, color: '#667085' }}>{n.body}</div> : null}
+      </div>
+    ),
+  }));
+
   const menu = (
     <Menu
       mode="inline"
@@ -141,6 +184,15 @@ export default function LmsPanelApp() {
           <div style={{ color: '#fff', fontWeight: 800, fontSize: 18, padding: '20px 20px 12px' }}>
             CLC · <span style={{ color: '#60a5fa' }}>{brand}</span>
           </div>
+          {updates.liveNow && updates.liveNow.length > 0 && (
+            <div
+              onClick={() => go(`${base}/classes`)}
+              style={{ margin: '0 16px 8px', padding: '8px 12px', borderRadius: 8, background: '#7f1d1d', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: 8, background: '#fca5a5', boxShadow: '0 0 0 3px rgba(252,165,165,.35)' }} />
+              LIVE NOW · {updates.liveNow.length}
+            </div>
+          )}
           {menu}
         </Sider>
       )}
@@ -175,6 +227,11 @@ export default function LmsPanelApp() {
             <span style={{ fontWeight: 600 }}>{isTeacher ? 'Teacher' : 'Student'} · {admin.name} {admin.surname || ''}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Dropdown menu={{ items: notifItems.length ? notifItems : [{ key: 'none', label: 'No notifications', disabled: true }] }} trigger={['click']} placement="bottomRight">
+              <Badge count={updates.unread || 0} size="small">
+                <Button type="text" icon={<BellOutlined />} />
+              </Badge>
+            </Dropdown>
             <Button type="text" icon={<UserOutlined />} onClick={() => go(`${base}`)}>
               {admin.email}
             </Button>
