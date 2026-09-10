@@ -28,11 +28,15 @@ class JitsiProvider extends MeetingProvider {
     const room = encodeURIComponent(session.meetingId || session.roomName);
     const hash = new URLSearchParams();
     hash.set('userInfo.displayName', `"${fullName}"`);
+    // force the UI to English regardless of the viewer's browser locale
+    hash.set('config.defaultLanguage', '"en"');
+    hash.set('interfaceConfig.LANG_DETECTION', 'false');
     if (role !== 'moderator') {
       hash.set('config.startWithVideoMuted', 'true');
       hash.set('config.startWithAudioMuted', 'true');
     }
-    return `${this.cfg.jitsiBase}/${room}#${hash.toString()}`;
+    // ?lang=en covers the pre-join ("join meeting") screen too
+    return `${this.cfg.jitsiBase}/${room}?lang=en#${hash.toString()}`;
   }
 
   async endRoom() {
