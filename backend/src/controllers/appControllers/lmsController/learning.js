@@ -286,6 +286,15 @@ async function rollUpCourse(crmUser, courseId, lastLessonId) {
     /* non-fatal */
   }
 
+  // course finished → let the certificate engine check the criteria
+  if (percent >= 100) {
+    try {
+      require('../../../services/lms/certificateEngine').evaluateSafe(crmUser, courseId);
+    } catch (e) {
+      /* non-fatal */
+    }
+  }
+
   return { percent, completedLessons: completed, totalLessons: total };
 }
 

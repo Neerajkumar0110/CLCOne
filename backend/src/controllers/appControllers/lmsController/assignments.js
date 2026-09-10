@@ -203,6 +203,11 @@ async function evaluate(req, res) {
   } catch (e) {
     /* non-fatal */
   }
+  try {
+    if (s.status === 'evaluated') require('../../../services/lms/certificateEngine').evaluateSafe(s.student, a.course);
+  } catch (e) {
+    /* non-fatal */
+  }
 
   return ok(res, { id: String(s._id), status: s.status }, 'Saved.');
 }

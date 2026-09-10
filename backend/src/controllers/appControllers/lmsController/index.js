@@ -13,6 +13,9 @@ const curriculum = require('./curriculum');
 const learning = require('./learning');
 const assignments = require('./assignments');
 const quizzes = require('./quizzes');
+const engagement = require('./engagement');
+const certificates = require('./certificates');
+const analytics = require('./analytics');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -125,6 +128,32 @@ module.exports = {
   quizAttemptResult: quizzes.attemptResult,
   quizResults: quizzes.quizResults,
   quizEvaluateAttempt: quizzes.evaluateAttempt,
+
+  // doubts
+  doubtAsk: engagement.askDoubt,
+  doubtList: engagement.listDoubts,
+  doubtGet: engagement.getDoubt,
+  doubtReply: engagement.replyDoubt,
+  doubtResolve: engagement.resolveDoubt,
+  doubtPin: engagement.pinDoubt,
+
+  // announcements
+  announcementCreate: engagement.createAnnouncement,
+  announcementList: engagement.listAnnouncements,
+  announcementDelete: engagement.deleteAnnouncement,
+  announcementMine: engagement.myAnnouncements,
+
+  // certificates
+  certRuleGet: certificates.getRule,
+  certRuleUpsert: certificates.upsertRule,
+  certIssue: certificates.issue,
+  certRunForCourse: certificates.runForCourse,
+  certHistory: certificates.history,
+  certMine: certificates.mine,
+  certVerify: certificates.verify,
+
+  // analytics
+  teacherAnalytics: analytics.teacherAnalytics,
 
   // role-scoped reads
   studentLiveClasses: scope.studentLiveClasses,
