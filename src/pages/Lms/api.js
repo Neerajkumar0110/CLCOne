@@ -103,6 +103,33 @@ const lmsApi = {
   lessonView: (id) => request.get({ entity: `lms/lessons/${id}/view` }),
   lessonProgress: (id, body) => request.post({ entity: `lms/lessons/${id}/progress`, jsonData: body }),
   lessonComplete: (id) => request.post({ entity: `lms/lessons/${id}/complete`, jsonData: {} }),
+
+  // ── assignments ─────────────────────────────────────────────────
+  assignments: (f = {}) => request.get({ entity: `lms/assignments${qs(f)}` }),
+  createAssignment: (b) => request.post({ entity: 'lms/assignments', jsonData: b }),
+  updateAssignment: (id, b) => request.patch({ entity: `lms/assignments/${id}`, jsonData: b }),
+  deleteAssignment: (id) => request.del({ entity: `lms/assignments/${id}` }),
+  assignmentSubmissions: (id) => request.get({ entity: `lms/assignments/${id}/submissions` }),
+  evaluateSubmission: (id, b) => request.post({ entity: `lms/submissions/${id}/evaluate`, jsonData: b }),
+  myAssignments: () => request.get({ entity: 'lms/my/assignments' }),
+  submitAssignment: (id, b) => request.post({ entity: `lms/assignments/${id}/submit`, jsonData: b }),
+
+  // ── quizzes / exams ────────────────────────────────────────────
+  quizzes: (f = {}) => request.get({ entity: `lms/quizzes${qs(f)}` }),
+  createQuiz: (b) => request.post({ entity: 'lms/quizzes', jsonData: b }),
+  quiz: (id) => request.get({ entity: `lms/quizzes/${id}` }),
+  updateQuiz: (id, b) => request.patch({ entity: `lms/quizzes/${id}`, jsonData: b }),
+  deleteQuiz: (id) => request.del({ entity: `lms/quizzes/${id}` }),
+  addQuestion: (quizId, b) => request.post({ entity: `lms/quizzes/${quizId}/questions`, jsonData: b }),
+  updateQuestion: (id, b) => request.patch({ entity: `lms/questions/${id}`, jsonData: b }),
+  deleteQuestion: (id) => request.del({ entity: `lms/questions/${id}` }),
+  quizResults: (id) => request.get({ entity: `lms/quizzes/${id}/results` }),
+  evaluateAttempt: (id, b) => request.post({ entity: `lms/attempts/${id}/evaluate`, jsonData: b }),
+  questionBank: (f = {}) => request.get({ entity: `lms/question-bank${qs(f)}` }),
+  myQuizzes: () => request.get({ entity: 'lms/my/quizzes' }),
+  startQuiz: (id) => request.post({ entity: `lms/quizzes/${id}/start`, jsonData: {} }),
+  submitQuizAttempt: (id, b) => request.post({ entity: `lms/attempts/${id}/submit`, jsonData: b }),
+  attemptResult: (id) => request.get({ entity: `lms/attempts/${id}/result` }),
 };
 
 export default lmsApi;
