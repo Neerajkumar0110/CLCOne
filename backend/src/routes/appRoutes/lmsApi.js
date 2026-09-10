@@ -51,6 +51,27 @@ router.route('/lessons/:id/view').get(catchErrors(lms.learnLessonDetail));
 router.route('/lessons/:id/progress').post(catchErrors(lms.learnSaveProgress));
 router.route('/lessons/:id/complete').post(catchErrors(lms.learnMarkComplete));
 
+// ── assignments ─────────────────────────────────────────────────────
+router.route('/assignments').get(catchErrors(lms.assignmentList)).post(catchErrors(lms.assignmentCreate));
+router.route('/my/assignments').get(catchErrors(lms.assignmentMyList));
+router.route('/assignments/:id').get(catchErrors(lms.assignmentGet)).patch(catchErrors(lms.assignmentUpdate)).delete(catchErrors(lms.assignmentDelete));
+router.route('/assignments/:id/submissions').get(catchErrors(lms.assignmentSubmissions));
+router.route('/assignments/:id/submit').post(catchErrors(lms.assignmentSubmit));
+router.route('/submissions/:id/evaluate').post(catchErrors(lms.assignmentEvaluate));
+
+// ── quizzes / exams / question bank ─────────────────────────────────
+router.route('/quizzes').get(catchErrors(lms.quizList)).post(catchErrors(lms.quizCreate));
+router.route('/my/quizzes').get(catchErrors(lms.quizMyList));
+router.route('/question-bank').get(catchErrors(lms.quizQuestionBank));
+router.route('/quizzes/:id').get(catchErrors(lms.quizGet)).patch(catchErrors(lms.quizUpdate)).delete(catchErrors(lms.quizDelete));
+router.route('/quizzes/:id/questions').post(catchErrors(lms.quizAddQuestion));
+router.route('/quizzes/:id/start').post(catchErrors(lms.quizStart));
+router.route('/quizzes/:id/results').get(catchErrors(lms.quizResults));
+router.route('/questions/:id').patch(catchErrors(lms.quizUpdateQuestion)).delete(catchErrors(lms.quizDeleteQuestion));
+router.route('/attempts/:id/submit').post(catchErrors(lms.quizSubmit));
+router.route('/attempts/:id/result').get(catchErrors(lms.quizAttemptResult));
+router.route('/attempts/:id/evaluate').post(catchErrors(lms.quizEvaluateAttempt));
+
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/recordings/:id/play').get(catchErrors(lms.liveRecordingPlay));

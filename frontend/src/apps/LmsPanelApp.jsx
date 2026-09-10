@@ -38,6 +38,8 @@ const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
 const Attendance = lazy(() => import('@/pages/Lms/Attendance'));
 const CourseBuilder = lazy(() => import('@/pages/Lms/CourseBuilder'));
 const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
+const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
+const Quizzes = lazy(() => import('@/pages/Lms/Quizzes'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -53,8 +55,8 @@ const TEACHER_NAV = [
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/teacher/students', 'Students', <TeamOutlined />, <ComingSoon title="Students" />],
-  ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <ComingSoon title="Assignments" />],
-  ['/teacher/quizzes', 'Quizzes & Exams', <FormOutlined />, <ComingSoon title="Quizzes & Exams" />],
+  ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['/teacher/quizzes', 'Quizzes & Exams', <FormOutlined />, <Quizzes />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <ComingSoon title="Announcements" />],
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <ComingSoon title="Doubts / Questions" />],
@@ -70,8 +72,8 @@ const STUDENT_NAV = [
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/learn/calendar', 'Calendar', <CalendarOutlined />, <ComingSoon title="Calendar" />],
-  ['/learn/assignments', 'Assignments', <FileTextOutlined />, <ComingSoon title="Assignments" />],
-  ['/learn/quizzes', 'Quizzes', <FormOutlined />, <ComingSoon title="Quizzes" />],
+  ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['/learn/quizzes', 'Quizzes', <FormOutlined />, <Quizzes />],
   ['/learn/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <ComingSoon title="My Doubts" />],
   ['/learn/notifications', 'Notifications', <BellOutlined />, <ComingSoon title="Notifications" />],
