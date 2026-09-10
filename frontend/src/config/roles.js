@@ -16,7 +16,16 @@ export const ROLES = [
   "Executive",
   "Sales Intern",
   "Finance",
+  // LMS-only roles — these accounts see ONLY their LMS panel (/teacher or
+  // /learn), never the CRM. Handled in src/apps/IdurarOs.jsx.
+  "Teacher",
+  "Student",
 ];
+
+// Roles that get the dedicated LMS panel instead of the CRM shell.
+export const LMS_TEACHER_ROLES = ["Teacher"];
+export const LMS_STUDENT_ROLES = ["Student"];
+export const LMS_PANEL_ROLES = [...LMS_TEACHER_ROLES, ...LMS_STUDENT_ROLES];
 
 // Solid, high-contrast colors used by the Roles & Permissions selector.
 // Keeping these beside the role names prevents every selected role from
@@ -31,6 +40,8 @@ export const ROLE_COLORS = {
   Executive: "#475569",
   "Sales Intern": "#15803d",
   Finance: "#a16207",
+  Teacher: "#1d4ed8",
+  Student: "#0e7490",
 };
 
 // Roles whose accounts exist but are never offered in the role dropdown.

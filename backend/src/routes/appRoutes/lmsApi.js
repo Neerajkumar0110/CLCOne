@@ -44,6 +44,8 @@ router.route('/student/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/student/attendance').get(catchErrors(lms.studentAttendance));
 
 // ── teacher ────────────────────────────────────────────────────────
+router.route('/teacher/dashboard').get(catchErrors(lms.teacherDashboard));
+router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));
 router.route('/teacher/live-classes').get(catchErrors(lms.liveList));
 router.route('/teacher/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/teacher/attendance').get(catchErrors(lms.liveAttendanceDashboard));
