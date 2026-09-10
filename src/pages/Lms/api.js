@@ -79,6 +79,10 @@ const lmsApi = {
   liveSettingsSave: (patch) => request.post({ entity: 'lms/admin/live-settings', jsonData: patch }),
 
   adminStatus: () => request.get({ entity: 'lms/admin/status' }),
+
+  // ── dedicated panels ─────────────────────────────────────────────
+  teacherDashboard: (f = {}) => request.get({ entity: `lms/teacher/dashboard${qs(f)}` }),
+  studentDashboard: (f = {}) => request.get({ entity: `lms/student/dashboard${qs(f)}` }),
 };
 
 export default lmsApi;

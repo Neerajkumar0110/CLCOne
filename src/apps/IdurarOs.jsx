@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { useSelector } from 'react-redux';
-import { selectAuth } from '@/redux/auth/selectors';
+import { selectAuth, selectCurrentAdmin } from '@/redux/auth/selectors';
+import { LMS_PANEL_ROLES } from '@/config/roles';
 import { AppContextProvider } from '@/context/appContext';
 import { TicketsProvider } from '@/context/ticketsContext';
 import { SocketProvider } from '@/context/socketContext';
@@ -14,26 +15,33 @@ import Localization from '@/locale/Localization';
 import { notification } from 'antd';
 
 const ErpApp = lazy(() => import('./ErpApp'));
+const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
 
-const DefaultApp = () => (
-  <Localization>
-    <AppContextProvider>
-      <PermissionProvider>
-        <SocketProvider>
-          <MessagesProvider>
-            <NotificationsProvider>
-              <TicketsProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <ErpApp />
-                </Suspense>
-              </TicketsProvider>
-            </NotificationsProvider>
-          </MessagesProvider>
-        </SocketProvider>
-      </PermissionProvider>
-    </AppContextProvider>
-  </Localization>
-);
+const DefaultApp = () => {
+  const current = useSelector(selectCurrentAdmin);
+  // Teacher / Student accounts get their own LMS panel — never the CRM shell.
+  const isLmsPanel = !!current && LMS_PANEL_ROLES.includes(current.role);
+
+  return (
+    <Localization>
+      <AppContextProvider>
+        <PermissionProvider>
+          <SocketProvider>
+            <MessagesProvider>
+              <NotificationsProvider>
+                <TicketsProvider>
+                  <Suspense fallback={<PageLoader />}>
+                    {isLmsPanel ? <LmsPanelApp /> : <ErpApp />}
+                  </Suspense>
+                </TicketsProvider>
+              </NotificationsProvider>
+            </MessagesProvider>
+          </SocketProvider>
+        </PermissionProvider>
+      </AppContextProvider>
+    </Localization>
+  );
+};
 
 export default function IdurarOs() {
   const { isLoggedIn } = useSelector(selectAuth);
