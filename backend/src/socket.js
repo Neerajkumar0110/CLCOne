@@ -151,4 +151,23 @@ function emitNotification(notification) {
   io.to(`user:${notification.recipient}`).emit('notification:new', notification);
 }
 
-module.exports = { initSocket, emitMessage, emitRead, emitNotification, getOnlineUserIds };
+// LMS real-time (services/lms/realtime.js). No-ops on Vercel serverless (no
+// persistent io); live when the backend runs as a process (VPS).
+function emitLmsBroadcast(event, payload) {
+  if (!io) return;
+  io.emit(event, payload);
+}
+function emitLmsToUsers(userIds, event, payload) {
+  if (!io || !userIds) return;
+  for (const id of [].concat(userIds)) io.to(`user:${String(id)}`).emit(event, payload);
+}
+
+module.exports = {
+  initSocket,
+  emitMessage,
+  emitRead,
+  emitNotification,
+  emitLmsBroadcast,
+  emitLmsToUsers,
+  getOnlineUserIds,
+};

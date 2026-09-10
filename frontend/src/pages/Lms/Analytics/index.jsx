@@ -37,12 +37,16 @@ const cohortCols = [
 
 export default function Analytics() {
   const [d, setD] = useState(null);
+  const [live, setLive] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
 
   useEffect(() => {
-    lmsApi.teacherAnalytics()
-      .then((r) => setD((r && r.result) || null))
+    Promise.all([lmsApi.teacherAnalytics(), lmsApi.teacherLiveAnalytics().catch(() => null)])
+      .then(([r, l]) => {
+        setD((r && r.result) || null);
+        setLive((l && l.result) || null);
+      })
       .catch(() => setErr('Could not load analytics.'))
       .finally(() => setLoading(false));
   }, []);
@@ -77,6 +81,37 @@ export default function Analytics() {
         <Col xs={24} lg={8}><Card size="small" title="Attendance">{ch.attendance ? <Bars data={ch.attendance} /> : null}</Card></Col>
         <Col xs={24} lg={8}><Card size="small" title="Quiz scores">{ch.quizScores ? <Bars data={ch.quizScores} /> : null}</Card></Col>
       </Row>
+
+      {live && live.totals && (
+        <Card size="small" style={{ marginTop: 12 }} title="Live classes">
+          <Row gutter={[12, 12]}>
+            <KPI title="Total classes" value={live.totals.totalClasses} />
+            <KPI title="Completed" value={live.totals.completedClasses} />
+            <KPI title="Live hours" value={live.totals.totalLiveHours} />
+            <KPI title="Avg attendance" value={live.totals.avgAttendancePct} suffix="%" />
+            <KPI title="Avg join delay" value={live.totals.avgJoinDelayMin} suffix=" min" />
+            <KPI title="Avg duration" value={live.totals.avgDurationMin} suffix=" min" />
+            <KPI title="Recording views" value={live.totals.recordingViews} />
+            <KPI title="Participants" value={live.totals.totalParticipants} />
+          </Row>
+          <Table
+            style={{ marginTop: 12 }}
+            rowKey={(r) => r.email || r.name}
+            size="small"
+            dataSource={live.perStudent}
+            pagination={{ pageSize: 10 }}
+            locale={{ emptyText: 'No attendance data yet' }}
+            columns={[
+              { title: 'Student', dataIndex: 'name' },
+              { title: 'Attended', dataIndex: 'classesAttended', width: 90 },
+              { title: 'Missed', dataIndex: 'classesMissed', width: 80 },
+              { title: 'Attendance', dataIndex: 'attendancePct', render: (v) => `${v}%` },
+              { title: 'Avg watch (min)', dataIndex: 'avgDurationMin', width: 130 },
+              { title: 'Last class', dataIndex: 'lastClassAt', render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
+            ]}
+          />
+        </Card>
+      )}
 
       <Card size="small" style={{ marginTop: 12 }} title="Student cohorts">
         <Tabs

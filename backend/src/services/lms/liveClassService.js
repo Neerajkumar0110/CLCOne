@@ -485,11 +485,29 @@ async function ensureProviderRoom(session) {
 
 /* ───────────────────────── lifecycle ───────────────────────── */
 async function mirrorLiveClass(session, status, extra = {}) {
+  emitLiveState(session);
   if (!session.liveClass) return;
   await mongoose.model('LiveClass').updateOne(
     { _id: session.liveClass },
     { $set: { status, updated: new Date(), ...extra } }
   );
+}
+
+// real-time nudge — panels listening on 'lms:liveclass' refresh their lists.
+// No-op on Vercel serverless (no persistent socket); panels also poll.
+function emitLiveState(session) {
+  try {
+    require('./realtime').broadcast('lms:liveclass', {
+      id: String(session._id),
+      status: DISPLAY[session.status] || session.status,
+      lifecycle: session.status,
+      title: session.title,
+      course: session.courseTitle,
+      batch: session.batchName,
+    });
+  } catch (e) {
+    /* noop */
+  }
 }
 
 async function startSession(id, admin, { auto = false } = {}) {

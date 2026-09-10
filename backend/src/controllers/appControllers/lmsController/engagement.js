@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../config/roles');
+const realtime = require('../../../services/lms/realtime');
 
 // Doubts (course Q&A threads) + Announcements (targeted broadcasts).
 //
@@ -140,6 +141,25 @@ async function replyDoubt(req, res) {
   if (byRole !== 'student' && d.status === 'open') d.status = 'answered';
   d.updated = new Date();
   await d.save();
+
+  // real-time: notify the other side
+  try {
+    if (byRole === 'student') {
+      const Course = mongoose.model('Course');
+      const Admin = mongoose.model('Admin');
+      const course = await Course.findById(d.course).select('instructor title').lean();
+      if (course && course.instructor) {
+        const t = await Admin.findOne({ name: rxEq(course.instructor), removed: false }).select('_id').lean();
+        if (t) await realtime.notify([t._id], { type: 'lms.doubt.reply', title: `New reply on "${d.title}"`, body: body.slice(0, 160), link: '/teacher/doubts', actorName: req.admin.name });
+      }
+    } else {
+      await realtime.notify([d.student], { type: 'lms.doubt.answered', title: `Your question "${d.title}" was answered`, body: body.slice(0, 160), link: '/learn/doubts', actorName: req.admin.name });
+    }
+  } catch (e) {
+    /* non-fatal */
+  }
+  realtime.toUsers([d.student], 'lms:doubt', { id: String(d._id), status: d.status });
+
   return ok(res, { id: String(d._id), status: d.status }, 'Reply added.');
 }
 
@@ -222,21 +242,14 @@ async function createAnnouncement(req, res) {
   if (channels.includes('in_app') && emails.length) {
     const admins = await Admin.find({ email: { $in: emails }, removed: false }).select('_id').lean();
     if (admins.length) {
-      await Notification.insertMany(
-        admins.map((a) => ({
-          recipient: a._id,
-          module: 'LMS',
-          type: 'lms.announcement',
-          title,
-          body: (b.body || '').slice(0, 240),
-          link: '/learn/announcements',
-          actorName: req.admin.name,
-        })),
-        { ordered: false }
-      ).catch(() => {});
-      notified = admins.length;
+      const r = await realtime.notify(
+        admins.map((a) => a._id),
+        { type: 'lms.announcement', title: `📢 ${title}`, body: b.body || '', link: '/learn/notifications', actorName: req.admin.name }
+      );
+      notified = r.created || admins.length;
     }
   }
+  realtime.broadcast('lms:announcement', { title, from: req.admin.name, scope: audience === 'all' ? 'all' : audience === 'batch' ? b.batch : (course && course.title) });
 
   let emailed = 0;
   if (channels.includes('email') && emails.length) {
