@@ -147,6 +147,7 @@ try {
     LmsLiveSession: unwrap(require('../src/models/appModels/LmsLiveSession')),
     LmsSetting: unwrap(require('../src/models/appModels/LmsSetting')),
     LiveRecording: unwrap(require('../src/models/appModels/LiveRecording')),
+    LmsBatchRoom: unwrap(require('../src/models/appModels/LmsBatchRoom')),
     Employee: unwrap(require('../src/models/appModels/Employee')),
     Candidate: unwrap(require('../src/models/appModels/Candidate')),
     HrAttendance: unwrap(require('../src/models/appModels/HrAttendance')),

@@ -44,7 +44,11 @@ const schema = new mongoose.Schema({
     required: true,
   },
   phone: String,
-  email: String,
+  // Last 10 digits of `phone`, kept in sync by the hooks below. Indexed so
+  // bulk import / inbound-call matching can dedupe by phone with a bounded
+  // `$in` query instead of scanning the whole collection.
+  phoneNormalized: { type: String, index: true },
+  email: { type: String, index: true },
   source: String,
 
   // ── Pipeline ──────────────────────────────────────────────────────────
@@ -167,6 +171,34 @@ const schema = new mongoose.Schema({
 // is always re-derived from them so older code that reads `lead.status`
 // stays correct. A legacy webhook/import that sets only `status: 'New'`
 // still lands on stage 'New Lead' via the schema default.
+// last 10 digits of a phone string ("+91 70170 55778" -> "7017055778")
+function normalizeLeadPhone(p) {
+  const d = String(p == null ? '' : p).replace(/\D/g, '');
+  return d.length > 10 ? d.slice(-10) : d;
+}
+
+schema.pre('save', function derivePhoneNormalized(next) {
+  if (this.isModified('phone')) {
+    const n = normalizeLeadPhone(this.phone);
+    this.phoneNormalized = n || undefined;
+  }
+  next();
+});
+
+// insertMany bypasses 'save' middleware — stamp phoneNormalized here too so
+// bulk imports get the dedupe key without every call site remembering to.
+schema.pre('insertMany', function stampPhoneNormalized(next, docs) {
+  if (Array.isArray(docs)) {
+    for (const d of docs) {
+      if (d && d.phone != null && (d.phoneNormalized == null || d.phoneNormalized === '')) {
+        const n = normalizeLeadPhone(d.phone);
+        if (n) d.phoneNormalized = n;
+      }
+    }
+  }
+  next();
+});
+
 schema.pre('save', function syncPipeline(next) {
   const r = resolveStageSub({ stage: this.stage, subStatus: this.subStatus, status: this.status });
   this.stage = r.stage;
@@ -181,6 +213,10 @@ schema.pre('save', function syncPipeline(next) {
 schema.pre('findOneAndUpdate', function syncPipelineUpdate(next) {
   const u = this.getUpdate() || {};
   const target = u.$set || u;
+  if (target.phone !== undefined) {
+    const n = normalizeLeadPhone(target.phone);
+    target.phoneNormalized = n || undefined;
+  }
   if (target.stage !== undefined || target.subStatus !== undefined || target.status !== undefined) {
     const r = resolveStageSub({
       stage: target.stage,
@@ -194,4 +230,6 @@ schema.pre('findOneAndUpdate', function syncPipelineUpdate(next) {
   next();
 });
 
-module.exports = mongoose.model('Lead', schema);
+const LeadModel = mongoose.model('Lead', schema);
+LeadModel.normalizePhone = normalizeLeadPhone;
+module.exports = LeadModel;

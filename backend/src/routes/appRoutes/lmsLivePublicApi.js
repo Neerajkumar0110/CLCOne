@@ -15,6 +15,7 @@ const router = express.Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 240 });
 
 router.route('/t/:ticket').get(limiter, catchErrors(lms.liveTicket));
+router.route('/open/:id').get(limiter, catchErrors(lms.liveOpenPublic));
 router.route('/left').get(catchErrors(lms.liveLeftPing));
 router.route('/left').post(catchErrors(lms.liveLeftPing));
 router.route('/mock/:id').get(limiter, catchErrors(lms.liveMockRoom));

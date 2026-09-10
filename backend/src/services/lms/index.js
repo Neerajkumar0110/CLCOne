@@ -9,6 +9,7 @@ const sso = require('./ssoToken');
 const liveClassService = require('./liveClassService');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
+const mailer = require('./mailer');
 const { getMeetingProvider } = require('./meeting');
 
 module.exports = {
@@ -23,5 +24,6 @@ module.exports = {
   liveClassService,
   settingsService,
   recurrence,
+  mailer,
   getMeetingProvider,
 };
