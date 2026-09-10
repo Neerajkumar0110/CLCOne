@@ -324,6 +324,14 @@
 }
 .lms-live-done { font-size: 12px; color: var(--hub-muted); }
 .lms-live-online { color: var(--hub-red); font-weight: 600; }
+.lms-live-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hub-green, #2e7d32);
+}
 .lms-livenow .lms-livenow-row { display: flex; flex-direction: column; gap: 6px; }
 .lms-live-card.lms-live-live.ant-card,
 .lms-live-card.lms-live-starting.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }

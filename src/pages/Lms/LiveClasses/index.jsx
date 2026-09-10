@@ -1,5 +1,24 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tag, Button, Alert, Skeleton, Empty, Tooltip, message, Modal, Table } from 'antd';
+import {
+  Row,
+  Col,
+  Card,
+  Tag,
+  Button,
+  Alert,
+  Skeleton,
+  Empty,
+  Tooltip,
+  message,
+  Modal,
+  Table,
+  Form,
+  DatePicker,
+  InputNumber,
+  Checkbox,
+  Input,
+} from 'antd';
+import dayjs from 'dayjs';
 import {
   VideoCameraOutlined,
   ReloadOutlined,
@@ -10,6 +29,8 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   PlaySquareOutlined,
+  FieldTimeOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import lmsApi from '../api';
 
@@ -53,6 +74,12 @@ export default function LiveClasses() {
   const [busyId, setBusyId] = useState(null);
   const [attFor, setAttFor] = useState(null);
   const [att, setAtt] = useState([]);
+  const [editFor, setEditFor] = useState(null);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editForm] = Form.useForm();
+  const [addFor, setAddFor] = useState(null);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addForm] = Form.useForm();
   const timer = useRef(null);
 
   const load = useCallback(async (silent) => {
@@ -130,6 +157,69 @@ export default function LiveClasses() {
       setAtt((res && res.result) || []);
     } catch (e) {
       /* teacher-only */
+    }
+  };
+
+  const openEdit = (r) => {
+    setEditFor(r);
+    editForm.setFieldsValue({
+      scheduledStart: r.scheduledStart ? dayjs(r.scheduledStart) : null,
+      scheduledDurationMin: r.scheduledDurationMin || 60,
+      autoStartAt: !!r.autoStartAt,
+    });
+  };
+  const submitEdit = async () => {
+    let v;
+    try {
+      v = await editForm.validateFields();
+    } catch (e) {
+      return;
+    }
+    setEditBusy(true);
+    try {
+      const res = await lmsApi.liveClassUpdate(editFor.id, {
+        scheduledStart: v.scheduledStart ? v.scheduledStart.toISOString() : undefined,
+        scheduledDurationMin: v.scheduledDurationMin,
+        autoStartAt: !!v.autoStartAt,
+      });
+      if (res && res.success === false) message.warning(res.message || 'Could not update the class time.');
+      else {
+        message.success('Class time updated.');
+        setEditFor(null);
+      }
+    } catch (e) {
+      message.error('Could not update the class time.');
+    } finally {
+      setEditBusy(false);
+      load(true);
+    }
+  };
+
+  const openAdd = (r) => {
+    setAddFor(r);
+    addForm.resetFields();
+  };
+  const submitAdd = async () => {
+    let v;
+    try {
+      v = await addForm.validateFields();
+    } catch (e) {
+      return;
+    }
+    setAddBusy(true);
+    try {
+      const res = await lmsApi.addBatchStudent(addFor.batchId, { email: v.email.trim(), name: (v.name || '').trim() });
+      if (res && res.success === false) message.warning(res.message || 'Could not add the student.');
+      else {
+        const emailed = res && res.result && res.result.emailed;
+        message.success(emailed ? 'Student added — class link emailed.' : 'Student added to the batch.');
+        setAddFor(null);
+      }
+    } catch (e) {
+      message.error('Could not add the student.');
+    } finally {
+      setAddBusy(false);
+      load(true);
     }
   };
 
@@ -243,6 +333,21 @@ export default function LiveClasses() {
                         Watch Recording
                       </Button>
                     )}
+                    {r.canEditTime && (
+                      <Button size="small" icon={<FieldTimeOutlined />} onClick={() => openEdit(r)}>
+                        Edit time
+                      </Button>
+                    )}
+                    {r.canAddStudent && (
+                      <Button size="small" icon={<UserAddOutlined />} onClick={() => openAdd(r)}>
+                        Add student
+                      </Button>
+                    )}
+                    {r.autoStartAt && ['SCHEDULED', 'UPCOMING'].includes(r.status) && (
+                      <span className="lms-live-auto">
+                        <ClockCircleOutlined /> auto-starts at {t(r.scheduledStart)}
+                      </span>
+                    )}
                     {r.myRole === 'teacher' && <Button size="small" onClick={() => showAtt(r)}>Attendance</Button>}
                     {['SCHEDULED', 'UPCOMING'].includes(r.status) && r.myRole === 'student' && (
                       <Tooltip title="You can join once the teacher starts the class.">
@@ -257,6 +362,69 @@ export default function LiveClasses() {
           })}
         </Row>
       )}
+
+      <Modal
+        open={!!editFor}
+        title={editFor ? `Edit class time — ${editFor.title}` : ''}
+        onCancel={() => setEditFor(null)}
+        onOk={submitEdit}
+        okText="Save time"
+        confirmLoading={editBusy}
+        destroyOnClose
+      >
+        <p style={{ marginTop: 0, color: 'rgba(0,0,0,0.45)' }}>
+          The class link stays the same — only the scheduled start and length change.
+        </p>
+        <Form form={editForm} layout="vertical" preserve={false}>
+          <Form.Item
+            name="scheduledStart"
+            label="Scheduled start"
+            rules={[{ required: true, message: 'Pick a start date & time.' }]}
+          >
+            <DatePicker showTime format="ddd, D MMM YYYY HH:mm" style={{ width: '100%' }} minuteStep={5} />
+          </Form.Item>
+          <Form.Item
+            name="scheduledDurationMin"
+            label="Duration (minutes)"
+            rules={[{ required: true, message: 'Enter a duration.' }]}
+          >
+            <InputNumber min={5} max={600} step={5} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="autoStartAt" valuePropName="checked">
+            <Checkbox>Start the class automatically at this time</Checkbox>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={!!addFor}
+        title={addFor ? `Add student — ${addFor.batchName || 'batch'}` : ''}
+        onCancel={() => setAddFor(null)}
+        onOk={submitAdd}
+        okText="Add student"
+        confirmLoading={addBusy}
+        destroyOnClose
+      >
+        <p style={{ marginTop: 0, color: 'rgba(0,0,0,0.45)' }}>
+          The student is enrolled in this batch, emailed the same class link + schedule, and appears in every
+          upcoming class.
+        </p>
+        <Form form={addForm} layout="vertical" preserve={false}>
+          <Form.Item name="name" label="Full name">
+            <Input placeholder="e.g. Priya Sharma" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Enter the student’s email.' },
+              { type: 'email', message: 'Enter a valid email address.' },
+            ]}
+          >
+            <Input placeholder="student@example.com" autoComplete="off" />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal open={!!attFor} title={attFor ? `Attendance — ${attFor.title}` : ''} footer={null} onCancel={() => setAttFor(null)} width={680}>
         <Table
