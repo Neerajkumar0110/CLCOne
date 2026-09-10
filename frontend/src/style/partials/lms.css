@@ -386,3 +386,10 @@
     width: 100%;
   }
 }
+
+/* P2 — student learning page: rendered text-lesson HTML */
+.lms-lesson-html { line-height: 1.7; color: var(--hub-text, #17202c); }
+.lms-lesson-html img { max-width: 100%; border-radius: 8px; }
+.lms-lesson-html h1, .lms-lesson-html h2, .lms-lesson-html h3 { margin: 1em 0 .4em; }
+.lms-lesson-html pre { background: #0b1120; color: #e6edf3; padding: 12px; border-radius: 8px; overflow-x: auto; }
+.lms-lesson-html code { background: rgba(0,0,0,.06); padding: 2px 5px; border-radius: 4px; }
