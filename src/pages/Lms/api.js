@@ -130,6 +130,32 @@ const lmsApi = {
   startQuiz: (id) => request.post({ entity: `lms/quizzes/${id}/start`, jsonData: {} }),
   submitQuizAttempt: (id, b) => request.post({ entity: `lms/attempts/${id}/submit`, jsonData: b }),
   attemptResult: (id) => request.get({ entity: `lms/attempts/${id}/result` }),
+
+  // ── doubts ─────────────────────────────────────────────────────
+  doubts: (f = {}) => request.get({ entity: `lms/doubts${qs(f)}` }),
+  askDoubt: (b) => request.post({ entity: 'lms/doubts', jsonData: b }),
+  doubt: (id) => request.get({ entity: `lms/doubts/${id}` }),
+  replyDoubt: (id, b) => request.post({ entity: `lms/doubts/${id}/reply`, jsonData: b }),
+  resolveDoubt: (id, b = {}) => request.post({ entity: `lms/doubts/${id}/resolve`, jsonData: b }),
+  pinDoubt: (id) => request.post({ entity: `lms/doubts/${id}/pin`, jsonData: {} }),
+
+  // ── announcements ──────────────────────────────────────────────
+  announcements: () => request.get({ entity: 'lms/announcements' }),
+  createAnnouncement: (b) => request.post({ entity: 'lms/announcements', jsonData: b }),
+  deleteAnnouncement: (id) => request.del({ entity: `lms/announcements/${id}` }),
+  myAnnouncements: () => request.get({ entity: 'lms/my/announcements' }),
+
+  // ── certificates ──────────────────────────────────────────────
+  certRule: (courseId) => request.get({ entity: `lms/courses/${courseId}/certificate-rule` }),
+  saveCertRule: (courseId, b) => request.post({ entity: `lms/courses/${courseId}/certificate-rule`, jsonData: b }),
+  issueCertificate: (b) => request.post({ entity: 'lms/certificates/issue', jsonData: b }),
+  runCertificates: (courseId) => request.post({ entity: `lms/certificates/run/${courseId}`, jsonData: {} }),
+  certHistory: (f = {}) => request.get({ entity: `lms/certificates${qs(f)}` }),
+  myCertificates: () => request.get({ entity: 'lms/my/certificates' }),
+  verifyCertificate: (cid) => request.get({ entity: `lms/certificates/verify/${cid}` }),
+
+  // ── analytics ─────────────────────────────────────────────────
+  teacherAnalytics: (f = {}) => request.get({ entity: `lms/teacher/analytics${qs(f)}` }),
 };
 
 export default lmsApi;

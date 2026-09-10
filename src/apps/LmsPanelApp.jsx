@@ -40,6 +40,10 @@ const CourseBuilder = lazy(() => import('@/pages/Lms/CourseBuilder'));
 const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
 const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
 const Quizzes = lazy(() => import('@/pages/Lms/Quizzes'));
+const Doubts = lazy(() => import('@/pages/Lms/Doubts'));
+const AnnouncementsPage = lazy(() => import('@/pages/Lms/Announcements'));
+const Certificates = lazy(() => import('@/pages/Lms/Certificates'));
+const Analytics = lazy(() => import('@/pages/Lms/Analytics'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -58,11 +62,11 @@ const TEACHER_NAV = [
   ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/teacher/quizzes', 'Quizzes & Exams', <FormOutlined />, <Quizzes />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
-  ['/teacher/announcements', 'Announcements', <SoundOutlined />, <ComingSoon title="Announcements" />],
-  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <ComingSoon title="Doubts / Questions" />],
-  ['/teacher/analytics', 'Analytics', <BarChartOutlined />, <ComingSoon title="Analytics" />],
+  ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
+  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
+  ['/teacher/analytics', 'Analytics', <BarChartOutlined />, <Analytics />],
   ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <ComingSoon title="Calendar" />],
-  ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <ComingSoon title="Certificates" />],
+  ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
 const STUDENT_NAV = [
@@ -75,9 +79,9 @@ const STUDENT_NAV = [
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/learn/quizzes', 'Quizzes', <FormOutlined />, <Quizzes />],
   ['/learn/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
-  ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <ComingSoon title="My Doubts" />],
-  ['/learn/notifications', 'Notifications', <BellOutlined />, <ComingSoon title="Notifications" />],
-  ['/learn/certificates', 'My Certificates', <TrophyOutlined />, <ComingSoon title="My Certificates" />],
+  ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
+  ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
+  ['/learn/certificates', 'My Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
 export default function LmsPanelApp() {
