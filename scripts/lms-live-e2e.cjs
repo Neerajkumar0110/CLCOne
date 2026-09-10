@@ -23,6 +23,7 @@ process.env.LMS_MAX_AUTO_CLASSES = process.env.LMS_MAX_AUTO_CLASSES || '60';
 delete process.env.BBB_URL;
 delete process.env.BBB_SECRET;
 
+const REC_OK_TEST = ['NOT_STARTED', 'RECORDING', 'PROCESSING', 'AVAILABLE', 'FAILED', 'DELETED'];
 const results = [];
 const rec = (name, ok, evidence) => {
   results.push({ name, status: ok === 'BLOCKED' ? 'BLOCKED' : ok ? 'PASS' : 'FAIL', evidence });
@@ -131,10 +132,15 @@ const req = ({ admin, query = {}, body = {}, params = {}, path: p = '' }) => ({ 
     classTime: '10:00',
     classDurationMin: 60,
   });
-  await new Promise((r) => setTimeout(r, 400)); // let the post-save hook settle
+  // batch save fires onBatchCreated (fire-and-forget) — poll until it settles
+  for (let i = 0; i < 40; i += 1) {
+    const c = await LmsLiveSession.countDocuments({ batch: batch._id, removed: false });
+    await new Promise((r) => setTimeout(r, 150));
+    if (c > 0 && c === (await LmsLiveSession.countDocuments({ batch: batch._id, removed: false }))) break;
+  }
   let sessions = await LmsLiveSession.find({ batch: batch._id, removed: false }).sort({ scheduledStart: 1 });
 
-  // expected Mon/Wed/Fri between 2026-09-10 and 2026-10-10
+  // 6-MONTH MINIMUM: batch endDate is 1 month out but the schedule spans >= 6 months.
   const occ = recurrence.occurrences({
     startDate: new Date('2026-09-10T00:00:00'),
     endDate: new Date('2026-10-10T00:00:00'),
@@ -142,12 +148,21 @@ const req = ({ admin, query = {}, body = {}, params = {}, path: p = '' }) => ({ 
     classTime: '10:00',
     classDurationMin: 60,
   });
-  assert('recurrence: expected count computed', occ.length >= 12 && occ.length <= 14, `${occ.length} class dates (Mon/Wed/Fri, 10 Sep–10 Oct)`);
-  assert('recurrence: sessions generated on batch save', sessions.length === occ.length, `${sessions.length} LmsLiveSession rows == ${occ.length} expected`);
+  assert('6-month min: schedule spans >= ~5 months (M/W/F, capped)', occ.length >= 50, `${occ.length} class dates generated (endDate was 1 month; extended to >= 6)`);
+  assert('recurrence: sessions generated on batch save', sessions.length === occ.length, `${sessions.length} LmsLiveSession rows == ${occ.length}`);
+
+  // SAME LINK: every session of the batch shares ONE room.
   const rooms = new Set(sessions.map((s) => s.roomName));
-  assert('recurrence: every room unique', rooms.size === sessions.length, `${rooms.size} distinct roomName for ${sessions.length} sessions`);
-  assert('recurrence: room name pattern', /^full-stack-development-fsd-morning-.*-[0-9a-f]{6}$/.test(sessions[0].roomName), sessions[0].roomName);
-  assert('recurrence: each has recording row', (await LiveRecording.countDocuments({})) === sessions.length, `${await LiveRecording.countDocuments({})} LiveRecording (NOT_STARTED)`);
+  const mids = new Set(sessions.map((s) => String(s.batchRoom)));
+  assert('same link: all sessions share ONE room name', rooms.size === 1, `${rooms.size} distinct roomName for ${sessions.length} sessions`);
+  assert('same link: all sessions point at ONE LmsBatchRoom', mids.size === 1 && sessions[0].batchRoom, `${mids.size} distinct batchRoom ref`);
+  assert('same link: batch room name (no per-class part)', /^full-stack-development-fsd-morning-[0-9a-f]{6}$/.test(sessions[0].roomName), sessions[0].roomName);
+
+  const batchRoom = await mongoose.model('LmsBatchRoom').findOne({ batch: batch._id });
+  const sixMonthsOut = new Date();
+  sixMonthsOut.setMonth(sixMonthsOut.getMonth() + 5);
+  assert('same link: batch room valid >= ~6 months', batchRoom && new Date(batchRoom.validUntil) > sixMonthsOut, `validUntil=${batchRoom && batchRoom.validUntil}`);
+  assert('recurrence: each session has a recording row', (await LiveRecording.countDocuments({})) === sessions.length, `${await LiveRecording.countDocuments({})} LiveRecording`);
   const idx = sessions.map((s) => s.sessionIndex);
   assert('recurrence: sequential Class N index', JSON.stringify(idx) === JSON.stringify(idx.map((_, i) => i + 1)), `sessionIndex 1..${sessions.length}`);
 
@@ -173,10 +188,59 @@ const req = ({ admin, query = {}, body = {}, params = {}, path: p = '' }) => ({ 
   const futureCount = await LmsLiveSession.countDocuments({ batch: batch._id, removed: false });
   assert('regenerate: rebuilds future only', regen.result && regen.result.created >= 1 && futureCount >= sessions.length, `created=${regen.result && regen.result.created}, live rows=${futureCount}`);
 
+  await liveClassService.endSession(firstSession._id, teacher).catch(() => {});
+
   // LMS_MAX_AUTO_CLASSES
   const capBatch = { _id: new mongoose.Types.ObjectId(), name: 'CapTest', course: 'Full Stack Development', trainer: 'Ravi Teacher', startDate: new Date('2026-01-01'), endDate: new Date('2027-01-01'), classDays: 'Mon,Tue,Wed,Thu,Fri', classTime: '09:00', classDurationMin: 30, removed: false };
   const capOcc = recurrence.occurrences(capBatch);
-  assert('LMS_MAX_AUTO_CLASSES cap honoured', capOcc.length === 60, `${capOcc.length} == cap 60 (weekdays for a year)`);
+  assert('LMS_MAX_AUTO_CLASSES cap honoured', capOcc.length === 60, `${capOcc.length} == cap 60`);
+
+  // ── add a student to the running batch ──
+  console.log('\nADD STUDENT + EDIT TIME + LEGACY');
+  const newStu = await Admin.create({ name: 'Late Joiner', email: 'late@e2e.local', role: 'Sales Intern', enabled: true });
+  const addRes = await liveClassService.addStudentToBatch({ batchId: batch._id, email: 'late@e2e.local', name: 'Late Joiner' }, adminUser);
+  assert('add student: succeeds for admin', !addRes.error, addRes.error ? `${addRes.error} ${addRes.message}` : `student=${addRes.result && addRes.result.studentId}`);
+  const rosterRow = await mongoose.model('Student').findOne({ batch: 'FSD Morning', email: 'late@e2e.local' });
+  assert('add student: roster (Student) row created for batch', !!rosterRow, rosterRow ? `id ${rosterRow._id}` : 'missing');
+  assert('add student: room validUntil returned (>= ~6 mo)', addRes.result && new Date(addRes.result.roomValidUntil) > sixMonthsOut, `validUntil=${addRes.result && addRes.result.roomValidUntil}`);
+  const addStranger = await liveClassService.addStudentToBatch({ batchId: batch._id, email: 'z@e2e.local' }, stuA);
+  assert('add student: non-manager non-teacher denied (403)', addStranger.error === 403, `-> ${addStranger.error}`);
+  // now enrol the new student so they can see/join future classes
+  await LmsEnrolment.create({ crmUser: newStu._id, moodleCourseId: 900, roleShortname: 'student', status: 'active' });
+  const newStuList = await liveClassService.listFor(newStu, {});
+  assert('add student: new student now sees batch classes', newStuList.length >= 1 && newStuList.every((r) => r.myRole === 'student'), `${newStuList.length} visible`);
+
+  // ── edit time / reschedule + auto-start ──
+  const RS = await liveClassService.createSession({ crmCourse: course._id, batch: batch._id, moodleCourseId: 900, courseTitle: 'Full Stack Development', batchName: 'FSD Morning', teacherName: 'Ravi Teacher', teacherCrmUser: teacher._id, title: 'Reschedule me', scheduledStart: new Date(Date.now() + 7 * 86400000), scheduledDurationMin: 60 });
+  const newStart = new Date(Date.now() + 3 * 86400000).toISOString();
+  const upd = await liveClassService.updateSchedule(RS._id, teacher, { scheduledStart: newStart, scheduledDurationMin: 90, autoStartAt: true });
+  assert('edit time: teacher can reschedule', !upd.error, upd.error ? upd.message : 'ok');
+  const rsDoc = await LmsLiveSession.findById(RS._id);
+  assert('edit time: start + duration + autoStartAt persisted', Math.abs(new Date(rsDoc.scheduledStart) - new Date(newStart)) < 1000 && rsDoc.scheduledDurationMin === 90 && rsDoc.autoStartAt === true, `dur=${rsDoc.scheduledDurationMin} auto=${rsDoc.autoStartAt}`);
+  const updStudent = await liveClassService.updateSchedule(RS._id, stuA, { scheduledStart: newStart });
+  assert('edit time: student denied (403)', updStudent.error === 403, `-> ${updStudent.error}`);
+  await LmsLiveSession.updateOne({ _id: RS._id }, { $set: { scheduledStart: new Date(Date.now() - 60000), scheduledEnd: new Date(Date.now() + 3600000), status: 'upcoming' } });
+  await liveClassService.autoLifecycleTick();
+  const autoDoc = await LmsLiveSession.findById(RS._id);
+  assert('edit time: autoStartAt -> class auto-started by tick', autoDoc.status === 'live' && autoDoc.actualStart, `status=${autoDoc.status}`);
+  await liveClassService.endSession(RS._id, teacher).catch(() => {});
+
+  // ── legacy doc coercion (recordingStatus:"none") ──
+  const legacyId = new mongoose.Types.ObjectId();
+  await LmsLiveSession.collection.insertOne({
+    _id: legacyId, removed: false, enabled: true, batch: batch._id, crmCourse: course._id, moodleCourseId: 900,
+    title: 'Legacy Class', courseTitle: 'Full Stack Development', batchName: 'FSD Morning', teacherName: 'Ravi Teacher', teacherCrmUser: teacher._id,
+    scheduledStart: new Date(Date.now() + 30 * 60000), meetingProvider: 'mock', isMock: true, roomName: 'legacy-room', publicKey: 'k'.repeat(32),
+    status: 'upcoming', recordingEnabled: true, recordingStatus: 'none',
+    participants: [{ crmUser: stuA._id, name: 'Student A', role: 'student', joinedAt: new Date(), leftAt: new Date(), durationMin: 12, joinCount: 1, present: false, attendanceStatus: 'partial' }],
+    created: new Date(), updated: new Date(),
+  });
+  const legStart = await liveClassService.startSession(legacyId, teacher);
+  assert('legacy doc: start no longer throws enum error', !legStart.error, legStart.error ? `${legStart.error} ${legStart.message}` : `status ${legStart.result && legStart.result.status}`);
+  const legDoc = await LmsLiveSession.findById(legacyId);
+  assert('legacy doc: recordingStatus coerced to valid enum', REC_OK_TEST.includes(legDoc.recordingStatus), `-> ${legDoc.recordingStatus}`);
+  assert('legacy doc: participant attendanceStatus coerced', ['PARTIAL', 'ABSENT'].includes(legDoc.participants[0].attendanceStatus), `-> ${legDoc.participants[0].attendanceStatus}`);
+  await liveClassService.endSession(legacyId, teacher).catch(() => {});
 
   // ============================================================= STEP 2 + 8 + 12 (lifecycle + attendance)
   console.log('\nSTEP 2 / 8 / 12 — lifecycle + real attendance merge');

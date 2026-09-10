@@ -13,7 +13,8 @@ const { lmsConfig } = require('../../config/lms');
 //   startDate / endDate
 // If no endDate: MAX_AUTO_CLASSES sessions from startDate.
 
-const MAX_AUTO_CLASSES = Number(process.env.LMS_MAX_AUTO_CLASSES || 60);
+const MAX_AUTO_CLASSES = Number(process.env.LMS_MAX_AUTO_CLASSES || 400);
+const MIN_MONTHS = Number(process.env.LMS_MIN_BATCH_MONTHS || 6);
 const DAY_IDX = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
 function parseDays(batch) {
@@ -66,12 +67,18 @@ function occurrences(batch) {
 
   const from = batch.startDate ? new Date(batch.startDate) : new Date();
   from.setHours(0, 0, 0, 0);
-  const to = batch.endDate ? new Date(batch.endDate) : null;
+
+  // "same link for at least 6 months": the schedule always spans >= MIN_MONTHS
+  // from the start, even if endDate is missing or sooner.
+  const minTo = new Date(from);
+  minTo.setMonth(minTo.getMonth() + MIN_MONTHS);
+  const endDate = batch.endDate ? new Date(batch.endDate) : null;
+  const to = endDate && endDate > minTo ? endDate : minTo;
 
   const out = [];
   const cursor = new Date(from);
   let guard = 0;
-  while (guard++ < 400 && out.length < MAX_AUTO_CLASSES) {
+  while (guard++ < 1200 && out.length < MAX_AUTO_CLASSES) {
     if (to && cursor > to) break;
     const isClassDay = days.length ? days.includes(cursor.getDay()) : out.length === 0; // no days -> single class
     if (isClassDay) {
@@ -113,6 +120,9 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
     ? await Admin.findOne({ name: new RegExp(`^${String(batchDoc.trainer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
     : null;
 
+  // ONE persistent room for the whole batch — same meetingId/link for >= 6 months
+  const batchRoom = await liveClassService.ensureBatchRoom(batchDoc);
+
   const occ = occurrences(batchDoc);
   const group =
     (existingRows.find((r) => r.recurrenceGroup) || {}).recurrenceGroup || crypto.randomBytes(8).toString('hex');
@@ -122,7 +132,10 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
     const s = await liveClassService.createSession({
       crmCourse: course ? course._id : undefined,
       batch: batchDoc._id,
-      moodleCourseId: courseMap ? courseMap.moodleId : undefined,
+      batchRoom: batchRoom._id,
+      roomName: batchRoom.roomName, // shared
+      publicKey: batchRoom.publicKey, // shared
+      moodleCourseId: courseMap ? courseMap.moodleId : batchRoom.moodleCourseId,
       courseTitle: batchDoc.course || (course && course.title) || '',
       batchName: batchDoc.name,
       teacherName: batchDoc.trainer || '',
@@ -138,6 +151,30 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
     });
     created.push(s);
   }
+
+  // email the batch students their class link + schedule (best-effort, once)
+  if (!force && created.length) {
+    try {
+      const Student = mongoose.model('Student');
+      const roster = await Student.find({ batch: batchDoc.name, removed: false }, 'email').lean();
+      const emails = roster.map((r) => r.email).filter(Boolean);
+      if (emails.length) {
+        const mailer = require('./mailer');
+        const base = (require('../../config/lms').lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || 'http://200.141.5.195').replace(/\/+$/, '');
+        await mailer.sendBatchClassEmail(emails, {
+          batchName: batchDoc.name,
+          courseTitle: batchDoc.course,
+          teacherName: batchDoc.trainer,
+          schedule: { days: batchDoc.classDays, time: batchDoc.classTime, durationMin: batchDoc.classDurationMin, from: batchDoc.startDate, to: batchRoom.validUntil },
+          sessions: created.map((c) => ({ scheduledStart: c.scheduledStart })).sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart)),
+          joinPageUrl: `${base}/#/lms/classes`,
+        });
+      }
+    } catch (e) {
+      console.error('[lms] batch enrol email failed:', e.message);
+    }
+  }
+
   return created;
 }
 

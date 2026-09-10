@@ -26,45 +26,63 @@ function parseRows(diskPath) {
 // whatever casing/spacing/punctuation the uploaded file happens to use.
 const norm = (s) => String(s).replace(/^﻿/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-// Looks up a column by any of the given aliases (each normalised the same
-// way as the row's headers). Returns '' when nothing matches or the cell
-// is blank.
-const field = (row, ...aliases) => {
-  const byKey = {};
-  for (const k of Object.keys(row)) byKey[norm(k)] = row[k];
-  for (const alias of aliases) {
-    const v = byKey[norm(alias)];
-    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
-  }
-  return '';
-};
-
-const NAME_ALIASES = [
+// Column aliases per logical field. Pre-normalised ONCE at module load so the
+// per-row lookup is plain object access — no regex work per row (a big file
+// otherwise runs norm() tens of millions of times).
+const K = (arr) => arr.map(norm);
+const NAME_KEYS = K([
   'name', 'fullname', 'full name', 'clientname', 'client name', 'leadname', 'lead name',
   'customername', 'contactname', 'candidatename', 'studentname', 'applicantname', 'personname',
-];
-const PHONE_ALIASES = [
+]);
+const FIRST_KEYS = K(['firstname', 'first name', 'fname', 'givenname']);
+const LAST_KEYS = K(['lastname', 'last name', 'lname', 'surname', 'familyname']);
+const PHONE_KEYS = K([
   'phone', 'phonenumber', 'phone number', 'phoneno', 'mobile', 'mobilenumber', 'mobile number',
   'mobileno', 'contact', 'contactnumber', 'contact number', 'contactno', 'whatsapp',
   'whatsappnumber', 'number', 'primaryphone', 'cell', 'cellphone', 'telephone', 'tel',
-];
-const EMAIL_ALIASES = ['email', 'emailaddress', 'email address', 'emailid', 'email id', 'mail', 'e-mail'];
-const SOURCE_ALIASES = ['source', 'leadsource', 'lead source', 'utmsource', 'channel'];
-const STATUS_ALIASES = ['status', 'leadstatus', 'lead status', 'stage', 'leadstage', 'lead stage'];
-const SUBSTATUS_ALIASES = ['substatus', 'sub status', 'sub-status', 'substage', 'sub stage', 'leadsubstatus'];
-const POSITION_ALIASES = [
+]);
+const EMAIL_KEYS = K(['email', 'emailaddress', 'email address', 'emailid', 'email id', 'mail', 'e-mail']);
+const SOURCE_KEYS = K(['source', 'leadsource', 'lead source', 'utmsource', 'channel']);
+const STATUS_KEYS = K(['status', 'leadstatus', 'lead status', 'stage', 'leadstage', 'lead stage']);
+const SUBSTATUS_KEYS = K(['substatus', 'sub status', 'sub-status', 'substage', 'sub stage', 'leadsubstatus']);
+const POSITION_KEYS = K([
   'position', 'designation', 'role', 'jobtitle', 'job title', 'title', 'course', 'interest',
   'interestedin', 'program', 'department',
-];
-const ALT_PHONE_ALIASES = [
+]);
+const ALT_PHONE_KEYS = K([
   'alternatecontactnumber', 'alternate contact number', 'alternatephone', 'alternate phone',
   'alternatecontact', 'altphone', 'alt phone', 'secondaryphone', 'secondary phone',
   'alternatenumber', 'alternate number', 'phone2',
-];
-const CITY_ALIASES = ['city', 'town'];
-const STATE_ALIASES = ['state', 'province', 'region'];
-const COUNTRY_ALIASES = ['country', 'nation'];
-const ZIP_ALIASES = ['zipcode', 'zip', 'zip code', 'pincode', 'pin code', 'pin', 'postalcode', 'postal code', 'postcode'];
+]);
+const CITY_KEYS = K(['city', 'town']);
+const STATE_KEYS = K(['state', 'province', 'region']);
+const COUNTRY_KEYS = K(['country', 'nation']);
+const ZIP_KEYS = K(['zipcode', 'zip', 'zip code', 'pincode', 'pin code', 'pin', 'postalcode', 'postal code', 'postcode']);
+
+// Build a resolver bound to this file's header row: normalised-header -> the
+// actual key in each row object. Returned getter does zero regex per call.
+function makeGetter(sampleRow) {
+  const normToActual = Object.create(null);
+  for (const actual of Object.keys(sampleRow || {})) {
+    const n = norm(actual);
+    if (!(n in normToActual)) normToActual[n] = actual;
+  }
+  return (row, keys) => {
+    for (const k of keys) {
+      const actual = normToActual[k];
+      if (actual === undefined) continue;
+      const v = row[actual];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  };
+}
+
+const digits = (s) => String(s || '').replace(/\D/g, '');
+const last10 = (s) => {
+  const d = digits(s);
+  return d.length > 10 ? d.slice(-10) : d;
+};
 
 // POST /api/lead/import (multipart: file=<csv|xlsx>, team=<optional single target team>,
 // distribution=<optional JSON [{team,count}, ...] to manually split rows across teams>)
@@ -125,33 +143,98 @@ const importLeads = async (req, res) => {
   }
 
   const errors = [];
-  const created = [];
   const duplicates = [];
+  const createdSample = [];
+  let createdCount = 0;
 
-  // Dedupe key for a lead: its phone's last 10 digits (so "+91 70170
-  // 55778", "07017055778" and "7017055778" all match), else name+email
-  // lowercased. Rows with neither can't be matched and are always imported.
-  const digits = (s) => String(s || '').replace(/\D/g, '');
+  const get = makeGetter(rows[0]);
+
+  // Dedupe key for a lead: its phone's last 10 digits (so "+91 70170 55778",
+  // "07017055778" and "7017055778" all match), else name+email lowercased.
+  // Rows with neither can't be matched and are always imported.
   const dedupeKey = (name, phone, email) => {
-    const d = digits(phone);
-    const p = d.length > 10 ? d.slice(-10) : d;
+    const p = last10(phone);
     if (p.length >= 7) return `p:${p}`;
     if (email) return `n:${String(name).trim().toLowerCase()}|${String(email).trim().toLowerCase()}`;
     return null;
   };
 
-  // Load every existing lead's key once, so an import never re-adds a
-  // contact that's already in the CRM.
-  const existingKeys = new Set();
-  const existing = await Lead.find({ removed: false })
-    .select('phone email name')
-    .limit(500000)
-    .lean();
-  for (const l of existing) {
-    const k = dedupeKey(l.name, l.phone, l.email);
-    if (k) existingKeys.add(k);
+  // ── pass 1: parse rows into candidate docs, collect dedupe keys ──────────
+  const candidates = []; // { doc, key }
+  const phoneSet = new Set(); // last10 phone keys seen in the file
+  const emailSet = new Set(); // lowercased emails for phone-less rows
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    let name = get(row, NAME_KEYS);
+    if (!name) {
+      const first = get(row, FIRST_KEYS);
+      const last = get(row, LAST_KEYS);
+      name = [first, last].filter(Boolean).join(' ').trim();
+    }
+    if (!name) {
+      errors.push(`Row ${i + 2}: missing name`);
+      continue;
+    }
+
+    const rowPhone = get(row, PHONE_KEYS);
+    const rowEmail = get(row, EMAIL_KEYS);
+    const key = dedupeKey(name, rowPhone, rowEmail);
+
+    const p = last10(rowPhone);
+    if (p.length >= 7) phoneSet.add(p);
+    else if (rowEmail) emailSet.add(rowEmail.trim().toLowerCase());
+
+    const rowTeam = rowTeams ? rowTeams[i] || '' : team;
+    const pipeline = normalizeImported(get(row, STATUS_KEYS), get(row, SUBSTATUS_KEYS));
+
+    candidates.push({
+      key,
+      row: i + 2,
+      doc: {
+        name,
+        phone: rowPhone,
+        email: rowEmail || undefined,
+        source: get(row, SOURCE_KEYS) || 'Import',
+        position: get(row, POSITION_KEYS),
+        stage: pipeline.stage,
+        subStatus: pipeline.subStatus,
+        status: pipeline.status,
+        stageUpdatedAt: new Date(),
+        alternatePhone: get(row, ALT_PHONE_KEYS) || undefined,
+        city: get(row, CITY_KEYS) || undefined,
+        state: get(row, STATE_KEYS) || undefined,
+        country: get(row, COUNTRY_KEYS) || undefined,
+        zipcode: get(row, ZIP_KEYS) || undefined,
+        team: rowTeam,
+        color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      },
+    });
   }
-  const seenInFile = new Set();
+
+  // ── existing-lead lookup: bounded by the file, NOT the whole collection ──
+  // (was: load every lead into memory — O(all leads); now O(rows in file)).
+  const existingKeys = new Set();
+  const or = [];
+  if (phoneSet.size) or.push({ phoneNormalized: { $in: [...phoneSet] } });
+  if (emailSet.size) {
+    // match either the stored case or lowercase — most rows store as given
+    const emails = new Set();
+    for (const e of emailSet) {
+      emails.add(e);
+      emails.add(e.toLowerCase());
+    }
+    or.push({ email: { $in: [...emails] } });
+  }
+  if (or.length) {
+    const existing = await Lead.find({ removed: false, $or: or })
+      .select('phoneNormalized email name')
+      .lean();
+    for (const l of existing) {
+      const k = dedupeKey(l.name, l.phoneNormalized, l.email);
+      if (k) existingKeys.add(k);
+    }
+  }
 
   const batch = await new LeadImportBatch({
     fileName: req.upload.fileName,
@@ -161,75 +244,42 @@ const importLeads = async (req, res) => {
     importedBy: req.admin ? `${req.admin.name} ${req.admin.surname || ''}`.trim() : undefined,
   }).save();
 
-  // Build every valid doc up front, then bulk-insert in chunks — a
-  // per-row `await save()` loop takes minutes (and times out on
-  // serverless) for a file with thousands of rows.
+  // ── pass 2: drop dupes, keep the rest ──────────────────────────────────
+  const seenInFile = new Set();
   const docs = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    let name = field(row, ...NAME_ALIASES);
-    if (!name) {
-      // Fall back to a "First Name" + "Last Name" pair if there's no single
-      // name column.
-      const first = field(row, 'firstname', 'first name', 'fname', 'givenname');
-      const last = field(row, 'lastname', 'last name', 'lname', 'surname', 'familyname');
-      name = [first, last].filter(Boolean).join(' ').trim();
-    }
-    if (!name) {
-      errors.push(`Row ${i + 2}: missing name`);
-      continue;
-    }
-
-    const rowPhone = field(row, ...PHONE_ALIASES);
-    const rowEmail = field(row, ...EMAIL_ALIASES);
-    const key = dedupeKey(name, rowPhone, rowEmail);
-    if (key) {
-      if (existingKeys.has(key)) {
-        duplicates.push({ name, phone: rowPhone, email: rowEmail || undefined, reason: 'already in CRM', row: i + 2 });
+  for (const c of candidates) {
+    if (c.key) {
+      if (existingKeys.has(c.key)) {
+        duplicates.push({ name: c.doc.name, phone: c.doc.phone, email: c.doc.email, reason: 'already in CRM', row: c.row });
         continue;
       }
-      if (seenInFile.has(key)) {
-        duplicates.push({ name, phone: rowPhone, email: rowEmail || undefined, reason: 'repeated in file', row: i + 2 });
+      if (seenInFile.has(c.key)) {
+        duplicates.push({ name: c.doc.name, phone: c.doc.phone, email: c.doc.email, reason: 'repeated in file', row: c.row });
         continue;
       }
-      seenInFile.add(key);
+      seenInFile.add(c.key);
     }
-
-    const rowTeam = rowTeams ? rowTeams[i] || '' : team;
-    const pipeline = normalizeImported(
-      field(row, ...STATUS_ALIASES),
-      field(row, ...SUBSTATUS_ALIASES)
-    );
-    docs.push({
-      name,
-      phone: rowPhone,
-      email: rowEmail || undefined,
-      source: field(row, ...SOURCE_ALIASES) || 'Import',
-      position: field(row, ...POSITION_ALIASES),
-      stage: pipeline.stage,
-      subStatus: pipeline.subStatus,
-      status: pipeline.status,
-      stageUpdatedAt: new Date(),
-      alternatePhone: field(row, ...ALT_PHONE_ALIASES) || undefined,
-      city: field(row, ...CITY_ALIASES) || undefined,
-      state: field(row, ...STATE_ALIASES) || undefined,
-      country: field(row, ...COUNTRY_ALIASES) || undefined,
-      zipcode: field(row, ...ZIP_ALIASES) || undefined,
-      team: rowTeam,
-      color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-      importBatch: batch._id,
-    });
+    c.doc.importBatch = batch._id;
+    docs.push(c.doc);
   }
 
-  const CHUNK = 500;
+  // ── bulk insert in chunks — never a per-row save() loop ─────────────────
+  const CHUNK = 1000;
   for (let i = 0; i < docs.length; i += CHUNK) {
     const slice = docs.slice(i, i + CHUNK);
     try {
       // ordered:false → a bad row doesn't abort the rest of the chunk.
+      // Only a small sample of inserted docs is kept — a big import can
+      // produce hundreds of thousands and the client just needs the summary.
       const inserted = await Lead.insertMany(slice, { ordered: false });
-      created.push(...inserted);
+      createdCount += inserted.length;
+      for (const d of inserted) {
+        if (createdSample.length < 100) createdSample.push(d);
+      }
     } catch (err) {
-      if (err && Array.isArray(err.insertedDocs)) created.push(...err.insertedDocs);
+      const insErr = (err && err.insertedDocs) || [];
+      createdCount += insErr.length;
+      for (const d of insErr) if (createdSample.length < 100) createdSample.push(d);
       const writeErrors = (err && err.writeErrors) || [];
       writeErrors.forEach((we) => {
         errors.push(`Row ~${i + (we.index || 0) + 2}: ${we.errmsg || we.err?.errmsg || 'insert failed'}`);
@@ -238,20 +288,18 @@ const importLeads = async (req, res) => {
     }
   }
 
-  batch.successCount = created.length;
+  batch.successCount = createdCount;
   batch.duplicateCount = duplicates.length;
   batch.duplicates = duplicates.slice(0, 1000);
-  batch.failedCount = rows.length - created.length - duplicates.length;
+  batch.failedCount = rows.length - createdCount - duplicates.length;
   batch.rowErrors = errors.slice(0, 50);
   await batch.save();
 
   const dupMsg = duplicates.length ? ` ${duplicates.length} duplicate${duplicates.length === 1 ? '' : 's'} skipped.` : '';
   return res.status(200).json({
     success: true,
-    // Only a sample of the created docs — a big import can produce
-    // thousands, and the client just needs the batch summary + message.
-    result: { batch, leads: created.slice(0, 100), duplicates: duplicates.slice(0, 200) },
-    message: `Imported ${created.length} of ${rows.length} leads.${dupMsg}`,
+    result: { batch, leads: createdSample, duplicates: duplicates.slice(0, 200) },
+    message: `Imported ${createdCount} of ${rows.length} leads.${dupMsg}`,
   });
 };
 

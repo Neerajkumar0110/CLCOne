@@ -115,6 +115,11 @@ const schema = new mongoose.Schema({
     index: true,
   },
 
+  // start automatically when scheduledStart is reached (set from "Edit time").
+  autoStartAt: { type: Boolean, default: false },
+  // the persistent per-batch room this session uses (LmsBatchRoom)
+  batchRoom: { type: mongoose.Schema.ObjectId, ref: 'LmsBatchRoom' },
+
   // recording (summary — full record is LiveRecording)
   recordingEnabled: { type: Boolean, default: true },
   recordingStatus: {

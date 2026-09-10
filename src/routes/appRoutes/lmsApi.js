@@ -19,6 +19,7 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(base).get(catchErrors(lms.liveList));
   router.route(base).post(requireManager, catchErrors(lms.liveCreate));
   router.route(`${base}/:id`).get(catchErrors(lms.liveGet));
+  router.route(`${base}/:id`).patch(catchErrors(lms.liveUpdateTime));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
   router.route(`${base}/:id/end`).post(catchErrors(lms.liveEnd));
   router.route(`${base}/:id/join`).post(catchErrors(lms.liveJoin));
@@ -29,6 +30,9 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id/regenerate`).post(requireManager, catchErrors(lms.liveRegenerate));
   router.route(`${base}/:id/open`).get(catchErrors(lms.liveOpenEntry));
 });
+
+// ── add a student to a running batch (manager, or the batch's teacher) ──
+router.route('/batches/:id/students').post(catchErrors(lms.liveAddStudent));
 
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(catchErrors(lms.liveRecordings));

@@ -21,6 +21,39 @@ function computeRoomName(courseTitle, batchName, classTitle) {
   const left = [slugPart(courseTitle), slugPart(batchName), slugPart(classTitle)].filter(Boolean).join('-') || 'class';
   return `${left}-${uid}`.slice(0, 120);
 }
+// One stable name for a whole batch (no per-class part) — the "same link".
+function computeBatchRoomName(courseTitle, batchName) {
+  const uid = crypto.randomBytes(3).toString('hex');
+  const left = [slugPart(courseTitle), slugPart(batchName)].filter(Boolean).join('-') || 'batch';
+  return `${left}-${uid}`.slice(0, 120);
+}
+
+// Pre-v2 LmsLiveSession docs used lowercase recording / attendance enums and a
+// flat participant shape. Coerce in memory so .save() on a legacy doc doesn't
+// fail validation. Full migration: scripts/lms-live-migrate.cjs.
+const REC_ENUM = ['NOT_STARTED', 'RECORDING', 'PROCESSING', 'AVAILABLE', 'FAILED', 'DELETED'];
+const ATT_ENUM = ['PRESENT', 'PARTIAL', 'ABSENT', 'LATE', 'EXCUSED'];
+function coerceLegacy(session) {
+  if (!session) return session;
+  const rs = { none: 'NOT_STARTED', not_started: 'NOT_STARTED', recording: 'RECORDING', processing: 'PROCESSING', available: 'AVAILABLE', failed: 'FAILED', deleted: 'DELETED' };
+  if (session.recordingStatus && !REC_ENUM.includes(session.recordingStatus)) {
+    session.recordingStatus = rs[String(session.recordingStatus).toLowerCase()] || 'NOT_STARTED';
+  }
+  for (const p of session.participants || []) {
+    if (p.attendanceStatus && !ATT_ENUM.includes(p.attendanceStatus)) {
+      const up = String(p.attendanceStatus).toUpperCase();
+      p.attendanceStatus = ATT_ENUM.includes(up) ? up : 'ABSENT';
+    }
+    const raw = (p.toObject ? p.toObject() : p) || {};
+    if (!p.firstJoinAt && raw.joinedAt) p.firstJoinAt = raw.joinedAt;
+    if (!p.lastLeftAt && raw.leftAt) p.lastLeftAt = raw.leftAt;
+    if ((!p.sessions || p.sessions.length === 0) && raw.joinedAt) {
+      p.sessions = [{ joinedAt: raw.joinedAt, leftAt: raw.leftAt || undefined, durationMin: raw.durationMin || 0, source: 'reconcile' }];
+    }
+    if (!p.totalDurationMin && raw.durationMin) p.totalDurationMin = raw.durationMin;
+  }
+  return session;
+}
 function crmBase() {
   return (
     lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'http://200.141.5.195'
@@ -137,8 +170,10 @@ async function createSession(opts = {}) {
     scheduledDurationMin: durMin,
     meetingProvider: lmsConfig.meeting.effectiveProvider,
     isMock: lmsConfig.meeting.effectiveProvider === 'mock',
-    roomName: computeRoomName(courseTitle, batchName, title),
-    publicKey: crypto.randomBytes(16).toString('hex'),
+    // a batch session shares the batch's persistent room; a one-off gets its own
+    batchRoom: opts.batchRoom || undefined,
+    roomName: opts.roomName || computeRoomName(courseTitle, batchName, title),
+    publicKey: opts.publicKey || crypto.randomBytes(16).toString('hex'),
     recordingEnabled: s.recordingEnabled,
     recordingStatus: 'NOT_STARTED',
     status: 'scheduled',
@@ -172,7 +207,9 @@ async function createSession(opts = {}) {
       durationMin: durMin,
       mode: session.meetingProvider === 'bigbluebutton' ? 'Zoom' : 'In-person',
       status: 'Scheduled',
-      joinUrl: `${crmBase()}/api/lms/live-classes/${session._id}/open`,
+      // app deep link (authenticated Join button) — NOT a bearer-gated API URL,
+      // which a plain browser click would 401 with jwtExpired.
+      joinUrl: `${crmBase()}/#/lms/classes`,
       agenda: session.description,
       notes: `${TAG} auto room ${session.roomName} · ${session.meetingProvider}`,
     });
@@ -203,10 +240,182 @@ async function regenerateForBatch(batchId) {
   return { result: { created: created.length } };
 }
 
+// Reschedule / edit a class time. Teacher or manager, only before it starts.
+async function updateSchedule(id, admin, patch = {}) {
+  const session = await loadFull(id);
+  if (!session) return { error: 404, message: 'Live class not found.' };
+  const role = await resolveRole(session, admin);
+  if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can edit the time.' };
+  if (!['scheduled', 'upcoming'].includes(session.status)) {
+    return { error: 409, message: `Cannot reschedule a class that is ${DISPLAY[session.status] || session.status}.` };
+  }
+  if (patch.title !== undefined) session.title = String(patch.title).slice(0, 200) || session.title;
+  if (patch.description !== undefined) session.description = String(patch.description).slice(0, 2000);
+  if (patch.autoStartAt !== undefined) session.autoStartAt = !!patch.autoStartAt;
+
+  let start = session.scheduledStart;
+  if (patch.scheduledStart) {
+    const dt = new Date(patch.scheduledStart);
+    if (Number.isNaN(dt.getTime())) return { error: 400, message: 'Invalid start time.' };
+    start = dt;
+    session.scheduledStart = dt;
+  }
+  if (patch.scheduledDurationMin !== undefined) {
+    session.scheduledDurationMin = Math.max(5, Math.min(600, Number(patch.scheduledDurationMin) || 60));
+  }
+  if (patch.scheduledEnd) {
+    const e = new Date(patch.scheduledEnd);
+    if (!Number.isNaN(e.getTime())) session.scheduledEnd = e;
+  } else if (start) {
+    session.scheduledEnd = new Date(new Date(start).getTime() + session.scheduledDurationMin * 60000);
+  }
+
+  const gap = start ? new Date(start).getTime() - Date.now() : 999999999;
+  session.status = gap <= 3600000 && gap > -60000 ? 'upcoming' : 'scheduled';
+  session.updated = new Date();
+  await session.save();
+
+  await mongoose.model('LiveClass').updateOne(
+    { _id: session.liveClass },
+    { $set: { topic: session.title, scheduledAt: session.scheduledStart, durationMin: session.scheduledDurationMin, agenda: session.description, updated: new Date() } }
+  );
+  await mongoose.model('LiveRecording').updateOne({ liveSession: session._id }, { $set: { className: session.title } });
+  return { result: safeView(session, 'teacher') };
+}
+
+// Add a student to a running batch: link/create the Student roster row, enrol
+// into the Moodle course (if mapped), email them the class link + schedule.
+async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+  if (!isManager(admin)) {
+    // a teacher can only add to their own batch
+    if ((batch.trainer || '').toLowerCase() !== (admin.name || '').toLowerCase()) {
+      return { error: 403, message: 'You can only add students to your own batch.' };
+    }
+  }
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!crmUserId && !/.+@.+\..+/.test(cleanEmail)) return { error: 400, message: 'A valid email (or crmUserId) is required.' };
+
+  const Student = mongoose.model('Student');
+  const Admin = mongoose.model('Admin');
+  let studentDoc = null;
+  let crmUser = null;
+
+  if (crmUserId) crmUser = await Admin.findById(crmUserId);
+  if (!crmUser && cleanEmail) crmUser = await Admin.findOne({ email: cleanEmail, removed: false });
+
+  // roster row (Student model) — find or create for this batch
+  studentDoc = await Student.findOne({ batch: batch.name, email: cleanEmail, removed: false });
+  if (!studentDoc && cleanEmail) {
+    studentDoc = await new Student({
+      name: name || (crmUser && crmUser.name) || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      course: batch.course,
+      batch: batch.name,
+      status: 'Active',
+      enrolledOn: new Date(),
+      source: 'Counselor',
+      notes: `${TAG} added mid-batch by ${admin.name || 'admin'}`,
+    }).save();
+    batch.enrolled = (batch.enrolled || 0) + 1;
+    await batch.save().catch(() => {});
+  }
+
+  // Moodle enrol (best-effort, only if the course is mapped + user provisionable)
+  let moodleResult = null;
+  const room = await ensureBatchRoom(batch);
+  if (room.moodleCourseId && (crmUser || crmUserId)) {
+    try {
+      const { syncService } = require('./index');
+      const Course = mongoose.model('Course');
+      const course = batch.course ? await Course.findOne({ title: batch.course, removed: false }) : null;
+      const uid = crmUser ? crmUser._id : crmUserId;
+      await syncService.provisionUser(await Admin.findById(uid));
+      if (course) {
+        await syncService.enrolUser({ crmUserId: uid, crmCourseId: course._id, moodleCourseId: room.moodleCourseId, roleShortname: 'student', source: 'batch' });
+        moodleResult = 'enrolled';
+      }
+    } catch (e) {
+      moodleResult = `deferred: ${e.message}`;
+    }
+  }
+
+  // email them the batch class link + schedule
+  const mailer = require('./mailer');
+  const upcoming = await mongoose
+    .model('LmsLiveSession')
+    .find({ batch: batch._id, removed: false, status: { $in: ['scheduled', 'upcoming', 'live'] } })
+    .sort({ scheduledStart: 1 })
+    .limit(8)
+    .lean();
+  const mail = await mailer.sendBatchClassEmail([cleanEmail], {
+    batchName: batch.name,
+    courseTitle: batch.course,
+    teacherName: batch.trainer,
+    schedule: { days: batch.classDays, time: batch.classTime, durationMin: batch.classDurationMin, from: batch.startDate, to: room.validUntil },
+    sessions: upcoming,
+    joinPageUrl: `${crmBase()}/#/lms/classes`,
+  });
+
+  return {
+    result: {
+      studentId: studentDoc ? String(studentDoc._id) : null,
+      email: cleanEmail || null,
+      moodle: moodleResult,
+      emailed: mail.sent > 0,
+      roomValidUntil: room.validUntil,
+    },
+  };
+}
+
 /* ───────────────────────── provider room ───────────────────────── */
 async function loadFull(id) {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
-  return LmsLiveSession.findById(id).select('+moderatorPW +attendeePW +providerData +joinTickets +videoUrl +handledWebhookEvents');
+  const doc = await LmsLiveSession.findById(id).select(
+    '+moderatorPW +attendeePW +providerData +joinTickets +videoUrl +handledWebhookEvents'
+  );
+  return coerceLegacy(doc);
+}
+
+/* ─────────────── per-batch persistent room (same link ≥ 6 months) ─────────────── */
+async function ensureBatchRoom(batchDoc) {
+  const LmsBatchRoom = mongoose.model('LmsBatchRoom');
+  const Course = mongoose.model('Course');
+  const MoodleObjectMap = mongoose.model('MoodleObjectMap');
+  const Admin = mongoose.model('Admin');
+
+  let room = await LmsBatchRoom.findOne({ batch: batchDoc._id });
+  if (room && !room.removed) return room;
+
+  const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
+  const courseMap = course ? await MoodleObjectMap.findOne({ kind: 'course', crmId: course._id }) : null;
+  const teacher = batchDoc.trainer
+    ? await Admin.findOne({ name: new RegExp(`^${String(batchDoc.trainer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
+    : null;
+
+  const from = new Date();
+  const minUntil = new Date(from);
+  minUntil.setMonth(minUntil.getMonth() + (lmsConfig.meeting.minBatchMonths || 6));
+  const endDate = batchDoc.endDate ? new Date(batchDoc.endDate) : null;
+  const validUntil = endDate && endDate > minUntil ? endDate : minUntil;
+
+  room = await LmsBatchRoom.create({
+    batch: batchDoc._id,
+    batchName: batchDoc.name,
+    courseTitle: batchDoc.course || (course && course.title) || '',
+    crmCourse: course ? course._id : undefined,
+    moodleCourseId: courseMap ? courseMap.moodleId : undefined,
+    teacherName: batchDoc.trainer || '',
+    teacherCrmUser: teacher ? teacher._id : undefined,
+    provider: lmsConfig.meeting.effectiveProvider,
+    roomName: computeBatchRoomName(batchDoc.course || (course && course.title) || '', batchDoc.name),
+    publicKey: crypto.randomBytes(16).toString('hex'),
+    validFrom: from,
+    validUntil,
+  });
+  return room;
 }
 async function ensureProviderRoom(session) {
   const provider = getMeetingProvider();
@@ -214,8 +423,57 @@ async function ensureProviderRoom(session) {
     session.meetingProvider = provider.name;
     session.isMock = provider.name === 'mock';
   }
-  if (session.meetingId && session.meetingProvider !== 'mock') return session;
   const s = await settingsService.get();
+
+  // A session that belongs to a batch uses the batch's ONE persistent room —
+  // same meetingId / passwords for every class of the batch.
+  if (session.batch) {
+    const LmsBatchRoom = mongoose.model('LmsBatchRoom');
+    const Batch = mongoose.model('Batch');
+    let room = session.batchRoom ? await LmsBatchRoom.findById(session.batchRoom).select('+moderatorPW +attendeePW +providerData') : null;
+    if (!room) {
+      const batchDoc = await Batch.findById(session.batch);
+      room = batchDoc ? await ensureBatchRoom(batchDoc) : null;
+      if (room) room = await LmsBatchRoom.findById(room._id).select('+moderatorPW +attendeePW +providerData');
+    }
+    if (room) {
+      // re-provision if the provider changed (e.g. mock -> jitsi once a real
+      // video base is configured) so the batch's link becomes a real room.
+      const providerChanged = !!room.provider && room.provider !== provider.name;
+      room.provider = provider.name;
+      if (providerChanged) {
+        room.meetingId = undefined;
+        room.providerRoomCreated = false;
+      }
+      // create the provider meeting once for the whole batch
+      if (!room.providerRoomCreated || (provider.name !== 'mock' && !room.meetingId)) {
+        const created = await provider.ensureRoom(
+          { _id: room._id, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
+          { record: session.recordingEnabled && s.recordingAutoStart }
+        );
+        room.meetingId = created.meetingId || room.meetingId || room.roomName;
+        if (created.roomName) room.roomName = created.roomName;
+        if (created.moderatorPW) room.moderatorPW = created.moderatorPW;
+        if (created.attendeePW) room.attendeePW = created.attendeePW;
+        if (created.providerData) room.providerData = created.providerData;
+        room.providerRoomCreated = true;
+        room.updated = new Date();
+        await room.save();
+      }
+      // point the session at the shared room
+      session.batchRoom = room._id;
+      session.meetingId = room.meetingId;
+      session.roomName = room.roomName;
+      session.publicKey = room.publicKey;
+      session.moderatorPW = room.moderatorPW;
+      session.attendeePW = room.attendeePW;
+      session.providerData = room.providerData;
+      return session;
+    }
+  }
+
+  // no batch — per-session room (manual one-off classes)
+  if (session.meetingId && session.meetingProvider !== 'mock') return session;
   const room = await provider.ensureRoom(session, { record: session.recordingEnabled && s.recordingAutoStart });
   session.meetingId = room.meetingId || session.meetingId || session.roomName;
   if (room.roomName) session.roomName = room.roomName;
@@ -481,7 +739,15 @@ async function recordLeave(id, crmUserId, source = 'crm') {
 // evt: { id, type, meetingId, userId, userName, crmUserId?, recordId?, at }
 async function handleBbbEvent(evt) {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
-  const session = await LmsLiveSession.findOne({ meetingId: evt.meetingId }).select('+handledWebhookEvents +moderatorPW +attendeePW');
+  // A batch's classes all share one meetingId (the persistent room), so a
+  // webhook maps to the session that is currently LIVE in that room; fall back
+  // to the most recent one.
+  const sel = '+handledWebhookEvents +moderatorPW +attendeePW';
+  let session =
+    (await LmsLiveSession.findOne({ meetingId: evt.meetingId, status: { $in: ['starting', 'live', 'ending'] } })
+      .sort({ actualStart: -1 })
+      .select(sel)) ||
+    (await LmsLiveSession.findOne({ meetingId: evt.meetingId }).sort({ actualStart: -1, scheduledStart: -1 }).select(sel));
   if (!session) return { ok: true, ignored: 'no matching session' };
   if (evt.id && (session.handledWebhookEvents || []).includes(evt.id)) return { ok: true, duplicate: true };
 
@@ -596,16 +862,16 @@ async function autoLifecycleTick() {
     { $set: { status: 'upcoming' } }
   );
 
-  // auto-start
-  if (s.autoStartPolicy === 'at-schedule') {
-    const due = await LmsLiveSession.find({
-      removed: false,
-      status: { $in: ['scheduled', 'upcoming'] },
-      scheduledStart: { $lte: now },
-      scheduledEnd: { $gt: now },
-    }).limit(10);
-    for (const d of due) await startSession(d._id, null, { auto: true }).catch(() => {});
-  }
+  // auto-start — global "at-schedule" policy OR the per-class autoStartAt flag
+  const dueQ = {
+    removed: false,
+    status: { $in: ['scheduled', 'upcoming'] },
+    scheduledStart: { $lte: now },
+    $or: [{ scheduledEnd: { $gt: now } }, { scheduledEnd: { $exists: false } }, { scheduledEnd: null }],
+  };
+  if (s.autoStartPolicy !== 'at-schedule') dueQ.autoStartAt = true;
+  const due = await LmsLiveSession.find(dueQ).limit(10);
+  for (const d of due) await startSession(d._id, null, { auto: true }).catch(() => {});
 
   // auto-end
   if (s.autoEndPolicy !== 'manual') {
@@ -701,8 +967,12 @@ function safeView(session, role) {
     participantsOnline: online,
     participantCount: session.participants.length,
     myRole: role === 'system' ? null : role,
+    autoStartAt: !!session.autoStartAt,
+    batchId: session.batch ? String(session.batch) : null,
     canStart: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
     canEnd: role === 'teacher' && ['live', 'starting'].includes(session.status),
+    canEditTime: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
+    canAddStudent: role === 'teacher' && !!session.batch,
     canJoin:
       (role === 'teacher' && ['scheduled', 'upcoming', 'live'].includes(session.status)) ||
       (role === 'student' && session.status === 'live'),
@@ -743,9 +1013,13 @@ async function getOne(id, admin) {
 
 module.exports = {
   computeRoomName,
+  computeBatchRoomName,
   createSession,
   onBatchCreated,
   regenerateForBatch,
+  ensureBatchRoom,
+  updateSchedule,
+  addStudentToBatch,
   startSession,
   endSession,
   issueJoin,

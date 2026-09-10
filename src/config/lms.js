@@ -90,12 +90,18 @@ const config = {
   // ── Live-class meeting provider ───────────────────────────────────────
   meeting: {
     // auto | bigbluebutton | jitsi | mock. `auto` = bigbluebutton when BBB is
-    // configured, else jitsi when LMS_MEETING_JITSI_BASE is explicitly set,
-    // else mock (the CRM's own role-aware stand-in room — no external service).
+    // configured, else Jitsi (real video — defaults to the public meet.jit.si
+    // unless LMS_MEETING_JITSI_BASE points at your own instance). Set
+    // LMS_MEETING_PROVIDER=mock to force the CRM's offline stand-in room.
     provider: (process.env.LMS_MEETING_PROVIDER || 'auto').toLowerCase(),
-    jitsiBase: clean(process.env.LMS_MEETING_JITSI_BASE || ''),
+    jitsiBase: clean(process.env.LMS_MEETING_JITSI_BASE || 'https://meet.jit.si'),
     defaultDurationMin: Number(process.env.LMS_MEETING_DEFAULT_DURATION_MIN || 60),
     joinTicketTtlSec: Number(process.env.LMS_MEETING_JOIN_TICKET_TTL_SEC || 120),
+    // One meeting room per BATCH, reused for every class of that batch for at
+    // least this many months (spec: same link for 6 months).
+    minBatchMonths: Number(process.env.LMS_MIN_BATCH_MONTHS || 6),
+    // email students the batch class link + schedule on batch create / add.
+    emailBatchStudents: String(process.env.LMS_EMAIL_BATCH_STUDENTS || 'true') === 'true',
     // public base URL of the CRM itself — used to build BBB logoutURL and the
     // ticket redirect. Falls back to APP_URL / PUBLIC_SERVER_FILE.
     crmBaseUrl: clean(process.env.LMS_CRM_BASE_URL || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || ''),
