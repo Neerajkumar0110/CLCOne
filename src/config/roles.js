@@ -13,7 +13,16 @@ const ROLES = [
   'Team Leader',
   'Sales Intern',
   'Finance',
+  // LMS-only roles. These accounts see ONLY their LMS panel (/teacher or
+  // /learn) — never the CRM (leads, calling, admin, etc.).
+  'Teacher',
+  'Student',
 ];
+
+// LMS role helpers — used by the LMS panel controllers + route guards.
+const LMS_TEACHER_ROLES = ['Teacher'];
+const LMS_STUDENT_ROLES = ['Student'];
+const LMS_PANEL_ROLES = [...LMS_TEACHER_ROLES, ...LMS_STUDENT_ROLES];
 
 // Only shown/stored when role === 'Finance'.
 const FINANCE_SUB_ROLES = ['Finance Manager', 'Finance Executive', 'Finance Support'];
@@ -41,4 +50,7 @@ module.exports = {
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
   MANAGEMENT_ROLES,
+  LMS_TEACHER_ROLES,
+  LMS_STUDENT_ROLES,
+  LMS_PANEL_ROLES,
 };

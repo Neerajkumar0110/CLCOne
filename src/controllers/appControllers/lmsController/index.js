@@ -8,6 +8,7 @@ const pilot = require('./pilot');
 const liveclass = require('./liveclass');
 const scope = require('./liveScope');
 const bbbWebhook = require('./bbbWebhook');
+const panel = require('./panel');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -68,6 +69,10 @@ module.exports = {
   liveLeftPing: liveclass.left,
   liveMockRoom: liveclass.mockRoom,
   bbbWebhook: bbbWebhook.receive,
+
+  // dedicated LMS panels (Teacher / Student)
+  teacherDashboard: panel.teacherDashboard,
+  studentDashboard: panel.studentDashboard,
 
   // role-scoped reads
   studentLiveClasses: scope.studentLiveClasses,
