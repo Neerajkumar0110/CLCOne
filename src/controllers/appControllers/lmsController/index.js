@@ -11,6 +11,8 @@ const bbbWebhook = require('./bbbWebhook');
 const panel = require('./panel');
 const curriculum = require('./curriculum');
 const learning = require('./learning');
+const assignments = require('./assignments');
+const quizzes = require('./quizzes');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -95,6 +97,34 @@ module.exports = {
   learnLessonDetail: learning.lessonDetail,
   learnSaveProgress: learning.saveProgress,
   learnMarkComplete: learning.markComplete,
+
+  // assignments
+  assignmentCreate: assignments.create,
+  assignmentList: assignments.list,
+  assignmentGet: assignments.getOne,
+  assignmentUpdate: assignments.update,
+  assignmentDelete: assignments.remove,
+  assignmentSubmissions: assignments.submissions,
+  assignmentEvaluate: assignments.evaluate,
+  assignmentMyList: assignments.myList,
+  assignmentSubmit: assignments.submit,
+
+  // quizzes / exams / question bank
+  quizCreate: quizzes.createQuiz,
+  quizList: quizzes.listQuizzes,
+  quizGet: quizzes.getQuiz,
+  quizUpdate: quizzes.updateQuiz,
+  quizDelete: quizzes.deleteQuiz,
+  quizAddQuestion: quizzes.addQuestion,
+  quizUpdateQuestion: quizzes.updateQuestion,
+  quizDeleteQuestion: quizzes.deleteQuestion,
+  quizQuestionBank: quizzes.questionBank,
+  quizMyList: quizzes.myQuizzes,
+  quizStart: quizzes.startAttempt,
+  quizSubmit: quizzes.submitAttempt,
+  quizAttemptResult: quizzes.attemptResult,
+  quizResults: quizzes.quizResults,
+  quizEvaluateAttempt: quizzes.evaluateAttempt,
 
   // role-scoped reads
   studentLiveClasses: scope.studentLiveClasses,
