@@ -53,6 +53,8 @@ module.exports = {
   liveList: liveclass.list,
   liveGet: liveclass.get,
   liveCreate: liveclass.create,
+  liveUpdateTime: liveclass.updateTime,
+  liveAddStudent: liveclass.addStudent,
   liveStart: liveclass.start,
   liveEnd: liveclass.end,
   liveJoin: liveclass.join,
@@ -62,6 +64,7 @@ module.exports = {
   liveRegenerate: liveclass.regenerate,
   // pre-bearer
   liveTicket: liveclass.ticket,
+  liveOpenPublic: liveclass.openPublic,
   liveLeftPing: liveclass.left,
   liveMockRoom: liveclass.mockRoom,
   bbbWebhook: bbbWebhook.receive,

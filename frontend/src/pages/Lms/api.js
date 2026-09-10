@@ -23,6 +23,12 @@ const lmsApi = {
   // ── live classes (auto meeting rooms) ──────────────────────────────
   liveClasses: (scope) => request.get({ entity: `lms/live-classes${qs({ scope })}` }),
   liveClass: (id) => request.get({ entity: `lms/live-classes/${id}` }),
+  // teacher / manager: set or edit a class's scheduled start + duration
+  // ({ scheduledStart, scheduledDurationMin, autoStartAt, title }).
+  liveClassUpdate: (id, patch) => request.patch({ entity: `lms/live-classes/${id}`, jsonData: patch }),
+  // manager / batch teacher: add a student to a running batch (same link + email).
+  addBatchStudent: (batchId, jsonData) =>
+    request.post({ entity: `lms/batches/${batchId}/students`, jsonData }),
   liveClassStart: (id) => request.post({ entity: `lms/live-classes/${id}/start`, jsonData: {} }),
   liveClassEnd: (id) => request.post({ entity: `lms/live-classes/${id}/end`, jsonData: {} }),
   liveClassJoin: (id) => request.post({ entity: `lms/live-classes/${id}/join`, jsonData: {} }),

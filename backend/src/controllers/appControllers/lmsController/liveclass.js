@@ -50,6 +50,17 @@ async function create(req, res) {
   return res.status(200).json({ success: true, result: liveClassService.safeView(session, 'teacher') });
 }
 
+// PATCH /api/lms/liveclasses/:id  { scheduledStart?, scheduledDurationMin?, scheduledEnd?, title?, description?, autoStartAt? }
+async function updateTime(req, res) {
+  return send(res, await liveClassService.updateSchedule(req.params.id, req.admin, req.body || {}));
+}
+
+// POST /api/lms/batches/:id/students  { email, name?, crmUserId? }
+async function addStudent(req, res) {
+  const b = req.body || {};
+  return send(res, await liveClassService.addStudentToBatch({ batchId: req.params.id, email: b.email, name: b.name, crmUserId: b.crmUserId }, req.admin));
+}
+
 // POST /api/lms/liveclasses/:id/start
 async function start(req, res) {
   return send(res, await liveClassService.startSession(req.params.id, req.admin));
@@ -101,6 +112,47 @@ async function openEntry(req, res) {
   return res.redirect(302, out.result.url);
 }
 
+// ── pre-bearer: browser-navigable "open class" entry ────────────────────
+// GET /api/lms/live/open/:id?t=<crm jwt>  — a plain link (email/calendar/the
+// LiveClass mirror row) lands here. Browser navigation can't send the
+// Authorization header, so the CRM JWT is accepted as ?t=. On success it 302s
+// into the one-time ticket flow; on a missing/expired token it serves a
+// friendly HTML page, never the raw "jwtExpired" JSON.
+async function openPublic(req, res) {
+  const jwt = require('jsonwebtoken');
+  const mongoose2 = require('mongoose');
+  const t = req.query.t || req.query.token || '';
+  const page = (title, msg) =>
+    res
+      .status(200)
+      .type('html')
+      .send(
+        `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">` +
+          `<title>${title}</title><div style="font:16px/1.6 system-ui,sans-serif;max-width:520px;margin:56px auto;padding:0 20px;color:#17202c">` +
+          `<h2 style="margin:0 0 8px">${title}</h2><p>${msg}</p>` +
+          `<p><a href="/#/lms/classes" style="color:#2f5fd0;font-weight:600">Open Live Classes &rarr;</a></p></div>`
+      );
+
+  if (!t) return page('Sign in required', 'Open the CRM, go to <b>LMS &rarr; Live Classes</b> and click <b>Join</b> on your class.');
+  let decoded;
+  try {
+    decoded = jwt.verify(t, process.env.JWT_SECRET);
+  } catch (e) {
+    return page('Session expired', 'Your sign-in link has expired. Open the CRM &rarr; <b>LMS &rarr; Live Classes</b> and click <b>Join</b>.');
+  }
+  const admin = await mongoose2.model('Admin').findOne({ _id: decoded.id, removed: false });
+  if (!admin) return page('Sign in required', 'Open the CRM &rarr; <b>LMS &rarr; Live Classes</b> and click <b>Join</b>.');
+
+  const out = await liveClassService.issueJoin(req.params.id, admin);
+  if (out.error) {
+    return page(
+      out.error === 409 ? 'Class not started' : 'Cannot join',
+      out.error === 409 ? 'The class has not started yet. Try again once the teacher starts it.' : out.message
+    );
+  }
+  return res.redirect(302, out.result.url);
+}
+
 // ── pre-bearer: ticket redirect + logout/leave ping ──────────────────────
 // GET /api/lms/live/t/:ticket  -> 302 to the real meeting URL (one-time)
 async function ticket(req, res) {
@@ -149,4 +201,4 @@ ul{margin:6px 0 0 18px}button{font:inherit;padding:9px 14px;border-radius:8px;bo
 <button onclick="fetch('/api/lms/live/left?s=${s._id}&u=${uid}',{method:'POST'}).then(()=>document.body.innerHTML='<p style=\\'font:16px system-ui;margin:40px\\'>You left the class.</p>')">Leave class</button></div>`);
 }
 
-module.exports = { list, get, create, start, end, join, leave, attendance, regenerate, openEntry, ticket, left, mockRoom };
+module.exports = { list, get, create, updateTime, addStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom };
