@@ -83,7 +83,28 @@ router.route('/student/attendance').get(catchErrors(lms.studentAttendance));
 
 // ── teacher ────────────────────────────────────────────────────────
 router.route('/teacher/dashboard').get(catchErrors(lms.teacherDashboard));
+router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));
+
+// ── doubts (Q&A) ───────────────────────────────────────────────────
+router.route('/doubts').get(catchErrors(lms.doubtList)).post(catchErrors(lms.doubtAsk));
+router.route('/doubts/:id').get(catchErrors(lms.doubtGet));
+router.route('/doubts/:id/reply').post(catchErrors(lms.doubtReply));
+router.route('/doubts/:id/resolve').post(catchErrors(lms.doubtResolve));
+router.route('/doubts/:id/pin').post(catchErrors(lms.doubtPin));
+
+// ── announcements ──────────────────────────────────────────────────
+router.route('/announcements').get(catchErrors(lms.announcementList)).post(catchErrors(lms.announcementCreate));
+router.route('/announcements/:id').delete(catchErrors(lms.announcementDelete));
+router.route('/my/announcements').get(catchErrors(lms.announcementMine));
+
+// ── certificates ───────────────────────────────────────────────────
+router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));
+router.route('/certificates').get(catchErrors(lms.certHistory));
+router.route('/certificates/issue').post(catchErrors(lms.certIssue));
+router.route('/certificates/run/:courseId').post(catchErrors(lms.certRunForCourse));
+router.route('/certificates/verify/:certificateId').get(catchErrors(lms.certVerify));
+router.route('/my/certificates').get(catchErrors(lms.certMine));
 router.route('/teacher/live-classes').get(catchErrors(lms.liveList));
 router.route('/teacher/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/teacher/attendance').get(catchErrors(lms.liveAttendanceDashboard));

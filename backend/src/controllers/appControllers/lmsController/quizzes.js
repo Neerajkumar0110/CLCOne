@@ -518,6 +518,11 @@ async function mirrorQuizScoreToRoster(attempt, quiz) {
   } catch (e) {
     /* non-fatal */
   }
+  try {
+    require('../../../services/lms/certificateEngine').evaluateSafe(attempt.student, quiz.course);
+  } catch (e) {
+    /* non-fatal */
+  }
 }
 
 module.exports = {
