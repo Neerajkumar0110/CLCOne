@@ -50,6 +50,11 @@ export default function JitsiEmbed({ open, onClose, config }) {
             startWithAudioMuted: !config.isModerator,
             startWithVideoMuted: false,
             defaultLanguage: 'en',
+            // Jitsi's whiteboard has no view-only mode — anyone in the call
+            // who has it can draw on it. Students only ever load this embed,
+            // so disabling the feature here means a teacher-started
+            // whiteboard never becomes editable (or visible) on their side.
+            whiteboard: { enabled: false },
           },
           interfaceConfigOverwrite: {
             TOOLBAR_BUTTONS: TOOLBAR,
