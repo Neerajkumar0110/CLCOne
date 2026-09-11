@@ -811,8 +811,8 @@ export const FEATURE_SECTIONS = [
               table: false,
               // Read-only once both times are set — Start/End time decide it.
               compute: (values) => {
-                const start = dayjs.isDayjs(values.classTime) ? values.classTime.hour() * 60 + values.classTime.minute() : null;
-                const end = dayjs.isDayjs(values.endTime) ? values.endTime.hour() * 60 + values.endTime.minute() : null;
+                const start = dayjs.isDayjs(values.classTime) && values.classTime.isValid() ? values.classTime.hour() * 60 + values.classTime.minute() : null;
+                const end = dayjs.isDayjs(values.endTime) && values.endTime.isValid() ? values.endTime.hour() * 60 + values.endTime.minute() : null;
                 if (start == null || end == null || end <= start) return undefined; // leave as manually entered
                 return end - start;
               },
