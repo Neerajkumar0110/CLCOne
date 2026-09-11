@@ -1,3 +1,12 @@
+// Must run before anything else touches Date/Intl — batch schedules, class
+// times, "today's classes" etc. are all entered and read as India time, but
+// a Date's setHours/getDay/etc. use whatever timezone the OS process is in
+// (UTC by default on most hosts), which silently shifted every scheduled
+// class time by +5:30 (e.g. 5:10 PM entered showed up as 10:40 PM). Setting
+// TZ here — before mongoose/routes/etc. are required — makes every local-time
+// Date method in the whole process mean IST, matching what was typed in.
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
+
 require('module-alias/register');
 const mongoose = require('mongoose');
 const { globSync } = require('glob');
