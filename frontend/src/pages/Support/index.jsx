@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
+import { BorderTrail } from "@/components/ui/border-trail";
 import { TICKET_CATEGORY_MODULES } from "@/config/permissionModules";
 import {
   AppstoreOutlined,
@@ -314,11 +315,11 @@ export default function Support() {
         /* Support module UI refresh — scoped only to this page so light mode stays readable
            without changing the rest of the app. */
         .support-module-shell {
-          background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 42%, #fff7fb 100%);
+          background: #ffffff;
           border-radius: 22px;
           padding: 22px 20px 26px;
-          border: 1px solid rgba(149, 171, 211, 0.28);
-          box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+          border: 1px solid #e5e7eb;
+          box-shadow: none;
         }
 
         .support-module-shell .hub-header h2,
@@ -333,7 +334,7 @@ export default function Support() {
         .support-module-shell .hub-btn,
         .support-module-shell .hub-empty,
         .support-module-shell .hub-link-btn {
-          color: #0f172a !important;
+          color: #111827 !important;
           font-weight: 800 !important;
         }
 
@@ -344,7 +345,7 @@ export default function Support() {
         .support-module-shell .hub-form-row label,
         .support-module-shell .hub-empty,
         .support-module-shell .hub-table-wrapper {
-          color: #475569 !important;
+          color: #6b7280 !important;
         }
 
         .support-module-shell .hub-card,
@@ -354,25 +355,25 @@ export default function Support() {
         .support-module-shell .hub-table-wrapper,
         .support-module-shell .hub-table,
         .support-module-shell .hub-btn {
-          background: rgba(255, 255, 255, 0.9) !important;
-          border-color: rgba(148, 163, 184, 0.34) !important;
+          background: #ffffff !important;
+          border-color: #e5e7eb !important;
         }
 
         .support-module-shell .hub-kpi {
           border-radius: 18px;
-          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+          box-shadow: none;
         }
 
         .support-module-shell .hub-kpi:nth-child(1) {
-          background: linear-gradient(180deg, #edf5ff 0%, #f8fbff 100%);
+          background: #ffffff;
         }
 
         .support-module-shell .hub-kpi:nth-child(2) {
-          background: linear-gradient(180deg, #fff0f7 0%, #fffafc 100%);
+          background: #ffffff;
         }
 
         .support-module-shell .hub-kpi:nth-child(3) {
-          background: linear-gradient(180deg, #edfdf5 0%, #f8fff9 100%);
+          background: #ffffff;
         }
 
         .support-module-shell .hub-tabbar {
@@ -388,9 +389,9 @@ export default function Support() {
         }
 
         .support-module-shell .hub-tab.active {
-          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          background: #111827;
           color: #ffffff !important;
-          box-shadow: 0 10px 16px rgba(18, 58, 115, 0.16);
+          box-shadow: none;
         }
 
         .support-module-shell .hub-tab-count {
@@ -405,7 +406,7 @@ export default function Support() {
         }
 
         .support-module-shell .hub-pill-btn.active {
-          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          background: #111827;
           color: #ffffff !important;
         }
 
@@ -417,25 +418,25 @@ export default function Support() {
         }
 
         .support-module-shell .hub-btn:hover {
-          background: #edf5ff;
-          color: #123a73;
-          border-color: rgba(18, 58, 115, 0.35);
+          background: #f9fafb;
+          color: #111827;
+          border-color: #d1d5db;
         }
 
         .support-module-shell .hub-btn-primary {
-          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          background: #111827;
           color: #ffffff !important;
           border-color: transparent;
         }
 
         .support-module-shell .hub-table thead th {
-          background: #f3f7ff;
+          background: #ffffff;
           color: #0f172a;
           font-weight: 800;
         }
 
         .support-module-shell .hub-table tbody tr:hover td {
-          background: #f8fbff;
+          background: #f9fafb;
         }
 
         .support-module-shell .hub-link-btn {
@@ -460,9 +461,9 @@ export default function Support() {
         /* Support module dark mode fix — these selectors intentionally come after
            the light-mode rules because the module styles use !important. */
         :root[data-theme='dark'] .support-module-shell {
-          background: linear-gradient(135deg, #081a32 0%, #102746 52%, #201a31 100%);
-          border-color: rgba(125, 180, 255, 0.28);
-          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+          background: #000000;
+          border-color: rgba(255, 255, 255, 0.4);
+          box-shadow: none;
           color: #ffffff;
         }
 
@@ -474,21 +475,21 @@ export default function Support() {
         :root[data-theme='dark'] .support-module-shell .hub-table,
         :root[data-theme='dark'] .support-module-shell .hub-btn,
         :root[data-theme='dark'] .support-module-shell .hub-select {
-          background: #12213d !important;
-          border-color: #2b3f5f !important;
+          background: #0b0b0b !important;
+          border-color: rgba(255, 255, 255, 0.4) !important;
           color: #ffffff !important;
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(1) {
-          background: linear-gradient(180deg, #142d4d 0%, #12213d 100%) !important;
+          background: #0b0b0b !important;
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(2) {
-          background: linear-gradient(180deg, #38233a 0%, #12213d 100%) !important;
+          background: #0b0b0b !important;
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(3) {
-          background: linear-gradient(180deg, #163a31 0%, #12213d 100%) !important;
+          background: #0b0b0b !important;
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-header h2,
@@ -516,7 +517,7 @@ export default function Support() {
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-table thead th {
-          background: #162b4a !important;
+          background: #171717 !important;
           color: #ffffff !important;
         }
 
@@ -533,18 +534,19 @@ export default function Support() {
         :root[data-theme='dark'] .support-module-shell .hub-tab.active,
         :root[data-theme='dark'] .support-module-shell .hub-pill-btn.active,
         :root[data-theme='dark'] .support-module-shell .hub-btn-primary {
-          background: linear-gradient(135deg, #245a9c 0%, #3477c5 100%) !important;
+          background: #171717 !important;
           color: #ffffff !important;
         }
 
         :root[data-theme='dark'] .support-module-shell .hub-btn:hover {
-          background: #1a3355 !important;
+          background: #171717 !important;
           color: #ffffff !important;
-          border-color: #7db4ff !important;
+          border-color: rgba(255, 255, 255, 0.4) !important;
         }
       `}</style>
 
-      <div className="hub-page support-module-shell">
+      <div className="hub-page support-module-shell border-trail-shell">
+        <BorderTrail className="bg-zinc-400 dark:bg-zinc-600" size={100} />
         <div className="hub-header">
           <div>
             <h2>Support</h2>

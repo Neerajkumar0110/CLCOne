@@ -96,9 +96,8 @@ export const THEME_LIST = [
   THEMES.orangeWarm,
 ];
 
-// UI update: Purple Gradient is the default palette so new sessions open with
-// the requested purple background in Settings, About, and shared app surfaces.
-export const DEFAULT_THEME_KEY = 'purpleGradient';
+// Default to the clean light palette so the app opens in plain, neutral light mode.
+export const DEFAULT_THEME_KEY = 'blueLight';
 
 // Helper: flat { '--theme-card-bg': '#FFFFFF', ... } for a given theme key —
 // handy when wiring to CSS custom properties later.

@@ -18,9 +18,7 @@ const ThemeContext = createContext(null);
 function readMode() {
   const saved = storePersist.get(MODE_KEY);
   if (saved === "dark" || saved === "light") return saved;
-  if (typeof window !== "undefined" && window.matchMedia) {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
+  // Default the app to light mode unless the user explicitly chooses dark.
   return "light";
 }
 function readPalette() {

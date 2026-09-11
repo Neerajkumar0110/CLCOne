@@ -29,7 +29,7 @@
   --hub-card-muted: rgba(16, 37, 27, 0.4);
 }
 :root[data-palette='greenFresh'] body {
-  background: var(--hub-page-bg) !important;
+  background: #ffffff !important;
   color: var(--hub-text);
 }
 
@@ -56,7 +56,7 @@
   --hub-card-muted: rgba(33, 24, 68, 0.4);
 }
 :root[data-palette='purpleGradient'] body {
-  background: linear-gradient(160deg, #f8f3ff, #f3e8ff) !important;
+  background: #ffffff !important;
   color: var(--hub-text);
 }
 
@@ -83,30 +83,30 @@
   --hub-card-muted: rgba(41, 32, 24, 0.4);
 }
 :root[data-palette='orangeWarm'] body {
-  background: var(--hub-page-bg) !important;
+  background: #ffffff !important;
   color: var(--hub-text);
 }
 
 /* ---- Dark 🌑 (also carries data-theme="dark"; this refines the accent
         + surfaces to the palette spec: card #1E293B, accent #8B5CF6) ---- */
 :root[data-palette='dark'] {
-  --hub-surface: #1e293b;
-  --hub-surface-2: #243244;
-  --hub-bg-soft: #1a2536;
-  --hub-page-bg: #0f172a;
+  --hub-surface: #171717;
+  --hub-surface-2: #222222;
+  --hub-bg-soft: #1c1c1c;
+  --hub-page-bg: #111111;
   --hub-text: #f8fafc;
   --hub-text-soft: #cbd5e1;
   --hub-muted: #94a3b8;
-  --hub-border: #334155;
-  --hub-border-strong: #45566e;
+  --hub-border: rgba(255, 255, 255, 0.4);
+  --hub-border-strong: rgba(255, 255, 255, 0.55);
   --hub-blue: #8b5cf6;
   --hub-blue-dark: #7c3aed;
   --hub-blue-soft: #2a2140;
   --hub-focus-ring: 0 0 0 4px rgba(139, 92, 246, 0.28);
-  --hub-card-blue: #172f4d;
-  --hub-card-yellow: #3a351b;
-  --hub-card-green: #17382b;
-  --hub-card-hover: #2a2140;
+  --hub-card-blue: #111111;
+  --hub-card-yellow: #111111;
+  --hub-card-green: #111111;
+  --hub-card-hover: #2a2a2a;
   --hub-card-text: #ffffff;
   --hub-card-muted: rgba(255, 255, 255, 0.4);
 }

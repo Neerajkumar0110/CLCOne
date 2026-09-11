@@ -1,4 +1,5 @@
 @import './partials/rest.css';
+@import './tailwind.css';
 @import './partials/customAntd.css';
 @import './partials/layout.css';
 @import './partials/core.css';

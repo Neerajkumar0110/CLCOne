@@ -1,5 +1,6 @@
 import path from 'path';
 
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -12,7 +13,7 @@ export default ({ mode }) => {
       : 'http://localhost:8888/';
 
   const config = {
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     resolve: {
       base: '/',
       alias: {

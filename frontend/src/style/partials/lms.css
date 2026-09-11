@@ -16,9 +16,9 @@
 .lms-section-attendance {
   position: relative;
   padding: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--hub-border);
   border-radius: var(--hub-r-lg);
-  box-shadow: 0 14px 34px rgba(73, 59, 104, 0.08);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -33,37 +33,37 @@
   right: 28px;
   height: 3px;
   border-radius: 0 0 8px 8px;
-  background: var(--lms-accent);
+  background: var(--hub-border-strong);
 }
 
 .lms-section-student {
-  --lms-accent: #7c3aed;
-  --lms-accent-soft: #f1eaff;
-  background: #fff8d9;
+  --lms-accent: var(--hub-text);
+  --lms-accent-soft: var(--hub-bg-soft);
+  background: var(--hub-surface);
 }
 
 .lms-section-live {
-  --lms-accent: #eab308;
-  background: linear-gradient(135deg, #fff8dc 0%, #ffffff 68%);
+  --lms-accent: var(--hub-text);
+  background: var(--hub-surface);
 }
 
 .lms-section-recordings {
-  --lms-accent: #d97706;
-  --lms-accent-soft: #fff4cf;
-  background: linear-gradient(135deg, #ffffff 0%, #fffdf5 62%, #fff5fb 100%);
+  --lms-accent: var(--hub-text);
+  --lms-accent-soft: var(--hub-bg-soft);
+  background: var(--hub-surface);
 }
 
 .lms-section-attendance {
-  --lms-accent: #d97706;
-  background: linear-gradient(135deg, #f7f1ff 0%, #fff9df 100%);
+  --lms-accent: var(--hub-text);
+  background: var(--hub-surface);
 }
 
 .lms-section-student .ant-card,
 .lms-section-live .ant-card,
 .lms-section-recordings .ant-card,
 .lms-section-attendance .ant-card {
-  border-color: rgba(117, 94, 160, 0.16);
-  box-shadow: 0 5px 18px rgba(73, 59, 104, 0.06);
+  border-color: var(--hub-border);
+  box-shadow: none;
 }
 
 .lms-section-student .lms-portal-head h2,
@@ -77,23 +77,25 @@
 .lms-student-hero {
   padding: 22px 24px;
   border-radius: 14px;
-  background: #050505;
-  box-shadow: 0 10px 24px rgba(15, 15, 15, 0.16);
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  box-shadow: none;
 }
 .lms-student-hero h2,
 .lms-student-hero p {
-  color: #ffffff;
+  color: var(--hub-text) !important;
 }
 .lms-student-hero p {
-  opacity: 0.78;
+  opacity: 1;
+  color: var(--hub-muted) !important;
 }
 .lms-student-hero h2 .anticon {
-  color: #facc15;
+  color: var(--hub-text);
 }
 .lms-section-student > .ant-row .ant-card,
 .lms-section-student > .lms-section-title + .ant-row .ant-card,
 .lms-section-student > .ant-card {
-  background: #ffffff;
+  background: var(--hub-surface);
 }
 
 :root[data-theme='dark'] .lms-section-student,
@@ -116,6 +118,15 @@
 :root[data-theme='dark'] .lms-student-hero {
   background: #000000;
   border: 1px solid #202020;
+}
+
+:root[data-theme='dark'] .lms-student-hero h2,
+:root[data-theme='dark'] .lms-student-hero p {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lms-student-hero p {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .lms-portal-head {
@@ -163,8 +174,8 @@
 .lms-stat.ant-card:hover,
 .lms-course-card.ant-card:hover,
 .lms-live-card.ant-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(73, 59, 104, 0.13);
+  transform: none;
+  box-shadow: none;
 }
 .lms-stat-icon {
   width: 40px;
@@ -252,14 +263,14 @@
 
 .lms-section-student .ant-col:nth-child(2) .lms-stat,
 .lms-section-student .ant-col:nth-child(2) .lms-course-card {
-  --lms-accent: #db2777;
-  --lms-accent-soft: #fce7f3;
+  --lms-accent: var(--hub-text);
+  --lms-accent-soft: var(--hub-bg-soft);
 }
 
 .lms-section-student .ant-col:nth-child(3) .lms-stat,
 .lms-section-student .ant-col:nth-child(3) .lms-course-card {
-  --lms-accent: #d97706;
-  --lms-accent-soft: #fff4cf;
+  --lms-accent: var(--hub-text);
+  --lms-accent-soft: var(--hub-bg-soft);
 }
 
 .lms-section-recordings .ant-select:hover .ant-select-selector,
@@ -271,7 +282,7 @@
 }
 
 .lms-section-recordings .ant-table-tbody > tr:hover > td {
-  background: #fff8e6;
+  background: var(--hub-bg-soft);
 }
 
 .lms-portal-foot {
@@ -289,7 +300,7 @@
   border-top: 3px solid var(--lms-accent);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.lms-live-card.lms-live-live.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }
+.lms-live-card.lms-live-live.ant-card { border-color: var(--hub-border); box-shadow: none; }
 .lms-live-top {
   display: flex;
   justify-content: space-between;
@@ -334,8 +345,8 @@
 }
 .lms-livenow .lms-livenow-row { display: flex; flex-direction: column; gap: 6px; }
 .lms-live-card.lms-live-live.ant-card,
-.lms-live-card.lms-live-starting.ant-card { border-color: var(--hub-red); box-shadow: 0 0 0 3px var(--hub-red-soft); }
-.lms-live-card.lms-live-recording_available.ant-card { border-color: var(--hub-green); }
+.lms-live-card.lms-live-starting.ant-card,
+.lms-live-card.lms-live-recording_available.ant-card { border-color: var(--hub-border); box-shadow: none; }
 
 .lms-kpi.ant-card .ant-statistic-title { font-size: 12px; color: var(--hub-muted); }
 .lms-kpi.ant-card .ant-statistic-content { font-size: 20px; color: var(--hub-text); }
@@ -349,7 +360,7 @@
 }
 .lms-section-recordings .ant-table-thead > tr > th,
 .lms-section-attendance .ant-table-thead > tr > th {
-  background: color-mix(in srgb, var(--lms-accent) 9%, var(--hub-surface));
+  background: var(--hub-surface);
   color: var(--hub-text-soft);
   font-size: 12px;
   font-weight: 800;
@@ -358,7 +369,19 @@
 }
 .lms-section-recordings .ant-table-tbody > tr:hover > td,
 .lms-section-attendance .ant-table-tbody > tr:hover > td {
-  background: color-mix(in srgb, var(--lms-accent) 6%, var(--hub-surface));
+  background: var(--hub-bg-soft);
+}
+
+.lms-section-student .ant-card,
+.lms-section-live .ant-card,
+.lms-section-recordings .ant-card,
+.lms-section-attendance .ant-card,
+.lms-stat.ant-card,
+.lms-course-card.ant-card,
+.lms-live-card.ant-card {
+  background: var(--hub-surface) !important;
+  border-color: var(--hub-border) !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 640px) {

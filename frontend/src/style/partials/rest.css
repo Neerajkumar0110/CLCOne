@@ -17,5 +17,10 @@
 body {
   margin: 0;
   padding: 0;
-  background: var(--hub-page-bg, #ffffff) !important;
+  background: linear-gradient(135deg, #ffe6e6 0%, #e6f0ff 50%, #e6ffe6 100%) !important;
+}
+
+:root[data-theme='dark'],
+:root[data-theme='dark'] body {
+  background: #111111 !important;
 }

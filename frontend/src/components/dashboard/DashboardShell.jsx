@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./dashboard.css";
 import { useTheme } from "@/context/themeContext";
+import { BorderTrail } from "@/components/ui/border-trail";
 import { startPoll } from "@/utils/poll";
 import DashboardHeader from "./DashboardHeader";
 import FilterBar from "./FilterBar";
@@ -76,7 +77,11 @@ export default function DashboardShell({ module, config, extraActions, live = fa
     data && data.kpis && data.kpis.length > 0 && data.kpis.every((k) => !k.value && !k.prev);
 
   return (
-    <div className="hub-stack dash-shell" style={{ minWidth: 0 }}>
+    <div className="hub-stack dash-shell border-trail-shell" style={{ minWidth: 0 }}>
+      <BorderTrail
+        className="bg-gradient-to-l from-zinc-300 via-zinc-500 to-zinc-300 dark:from-zinc-700 dark:via-zinc-400 dark:to-zinc-700"
+        size={120}
+      />
       <DashboardHeader title={config.title} subtitle={config.subtitle} actions={extraActions} />
 
       <div className="hub-card dash-filter-card">

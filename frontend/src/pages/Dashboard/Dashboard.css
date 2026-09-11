@@ -19,8 +19,12 @@ body {
     Arial,
     sans-serif;
 
-  background: #f4f6fb;
+  background: #ffffff;
   color: #101828;
+}
+
+body:has(.dashboard) {
+  background: #ffffff !important;
 }
 
 /* =========================
@@ -30,7 +34,7 @@ body {
 .dashboard {
   min-height: 100vh;
   width: 100%;
-  background: #f4f6fb;
+  background: #ffffff;
 }
 
 /* =========================

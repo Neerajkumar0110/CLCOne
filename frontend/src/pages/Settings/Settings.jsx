@@ -17,6 +17,7 @@ import {
 } from "@ant-design/icons";
 import { request } from "@/request";
 import { BASE_URL } from "@/config/serverApiConfig";
+import { BorderTrail } from "@/components/ui/border-trail";
 
 // Company/Logo/Currency/Localization below are backed by the real Setting
 // API (backend/src/controllers/coreControllers/settingController) — the
@@ -568,7 +569,8 @@ export default function Settings() {
   // Settings UI update: this module hook lets the shared Purple Gradient
   // palette style the page and navigation without changing settings logic.
   return (
-    <div className="hub-page settings-module-shell">
+    <div className="hub-page settings-module-shell border-trail-shell">
+      <BorderTrail className="bg-zinc-400 dark:bg-zinc-600" size={100} />
       <div className="hub-header">
         <div>
           <h2>Settings</h2>

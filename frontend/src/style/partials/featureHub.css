@@ -4,43 +4,41 @@
 ========================================================= */
 
 :root {
-  /* Dashboard UI refresh — navy + white base with soft accent cards.
-     The dashboard now uses a premium deep-navy foundation while keeping all
-     surface cards airy and readable in both light and dark modes. */
-  --hub-blue: #123a73;
-  --hub-blue-dark: #0d2d5b;
-  --hub-blue-soft: #eaf3ff;
+  /* Default light-mode tokens: plain, neutral, and readable across the entire app. */
+  --hub-blue: #2563eb;
+  --hub-blue-dark: #1d4ed8;
+  --hub-blue-soft: #eaf2ff;
 
-  --hub-green: #2bb673;
-  --hub-green-soft: #eafcf4;
+  --hub-green: #16a34a;
+  --hub-green-soft: #ecfdf5;
 
-  --hub-red: #e65a7a;
-  --hub-red-soft: #fde9f1;
+  --hub-red: #dc2626;
+  --hub-red-soft: #fef2f2;
 
-  --hub-yellow: #d99a22;
-  --hub-yellow-soft: #fff4d9;
+  --hub-yellow: #d97706;
+  --hub-yellow-soft: #fff7ed;
 
-  --hub-purple: #7c5cff;
-  --hub-purple-soft: #f2ebff;
+  --hub-purple: #7c3aed;
+  --hub-purple-soft: #f3e8ff;
 
-  --hub-cyan: #0f7bbd;
-  --hub-cyan-soft: #edf9ff;
+  --hub-cyan: #0284c7;
+  --hub-cyan-soft: #f0f9ff;
 
   /* Neutrals */
-  --hub-text: #0f172a;
-  --hub-text-soft: #24314d;
-  --hub-muted: #4a5d7a;
-  --hub-border: #dfe9f7;
-  --hub-border-strong: #c4d3ee;
-  --hub-bg-soft: #edf4ff;
-  --hub-page-bg: linear-gradient(135deg, #071b36 0%, #0f2748 38%, #ffffff 100%);
+  --hub-text: #111827;
+  --hub-text-soft: #1f2937;
+  --hub-muted: #6b7280;
+  --hub-border: #e5e7eb;
+  --hub-border-strong: #d1d5db;
+  --hub-bg-soft: #f3f4f6;
+  --hub-page-bg: #ffffff;
 
   /* Elevation */
-  --hub-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --hub-shadow-sm: 0 2px 6px rgba(16, 24, 40, 0.05);
-  --hub-shadow-md: 0 6px 18px rgba(16, 24, 40, 0.07), 0 2px 5px rgba(16, 24, 40, 0.04);
-  --hub-shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.12), 0 4px 10px rgba(16, 24, 40, 0.05);
-  --hub-focus-ring: 0 0 0 4px rgba(14, 116, 144, 0.14);
+  --hub-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --hub-shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.05);
+  --hub-shadow-md: 0 6px 18px rgba(15, 23, 42, 0.06), 0 2px 5px rgba(15, 23, 42, 0.04);
+  --hub-shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.08), 0 4px 10px rgba(15, 23, 42, 0.04);
+  --hub-focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.12);
 
   /* Radius */
   --hub-r-sm: 8px;
@@ -48,19 +46,15 @@
   --hub-r-lg: 16px;
   --hub-r-xl: 20px;
 
-  /* Surfaces — split out so dark mode can retint cards vs. the page without
-     touching --hub-bg-soft (which a few places use as an inset fill). */
+  /* Surfaces */
   --hub-surface: #ffffff;
-  --hub-surface-2: #f8f9fc;
-
-    /* Shared module card palette: light blue, yellow, and green are blended
-      across every module card; palette files refine these values per mode. */
-    --hub-card-blue: #eef7ff;
-    --hub-card-yellow: #fff9df;
-    --hub-card-green: #effcf3;
-    --hub-card-hover: #fff5c7;
-    --hub-card-text: #111827;
-    --hub-card-muted: rgba(17, 24, 39, 0.4);
+  --hub-surface-2: #f9fafb;
+  --hub-card-blue: #f3f7ff;
+  --hub-card-yellow: #fff7eb;
+  --hub-card-green: #f0fdf4;
+  --hub-card-hover: #eef2ff;
+  --hub-card-text: #111827;
+  --hub-card-muted: rgba(17, 24, 39, 0.55);
 }
 
 /* =========================================================
@@ -93,18 +87,18 @@
   --hub-text: #edf4ff;
   --hub-text-soft: #d7e6ff;
   --hub-muted: #a7b9d6;
-  --hub-border: #2b3f5f;
-  --hub-border-strong: #3f567c;
-  --hub-bg-soft: #131f35;
-  --hub-page-bg: linear-gradient(135deg, #061427 0%, #0d1d35 45%, #101827 100%);
+  --hub-border: rgba(255, 255, 255, 0.4);
+  --hub-border-strong: rgba(255, 255, 255, 0.55);
+  --hub-bg-soft: #222222;
+  --hub-page-bg: #ffffff;
 
-  --hub-surface: #12213d;
-  --hub-surface-2: #162b4a;
+  --hub-surface: #171717;
+  --hub-surface-2: #222222;
 
-  --hub-card-blue: #172f4d;
-  --hub-card-yellow: #3a351b;
-  --hub-card-green: #17382b;
-  --hub-card-hover: #2a2140;
+  --hub-card-blue: #111111;
+  --hub-card-yellow: #111111;
+  --hub-card-green: #111111;
+  --hub-card-hover: #2a2a2a;
   --hub-card-text: #ffffff;
   --hub-card-muted: rgba(255, 255, 255, 0.4);
 
@@ -116,7 +110,7 @@
 }
 
 :root[data-theme='dark'] body {
-  background: var(--hub-page-bg);
+  background: #ffffff !important;
   color: var(--hub-text);
 }
 
@@ -352,16 +346,16 @@
       and orange modes. No Sales business logic or data flow is changed.
 ========================================================================= */
 .hub-page[data-section='sales'] {
-  --sales-page-bg: linear-gradient(135deg, #fff9dc 0%, #effcf2 48%, #f4edff 100%);
-  --sales-card-bg: rgba(255, 255, 255, 0.9);
-  --sales-card-hover: #fff7d1;
-  --sales-text-primary: #172033;
-  --sales-text-secondary: #526174;
-  --sales-border: rgba(153, 126, 214, 0.28);
-  background: var(--sales-page-bg);
+  --sales-page-bg: transparent;
+  --sales-card-bg: #ffffff;
+  --sales-card-hover: #f9fafb;
+  --sales-text-primary: #111827;
+  --sales-text-secondary: #6b7280;
+  --sales-border: #e5e7eb;
+  background: #ffffff;
   color: var(--sales-text-primary);
   border: 1px solid var(--sales-border);
-  border-radius: 22px;
+  border-radius: 16px;
   padding: 18px;
 }
 
@@ -411,19 +405,13 @@
   background: var(--sales-card-bg) !important;
   border-color: var(--sales-border) !important;
   color: var(--sales-text-primary) !important;
-  box-shadow: 0 8px 22px rgba(60, 45, 94, 0.06);
+  box-shadow: none;
 }
 
-.hub-page[data-section='sales'] .hub-kpi:nth-child(3n + 1) {
-  background: linear-gradient(145deg, #fff8d8 0%, #fffdf2 100%) !important;
-}
-
-.hub-page[data-section='sales'] .hub-kpi:nth-child(3n + 2) {
-  background: linear-gradient(145deg, #eafff1 0%, #f8fff9 100%) !important;
-}
-
+.hub-page[data-section='sales'] .hub-kpi:nth-child(3n + 1),
+.hub-page[data-section='sales'] .hub-kpi:nth-child(3n + 2),
 .hub-page[data-section='sales'] .hub-kpi:nth-child(3n + 3) {
-  background: linear-gradient(145deg, #f1eaff 0%, #fbf9ff 100%) !important;
+  background: #ffffff !important;
 }
 
 .hub-page[data-section='sales'] .hub-card:hover,
@@ -434,30 +422,36 @@
 .hub-page[data-section='sales'] [class*='Panel']:hover,
 .hub-page[data-section='sales'] [class*='board']:hover,
 .hub-page[data-section='sales'] [class*='Board']:hover {
-  background: var(--sales-card-hover) !important;
-  border-color: var(--hub-blue) !important;
-  box-shadow: 0 12px 28px rgba(124, 92, 255, 0.12);
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+  box-shadow: none;
 }
 
 .hub-page[data-section='sales'] .hub-tab:hover,
 .hub-page[data-section='sales'] .hub-pill-btn:hover,
 .hub-page[data-section='sales'] .hub-btn:hover {
-  background: var(--sales-card-hover) !important;
+  background: #f9fafb !important;
   color: var(--sales-text-primary) !important;
-  border-color: var(--hub-blue) !important;
+  border-color: #d1d5db !important;
 }
 
 .hub-page[data-section='sales'] .hub-tab.active,
 .hub-page[data-section='sales'] .hub-pill-btn.active,
 .hub-page[data-section='sales'] .hub-btn-primary {
-  background: var(--hub-blue) !important;
+  background: #111827 !important;
   color: #ffffff !important;
-  border-color: var(--hub-blue) !important;
+  border-color: #111827 !important;
 }
 
 .hub-page[data-section='sales'] .hub-table thead th {
-  background: var(--hub-blue-soft) !important;
+  background: #ffffff !important;
   color: var(--sales-text-primary) !important;
+  border-color: var(--sales-border) !important;
+}
+
+.hub-page[data-section='sales'] .hub-table td,
+.hub-page[data-section='sales'] .hub-table th {
+  border-color: var(--sales-border) !important;
 }
 
 /* Each navigation palette updates the same Sales selectors without touching
@@ -491,12 +485,12 @@
 }
 
 :root[data-palette='dark'] .hub-page[data-section='sales'] {
-  --sales-page-bg: linear-gradient(135deg, #302b19 0%, #102d22 48%, #201a38 100%);
-  --sales-card-bg: rgba(30, 41, 59, 0.96);
-  --sales-card-hover: #2a2140;
+  --sales-page-bg: #111111;
+  --sales-card-bg: #171717;
+  --sales-card-hover: #2a2a2a;
   --sales-text-primary: #ffffff;
-  --sales-text-secondary: rgba(255, 255, 255, 0.4);
-  --sales-border: rgba(189, 167, 255, 0.32);
+  --sales-text-secondary: #a3a3a3;
+  --sales-border: rgba(255, 255, 255, 0.4);
 }
 
 :root[data-palette='dark'] .hub-page[data-section='sales'] .hub-card,
@@ -555,6 +549,33 @@
   color: #ffffff !important;
 }
 
+/* Keep every Sales Records table readable in black mode. These rules come
+   after the palette-specific Sales overrides so table labels never inherit a
+   white surface with white text. */
+:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-table-el,
+:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-table-el th,
+:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-table-el td {
+  background: #0b0b0b !important;
+  color: #ffffff !important;
+  border-color: #2a2a2a !important;
+}
+
+:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-table-el th {
+  background: #171717 !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-table-el tbody tr:hover td {
+  background: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell button:hover,
+:root[data-theme='dark'] .settings-module-shell button:focus-visible {
+  background: #171717 !important;
+  color: #ffffff !important;
+}
+
 .hub-toast .ant-message-custom-content,
 .hub-toast .ant-message-custom-content > span {
   color: inherit !important;
@@ -580,7 +601,7 @@
 .hub-page {
   width: 100%;
   padding: 28px 32px 48px;
-  background: var(--hub-page-bg);
+  background: #ffffff;
   min-height: 100%;
 }
 
@@ -698,6 +719,17 @@
   transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
+.border-trail-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.border-trail-shell > :not(.pointer-events-none) {
+  position: relative;
+  z-index: 1;
+}
+
 .hub-card:hover {
   box-shadow: var(--hub-shadow-md);
   border-color: #dbe4f3;
@@ -711,7 +743,7 @@
 .about-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(120deg, #071427 0%, #0c3a5c 45%, #0e7490 100%);
+  background: #111111;
   background-size: 200% 200%;
   animation: hub-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards, navBgDrift 30s ease-in-out infinite;
   border: none;
@@ -737,7 +769,7 @@
    Purple Gradient palette while allowing dark mode to remain readable. */
 .settings-module-shell,
 .about-module-shell {
-  background: linear-gradient(135deg, #f8f3ff 0%, #f3e8ff 58%, #eef7ff 100%);
+  background: #ffffff;
   color: var(--hub-text);
   border-radius: var(--hub-r-xl);
   padding: 18px;
@@ -745,14 +777,14 @@
 
 .settings-module-shell .hub-card,
 .about-module-shell .hub-card {
-  background: linear-gradient(135deg, #f6f0ff 0%, #fff9df 52%, #effcf3 100%);
+  background: #ffffff;
   color: var(--hub-text);
 }
 
 .settings-module-shell .hub-card:hover,
 .about-module-shell .hub-card:hover {
-  background: #ede9fe;
-  border-color: var(--hub-blue);
+  background: #f9fafb;
+  border-color: var(--hub-border-strong);
 }
 
 .settings-module-shell > div > .hub-card button {
@@ -760,12 +792,39 @@
 }
 
 .settings-module-shell > div > .hub-card button[style*="#eff4ff"] {
-  background: #ede9fe !important;
-  color: var(--hub-blue) !important;
+  background: #f9fafb !important;
+  color: var(--hub-text) !important;
+}
+
+.settings-module-shell button[style*="#eff4ff"] {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.settings-module-shell button[style*="#2563eb"] {
+  color: #111827 !important;
+}
+
+.settings-module-shell [style*="#16a34a"],
+.settings-module-shell [style*="#101828"],
+.settings-module-shell [style*="#667085"],
+.settings-module-shell [style*="#f2f4f7"] {
+  color: #374151 !important;
+  border-color: #e5e7eb !important;
+}
+
+.about-module-shell [style*="#4ade80"],
+.about-module-shell [style*="var(--hub-blue)"],
+.about-module-shell [style*="#101828"],
+.about-module-shell [style*="#667085"],
+.about-module-shell [style*="#98a2b3"],
+.about-module-shell [style*="#f2f4f7"] {
+  color: #374151 !important;
+  border-color: #e5e7eb !important;
 }
 
 .about-module-shell .about-hero {
-  background: linear-gradient(120deg, #6d28d9 0%, #7c3aed 48%, #a78bfa 100%);
+  background: #111111;
   color: #ffffff;
 }
 
@@ -778,13 +837,14 @@
 
 :root[data-theme='dark'] .settings-module-shell,
 :root[data-theme='dark'] .about-module-shell {
-  background: linear-gradient(135deg, #201a38 0%, #172f4d 58%, #17382b 100%);
+  background: #ffffff;
   color: #ffffff;
 }
 
 :root[data-theme='dark'] .settings-module-shell .hub-card,
 :root[data-theme='dark'] .about-module-shell .hub-card {
-  background: linear-gradient(135deg, #30264d 0%, #3a351b 52%, #17382b 100%) !important;
+  background: #0b0b0b !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
   color: #ffffff !important;
 }
 
@@ -810,8 +870,119 @@
 }
 
 :root[data-theme='dark'] .settings-module-shell > div > .hub-card button[style*="#eff4ff"] {
-  background: #2a2140 !important;
+  background: #171717 !important;
   color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell,
+:root[data-theme='dark'] .about-module-shell {
+  background: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-card,
+:root[data-theme='dark'] .about-module-shell .hub-card {
+  background: #0b0b0b !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell button[style*="#eff4ff"],
+:root[data-theme='dark'] .settings-module-shell button[style*="#2563eb"] {
+  background: #171717 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell [style*="#16a34a"],
+:root[data-theme='dark'] .settings-module-shell [style*="#101828"],
+:root[data-theme='dark'] .settings-module-shell [style*="#667085"],
+:root[data-theme='dark'] .settings-module-shell [style*="#f2f4f7"],
+:root[data-theme='dark'] .about-module-shell [style*="#4ade80"],
+:root[data-theme='dark'] .about-module-shell [style*="var(--hub-blue)"],
+:root[data-theme='dark'] .about-module-shell [style*="#101828"],
+:root[data-theme='dark'] .about-module-shell [style*="#667085"],
+:root[data-theme='dark'] .about-module-shell [style*="#98a2b3"],
+:root[data-theme='dark'] .about-module-shell [style*="#f2f4f7"] {
+  color: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Settings controls need explicit dark surfaces because many subsection
+   labels and navigation states are supplied as inline light-mode styles. */
+:root[data-theme='dark'] .settings-module-shell .hub-form-row label,
+:root[data-theme='dark'] .settings-module-shell .hub-form-row,
+:root[data-theme='dark'] .settings-module-shell .hub-card,
+:root[data-theme='dark'] .settings-module-shell .hub-card-header,
+:root[data-theme='dark'] .settings-module-shell .hub-card-header h3,
+:root[data-theme='dark'] .settings-module-shell h2,
+:root[data-theme='dark'] .settings-module-shell h3 {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-input,
+:root[data-theme='dark'] .settings-module-shell textarea,
+:root[data-theme='dark'] .settings-module-shell select,
+:root[data-theme='dark'] .settings-module-shell .ant-input,
+:root[data-theme='dark'] .settings-module-shell .ant-input-affix-wrapper,
+:root[data-theme='dark'] .settings-module-shell .ant-input-number,
+:root[data-theme='dark'] .settings-module-shell .ant-select-selector,
+:root[data-theme='dark'] .settings-module-shell .ant-picker {
+  background: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-input::placeholder,
+:root[data-theme='dark'] .settings-module-shell .ant-input::placeholder,
+:root[data-theme='dark'] .settings-module-shell textarea::placeholder,
+:root[data-theme='dark'] .settings-module-shell .ant-select-selection-placeholder,
+:root[data-theme='dark'] .settings-module-shell .ant-picker-input > input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .ant-input-number-input,
+:root[data-theme='dark'] .settings-module-shell .ant-select-selection-item,
+:root[data-theme='dark'] .settings-module-shell .ant-picker-input > input,
+:root[data-theme='dark'] .settings-module-shell .ant-input-number-input {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell > div > .hub-card:first-child button {
+  background: transparent !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell > div > .hub-card:first-child button[style*="#eff4ff"],
+:root[data-theme='dark'] .settings-module-shell > div > .hub-card:first-child button:hover,
+:root[data-theme='dark'] .settings-module-shell > div > .hub-card:first-child button:focus-visible {
+  background: #171717 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-btn-primary {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-btn:not(.hub-btn-primary) {
+  background: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-switch {
+  background: #2a2a2a !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell .hub-switch.on {
+  background: #ffffff !important;
+}
+
+:root[data-theme='dark'] .settings-module-shell [style*="borderTop"],
+:root[data-theme='dark'] .settings-module-shell [style*="borderBottom"] {
+  border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
 .hub-card-header {
@@ -938,33 +1109,24 @@
 }
 
 /* ========================================================================
-   SHARED MODULE CARD UI UPDATE — applies to cards in every module/section.
-   1) Uses polished light-blue, light-yellow, and light-green surfaces.
-   2) Gives cards and KPI cards a soft themed hover state.
-   3) Keeps card text at a consistent 14px bold baseline.
-   4) Uses black bold text in light palettes, white bold text in dark mode,
-      with secondary text intentionally limited to 40% contrast.
+   Shared module cards: plain neutral surfaces only.
+   No gradients, no accent-colored backgrounds, no hover tinting.
 ========================================================================= */
 .hub-card,
 .hub-kpi {
-  background: linear-gradient(
-    135deg,
-    var(--hub-card-blue) 0%,
-    var(--hub-card-yellow) 52%,
-    var(--hub-card-green) 100%
-  );
-  color: var(--hub-card-text);
+  background: var(--hub-surface);
+  color: var(--hub-text);
   font-size: 14px;
   font-weight: 700;
   border-color: var(--hub-border);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .hub-card:hover,
 .hub-kpi:hover {
-  background: var(--hub-card-hover);
-  border-color: var(--hub-blue);
-  box-shadow: var(--hub-shadow-md);
+  background: var(--hub-surface);
+  border-color: var(--hub-border-strong);
+  box-shadow: var(--hub-shadow-sm);
 }
 
 .hub-card h1,
@@ -975,7 +1137,7 @@
 .hub-card h6,
 .hub-kpi-value,
 .hub-card-header h3 {
-  color: var(--hub-card-text) !important;
+  color: var(--hub-text) !important;
   font-weight: 800;
 }
 
@@ -985,25 +1147,20 @@
 .hub-card .hub-muted,
 .hub-card .hub-empty,
 .hub-kpi-delta {
-  color: var(--hub-card-muted) !important;
+  color: var(--hub-muted) !important;
   font-weight: 700;
 }
 
 :root[data-theme='dark'] .hub-card,
 :root[data-theme='dark'] .hub-kpi {
-  background: linear-gradient(
-    135deg,
-    var(--hub-card-blue) 0%,
-    var(--hub-card-yellow) 52%,
-    var(--hub-card-green) 100%
-  ) !important;
-  color: #ffffff !important;
+  background: var(--hub-surface) !important;
+  color: var(--hub-text) !important;
 }
 
 :root[data-theme='dark'] .hub-card:hover,
 :root[data-theme='dark'] .hub-kpi:hover {
-  background: var(--hub-card-hover) !important;
-  color: #ffffff !important;
+  background: var(--hub-surface) !important;
+  color: var(--hub-text) !important;
 }
 
 :root[data-theme='dark'] .hub-card h1,
@@ -1016,7 +1173,7 @@
 :root[data-theme='dark'] .hub-kpi-value,
 :root[data-theme='dark'] .hub-card td,
 :root[data-theme='dark'] .hub-card th {
-  color: #ffffff !important;
+  color: var(--hub-text) !important;
   font-weight: 800;
 }
 
@@ -1026,7 +1183,7 @@
 :root[data-theme='dark'] .hub-card .hub-muted,
 :root[data-theme='dark'] .hub-card .hub-empty,
 :root[data-theme='dark'] .hub-kpi-delta {
-  color: var(--hub-card-muted) !important;
+  color: var(--hub-muted) !important;
   font-weight: 700;
 }
 
