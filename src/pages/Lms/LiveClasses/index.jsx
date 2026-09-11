@@ -16,7 +16,6 @@ import {
   DatePicker,
   InputNumber,
   Checkbox,
-  Input,
 } from 'antd';
 import dayjs from 'dayjs';
 import {
@@ -33,6 +32,7 @@ import {
   UserAddOutlined,
 } from '@ant-design/icons';
 import lmsApi from '../api';
+import BatchStudentsPanel from '../components/BatchStudentsPanel';
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -78,8 +78,6 @@ export default function LiveClasses() {
   const [editBusy, setEditBusy] = useState(false);
   const [editForm] = Form.useForm();
   const [addFor, setAddFor] = useState(null);
-  const [addBusy, setAddBusy] = useState(false);
-  const [addForm] = Form.useForm();
   const timer = useRef(null);
 
   const load = useCallback(async (silent) => {
@@ -195,33 +193,7 @@ export default function LiveClasses() {
     }
   };
 
-  const openAdd = (r) => {
-    setAddFor(r);
-    addForm.resetFields();
-  };
-  const submitAdd = async () => {
-    let v;
-    try {
-      v = await addForm.validateFields();
-    } catch (e) {
-      return;
-    }
-    setAddBusy(true);
-    try {
-      const res = await lmsApi.addBatchStudent(addFor.batchId, { email: v.email.trim(), name: (v.name || '').trim() });
-      if (res && res.success === false) message.warning(res.message || 'Could not add the student.');
-      else {
-        const emailed = res && res.result && res.result.emailed;
-        message.success(emailed ? 'Student added — class link emailed.' : 'Student added to the batch.');
-        setAddFor(null);
-      }
-    } catch (e) {
-      message.error('Could not add the student.');
-    } finally {
-      setAddBusy(false);
-      load(true);
-    }
-  };
+  const openAdd = (r) => setAddFor(r);
 
   const liveNow = rows.filter((r) => r.status === 'LIVE');
 
@@ -396,35 +368,15 @@ export default function LiveClasses() {
         </Form>
       </Modal>
 
-      <Modal
+      <BatchStudentsPanel
         open={!!addFor}
-        title={addFor ? `Add student — ${addFor.batchName || 'batch'}` : ''}
-        onCancel={() => setAddFor(null)}
-        onOk={submitAdd}
-        okText="Add student"
-        confirmLoading={addBusy}
-        destroyOnClose
-      >
-        <p style={{ marginTop: 0, color: 'rgba(0,0,0,0.45)' }}>
-          The student is enrolled in this batch, emailed the same class link + schedule, and appears in every
-          upcoming class.
-        </p>
-        <Form form={addForm} layout="vertical" preserve={false}>
-          <Form.Item name="name" label="Full name">
-            <Input placeholder="e.g. Priya Sharma" autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { required: true, message: 'Enter the student’s email.' },
-              { type: 'email', message: 'Enter a valid email address.' },
-            ]}
-          >
-            <Input placeholder="student@example.com" autoComplete="off" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        onClose={() => {
+          setAddFor(null);
+          load(true);
+        }}
+        batchId={addFor && addFor.batchId}
+        batchName={addFor && addFor.batchName}
+      />
 
       <Modal open={!!attFor} title={attFor ? `Attendance — ${attFor.title}` : ''} footer={null} onCancel={() => setAttFor(null)} width={680}>
         <Table
