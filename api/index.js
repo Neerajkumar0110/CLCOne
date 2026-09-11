@@ -1,3 +1,8 @@
+// Must run before anything else touches Date/Intl — see the matching
+// comment in src/server.js for why (batch/class times entered as India
+// time were silently shifting by +5:30 without this).
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
+
 let app;
 let bootError;
 // Assigned inside the try below; awaited by the exported handler before
