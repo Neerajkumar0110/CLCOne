@@ -170,18 +170,10 @@ async function openPublic(req, res) {
 }
 
 // ── pre-bearer: ticket redirect + logout/leave ping ──────────────────────
-// GET /api/lms/live/t/:ticket             -> 302 to the real meeting URL (one-time)
-// GET /api/lms/live/t/:ticket?embed=1     -> JSON { embed: {...} } for the
-//   in-app Jitsi iframe (frontend/src/pages/Lms/components/JitsiEmbed.jsx),
-//   when the provider supports it — otherwise falls back to the same 302.
+// GET /api/lms/live/t/:ticket  -> 302 to the real meeting URL (one-time)
 async function ticket(req, res) {
-  const wantsEmbed = req.query.embed === '1';
-  const out = await liveClassService.redeemTicket(req.params.ticket, { embed: wantsEmbed });
-  if (out.error) {
-    if (wantsEmbed) return res.status(out.error).json({ success: false, message: out.message });
-    return res.status(out.error).type('text/plain').send(out.message);
-  }
-  if (out.result.embed) return res.status(200).json({ success: true, result: out.result });
+  const out = await liveClassService.redeemTicket(req.params.ticket);
+  if (out.error) return res.status(out.error).type('text/plain').send(out.message);
   return res.redirect(302, out.result.url);
 }
 
