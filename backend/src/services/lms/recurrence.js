@@ -17,6 +17,38 @@ const MAX_AUTO_CLASSES = Number(process.env.LMS_MAX_AUTO_CLASSES || 400);
 const MIN_MONTHS = Number(process.env.LMS_MIN_BATCH_MONTHS || 6);
 const DAY_IDX = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
+// Batch Start/End time, class days, etc. are entered and read as India time.
+// server.js/api/index.js set process.env.TZ='Asia/Kolkata' so Date's local-
+// time methods (setHours/getDay/…) mean IST too — but that only works if
+// the *deployed* process actually picked it up (a platform-level TZ, a
+// container base image, or a process that wasn't restarted can all still
+// leave it on UTC). The math below computes IST directly from a fixed
+// +5:30 offset instead of relying on the process's ambient timezone at
+// all, so a batch's schedule is correct regardless of what the host does.
+// India has no daylight-saving time, so a flat offset is exact, always.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+// { year, month (0-11), date, dow (0=Sun..6=Sat) } as the calendar day/time
+// `d` falls on when viewed in IST — independent of process.env.TZ.
+function istParts(d) {
+  const ist = new Date(d.getTime() + IST_OFFSET_MS);
+  return {
+    year: ist.getUTCFullYear(),
+    month: ist.getUTCMonth(),
+    date: ist.getUTCDate(),
+    dow: ist.getUTCDay(),
+  };
+}
+// The UTC instant for `h:min` IST on the IST calendar day that `baseDate` falls on.
+function istDateTime(baseDate, h, min) {
+  const p = istParts(baseDate);
+  return new Date(Date.UTC(p.year, p.month, p.date, h, min, 0, 0) - IST_OFFSET_MS);
+}
+// The UTC instant for 00:00 IST on the IST calendar day `baseDate` falls on.
+function istMidnight(baseDate) {
+  return istDateTime(baseDate, 0, 0);
+}
+
 function parseDays(batch) {
   const src = `${batch.classDays || ''} ${batch.schedule || ''}`.toLowerCase();
   const found = [];
@@ -65,31 +97,36 @@ function occurrences(batch) {
   const { h, min } = parseTime(batch);
   const durMin = parseDuration(batch);
 
-  const from = batch.startDate ? new Date(batch.startDate) : new Date();
-  from.setHours(0, 0, 0, 0);
+  const fromRaw = batch.startDate ? new Date(batch.startDate) : new Date();
+  const from = istMidnight(fromRaw); // UTC instant of 00:00 IST on that calendar day
 
   // "same link for at least 6 months": the schedule always spans >= MIN_MONTHS
-  // from the start, even if endDate is missing or sooner.
+  // from the start, even if endDate is missing or sooner. Adding calendar
+  // months to a UTC instant is safe here since `from` is always exactly IST
+  // midnight — setUTCMonth only moves the date, the time-of-day (and so the
+  // IST-midnight alignment) doesn't drift.
   const minTo = new Date(from);
-  minTo.setMonth(minTo.getMonth() + MIN_MONTHS);
+  minTo.setUTCMonth(minTo.getUTCMonth() + MIN_MONTHS);
   const endDate = batch.endDate ? new Date(batch.endDate) : null;
   const to = endDate && endDate > minTo ? endDate : minTo;
 
   const out = [];
-  const cursor = new Date(from);
+  let cursor = from;
   let guard = 0;
   while (guard++ < 1200 && out.length < MAX_AUTO_CLASSES) {
     if (to && cursor > to) break;
-    const isClassDay = days.length ? days.includes(cursor.getDay()) : out.length === 0; // no days -> single class
+    const isClassDay = days.length ? days.includes(istParts(cursor).dow) : out.length === 0; // no days -> single class
     if (isClassDay) {
-      const start = new Date(cursor);
-      start.setHours(h, min, 0, 0);
+      const start = istDateTime(cursor, h, min);
       if (!to || start <= new Date(to.getTime() + 86400000)) {
         out.push({ start, end: new Date(start.getTime() + durMin * 60000), index: out.length + 1, durMin });
       }
       if (!days.length) break; // single occurrence
     }
-    cursor.setDate(cursor.getDate() + 1);
+    // Advance exactly one calendar day. India has no DST, so +24h from an
+    // IST-midnight instant always lands on the next day's IST midnight too
+    // — no local-time method (setDate) needed, so no ambient-timezone risk.
+    cursor = new Date(cursor.getTime() + 86400000);
   }
   return out;
 }
@@ -178,4 +215,4 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
   return created;
 }
 
-module.exports = { generateForBatch, occurrences, parseDays, parseTime, parseDuration };
+module.exports = { generateForBatch, occurrences, parseDays, parseTime, parseDuration, istParts, istDateTime, istMidnight, IST_OFFSET_MS };
