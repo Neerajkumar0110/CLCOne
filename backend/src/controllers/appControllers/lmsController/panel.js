@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../config/roles');
+const { istDateTime } = require('../../../services/lms/recurrence');
 
 // Dashboards for the two dedicated LMS panels:
 //   GET /api/lms/teacher/dashboard   (role: Teacher, or a manager)
@@ -13,8 +14,11 @@ const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../.
 
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
 const rx = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-const startOfDay = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-const endOfDay = (d = new Date()) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+// "Today" means today in India, regardless of what timezone the server
+// process itself happens to be in — see recurrence.js's istDateTime for why
+// a fixed +5:30 offset is used instead of Date's local-time methods.
+const startOfDay = (d = new Date()) => istDateTime(d, 0, 0);
+const endOfDay = (d = new Date()) => new Date(istDateTime(d, 23, 59).getTime() + 59999);
 const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
 
 async function teacherDashboard(req, res) {
