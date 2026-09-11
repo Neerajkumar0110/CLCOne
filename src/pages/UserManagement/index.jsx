@@ -15,6 +15,8 @@ import {
   UsergroupDeleteOutlined,
   MoreOutlined,
   DownOutlined,
+  ReadOutlined,
+  SolutionOutlined,
 } from "@ant-design/icons";
 import { PERMISSION_MODULES } from "@/config/permissionModules";
 import { buildDefaultMatrix, fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
@@ -75,12 +77,14 @@ async function savePermissionRecord({ id, scope, key, matrix }) {
 const NO_TEAM = "__none__";
 const NEW_TEAM = "__new__";
 
-function AddUserModal({ open, onClose, onAdd, teams }) {
+function AddUserModal({ open, onClose, onAdd, teams, initialRole }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   // Defaults to the lowest-privilege role — Super Admin/Admin creation is
-  // gated server-side to Super Admin requesters, so it shouldn't be the default pick.
-  const [role, setRole] = useState("Executive");
+  // gated server-side to Super Admin requesters, so it shouldn't be the
+  // default pick — unless opened from a role-filtered tab (e.g. Students),
+  // which pins it to that role instead.
+  const [role, setRole] = useState(initialRole || "Executive");
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [newTeamName, setNewTeamName] = useState("");
@@ -89,6 +93,11 @@ function AddUserModal({ open, onClose, onAdd, teams }) {
 
   // Only roles that lead a team get to spin up a brand new one here.
   const isManagerRole = MANAGER_TEAM_ROLES.includes(role);
+
+  useEffect(() => {
+    if (open) setRole(initialRole || "Executive");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialRole]);
 
   useEffect(() => {
     if (NO_TEAM_FIELD_ROLES.includes(role) || (!isManagerRole && teamChoice === NEW_TEAM)) {
@@ -522,7 +531,7 @@ function UserPermissionsModal({ open, user, onClose, onToggle, onReset }) {
   );
 }
 
-function Users({ teams, onAssignTeam }) {
+function Users({ teams, onAssignTeam, roleFilter }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -659,6 +668,8 @@ function Users({ teams, onAssignTeam }) {
     }
   };
 
+  const visibleUsers = roleFilter ? users.filter((u) => u.role === roleFilter) : users;
+
   if (loading) {
     return (
       <div className="hub-card">
@@ -671,13 +682,13 @@ function Users({ teams, onAssignTeam }) {
     <>
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>All Users</h3>
+          <h3>{roleFilter ? `${roleFilter}s` : "All Users"}</h3>
           <button
             className="hub-btn hub-btn-primary"
             type="button"
             onClick={() => setAddOpen(true)}
           >
-            <UserAddOutlined /> Add User
+            <UserAddOutlined /> Add {roleFilter || "User"}
           </button>
         </div>
 
@@ -693,14 +704,20 @@ function Users({ teams, onAssignTeam }) {
               </tr>
             </thead>
             <tbody>
-              {users.length === 0 && (
+              {visibleUsers.length === 0 && (
                 <tr>
                   <td colSpan={5}>
-                    <div className="hub-empty">No users yet — add one to get started.</div>
+                    <div className="hub-empty">
+                      {roleFilter === "Student"
+                        ? "No students yet — students added from the LMS Students tab show up here automatically, or add one directly."
+                        : roleFilter
+                        ? `No ${roleFilter.toLowerCase()}s yet — add one to get started.`
+                        : "No users yet — add one to get started."}
+                    </div>
                   </td>
                 </tr>
               )}
-              {users.map((u) => (
+              {visibleUsers.map((u) => (
                 <tr key={u.email}>
                   <td>
                     <div className="hub-person">
@@ -752,6 +769,7 @@ function Users({ teams, onAssignTeam }) {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         teams={teams}
+        initialRole={roleFilter}
         onAdd={async (u, teamInfo) => {
           await loadUsers();
           onAssignTeam(u.name, teamInfo.teamChoice, teamInfo.newTeamName);
@@ -1802,6 +1820,8 @@ export default function UserManagement() {
       <HubTabs
         tabs={[
           { key: "users", label: "Users", icon: <UserAddOutlined /> },
+          { key: "teachers", label: "Teachers", icon: <SolutionOutlined /> },
+          { key: "students", label: "Students", icon: <ReadOutlined /> },
           { key: "deleted", label: "Deleted Users", icon: <UsergroupDeleteOutlined /> },
           { key: "roles", label: "Roles & Permissions", icon: <SafetyCertificateOutlined /> },
           { key: "teams", label: "Team Management", icon: <TeamOutlined /> },
@@ -1812,6 +1832,8 @@ export default function UserManagement() {
       />
 
       {tab === "users" && <Users teams={teams} onAssignTeam={assignUserToTeam} />}
+      {tab === "teachers" && <Users teams={teams} onAssignTeam={assignUserToTeam} roleFilter="Teacher" />}
+      {tab === "students" && <Users teams={teams} onAssignTeam={assignUserToTeam} roleFilter="Student" />}
       {tab === "deleted" && <DeletedUsers />}
       {tab === "roles" && <RolesPermissions />}
       {tab === "teams" &&

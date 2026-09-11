@@ -1,30 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Tabs, Empty, Skeleton, Alert, Progress } from 'antd';
+import { Row, Col, Card, Table, Tabs, Empty, Skeleton, Alert, Progress } from 'antd';
 import { BarChartOutlined } from '@ant-design/icons';
 import lmsApi from '../api';
+import ChartCard from '@/components/dashboard/ChartCard';
+import { applyChartTheme } from '@/components/dashboard/chartTheme';
+import { useTheme } from '@/context/themeContext';
+import KpiTile from '../components/KpiTile';
+import '@/components/dashboard/dashboard.css';
 
-const KPI = ({ title, value, suffix, color }) => (
-  <Col xs={12} sm={8} lg={6} xxl={4}>
-    <Card size="small" className="lms-kpi" bordered>
-      <Statistic title={title} value={value} suffix={suffix} valueStyle={{ color: color || '#101828', fontWeight: 700 }} />
-    </Card>
-  </Col>
+const KPI = ({ title, value, suffix, tone }) => (
+  <KpiTile title={title} value={value} suffix={suffix} tone={tone} />
 );
 
-function Bars({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120, padding: '8px 0' }}>
-      {data.map((d) => (
-        <div key={d.range} style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ background: '#1d4ed8', borderRadius: 4, height: `${(d.count / max) * 90}px`, minHeight: 2 }} />
-          <div style={{ fontSize: 11, marginTop: 4, color: '#667085' }}>{d.range}</div>
-          <div style={{ fontSize: 12, fontWeight: 600 }}>{d.count}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const histogramChart = (data) => ({
+  labels: (data || []).map((d) => d.range),
+  datasets: [{ label: 'Students', data: (data || []).map((d) => d.count) }],
+});
 
 const cohortCols = [
   { title: 'Student', dataIndex: 'name' },
@@ -40,6 +31,8 @@ export default function Analytics() {
   const [live, setLive] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const { isDark } = useTheme();
+  applyChartTheme(isDark);
 
   useEffect(() => {
     Promise.all([lmsApi.teacherAnalytics(), lmsApi.teacherLiveAnalytics().catch(() => null)])
@@ -60,39 +53,45 @@ export default function Analytics() {
   const co = d.cohorts || {};
 
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
+    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div><h2><BarChartOutlined /> Analytics</h2><p>{d.scope?.students || 0} students · {d.scope?.courses || 0} courses · {d.scope?.batches || 0} batches</p></div>
       </div>
 
-      <Row gutter={[12, 12]}>
-        <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" color="#1d4ed8" />
-        <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" />
-        <KPI title="Avg quiz score" value={k.avgQuizScore} suffix="%" />
-        <KPI title="Active students" value={k.activeStudents} color="#15803d" />
-        <KPI title="Completed" value={k.completedStudents} color="#15803d" />
-        <KPI title="Live hours" value={k.totalLiveHours} />
-        <KPI title="Classes done" value={k.completedClasses} />
-        <KPI title="To grade" value={k.assignmentsToGrade} color="#b45309" />
+      <Row gutter={[14, 14]}>
+        <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" tone="blue" />
+        <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" tone="cyan" />
+        <KPI title="Avg quiz score" value={k.avgQuizScore} suffix="%" tone="purple" />
+        <KPI title="Active students" value={k.activeStudents} tone="green" />
+        <KPI title="Completed" value={k.completedStudents} tone="green" />
+        <KPI title="Live hours" value={k.totalLiveHours} tone="cyan" />
+        <KPI title="Classes done" value={k.completedClasses} tone="slate" />
+        <KPI title="To grade" value={k.assignmentsToGrade} tone="amber" />
       </Row>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={8}><Card size="small" title="Course completion">{ch.courseCompletion ? <Bars data={ch.courseCompletion} /> : null}</Card></Col>
-        <Col xs={24} lg={8}><Card size="small" title="Attendance">{ch.attendance ? <Bars data={ch.attendance} /> : null}</Card></Col>
-        <Col xs={24} lg={8}><Card size="small" title="Quiz scores">{ch.quizScores ? <Bars data={ch.quizScores} /> : null}</Card></Col>
+      <Row gutter={[14, 14]} style={{ marginTop: 12 }} key={isDark ? 'an-charts-d' : 'an-charts-l'}>
+        <Col xs={24} lg={8}>
+          <ChartCard def={{ key: 'courseCompletion', kind: 'bar', title: 'Course completion' }} raw={histogramChart(ch.courseCompletion)} height={220} />
+        </Col>
+        <Col xs={24} lg={8}>
+          <ChartCard def={{ key: 'attendance', kind: 'bar', title: 'Attendance' }} raw={histogramChart(ch.attendance)} height={220} />
+        </Col>
+        <Col xs={24} lg={8}>
+          <ChartCard def={{ key: 'quizScores', kind: 'bar', title: 'Quiz scores' }} raw={histogramChart(ch.quizScores)} height={220} />
+        </Col>
       </Row>
 
       {live && live.totals && (
         <Card size="small" style={{ marginTop: 12 }} title="Live classes">
-          <Row gutter={[12, 12]}>
-            <KPI title="Total classes" value={live.totals.totalClasses} />
-            <KPI title="Completed" value={live.totals.completedClasses} />
-            <KPI title="Live hours" value={live.totals.totalLiveHours} />
-            <KPI title="Avg attendance" value={live.totals.avgAttendancePct} suffix="%" />
-            <KPI title="Avg join delay" value={live.totals.avgJoinDelayMin} suffix=" min" />
-            <KPI title="Avg duration" value={live.totals.avgDurationMin} suffix=" min" />
-            <KPI title="Recording views" value={live.totals.recordingViews} />
-            <KPI title="Participants" value={live.totals.totalParticipants} />
+          <Row gutter={[14, 14]}>
+            <KPI title="Total classes" value={live.totals.totalClasses} tone="blue" />
+            <KPI title="Completed" value={live.totals.completedClasses} tone="green" />
+            <KPI title="Live hours" value={live.totals.totalLiveHours} tone="cyan" />
+            <KPI title="Avg attendance" value={live.totals.avgAttendancePct} suffix="%" tone="blue" />
+            <KPI title="Avg join delay" value={live.totals.avgJoinDelayMin} suffix=" min" tone="amber" />
+            <KPI title="Avg duration" value={live.totals.avgDurationMin} suffix=" min" tone="cyan" />
+            <KPI title="Recording views" value={live.totals.recordingViews} tone="purple" />
+            <KPI title="Participants" value={live.totals.totalParticipants} tone="blue" />
           </Row>
           <Table
             style={{ marginTop: 12 }}

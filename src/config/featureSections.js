@@ -12,11 +12,15 @@
 //   • readOnly  — `kpis[]` + `columns[]` -> computed placeholder, no Add/Edit.
 //
 // field: { name, label, type, options?, required?, table?, group? }
-//   type: text | textarea | number | date | select | email | tel | url | bool
+//   type: text | textarea | number | date | time | select | email | tel | url | bool
 //   table:false hides it from the list (still in the form)
 //   group     is a form section heading
+//   compute(values) — for a field whose value is derived from others (e.g.
+//                 Batch's Class duration from Start/End time); CrudTab
+//                 recalculates it on every form change and writes it in.
 // =============================================================================
 
+import dayjs from 'dayjs';
 import {
   RiseOutlined,
   NotificationOutlined,
@@ -72,7 +76,13 @@ const T = (name, label, o = {}) => ({ name, label, type: 'text', ...o });
 const AREA = (name, label, o = {}) => ({ name, label, type: 'textarea', table: false, ...o });
 const NUM = (name, label, o = {}) => ({ name, label, type: 'number', ...o });
 const DT = (name, label, o = {}) => ({ name, label, type: 'date', ...o });
+const TIME = (name, label, o = {}) => ({ name, label, type: 'time', ...o });
 const SEL = (name, label, options, o = {}) => ({ name, label, type: 'select', options, ...o });
+// A select whose options come from another entity's live list (e.g. pick a
+// Course by title, a Batch by name) instead of a hardcoded array — CrudTab
+// fetches `refEntity`, reads `refLabel` off each row (default 'name'), and
+// optionally keeps only rows `refFilter` passes.
+const REF = (name, label, refEntity, o = {}) => ({ name, label, type: 'select', refEntity, ...o });
 const EM = (name, label, o = {}) => ({ name, label, type: 'email', table: false, ...o });
 const TEL = (name, label, o = {}) => ({ name, label, type: 'tel', table: false, ...o });
 const URLF = (name, label, o = {}) => ({ name, label, type: 'url', table: false, ...o });
@@ -722,7 +732,8 @@ export const FEATURE_SECTIONS = [
         fields: [
           ...grp('Course', [
             T('title', 'Title', { required: true }),
-            T('code', 'Code', { table: false }),
+            // Self-generated from the title (e.g. AI101) — never shown as an input.
+            T('code', 'Code', { table: false, hidden: true }),
             SEL('category', 'Category', ['Aptitude', 'Technical', 'Communication', 'Interview Prep', 'Domain', 'Soft Skills', 'Certification']),
             SEL('level', 'Level', ['Beginner', 'Intermediate', 'Advanced'], { table: false }),
             SEL('mode', 'Mode', ['Self-paced', 'Cohort', 'Live', 'Blended'], { table: false }),
@@ -731,11 +742,14 @@ export const FEATURE_SECTIONS = [
             T('instructor', 'Instructor'),
           ]),
           ...grp('Structure', [
-            NUM('durationHours', 'Duration (hrs)'),
-            NUM('modules', 'Modules', { table: false }),
-            NUM('lessons', 'Lessons', { table: false }),
-            NUM('rating', 'Rating', { table: false }),
-            NUM('enrolledCount', 'Enrolled', { table: false }),
+            NUM('durationHours', 'Duration (months)'),
+            // Not manually entered — the real module/lesson counts come from
+            // the curriculum built in Course Builder, rating and enrolment
+            // are computed from real activity, not typed in at creation.
+            NUM('modules', 'Modules', { table: false, hidden: true }),
+            NUM('lessons', 'Lessons', { table: false, hidden: true }),
+            NUM('rating', 'Rating', { table: false, hidden: true }),
+            NUM('enrolledCount', 'Enrolled', { table: false, hidden: true }),
             DT('publishedDate', 'Published date', { table: false }),
           ]),
           ...grp('Pricing', [
@@ -758,11 +772,32 @@ export const FEATURE_SECTIONS = [
         entity: 'batch',
         fields: [
           ...grp('Batch', [
-            T('name', 'Name', { required: true }),
-            T('code', 'Code', { table: false }),
-            T('course', 'Course'),
+            // Self-generated from Course + Trainer (e.g. "Artificial
+            // Intelligence — Rohit Kushwaha") — never shown as an input.
+            T('name', 'Name', { hidden: true }),
+            // Self-generated from the course (e.g. AI101) — never shown as an input.
+            T('code', 'Code', { table: false, hidden: true }),
+            REF('course', 'Course', 'course', {
+              refLabel: 'title',
+              refFilter: (c) => c.status !== 'Archived',
+              refDisplay: (c) => `${c.code ? c.code + ' — ' : ''}${c.title}`,
+            }),
             SEL('mode', 'Mode', ['Online', 'Offline', 'Hybrid'], { table: false }),
-            T('trainer', 'Trainer'),
+            // Must be an exact Teacher account name — the Teacher Dashboard
+            // and Live Classes matching (backend/src/services/lms/
+            // liveClassService.js: resolveRole/ensureBatchRoom) look up a
+            // batch's live classes by comparing this string to the
+            // logged-in teacher's name, so a free-typed value that doesn't
+            // match exactly (a typo, extra space, different casing that
+            // still reads the same) silently means that teacher never sees
+            // the batch. A dropdown of real Teacher accounts removes that
+            // whole class of mismatch.
+            REF('trainer', 'Trainer', 'admin', {
+              refLabel: 'name',
+              refFilter: (a) => a.role === 'Teacher',
+              refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
+              hint: 'Pick the teacher account this batch belongs to — their dashboard shows exactly this batch.',
+            }),
             T('coordinator', 'Coordinator', { table: false }),
             SEL('status', 'Status', ['Planned', 'Open for Enrollment', 'Running', 'Completed', 'Cancelled']),
           ]),
@@ -770,8 +805,18 @@ export const FEATURE_SECTIONS = [
             DT('startDate', 'Start'),
             DT('endDate', 'End', { table: false }),
             T('classDays', 'Class days', { table: false }),      // e.g. Mon,Wed,Fri
-            T('classTime', 'Class time', { table: false }),      // e.g. 10:00
-            NUM('classDurationMin', 'Class duration (min)', { table: false }),
+            TIME('classTime', 'Start time', { table: false }),   // e.g. 10:00 (field key unchanged)
+            TIME('endTime', 'End time', { table: false }),       // e.g. 11:00
+            NUM('classDurationMin', 'Class duration (min)', {
+              table: false,
+              // Read-only once both times are set — Start/End time decide it.
+              compute: (values) => {
+                const start = dayjs.isDayjs(values.classTime) && values.classTime.isValid() ? values.classTime.hour() * 60 + values.classTime.minute() : null;
+                const end = dayjs.isDayjs(values.endTime) && values.endTime.isValid() ? values.endTime.hour() * 60 + values.endTime.minute() : null;
+                if (start == null || end == null || end <= start) return undefined; // leave as manually entered
+                return end - start;
+              },
+            }),
             T('schedule', 'Schedule (free text)', { table: false }),
             T('venue', 'Venue', { table: false }),
             // No manual meeting link — on save, the system auto-creates the
@@ -796,28 +841,63 @@ export const FEATURE_SECTIONS = [
         fields: [
           ...grp('Student', [
             T('name', 'Name', { required: true }),
-            EM('email', 'Email'),
+            // Required — this is also the email a real login account gets
+            // auto-provisioned to (OTP-based, no password) on create.
+            EM('email', 'Email', { required: true }),
             TEL('phone', 'Phone'),
             TEL('altPhone', 'Alt phone'),
             T('city', 'City', { table: false }),
-            T('enrollmentId', 'Enrollment ID', { table: false }),
+            T('enrollmentId', 'Enrollment ID', {
+              table: false,
+              placeholder: 'Auto-generated if left blank',
+              hint: 'Leave blank to auto-generate (e.g. AI101) from the course.',
+            }),
           ]),
           ...grp('Enrollment', [
-            T('course', 'Course'),
-            T('batch', 'Batch'),
+            REF('course', 'Course', 'course', {
+              refLabel: 'title',
+              refFilter: (c) => c.status !== 'Archived',
+              refDisplay: (c) => `${c.code ? c.code + ' — ' : ''}${c.title}`,
+            }),
+            REF('batch', 'Batch', 'batch', {
+              refLabel: 'name',
+              refFilter: (b) => ['Planned', 'Open for Enrollment', 'Running'].includes(b.status),
+              refDisplay: (b) => `${b.name}${b.course ? ' — ' + b.course : ''}`,
+              hint: 'Only running or upcoming batches are listed.',
+            }),
             DT('enrolledOn', 'Enrolled on', { table: false }),
             SEL('status', 'Status', ['Active', 'On Hold', 'Completed', 'Dropped', 'Deferred']),
             SEL('source', 'Source', ['Website', 'Referral', 'Walk-in', 'Ads', 'Counselor', 'Partner'], { table: false }),
             T('counselor', 'Counselor', { table: false }),
           ]),
+          // Not manually entered — these track real activity (attendance,
+          // quiz scores, course completion) elsewhere in the LMS, so the
+          // create/edit form no longer asks for them.
           ...grp('Progress', [
-            NUM('progress', 'Progress %'),
-            NUM('attendancePct', 'Attendance %', { table: false }),
-            NUM('avgScore', 'Avg score', { table: false }),
+            NUM('progress', 'Progress %', { hidden: true }),
+            NUM('attendancePct', 'Attendance %', { table: false, hidden: true }),
+            NUM('avgScore', 'Avg score', { table: false, hidden: true }),
           ]),
           ...grp('Fees', [
-            NUM('feeTotal', 'Fee total', { table: false }),
+            NUM('feeTotal', 'Course fee (before GST)', { table: false }),
+            NUM('feeGrandTotal', 'Total (incl. 18% GST)', {
+              table: false,
+              hint: 'Course fee × 1.18 — GST is fixed at 18%.',
+              compute: (values) => {
+                const base = Number(values.feeTotal);
+                return Number.isFinite(base) && base >= 0 ? Math.round(base * 1.18 * 100) / 100 : undefined;
+              },
+            }),
             NUM('feePaid', 'Fee paid', { table: false }),
+            NUM('feeDue', 'Balance due', {
+              table: false,
+              hint: 'Total (incl. GST) − Fee paid.',
+              compute: (values) => {
+                const total = Number(values.feeGrandTotal);
+                const paid = Number(values.feePaid) || 0;
+                return Number.isFinite(total) ? Math.max(0, Math.round((total - paid) * 100) / 100) : undefined;
+              },
+            }),
             SEL('feeStatus', 'Fee status', ['Paid', 'Partial', 'Unpaid', 'Waived']),
           ]),
           ...grp('Guardian', [

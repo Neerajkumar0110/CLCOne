@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
+import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
 import {
   ReadOutlined,
   TeamOutlined,
@@ -10,6 +10,11 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
+import ChartCard from '@/components/dashboard/ChartCard';
+import { applyChartTheme } from '@/components/dashboard/chartTheme';
+import { useTheme } from '@/context/themeContext';
+import KpiTile from '../components/KpiTile';
+import '@/components/dashboard/dashboard.css';
 
 const fmtTime = (v) => {
   if (!v) return '—';
@@ -20,12 +25,8 @@ const fmtTime = (v) => {
   }
 };
 
-const KPI = ({ title, value, suffix, color, icon }) => (
-  <Col xs={12} sm={8} lg={6} xxl={4}>
-    <Card size="small" className="lms-kpi" bordered>
-      <Statistic title={title} value={value} suffix={suffix} valueStyle={{ color: color || '#101828', fontWeight: 700 }} prefix={icon} />
-    </Card>
-  </Col>
+const KPI = ({ title, value, suffix, tone, icon }) => (
+  <KpiTile title={title} value={value} suffix={suffix} tone={tone} icon={icon} />
 );
 
 export default function TeacherDashboard() {
@@ -33,6 +34,8 @@ export default function TeacherDashboard() {
   const [err, setErr] = useState(null);
   const [d, setD] = useState(null);
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  applyChartTheme(isDark);
 
   useEffect(() => {
     let alive = true;
@@ -56,9 +59,35 @@ export default function TeacherDashboard() {
   if (!d) return <Empty style={{ marginTop: 80 }} description="No data yet" />;
 
   const k = d.kpis || {};
+  const c = d.charts || {};
+
+  const attendanceByClass = c.attendanceByClass || [];
+  const attendanceChart = {
+    labels: attendanceByClass.map((r) => r.name),
+    datasets: [
+      { label: 'Present', data: attendanceByClass.map((r) => r.present) },
+      { label: 'Total', data: attendanceByClass.map((r) => r.total) },
+    ],
+  };
+
+  const courseStatusChart = {
+    labels: ['Published', 'Draft', 'Archived'],
+    datasets: [{ data: [k.publishedCourses || 0, k.draftCourses || 0, k.archivedCourses || 0] }],
+  };
+
+  const studentStatusChart = {
+    labels: ['Active', 'Inactive'],
+    datasets: [{ data: [k.activeStudents || 0, k.inactiveStudents || 0] }],
+  };
+
+  const studentProgress = c.studentProgress || [];
+  const progressChart = {
+    labels: studentProgress.map((s) => s.name),
+    datasets: [{ label: 'Progress %', data: studentProgress.map((s) => s.progress) }],
+  };
 
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
+    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div>
           <h2><ReadOutlined /> Teacher Dashboard</h2>
@@ -69,22 +98,37 @@ export default function TeacherDashboard() {
         </Button>
       </div>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <KPI title="Courses" value={k.totalCourses} icon={<ReadOutlined />} />
-        <KPI title="Published" value={k.publishedCourses} color="#15803d" />
-        <KPI title="Drafts" value={k.draftCourses} color="#b45309" />
-        <KPI title="Students" value={k.totalStudents} icon={<TeamOutlined />} />
-        <KPI title="Active students" value={k.activeStudents} color="#15803d" />
-        <KPI title="Today's classes" value={k.todaysClasses} icon={<ClockCircleOutlined />} />
-        <KPI title="Live now" value={k.liveClasses} color="#dc2626" />
-        <KPI title="Upcoming" value={k.upcomingClasses} />
-        <KPI title="Completed" value={k.completedClasses} />
-        <KPI title="Live hours" value={k.totalLiveClassHours} />
-        <KPI title="Recordings" value={k.totalRecordings} icon={<PlayCircleOutlined />} />
-        <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" color="#1d4ed8" icon={<CheckSquareOutlined />} />
-        <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" />
-        <KPI title="Pending assignments" value={k.pendingAssignments} color="#94a3b8" />
-        <KPI title="Pending doubts" value={k.pendingDoubts} color="#94a3b8" />
+      <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
+        <KPI title="Courses" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
+        <KPI title="Published" value={k.publishedCourses} tone="green" />
+        <KPI title="Drafts" value={k.draftCourses} tone="amber" />
+        <KPI title="Students" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
+        <KPI title="Active students" value={k.activeStudents} tone="green" />
+        <KPI title="Today's classes" value={k.todaysClasses} tone="cyan" icon={<ClockCircleOutlined />} />
+        <KPI title="Live now" value={k.liveClasses} tone="red" />
+        <KPI title="Upcoming" value={k.upcomingClasses} tone="purple" />
+        <KPI title="Completed" value={k.completedClasses} tone="slate" />
+        <KPI title="Live hours" value={k.totalLiveClassHours} tone="cyan" />
+        <KPI title="Recordings" value={k.totalRecordings} tone="purple" icon={<PlayCircleOutlined />} />
+        <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" tone="blue" icon={<CheckSquareOutlined />} />
+        <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" tone="green" />
+        <KPI title="Pending assignments" value={k.pendingAssignments} tone="slate" />
+        <KPI title="Pending doubts" value={k.pendingDoubts} tone="slate" />
+      </Row>
+
+      <Row gutter={[12, 12]} style={{ marginTop: 12 }} key={isDark ? 'charts-d' : 'charts-l'}>
+        <Col xs={24} lg={12}>
+          <ChartCard def={{ key: 'attendanceByClass', kind: 'bar', title: 'Attendance by class' }} raw={attendanceChart} />
+        </Col>
+        <Col xs={24} lg={12}>
+          <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Course status' }} raw={courseStatusChart} />
+        </Col>
+        <Col xs={24} lg={12}>
+          <ChartCard def={{ key: 'studentProgress', kind: 'bar', title: 'Student progress' }} raw={progressChart} />
+        </Col>
+        <Col xs={24} lg={12}>
+          <ChartCard def={{ key: 'studentStatus', kind: 'donut', title: 'Students · active vs inactive' }} raw={studentStatusChart} />
+        </Col>
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>

@@ -1,12 +1,15 @@
 import React, { Suspense, lazy, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ApiOutlined, BarChartOutlined, TableOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
 import { findFeatureTab } from '@/config/featureSections';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { DASH_CONFIGS } from '@/components/dashboard/configs';
+import BatchStudentsPanel from '@/pages/Lms/components/BatchStudentsPanel';
+import lmsApi from '@/pages/Lms/api';
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
 const TeamChat = lazy(() =>
@@ -109,20 +112,78 @@ function TabBody({ section, tab }) {
   const hasRecords = !!(tab.entity || (tab.embed && EMBED[tab.embed]));
   const dashCfg = tab.dashboard ? DASH_CONFIGS[tab.dashboard] : null;
   const [view, setView] = useState('dashboard');
+  // Batches only — "manage students" drawer, opened from a row's extra
+  // action button (see renderRowExtra below).
+  const [batchPanel, setBatchPanel] = useState(null); // { id, name } | null
+  const [regenBusyId, setRegenBusyId] = useState(null);
+
+  const regenerateBatch = async (row) => {
+    setRegenBusyId(row._id);
+    try {
+      const res = await lmsApi.liveClassRegenerate(row._id, row._id);
+      if (res && res.success === false) {
+        message.error(res.message || 'Could not regenerate the schedule.');
+      } else {
+        const created = res && res.result && res.result.created;
+        message.success(
+          created ? `Created ${created} live class session(s).` : 'Schedule is already up to date — nothing new to create.'
+        );
+      }
+    } catch (e) {
+      message.error('Could not regenerate the schedule.');
+    } finally {
+      setRegenBusyId(null);
+    }
+  };
 
   const records = tab.embed && EMBED[tab.embed] ? (
     <Suspense fallback={<div className="hub-card"><div className="hub-empty">Loading…</div></div>}>
       {React.createElement(EMBED[tab.embed])}
     </Suspense>
   ) : tab.entity ? (
-    <CrudTab
-      key={`${section.key}/${tab.key}`}
-      entity={tab.entity}
-      fields={tab.fields}
-      fixedFilter={tab.fixedFilter}
-      title={tab.label}
-      icon={tab.Icon}
-    />
+    <>
+      <CrudTab
+        key={`${section.key}/${tab.key}`}
+        entity={tab.entity}
+        fields={tab.fields}
+        fixedFilter={tab.fixedFilter}
+        title={tab.label}
+        icon={tab.Icon}
+        renderRowExtra={
+          tab.entity === 'batch'
+            ? (row) => (
+                <>
+                  <button
+                    type="button"
+                    className="hub-icon-btn"
+                    title="Manage students"
+                    onClick={() => setBatchPanel({ id: row._id, name: row.name })}
+                  >
+                    <UsergroupAddOutlined />
+                  </button>
+                  <button
+                    type="button"
+                    className="hub-icon-btn"
+                    title="Regenerate live classes — use this if a batch's classes aren't showing up"
+                    disabled={regenBusyId === row._id}
+                    onClick={() => regenerateBatch(row)}
+                  >
+                    <SyncOutlined spin={regenBusyId === row._id} />
+                  </button>
+                </>
+              )
+            : undefined
+        }
+      />
+      {tab.entity === 'batch' && (
+        <BatchStudentsPanel
+          open={!!batchPanel}
+          onClose={() => setBatchPanel(null)}
+          batchId={batchPanel && batchPanel.id}
+          batchName={batchPanel && batchPanel.name}
+        />
+      )}
+    </>
   ) : tab.stats ? (
     <SectionOverview key={`${section.key}/${tab.key}`} stats={tab.stats} note={tab.note} />
   ) : (
