@@ -1,9 +1,6 @@
 /* =========================================================
-   Dashboard UI refresh — navy + white base with soft accent cards.
-   Updated for the Dashboard module first:
-   1) page background uses navy blue and white
-   2) cards use light navy, light pink, and light green accents
-   3) typography is bold, consistent, and visible in all modes
+   Simplified dashboard styling.
+   Minimal, neutral, plain UI with clear spacing and readable text.
 ========================================================= */
 
 .dash-shell {
@@ -13,78 +10,84 @@
 
 .sales-dashboard-ui {
   display: block;
-  /* Leads Analytics page background: soft light blue blended with yellow in
-     light mode so the dashboard is visible beyond the header card. */
-  background: linear-gradient(135deg, rgba(237, 247, 255, 0.82), rgba(255, 250, 222, 0.78));
-  border: 1px solid rgba(117, 158, 214, 0.2);
-  border-radius: 24px;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
   padding: 12px;
 }
 
 .sales-dashboard-ui .dash-header {
-  /* Leads Analytics UI update: light mode uses a soft light-blue/yellow
-     background so the title block is visible outside dark mode as well. */
-  background: linear-gradient(135deg, rgba(231, 243, 255, 0.96), rgba(255, 249, 214, 0.94));
-  border: 1px solid rgba(117, 158, 214, 0.3);
-  box-shadow: 0 10px 30px rgba(6, 20, 39, 0.16);
-  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+  border-radius: 12px;
   padding: 18px 20px;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
 
 .sales-dashboard-ui .dash-header h2 {
-  color: #12213d !important;
+  color: #111827 !important;
   font-size: 28px;
   letter-spacing: -0.04em;
-  font-weight: 800;
-}
-
-.sales-dashboard-ui .dash-header p {
-  color: rgba(18, 33, 61, 0.4) !important;
   font-weight: 700;
 }
 
+.sales-dashboard-ui .dash-header p {
+  color: #6b7280 !important;
+  font-weight: 500;
+}
+
 .sales-dashboard-ui .dash-filter-card {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(146, 175, 220, 0.3);
-  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   padding: 16px 18px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
 
 .sales-dashboard-ui .dash-filterbar .hub-btn,
 .sales-dashboard-ui .dash-header-actions .hub-btn,
 .sales-dashboard-ui .hub-btn {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(18, 58, 115, 0.12);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-  font-weight: 800;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: none;
+  transition: none;
+  font-weight: 600;
+  color: #374151;
 }
 
 .sales-dashboard-ui .hub-btn-primary {
-  background: linear-gradient(135deg, #123a73, #1a4f8a);
+  background: #111827;
+  border-color: #111827;
   color: #ffffff;
 }
 
 .sales-dashboard-ui .dash-kpi {
-  background: linear-gradient(180deg, #edf5ff 0%, #f7fbff 100%);
-  border: 1px solid rgba(126, 160, 214, 0.32);
-  border-radius: 18px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: none;
   padding: 16px 18px;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
 
-.sales-dashboard-ui .dash-kpi:nth-child(3n + 1) {
-  background: linear-gradient(180deg, #edf5ff 0%, #f5f9ff 100%);
+.sales-dashboard-ui .dash-kpi:hover,
+.sales-dashboard-ui .dash-header:hover,
+.sales-dashboard-ui .dash-filter-card:hover,
+.sales-dashboard-ui .dash-ratio:hover,
+.sales-dashboard-ui .dash-chart-card:hover,
+.sales-dashboard-ui .dash-chart-card > .hub-card:hover {
+  transform: translateY(-3px);
+  border-color: #d1d5db;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
 }
 
-.sales-dashboard-ui .dash-kpi:nth-child(3n + 2) {
-  background: linear-gradient(180deg, #fff0f7 0%, #fff7fb 100%);
-}
-
+.sales-dashboard-ui .dash-kpi:nth-child(3n + 1),
+.sales-dashboard-ui .dash-kpi:nth-child(3n + 2),
 .sales-dashboard-ui .dash-kpi:nth-child(3n + 3) {
-  background: linear-gradient(180deg, #edfdf5 0%, #f7fff9 100%);
+  background: #f9fafb;
 }
 
 .sales-dashboard-ui .dash-kpi-label,
@@ -94,75 +97,68 @@
 .sales-dashboard-ui .dash-chart-card .hub-card-header h3,
 .sales-dashboard-ui .dash-filterbar,
 .sales-dashboard-ui .dash-scope-note {
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .sales-dashboard-ui .dash-kpi-value {
-  font-size: 26px;
-  letter-spacing: -0.04em;
+  font-size: 24px;
+  letter-spacing: -0.02em;
 }
 
 .sales-dashboard-ui .dash-ratio {
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(146, 175, 220, 0.24);
-  border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: none;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
 
 .sales-dashboard-ui .dash-chart-card > .hub-card,
 .sales-dashboard-ui .dash-chart-card {
-  border-radius: 18px;
-  border: 1px solid rgba(146, 175, 220, 0.22);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
-  background: rgba(255, 255, 255, 0.88);
-}
-
-:root[data-theme='dark'] .sales-dashboard-ui .dash-header {
-  background: linear-gradient(135deg, rgba(11, 31, 58, 0.98), rgba(18, 40, 67, 0.95));
-  border-color: rgba(149, 184, 255, 0.28);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+  background: #ffffff;
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
 
 :root[data-theme='dark'] .sales-dashboard-ui {
-  background: linear-gradient(135deg, rgba(8, 26, 50, 0.92), rgba(49, 43, 25, 0.88));
-  border-color: rgba(149, 184, 255, 0.22);
+  background: transparent;
+  border-color: #374151;
 }
 
-/* Dark mode UI update: keep primary text white, while secondary text is intentionally
-   softened to 40% opacity so the dashboard reads cleaner without harsh contrast. */
-
+:root[data-theme='dark'] .sales-dashboard-ui .dash-header,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-filter-card,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-ratio,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-chart-card > .hub-card,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-kpi {
-  background: rgba(18, 33, 61, 0.9);
-  border-color: rgba(130, 156, 207, 0.28);
-  color: #edf4ff;
+  background: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
 }
 
 :root[data-theme='dark'] .sales-dashboard-ui .dash-header h2,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-value,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-ratio-value {
-  color: rgba(255, 255, 255, 0.96) !important;
+  color: #f9fafb !important;
 }
 
 :root[data-theme='dark'] .sales-dashboard-ui .dash-header p,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-label,
 :root[data-theme='dark'] .sales-dashboard-ui .dash-ratio-label {
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: #9ca3af !important;
 }
 
-/* Light mode contrast update: secondary dashboard copy stays at 40% contrast,
-   while the Leads Analytics title remains strong against the blue/yellow fill. */
 :root[data-theme='light'] .sales-dashboard-ui .dash-header h2,
 :root[data-theme='light'] .sales-dashboard-ui .dash-kpi-value,
 :root[data-theme='light'] .sales-dashboard-ui .dash-ratio-value {
-  color: #12213d !important;
+  color: #111827 !important;
 }
 
 :root[data-theme='light'] .sales-dashboard-ui .dash-header p,
 :root[data-theme='light'] .sales-dashboard-ui .dash-kpi-label,
 :root[data-theme='light'] .sales-dashboard-ui .dash-ratio-label {
-  color: rgba(18, 33, 61, 0.4) !important;
+  color: #6b7280 !important;
 }
 
 body,
@@ -527,6 +523,31 @@ h1, h2, h3, h4, h5, h6,
 }
 .dash-table-el td {
   color: var(--hub-text-soft);
+}
+.dash-table-el th {
+  color: var(--hub-text) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 800 !important;
+  background: transparent !important;
+}
+.dash-table-el td,
+.dash-table-el th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.dash-table-el td:first-child {
+  color: var(--hub-text) !important;
+  font-weight: 700;
+  text-align: left;
+}
+.dash-table-el td:nth-child(2),
+.dash-table-el td:nth-child(3),
+.dash-table-el td:nth-child(4),
+.dash-table-el td:nth-child(5),
+.dash-table-el td:nth-child(6) {
+  text-align: left;
 }
 .dash-pager {
   display: flex;
