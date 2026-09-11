@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, Spin } from 'antd';
 
-// In-app Jitsi meeting — simplified toolbar (camera / mic / screen-share /
+// In-app Jitsi meeting for STUDENTS ONLY — simplified toolbar (camera / mic /
 // hangup only) and no pre-join prompt: displayName/email are passed straight
 // into JitsiMeetExternalAPI from the CRM's own stored user, so nobody has to
-// type a name or pick devices on a "join meeting" screen each time.
-const TOOLBAR = ['microphone', 'camera', 'desktop', 'hangup'];
+// type a name or pick devices on a "join meeting" screen each time. Teachers
+// keep the full native Jitsi experience in a real new tab (see LiveClasses/
+// index.jsx onJoin) — this component is never used for them.
+const TOOLBAR = ['microphone', 'camera', 'hangup'];
 
 let scriptPromises = {};
 function loadExternalApi(domain) {
