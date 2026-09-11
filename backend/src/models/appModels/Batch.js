@@ -104,4 +104,19 @@ batchSchema.post('save', function (doc) {
     .catch((e) => console.error('[lms] onBatchCreated failed:', e && e.message));
 });
 
+// Delete (generic CRUD — controllers/middlewaresControllers/
+// createCRUDController/remove.js) goes through findOneAndUpdate({$set:
+// {removed:true}}), not .save(), so document hooks above never see it.
+// Cascade the soft-delete to this batch's live-class sessions so a deleted
+// batch's classes stop showing up for the teacher/student/admin — every
+// listing query already filters removed:false, so this alone is enough.
+batchSchema.post('findOneAndUpdate', function (doc) {
+  const update = this.getUpdate() || {};
+  const removedNow = update.$set && update.$set.removed === true;
+  if (!removedNow || !doc) return;
+  Promise.resolve()
+    .then(() => mongoose.model('LmsLiveSession').updateMany({ batch: doc._id, removed: false }, { $set: { removed: true } }))
+    .catch((e) => console.error('[lms] cascade batch delete -> sessions failed:', e && e.message));
+});
+
 module.exports = mongoose.model('Batch', batchSchema);

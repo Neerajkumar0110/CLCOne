@@ -742,11 +742,14 @@ export const FEATURE_SECTIONS = [
             T('instructor', 'Instructor'),
           ]),
           ...grp('Structure', [
-            NUM('durationHours', 'Duration (hrs)'),
-            NUM('modules', 'Modules', { table: false }),
-            NUM('lessons', 'Lessons', { table: false }),
-            NUM('rating', 'Rating', { table: false }),
-            NUM('enrolledCount', 'Enrolled', { table: false }),
+            NUM('durationHours', 'Duration (months)'),
+            // Not manually entered — the real module/lesson counts come from
+            // the curriculum built in Course Builder, rating and enrolment
+            // are computed from real activity, not typed in at creation.
+            NUM('modules', 'Modules', { table: false, hidden: true }),
+            NUM('lessons', 'Lessons', { table: false, hidden: true }),
+            NUM('rating', 'Rating', { table: false, hidden: true }),
+            NUM('enrolledCount', 'Enrolled', { table: false, hidden: true }),
             DT('publishedDate', 'Published date', { table: false }),
           ]),
           ...grp('Pricing', [
