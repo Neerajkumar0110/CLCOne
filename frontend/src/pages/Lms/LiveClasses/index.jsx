@@ -118,10 +118,13 @@ export default function LiveClasses() {
         return;
       }
       const row = rows.find((r) => r.id === id);
-      if (row && row.meetingProvider === 'jitsi') {
-        // Simplified in-app toolbar (camera/mic/screen-share/hangup only) and
-        // no repeated join prompt — the CRM's own name/email go straight into
-        // the embed instead of a "who are you" screen each time.
+      const isTeacher = res.result.role === 'teacher';
+      if (row && row.meetingProvider === 'jitsi' && !isTeacher) {
+        // Students only: simplified in-app toolbar (camera/mic/hangup only)
+        // and no repeated join prompt — the CRM's own name/email go straight
+        // into the embed instead of a "who are you" screen each time.
+        // Teachers keep the full native Jitsi tab (all controls, real
+        // fullscreen) via the openMeeting() branch below.
         const embedRes = await lmsApi.liveTicketEmbed(url);
         const embed = embedRes && embedRes.result && embedRes.result.embed;
         if (embed) {
