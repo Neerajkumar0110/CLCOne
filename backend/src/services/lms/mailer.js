@@ -78,14 +78,16 @@ async function sendBatchClassEmail(recipients, payload) {
 }
 
 // Generic best-effort fan-out — used by announcements, certificate issue, etc.
-async function sendMail(recipients, { subject, html, text }) {
+// `attachments` is passed straight through to nodemailer, e.g.
+// [{ filename: 'receipt.pdf', content: bufferOrStream, contentType: 'application/pdf' }].
+async function sendMail(recipients, { subject, html, text, attachments }) {
   if (!ready()) return { sent: 0, skipped: 'email not configured' };
   const list = [...new Set((recipients || []).map((r) => String(r || '').trim().toLowerCase()).filter((e) => /.+@.+\..+/.test(e)))];
   if (!list.length) return { sent: 0 };
   let sent = 0;
   for (const to of list) {
     try {
-      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text });
+      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments });
       sent += 1;
     } catch (e) {
       console.error('[lms] sendMail failed for', to, ':', e.message);

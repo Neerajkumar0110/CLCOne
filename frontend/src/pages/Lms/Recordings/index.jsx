@@ -103,7 +103,7 @@ export default function Recordings() {
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 12 }} />}
 
-      <Space wrap style={{ marginBottom: 12 }}>
+      <Space wrap className="lms-toolbar" style={{ marginBottom: 12 }}>
         <Select
           allowClear placeholder="Course" style={{ width: 200 }} value={f.courseTitle || undefined}
           onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))}

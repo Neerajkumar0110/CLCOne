@@ -58,6 +58,157 @@ h6 {
   padding-bottom: 70px;
 }
 
+/* ---------- Modal polish (app-wide) ----------
+   Mirrors HubModal (components/HubModal — the hand-built modal behind
+   "Raise a Support Ticket" and friends) so every antd <Modal> across the
+   app, LMS included, reads as the same product instead of two different
+   modal systems. Built on the --hub-* tokens (featureHub.css /
+   themePalettes.css), which already flip for dark mode and every palette
+   on their own — no separate dark-mode block needed here. */
+.ant-modal-mask {
+  backdrop-filter: blur(2px);
+}
+.ant-modal-content {
+  /* No overflow:hidden — several Lms modals hold wide Tables (Grade
+     attempt, Attendance) or forms that can run wider/taller than the modal
+     on smaller screens; clipping the box hard-cuts that content at the
+     rounded edge instead of letting it scroll. */
+  padding: 0 !important;
+  border-radius: var(--hub-r-xl, 18px);
+  background: var(--hub-surface, #ffffff) !important;
+  box-shadow: var(--hub-shadow-lg, 0 24px 60px rgba(15, 23, 42, 0.22));
+}
+.ant-modal-header {
+  margin: 0;
+  padding: 22px 24px 18px;
+  border-radius: var(--hub-r-xl, 18px) var(--hub-r-xl, 18px) 0 0;
+  border-bottom: 1px solid var(--hub-border, rgba(15, 23, 42, 0.08));
+  background: transparent !important;
+}
+.ant-modal-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--hub-text, #0f172a) !important;
+}
+.ant-modal-body {
+  padding: 22px 24px;
+  overflow-x: auto;
+  background: transparent !important;
+  color: var(--hub-text-soft, #334155);
+}
+.ant-modal-footer {
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--hub-border, rgba(15, 23, 42, 0.06));
+  background: var(--hub-bg-soft, #f8fafc) !important;
+  border-radius: 0 0 var(--hub-r-xl, 18px) var(--hub-r-xl, 18px);
+}
+.ant-modal-footer .ant-btn {
+  border-radius: var(--hub-r-sm, 8px);
+  font-weight: 700;
+}
+.ant-modal-close {
+  top: 16px;
+  inset-inline-end: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--hub-bg-soft, #f1f5f9);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.ant-modal-close:hover {
+  background: var(--hub-red-soft, #fef2f2) !important;
+  color: var(--hub-red, #ef4444) !important;
+  transform: rotate(90deg);
+}
+
+/* Form fields inside a modal — Input/Select/DatePicker/Checkbox inherit the
+   active app palette's pastel colorBgContainer/border from ConfigProvider
+   (context/themeContext.jsx), same as the page-level controls fixed for
+   .lms-portal — but a modal portals to document.body, outside any page's
+   DOM subtree, so that page-scoped fix never reaches it. Fix it here,
+   globally, to the same white-field / palette-tinted-border look as
+   .hub-input (featureHub.css), since every modal in the app should match. */
+.ant-modal-body .ant-input,
+.ant-modal-body .ant-input-affix-wrapper,
+.ant-modal-body textarea.ant-input,
+.ant-modal-body .ant-select-selector,
+.ant-modal-body .ant-picker,
+.ant-modal-body .ant-input-number {
+  background: var(--hub-surface, #ffffff) !important;
+  border: 1.5px solid var(--hub-border, rgba(15, 23, 42, 0.14)) !important;
+  border-radius: var(--hub-r-sm, 8px) !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ant-modal-body .ant-input:hover,
+.ant-modal-body .ant-input-affix-wrapper:hover,
+.ant-modal-body .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.ant-modal-body .ant-picker:hover,
+.ant-modal-body .ant-input-number:hover {
+  border-color: var(--hub-blue, #0e7490) !important;
+}
+.ant-modal-body .ant-input:focus,
+.ant-modal-body .ant-input-affix-wrapper-focused,
+.ant-modal-body .ant-select-focused .ant-select-selector,
+.ant-modal-body .ant-picker-focused,
+.ant-modal-body .ant-input-number-focused {
+  border-color: var(--hub-blue, #0e7490) !important;
+  box-shadow: var(--hub-focus-ring, 0 0 0 4px rgba(14, 116, 144, 0.2)) !important;
+}
+.ant-modal-body .ant-checkbox-inner {
+  background: var(--hub-surface, #ffffff) !important;
+  border-color: var(--hub-border-strong, rgba(15, 23, 42, 0.28)) !important;
+  border-radius: 5px;
+}
+.ant-modal-body .ant-checkbox-checked .ant-checkbox-inner {
+  background: var(--hub-blue, #0e7490) !important;
+  border-color: var(--hub-blue, #0e7490) !important;
+}
+.ant-modal-body .ant-form-item-label > label {
+  font-weight: 700;
+  color: var(--hub-text-soft, #334155);
+}
+
+/* Plain (default-type) buttons app-wide — an antd <Button> with no `type`
+   prop inherits colorBgContainer from ConfigProvider, i.e. the active app
+   palette's pastel card fill (e.g. lilac for Purple Gradient), which is
+   how "Cancel" in every modal ended up a lilac pill instead of a proper
+   secondary button — same .hub-btn look everywhere now. Leave
+   primary/dashed/text/link/danger alone — they aren't affected. */
+.ant-btn-default:not(.ant-btn-dangerous) {
+  background: var(--hub-surface, #ffffff) !important;
+  border-color: var(--hub-border-strong, rgba(15, 23, 42, 0.16)) !important;
+  color: var(--hub-text-soft, #1e293b) !important;
+}
+.ant-btn-default:not(.ant-btn-dangerous):not(:disabled):hover {
+  border-color: var(--hub-blue, #0e7490) !important;
+  color: var(--hub-blue, #0e7490) !important;
+  background: var(--hub-blue-soft, transparent) !important;
+}
+
+/* Select / DatePicker popups — same portal-to-body situation as Modal, so a
+   per-page CSS class can't reach them. Global, additive, no prior styling. */
+.ant-select-dropdown,
+.ant-picker-dropdown {
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+  padding: 6px;
+}
+.ant-select-dropdown .ant-select-item {
+  border-radius: 8px;
+  font-weight: 600;
+}
+.ant-picker-panel-container {
+  border-radius: 12px;
+  box-shadow: none;
+}
+:root[data-theme='dark'] .ant-select-dropdown,
+:root[data-theme='dark'] .ant-picker-dropdown {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 .tabContent .ant-tabs-right > .ant-tabs-content-holder,
 .tabContent .ant-tabs-right > div > .ant-tabs-content-holder {
   border-right: none;

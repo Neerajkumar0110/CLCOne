@@ -61,6 +61,22 @@ async function addStudent(req, res) {
   return send(res, await liveClassService.addStudentToBatch({ batchId: req.params.id, email: b.email, name: b.name, crmUserId: b.crmUserId }, req.admin));
 }
 
+// GET /api/lms/students/search?q=
+async function studentSearch(req, res) {
+  return send(res, await liveClassService.searchStudents(req.query.q));
+}
+
+// GET /api/lms/batches/:id/students
+async function batchStudents(req, res) {
+  return send(res, await liveClassService.listBatchStudents(req.params.id));
+}
+
+// POST /api/lms/batches/:id/students/remove  { studentId?, crmUserId?, email? }
+async function removeStudent(req, res) {
+  const b = req.body || {};
+  return send(res, await liveClassService.removeStudentFromBatch({ batchId: req.params.id, studentId: b.studentId, crmUserId: b.crmUserId, email: b.email }, req.admin));
+}
+
 // POST /api/lms/liveclasses/:id/start
 async function start(req, res) {
   return send(res, await liveClassService.startSession(req.params.id, req.admin));
@@ -201,4 +217,4 @@ ul{margin:6px 0 0 18px}button{font:inherit;padding:9px 14px;border-radius:8px;bo
 <button onclick="fetch('/api/lms/live/left?s=${s._id}&u=${uid}',{method:'POST'}).then(()=>document.body.innerHTML='<p style=\\'font:16px system-ui;margin:40px\\'>You left the class.</p>')">Leave class</button></div>`);
 }
 
-module.exports = { list, get, create, updateTime, addStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom };
+module.exports = { list, get, create, updateTime, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom };
