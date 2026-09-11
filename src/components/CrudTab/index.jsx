@@ -340,7 +340,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                   {tableFields.map((f) => (
                     <th key={f.name}>{f.label}</th>
                   ))}
-                  <th style={{ width: renderRowExtra ? 128 : 96, textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: renderRowExtra ? 160 : 96, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
