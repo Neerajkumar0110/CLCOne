@@ -885,7 +885,7 @@ async function issueJoin(id, admin) {
   };
 }
 
-async function redeemTicket(ticketStr) {
+async function redeemTicket(ticketStr, { embed = false } = {}) {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
   const now = new Date();
   const session = await LmsLiveSession.findOne({ 'joinTickets.ticket': ticketStr }).select(
@@ -899,11 +899,25 @@ async function redeemTicket(ticketStr) {
 
   const user = await mongoose.model('Admin').findById(t.crmUser);
   const provider = getMeetingProvider();
-  const url = await provider.getJoinUrl(session, {
+  const opts = {
     role: t.role === 'moderator' ? 'moderator' : 'viewer',
     fullName: user ? `${user.name || ''} ${user.surname || ''}`.trim() || user.email : 'Guest',
+    email: user ? user.email : '',
     userId: String(t.crmUser),
-  });
+  };
+
+  // The in-app embed (JitsiEmbed.jsx) asks for structured fields instead of
+  // a URL, so it can mount the meeting in its own iframe with a limited
+  // toolbar and skip the pre-join prompt — only Jitsi supports this today;
+  // every other provider (BigBlueButton, mock) keeps opening its own full
+  // client in a new tab, which already has everything (incl. real
+  // moderator controls for BBB) built in.
+  if (embed && typeof provider.getEmbedConfig === 'function') {
+    const embedConfig = await provider.getEmbedConfig(session, opts);
+    return { result: { embed: embedConfig } };
+  }
+
+  const url = await provider.getJoinUrl(session, opts);
   return { result: { url } };
 }
 

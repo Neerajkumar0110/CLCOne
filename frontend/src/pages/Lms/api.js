@@ -41,6 +41,17 @@ const lmsApi = {
   liveClassAttendance: (id) => request.get({ entity: `lms/live-classes/${id}/attendance` }),
   liveClassRegenerate: (id, batchId) =>
     request.post({ entity: `lms/live-classes/${id}/regenerate`, jsonData: { batchId } }),
+  // liveClassJoin() returns a one-time ticket URL (`/api/lms/live/t/:ticket`,
+  // mounted unauthenticated in lmsLivePublicApi.js). For Jitsi we redeem that
+  // same ticket a second way — `?embed=1` — to get JSON embed config instead
+  // of following the redirect, so the meeting can be mounted in-app
+  // (frontend/src/pages/Lms/components/JitsiEmbed.jsx) instead of opening a
+  // new tab. Ticket is single-use, so this must be the only redemption.
+  liveTicketEmbed: (ticketUrl) => {
+    const m = /\/lms\/live\/t\/([^/?#]+)/.exec(ticketUrl || '');
+    const ticket = m ? m[1] : ticketUrl;
+    return request.get({ entity: `lms/live/t/${ticket}?embed=1` });
+  },
 
   // ── recordings ────────────────────────────────────────────────────
   recordings: (f = {}) => request.get({ entity: `lms/recordings${qs(f)}` }),

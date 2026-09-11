@@ -42,6 +42,24 @@ class JitsiProvider extends MeetingProvider {
   async endRoom() {
     return { ok: true }; // public Jitsi ends itself when everyone leaves
   }
+
+  // For the in-app embed (frontend/src/pages/Lms/components/JitsiEmbed.jsx)
+  // — structured fields for JitsiMeetExternalAPI instead of a single URL, so
+  // the app can mount the meeting in an iframe with its own limited toolbar
+  // (camera/mic/hangup/screen-share only) and skip the pre-join prompt,
+  // rather than opening Jitsi's full default web client in a new tab.
+  async getEmbedConfig(session, { role = 'viewer', fullName = 'Guest', email = '' } = {}) {
+    const base = this.cfg.jitsiBase || 'https://meet.jit.si';
+    const domain = base.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    return {
+      provider: 'jitsi',
+      domain,
+      roomName: session.meetingId || session.roomName,
+      displayName: fullName,
+      email: email || undefined,
+      isModerator: role === 'moderator',
+    };
+  }
 }
 
 module.exports = JitsiProvider;
