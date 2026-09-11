@@ -4,7 +4,7 @@ const { lmsConfig } = require('../../config/lms');
 const { getMeetingProvider } = require('./meeting');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../config/roles');
+const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_STUDENT_ROLES } = require('../../config/roles');
 
 // Live-class orchestration: auto room, SCHEDULED..RECORDING_AVAILABLE
 // lifecycle, multi-session attendance (webhook-authoritative), recording
@@ -306,9 +306,19 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
   if (crmUserId) crmUser = await Admin.findById(crmUserId);
   if (!crmUser && cleanEmail) crmUser = await Admin.findOne({ email: cleanEmail, removed: false });
 
-  // roster row (Student model) — find or create for this batch
-  studentDoc = await Student.findOne({ batch: batch.name, email: cleanEmail, removed: false });
-  if (!studentDoc && cleanEmail) {
+  // roster row (Student model) — find by email (not batch+email, so a
+  // student who already has a different batch gets MOVED, not duplicated),
+  // create one only if they've never been seen before. Student.js's own
+  // save hooks recount Batch.enrolled whenever `batch` changes, so there's
+  // no manual increment to do here.
+  studentDoc = cleanEmail ? await Student.findOne({ email: cleanEmail, removed: false }) : null;
+  if (studentDoc) {
+    if (studentDoc.batch !== batch.name) {
+      studentDoc.batch = batch.name;
+      studentDoc.course = batch.course || studentDoc.course;
+      await studentDoc.save();
+    }
+  } else if (cleanEmail) {
     studentDoc = await new Student({
       name: name || (crmUser && crmUser.name) || cleanEmail.split('@')[0],
       email: cleanEmail,
@@ -319,8 +329,6 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       source: 'Counselor',
       notes: `${TAG} added mid-batch by ${admin.name || 'admin'}`,
     }).save();
-    batch.enrolled = (batch.enrolled || 0) + 1;
-    await batch.save().catch(() => {});
   }
 
   // Moodle enrol (best-effort, only if the course is mapped + user provisionable)
@@ -334,7 +342,7 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       const uid = crmUser ? crmUser._id : crmUserId;
       await syncService.provisionUser(await Admin.findById(uid));
       if (course) {
-        await syncService.enrolUser({ crmUserId: uid, crmCourseId: course._id, moodleCourseId: room.moodleCourseId, roleShortname: 'student', source: 'batch' });
+        await syncService.enrolUser({ crmUserId: uid, crmCourseId: course._id, moodleCourseId: room.moodleCourseId, batchId: batch._id, roleShortname: 'student', source: 'batch' });
         moodleResult = 'enrolled';
       }
     } catch (e) {
@@ -368,6 +376,132 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       roomValidUntil: room.validUntil,
     },
   };
+}
+
+// Search BOTH student pools — the LMS `Student` roster (ops/CRM rows: fees,
+// progress, counselor, …) and `Admin` accounts with role Student (real
+// login accounts, from User Management) — merged into one deduped-by-email
+// list, so a "who do I add to this batch" picker never misses either kind.
+async function searchStudents(q, limit = 20) {
+  const term = String(q || '').trim();
+  if (term.length < 2) return { result: [] };
+  const rx = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const Student = mongoose.model('Student');
+  const Admin = mongoose.model('Admin');
+
+  const [rosterRows, accountRows] = await Promise.all([
+    Student.find({ removed: false, $or: [{ name: rx }, { email: rx }] })
+      .select('name email batch')
+      .limit(limit)
+      .lean(),
+    Admin.find({ removed: false, role: { $in: LMS_STUDENT_ROLES }, $or: [{ name: rx }, { email: rx }] })
+      .select('name email')
+      .limit(limit)
+      .lean(),
+  ]);
+
+  const byEmail = new Map();
+  for (const r of rosterRows) {
+    const email = String(r.email || '').toLowerCase();
+    if (!email) continue;
+    byEmail.set(email, { studentId: String(r._id), crmUserId: null, name: r.name, email, currentBatch: r.batch || null, source: 'roster' });
+  }
+  for (const a of accountRows) {
+    const email = String(a.email || '').toLowerCase();
+    if (!email) continue;
+    const existing = byEmail.get(email);
+    if (existing) {
+      existing.crmUserId = String(a._id);
+      existing.source = 'both';
+    } else {
+      byEmail.set(email, { studentId: null, crmUserId: String(a._id), name: a.name, email, currentBatch: null, source: 'account' });
+    }
+  }
+  return { result: Array.from(byEmail.values()).slice(0, limit) };
+}
+
+// A batch's current roster — merges the `Student` roster (matched by batch
+// name) with `LmsEnrolment` (the proper `Admin`↔`Batch` ref), deduped by
+// email, since neither pool alone is authoritative today.
+async function listBatchStudents(batchId) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+
+  const Student = mongoose.model('Student');
+  const LmsEnrolment = mongoose.model('LmsEnrolment');
+  const [rosterRows, enrolments] = await Promise.all([
+    Student.find({ batch: batch.name, removed: false }).select('name email status progress attendancePct').lean(),
+    LmsEnrolment.find({ batch: batchId, status: { $ne: 'ended' } }).populate('crmUser', 'name email').lean(),
+  ]);
+
+  const byEmail = new Map();
+  for (const r of rosterRows) {
+    const email = String(r.email || '').toLowerCase();
+    if (!email) continue;
+    byEmail.set(email, {
+      id: String(r._id), crmUserId: null, name: r.name, email,
+      status: r.status, progress: r.progress || 0, attendancePct: r.attendancePct || 0, source: 'roster',
+    });
+  }
+  for (const e of enrolments) {
+    if (!e.crmUser) continue;
+    const email = String(e.crmUser.email || '').toLowerCase();
+    if (!email) continue;
+    const existing = byEmail.get(email);
+    if (existing) {
+      existing.crmUserId = String(e.crmUser._id);
+      existing.source = 'both';
+    } else {
+      byEmail.set(email, {
+        id: null, crmUserId: String(e.crmUser._id), name: e.crmUser.name, email,
+        status: e.status, progress: e.progressPct || 0, attendancePct: 0, source: 'account',
+      });
+    }
+  }
+  return { result: Array.from(byEmail.values()) };
+}
+
+// Un-assign a student from a batch — clears the roster row's `batch` (keeps
+// the row itself) and ends the matching LmsEnrolment, if any.
+async function removeStudentFromBatch({ batchId, studentId, crmUserId, email } = {}, admin) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+  if (!isManager(admin) && (batch.trainer || '').toLowerCase() !== (admin.name || '').toLowerCase()) {
+    return { error: 403, message: 'You can only manage your own batch.' };
+  }
+
+  const Student = mongoose.model('Student');
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  let removed = false;
+
+  const studentDoc = studentId
+    ? await Student.findById(studentId)
+    : cleanEmail
+    ? await Student.findOne({ batch: batch.name, email: cleanEmail, removed: false })
+    : null;
+  if (studentDoc && studentDoc.batch === batch.name) {
+    studentDoc.batch = '';
+    await studentDoc.save();
+    removed = true;
+  }
+
+  if (crmUserId) {
+    const LmsEnrolment = mongoose.model('LmsEnrolment');
+    const res = await LmsEnrolment.updateMany({ batch: batchId, crmUser: crmUserId }, { $set: { status: 'ended' } });
+    if (res.modifiedCount) removed = true;
+  }
+
+  if (removed) {
+    // studentDoc.save() above already recounts via Student.js's own hooks
+    // when a roster row was touched — this also covers the LmsEnrolment
+    // -only case (crmUserId given but no matching roster row) and is a
+    // harmless no-op recount otherwise (it sets the true count, not a delta).
+    const { studentAccountService } = require('./index');
+    await studentAccountService.syncBatchEnrolledCounts([batch.name]).catch(() => {});
+  }
+  return { result: { removed } };
 }
 
 /* ───────────────────────── provider room ───────────────────────── */
@@ -1038,6 +1172,9 @@ module.exports = {
   ensureBatchRoom,
   updateSchedule,
   addStudentToBatch,
+  searchStudents,
+  listBatchStudents,
+  removeStudentFromBatch,
   startSession,
   endSession,
   issueJoin,

@@ -32,7 +32,10 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
 });
 
 // ── add a student to a running batch (manager, or the batch's teacher) ──
-router.route('/batches/:id/students').post(catchErrors(lms.liveAddStudent));
+router.route('/batches/:id/students').get(catchErrors(lms.batchStudents)).post(catchErrors(lms.liveAddStudent));
+router.route('/batches/:id/students/remove').post(catchErrors(lms.removeBatchStudent));
+// ── combined student search: LMS roster + User Management accounts ──────
+router.route('/students/search').get(catchErrors(lms.studentSearch));
 
 // ── curriculum builder (Course → Module → Chapter → Lesson) — teacher/manager ──
 router.route('/courses/:courseId/outline').get(catchErrors(lms.curriculumOutline));
