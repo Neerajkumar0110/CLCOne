@@ -5,12 +5,14 @@ import {
   Input,
   InputNumber,
   DatePicker,
+  TimePicker,
   Select,
   Switch,
   Popconfirm,
   ConfigProvider,
 } from 'antd';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import {
   PlusOutlined,
   EditOutlined,
@@ -40,6 +42,12 @@ import {
 } from '@ant-design/icons';
 
 import { request } from '@/request';
+
+// Needed to parse a stored "HH:mm" string back into a dayjs object for the
+// TimePicker (openEdit, below) — without it dayjs silently ignores the
+// format argument and produces an Invalid Date, so Start/End time looked
+// blank/wrong every time a batch was reopened for editing.
+dayjs.extend(customParseFormat);
 
 const PAGE_SIZE = 10;
 // antd derives its palette from these, so they must be real colours — a
@@ -101,7 +109,7 @@ function formatCell(field, value) {
  * entity, driven by a `fields` spec (config/featureSections.js). Uses the
  * generic IDURAR endpoints: /api/<entity>/{list,create,update,delete}.
  */
-export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
+export default function CrudTab({ entity, fields, fixedFilter, title, icon, renderRowExtra }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -115,7 +123,36 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   const [saving, setSaving] = useState(false);
   // { [groupName]: true } — which form sections are folded shut.
   const [collapsed, setCollapsed] = useState({});
+  const [refOptions, setRefOptions] = useState({});
   const [form] = Form.useForm();
+
+  // Fields whose Select options come from another entity's live list (e.g.
+  // Students' Course/Batch pickers) instead of a static `options` array.
+  const refFields = useMemo(() => fields.filter((f) => f.refEntity), [fields]);
+  const loadRefOptions = useCallback(async () => {
+    if (!refFields.length) return;
+    const entries = await Promise.all(
+      refFields.map(async (f) => {
+        const res = await request.list({ entity: f.refEntity, options: { page: 1, items: 500, sortBy: 'created', sortValue: -1 } });
+        const rows = Array.isArray(res?.result) ? res.result : [];
+        const labelKey = f.refLabel || 'name';
+        const filtered = f.refFilter ? rows.filter(f.refFilter) : rows;
+        // Value is always the plain name/title string (what Batch.course /
+        // Student.batch etc. actually store) — `refDisplay` only changes
+        // what's SHOWN in the dropdown (e.g. "AI101 — Artificial Intelligence").
+        const seen = new Set();
+        const opts = [];
+        filtered.forEach((r) => {
+          const value = r[labelKey];
+          if (!value || seen.has(value)) return;
+          seen.add(value);
+          opts.push({ value, label: f.refDisplay ? f.refDisplay(r) : value });
+        });
+        return [f.name, opts];
+      })
+    );
+    setRefOptions(Object.fromEntries(entries));
+  }, [refFields]);
 
   const HeadIcon = icon || null;
   const tableFields = useMemo(() => fields.filter((f) => f.table !== false).slice(0, 7), [fields]);
@@ -125,15 +162,19 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
   );
 
   // Fields split into consecutive `group` runs → one collapsible section each.
+  // `hidden` fields (e.g. a self-generated Code) never render an input —
+  // they're still saved/loaded normally, just with nothing on screen to fill in.
   const sections = useMemo(() => {
     const out = [];
-    fields.forEach((f) => {
-      const g = f.group || '';
-      const last = out[out.length - 1];
-      if (last && last.group === g) last.items.push(f);
-      else out.push({ group: g, items: [f] });
-    });
-    return out;
+    fields
+      .filter((f) => !f.hidden)
+      .forEach((f) => {
+        const g = f.group || '';
+        const last = out[out.length - 1];
+        if (last && last.group === g) last.items.push(f);
+        else out.push({ group: g, items: [f] });
+      });
+    return out.filter((s) => s.items.length > 0);
   }, [fields]);
 
   // Add: only the first section open (keeps the modal short — the rest are a
@@ -187,14 +228,17 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
     form.resetFields();
     setCollapsed(buildCollapsed(false));
     setModalOpen(true);
+    loadRefOptions();
   };
 
   const openEdit = (row) => {
     setEditing(row);
+    loadRefOptions();
     const values = {};
     fields.forEach((f) => {
       const v = row[f.name];
       if (f.type === 'date') values[f.name] = v ? dayjs(v) : undefined;
+      else if (f.type === 'time') values[f.name] = v ? dayjs(v, 'HH:mm') : undefined;
       else if (f.type === 'bool') values[f.name] = !!v;
       else values[f.name] = v;
     });
@@ -225,6 +269,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
     fields.forEach((f) => {
       let v = values[f.name];
       if (f.type === 'date') v = v ? dayjs(v).toISOString() : undefined;
+      if (f.type === 'time') v = v ? dayjs(v).format('HH:mm') : undefined;
       if (f.type === 'bool') v = !!v;
       payload[f.name] = v;
     });
@@ -295,7 +340,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
                   {tableFields.map((f) => (
                     <th key={f.name}>{f.label}</th>
                   ))}
-                  <th style={{ width: 96, textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: renderRowExtra ? 160 : 96, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,6 +373,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
                         </td>
                       ))}
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {renderRowExtra && renderRowExtra(row)}
                         <button type="button" className="hub-icon-btn" title="Edit" onClick={() => openEdit(row)}>
                           <EditOutlined />
                         </button>
@@ -390,6 +436,28 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
           preserve={false}
           scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
           className="crud-form"
+          onValuesChange={() => {
+            // Derived fields (e.g. Batch's Class duration from Start/End
+            // time, Students' Total-incl-GST / Balance due) — recompute from
+            // the live form values and write in whichever ones a field's
+            // `compute` actually resolves. Fold each result back into `all`
+            // before the next field's compute runs, so a field that derives
+            // from another computed field (Balance due <- Total incl. GST)
+            // sees the fresh value in the same pass instead of lagging a
+            // tick behind (setFieldsValue doesn't re-fire onValuesChange).
+            const computable = fields.filter((f) => typeof f.compute === 'function');
+            if (!computable.length) return;
+            const all = { ...form.getFieldsValue() };
+            const patch = {};
+            computable.forEach((f) => {
+              const next = f.compute(all);
+              if (next !== undefined && next !== all[f.name]) {
+                patch[f.name] = next;
+                all[f.name] = next;
+              }
+            });
+            if (Object.keys(patch).length) form.setFieldsValue(patch);
+          }}
         >
           {sections.map((section, gi) => {
             const isCollapsed = section.group ? !!collapsed[section.group] : false;
@@ -426,16 +494,19 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
                           }
                           valuePropName={f.type === 'bool' ? 'checked' : 'value'}
                           className={full ? 'crud-form-full' : undefined}
+                          extra={f.hint || (f.compute ? 'Auto-calculated' : undefined)}
                           rules={
                             f.required ? [{ required: true, message: `${f.label} is required` }] : undefined
                           }
                         >
                           {f.type === 'textarea' ? (
-                            <Input.TextArea rows={2} />
+                            <Input.TextArea rows={2} placeholder={f.placeholder} />
                           ) : f.type === 'number' ? (
-                            <InputNumber style={{ width: '100%' }} />
+                            <InputNumber style={{ width: '100%' }} placeholder={f.placeholder} />
                           ) : f.type === 'date' ? (
                             <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                          ) : f.type === 'time' ? (
+                            <TimePicker style={{ width: '100%' }} format="HH:mm" minuteStep={5} use12Hours={false} />
                           ) : f.type === 'bool' ? (
                             <Switch />
                           ) : f.type === 'select' ? (
@@ -443,10 +514,11 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon }) {
                               allowClear
                               showSearch
                               optionFilterProp="label"
-                              options={(f.options || []).map((o) => ({ label: o, value: o }))}
+                              placeholder={f.refEntity ? `Select a ${f.label.toLowerCase()}…` : undefined}
+                              options={f.refEntity ? (refOptions[f.name] || []) : (f.options || []).map((o) => ({ label: o, value: o }))}
                             />
                           ) : (
-                            <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} />
+                            <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} placeholder={f.placeholder} />
                           )}
                         </Form.Item>
                       );

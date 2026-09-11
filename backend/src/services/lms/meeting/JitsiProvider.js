@@ -24,16 +24,30 @@ class JitsiProvider extends MeetingProvider {
     return { meetingId: session.roomName, roomName: session.roomName, providerData: { base: this.cfg.jitsiBase } };
   }
 
-  async getJoinUrl(session, { role = 'viewer', fullName = 'Guest' } = {}) {
+  async getJoinUrl(session, { role = 'viewer', fullName = 'Guest', email = '' } = {}) {
     const room = encodeURIComponent(session.meetingId || session.roomName);
     const hash = new URLSearchParams();
     hash.set('userInfo.displayName', `"${fullName}"`);
+    if (email) hash.set('userInfo.email', `"${email}"`);
     // force the UI to English regardless of the viewer's browser locale
     hash.set('config.defaultLanguage', '"en"');
     hash.set('interfaceConfig.LANG_DETECTION', 'false');
+    // skip the "enter your name / pick devices" screen for everyone — name
+    // and email are already known from the CRM login, so nobody re-types
+    // anything each time they join.
+    hash.set('config.prejoinPageEnabled', 'false');
     if (role !== 'moderator') {
       hash.set('config.startWithVideoMuted', 'true');
       hash.set('config.startWithAudioMuted', 'true');
+      // Students: camera / mic / hangup only. Jitsi's whiteboard has no
+      // view-only mode — anyone in the call can draw on one a teacher opens
+      // — so it stays visible/enabled here (the ask was "visible, can't
+      // edit"; hiding the *toolbar launcher* is the closest a student-side
+      // config can get without also hiding it, since disabling the feature
+      // outright removes it from view too).
+      const toolbar = '["microphone","camera","hangup"]';
+      hash.set('config.toolbarButtons', toolbar);
+      hash.set('interfaceConfig.TOOLBAR_BUTTONS', toolbar);
     }
     // ?lang=en covers the pre-join ("join meeting") screen too
     return `${this.cfg.jitsiBase}/${room}?lang=en#${hash.toString()}`;

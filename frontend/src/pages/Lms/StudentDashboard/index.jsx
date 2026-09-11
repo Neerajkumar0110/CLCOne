@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
+import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
 import { BookOutlined, VideoCameraOutlined, CheckSquareOutlined, TrophyOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
+import KpiTile from '../components/KpiTile';
 
 const fmtTime = (v) => {
   if (!v) return '—';
@@ -13,12 +14,8 @@ const fmtTime = (v) => {
   }
 };
 
-const KPI = ({ title, value, suffix, color, icon }) => (
-  <Col xs={12} sm={8} lg={6}>
-    <Card size="small" className="lms-kpi" bordered>
-      <Statistic title={title} value={value} suffix={suffix} valueStyle={{ color: color || '#101828', fontWeight: 700 }} prefix={icon} />
-    </Card>
-  </Col>
+const KPI = ({ title, value, suffix, tone, icon }) => (
+  <KpiTile title={title} value={value} suffix={suffix} tone={tone} icon={icon} />
 );
 
 export default function StudentDashboard() {
@@ -51,7 +48,7 @@ export default function StudentDashboard() {
   const k = d.kpis || {};
 
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
+    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div>
           <h2><BookOutlined /> Hi {d.student?.name || 'there'} 👋</h2>
@@ -64,15 +61,15 @@ export default function StudentDashboard() {
         )}
       </div>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <KPI title="Enrolled courses" value={k.enrolledCourses} icon={<BookOutlined />} />
-        <KPI title="Course progress" value={k.courseProgress} suffix="%" color="#1d4ed8" />
-        <KPI title="Attendance" value={k.attendancePct} suffix="%" color="#0e7490" icon={<CheckSquareOutlined />} />
-        <KPI title="Today's classes" value={k.todaysClasses} />
-        <KPI title="Upcoming classes" value={k.upcomingClasses} />
-        <KPI title="Live now" value={k.liveNow} color="#dc2626" />
-        <KPI title="Recordings" value={k.latestRecordings} icon={<PlayCircleOutlined />} />
-        <KPI title="Certificates" value={k.certificates} icon={<TrophyOutlined />} color="#a16207" />
+      <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
+        <KPI title="Enrolled courses" value={k.enrolledCourses} tone="blue" icon={<BookOutlined />} />
+        <KPI title="Course progress" value={k.courseProgress} suffix="%" tone="purple" />
+        <KPI title="Attendance" value={k.attendancePct} suffix="%" tone="cyan" icon={<CheckSquareOutlined />} />
+        <KPI title="Today's classes" value={k.todaysClasses} tone="slate" />
+        <KPI title="Upcoming classes" value={k.upcomingClasses} tone="slate" />
+        <KPI title="Live now" value={k.liveNow} tone="red" />
+        <KPI title="Recordings" value={k.latestRecordings} tone="purple" icon={<PlayCircleOutlined />} />
+        <KPI title="Certificates" value={k.certificates} tone="amber" icon={<TrophyOutlined />} />
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>

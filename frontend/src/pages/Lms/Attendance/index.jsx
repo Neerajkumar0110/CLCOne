@@ -1,19 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Row, Col, Card, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress, Statistic } from 'antd';
+import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress } from 'antd';
 import { ReloadOutlined, DownloadOutlined, CheckSquareOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
+import KpiTile from '../components/KpiTile';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
 const SC = { PRESENT: 'green', LATE: 'gold', PARTIAL: 'orange', ABSENT: 'default', EXCUSED: 'blue' };
 
-function KPI({ label, value, suffix }) {
-  return (
-    <Card size="small" className="lms-kpi">
-      <Statistic title={label} value={value} suffix={suffix} />
-    </Card>
-  );
+function KPI({ label, value, suffix, tone }) {
+  return <KpiTile title={label} value={value} suffix={suffix} tone={tone} span={{ xs: 12, sm: 8, md: 4, lg: 4, xxl: 4 }} />;
 }
 
 // ── admin / teacher dashboard ──────────────────────────────────────
@@ -53,16 +50,16 @@ function Dashboard({ role }) {
 
   return (
     <div>
-      <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
-        <Col xs={12} sm={8} md={4}><KPI label="Students" value={k.totalStudents || 0} /></Col>
-        <Col xs={12} sm={8} md={4}><KPI label="Present" value={k.present || 0} /></Col>
-        <Col xs={12} sm={8} md={4}><KPI label="Partial" value={k.partial || 0} /></Col>
-        <Col xs={12} sm={8} md={4}><KPI label="Absent" value={k.absent || 0} /></Col>
-        <Col xs={12} sm={8} md={4}><KPI label="Avg attendance" value={k.avgAttendancePct || 0} suffix="%" /></Col>
-        <Col xs={12} sm={8} md={4}><KPI label="Classes" value={`${k.completedClasses || 0}/${k.totalClasses || 0}`} /></Col>
+      <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
+        <KPI label="Students" value={k.totalStudents || 0} tone="blue" />
+        <KPI label="Present" value={k.present || 0} tone="green" />
+        <KPI label="Partial" value={k.partial || 0} tone="amber" />
+        <KPI label="Absent" value={k.absent || 0} tone="red" />
+        <KPI label="Avg attendance" value={k.avgAttendancePct || 0} suffix="%" tone="cyan" />
+        <KPI label="Classes" value={`${k.completedClasses || 0}/${k.totalClasses || 0}`} tone="slate" />
       </Row>
 
-      <Space wrap style={{ marginBottom: 12 }}>
+      <Space wrap className="lms-toolbar" style={{ marginBottom: 12 }}>
         <Select allowClear placeholder="Course" style={{ width: 190 }} value={f.courseTitle || undefined}
           onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))} options={courses.map((c) => ({ value: c, label: c }))} />
         <Select allowClear placeholder="Batch" style={{ width: 170 }} value={f.batchName || undefined}
@@ -135,13 +132,13 @@ function MyAttendance() {
 
   return (
     <div>
-      <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
-        <Col xs={12} sm={6}><KPI label="Attendance" value={s.attendancePct || 0} suffix="%" /></Col>
-        <Col xs={12} sm={6}><KPI label="Classes" value={s.totalClasses || 0} /></Col>
-        <Col xs={12} sm={6}><KPI label="Present" value={s.present || 0} /></Col>
-        <Col xs={12} sm={6}><KPI label="Absent" value={s.absent || 0} /></Col>
+      <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
+        <KPI label="Attendance" value={s.attendancePct || 0} suffix="%" tone="blue" />
+        <KPI label="Classes" value={s.totalClasses || 0} tone="slate" />
+        <KPI label="Present" value={s.present || 0} tone="green" />
+        <KPI label="Absent" value={s.absent || 0} tone="red" />
       </Row>
-      <Space style={{ marginBottom: 12 }}>
+      <Space className="lms-toolbar" style={{ marginBottom: 12 }}>
         <Select allowClear placeholder="Course" style={{ width: 220 }} value={course || undefined}
           onChange={(v) => setCourse(v || '')} options={courses.map((c) => ({ value: c, label: c }))} />
         <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>

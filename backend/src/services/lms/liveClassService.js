@@ -4,7 +4,7 @@ const { lmsConfig } = require('../../config/lms');
 const { getMeetingProvider } = require('./meeting');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../config/roles');
+const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_STUDENT_ROLES } = require('../../config/roles');
 
 // Live-class orchestration: auto room, SCHEDULED..RECORDING_AVAILABLE
 // lifecycle, multi-session attendance (webhook-authoritative), recording
@@ -60,6 +60,22 @@ function crmBase() {
   ).replace(/\/+$/, '');
 }
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+
+// True while "now" is inside the class's scheduled time (± a small grace
+// buffer) — used so a class that got marked 'ended' early (a slip of the
+// End button, or the auto-lifecycle tick firing a bit ahead of schedule)
+// can still be re-joined for as long as the batch's actual class time is
+// running, instead of being permanently over the moment someone ends it.
+const JOIN_WINDOW_GRACE_MIN = 10;
+function withinScheduledWindow(session) {
+  if (!session.scheduledStart) return false;
+  const start = new Date(session.scheduledStart).getTime();
+  const end = session.scheduledEnd
+    ? new Date(session.scheduledEnd).getTime()
+    : start + (session.scheduledDurationMin || 60) * 60000;
+  const now = Date.now();
+  return now >= start - JOIN_WINDOW_GRACE_MIN * 60000 && now <= end + JOIN_WINDOW_GRACE_MIN * 60000;
+}
 const DISPLAY = {
   scheduled: 'SCHEDULED',
   upcoming: 'UPCOMING',
@@ -306,9 +322,19 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
   if (crmUserId) crmUser = await Admin.findById(crmUserId);
   if (!crmUser && cleanEmail) crmUser = await Admin.findOne({ email: cleanEmail, removed: false });
 
-  // roster row (Student model) — find or create for this batch
-  studentDoc = await Student.findOne({ batch: batch.name, email: cleanEmail, removed: false });
-  if (!studentDoc && cleanEmail) {
+  // roster row (Student model) — find by email (not batch+email, so a
+  // student who already has a different batch gets MOVED, not duplicated),
+  // create one only if they've never been seen before. Student.js's own
+  // save hooks recount Batch.enrolled whenever `batch` changes, so there's
+  // no manual increment to do here.
+  studentDoc = cleanEmail ? await Student.findOne({ email: cleanEmail, removed: false }) : null;
+  if (studentDoc) {
+    if (studentDoc.batch !== batch.name) {
+      studentDoc.batch = batch.name;
+      studentDoc.course = batch.course || studentDoc.course;
+      await studentDoc.save();
+    }
+  } else if (cleanEmail) {
     studentDoc = await new Student({
       name: name || (crmUser && crmUser.name) || cleanEmail.split('@')[0],
       email: cleanEmail,
@@ -319,8 +345,6 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       source: 'Counselor',
       notes: `${TAG} added mid-batch by ${admin.name || 'admin'}`,
     }).save();
-    batch.enrolled = (batch.enrolled || 0) + 1;
-    await batch.save().catch(() => {});
   }
 
   // Moodle enrol (best-effort, only if the course is mapped + user provisionable)
@@ -334,7 +358,7 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       const uid = crmUser ? crmUser._id : crmUserId;
       await syncService.provisionUser(await Admin.findById(uid));
       if (course) {
-        await syncService.enrolUser({ crmUserId: uid, crmCourseId: course._id, moodleCourseId: room.moodleCourseId, roleShortname: 'student', source: 'batch' });
+        await syncService.enrolUser({ crmUserId: uid, crmCourseId: course._id, moodleCourseId: room.moodleCourseId, batchId: batch._id, roleShortname: 'student', source: 'batch' });
         moodleResult = 'enrolled';
       }
     } catch (e) {
@@ -368,6 +392,132 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
       roomValidUntil: room.validUntil,
     },
   };
+}
+
+// Search BOTH student pools — the LMS `Student` roster (ops/CRM rows: fees,
+// progress, counselor, …) and `Admin` accounts with role Student (real
+// login accounts, from User Management) — merged into one deduped-by-email
+// list, so a "who do I add to this batch" picker never misses either kind.
+async function searchStudents(q, limit = 20) {
+  const term = String(q || '').trim();
+  if (term.length < 2) return { result: [] };
+  const rx = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const Student = mongoose.model('Student');
+  const Admin = mongoose.model('Admin');
+
+  const [rosterRows, accountRows] = await Promise.all([
+    Student.find({ removed: false, $or: [{ name: rx }, { email: rx }] })
+      .select('name email batch')
+      .limit(limit)
+      .lean(),
+    Admin.find({ removed: false, role: { $in: LMS_STUDENT_ROLES }, $or: [{ name: rx }, { email: rx }] })
+      .select('name email')
+      .limit(limit)
+      .lean(),
+  ]);
+
+  const byEmail = new Map();
+  for (const r of rosterRows) {
+    const email = String(r.email || '').toLowerCase();
+    if (!email) continue;
+    byEmail.set(email, { studentId: String(r._id), crmUserId: null, name: r.name, email, currentBatch: r.batch || null, source: 'roster' });
+  }
+  for (const a of accountRows) {
+    const email = String(a.email || '').toLowerCase();
+    if (!email) continue;
+    const existing = byEmail.get(email);
+    if (existing) {
+      existing.crmUserId = String(a._id);
+      existing.source = 'both';
+    } else {
+      byEmail.set(email, { studentId: null, crmUserId: String(a._id), name: a.name, email, currentBatch: null, source: 'account' });
+    }
+  }
+  return { result: Array.from(byEmail.values()).slice(0, limit) };
+}
+
+// A batch's current roster — merges the `Student` roster (matched by batch
+// name) with `LmsEnrolment` (the proper `Admin`↔`Batch` ref), deduped by
+// email, since neither pool alone is authoritative today.
+async function listBatchStudents(batchId) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+
+  const Student = mongoose.model('Student');
+  const LmsEnrolment = mongoose.model('LmsEnrolment');
+  const [rosterRows, enrolments] = await Promise.all([
+    Student.find({ batch: batch.name, removed: false }).select('name email status progress attendancePct').lean(),
+    LmsEnrolment.find({ batch: batchId, status: { $ne: 'ended' } }).populate('crmUser', 'name email').lean(),
+  ]);
+
+  const byEmail = new Map();
+  for (const r of rosterRows) {
+    const email = String(r.email || '').toLowerCase();
+    if (!email) continue;
+    byEmail.set(email, {
+      id: String(r._id), crmUserId: null, name: r.name, email,
+      status: r.status, progress: r.progress || 0, attendancePct: r.attendancePct || 0, source: 'roster',
+    });
+  }
+  for (const e of enrolments) {
+    if (!e.crmUser) continue;
+    const email = String(e.crmUser.email || '').toLowerCase();
+    if (!email) continue;
+    const existing = byEmail.get(email);
+    if (existing) {
+      existing.crmUserId = String(e.crmUser._id);
+      existing.source = 'both';
+    } else {
+      byEmail.set(email, {
+        id: null, crmUserId: String(e.crmUser._id), name: e.crmUser.name, email,
+        status: e.status, progress: e.progressPct || 0, attendancePct: 0, source: 'account',
+      });
+    }
+  }
+  return { result: Array.from(byEmail.values()) };
+}
+
+// Un-assign a student from a batch — clears the roster row's `batch` (keeps
+// the row itself) and ends the matching LmsEnrolment, if any.
+async function removeStudentFromBatch({ batchId, studentId, crmUserId, email } = {}, admin) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+  if (!isManager(admin) && (batch.trainer || '').toLowerCase() !== (admin.name || '').toLowerCase()) {
+    return { error: 403, message: 'You can only manage your own batch.' };
+  }
+
+  const Student = mongoose.model('Student');
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  let removed = false;
+
+  const studentDoc = studentId
+    ? await Student.findById(studentId)
+    : cleanEmail
+    ? await Student.findOne({ batch: batch.name, email: cleanEmail, removed: false })
+    : null;
+  if (studentDoc && studentDoc.batch === batch.name) {
+    studentDoc.batch = '';
+    await studentDoc.save();
+    removed = true;
+  }
+
+  if (crmUserId) {
+    const LmsEnrolment = mongoose.model('LmsEnrolment');
+    const res = await LmsEnrolment.updateMany({ batch: batchId, crmUser: crmUserId }, { $set: { status: 'ended' } });
+    if (res.modifiedCount) removed = true;
+  }
+
+  if (removed) {
+    // studentDoc.save() above already recounts via Student.js's own hooks
+    // when a roster row was touched — this also covers the LmsEnrolment
+    // -only case (crmUserId given but no matching roster row) and is a
+    // harmless no-op recount otherwise (it sets the true count, not a delta).
+    const { studentAccountService } = require('./index');
+    await studentAccountService.syncBatchEnrolledCounts([batch.name]).catch(() => {});
+  }
+  return { result: { removed } };
 }
 
 /* ───────────────────────── provider room ───────────────────────── */
@@ -517,7 +667,10 @@ async function startSession(id, admin, { auto = false } = {}) {
     const role = await resolveRole(session, admin);
     if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can start it.' };
   }
-  if (['ended', 'recording_processing', 'recording_available'].includes(session.status)) {
+  if (['recording_processing', 'recording_available'].includes(session.status)) {
+    return { error: 409, message: 'This class has already ended and its recording is being processed.' };
+  }
+  if (session.status === 'ended' && !withinScheduledWindow(session)) {
     return { error: 409, message: 'This class has already ended.' };
   }
   const s = await settingsService.get();
@@ -534,7 +687,10 @@ async function startSession(id, admin, { auto = false } = {}) {
 
   session.status = 'live';
   session.actualStart = session.actualStart || new Date();
-  if (session.recordingEnabled && s.recordingAutoStart) {
+  // Guard the ['PROCESSING','AVAILABLE'] states so restarting a class that
+  // got marked 'ended' early (see withinScheduledWindow above) doesn't
+  // clobber a recording that already finished processing.
+  if (session.recordingEnabled && s.recordingAutoStart && !['PROCESSING', 'AVAILABLE'].includes(session.recordingStatus)) {
     session.recordingStatus = 'RECORDING';
     await mongoose.model('LiveRecording').updateOne(
       { liveSession: session._id },
@@ -673,6 +829,17 @@ async function issueJoin(id, admin) {
   const role = await resolveRole(session, admin);
   if (!role) return { error: 403, message: 'You are not a participant of this class.' };
 
+  // A class marked 'ended' (early End click, or the auto-lifecycle tick
+  // firing a touch ahead of schedule) resumes for whoever — teacher or
+  // student — tries to join it, for as long as the batch's scheduled time
+  // is still running (withinScheduledWindow). `auto: true` skips
+  // startSession's teacher-only check since this isn't a fresh "start the
+  // class" decision, just resuming a slot that was already live.
+  if (session.status === 'ended' && withinScheduledWindow(session)) {
+    const started = await startSession(id, admin, { auto: true });
+    if (started.error) return started;
+    return issueJoin(id, admin); // re-load now-live session
+  }
   if (role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status)) {
     const started = await startSession(id, admin);
     if (started.error) return started;
@@ -732,11 +899,14 @@ async function redeemTicket(ticketStr) {
 
   const user = await mongoose.model('Admin').findById(t.crmUser);
   const provider = getMeetingProvider();
-  const url = await provider.getJoinUrl(session, {
+  const opts = {
     role: t.role === 'moderator' ? 'moderator' : 'viewer',
     fullName: user ? `${user.name || ''} ${user.surname || ''}`.trim() || user.email : 'Guest',
+    email: user ? user.email : '',
     userId: String(t.crmUser),
-  });
+  };
+
+  const url = await provider.getJoinUrl(session, opts);
   return { result: { url } };
 }
 
@@ -935,11 +1105,35 @@ async function resolveRole(session, admin) {
   if (!admin) return null;
   if (session.teacherCrmUser && String(session.teacherCrmUser) === String(admin._id)) return 'teacher';
   if (session.teacherName && admin.name && session.teacherName.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+  // Sessions snapshot teacherName/teacherCrmUser once, at batch-creation
+  // time (recurrence.js), and never get refreshed if the batch's Trainer is
+  // edited afterward — so a batch created before Trainer became a real
+  // Teacher-account picker (or just re-assigned to someone else) leaves its
+  // already-generated sessions pointing at the old/blank value forever.
+  // Falling back to the batch's CURRENT trainer keeps this self-healing
+  // instead of needing a one-off data migration.
+  if (session.batch && admin.name) {
+    const Batch = mongoose.model('Batch');
+    const batch = await Batch.findById(session.batch).select('trainer').lean();
+    if (batch && batch.trainer && batch.trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+  }
   if (isManager(admin)) return 'teacher';
   if (session.participants.some((p) => String(p.crmUser) === String(admin._id))) return 'student';
   if (session.moodleCourseId) {
     const enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId });
     if (enr) return enr.roleShortname === 'editingteacher' ? 'teacher' : 'student';
+  }
+  // Same roster-batch match the Student Dashboard already uses (panel.js's
+  // studentDashboard) — without this, a student who has never joined a
+  // class yet (no participant row) and has no Moodle enrolment record
+  // (Moodle sync not configured, or not yet run) never resolves to
+  // 'student' here, so "My Classes" shows nothing and there is no Join
+  // button to click at all.
+  if (session.batchName && admin.email) {
+    const Student = mongoose.model('Student');
+    const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName });
+    if (onRoster) return 'student';
   }
   return null;
 }
@@ -963,6 +1157,7 @@ function attendanceRows(session) {
 
 function safeView(session, role) {
   const online = session.participants.filter((p) => p.online).length;
+  const resumable = session.status === 'ended' && withinScheduledWindow(session);
   return {
     id: String(session._id),
     title: session.title,
@@ -987,13 +1182,17 @@ function safeView(session, role) {
     myRole: role === 'system' ? null : role,
     autoStartAt: !!session.autoStartAt,
     batchId: session.batch ? String(session.batch) : null,
-    canStart: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
+    canStart: role === 'teacher' && (['scheduled', 'upcoming'].includes(session.status) || resumable),
     canEnd: role === 'teacher' && ['live', 'starting'].includes(session.status),
     canEditTime: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
     canAddStudent: role === 'teacher' && !!session.batch,
+    // "resumable" — status is 'ended' but the batch's scheduled time is
+    // still running (withinScheduledWindow) — so a premature/accidental End
+    // (or the auto-lifecycle tick) doesn't permanently lock either side out
+    // of a class that should still be joinable. See issueJoin/startSession.
     canJoin:
-      (role === 'teacher' && ['scheduled', 'upcoming', 'live'].includes(session.status)) ||
-      (role === 'student' && session.status === 'live'),
+      (role === 'teacher' && (['scheduled', 'upcoming', 'live'].includes(session.status) || resumable)) ||
+      (role === 'student' && (session.status === 'live' || resumable)),
     canWatchRecording: ['recording_available'].includes(session.status),
     // NO meetingId / passwords / raw URL
   };
@@ -1038,6 +1237,9 @@ module.exports = {
   ensureBatchRoom,
   updateSchedule,
   addStudentToBatch,
+  searchStudents,
+  listBatchStudents,
+  removeStudentFromBatch,
   startSession,
   endSession,
   issueJoin,

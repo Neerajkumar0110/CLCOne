@@ -155,3 +155,28 @@
   background: linear-gradient(180deg, #1e293b, #0f172a);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(147, 197, 253, 0.4);
 }
+
+/* Logout button (LmsPanelApp header) — an antd default-type <Button> here
+   would inherit ConfigProvider's colorBgContainer (the active app palette's
+   pastel card fill, e.g. lilac for Purple Gradient), which reads as a
+   washed-out pill on this dark header. type="text" strips that; this gives
+   it its own outlined look plus a red hover (it's an exit action). */
+.lms-logout-btn.ant-btn {
+  color: var(--nav-text) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: none !important;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+.lms-logout-btn.ant-btn:hover,
+.lms-logout-btn.ant-btn:focus {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #fca5a5 !important;
+  transform: translateY(-1px);
+}
+.lms-logout-btn.ant-btn .anticon {
+  color: inherit;
+}
