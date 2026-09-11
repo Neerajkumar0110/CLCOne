@@ -309,29 +309,265 @@ export default function Support() {
   const allOpenCount = Object.values(categoryCounts).reduce((sum, n) => sum + n, 0);
 
   return (
-    <div className="hub-page">
-      <div className="hub-header">
-        <div>
-          <h2>Support</h2>
-          <p>Every module's tickets, split out by where the issue actually is</p>
+    <>
+      <style>{`
+        /* Support module UI refresh — scoped only to this page so light mode stays readable
+           without changing the rest of the app. */
+        .support-module-shell {
+          background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 42%, #fff7fb 100%);
+          border-radius: 22px;
+          padding: 22px 20px 26px;
+          border: 1px solid rgba(149, 171, 211, 0.28);
+          box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+        }
+
+        .support-module-shell .hub-header h2,
+        .support-module-shell .hub-card-header h3,
+        .support-module-shell .hub-kpi-value,
+        .support-module-shell .hub-table th,
+        .support-module-shell .hub-table td,
+        .support-module-shell .hub-form-row label,
+        .support-module-shell .hub-form-row div,
+        .support-module-shell .hub-pill-btn,
+        .support-module-shell .hub-tab,
+        .support-module-shell .hub-btn,
+        .support-module-shell .hub-empty,
+        .support-module-shell .hub-link-btn {
+          color: #0f172a !important;
+          font-weight: 800 !important;
+        }
+
+        .support-module-shell .hub-header p,
+        .support-module-shell .hub-kpi-label,
+        .support-module-shell .hub-table th,
+        .support-module-shell .hub-table td,
+        .support-module-shell .hub-form-row label,
+        .support-module-shell .hub-empty,
+        .support-module-shell .hub-table-wrapper {
+          color: #475569 !important;
+        }
+
+        .support-module-shell .hub-card,
+        .support-module-shell .hub-kpi,
+        .support-module-shell .hub-tabbar,
+        .support-module-shell .hub-pill-filter,
+        .support-module-shell .hub-table-wrapper,
+        .support-module-shell .hub-table,
+        .support-module-shell .hub-btn {
+          background: rgba(255, 255, 255, 0.9) !important;
+          border-color: rgba(148, 163, 184, 0.34) !important;
+        }
+
+        .support-module-shell .hub-kpi {
+          border-radius: 18px;
+          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+
+        .support-module-shell .hub-kpi:nth-child(1) {
+          background: linear-gradient(180deg, #edf5ff 0%, #f8fbff 100%);
+        }
+
+        .support-module-shell .hub-kpi:nth-child(2) {
+          background: linear-gradient(180deg, #fff0f7 0%, #fffafc 100%);
+        }
+
+        .support-module-shell .hub-kpi:nth-child(3) {
+          background: linear-gradient(180deg, #edfdf5 0%, #f8fff9 100%);
+        }
+
+        .support-module-shell .hub-tabbar {
+          border-radius: 16px;
+          padding: 6px;
+        }
+
+        .support-module-shell .hub-tab {
+          border-radius: 12px;
+          background: transparent;
+          font-weight: 800;
+          color: #334155;
+        }
+
+        .support-module-shell .hub-tab.active {
+          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          color: #ffffff !important;
+          box-shadow: 0 10px 16px rgba(18, 58, 115, 0.16);
+        }
+
+        .support-module-shell .hub-tab-count {
+          font-weight: 800;
+        }
+
+        .support-module-shell .hub-pill-btn {
+          border-radius: 999px;
+          background: transparent;
+          color: #334155;
+          font-weight: 800;
+        }
+
+        .support-module-shell .hub-pill-btn.active {
+          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          color: #ffffff !important;
+        }
+
+        .support-module-shell .hub-btn {
+          border-radius: 12px;
+          font-weight: 800;
+          background: white;
+          color: #0f172a;
+        }
+
+        .support-module-shell .hub-btn:hover {
+          background: #edf5ff;
+          color: #123a73;
+          border-color: rgba(18, 58, 115, 0.35);
+        }
+
+        .support-module-shell .hub-btn-primary {
+          background: linear-gradient(135deg, #123a73 0%, #1d4f8f 100%);
+          color: #ffffff !important;
+          border-color: transparent;
+        }
+
+        .support-module-shell .hub-table thead th {
+          background: #f3f7ff;
+          color: #0f172a;
+          font-weight: 800;
+        }
+
+        .support-module-shell .hub-table tbody tr:hover td {
+          background: #f8fbff;
+        }
+
+        .support-module-shell .hub-link-btn {
+          background: transparent;
+          border: none;
+          padding: 0;
+          font-weight: 800;
+          text-align: left;
+        }
+
+        .support-module-shell .hub-select {
+          background: #ffffff;
+          color: #0f172a;
+          border-color: rgba(148, 163, 184, 0.42);
+          font-weight: 700;
+        }
+
+        .support-module-shell .hub-badge {
+          font-weight: 800;
+        }
+
+        /* Support module dark mode fix — these selectors intentionally come after
+           the light-mode rules because the module styles use !important. */
+        :root[data-theme='dark'] .support-module-shell {
+          background: linear-gradient(135deg, #081a32 0%, #102746 52%, #201a31 100%);
+          border-color: rgba(125, 180, 255, 0.28);
+          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+          color: #ffffff;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-card,
+        :root[data-theme='dark'] .support-module-shell .hub-kpi,
+        :root[data-theme='dark'] .support-module-shell .hub-tabbar,
+        :root[data-theme='dark'] .support-module-shell .hub-pill-filter,
+        :root[data-theme='dark'] .support-module-shell .hub-table-wrapper,
+        :root[data-theme='dark'] .support-module-shell .hub-table,
+        :root[data-theme='dark'] .support-module-shell .hub-btn,
+        :root[data-theme='dark'] .support-module-shell .hub-select {
+          background: #12213d !important;
+          border-color: #2b3f5f !important;
+          color: #ffffff !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(1) {
+          background: linear-gradient(180deg, #142d4d 0%, #12213d 100%) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(2) {
+          background: linear-gradient(180deg, #38233a 0%, #12213d 100%) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-kpi:nth-child(3) {
+          background: linear-gradient(180deg, #163a31 0%, #12213d 100%) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-header h2,
+        :root[data-theme='dark'] .support-module-shell .hub-card-header h3,
+        :root[data-theme='dark'] .support-module-shell .hub-kpi-value,
+        :root[data-theme='dark'] .support-module-shell .hub-table th,
+        :root[data-theme='dark'] .support-module-shell .hub-table td,
+        :root[data-theme='dark'] .support-module-shell .hub-form-row label,
+        :root[data-theme='dark'] .support-module-shell .hub-form-row div,
+        :root[data-theme='dark'] .support-module-shell .hub-btn,
+        :root[data-theme='dark'] .support-module-shell .hub-select,
+        :root[data-theme='dark'] .support-module-shell .hub-empty,
+        :root[data-theme='dark'] .support-module-shell .hub-link-btn {
+          color: #ffffff !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-header p,
+        :root[data-theme='dark'] .support-module-shell .hub-kpi-label,
+        :root[data-theme='dark'] .support-module-shell .hub-table th,
+        :root[data-theme='dark'] .support-module-shell .hub-table td,
+        :root[data-theme='dark'] .support-module-shell .hub-form-row label,
+        :root[data-theme='dark'] .support-module-shell .hub-empty,
+        :root[data-theme='dark'] .support-module-shell .hub-table-wrapper {
+          color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-table thead th {
+          background: #162b4a !important;
+          color: #ffffff !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-table tbody tr:hover td {
+          background: rgba(255, 255, 255, 0.06) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-tab,
+        :root[data-theme='dark'] .support-module-shell .hub-pill-btn {
+          background: transparent !important;
+          color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-tab.active,
+        :root[data-theme='dark'] .support-module-shell .hub-pill-btn.active,
+        :root[data-theme='dark'] .support-module-shell .hub-btn-primary {
+          background: linear-gradient(135deg, #245a9c 0%, #3477c5 100%) !important;
+          color: #ffffff !important;
+        }
+
+        :root[data-theme='dark'] .support-module-shell .hub-btn:hover {
+          background: #1a3355 !important;
+          color: #ffffff !important;
+          border-color: #7db4ff !important;
+        }
+      `}</style>
+
+      <div className="hub-page support-module-shell">
+        <div className="hub-header">
+          <div>
+            <h2>Support</h2>
+            <p>Every module's tickets, split out by where the issue actually is</p>
+          </div>
         </div>
+
+        <HubTabs
+          tabs={[
+            { key: ALL_TAB, label: ALL_TAB, icon: <AppstoreOutlined />, count: allOpenCount },
+            ...TICKET_CATEGORY_MODULES.map((mod) => ({
+              key: mod,
+              label: mod,
+              icon: MODULE_ICONS[mod],
+              count: categoryCounts[mod] || 0,
+            })),
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
+
+        <ModuleTicketsPanel category={tab} onStatusChange={loadCategoryCounts} />
       </div>
-
-      <HubTabs
-        tabs={[
-          { key: ALL_TAB, label: ALL_TAB, icon: <AppstoreOutlined />, count: allOpenCount },
-          ...TICKET_CATEGORY_MODULES.map((mod) => ({
-            key: mod,
-            label: mod,
-            icon: MODULE_ICONS[mod],
-            count: categoryCounts[mod] || 0,
-          })),
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-
-      <ModuleTicketsPanel category={tab} onStatusChange={loadCategoryCounts} />
-    </div>
+    </>
   );
 }
