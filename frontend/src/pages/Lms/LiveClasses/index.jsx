@@ -33,7 +33,6 @@ import {
 } from '@ant-design/icons';
 import lmsApi from '../api';
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
-import JitsiEmbed from '../components/JitsiEmbed';
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -79,7 +78,6 @@ export default function LiveClasses() {
   const [editBusy, setEditBusy] = useState(false);
   const [editForm] = Form.useForm();
   const [addFor, setAddFor] = useState(null);
-  const [jitsiConfig, setJitsiConfig] = useState(null);
   const timer = useRef(null);
 
   const load = useCallback(async (silent) => {
@@ -112,35 +110,11 @@ export default function LiveClasses() {
     setBusyId(id);
     try {
       const res = await lmsApi.liveClassJoin(id);
-      const url = res && res.result && res.result.url;
-      if (!url) {
-        message.warning((res && res.message) || 'Could not join.');
-        return;
-      }
-      const row = rows.find((r) => r.id === id);
-      const isTeacher = res.result.role === 'teacher';
-      if (row && row.meetingProvider === 'jitsi' && !isTeacher) {
-        // Students only: simplified in-app toolbar (camera/mic/hangup only)
-        // and no repeated join prompt — the CRM's own name/email go straight
-        // into the embed instead of a "who are you" screen each time.
-        // Teachers keep the full native Jitsi tab (all controls, real
-        // fullscreen) via the openMeeting() branch below.
-        const embedRes = await lmsApi.liveTicketEmbed(url);
-        const embed = embedRes && embedRes.result && embedRes.result.embed;
-        if (embed) {
-          setJitsiConfig({
-            domain: embed.domain,
-            roomName: embed.roomName,
-            displayName: embed.displayName,
-            email: embed.email,
-            isModerator: embed.isModerator,
-          });
-        } else {
-          message.warning((embedRes && embedRes.message) || 'Could not join.');
-        }
-      } else {
-        openMeeting(url);
-      }
+      // Everyone — teacher and student — joins in a real new tab (own
+      // toolbar/pre-join restrictions are already baked into the URL server
+      // -side per role, see JitsiProvider.getJoinUrl).
+      if (res && res.result && res.result.url) openMeeting(res.result.url);
+      else message.warning((res && res.message) || 'Could not join.');
     } catch (e) {
       message.error('Could not join.');
     } finally {
@@ -406,8 +380,6 @@ export default function LiveClasses() {
         batchId={addFor && addFor.batchId}
         batchName={addFor && addFor.batchName}
       />
-
-      <JitsiEmbed open={!!jitsiConfig} config={jitsiConfig} onClose={() => setJitsiConfig(null)} />
 
       <Modal open={!!attFor} title={attFor ? `Attendance — ${attFor.title}` : ''} footer={null} onCancel={() => setAttFor(null)} width={680}>
         <Table
