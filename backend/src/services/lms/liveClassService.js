@@ -60,6 +60,22 @@ function crmBase() {
   ).replace(/\/+$/, '');
 }
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+
+// True while "now" is inside the class's scheduled time (± a small grace
+// buffer) — used so a class that got marked 'ended' early (a slip of the
+// End button, or the auto-lifecycle tick firing a bit ahead of schedule)
+// can still be re-joined for as long as the batch's actual class time is
+// running, instead of being permanently over the moment someone ends it.
+const JOIN_WINDOW_GRACE_MIN = 10;
+function withinScheduledWindow(session) {
+  if (!session.scheduledStart) return false;
+  const start = new Date(session.scheduledStart).getTime();
+  const end = session.scheduledEnd
+    ? new Date(session.scheduledEnd).getTime()
+    : start + (session.scheduledDurationMin || 60) * 60000;
+  const now = Date.now();
+  return now >= start - JOIN_WINDOW_GRACE_MIN * 60000 && now <= end + JOIN_WINDOW_GRACE_MIN * 60000;
+}
 const DISPLAY = {
   scheduled: 'SCHEDULED',
   upcoming: 'UPCOMING',
@@ -651,7 +667,10 @@ async function startSession(id, admin, { auto = false } = {}) {
     const role = await resolveRole(session, admin);
     if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can start it.' };
   }
-  if (['ended', 'recording_processing', 'recording_available'].includes(session.status)) {
+  if (['recording_processing', 'recording_available'].includes(session.status)) {
+    return { error: 409, message: 'This class has already ended and its recording is being processed.' };
+  }
+  if (session.status === 'ended' && !withinScheduledWindow(session)) {
     return { error: 409, message: 'This class has already ended.' };
   }
   const s = await settingsService.get();
@@ -668,7 +687,10 @@ async function startSession(id, admin, { auto = false } = {}) {
 
   session.status = 'live';
   session.actualStart = session.actualStart || new Date();
-  if (session.recordingEnabled && s.recordingAutoStart) {
+  // Guard the ['PROCESSING','AVAILABLE'] states so restarting a class that
+  // got marked 'ended' early (see withinScheduledWindow above) doesn't
+  // clobber a recording that already finished processing.
+  if (session.recordingEnabled && s.recordingAutoStart && !['PROCESSING', 'AVAILABLE'].includes(session.recordingStatus)) {
     session.recordingStatus = 'RECORDING';
     await mongoose.model('LiveRecording').updateOne(
       { liveSession: session._id },
@@ -807,6 +829,17 @@ async function issueJoin(id, admin) {
   const role = await resolveRole(session, admin);
   if (!role) return { error: 403, message: 'You are not a participant of this class.' };
 
+  // A class marked 'ended' (early End click, or the auto-lifecycle tick
+  // firing a touch ahead of schedule) resumes for whoever — teacher or
+  // student — tries to join it, for as long as the batch's scheduled time
+  // is still running (withinScheduledWindow). `auto: true` skips
+  // startSession's teacher-only check since this isn't a fresh "start the
+  // class" decision, just resuming a slot that was already live.
+  if (session.status === 'ended' && withinScheduledWindow(session)) {
+    const started = await startSession(id, admin, { auto: true });
+    if (started.error) return started;
+    return issueJoin(id, admin); // re-load now-live session
+  }
   if (role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status)) {
     const started = await startSession(id, admin);
     if (started.error) return started;
@@ -1121,6 +1154,7 @@ function attendanceRows(session) {
 
 function safeView(session, role) {
   const online = session.participants.filter((p) => p.online).length;
+  const resumable = session.status === 'ended' && withinScheduledWindow(session);
   return {
     id: String(session._id),
     title: session.title,
@@ -1145,13 +1179,17 @@ function safeView(session, role) {
     myRole: role === 'system' ? null : role,
     autoStartAt: !!session.autoStartAt,
     batchId: session.batch ? String(session.batch) : null,
-    canStart: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
+    canStart: role === 'teacher' && (['scheduled', 'upcoming'].includes(session.status) || resumable),
     canEnd: role === 'teacher' && ['live', 'starting'].includes(session.status),
     canEditTime: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
     canAddStudent: role === 'teacher' && !!session.batch,
+    // "resumable" — status is 'ended' but the batch's scheduled time is
+    // still running (withinScheduledWindow) — so a premature/accidental End
+    // (or the auto-lifecycle tick) doesn't permanently lock either side out
+    // of a class that should still be joinable. See issueJoin/startSession.
     canJoin:
-      (role === 'teacher' && ['scheduled', 'upcoming', 'live'].includes(session.status)) ||
-      (role === 'student' && session.status === 'live'),
+      (role === 'teacher' && (['scheduled', 'upcoming', 'live'].includes(session.status) || resumable)) ||
+      (role === 'student' && (session.status === 'live' || resumable)),
     canWatchRecording: ['recording_available'].includes(session.status),
     // NO meetingId / passwords / raw URL
   };

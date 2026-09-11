@@ -12,6 +12,7 @@ import {
   ConfigProvider,
 } from 'antd';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import {
   PlusOutlined,
   EditOutlined,
@@ -41,6 +42,12 @@ import {
 } from '@ant-design/icons';
 
 import { request } from '@/request';
+
+// Needed to parse a stored "HH:mm" string back into a dayjs object for the
+// TimePicker (openEdit, below) — without it dayjs silently ignores the
+// format argument and produces an Invalid Date, so Start/End time looked
+// blank/wrong every time a batch was reopened for editing.
+dayjs.extend(customParseFormat);
 
 const PAGE_SIZE = 10;
 // antd derives its palette from these, so they must be real colours — a
