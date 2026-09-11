@@ -29,6 +29,11 @@ const lmsApi = {
   // manager / batch teacher: add a student to a running batch (same link + email).
   addBatchStudent: (batchId, jsonData) =>
     request.post({ entity: `lms/batches/${batchId}/students`, jsonData }),
+  // combined search across the LMS Student roster + User Management (Admin, role=Student) accounts.
+  searchStudents: (q) => request.get({ entity: `lms/students/search${qs({ q })}` }),
+  listBatchStudents: (batchId) => request.get({ entity: `lms/batches/${batchId}/students` }),
+  removeBatchStudent: (batchId, jsonData) =>
+    request.post({ entity: `lms/batches/${batchId}/students/remove`, jsonData }),
   liveClassStart: (id) => request.post({ entity: `lms/live-classes/${id}/start`, jsonData: {} }),
   liveClassEnd: (id) => request.post({ entity: `lms/live-classes/${id}/end`, jsonData: {} }),
   liveClassJoin: (id) => request.post({ entity: `lms/live-classes/${id}/join`, jsonData: {} }),

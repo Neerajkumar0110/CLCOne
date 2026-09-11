@@ -7,6 +7,7 @@ const queue = require('./queue');
 const roleMap = require('./roleMap');
 const sso = require('./ssoToken');
 const liveClassService = require('./liveClassService');
+const studentAccountService = require('./studentAccountService');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
 const mailer = require('./mailer');
@@ -22,6 +23,7 @@ module.exports = {
   roleMap,
   sso,
   liveClassService,
+  studentAccountService,
   settingsService,
   recurrence,
   mailer,

@@ -20,7 +20,8 @@ const batchSchema = featureSchema([
   { name: 'schedule', type: 'String' },
   // structured schedule (optional — recurrence.js also parses `schedule` text)
   { name: 'classDays', type: 'String' },        // "Mon,Wed,Fri"
-  { name: 'classTime', type: 'String' },        // "10:00" (24h)
+  { name: 'classTime', type: 'String' },        // "10:00" (24h) — shown as "Start time"
+  { name: 'endTime', type: 'String' },          // "11:00" (24h) — used to derive classDurationMin
   { name: 'classDurationMin', type: 'Number', default: 60 },
   { name: 'seats', type: 'Number', default: 0 },
   { name: 'enrolled', type: 'Number', default: 0 },
@@ -32,10 +33,68 @@ const batchSchema = featureSchema([
   { name: 'notes', type: 'String' },
 ]);
 
+// "HH:mm" (24h) -> minutes since midnight, or null if unparseable.
+function toMinutes(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+// `name` self-generates from Course + Trainer (e.g. "Artificial Intelligence
+// — Rohit Kushwaha") and is never shown as an input (see the `hidden` flag
+// on its featureSections.js field spec) — this runs in pre('validate'),
+// not pre('save'), because `name` is `required: true` and Mongoose runs
+// validation *before* pre('save') hooks; filling it in any later would
+// fail validation first. Uniqueness-checked with a "(2)", "(3)"… suffix
+// since `name` is the string every other model matches a batch by
+// (Student.batch, LmsBatchRoom.batchName, recurrence.js, …).
+batchSchema.pre('validate', async function (next) {
+  if (this.isNew && !this.name) {
+    const base = [this.course, this.trainer].filter(Boolean).join(' — ') || 'New Batch';
+    const Batch = mongoose.model('Batch');
+    let candidate = base;
+    let n = 1;
+    // eslint-disable-next-line no-await-in-loop
+    while (await Batch.exists({ name: candidate })) {
+      n += 1;
+      candidate = `${base} (${n})`;
+    }
+    this.name = candidate;
+  }
+  next();
+});
+
 // Additive: remember whether this save is an insert, then (best-effort)
 // auto-create the batch's live class + meeting room. Never blocks the batch.
-batchSchema.pre('save', function (next) {
+// Also — when both Start time (classTime) and End time (endTime) are set —
+// keep classDurationMin (what recurrence.js/liveClassService.js actually
+// read) in sync, so entering clock times "just works" without touching the
+// scheduling code at all. `code` self-generates from the course — same
+// pattern as Course.js — and is never shown as an input either.
+batchSchema.pre('save', async function (next) {
   this.$locals.wasNew = this.isNew;
+  if (this.isModified('classTime') || this.isModified('endTime')) {
+    const start = toMinutes(this.classTime);
+    const end = toMinutes(this.endTime);
+    if (start != null && end != null && end > start) {
+      this.classDurationMin = end - start;
+    }
+  }
+  if (this.isNew && !this.code) {
+    const initials = String(this.course || this.name || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 4);
+    const prefix = initials || 'BATCH';
+    const count = await mongoose.model('Batch').countDocuments({});
+    this.code = `${prefix}${100 + count}`;
+  }
   next();
 });
 batchSchema.post('save', function (doc) {
