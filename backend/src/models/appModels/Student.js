@@ -98,10 +98,18 @@ studentSchema.post('save', function (doc) {
 // createCRUDController/{update,remove}.js) go through Model.findOneAndUpdate
 // directly, which the document-level pre/post('save') hooks above never
 // see — this keeps Batch.enrolled accurate for edits (moving a student
-// between batches) and soft-deletes too.
+// between batches) and soft-deletes too. The two paths shape their update
+// differently — Edit sends the raw body as top-level fields, Delete sends
+// `{ $set: { removed: true } } — so a field can show up either way.
+function hasUpdateField(update, field) {
+  return (
+    Object.prototype.hasOwnProperty.call(update, field) ||
+    (update.$set && Object.prototype.hasOwnProperty.call(update.$set, field))
+  );
+}
 studentSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate() || {};
-  if (Object.prototype.hasOwnProperty.call(update, 'batch') || Object.prototype.hasOwnProperty.call(update, 'removed')) {
+  if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed')) {
     const prev = await this.model.findOne(this.getQuery()).select('batch').lean();
     this._prevBatch = prev && prev.batch;
     this._recountBatch = true;

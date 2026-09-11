@@ -1069,11 +1069,35 @@ async function resolveRole(session, admin) {
   if (!admin) return null;
   if (session.teacherCrmUser && String(session.teacherCrmUser) === String(admin._id)) return 'teacher';
   if (session.teacherName && admin.name && session.teacherName.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+  // Sessions snapshot teacherName/teacherCrmUser once, at batch-creation
+  // time (recurrence.js), and never get refreshed if the batch's Trainer is
+  // edited afterward — so a batch created before Trainer became a real
+  // Teacher-account picker (or just re-assigned to someone else) leaves its
+  // already-generated sessions pointing at the old/blank value forever.
+  // Falling back to the batch's CURRENT trainer keeps this self-healing
+  // instead of needing a one-off data migration.
+  if (session.batch && admin.name) {
+    const Batch = mongoose.model('Batch');
+    const batch = await Batch.findById(session.batch).select('trainer').lean();
+    if (batch && batch.trainer && batch.trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+  }
   if (isManager(admin)) return 'teacher';
   if (session.participants.some((p) => String(p.crmUser) === String(admin._id))) return 'student';
   if (session.moodleCourseId) {
     const enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId });
     if (enr) return enr.roleShortname === 'editingteacher' ? 'teacher' : 'student';
+  }
+  // Same roster-batch match the Student Dashboard already uses (panel.js's
+  // studentDashboard) — without this, a student who has never joined a
+  // class yet (no participant row) and has no Moodle enrolment record
+  // (Moodle sync not configured, or not yet run) never resolves to
+  // 'student' here, so "My Classes" shows nothing and there is no Join
+  // button to click at all.
+  if (session.batchName && admin.email) {
+    const Student = mongoose.model('Student');
+    const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName });
+    if (onRoster) return 'student';
   }
   return null;
 }

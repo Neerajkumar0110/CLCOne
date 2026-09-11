@@ -28,16 +28,22 @@ async function teacherDashboard(req, res) {
   // a manager may look at any teacher via ?teacher=<name>; a Teacher only sees self
   const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
 
-  const [courses, batches, sessions] = await Promise.all([
+  const [courses, batches] = await Promise.all([
     Course.find({ removed: false, instructor: rx(teacherName) }).lean(),
     Batch.find({ removed: false, trainer: rx(teacherName) }).lean(),
-    LmsLiveSession.find({
-      removed: false,
-      $or: [{ teacherCrmUser: admin._id }, { teacherName: rx(teacherName) }],
-    })
-      .select('status scheduledStart scheduledEnd scheduledDurationMin actualStart actualEnd participants title courseTitle batchName recordingStatus')
-      .lean(),
   ]);
+
+  // A session's teacherName/teacherCrmUser is a snapshot taken once at
+  // batch-creation time (services/lms/recurrence.js) and never refreshed if
+  // the batch's Trainer is edited afterward — matching on the batch's
+  // CURRENT trainer too (already fetched above) keeps this self-healing
+  // instead of leaving classes invisible until the sessions are recreated.
+  const sessions = await LmsLiveSession.find({
+    removed: false,
+    $or: [{ teacherCrmUser: admin._id }, { teacherName: rx(teacherName) }, { batch: { $in: batches.map((b) => b._id) } }],
+  })
+    .select('status scheduledStart scheduledEnd scheduledDurationMin actualStart actualEnd participants title courseTitle batchName recordingStatus')
+    .lean();
 
   const batchNames = batches.map((b) => b.name);
   const students = batchNames.length
