@@ -7,9 +7,7 @@ const mailer = require('./mailer');
 const { buildReceiptHtml, renderPdfBuffer } = require('./studentReceiptPdf');
 
 function crmBase() {
-  return (
-    lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'http://200.141.5.195'
-  ).replace(/\/+$/, '');
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 
 // A Student roster row (models/appModels/Student.js) is CRM/ops data — fees,
