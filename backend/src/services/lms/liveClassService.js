@@ -55,9 +55,7 @@ function coerceLegacy(session) {
   return session;
 }
 function crmBase() {
-  return (
-    lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'http://200.141.5.195'
-  ).replace(/\/+$/, '');
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
 
