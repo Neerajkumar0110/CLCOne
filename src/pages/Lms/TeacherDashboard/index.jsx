@@ -7,6 +7,14 @@ import {
   CheckSquareOutlined,
   ClockCircleOutlined,
   PlayCircleOutlined,
+  CheckCircleOutlined,
+  EditOutlined,
+  UserOutlined,
+  CalendarOutlined,
+  FieldTimeOutlined,
+  TrophyOutlined,
+  FileTextOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
@@ -25,8 +33,8 @@ const fmtTime = (v) => {
   }
 };
 
-const KPI = ({ title, value, suffix, tone, icon }) => (
-  <KpiTile title={title} value={value} suffix={suffix} tone={tone} icon={icon} />
+const KPI = ({ title, value, suffix, tone, icon, index }) => (
+  <KpiTile title={title} value={value} suffix={suffix} tone={tone} icon={icon} index={index} />
 );
 
 export default function TeacherDashboard() {
@@ -87,7 +95,7 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
+    <div className="lms-portal lms-dashboard-shell">
       <div className="lms-portal-head">
         <div>
           <h2><ReadOutlined /> Teacher Dashboard</h2>
@@ -98,42 +106,42 @@ export default function TeacherDashboard() {
         </Button>
       </div>
 
-      <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
-        <KPI title="Courses" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
-        <KPI title="Published" value={k.publishedCourses} tone="green" />
-        <KPI title="Drafts" value={k.draftCourses} tone="amber" />
-        <KPI title="Students" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
-        <KPI title="Active students" value={k.activeStudents} tone="green" />
-        <KPI title="Today's classes" value={k.todaysClasses} tone="cyan" icon={<ClockCircleOutlined />} />
-        <KPI title="Live now" value={k.liveClasses} tone="red" />
-        <KPI title="Upcoming" value={k.upcomingClasses} tone="purple" />
-        <KPI title="Completed" value={k.completedClasses} tone="slate" />
-        <KPI title="Live hours" value={k.totalLiveClassHours} tone="cyan" />
-        <KPI title="Recordings" value={k.totalRecordings} tone="purple" icon={<PlayCircleOutlined />} />
-        <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" tone="blue" icon={<CheckSquareOutlined />} />
-        <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" tone="green" />
-        <KPI title="Pending assignments" value={k.pendingAssignments} tone="slate" />
-        <KPI title="Pending doubts" value={k.pendingDoubts} tone="slate" />
+      <Row gutter={[16, 16]} className="lms-kpi-row">
+        <KPI index={0} title="Courses" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
+        <KPI index={1} title="Published" value={k.publishedCourses} tone="green" icon={<CheckCircleOutlined />} />
+        <KPI index={2} title="Drafts" value={k.draftCourses} tone="amber" icon={<EditOutlined />} />
+        <KPI index={3} title="Students" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
+        <KPI index={4} title="Active students" value={k.activeStudents} tone="green" icon={<UserOutlined />} />
+        <KPI index={5} title="Today's classes" value={k.todaysClasses} tone="cyan" icon={<ClockCircleOutlined />} />
+        <KPI index={6} title="Live now" value={k.liveClasses} tone="red" icon={<VideoCameraOutlined />} />
+        <KPI index={7} title="Upcoming" value={k.upcomingClasses} tone="purple" icon={<CalendarOutlined />} />
+        <KPI index={8} title="Completed" value={k.completedClasses} tone="slate" icon={<CheckSquareOutlined />} />
+        <KPI index={9} title="Live hours" value={k.totalLiveClassHours} tone="cyan" icon={<FieldTimeOutlined />} />
+        <KPI index={10} title="Recordings" value={k.totalRecordings} tone="purple" icon={<PlayCircleOutlined />} />
+        <KPI index={11} title="Avg attendance" value={k.avgAttendance} suffix="%" tone="blue" icon={<CheckSquareOutlined />} />
+        <KPI index={12} title="Avg completion" value={k.avgCourseCompletion} suffix="%" tone="green" icon={<TrophyOutlined />} />
+        <KPI index={13} title="Pending assignments" value={k.pendingAssignments} tone="slate" icon={<FileTextOutlined />} />
+        <KPI index={14} title="Pending doubts" value={k.pendingDoubts} tone="slate" icon={<QuestionCircleOutlined />} />
       </Row>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }} key={isDark ? 'charts-d' : 'charts-l'}>
-        <Col xs={24} lg={12}>
+      <Row gutter={[16, 16]} className="lms-charts-row" key={isDark ? 'charts-d' : 'charts-l'}>
+        <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'attendanceByClass', kind: 'bar', title: 'Attendance by class' }} raw={attendanceChart} />
         </Col>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Course status' }} raw={courseStatusChart} />
         </Col>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'studentProgress', kind: 'bar', title: 'Student progress' }} raw={progressChart} />
         </Col>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'studentStatus', kind: 'donut', title: 'Students · active vs inactive' }} raw={studentStatusChart} />
         </Col>
       </Row>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Today's classes" bordered>
+      <Row gutter={[16, 16]} className="lms-tables-row">
+        <Col xs={24} lg={12} className="lms-card-col">
+          <Card size="small" title="Today's classes" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey="id"
@@ -149,8 +157,8 @@ export default function TeacherDashboard() {
             />
           </Card>
         </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Upcoming classes" bordered>
+        <Col xs={24} lg={12} className="lms-card-col">
+          <Card size="small" title="Upcoming classes" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey="id"
@@ -165,11 +173,8 @@ export default function TeacherDashboard() {
             />
           </Card>
         </Col>
-      </Row>
-
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="At-risk students" bordered>
+        <Col xs={24} lg={12} className="lms-card-col">
+          <Card size="small" title="At-risk students" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey={(r) => r.email || r.name}
@@ -185,8 +190,8 @@ export default function TeacherDashboard() {
             />
           </Card>
         </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="My courses" bordered>
+        <Col xs={24} lg={12} className="lms-card-col">
+          <Card size="small" title="My courses" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey="id"
