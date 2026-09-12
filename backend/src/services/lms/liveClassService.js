@@ -55,9 +55,7 @@ function coerceLegacy(session) {
   return session;
 }
 function crmBase() {
-  return (
-    lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'http://200.141.5.195'
-  ).replace(/\/+$/, '');
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
 
@@ -750,19 +748,16 @@ async function endSession(id, admin, { auto = false } = {}) {
         { $set: { status: 'PROCESSING', endedAt: now, durationMin: recDurationMin } }
       );
     } else {
-      // mock/jitsi: nothing to process — mark available with no artefact
-      session.recordingStatus = s.recordingAvailableImmediately ? 'AVAILABLE' : 'PROCESSING';
-      session.status = session.recordingStatus === 'AVAILABLE' ? 'recording_available' : 'recording_processing';
+      // mock/jitsi: the provider itself never produces a recording file (no
+      // Jibri / recorder is wired up) — this always waits on the teacher's
+      // manual upload (liveScope.uploadRecording) rather than ever claiming
+      // AVAILABLE with nothing behind it, which is what silently left
+      // students with a "recording" row that had no video to play.
+      session.recordingStatus = 'PROCESSING';
+      session.status = 'recording_processing';
       await RecModel.updateOne(
         { liveSession: session._id },
-        {
-          $set: {
-            status: session.recordingStatus,
-            endedAt: now,
-            durationMin: recDurationMin,
-            publishedAt: session.recordingStatus === 'AVAILABLE' ? now : undefined,
-          },
-        }
+        { $set: { status: 'PROCESSING', endedAt: now, durationMin: recDurationMin } }
       );
     }
   } else {

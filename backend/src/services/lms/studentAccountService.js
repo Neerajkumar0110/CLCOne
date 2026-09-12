@@ -4,12 +4,10 @@ const { generate: uniqueId } = require('shortid');
 const { notify } = require('../../notify');
 const { lmsConfig } = require('../../config/lms');
 const mailer = require('./mailer');
-const { buildReceiptHtml, renderPdfBuffer } = require('./studentReceiptPdf');
+const { renderReceiptPdf } = require('./studentReceiptPdf');
 
 function crmBase() {
-  return (
-    lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'http://200.141.5.195'
-  ).replace(/\/+$/, '');
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 
 // A Student roster row (models/appModels/Student.js) is CRM/ops data — fees,
@@ -75,8 +73,7 @@ async function sendEnrollmentEmail(studentDoc) {
   const crmLink = `${crmBase()}/#/learn`;
   let attachments;
   try {
-    const html = buildReceiptHtml(studentDoc, { crmLink });
-    const buffer = await renderPdfBuffer(html);
+    const buffer = await renderReceiptPdf(studentDoc, { crmLink });
     attachments = [{ filename: `enrollment-${studentDoc.enrollmentId || studentDoc._id}.pdf`, content: buffer, contentType: 'application/pdf' }];
   } catch (e) {
     console.error('[lms] enrollment receipt PDF failed:', e && e.message);
