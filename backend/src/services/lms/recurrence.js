@@ -197,7 +197,7 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
       const emails = roster.map((r) => r.email).filter(Boolean);
       if (emails.length) {
         const mailer = require('./mailer');
-        const base = (require('../../config/lms').lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || 'http://200.141.5.195').replace(/\/+$/, '');
+        const base = require('../../config/lms').lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
         await mailer.sendBatchClassEmail(emails, {
           batchName: batchDoc.name,
           courseTitle: batchDoc.course,

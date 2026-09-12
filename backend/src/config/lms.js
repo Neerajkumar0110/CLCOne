@@ -102,9 +102,13 @@ const config = {
     minBatchMonths: Number(process.env.LMS_MIN_BATCH_MONTHS || 6),
     // email students the batch class link + schedule on batch create / add.
     emailBatchStudents: String(process.env.LMS_EMAIL_BATCH_STUDENTS || 'true') === 'true',
-    // public base URL of the CRM itself — used to build BBB logoutURL and the
-    // ticket redirect. Falls back to APP_URL / PUBLIC_SERVER_FILE.
-    crmBaseUrl: clean(process.env.LMS_CRM_BASE_URL || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || ''),
+    // public base URL of the CRM itself — used to build BBB logoutURL, the
+    // ticket redirect, and every student-facing link (portal, join, receipt
+    // PDF). Falls back to APP_URL / PUBLIC_SERVER_FILE, then the real public
+    // domain rather than the VPS's bare IP.
+    crmBaseUrl: clean(
+      process.env.LMS_CRM_BASE_URL || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || 'https://clcone.careerlabconsulting.com'
+    ),
   },
 
   // Outbound sync queue (services/lms/queue.js + jobs/lmsSyncTick.js).
