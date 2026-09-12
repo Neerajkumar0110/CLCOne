@@ -161,7 +161,7 @@ export default function StudentPortal() {
         <h3>Continue learning</h3>
         {coursesDegraded && (
           <Tooltip title="Live course data from Moodle is temporarily unavailable — showing the last known state.">
-            <Tag color="orange">offline data</Tag>
+            <Tag>offline data</Tag>
           </Tooltip>
         )}
       </div>
@@ -208,7 +208,9 @@ export default function StudentPortal() {
                 <Progress
                   percent={Math.round(c.progressPct || 0)}
                   size="small"
-                  status={c.completedOn ? 'success' : 'active'}
+                  status="normal"
+                  strokeColor="var(--hub-text)"
+                  trailColor="var(--hub-bg-soft)"
                 />
                 <div className="lms-course-meta">
                   <span>{c.completedOn ? `Completed ${fmtDate(c.completedOn)}` : `Last activity ${fmtDate(c.lastActivityAt)}`}</span>

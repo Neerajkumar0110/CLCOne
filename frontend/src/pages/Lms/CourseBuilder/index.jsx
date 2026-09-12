@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Row, Col, Card, Button, List, Collapse, Modal, Form, Input, InputNumber, Select, Checkbox,
-  Space, Popconfirm, Empty, Skeleton, Tag, message, Typography,
+  Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Checkbox,
+  Space, Empty, Skeleton, Tag, message, Typography,
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined,
+  PlusOutlined,
   ReadOutlined, VideoCameraOutlined, FileTextOutlined, FilePdfOutlined, LinkOutlined, FormOutlined,
+  BookOutlined, FolderOpenOutlined, ClockCircleOutlined, TeamOutlined, RobotOutlined, BarChartOutlined,
+  CodeOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
+import defaultCourseThumbnail from '@/style/images/course-thumbnail.jpg';
 import lmsApi from '../api';
 
 const { Text } = Typography;
@@ -21,7 +24,46 @@ const LESSON_TYPES = [
   { value: 'quiz', label: 'Quiz (coming soon)', icon: <FormOutlined /> },
   { value: 'assignment', label: 'Assignment (coming soon)', icon: <FormOutlined /> },
 ];
-const typeIcon = (t) => (LESSON_TYPES.find((x) => x.value === t) || {}).icon || <FileTextOutlined />;
+
+// Manually edit titles & descriptions here
+const FEATURE_CARDS = [
+  {
+    title: 'Agentic AI',
+    description: 'Build autonomous AI agents that can plan, reason, and take actions using tools and APIs.',
+    icon: <RobotOutlined />,
+    color: 'purple',
+    // 👇 EITHER paste a direct image URL as a string (e.g. 'https://…/agent.jpg')
+    // OR reference a file placed in the "public" folder like this: '/agent.jpg'
+    thumbnail: '/agent.jpg', // 👈 served directly from the public folder
+  },
+  {
+    title: 'Data Analytics',
+    description: 'Learn to collect, clean, visualize, and derive insights from data using modern analytics tools.',
+    icon: <BarChartOutlined />,
+    color: 'blue',
+    // 👇 EITHER paste a direct image URL as a string (e.g. 'https://…/data.jpg')
+    // OR place a file in the "public" folder and reference it like '/yourimage.jpg'
+    thumbnail: '/ana.jpg', // 👈 served directly from the public folder
+  },
+  {
+    title: 'Python + AI',
+    description: 'Master Python fundamentals and apply them to build real-world AI and machine learning projects.',
+    icon: <CodeOutlined />,
+    color: 'green',
+    // 👇 EITHER paste a direct image URL as a string (e.g. 'https://…/python.jpg')
+    // OR place a file in the "public" folder and reference it like '/yourimage.jpg'
+    thumbnail: '/Python%20with%20AI.png', // 👈 served directly from the public folder (spaces encoded as %20)
+  },
+  {
+    title: 'AI Engineering',
+    description: 'Design, deploy, and scale production-grade AI systems and ML pipelines end to end.',
+    icon: <ThunderboltOutlined />,
+    color: 'orange',
+    // 👇 EITHER paste a direct image URL as a string (e.g. 'https://…/ai-engineering.jpg')
+    // OR place a file in the "public" folder and reference it like '/yourimage.jpg'
+    thumbnail: '/image.png', // 👈 served directly from the public folder
+  },
+];
 
 export default function CourseBuilder() {
   const [courses, setCourses] = useState([]);
@@ -31,6 +73,7 @@ export default function CourseBuilder() {
   const [loadingOutline, setLoadingOutline] = useState(false);
   const [modal, setModal] = useState(null); // {kind, mode, parentId, data}
   const [form] = Form.useForm();
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -38,7 +81,12 @@ export default function CourseBuilder() {
         const res = await lmsApi.teacherDashboard();
         const list = (res && res.result && res.result.courses) || [];
         setCourses(list);
-        if (list[0]) setCourseId(list[0].id);
+        const fwd = list.find((c) => /full[\s-]*stack/i.test(c.title));
+        if (fwd) {
+          setCourseId(fwd.id);
+        } else if (list[0]) {
+          setCourseId(list[0].id);
+        }
       } catch (e) {
         message.error('Could not load your courses.');
       } finally {
@@ -99,33 +147,42 @@ export default function CourseBuilder() {
     }
   };
 
-  const del = async (kind, id) => {
-    try {
-      if (kind === 'module') await lmsApi.deleteModule(id);
-      if (kind === 'chapter') await lmsApi.deleteChapter(id);
-      if (kind === 'lesson') await lmsApi.deleteLesson(id);
-      loadOutline(courseId);
-    } catch (e) {
-      message.error('Delete failed.');
-    }
-  };
+  // Clicking a feature card tries to jump to a matching course (by category or title keyword),
+  // and highlights the selected card. If no matching course exists, it just toggles the highlight.
+  const handleFeatureCardClick = (card) => {
+    setSelectedCategory((prev) => (prev === card.title ? null : card.title));
 
-  // swap order with the previous/next sibling
-  const move = async (kind, list, index, dir) => {
-    const j = index + dir;
-    if (j < 0 || j >= list.length) return;
-    const a = list[index];
-    const b = list[j];
-    const key = kind === 'module' ? 'modules' : kind === 'chapter' ? 'chapters' : 'lessons';
-    try {
-      await lmsApi.reorderCurriculum(courseId, { [key]: [{ id: a.id, order: b.order }, { id: b.id, order: a.order }] });
-      loadOutline(courseId);
-    } catch (e) {
-      message.error('Reorder failed.');
+    const keyword = card.title.toLowerCase();
+    const match = courses.find(
+      (c) =>
+        (c.category && c.category.toLowerCase().includes(keyword)) ||
+        (c.title && c.title.toLowerCase().includes(keyword))
+    );
+    if (match) {
+      setCourseId(match.id);
+    } else {
+      message.info(`No course found yet for "${card.title}".`);
     }
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
+
+  const activeCourse =
+    courses.find((c) => c.id === courseId) ||
+    courses.find((c) => /full[\s-]*stack/i.test(c.title)) ||
+    (outline && outline.course) ||
+    (courses.length > 0 ? courses[0] : null) ||
+    {
+      id: courseId || 'course-default',
+      title: 'Full Stack Web Development',
+      status: 'Published',
+      category: 'Certification',
+      level: 'Beginner',
+      mode: 'Live',
+      durationHours: 6,
+      thumbnailUrl: defaultCourseThumbnail,
+      description: 'Comprehensive curriculum covering front-end and back-end web development with modern full-stack architectures.',
+    };
 
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
@@ -144,101 +201,153 @@ export default function CourseBuilder() {
         />
       </div>
 
-      {!courseId ? (
-        <Card><Empty description="You have no courses yet. Ask an admin to set you as the course instructor." /></Card>
-      ) : loadingOutline ? (
-        <Skeleton active paragraph={{ rows: 6 }} />
-      ) : !outline ? (
-        <Card><Empty description="Could not load outline" /></Card>
-      ) : (
-        <>
-          <Space style={{ marginBottom: 12 }}>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal({ kind: 'module', mode: 'add' })}>
-              Add module
-            </Button>
-            <Text type="secondary">
-              {outline.counts.modules} modules · {outline.counts.chapters} chapters · {outline.counts.lessons} lessons
-            </Text>
-          </Space>
+      {/* Course Overview Card with thumbnail */}
+      {activeCourse && (
+        <Card className="lms-course-builder-card" bodyStyle={{ padding: 20 }}>
+          <Row gutter={[24, 20]} align="middle">
+            <Col xs={24} md={9} lg={8}>
+              <div className="lms-course-builder-thumb-wrap">
+                <img
+                  src={activeCourse.thumbnailUrl || defaultCourseThumbnail}
+                  alt={activeCourse.title}
+                  className="lms-course-builder-thumb"
+                  onError={(e) => {
+                    e.currentTarget.src = defaultCourseThumbnail;
+                  }}
+                />
+              </div>
+            </Col>
+            <Col xs={24} md={15} lg={16}>
+              <div className="lms-course-builder-info">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Tag color={activeCourse.status === 'Published' ? 'green' : 'orange'}>
+                        {activeCourse.status || 'Draft'}
+                      </Tag>
+                      <Tag color="cyan">{activeCourse.category || 'Certification'}</Tag>
+                      {activeCourse.level && <Tag color="blue">{activeCourse.level}</Tag>}
+                      {activeCourse.mode && <Tag color="purple">{activeCourse.mode}</Tag>}
+                    </div>
+                    {courses.length > 1 && (
+                      <Select
+                        size="small"
+                        style={{ minWidth: 220 }}
+                        value={courseId}
+                        onChange={setCourseId}
+                        options={courses.map((c) => ({ value: c.id, label: `${c.title} · ${c.status}` }))}
+                      />
+                    )}
+                  </div>
+                  <h3 style={{ margin: '8px 0 6px', fontSize: 22, fontWeight: 800, color: 'var(--hub-text)', letterSpacing: '-0.02em' }}>
+                    {activeCourse.title}
+                  </h3>
+                  <p style={{ margin: 0, color: 'var(--hub-muted)', fontSize: 13, lineHeight: 1.55 }}>
+                    {activeCourse.description || 'Learn and Grow in your carrer'}
+                  </p>
+                </div>
 
-          {outline.modules.length === 0 ? (
-            <Card><Empty description="No modules yet — add the first one." /></Card>
-          ) : (
-            <Collapse
-              defaultActiveKey={outline.modules.map((m) => m.id)}
-              items={outline.modules.map((m, mi) => ({
-                key: m.id,
-                label: (
-                  <Space>
-                    <b>{m.title}</b>
-                    <Tag>{(m.chapters || []).length} ch</Tag>
-                  </Space>
-                ),
-                extra: (
-                  <Space onClick={(e) => e.stopPropagation()}>
-                    <Button size="small" type="text" icon={<ArrowUpOutlined />} disabled={mi === 0} onClick={() => move('module', outline.modules, mi, -1)} />
-                    <Button size="small" type="text" icon={<ArrowDownOutlined />} disabled={mi === outline.modules.length - 1} onClick={() => move('module', outline.modules, mi, 1)} />
-                    <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openModal({ kind: 'module', mode: 'edit', data: m })} />
-                    <Popconfirm title="Delete this module and everything in it?" onConfirm={() => del('module', m.id)}>
-                      <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                    </Popconfirm>
-                  </Space>
-                ),
-                children: (
-                  <>
-                    <Button size="small" icon={<PlusOutlined />} style={{ marginBottom: 8 }} onClick={() => openModal({ kind: 'chapter', mode: 'add', parentId: m.id })}>
-                      Add chapter
-                    </Button>
-                    {(m.chapters || []).map((c, ci) => (
-                      <Card key={c.id} size="small" style={{ marginBottom: 8 }} title={<b>{c.title}</b>}
-                        extra={
-                          <Space>
-                            <Button size="small" type="text" icon={<ArrowUpOutlined />} disabled={ci === 0} onClick={() => move('chapter', m.chapters, ci, -1)} />
-                            <Button size="small" type="text" icon={<ArrowDownOutlined />} disabled={ci === m.chapters.length - 1} onClick={() => move('chapter', m.chapters, ci, 1)} />
-                            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openModal({ kind: 'chapter', mode: 'edit', data: c })} />
-                            <Popconfirm title="Delete chapter + its lessons?" onConfirm={() => del('chapter', c.id)}>
-                              <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                            </Popconfirm>
-                          </Space>
-                        }
-                      >
-                        <List
-                          size="small"
-                          dataSource={c.lessons || []}
-                          locale={{ emptyText: 'No lessons' }}
-                          renderItem={(l, li) => (
-                            <List.Item
-                              actions={[
-                                <Button key="u" size="small" type="text" icon={<ArrowUpOutlined />} disabled={li === 0} onClick={() => move('lesson', c.lessons, li, -1)} />,
-                                <Button key="d" size="small" type="text" icon={<ArrowDownOutlined />} disabled={li === c.lessons.length - 1} onClick={() => move('lesson', c.lessons, li, 1)} />,
-                                <Button key="e" size="small" type="text" icon={<EditOutlined />} onClick={() => openModal({ kind: 'lesson', mode: 'edit', data: l })} />,
-                                <Popconfirm key="x" title="Delete lesson?" onConfirm={() => del('lesson', l.id)}>
-                                  <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                                </Popconfirm>,
-                              ]}
-                            >
-                              <Space>
-                                {typeIcon(l.type)}
-                                <span>{l.title}</span>
-                                <Tag>{l.type}</Tag>
-                                {l.isPreview && <Tag color="blue">preview</Tag>}
-                                {l.published === false && <Tag color="orange">draft</Tag>}
-                              </Space>
-                            </List.Item>
-                          )}
-                        />
-                        <Button size="small" type="dashed" icon={<PlusOutlined />} style={{ marginTop: 8 }} onClick={() => openModal({ kind: 'lesson', mode: 'add', parentId: c.id })}>
-                          Add lesson
-                        </Button>
-                      </Card>
-                    ))}
-                  </>
-                ),
-              }))}
-            />
-          )}
-        </>
+                <div className="lms-course-builder-chips">
+                  <div className="lms-course-chip">
+                    <BookOutlined />
+                    <span><b>{outline?.counts?.modules ?? activeCourse.modules ?? 0}</b> Modules</span>
+                  </div>
+                  <div className="lms-course-chip">
+                    <FolderOpenOutlined />
+                    <span><b>{outline?.counts?.chapters ?? 0}</b> Chapters</span>
+                  </div>
+                  <div className="lms-course-chip">
+                    <FileTextOutlined />
+                    <span><b>{outline?.counts?.lessons ?? activeCourse.lessons ?? 0}</b> Lessons</span>
+                  </div>
+                  {activeCourse.durationHours ? (
+                    <div className="lms-course-chip">
+                      <ClockCircleOutlined />
+                      <span><b>{activeCourse.durationHours}h</b> Duration</span>
+                    </div>
+                  ) : null}
+                  {activeCourse.enrolled != null ? (
+                    <div className="lms-course-chip">
+                      <TeamOutlined />
+                      <span><b>{activeCourse.enrolled}</b> Enrolled</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                <Space wrap>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => openModal({ kind: 'module', mode: 'add' })}
+                  >
+                    Add Module
+                  </Button>
+                </Space>
+              </div>
+            </Col>
+          </Row>
+        </Card>
       )}
+
+      {/* ===================== Feature / Category Cards — added here ===================== */}
+      <Row gutter={[16, 16]} style={{ margin: '20px 0' }}>
+        {FEATURE_CARDS.map((card, idx) => {
+          const isSelected = selectedCategory === card.title;
+          return (
+            <Col xs={24} sm={12} lg={6} key={idx}>
+              <Card
+                hoverable
+                onClick={() => handleFeatureCardClick(card)}
+                style={{
+                  height: '100%',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  border: isSelected ? '2px solid var(--ant-primary-color, #1677ff)' : undefined,
+                  boxShadow: isSelected ? '0 0 0 2px rgba(22,119,255,0.15)' : undefined,
+                }}
+                bodyStyle={{ padding: 18 }}
+              >
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {/* 👇 thumbnail image for this card is set on the card object (FEATURE_CARDS above) — renders here if provided */}
+                  {card.thumbnail ? (
+                    <img
+                      src={card.thumbnail}
+                      alt={card.title}
+                      style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        fontSize: 18,
+                        background: 'var(--hub-muted-bg, #f5f5f5)',
+                        color: 'var(--hub-text)',
+                      }}
+                    >
+                      {card.icon}
+                    </div>
+                  )}
+                  <Tag color={card.color} style={{ width: 'fit-content' }}>
+                    {card.title}
+                  </Tag>
+                  <h4 style={{ margin: '4px 0 2px', fontSize: 15, fontWeight: 700, color: 'var(--hub-text)' }}>
+                    {card.title}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--hub-muted)', lineHeight: 1.5 }}>
+                    {card.description}
+                  </p>
+                </Space>
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+      {/* ===================== End Feature / Category Cards ===================== */}
 
       <Modal
         open={!!modal}

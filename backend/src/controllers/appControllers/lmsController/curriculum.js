@@ -26,7 +26,7 @@ async function loadOwnedCourse(req, courseId) {
   if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
   const course = await Course.findOne({ _id: courseId, removed: false });
   if (!course) return { err: [404, 'Course not found.'] };
-  if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || ''))) {
+  if (!isManager(req.admin) && course.instructor && !rxEq(course.instructor).test(req.admin.name || '')) {
     return { err: [403, 'You can only edit your own courses.'] };
   }
   return { course };
@@ -66,7 +66,19 @@ async function outline(req, res) {
   }));
 
   return ok(res, {
-    course: { id: String(course._id), title: course.title, status: course.status },
+    course: {
+      id: String(course._id),
+      title: course.title,
+      status: course.status,
+      code: course.code,
+      category: course.category,
+      level: course.level,
+      mode: course.mode,
+      durationHours: course.durationHours,
+      instructor: course.instructor,
+      thumbnailUrl: course.thumbnailUrl || '/course-thumbnail.jpg',
+      description: course.description,
+    },
     modules: tree,
     counts: { modules: modules.length, chapters: chapters.length, lessons: lessons.length },
   });

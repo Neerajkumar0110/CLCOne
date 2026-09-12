@@ -55,21 +55,21 @@ export default function StudentDashboard() {
           <p>Continue learning — your courses, classes and progress.</p>
         </div>
         {k.liveNow > 0 && (
-          <Button type="primary" danger icon={<VideoCameraOutlined />} onClick={() => navigate('/learn/classes')}>
+          <Button type="primary" icon={<VideoCameraOutlined />} onClick={() => navigate('/learn/classes')}>
             Join live class
           </Button>
         )}
       </div>
 
       <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
-        <KPI title="Enrolled courses" value={k.enrolledCourses} tone="blue" icon={<BookOutlined />} />
-        <KPI title="Course progress" value={k.courseProgress} suffix="%" tone="purple" />
-        <KPI title="Attendance" value={k.attendancePct} suffix="%" tone="cyan" icon={<CheckSquareOutlined />} />
+        <KPI title="Enrolled courses" value={k.enrolledCourses} tone="slate" icon={<BookOutlined />} />
+        <KPI title="Course progress" value={k.courseProgress} suffix="%" tone="slate" />
+        <KPI title="Attendance" value={k.attendancePct} suffix="%" tone="slate" icon={<CheckSquareOutlined />} />
         <KPI title="Today's classes" value={k.todaysClasses} tone="slate" />
         <KPI title="Upcoming classes" value={k.upcomingClasses} tone="slate" />
-        <KPI title="Live now" value={k.liveNow} tone="red" />
-        <KPI title="Recordings" value={k.latestRecordings} tone="purple" icon={<PlayCircleOutlined />} />
-        <KPI title="Certificates" value={k.certificates} tone="amber" icon={<TrophyOutlined />} />
+        <KPI title="Live now" value={k.liveNow} tone="slate" />
+        <KPI title="Recordings" value={k.latestRecordings} tone="slate" icon={<PlayCircleOutlined />} />
+        <KPI title="Certificates" value={k.certificates} tone="slate" icon={<TrophyOutlined />} />
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
@@ -100,7 +100,7 @@ export default function StudentDashboard() {
               columns={[
                 { title: 'Class', dataIndex: 'title' },
                 { title: 'Starts', dataIndex: 'scheduledStart', render: fmtTime },
-                { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={['live', 'starting'].includes(s) ? 'red' : 'blue'}>{String(s || '').toUpperCase()}</Tag> },
+                { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{String(s || '').toUpperCase()}</Tag> },
               ]}
             />
           </Card>
@@ -135,7 +135,7 @@ export default function StudentDashboard() {
               columns={[
                 { title: 'Course', dataIndex: 'course' },
                 { title: 'ID', dataIndex: 'certificateId' },
-                { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={['Issued', 'Sent'].includes(s) ? 'green' : 'default'}>{s}</Tag> },
+                { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{s}</Tag> },
               ]}
             />
           </Card>
