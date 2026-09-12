@@ -165,6 +165,7 @@ module.exports = {
   studentAttendance: scope.studentAttendance,
   liveRecordings: scope.listRecordings,
   liveRecordingPlay: scope.playRecording,
+  liveRecordingUpload: scope.uploadRecording,
   liveRecordingDelete: scope.deleteRecording,
   liveAttendanceDashboard: scope.attendanceDashboard,
   liveAttendanceExport: scope.attendanceExport,
