@@ -48,6 +48,13 @@ const lmsApi = {
   teacherRecordings: (f = {}) => request.get({ entity: `lms/teacher/recordings${qs(f)}` }),
   studentRecordings: (f = {}) => request.get({ entity: `lms/student/recordings${qs(f)}` }),
   recordingPlay: (id) => request.get({ entity: `lms/recordings/${id}/play` }),
+  // Manual upload — free Jitsi has no recorder of its own, so the class
+  // teacher (or a manager) attaches the video file they recorded themselves.
+  recordingUpload: (id, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request.post({ entity: `lms/recordings/${id}/upload`, jsonData: fd });
+  },
   recordingDelete: (id) => request.post({ entity: `lms/admin/recordings/${id}/delete`, jsonData: {} }),
 
   // ── attendance ────────────────────────────────────────────────────

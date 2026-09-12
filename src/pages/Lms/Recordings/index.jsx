@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker } from 'antd';
-import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
 
@@ -17,6 +17,9 @@ export default function Recordings() {
   const [err, setErr] = useState(null);
   const [f, setF] = useState({ status: undefined, courseTitle: '', batchName: '', student: '', from: null, to: null });
   const [playing, setPlaying] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+  const fileInputRef = useRef(null);
+  const uploadTargetRef = useRef(null);
 
   const fetcher = isManager ? lmsApi.adminRecordings : lmsApi.recordings;
 
@@ -50,10 +53,34 @@ export default function Recordings() {
     try {
       const res = await lmsApi.recordingPlay(rec.id);
       const url = res && res.result && res.result.url;
-      if (url) setPlaying({ ...rec, url });
+      if (url) setPlaying({ ...rec, url, provider: res.result.provider });
       else message.info(`Recording is ${rec.status.toLowerCase()}.`);
     } catch (e) {
       message.error('Not available.');
+    }
+  };
+  const canUpload = (r) => r.status !== 'AVAILABLE' && r.status !== 'DELETED' && (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
+  const askUpload = (rec) => {
+    uploadTargetRef.current = rec;
+    fileInputRef.current && fileInputRef.current.click();
+  };
+  const onFileChosen = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    const rec = uploadTargetRef.current;
+    if (!file || !rec) return;
+    setUploadingId(rec.id);
+    try {
+      const res = await lmsApi.recordingUpload(rec.id, file);
+      if (res && res.success === false) message.error(res.message || 'Upload failed.');
+      else {
+        message.success('Recording uploaded — students in this batch can now watch it.');
+        load();
+      }
+    } catch (err) {
+      message.error('Upload failed.');
+    } finally {
+      setUploadingId(null);
     }
   };
   const del = (rec) =>
@@ -77,12 +104,17 @@ export default function Recordings() {
     ...(isManager ? [{ title: 'Views', dataIndex: 'views', width: 70 }] : []),
     {
       title: '',
-      width: 190,
+      width: 260,
       render: (_, r) => (
         <Space>
           <Button size="small" icon={<PlaySquareOutlined />} disabled={!r.canPlay} onClick={() => play(r)}>
             Watch
           </Button>
+          {canUpload(r) && (
+            <Button size="small" icon={<UploadOutlined />} loading={uploadingId === r.id} onClick={() => askUpload(r)}>
+              Upload recording
+            </Button>
+          )}
           {isManager && r.status !== 'DELETED' && (
             <Button size="small" danger icon={<DeleteOutlined />} onClick={() => del(r)} />
           )}
@@ -100,6 +132,8 @@ export default function Recordings() {
         </div>
         <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
       </div>
+
+      <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 12 }} />}
 
@@ -149,7 +183,11 @@ export default function Recordings() {
             <p style={{ marginTop: 0 }}>
               <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
             </p>
-            <iframe title="recording" src={playing.url} style={{ width: '100%', height: 480, border: '1px solid #eee', borderRadius: 8 }} allowFullScreen />
+            {playing.provider === 'bigbluebutton' ? (
+              <iframe title="recording" src={playing.url} style={{ width: '100%', height: 480, border: '1px solid #eee', borderRadius: 8 }} allowFullScreen />
+            ) : (
+              <video controls autoPlay src={playing.url} style={{ width: '100%', maxHeight: 480, borderRadius: 8, background: '#000' }} />
+            )}
           </div>
         ) : (
           <p>No playback URL yet.</p>
