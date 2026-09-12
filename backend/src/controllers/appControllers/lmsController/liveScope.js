@@ -9,12 +9,29 @@ const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../config/roles')
 
 const isManager = (a) => MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role);
 
+function crmBase() {
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
+}
+
 async function myEnrolments(admin) {
   return mongoose.model('LmsEnrolment').find({ crmUser: admin._id }).lean();
 }
 async function myMoodleCourseIds(admin) {
   const e = await myEnrolments(admin);
   return [...new Set(e.map((x) => x.moodleCourseId).filter(Boolean))];
+}
+// The real student<->batch link in this deployment: the Student roster row
+// matched by email, `batch` as a plain string name — not LmsEnrolment, which
+// stays empty until Moodle sync is configured. Same fallback resolveRole()
+// (services/lms/liveClassService.js) and the student dashboard (panel.js)
+// already use for live classes, ported here so recordings are scoped the
+// same way.
+async function myRosterBatchNames(admin) {
+  const email = String(admin.email || '').trim().toLowerCase();
+  if (!email) return new Set();
+  const emailRx = new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+  const rows = await mongoose.model('Student').find({ removed: false, email: emailRx }, 'batch').lean();
+  return new Set(rows.map((r) => r.batch).filter(Boolean));
 }
 
 /* ─────────────── STUDENT (self only) ─────────────── */
@@ -79,12 +96,6 @@ async function studentAttendance(req, res) {
 
 /* ─────────────── RECORDINGS (all roles, scoped) ─────────────── */
 
-function recAccessFilter(admin) {
-  // returns a mongo filter that limits which LiveRecording rows a user may see
-  if (isManager(admin)) return {}; // admin: all
-  return { $or: [{ teacherCrmUser: admin._id }, { teacherName: admin.name }, { __studentScoped: true }] };
-}
-
 async function listRecordings(req, res) {
   const LiveRecording = mongoose.model('LiveRecording');
   const admin = req.admin;
@@ -110,6 +121,7 @@ async function listRecordings(req, res) {
     const myCourseIds = await myMoodleCourseIds(admin);
     const myEnr = await myEnrolments(admin);
     const myBatchIds = new Set(myEnr.map((e) => String(e.batch)).filter(Boolean));
+    const myBatchNames = await myRosterBatchNames(admin);
     const myCourseTitles = new Set();
     const LmsLiveSession = mongoose.model('LmsLiveSession');
     const linked = await LmsLiveSession.find({ moodleCourseId: { $in: myCourseIds } }, 'courseTitle batch').lean();
@@ -117,6 +129,9 @@ async function listRecordings(req, res) {
     const enrolledAccess = (r) => {
       if (r.status !== 'AVAILABLE') return false;
       if (s.recordingAccess === 'admin-only') return false;
+      // Roster batch match always grants access — it's the source of truth
+      // for "which batch is this student in" while Moodle sync is unused.
+      if (myBatchNames.has(r.batchName)) return true;
       if (s.recordingAccess === 'batch') return myBatchIds.has(String(r.batch));
       return myCourseTitles.has(r.courseTitle);
     };
@@ -160,9 +175,13 @@ async function playRecording(req, res) {
     if (s.recordingAccess !== 'admin-only') {
       const session = await LmsLiveSession.findById(rec.liveSession).lean();
       if (session) {
+        const myBatchNames = await myRosterBatchNames(admin);
         const myCourseIds = await myMoodleCourseIds(admin);
         const enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId });
-        allowed = !!enr || (session.participants || []).some((p) => String(p.crmUser) === String(admin._id));
+        allowed =
+          myBatchNames.has(session.batchName) ||
+          !!enr ||
+          (session.participants || []).some((p) => String(p.crmUser) === String(admin._id));
       }
     }
   }
@@ -170,6 +189,37 @@ async function playRecording(req, res) {
 
   await LiveRecording.updateOne({ _id: rec._id }, { $inc: { views: 1 }, $set: { lastViewedAt: new Date() } });
   return res.status(200).json({ success: true, result: { url: rec.playbackUrl || null, provider: rec.provider } });
+}
+
+// POST /api/lms/recordings/:id/upload  (multipart, field "file") — the class
+// teacher or a manager attaches the video they recorded themselves. Free
+// Jitsi has no recorder of its own (see JitsiProvider), so this manual step
+// is what actually gets a class's recording in front of its batch.
+async function uploadRecording(req, res) {
+  const LiveRecording = mongoose.model('LiveRecording');
+  const admin = req.admin;
+  const rec = await LiveRecording.findById(req.params.id);
+  if (!rec || rec.removed) return res.status(404).json({ success: false, message: 'Recording not found.' });
+
+  const allowed =
+    isManager(admin) ||
+    String(rec.teacherCrmUser) === String(admin._id) ||
+    (rec.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
+  if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s teacher or a manager can upload its recording.' });
+
+  if (!req.body.video) return res.status(400).json({ success: false, message: 'No video file received.' });
+  const url = `${crmBase()}/${req.body.video}`;
+
+  const now = new Date();
+  await LiveRecording.updateOne(
+    { _id: rec._id },
+    { $set: { status: 'AVAILABLE', playbackUrl: url, downloadUrl: url, publishedAt: now, updated: now } }
+  );
+  await mongoose.model('LmsLiveSession').updateOne(
+    { _id: rec.liveSession },
+    { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: now } }
+  );
+  return res.status(200).json({ success: true, result: { id: String(rec._id), status: 'AVAILABLE' } });
 }
 
 // POST /api/lms/admin/recordings/:id/delete   (manager only — route guards)
@@ -421,6 +471,7 @@ module.exports = {
   studentAttendance,
   listRecordings,
   playRecording,
+  uploadRecording,
   deleteRecording,
   attendanceDashboard,
   attendanceExport,

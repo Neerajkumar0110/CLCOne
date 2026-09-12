@@ -2,6 +2,7 @@ const express = require('express');
 const { catchErrors } = require('../../handlers/errorHandlers');
 const lms = require('../../controllers/appControllers/lmsController');
 const { requireManager } = require('../../controllers/appControllers/lmsController/permissions');
+const { singleStorageUpload } = require('../../middlewares/uploadMiddleware');
 
 // Mounted at /api/lms — behind adminAuth.isValidAuthToken (see app.js), so
 // req.admin is always set. The inbound Moodle webhook is a separate router
@@ -78,6 +79,14 @@ router.route('/attempts/:id/evaluate').post(catchErrors(lms.quizEvaluateAttempt)
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/recordings/:id/play').get(catchErrors(lms.liveRecordingPlay));
+// Manual recording upload — free Jitsi has no recorder of its own, so the
+// class teacher (or a manager) uploads the file they recorded themselves
+// (OBS/Zoom/browser capture) and it's attached to that class's recording
+// row. Permission is checked inside the handler (teacher-of-this-class or
+// manager), same as playRecording.
+router
+  .route('/recordings/:id/upload')
+  .post(singleStorageUpload({ entity: 'recordings', fieldName: 'video', fileType: 'video' }), catchErrors(lms.liveRecordingUpload));
 
 // ── student self-service ───────────────────────────────────────────
 router.route('/student/live-classes').get(catchErrors(lms.studentLiveClasses));
