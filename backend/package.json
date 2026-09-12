@@ -37,6 +37,7 @@
     "node-cache": "^5.1.2",
     "nodemailer": "^9.0.5",
     "openai": "^4.27.0",
+    "pdfkit": "^0.20.2",
     "pug": "^3.0.2",
     "resend": "^2.0.0",
     "shortid": "^2.2.16",

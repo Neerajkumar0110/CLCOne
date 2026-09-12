@@ -1,110 +1,176 @@
 const fs = require('fs');
 const path = require('path');
-const pdf = require('html-pdf');
+const PDFDocument = require('pdfkit');
 
 // A one-page enrollment receipt for a newly-added Student roster row —
 // course, batch, fee breakdown (incl. the fixed 18% GST already computed on
 // the Student doc — see models/appModels/Student.js), and the portal link.
-// Rendered inline (no pug/settings dependency, unlike the Invoice/Quote PDFs
-// in controllers/pdfController) since this doesn't need per-tenant currency
-// formatting — just a plain receipt attached to the enrollment email.
+//
+// Built with pdfkit (pure JS, draws the PDF directly — no headless browser /
+// PhantomJS binary involved) rather than html-pdf: html-pdf's PhantomJS
+// dependency needs a platform-specific prebuilt binary that reliably fails
+// to install on some Linux hosts, which was silently dropping this PDF from
+// the enrollment email (the email itself still sent — see
+// studentAccountService.sendEnrollmentEmail's try/catch — just without the
+// attachment). pdfkit ships as plain JS, so it has nothing to fail to
+// install.
 
 const SITE_URL = 'https://clcone.careerlabconsulting.com/';
+const TEAL = '#0e7490';
+const INK = '#17202c';
+const MUTED = '#8b94a3';
+const BORDER = '#e3e8ef';
+const DUE = '#b45309';
 
-// The same wordmark used across the Admin/Teacher/LMS panels — embedded as a
-// data URI so the PDF renders it standalone, with no dependency on the CRM
-// being reachable from wherever html-pdf's headless renderer runs.
-let LOGO_DATA_URI = '';
+let LOGO_BUFFER = null;
 try {
-  const logoBuf = fs.readFileSync(path.join(__dirname, 'assets', 'clc-logo.png'));
-  LOGO_DATA_URI = `data:image/png;base64,${logoBuf.toString('base64')}`;
+  LOGO_BUFFER = fs.readFileSync(path.join(__dirname, 'assets', 'clc-logo.png'));
 } catch (e) {
   console.error('[lms] receipt PDF logo missing:', e && e.message);
 }
 
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 function inr(n) {
   const v = Number(n) || 0;
-  return `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  return `Rs. ${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
-function buildReceiptHtml(student, { crmLink, brand = 'Career Lab Consulting' } = {}) {
-  const feeRows = [
-    ['Course fee', inr(student.feeTotal)],
-    ['GST (18%)', inr((student.feeGrandTotal || 0) - (student.feeTotal || 0))],
-    ['Total payable', inr(student.feeGrandTotal), true],
-    ['Amount paid', inr(student.feePaid)],
-    ['Balance due', inr(student.feeDue), false, student.feeDue > 0],
-  ]
-    .map(
-      ([label, value, isTotal, isDue]) => `<tr style="${isTotal ? 'border-top:1.5px solid #17202c;' : ''}">
-        <td style="padding:9px 0;color:#5b6472;font-size:13px;${isTotal ? 'font-weight:700;color:#17202c;padding-top:12px;' : ''}">${esc(label)}</td>
-        <td style="padding:9px 0;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;color:${isDue ? '#b45309' : '#17202c'};${isTotal ? 'font-weight:700;font-size:15px;padding-top:12px;' : 'font-weight:600;'}">${value}</td>
-      </tr>`
-    )
-    .join('');
-
-  const infoRows = [
-    ['Enrollment ID', student.enrollmentId],
-    ['Course', student.course],
-    ['Batch', student.batch],
-  ]
-    .map(
-      ([label, value]) => `<tr>
-        <td style="padding:6px 0;color:#8b94a3;font-size:12px;width:38%;">${esc(label)}</td>
-        <td style="padding:6px 0;font-weight:700;font-size:13px;color:#17202c;">${esc(value) || '—'}</td>
-      </tr>`
-    )
-    .join('');
-
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;margin:0;padding:0;background:#f4f6f9;">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;">
-
-    <div style="background:linear-gradient(135deg,#0e7490,#0891b2);padding:28px 36px;">
-      ${LOGO_DATA_URI ? `<img src="${LOGO_DATA_URI}" alt="${esc(brand)}" style="height:34px;display:block;margin-bottom:14px;" />` : `<div style="color:#fff;font-size:19px;font-weight:700;margin-bottom:14px;">${esc(brand)}</div>`}
-      <div style="color:#fff;font-size:19px;font-weight:700;letter-spacing:-0.2px;">Enrollment confirmed</div>
-      <div style="color:rgba(255,255,255,.85);font-size:12.5px;margin-top:3px;">Fee receipt &amp; enrollment summary</div>
-    </div>
-
-    <div style="padding:32px 36px 8px;">
-      <p style="font-size:14.5px;margin:0 0 22px;">Welcome, <strong>${esc(student.name)}</strong> — you're officially enrolled. Details of your enrollment and fees are below.</p>
-
-      <table style="width:100%;border-collapse:collapse;margin-bottom:22px;">${infoRows}</table>
-
-      <div style="border:1px solid #e3e8ef;border-radius:14px;padding:18px 20px;margin-bottom:26px;background:#fafbfc;">
-        <p style="margin:0 0 4px;font-weight:700;font-size:13px;color:#0e7490;text-transform:uppercase;letter-spacing:.4px;">Fee summary</p>
-        <table style="width:100%;border-collapse:collapse;">${feeRows}</table>
-      </div>
-
-      ${
-        crmLink
-          ? `<div style="text-align:center;margin-bottom:28px;">
-              <a href="${esc(crmLink)}" style="display:inline-block;background:#0e7490;color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:13.5px;">Open your student portal</a>
-            </div>`
-          : ''
-      }
-    </div>
-
-    <div style="border-top:1px solid #eef1f5;padding:18px 36px 26px;">
-      <p style="color:#8b94a3;font-size:11px;margin:0 0 4px;">This is an automated receipt from ${esc(brand)}. Keep it for your records.</p>
-      <p style="color:#0e7490;font-size:11.5px;margin:0;font-weight:600;">${SITE_URL}</p>
-    </div>
-
-  </div>
-</body></html>`;
-}
-
-function renderPdfBuffer(html) {
+function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } = {}) {
   return new Promise((resolve, reject) => {
-    pdf.create(html, { format: 'A4', border: '0' }).toBuffer((err, buffer) => {
-      if (err) reject(err);
-      else resolve(buffer);
-    });
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 0 });
+      const chunks = [];
+      doc.on('data', (c) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageW = doc.page.width;
+      const marginX = 48;
+      const contentW = pageW - marginX * 2;
+
+      // ── Header band ──────────────────────────────────────────────────
+      doc.rect(0, 0, pageW, 118).fill(TEAL);
+      if (LOGO_BUFFER) {
+        try {
+          doc.image(LOGO_BUFFER, marginX, 26, { height: 30 });
+        } catch (e) {
+          doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text(brand, marginX, 30);
+        }
+      } else {
+        doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text(brand, marginX, 30);
+      }
+      doc
+        .fillColor('#ffffff')
+        .font('Helvetica-Bold')
+        .fontSize(18)
+        .text('Enrollment confirmed', marginX, 68);
+      doc
+        .fillColor('#dff4f8')
+        .font('Helvetica')
+        .fontSize(10.5)
+        .text('Fee receipt & enrollment summary', marginX, 90);
+
+      let y = 148;
+
+      // ── Intro ────────────────────────────────────────────────────────
+      doc
+        .fillColor(INK)
+        .font('Helvetica')
+        .fontSize(11.5)
+        .text(
+          `Welcome, ${student.name || 'there'} - you're officially enrolled. Details of your enrollment and fees are below.`,
+          marginX,
+          y,
+          { width: contentW, lineGap: 3 }
+        );
+      y = doc.y + 22;
+
+      // ── Info rows ────────────────────────────────────────────────────
+      const infoRows = [
+        ['Enrollment ID', student.enrollmentId],
+        ['Course', student.course],
+        ['Batch', student.batch],
+      ];
+      for (const [label, value] of infoRows) {
+        doc.fillColor(MUTED).font('Helvetica').fontSize(9.5).text(label, marginX, y, { width: 160 });
+        doc.fillColor(INK).font('Helvetica-Bold').fontSize(10.5).text(value || '—', marginX + 160, y - 0.5, { width: contentW - 160 });
+        y += 20;
+      }
+      y += 8;
+
+      // ── Fee summary card ─────────────────────────────────────────────
+      const feeRows = [
+        ['Course fee', inr(student.feeTotal)],
+        ['GST (18%)', inr((student.feeGrandTotal || 0) - (student.feeTotal || 0))],
+        ['Total payable', inr(student.feeGrandTotal), true],
+        ['Amount paid', inr(student.feePaid)],
+        ['Balance due', inr(student.feeDue), false, student.feeDue > 0],
+      ];
+      const cardPad = 20;
+      const rowH = 24;
+      const cardH = 34 + feeRows.length * rowH;
+      doc.roundedRect(marginX, y, contentW, cardH, 12).lineWidth(1).strokeColor(BORDER).fillAndStroke('#fafbfc', BORDER);
+      doc
+        .fillColor(TEAL)
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text('FEE SUMMARY', marginX + cardPad, y + 16, { characterSpacing: 0.4 });
+
+      let fy = y + 40;
+      feeRows.forEach(([label, value, isTotal, isDue], i) => {
+        if (isTotal) {
+          doc
+            .moveTo(marginX + cardPad, fy - 4)
+            .lineTo(marginX + contentW - cardPad, fy - 4)
+            .lineWidth(1)
+            .strokeColor(INK)
+            .stroke();
+        }
+        doc
+          .fillColor(isTotal ? INK : MUTED)
+          .font(isTotal ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(isTotal ? 11.5 : 10)
+          .text(label, marginX + cardPad, fy, { width: contentW / 2 });
+        doc
+          .fillColor(isDue ? DUE : INK)
+          .font(isTotal || isDue ? 'Helvetica-Bold' : 'Helvetica-Bold')
+          .fontSize(isTotal ? 12 : 10.5)
+          .text(value, marginX + cardPad, fy, { width: contentW - cardPad * 2, align: 'right' });
+        fy += rowH;
+      });
+      y = y + cardH + 30;
+
+      // ── CTA ──────────────────────────────────────────────────────────
+      if (crmLink) {
+        const btnW = 210;
+        const btnH = 34;
+        const btnX = marginX + (contentW - btnW) / 2;
+        doc.roundedRect(btnX, y, btnW, btnH, 8).fill(TEAL);
+        doc
+          .fillColor('#ffffff')
+          .font('Helvetica-Bold')
+          .fontSize(10.5)
+          .text('Open your student portal', btnX, y + 11, { width: btnW, align: 'center' });
+        doc.link(btnX, y, btnW, btnH, crmLink);
+        y += btnH + 26;
+      }
+
+      // ── Footer ───────────────────────────────────────────────────────
+      doc.moveTo(marginX, y).lineTo(pageW - marginX, y).lineWidth(1).strokeColor('#eef1f5').stroke();
+      y += 16;
+      doc
+        .fillColor(MUTED)
+        .font('Helvetica')
+        .fontSize(8.5)
+        .text(`This is an automated receipt from ${brand}. Keep it for your records.`, marginX, y);
+      y += 14;
+      doc.fillColor(TEAL).font('Helvetica-Bold').fontSize(9).text(SITE_URL, marginX, y);
+      doc.link(marginX, y, doc.widthOfString(SITE_URL), 12, SITE_URL);
+
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 
-module.exports = { buildReceiptHtml, renderPdfBuffer };
+module.exports = { renderReceiptPdf };
