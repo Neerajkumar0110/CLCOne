@@ -17,12 +17,21 @@ const PDFDocument = require('pdfkit');
 
 const SITE_URL = 'https://clcone.careerlabconsulting.com/';
 const TEAL = '#0e7490';
+const TEAL_DARK = '#0b5b70';
 const INK = '#17202c';
 const MUTED = '#8b94a3';
 const BORDER = '#e3e8ef';
 const DUE = '#b45309';
 
+const BENEFITS = [
+  ['Live interactive classes', 'Join scheduled sessions with your mentor and classmates in real time.'],
+  ['Recordings, anytime', "Missed a class? Every session is recorded and stays in your portal."],
+  ['Assignments & progress tracking', 'Submit work, take quizzes, and track your progress module by module.'],
+  ['Certificate on completion', 'Earn a verifiable certificate once you finish the course.'],
+];
+
 let LOGO_BUFFER = null;
+let LOGO_ASPECT = 1489 / 367;
 try {
   LOGO_BUFFER = fs.readFileSync(path.join(__dirname, 'assets', 'clc-logo.png'));
 } catch (e) {
@@ -47,29 +56,41 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
       const marginX = 48;
       const contentW = pageW - marginX * 2;
 
-      // ── Header band ──────────────────────────────────────────────────
-      doc.rect(0, 0, pageW, 118).fill(TEAL);
+      // ── Header — logo and title share one row, vertically centered ────
+      const bandH = 92;
+      doc.rect(0, 0, pageW, bandH).fill(TEAL);
+      const logoH = 30;
+      const logoW = LOGO_BUFFER ? logoH * LOGO_ASPECT : 0;
+      const rowCenterY = bandH / 2;
+      let textX = marginX;
       if (LOGO_BUFFER) {
         try {
-          doc.image(LOGO_BUFFER, marginX, 26, { height: 30 });
+          doc.image(LOGO_BUFFER, marginX, rowCenterY - logoH / 2, { height: logoH });
+          textX = marginX + logoW + 18;
+          doc
+            .moveTo(textX - 9, rowCenterY - 19)
+            .lineTo(textX - 9, rowCenterY + 19)
+            .lineWidth(1)
+            .strokeColor('#ffffff')
+            .strokeOpacity(0.35)
+            .stroke()
+            .strokeOpacity(1);
         } catch (e) {
-          doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text(brand, marginX, 30);
+          textX = marginX;
         }
-      } else {
-        doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text(brand, marginX, 30);
       }
       doc
         .fillColor('#ffffff')
         .font('Helvetica-Bold')
         .fontSize(18)
-        .text('Enrollment confirmed', marginX, 68);
+        .text('Enrollment confirmed', textX, rowCenterY - 17, { lineBreak: false });
       doc
         .fillColor('#dff4f8')
         .font('Helvetica')
-        .fontSize(10.5)
-        .text('Fee receipt & enrollment summary', marginX, 90);
+        .fontSize(10)
+        .text('Fee receipt & enrollment summary', textX, rowCenterY + 6, { lineBreak: false });
 
-      let y = 148;
+      let y = bandH + 30;
 
       // ── Intro ────────────────────────────────────────────────────────
       doc
@@ -82,7 +103,7 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
           y,
           { width: contentW, lineGap: 3 }
         );
-      y = doc.y + 22;
+      y = doc.y + 20;
 
       // ── Info rows ────────────────────────────────────────────────────
       const infoRows = [
@@ -95,7 +116,31 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
         doc.fillColor(INK).font('Helvetica-Bold').fontSize(10.5).text(value || '—', marginX + 160, y - 0.5, { width: contentW - 160 });
         y += 20;
       }
-      y += 8;
+      y += 14;
+
+      // ── What you get — LMS benefits ─────────────────────────────────
+      doc
+        .fillColor(TEAL)
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text("WHAT'S WAITING IN YOUR PORTAL", marginX, y, { characterSpacing: 0.4 });
+      y += 18;
+      for (const [title, desc] of BENEFITS) {
+        doc.circle(marginX + 3, y + 5, 3).fill(TEAL);
+        doc
+          .fillColor(INK)
+          .font('Helvetica-Bold')
+          .fontSize(10.5)
+          .text(title, marginX + 16, y, { width: contentW - 16, continued: false });
+        y = doc.y + 1;
+        doc
+          .fillColor(MUTED)
+          .font('Helvetica')
+          .fontSize(9.5)
+          .text(desc, marginX + 16, y, { width: contentW - 16, lineGap: 1 });
+        y = doc.y + 10;
+      }
+      y += 6;
 
       // ── Fee summary card ─────────────────────────────────────────────
       const feeRows = [
@@ -116,7 +161,7 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
         .text('FEE SUMMARY', marginX + cardPad, y + 16, { characterSpacing: 0.4 });
 
       let fy = y + 40;
-      feeRows.forEach(([label, value, isTotal, isDue], i) => {
+      feeRows.forEach(([label, value, isTotal, isDue]) => {
         if (isTotal) {
           doc
             .moveTo(marginX + cardPad, fy - 4)
@@ -132,26 +177,26 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
           .text(label, marginX + cardPad, fy, { width: contentW / 2 });
         doc
           .fillColor(isDue ? DUE : INK)
-          .font(isTotal || isDue ? 'Helvetica-Bold' : 'Helvetica-Bold')
+          .font('Helvetica-Bold')
           .fontSize(isTotal ? 12 : 10.5)
           .text(value, marginX + cardPad, fy, { width: contentW - cardPad * 2, align: 'right' });
         fy += rowH;
       });
-      y = y + cardH + 30;
+      y = y + cardH + 28;
 
       // ── CTA ──────────────────────────────────────────────────────────
       if (crmLink) {
         const btnW = 210;
         const btnH = 34;
         const btnX = marginX + (contentW - btnW) / 2;
-        doc.roundedRect(btnX, y, btnW, btnH, 8).fill(TEAL);
+        doc.roundedRect(btnX, y, btnW, btnH, 8).fill(TEAL_DARK);
         doc
           .fillColor('#ffffff')
           .font('Helvetica-Bold')
           .fontSize(10.5)
           .text('Open your student portal', btnX, y + 11, { width: btnW, align: 'center' });
         doc.link(btnX, y, btnW, btnH, crmLink);
-        y += btnH + 26;
+        y += btnH + 24;
       }
 
       // ── Footer ───────────────────────────────────────────────────────
