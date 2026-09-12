@@ -9,7 +9,7 @@ const { lmsConfig } = require('../../config/lms');
 
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 function crmBase() {
-  return (lmsConfig.meeting.crmBaseUrl || process.env.APP_URL || process.env.PUBLIC_SERVER_FILE || '').replace(/\/+$/, '');
+  return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 function gradeFor(pct) {
   if (pct >= 90) return 'A+';
