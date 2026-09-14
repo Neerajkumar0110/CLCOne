@@ -118,7 +118,7 @@ async function listRecordings(req, res) {
     };
   }
 
-  let rows = await LiveRecording.find(q).sort({ publishedAt: -1, created: -1 }).limit(500).lean();
+  let rows = await LiveRecording.find(q).select('+playbackUrl').sort({ publishedAt: -1, created: -1 }).limit(500).lean();
   const now = new Date();
   const ownTaught = (r) =>
     isManager(admin) ||
@@ -166,7 +166,12 @@ async function listRecordings(req, res) {
       provider: r.provider,
       views: r.views,
       publishedAt: r.publishedAt,
-      canPlay: r.status === 'AVAILABLE' && (ownTaught(r) || releasedToStudents(r)),
+      // status AVAILABLE with no playbackUrl is a stale row from before the
+      // manual-upload flow existed (or a failed compress) — canPlay stays
+      // false and hasVideo tells the teacher's "Upload recording" button to
+      // show again for it instead of treating it as already done.
+      hasVideo: !!r.playbackUrl,
+      canPlay: r.status === 'AVAILABLE' && !!r.playbackUrl && (ownTaught(r) || releasedToStudents(r)),
     })),
   });
 }
