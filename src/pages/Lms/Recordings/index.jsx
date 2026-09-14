@@ -184,21 +184,28 @@ export default function Recordings() {
         open={!!playing}
         title={playing ? playing.className : ''}
         footer={null}
-        width={900}
+        width="92vw"
+        style={{ top: 16, maxWidth: 1400 }}
+        bodyStyle={{ padding: playing && playing.provider === 'bigbluebutton' ? 0 : 24 }}
         onCancel={() => setPlaying(null)}
         destroyOnClose
       >
         {playing && playing.url ? (
-          <div>
-            <p style={{ marginTop: 0 }}>
-              <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
-            </p>
-            {playing.provider === 'bigbluebutton' ? (
-              <iframe title="recording" src={playing.url} style={{ width: '100%', height: 480, border: '1px solid #eee', borderRadius: 8 }} allowFullScreen />
-            ) : (
-              <video controls autoPlay src={playing.url} style={{ width: '100%', maxHeight: 480, borderRadius: 8, background: '#000' }} />
-            )}
-          </div>
+          playing.provider === 'bigbluebutton' ? (
+            <div>
+              <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee' }}>
+                <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
+              </div>
+              <iframe title="recording" src={playing.url} style={{ width: '100%', height: '78vh', border: 0, display: 'block' }} allowFullScreen />
+            </div>
+          ) : (
+            <div>
+              <p style={{ marginTop: 0 }}>
+                <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
+              </p>
+              <video controls autoPlay src={playing.url} style={{ width: '100%', maxHeight: '75vh', borderRadius: 8, background: '#000' }} />
+            </div>
+          )
         ) : (
           <p>No playback URL yet.</p>
         )}
