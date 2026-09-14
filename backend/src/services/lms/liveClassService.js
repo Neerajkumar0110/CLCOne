@@ -690,10 +690,15 @@ async function startSession(id, admin, { auto = false } = {}) {
 
   session.status = 'live';
   session.actualStart = session.actualStart || new Date();
-  // Guard the ['PROCESSING','AVAILABLE'] states so restarting a class that
-  // got marked 'ended' early (see withinScheduledWindow above) doesn't
-  // clobber a recording that already finished processing.
-  if (session.recordingEnabled && s.recordingAutoStart && !['PROCESSING', 'AVAILABLE'].includes(session.recordingStatus)) {
+  // Guard only 'AVAILABLE' so resuming doesn't clobber a recording that
+  // already finished processing. 'PROCESSING' does NOT skip this: resuming
+  // means BBB starts recording a new segment too (ensureProviderRoom passes
+  // record:true on every (re)create), so recordingStatus goes back to
+  // RECORDING — otherwise the next endSession finds recordingStatus still
+  // 'PROCESSING' (never 'RECORDING'), falls through to plain 'ended'
+  // instead of 'recording_processing', and pollRecordings (which only
+  // looks at 'recording_processing' sessions) never checks this one again.
+  if (session.recordingEnabled && s.recordingAutoStart && session.recordingStatus !== 'AVAILABLE') {
     session.recordingStatus = 'RECORDING';
     // Created here (upsert), not when the session/schedule was generated —
     // only classes that actually go live get a recording row at all.
