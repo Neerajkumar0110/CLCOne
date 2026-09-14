@@ -665,7 +665,12 @@ async function startSession(id, admin, { auto = false } = {}) {
     const role = await resolveRole(session, admin);
     if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can start it.' };
   }
-  if (['recording_processing', 'recording_available'].includes(session.status)) {
+  // recording_processing/available is the normal post-end state (any class
+  // with recording enabled — the default — goes through it, not 'ended';
+  // see endSession). Still resumable for as long as the scheduled window is
+  // open, same as 'ended' below — a class shouldn't become permanently
+  // unjoinable just because someone left early and it wrapped up recording.
+  if (['recording_processing', 'recording_available'].includes(session.status) && !withinScheduledWindow(session)) {
     return { error: 409, message: 'This class has already ended and its recording is being processed.' };
   }
   if (session.status === 'ended' && !withinScheduledWindow(session)) {
@@ -844,13 +849,18 @@ async function issueJoin(id, admin) {
   const role = await resolveRole(session, admin);
   if (!role) return { error: 403, message: 'You are not a participant of this class.' };
 
-  // A class marked 'ended' (early End click, or the auto-lifecycle tick
-  // firing a touch ahead of schedule) resumes for whoever — teacher or
-  // student — tries to join it, for as long as the batch's scheduled time
-  // is still running (withinScheduledWindow). `auto: true` skips
-  // startSession's teacher-only check since this isn't a fresh "start the
-  // class" decision, just resuming a slot that was already live.
-  if (session.status === 'ended' && withinScheduledWindow(session)) {
+  // A class marked 'ended' OR 'recording_processing'/'recording_available'
+  // (early End click, or the auto-lifecycle tick firing a touch ahead of
+  // schedule) resumes for whoever — teacher or student — tries to join it,
+  // for as long as the batch's scheduled time is still running
+  // (withinScheduledWindow). recording_processing is the NORMAL post-end
+  // state for any class with recording on (the default — see endSession),
+  // not just an edge case, so it needs the same resume path 'ended' gets.
+  // `auto: true` skips startSession's teacher-only check since this isn't a
+  // fresh "start the class" decision, just resuming a slot that was already
+  // live.
+  const resumableStatuses = ['ended', 'recording_processing', 'recording_available'];
+  if (resumableStatuses.includes(session.status) && withinScheduledWindow(session)) {
     const started = await startSession(id, admin, { auto: true });
     if (started.error) return started;
     return issueJoin(id, admin); // re-load now-live session
@@ -1036,6 +1046,14 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
   const RecModel = mongoose.model('LiveRecording');
   session.recordingStatus = 'AVAILABLE';
   session.status = 'recording_available';
+  // Same "students see it 2h after the class ended" delay as the manual
+  // -upload path (liveScope.uploadRecording) — this was only ever wired
+  // into that path, so a BBB-recorded class (the common case now) was
+  // skipping it entirely and going straight to visible-immediately.
+  const RECORDING_STUDENT_DELAY_MS = 2 * 60 * 60 * 1000;
+  const now = new Date();
+  const earliestForStudents = session.actualEnd ? new Date(new Date(session.actualEnd).getTime() + RECORDING_STUDENT_DELAY_MS) : now;
+  const publishedAt = earliestForStudents > now ? earliestForStudents : now;
   await RecModel.updateOne(
     { liveSession: session._id },
     {
@@ -1045,7 +1063,7 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
         playbackUrl: playbackUrl || undefined,
         downloadUrl: downloadUrl || undefined,
         durationMin: durationMin || undefined,
-        publishedAt: new Date(),
+        publishedAt,
         updated: new Date(),
       },
     }
@@ -1127,10 +1145,27 @@ async function pollRecordings() {
     status: 'recording_processing',
     meetingId: { $exists: true },
   }).select('+moderatorPW +attendeePW').limit(20);
+  const LiveRecording = mongoose.model('LiveRecording');
   for (const session of pending) {
     try {
       const recs = await provider.getRecordings(session);
-      const ready = (recs || []).find((r) => r.state === 'published' || r.published);
+      if (!recs || !recs.length) continue;
+      // Every class in a batch shares one BBB meetingID (the persistent
+      // batch room — see ensureProviderRoom), so getRecordings() here
+      // returns every recording ever made in that room, not just this
+      // occurrence's. Timing is the only thing that tells them apart: a
+      // recording belongs to THIS session if it started at/after this
+      // session's actualStart (small grace for clock skew), and isn't
+      // already claimed by a different session in the same room.
+      const sessionStart = session.actualStart ? new Date(session.actualStart).getTime() : 0;
+      const recordIds = recs.map((r) => r.recordID).filter(Boolean);
+      const claimedElsewhere = new Set(
+        (await LiveRecording.find({ recordingId: { $in: recordIds }, liveSession: { $ne: session._id } }, 'recordingId').lean()).map(
+          (r) => r.recordingId
+        )
+      );
+      const candidates = recs.filter((r) => r.recordID && !claimedElsewhere.has(r.recordID) && (!r.startTime || r.startTime >= sessionStart - 60000));
+      const ready = candidates.find((r) => r.state === 'published' || r.published);
       if (ready) {
         await applyRecordingReady(session, {
           recordingId: ready.recordID,
