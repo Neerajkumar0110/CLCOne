@@ -59,7 +59,9 @@ export default function Recordings() {
       message.error('Not available.');
     }
   };
-  const canUpload = (r) => r.status !== 'AVAILABLE' && r.status !== 'DELETED' && (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
+  const canUpload = (r) =>
+    !['AVAILABLE', 'DELETED', 'PROCESSING'].includes(r.status) &&
+    (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
   const askUpload = (rec) => {
     uploadTargetRef.current = rec;
     fileInputRef.current && fileInputRef.current.click();
@@ -74,7 +76,7 @@ export default function Recordings() {
       const res = await lmsApi.recordingUpload(rec.id, file);
       if (res && res.success === false) message.error(res.message || 'Upload failed.');
       else {
-        message.success('Recording uploaded — students in this batch can now watch it.');
+        message.success((res && res.result && res.result.message) || 'Uploaded — compressing now.');
         load();
       }
     } catch (err) {
