@@ -1066,7 +1066,7 @@ async function autoLifecycleTick() {
   const due = await LmsLiveSession.find(dueQ).limit(10);
   for (const d of due) await startSession(d._id, null, { auto: true }).catch(() => {});
 
-  // auto-end
+  // auto-end (schedule-based) — the class's scheduled window is over.
   if (s.autoEndPolicy !== 'manual') {
     const graceMs = (s.autoEndPolicy === 'grace' ? s.autoEndGraceMin : 0) * 60000;
     const overdue = await LmsLiveSession.find({
@@ -1075,6 +1075,24 @@ async function autoLifecycleTick() {
       scheduledEnd: { $lt: new Date(now.getTime() - graceMs) },
     }).limit(10);
     for (const d of overdue) await endSession(d._id, null, { auto: true }).catch(() => {});
+  }
+
+  // auto-end (BBB-actually-ended) — a teacher who leaves via BBB's own UI
+  // (closing the tab) rather than the CRM's "End class" button leaves the
+  // session stuck 'live' — nothing tells the CRM the meeting is over until
+  // the scheduled window lapses, which could be hours later. BBB itself
+  // knows immediately (its own meeting ends when the last participant
+  // leaves), so ask it directly for still-'live' sessions instead of only
+  // trusting the clock.
+  const provider = getMeetingProvider();
+  if (provider.name === 'bigbluebutton') {
+    const stillLive = await LmsLiveSession.find({ removed: false, status: 'live', meetingProvider: 'bigbluebutton' })
+      .select('+moderatorPW +attendeePW +providerData')
+      .limit(20);
+    for (const d of stillLive) {
+      const running = await provider.isRunning(d).catch(() => null);
+      if (running === false) await endSession(d._id, null, { auto: true }).catch(() => {});
+    }
   }
 }
 
