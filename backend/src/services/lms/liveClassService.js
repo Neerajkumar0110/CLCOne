@@ -583,10 +583,20 @@ async function ensureProviderRoom(session) {
         room.meetingId = undefined;
         room.providerRoomCreated = false;
       }
-      // create the provider meeting once for the whole batch
-      if (!room.providerRoomCreated || (provider.name !== 'mock' && !room.meetingId)) {
+      // The mock provider's "room" is just a label — create it once ever.
+      // A real provider (BBB) needs ensureRoom() called again for EVERY
+      // class, not just the batch's first one: BBB's `create` call is what
+      // actually opens today's occurrence of the meeting (idempotent if
+      // it's already running) — skipping it after the first class meant
+      // every later class tried to `join` a meeting that was never
+      // (re)started, which BBB rejects outright once that meetingID has
+      // ever been explicitly ended ("You can not join a meeting that has
+      // already been forcibly ended"). Same meetingId/passwords are reused
+      // every time (passed in below) so the batch's link stays constant.
+      const needsCreate = provider.name === 'mock' ? !room.providerRoomCreated : true;
+      if (needsCreate) {
         const created = await provider.ensureRoom(
-          { _id: room._id, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
+          { _id: room._id, meetingId: room.meetingId, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
           { record: session.recordingEnabled && s.recordingAutoStart }
         );
         room.meetingId = created.meetingId || room.meetingId || room.roomName;
