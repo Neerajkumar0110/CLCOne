@@ -56,7 +56,13 @@ function parseDays(batch) {
   // "weekdays" / "daily" shortcuts
   if (!found.length && /weekday|mon.*fri/.test(src)) return [1, 2, 3, 4, 5];
   if (!found.length && /daily|every ?day/.test(src)) return [0, 1, 2, 3, 4, 5, 6];
-  return [...new Set(found)].sort();
+  if (found.length) return [...new Set(found)].sort();
+  // Standard offering: every batch runs Mon-Fri at its set time unless a
+  // specific set of days was typed into Class days / Schedule — a blank
+  // field used to fall back to a single one-off class (occurrences()'s
+  // days.length ? ... : out.length===0 branch) instead of the 6-month
+  // recurring schedule every batch is actually meant to have.
+  return [1, 2, 3, 4, 5];
 }
 
 function parseTime(batch) {
