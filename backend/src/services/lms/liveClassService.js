@@ -194,22 +194,12 @@ async function createSession(opts = {}) {
     autoCreated: !!opts.autoCreated,
   });
 
-  if (s.recordingEnabled) {
-    const rec = await LiveRecording.create({
-      liveSession: session._id,
-      crmCourse: session.crmCourse,
-      batch: session.batch,
-      teacherCrmUser: session.teacherCrmUser,
-      courseTitle,
-      batchName,
-      teacherName: session.teacherName,
-      className: title,
-      provider: session.meetingProvider,
-      status: 'NOT_STARTED',
-    });
-    session.recording = rec._id;
-    await session.save();
-  }
+  // No LiveRecording row yet — a batch's Mon-Fri/6-month schedule (see
+  // recurrence.js) creates up to ~130 of these sessions up front, and most
+  // will never actually happen (rescheduled, batch paused, etc). The row is
+  // created lazily in startSession, only once a class actually goes live,
+  // so the Recordings list isn't full of placeholders for classes that
+  // haven't happened yet.
 
   try {
     const lc = await LiveClass.create({
@@ -690,10 +680,26 @@ async function startSession(id, admin, { auto = false } = {}) {
   // clobber a recording that already finished processing.
   if (session.recordingEnabled && s.recordingAutoStart && !['PROCESSING', 'AVAILABLE'].includes(session.recordingStatus)) {
     session.recordingStatus = 'RECORDING';
-    await mongoose.model('LiveRecording').updateOne(
+    // Created here (upsert), not when the session/schedule was generated —
+    // only classes that actually go live get a recording row at all.
+    const rec = await mongoose.model('LiveRecording').findOneAndUpdate(
       { liveSession: session._id },
-      { $set: { status: 'RECORDING', startedAt: new Date(), meetingId: session.meetingId, provider: session.meetingProvider } }
+      {
+        $set: { status: 'RECORDING', startedAt: new Date(), meetingId: session.meetingId, provider: session.meetingProvider },
+        $setOnInsert: {
+          crmCourse: session.crmCourse,
+          batch: session.batch,
+          teacherCrmUser: session.teacherCrmUser,
+          courseTitle: session.courseTitle,
+          batchName: session.batchName,
+          teacherName: session.teacherName,
+          className: session.title,
+          liveClass: session.liveClass,
+        },
+      },
+      { upsert: true, new: true }
     );
+    session.recording = rec._id;
   }
   session.updated = new Date();
   await session.save();
@@ -753,11 +759,15 @@ async function endSession(id, admin, { auto = false } = {}) {
       // manual upload (liveScope.uploadRecording) rather than ever claiming
       // AVAILABLE with nothing behind it, which is what silently left
       // students with a "recording" row that had no video to play.
+      // AWAITING_UPLOAD (not PROCESSING — that's reserved for the
+      // compression step right after an actual upload) so the Recordings
+      // page's "Upload recording" button doesn't hide itself the moment
+      // the class ends, before the teacher has uploaded anything.
       session.recordingStatus = 'PROCESSING';
       session.status = 'recording_processing';
       await RecModel.updateOne(
         { liveSession: session._id },
-        { $set: { status: 'PROCESSING', endedAt: now, durationMin: recDurationMin } }
+        { $set: { status: 'AWAITING_UPLOAD', endedAt: now, durationMin: recDurationMin } }
       );
     }
   } else {
@@ -1211,7 +1221,36 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
     if (scope === 'ended' && !['ended', 'recording_processing', 'recording_available'].includes(sn.status)) continue;
     out.push(v);
   }
-  return out;
+  if (scope) return out;
+
+  // Default (no scope) = "what can I join right now / next" — one card per
+  // batch instead of every individual recurring date. A batch running
+  // Mon-Fri for 6 months (see recurrence.js) generates ~130 sessions; the
+  // Live Classes page only wants the one that's actually relevant per
+  // batch: live right now, else the soonest upcoming one, else (nothing
+  // scheduled) the most recently ended one so the batch doesn't just
+  // disappear from the list.
+  const rank = (v) => (['live', 'starting'].includes(v.status) ? 0 : ['scheduled', 'upcoming'].includes(v.status) ? 1 : 2);
+  const best = new Map();
+  for (const v of out) {
+    const key = v.batchId || v.batchName || v.id;
+    const cur = best.get(key);
+    if (!cur) {
+      best.set(key, v);
+      continue;
+    }
+    const rv = rank(v);
+    const rc = rank(cur);
+    if (rv < rc) {
+      best.set(key, v);
+      continue;
+    }
+    if (rv !== rc) continue;
+    const vIsSooner = new Date(v.scheduledStart || 0) < new Date(cur.scheduledStart || 0);
+    const better = rv === 2 ? !vIsSooner : vIsSooner; // ended: most recent wins; live/upcoming: soonest wins
+    if (better) best.set(key, v);
+  }
+  return [...best.values()].sort((a, b) => new Date(a.scheduledStart || 0) - new Date(b.scheduledStart || 0));
 }
 
 async function getOne(id, admin) {

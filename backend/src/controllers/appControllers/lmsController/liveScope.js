@@ -1,7 +1,15 @@
+const fs = require('fs');
+const path = require('path');
 const mongoose = require('mongoose');
 const { liveClassService, lmsConfig } = require('../../../services/lms');
 const settingsService = require('../../../services/lms/settingsService');
+const { compressVideo } = require('../../../services/lms/recordingCompress');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../config/roles');
+
+// Students never see a class's recording until this long after the class
+// actually ended — gives the teacher room to upload without a partial/
+// still-compressing file showing up mid-class.
+const RECORDING_STUDENT_DELAY_MS = 2 * 60 * 60 * 1000;
 
 // Role-scoped read APIs for live classes / recordings / attendance.
 // Golden rule: course/batch/student ids from the client are NEVER trusted —
@@ -110,14 +118,19 @@ async function listRecordings(req, res) {
     };
   }
 
-  let rows = await LiveRecording.find(q).sort({ publishedAt: -1, created: -1 }).limit(500).lean();
+  let rows = await LiveRecording.find(q).select('+playbackUrl').sort({ publishedAt: -1, created: -1 }).limit(500).lean();
+  const now = new Date();
+  const ownTaught = (r) =>
+    isManager(admin) ||
+    String(r.teacherCrmUser) === String(admin._id) ||
+    (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
+  // Students only ever see a recording once it's finished compressing AND
+  // the 2-hour-after-class-ended delay has passed; the teacher who
+  // uploaded it (or a manager) can watch it immediately to check it.
+  const releasedToStudents = (r) => !r.publishedAt || new Date(r.publishedAt) <= now;
 
   if (!isManager(admin)) {
     const s = await settingsService.get();
-    const ownTaught = (r) =>
-      String(r.teacherCrmUser) === String(admin._id) ||
-      (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
-
     const myCourseIds = await myMoodleCourseIds(admin);
     const myEnr = await myEnrolments(admin);
     const myBatchIds = new Set(myEnr.map((e) => String(e.batch)).filter(Boolean));
@@ -128,6 +141,7 @@ async function listRecordings(req, res) {
     linked.forEach((l) => l.courseTitle && myCourseTitles.add(l.courseTitle));
     const enrolledAccess = (r) => {
       if (r.status !== 'AVAILABLE') return false;
+      if (!releasedToStudents(r)) return false;
       if (s.recordingAccess === 'admin-only') return false;
       // Roster batch match always grants access — it's the source of truth
       // for "which batch is this student in" while Moodle sync is unused.
@@ -152,7 +166,12 @@ async function listRecordings(req, res) {
       provider: r.provider,
       views: r.views,
       publishedAt: r.publishedAt,
-      canPlay: r.status === 'AVAILABLE',
+      // status AVAILABLE with no playbackUrl is a stale row from before the
+      // manual-upload flow existed (or a failed compress) — canPlay stays
+      // false and hasVideo tells the teacher's "Upload recording" button to
+      // show again for it instead of treating it as already done.
+      hasVideo: !!r.playbackUrl,
+      canPlay: r.status === 'AVAILABLE' && !!r.playbackUrl && (ownTaught(r) || releasedToStudents(r)),
     })),
   });
 }
@@ -171,6 +190,12 @@ async function playRecording(req, res) {
     allowed = true;
   }
   if (!allowed) {
+    // Everyone below this point is a student — not released yet means not
+    // watchable yet, full stop (still compressing, or inside the 2-hour
+    // post-class delay).
+    if (rec.publishedAt && new Date(rec.publishedAt) > new Date()) {
+      return res.status(409).json({ success: false, message: 'This recording isn\'t available to students yet.' });
+    }
     const s = await settingsService.get();
     if (s.recordingAccess !== 'admin-only') {
       const session = await LmsLiveSession.findById(rec.liveSession).lean();
@@ -194,9 +219,12 @@ async function playRecording(req, res) {
 // POST /api/lms/recordings/:id/upload  (multipart, field "file") — the class
 // teacher or a manager attaches the video they recorded themselves. Free
 // Jitsi has no recorder of its own (see JitsiProvider), so this manual step
-// is what actually gets a class's recording in front of its batch.
+// is what actually gets a class's recording in front of its batch. Students
+// never record anything — upload is teacher/manager-only (checked below)
+// and the button is hidden from students on the frontend too.
 async function uploadRecording(req, res) {
   const LiveRecording = mongoose.model('LiveRecording');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
   const admin = req.admin;
   const rec = await LiveRecording.findById(req.params.id);
   if (!rec || rec.removed) return res.status(404).json({ success: false, message: 'Recording not found.' });
@@ -208,18 +236,54 @@ async function uploadRecording(req, res) {
   if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s teacher or a manager can upload its recording.' });
 
   if (!req.body.video) return res.status(400).json({ success: false, message: 'No video file received.' });
-  const url = `${crmBase()}/${req.body.video}`;
 
   const now = new Date();
-  await LiveRecording.updateOne(
-    { _id: rec._id },
-    { $set: { status: 'AVAILABLE', playbackUrl: url, downloadUrl: url, publishedAt: now, updated: now } }
-  );
-  await mongoose.model('LmsLiveSession').updateOne(
+  const rawRelPath = req.body.video; // e.g. "public/uploads/recordings/xxx.mp4" — URL-facing path
+  const compressedRelPath = rawRelPath.replace(/\.[^./]+$/, '-web.mp4');
+  // The uploadMiddleware writes the file under src/public/... (see
+  // singleStorageUpload's `destination`) while req.body.video is the
+  // URL-facing "public/..." path (what corePublicRouter's catch-all maps
+  // back to src/public/... for playback) — same prefix mismatch, so the
+  // actual filesystem path needs the "src/" back on for ffmpeg to find it.
+  const rawAbsPath = path.join(process.cwd(), 'src', rawRelPath);
+  const compressedAbsPath = path.join(process.cwd(), 'src', compressedRelPath);
+
+  // Not AVAILABLE yet — the file is still being compressed, and even once
+  // it's done students don't see it until 2 hours after the class ended.
+  await LiveRecording.updateOne({ _id: rec._id }, { $set: { status: 'PROCESSING', updated: now } });
+  await LmsLiveSession.updateOne(
     { _id: rec.liveSession },
-    { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: now } }
+    { $set: { recordingStatus: 'PROCESSING', status: 'recording_processing', updated: now } }
   );
-  return res.status(200).json({ success: true, result: { id: String(rec._id), status: 'AVAILABLE' } });
+  res.status(200).json({
+    success: true,
+    result: { id: String(rec._id), status: 'PROCESSING', message: 'Uploaded — compressing now. Students see it once ready, 2 hours after the class ended.' },
+  });
+
+  // Compress in the background; the HTTP response above already went out.
+  compressVideo(rawAbsPath, compressedAbsPath)
+    .then(async () => {
+      fs.unlink(rawAbsPath, () => {}); // drop the raw upload, keep only the compressed copy
+      const url = `${crmBase()}/${compressedRelPath}`;
+      const session = await LmsLiveSession.findById(rec.liveSession).select('actualEnd').lean();
+      const earliestForStudents = session && session.actualEnd
+        ? new Date(new Date(session.actualEnd).getTime() + RECORDING_STUDENT_DELAY_MS)
+        : new Date();
+      const publishedAt = earliestForStudents > new Date() ? earliestForStudents : new Date();
+      const doneAt = new Date();
+      await LiveRecording.updateOne(
+        { _id: rec._id },
+        { $set: { status: 'AVAILABLE', playbackUrl: url, downloadUrl: url, publishedAt, updated: doneAt } }
+      );
+      await LmsLiveSession.updateOne(
+        { _id: rec.liveSession },
+        { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: doneAt } }
+      );
+    })
+    .catch(async (e) => {
+      console.error('[lms] recording compression failed:', e && e.message);
+      await LiveRecording.updateOne({ _id: rec._id }, { $set: { status: 'FAILED', failReason: String(e && e.message).slice(0, 300), updated: new Date() } });
+    });
 }
 
 // POST /api/lms/admin/recordings/:id/delete   (manager only — route guards)
