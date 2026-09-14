@@ -1096,7 +1096,19 @@ async function autoLifecycleTick() {
   // trusting the clock.
   const provider = getMeetingProvider();
   if (provider.name === 'bigbluebutton') {
-    const stillLive = await LmsLiveSession.find({ removed: false, status: 'live', meetingProvider: 'bigbluebutton' })
+    // Grace period before trusting isRunning===false: BBB's create doesn't
+    // guarantee isMeetingRunning flips true instantly, and a session sits
+    // 'live' for the seconds between the teacher clicking Start and actually
+    // joining — checking too early would end classes before anyone got in.
+    // 5 minutes is ample startup slack while still catching a "closed the
+    // BBB tab" abandonment well before the scheduled-time fallback above.
+    const bbbGraceCutoff = new Date(now.getTime() - 5 * 60000);
+    const stillLive = await LmsLiveSession.find({
+      removed: false,
+      status: 'live',
+      meetingProvider: 'bigbluebutton',
+      actualStart: { $lt: bbbGraceCutoff },
+    })
       .select('+moderatorPW +attendeePW +providerData')
       .limit(20);
     for (const d of stillLive) {
