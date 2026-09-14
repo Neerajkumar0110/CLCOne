@@ -759,11 +759,15 @@ async function endSession(id, admin, { auto = false } = {}) {
       // manual upload (liveScope.uploadRecording) rather than ever claiming
       // AVAILABLE with nothing behind it, which is what silently left
       // students with a "recording" row that had no video to play.
+      // AWAITING_UPLOAD (not PROCESSING — that's reserved for the
+      // compression step right after an actual upload) so the Recordings
+      // page's "Upload recording" button doesn't hide itself the moment
+      // the class ends, before the teacher has uploaded anything.
       session.recordingStatus = 'PROCESSING';
       session.status = 'recording_processing';
       await RecModel.updateOne(
         { liveSession: session._id },
-        { $set: { status: 'PROCESSING', endedAt: now, durationMin: recDurationMin } }
+        { $set: { status: 'AWAITING_UPLOAD', endedAt: now, durationMin: recDurationMin } }
       );
     }
   } else {

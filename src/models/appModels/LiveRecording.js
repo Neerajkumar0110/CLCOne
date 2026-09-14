@@ -25,7 +25,14 @@ const schema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['NOT_STARTED', 'RECORDING', 'PROCESSING', 'AVAILABLE', 'FAILED', 'DELETED'],
+    // AWAITING_UPLOAD: class ended, waiting on the teacher's manual upload
+    // (jitsi/mock has no recorder of its own — see liveClassService's
+    // endSession). PROCESSING is reserved for the compression step that
+    // runs right after an upload — keeping them distinct means the
+    // Recordings page's "Upload recording" button (hidden only while an
+    // upload is actually compressing) doesn't also hide itself the moment
+    // a class ends, before the teacher has uploaded anything.
+    enum: ['NOT_STARTED', 'RECORDING', 'AWAITING_UPLOAD', 'PROCESSING', 'AVAILABLE', 'FAILED', 'DELETED'],
     default: 'NOT_STARTED',
   },
   startedAt: { type: Date },
