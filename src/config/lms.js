@@ -75,7 +75,7 @@ const config = {
   // ── BigBlueButton (dedicated host) ────────────────────────────────────
   // Now also the live-class meeting provider (services/lms/meeting/). When
   // url + secret are set the CRM creates + joins real BBB rooms; until then
-  // it falls back to jitsi / mock and switches over automatically once set.
+  // it falls back to the mock room and switches over automatically once set.
   bbb: {
     url: clean(process.env.BBB_URL), // https://bbb.example.com/bigbluebutton
     secret: process.env.BBB_SECRET || '',
@@ -89,12 +89,10 @@ const config = {
 
   // ── Live-class meeting provider ───────────────────────────────────────
   meeting: {
-    // auto | bigbluebutton | jitsi | mock. `auto` = bigbluebutton when BBB is
-    // configured, else Jitsi (real video — defaults to the public meet.jit.si
-    // unless LMS_MEETING_JITSI_BASE points at your own instance). Set
-    // LMS_MEETING_PROVIDER=mock to force the CRM's offline stand-in room.
+    // auto | bigbluebutton | mock. `auto` = bigbluebutton once BBB_URL /
+    // BBB_SECRET are set, else the CRM's offline stand-in room. Set
+    // LMS_MEETING_PROVIDER=mock to force the stand-in room regardless.
     provider: (process.env.LMS_MEETING_PROVIDER || 'auto').toLowerCase(),
-    jitsiBase: clean(process.env.LMS_MEETING_JITSI_BASE || 'https://meet.jit.si'),
     defaultDurationMin: Number(process.env.LMS_MEETING_DEFAULT_DURATION_MIN || 60),
     joinTicketTtlSec: Number(process.env.LMS_MEETING_JOIN_TICKET_TTL_SEC || 120),
     // One meeting room per BATCH, reused for every class of that batch for at
@@ -135,10 +133,8 @@ config.meeting.effectiveProvider = (() => {
   const p = config.meeting.provider;
   if (p === 'bigbluebutton' || p === 'bbb') return 'bigbluebutton';
   if (p === 'mock') return 'mock';
-  if (p === 'jitsi') return config.meeting.jitsiBase ? 'jitsi' : 'mock';
   // auto
   if (config.bbb.url && config.bbb.secret) return 'bigbluebutton';
-  if (config.meeting.jitsiBase) return 'jitsi';
   return 'mock';
 })();
 
@@ -150,7 +146,7 @@ function publicConfig() {
     ssoEnabled: !!(config.isConfigured && config.sso.secret),
     webhookEnabled: !!config.webhook.hmacSecret,
     bbbConfigured: !!(config.bbb.url && config.bbb.secret),
-    meetingProvider: config.meeting.effectiveProvider, // bigbluebutton | jitsi | mock
+    meetingProvider: config.meeting.effectiveProvider, // bigbluebutton | mock
   };
 }
 

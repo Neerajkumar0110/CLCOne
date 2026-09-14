@@ -9,9 +9,9 @@ const { getMoodleClient, lmsConfig, syncService, sso, roleMap, liveClassService 
 //   REAL  : CRM<->Moodle user/course/enrolment sync, SSO, event webhooks,
 //           the live-class lifecycle + auto meeting room + attendance capture
 //           (all via services/lms/liveClassService.js).
-//   MOCK  : the meeting itself while the provider is 'mock' (CRM room page) or
-//           'jitsi' (real public video, no per-role controls). Switches to
-//           real BigBlueButton automatically once BBB_URL / BBB_SECRET are set.
+//   MOCK  : the meeting itself while the provider is 'mock' (CRM room page).
+//           Switches to real BigBlueButton automatically once BBB_URL /
+//           BBB_SECRET are set.
 //
 // The live-class operations here just call liveClassService acting as the
 // pilot teacher / student, so the pilot exercises the SAME code path as the
