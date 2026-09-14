@@ -6,7 +6,8 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
-const STATUS_COLOR = { AVAILABLE: 'green', PROCESSING: 'purple', RECORDING: 'red', FAILED: 'red', NOT_STARTED: 'default', DELETED: 'default' };
+const STATUS_COLOR = { AVAILABLE: 'green', PROCESSING: 'purple', AWAITING_UPLOAD: 'orange', RECORDING: 'red', FAILED: 'red', NOT_STARTED: 'default', DELETED: 'default' };
+const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD' };
 
 export default function Recordings() {
   const admin = useSelector(selectCurrentAdmin) || {};
@@ -59,7 +60,13 @@ export default function Recordings() {
       message.error('Not available.');
     }
   };
-  const canUpload = (r) => r.status !== 'AVAILABLE' && r.status !== 'DELETED' && (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
+  const canUpload = (r) =>
+    r.status !== 'DELETED' &&
+    r.status !== 'PROCESSING' &&
+    // AVAILABLE-but-no-video is a stale/broken row (pre-dates the upload
+    // flow, or a failed compress) — still needs a real upload.
+    (r.status !== 'AVAILABLE' || !r.hasVideo) &&
+    (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
   const askUpload = (rec) => {
     uploadTargetRef.current = rec;
     fileInputRef.current && fileInputRef.current.click();
@@ -74,7 +81,7 @@ export default function Recordings() {
       const res = await lmsApi.recordingUpload(rec.id, file);
       if (res && res.success === false) message.error(res.message || 'Upload failed.');
       else {
-        message.success('Recording uploaded — students in this batch can now watch it.');
+        message.success((res && res.result && res.result.message) || 'Uploaded — compressing now.');
         load();
       }
     } catch (err) {
@@ -100,7 +107,7 @@ export default function Recordings() {
     { title: 'Teacher', dataIndex: 'teacherName', width: 140 },
     { title: 'Date', dataIndex: 'date', width: 120, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
     { title: 'Duration', dataIndex: 'durationMin', width: 90, render: (v) => (v ? `${v} min` : '—') },
-    { title: 'Status', dataIndex: 'status', width: 140, render: (v) => <Tag color={STATUS_COLOR[v] || 'default'}>{v}</Tag> },
+    { title: 'Status', dataIndex: 'status', width: 140, render: (v) => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
     ...(isManager ? [{ title: 'Views', dataIndex: 'views', width: 70 }] : []),
     {
       title: '',
@@ -152,7 +159,7 @@ export default function Recordings() {
           <Select
             allowClear placeholder="Status" style={{ width: 160 }} value={f.status}
             onChange={(v) => setF((x) => ({ ...x, status: v }))}
-            options={['AVAILABLE', 'PROCESSING', 'RECORDING', 'FAILED', 'DELETED'].map((s) => ({ value: s, label: s }))}
+            options={['AVAILABLE', 'AWAITING_UPLOAD', 'PROCESSING', 'RECORDING', 'FAILED', 'DELETED'].map((s) => ({ value: s, label: STATUS_LABEL[s] || s }))}
           />
         )}
         <DatePicker.RangePicker
