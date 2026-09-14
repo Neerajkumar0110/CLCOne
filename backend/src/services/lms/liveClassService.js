@@ -878,7 +878,21 @@ async function issueJoin(id, admin) {
   if (session.status !== 'live') {
     return { error: 409, message: role === 'student' ? 'The class has not started yet.' : 'Class is not live.' };
   }
-  if (!session.meetingId && session.meetingProvider !== 'mock') await ensureProviderRoom(session);
+  // Re-sync against the batch room whenever the session's stored provider
+  // is stale relative to the currently configured one (e.g. a session was
+  // started back when the effective provider still resolved to 'mock', and
+  // only later got switched over to a real provider like BigBlueButton) —
+  // not just when meetingId is completely empty. Joining with a stale
+  // meetingId/provider pair is exactly how BBB's "You can not join a
+  // meeting that has already been forcibly ended" surfaces: the join URL
+  // gets built against an ID that was never (re)created under the room's
+  // current provider.
+  {
+    const activeProvider = getMeetingProvider();
+    if (activeProvider.name !== 'mock' && (!session.meetingId || session.meetingProvider !== activeProvider.name)) {
+      await ensureProviderRoom(session);
+    }
+  }
 
   const now = new Date();
   let p = session.participants.find((x) => String(x.crmUser) === String(admin._id));
