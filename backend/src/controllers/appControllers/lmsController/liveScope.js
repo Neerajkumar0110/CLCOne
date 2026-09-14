@@ -217,11 +217,12 @@ async function playRecording(req, res) {
 }
 
 // POST /api/lms/recordings/:id/upload  (multipart, field "file") — the class
-// teacher or a manager attaches the video they recorded themselves. Free
-// Jitsi has no recorder of its own (see JitsiProvider), so this manual step
-// is what actually gets a class's recording in front of its batch. Students
-// never record anything — upload is teacher/manager-only (checked below)
-// and the button is hidden from students on the frontend too.
+// teacher or a manager attaches the video they recorded themselves. BBB
+// records automatically (see BigBlueButtonProvider + pollRecordings), but
+// the mock provider (no BBB configured) has no recorder of its own, so this
+// manual step is the fallback that gets a recording in front of its batch.
+// Students never record anything — upload is teacher/manager-only (checked
+// below) and the button is hidden from students on the frontend too.
 async function uploadRecording(req, res) {
   const LiveRecording = mongoose.model('LiveRecording');
   const LmsLiveSession = mongoose.model('LmsLiveSession');
