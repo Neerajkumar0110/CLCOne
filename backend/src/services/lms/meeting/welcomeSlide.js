@@ -35,10 +35,15 @@ function renderWelcomeSlidePdf({ courseTitle, batchName, teacherName, brand = 'C
       doc.on('error', reject);
 
       doc.rect(0, 0, W, H).fill('#ffffff');
-      doc.rect(0, 0, W, 10).fill(TEAL);
+
+      // The logo's wordmark is light-colored (built for the teal receipt
+      // header) and disappears on plain white, so give it the same teal
+      // band here rather than dropping it straight onto the page.
+      const bandH = 130;
+      doc.rect(0, 0, W, bandH).fill(TEAL);
 
       const cx = W / 2;
-      let y = 108;
+      let y = 60;
 
       if (LOGO_BUFFER) {
         const logoH = 46;
@@ -48,10 +53,8 @@ function renderWelcomeSlidePdf({ courseTitle, batchName, teacherName, brand = 'C
         } catch (e) {
           /* noop */
         }
-        y += logoH + 46;
-      } else {
-        y += 46;
       }
+      y = bandH + 56;
 
       doc
         .fillColor(INK)
