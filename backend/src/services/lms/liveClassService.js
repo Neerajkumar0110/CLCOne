@@ -575,8 +575,8 @@ async function ensureProviderRoom(session) {
       if (room) room = await LmsBatchRoom.findById(room._id).select('+moderatorPW +attendeePW +providerData');
     }
     if (room) {
-      // re-provision if the provider changed (e.g. mock -> jitsi once a real
-      // video base is configured) so the batch's link becomes a real room.
+      // re-provision if the provider changed (e.g. mock -> bigbluebutton once
+      // BBB is configured) so the batch's link becomes a real room.
       const providerChanged = !!room.provider && room.provider !== provider.name;
       room.provider = provider.name;
       if (providerChanged) {
@@ -754,8 +754,8 @@ async function endSession(id, admin, { auto = false } = {}) {
         { $set: { status: 'PROCESSING', endedAt: now, durationMin: recDurationMin } }
       );
     } else {
-      // mock/jitsi: the provider itself never produces a recording file (no
-      // Jibri / recorder is wired up) — this always waits on the teacher's
+      // mock (or any legacy non-BBB session): the provider itself never
+      // produces a recording file — this always waits on the teacher's
       // manual upload (liveScope.uploadRecording) rather than ever claiming
       // AVAILABLE with nothing behind it, which is what silently left
       // students with a "recording" row that had no video to play.

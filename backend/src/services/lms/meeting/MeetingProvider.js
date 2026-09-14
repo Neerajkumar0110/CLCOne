@@ -1,6 +1,5 @@
 // Base contract for a live-class meeting provider. Implementations:
 //   BigBlueButtonProvider  — real rooms on a dedicated BBB host
-//   JitsiProvider          — a public/hosted Jitsi Meet instance
 //   MockProvider           — the CRM's own room page (no external service)
 //
 // A `session` here is an LmsLiveSession mongoose doc. Providers never touch

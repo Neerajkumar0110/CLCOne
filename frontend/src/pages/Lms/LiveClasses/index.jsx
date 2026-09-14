@@ -110,9 +110,9 @@ export default function LiveClasses() {
     setBusyId(id);
     try {
       const res = await lmsApi.liveClassJoin(id);
-      // Everyone — teacher and student — joins in a real new tab (own
-      // toolbar/pre-join restrictions are already baked into the URL server
-      // -side per role, see JitsiProvider.getJoinUrl).
+      // Everyone — teacher and student — joins in a real new tab (BBB's own
+      // client; role-based toolbar/moderator controls come from the
+      // provider itself, see BigBlueButtonProvider.getJoinUrl).
       if (res && res.result && res.result.url) openMeeting(res.result.url);
       else message.warning((res && res.message) || 'Could not join.');
     } catch (e) {

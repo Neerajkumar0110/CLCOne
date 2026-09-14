@@ -79,11 +79,11 @@ router.route('/attempts/:id/evaluate').post(catchErrors(lms.quizEvaluateAttempt)
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/recordings/:id/play').get(catchErrors(lms.liveRecordingPlay));
-// Manual recording upload — free Jitsi has no recorder of its own, so the
-// class teacher (or a manager) uploads the file they recorded themselves
-// (OBS/Zoom/browser capture) and it's attached to that class's recording
-// row. Permission is checked inside the handler (teacher-of-this-class or
-// manager), same as playRecording.
+// Manual recording upload — fallback for the mock provider (BigBlueButton
+// records automatically). The class teacher (or a manager) uploads the file
+// they recorded themselves (OBS/Zoom/browser capture) and it's attached to
+// that class's recording row. Permission is checked inside the handler
+// (teacher-of-this-class or manager), same as playRecording.
 router
   .route('/recordings/:id/upload')
   .post(singleStorageUpload({ entity: 'recordings', fieldName: 'video', fileType: 'video' }), catchErrors(lms.liveRecordingUpload));
