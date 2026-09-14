@@ -1211,7 +1211,36 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
     if (scope === 'ended' && !['ended', 'recording_processing', 'recording_available'].includes(sn.status)) continue;
     out.push(v);
   }
-  return out;
+  if (scope) return out;
+
+  // Default (no scope) = "what can I join right now / next" — one card per
+  // batch instead of every individual recurring date. A batch running
+  // Mon-Fri for 6 months (see recurrence.js) generates ~130 sessions; the
+  // Live Classes page only wants the one that's actually relevant per
+  // batch: live right now, else the soonest upcoming one, else (nothing
+  // scheduled) the most recently ended one so the batch doesn't just
+  // disappear from the list.
+  const rank = (v) => (['live', 'starting'].includes(v.status) ? 0 : ['scheduled', 'upcoming'].includes(v.status) ? 1 : 2);
+  const best = new Map();
+  for (const v of out) {
+    const key = v.batchId || v.batchName || v.id;
+    const cur = best.get(key);
+    if (!cur) {
+      best.set(key, v);
+      continue;
+    }
+    const rv = rank(v);
+    const rc = rank(cur);
+    if (rv < rc) {
+      best.set(key, v);
+      continue;
+    }
+    if (rv !== rc) continue;
+    const vIsSooner = new Date(v.scheduledStart || 0) < new Date(cur.scheduledStart || 0);
+    const better = rv === 2 ? !vIsSooner : vIsSooner; // ended: most recent wins; live/upcoming: soonest wins
+    if (better) best.set(key, v);
+  }
+  return [...best.values()].sort((a, b) => new Date(a.scheduledStart || 0) - new Date(b.scheduledStart || 0));
 }
 
 async function getOne(id, admin) {
