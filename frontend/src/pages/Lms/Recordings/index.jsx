@@ -60,12 +60,15 @@ export default function Recordings() {
       message.error('Not available.');
     }
   };
+  // Manual upload only makes sense when there's no recorder doing it
+  // automatically: AWAITING_UPLOAD (the mock provider's "class ended, no
+  // recorder of its own" state) or FAILED (any provider, incl. BigBlueButton,
+  // as a recovery fallback) or a stale AVAILABLE-with-no-video row that
+  // pre-dates this flow. NOT_STARTED/RECORDING/PROCESSING mean either the
+  // class hasn't happened yet or BBB is already recording/processing it —
+  // showing "Upload recording" there would just be confusing.
   const canUpload = (r) =>
-    r.status !== 'DELETED' &&
-    r.status !== 'PROCESSING' &&
-    // AVAILABLE-but-no-video is a stale/broken row (pre-dates the upload
-    // flow, or a failed compress) — still needs a real upload.
-    (r.status !== 'AVAILABLE' || !r.hasVideo) &&
+    (r.status === 'AWAITING_UPLOAD' || r.status === 'FAILED' || (r.status === 'AVAILABLE' && !r.hasVideo)) &&
     (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
   const askUpload = (rec) => {
     uploadTargetRef.current = rec;
