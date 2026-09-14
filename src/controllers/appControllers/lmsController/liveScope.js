@@ -238,10 +238,15 @@ async function uploadRecording(req, res) {
   if (!req.body.video) return res.status(400).json({ success: false, message: 'No video file received.' });
 
   const now = new Date();
-  const rawRelPath = req.body.video; // e.g. "public/uploads/recordings/xxx.mp4"
+  const rawRelPath = req.body.video; // e.g. "public/uploads/recordings/xxx.mp4" — URL-facing path
   const compressedRelPath = rawRelPath.replace(/\.[^./]+$/, '-web.mp4');
-  const rawAbsPath = path.join(process.cwd(), rawRelPath);
-  const compressedAbsPath = path.join(process.cwd(), compressedRelPath);
+  // The uploadMiddleware writes the file under src/public/... (see
+  // singleStorageUpload's `destination`) while req.body.video is the
+  // URL-facing "public/..." path (what corePublicRouter's catch-all maps
+  // back to src/public/... for playback) — same prefix mismatch, so the
+  // actual filesystem path needs the "src/" back on for ffmpeg to find it.
+  const rawAbsPath = path.join(process.cwd(), 'src', rawRelPath);
+  const compressedAbsPath = path.join(process.cwd(), 'src', compressedRelPath);
 
   // Not AVAILABLE yet — the file is still being compressed, and even once
   // it's done students don't see it until 2 hours after the class ended.
