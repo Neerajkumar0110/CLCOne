@@ -48,8 +48,9 @@ const lmsApi = {
   teacherRecordings: (f = {}) => request.get({ entity: `lms/teacher/recordings${qs(f)}` }),
   studentRecordings: (f = {}) => request.get({ entity: `lms/student/recordings${qs(f)}` }),
   recordingPlay: (id) => request.get({ entity: `lms/recordings/${id}/play` }),
-  // Manual upload — free Jitsi has no recorder of its own, so the class
-  // teacher (or a manager) attaches the video file they recorded themselves.
+  // Manual upload — fallback for the mock provider (no recorder of its own);
+  // BigBlueButton records automatically. Lets the class teacher (or a
+  // manager) attach a video file they recorded themselves.
   recordingUpload: (id, file) => {
     const fd = new FormData();
     fd.append('file', file);
