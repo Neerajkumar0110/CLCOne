@@ -60,7 +60,11 @@ export default function Recordings() {
     }
   };
   const canUpload = (r) =>
-    !['AVAILABLE', 'DELETED', 'PROCESSING'].includes(r.status) &&
+    r.status !== 'DELETED' &&
+    r.status !== 'PROCESSING' &&
+    // AVAILABLE-but-no-video is a stale/broken row (pre-dates the upload
+    // flow, or a failed compress) — still needs a real upload.
+    (r.status !== 'AVAILABLE' || !r.hasVideo) &&
     (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
   const askUpload = (rec) => {
     uploadTargetRef.current = rec;
