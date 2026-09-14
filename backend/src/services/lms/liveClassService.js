@@ -194,22 +194,12 @@ async function createSession(opts = {}) {
     autoCreated: !!opts.autoCreated,
   });
 
-  if (s.recordingEnabled) {
-    const rec = await LiveRecording.create({
-      liveSession: session._id,
-      crmCourse: session.crmCourse,
-      batch: session.batch,
-      teacherCrmUser: session.teacherCrmUser,
-      courseTitle,
-      batchName,
-      teacherName: session.teacherName,
-      className: title,
-      provider: session.meetingProvider,
-      status: 'NOT_STARTED',
-    });
-    session.recording = rec._id;
-    await session.save();
-  }
+  // No LiveRecording row yet — a batch's Mon-Fri/6-month schedule (see
+  // recurrence.js) creates up to ~130 of these sessions up front, and most
+  // will never actually happen (rescheduled, batch paused, etc). The row is
+  // created lazily in startSession, only once a class actually goes live,
+  // so the Recordings list isn't full of placeholders for classes that
+  // haven't happened yet.
 
   try {
     const lc = await LiveClass.create({
@@ -690,10 +680,26 @@ async function startSession(id, admin, { auto = false } = {}) {
   // clobber a recording that already finished processing.
   if (session.recordingEnabled && s.recordingAutoStart && !['PROCESSING', 'AVAILABLE'].includes(session.recordingStatus)) {
     session.recordingStatus = 'RECORDING';
-    await mongoose.model('LiveRecording').updateOne(
+    // Created here (upsert), not when the session/schedule was generated —
+    // only classes that actually go live get a recording row at all.
+    const rec = await mongoose.model('LiveRecording').findOneAndUpdate(
       { liveSession: session._id },
-      { $set: { status: 'RECORDING', startedAt: new Date(), meetingId: session.meetingId, provider: session.meetingProvider } }
+      {
+        $set: { status: 'RECORDING', startedAt: new Date(), meetingId: session.meetingId, provider: session.meetingProvider },
+        $setOnInsert: {
+          crmCourse: session.crmCourse,
+          batch: session.batch,
+          teacherCrmUser: session.teacherCrmUser,
+          courseTitle: session.courseTitle,
+          batchName: session.batchName,
+          teacherName: session.teacherName,
+          className: session.title,
+          liveClass: session.liveClass,
+        },
+      },
+      { upsert: true, new: true }
     );
+    session.recording = rec._id;
   }
   session.updated = new Date();
   await session.save();
