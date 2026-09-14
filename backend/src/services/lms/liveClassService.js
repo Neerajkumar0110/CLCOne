@@ -596,7 +596,7 @@ async function ensureProviderRoom(session) {
       const needsCreate = provider.name === 'mock' ? !room.providerRoomCreated : true;
       if (needsCreate) {
         const created = await provider.ensureRoom(
-          { _id: room._id, meetingId: room.meetingId, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
+          { _id: room._id, meetingId: room.meetingId, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, teacherName: room.teacherName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
           { record: session.recordingEnabled && s.recordingAutoStart }
         );
         room.meetingId = created.meetingId || room.meetingId || room.roomName;
