@@ -261,16 +261,38 @@
   font-weight: 700;
 }
 
-.lms-section-student .ant-col:nth-child(2) .lms-stat,
-.lms-section-student .ant-col:nth-child(2) .lms-course-card {
-  --lms-accent: var(--hub-text);
-  --lms-accent-soft: var(--hub-bg-soft);
+/* Student section: no accent colour — surfaces, icons and bars stay neutral. */
+.lms-section-student::before {
+  display: none;
 }
-
-.lms-section-student .ant-col:nth-child(3) .lms-stat,
-.lms-section-student .ant-col:nth-child(3) .lms-course-card {
-  --lms-accent: var(--hub-text);
-  --lms-accent-soft: var(--hub-bg-soft);
+.lms-section-student .lms-stat.ant-card {
+  border-left: 1px solid var(--hub-border);
+}
+.lms-section-student .lms-course-card.ant-card {
+  border-top: 1px solid var(--hub-border);
+}
+.lms-section-student .lms-stat-icon {
+  color: var(--hub-text);
+  background: var(--hub-bg-soft);
+}
+.lms-section-student .lms-course-card .ant-card-actions > li > span,
+.lms-section-student .lms-course-card .ant-btn-link {
+  color: var(--hub-text) !important;
+}
+.lms-section-student .ant-progress-bg,
+.lms-section-student .ant-progress-success-bg {
+  background: var(--hub-text) !important;
+}
+.lms-section-student .ant-tag {
+  background: var(--hub-bg-soft);
+  border-color: var(--hub-border);
+  color: var(--hub-text-soft);
+}
+.lms-section-student .ant-btn-primary {
+  background: var(--hub-text) !important;
+  border-color: var(--hub-text) !important;
+  color: var(--hub-surface) !important;
+  box-shadow: none !important;
 }
 
 .lms-section-recordings .ant-select:hover .ant-select-selector,
@@ -369,13 +391,6 @@
   box-shadow: none !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-<<<<<<< HEAD
-.lms-section-recordings .ant-table-thead > tr > th,
-.lms-section-attendance .ant-table-thead > tr > th {
-  background: var(--hub-surface);
-  color: var(--hub-text-soft);
-  font-size: 12px;
-=======
 .lms-portal .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
 .lms-portal .ant-picker:hover,
 .lms-portal .ant-input:hover,
@@ -430,29 +445,11 @@
   background: #f8fafc !important;
   color: #475569;
   font-size: 11.5px;
->>>>>>> 1cc1f90f37165e4eeb7f77a1d45e410090d78ce2
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
 }
-<<<<<<< HEAD
-.lms-section-recordings .ant-table-tbody > tr:hover > td,
-.lms-section-attendance .ant-table-tbody > tr:hover > td {
-  background: var(--hub-bg-soft);
-}
-
-.lms-section-student .ant-card,
-.lms-section-live .ant-card,
-.lms-section-recordings .ant-card,
-.lms-section-attendance .ant-card,
-.lms-stat.ant-card,
-.lms-course-card.ant-card,
-.lms-live-card.ant-card {
-  background: var(--hub-surface) !important;
-  border-color: var(--hub-border) !important;
-  box-shadow: none !important;
-=======
 .lms-portal .ant-table-tbody > tr > td {
   background: #ffffff;
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
@@ -481,7 +478,18 @@
 }
 :root[data-theme='dark'] .lms-portal .ant-table-placeholder .ant-table-cell {
   background: #141b2d;
->>>>>>> 1cc1f90f37165e4eeb7f77a1d45e410090d78ce2
+}
+
+.lms-section-student .ant-card,
+.lms-section-live .ant-card,
+.lms-section-recordings .ant-card,
+.lms-section-attendance .ant-card,
+.lms-stat.ant-card,
+.lms-course-card.ant-card,
+.lms-live-card.ant-card {
+  background: var(--hub-surface) !important;
+  border-color: var(--hub-border) !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 640px) {
@@ -539,20 +547,47 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
+/* ── Card entrance appearance animation ────────────────────────────── */
+@keyframes lms-card-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* KPI stat tile — icon chip + accent rail + animated antd <Statistic>. */
+.lms-kpi-col {
+  display: flex !important;
+}
+
 .lms-kpi-tile {
   position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
   min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 82px;
   background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.07);
   border-radius: 16px;
-  padding: 15px 16px;
+  padding: 14px 16px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+  /* Entrance transition */
+  animation: lms-card-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--tile-index, 0) * 35ms);
+  /* Smooth hover transition */
+  transition: transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+  will-change: transform, box-shadow;
 }
 .lms-kpi-tile::before {
   content: '';
@@ -560,22 +595,36 @@
   inset: 0 auto 0 0;
   width: 4px;
   background: var(--tile-accent, #3b82f6);
+  transition: width 0.28s cubic-bezier(0.34, 1.25, 0.64, 1), box-shadow 0.28s ease;
 }
 .lms-kpi-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12), 0 4px 10px rgba(15, 23, 42, 0.05);
-  border-color: rgba(15, 23, 42, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px -4px rgba(15, 23, 42, 0.12), 0 6px 12px -2px rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.14);
 }
+.lms-kpi-tile:hover::before {
+  width: 5px;
+  box-shadow: 2px 0 10px var(--tile-accent);
+}
+.lms-kpi-tile:hover .lms-kpi-icon {
+  transform: scale(1.1) rotate(2deg);
+}
+
 .lms-kpi-icon {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  font-size: 17px;
+  font-size: 18px;
   background: var(--tile-accent-soft, #eff6ff);
   color: var(--tile-accent, #3b82f6);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease;
+}
+.lms-kpi-content {
+  flex: 1;
+  min-width: 0;
 }
 .lms-kpi-tile .ant-statistic-title {
   font-size: 12px;
@@ -599,44 +648,123 @@
 .lms-kpi-tile.tone-cyan { --tile-accent: #06b6d4; --tile-accent-soft: #ecfeff; }
 .lms-kpi-tile.tone-slate { --tile-accent: #64748b; --tile-accent-soft: #f8fafc; }
 
+/* Stagger fallback for KPI row cards */
+.lms-kpi-row > .ant-col:nth-child(1) .lms-kpi-tile { animation-delay: 20ms; }
+.lms-kpi-row > .ant-col:nth-child(2) .lms-kpi-tile { animation-delay: 45ms; }
+.lms-kpi-row > .ant-col:nth-child(3) .lms-kpi-tile { animation-delay: 70ms; }
+.lms-kpi-row > .ant-col:nth-child(4) .lms-kpi-tile { animation-delay: 95ms; }
+.lms-kpi-row > .ant-col:nth-child(5) .lms-kpi-tile { animation-delay: 120ms; }
+.lms-kpi-row > .ant-col:nth-child(6) .lms-kpi-tile { animation-delay: 145ms; }
+.lms-kpi-row > .ant-col:nth-child(7) .lms-kpi-tile { animation-delay: 170ms; }
+.lms-kpi-row > .ant-col:nth-child(8) .lms-kpi-tile { animation-delay: 195ms; }
+.lms-kpi-row > .ant-col:nth-child(9) .lms-kpi-tile { animation-delay: 220ms; }
+.lms-kpi-row > .ant-col:nth-child(10) .lms-kpi-tile { animation-delay: 245ms; }
+.lms-kpi-row > .ant-col:nth-child(11) .lms-kpi-tile { animation-delay: 270ms; }
+.lms-kpi-row > .ant-col:nth-child(12) .lms-kpi-tile { animation-delay: 295ms; }
+.lms-kpi-row > .ant-col:nth-child(13) .lms-kpi-tile { animation-delay: 320ms; }
+.lms-kpi-row > .ant-col:nth-child(14) .lms-kpi-tile { animation-delay: 345ms; }
+.lms-kpi-row > .ant-col:nth-child(15) .lms-kpi-tile { animation-delay: 370ms; }
+
 :root[data-theme='dark'] .lms-kpi-tile {
   background: #141b2d;
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 :root[data-theme='dark'] .lms-kpi-tile:hover {
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 36px -4px rgba(0, 0, 0, 0.65), 0 8px 16px -2px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 :root[data-theme='dark'] .lms-kpi-tile .ant-statistic-content { color: #f1f5f9; }
 :root[data-theme='dark'] .lms-kpi-tile .ant-statistic-title { color: #94a3b8; }
 
+/* Flex column helper to guarantee equal card heights in grid rows */
+.lms-card-col {
+  display: flex !important;
+  flex-direction: column;
+}
+.lms-card-col > .hub-card,
+.lms-card-col > .ant-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+.lms-card-col > .ant-card > .ant-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.lms-card-col > .ant-card .ant-table-wrapper,
+.lms-card-col > .ant-card .ant-spin-nested-loading,
+.lms-card-col > .ant-card .ant-spin-container,
+.lms-card-col > .ant-card .ant-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.lms-card-col > .ant-card .ant-table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.lms-card-col > .ant-card .ant-table-content {
+  flex: 1;
+}
+
 /* Chart cards (ChartCard's .hub-card) and plain antd Cards inside the LMS
-   dashboards — same white/elevated + hover-lift treatment as the tiles
-   above, so the whole page reads as one consistent, premium surface. */
+   dashboards — matching hover-lift and entrance animation for full consistency. */
 .lms-portal .hub-card {
   background: #ffffff;
   border-radius: 18px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  animation: lms-card-entrance 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+  will-change: transform, box-shadow;
 }
 .lms-portal .hub-card:hover {
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -4px rgba(15, 23, 42, 0.12), 0 6px 14px -2px rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.14);
 }
+
 .lms-portal .ant-card {
   border-radius: 16px;
   border-color: rgba(15, 23, 42, 0.08);
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
-  transition: box-shadow 0.2s ease;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+  animation: lms-card-entrance 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+  will-change: transform, box-shadow;
 }
 .lms-portal .ant-card:hover {
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -4px rgba(15, 23, 42, 0.10), 0 6px 14px -2px rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.14);
 }
 .lms-portal .ant-card-head {
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   font-weight: 700;
   min-height: 46px;
 }
+
+/* Stagger entrance for charts and tables */
+.lms-charts-row > .ant-col:nth-child(1) .hub-card { animation-delay: 200ms; }
+.lms-charts-row > .ant-col:nth-child(2) .hub-card { animation-delay: 260ms; }
+.lms-charts-row > .ant-col:nth-child(3) .hub-card { animation-delay: 320ms; }
+.lms-charts-row > .ant-col:nth-child(4) .hub-card { animation-delay: 380ms; }
+
+.lms-tables-row > .ant-col:nth-child(1) .ant-card { animation-delay: 340ms; }
+.lms-tables-row > .ant-col:nth-child(2) .ant-card { animation-delay: 400ms; }
+.lms-tables-row > .ant-col:nth-child(3) .ant-card { animation-delay: 460ms; }
+.lms-tables-row > .ant-col:nth-child(4) .ant-card { animation-delay: 520ms; }
+
 :root[data-theme='dark'] .lms-portal .hub-card,
 :root[data-theme='dark'] .lms-portal .ant-card {
   background: #141b2d;
@@ -645,10 +773,147 @@
 }
 :root[data-theme='dark'] .lms-portal .hub-card:hover,
 :root[data-theme='dark'] .lms-portal .ant-card:hover {
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -4px rgba(0, 0, 0, 0.7), 0 8px 18px -2px rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 :root[data-theme='dark'] .lms-portal .ant-card-head {
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Course Builder Card ─────────────────────────────────────────────── */
+.lms-course-builder-card.ant-card {
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+  animation: lms-card-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.lms-course-builder-card.ant-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 6px 16px -2px rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.14);
+}
+.lms-course-builder-thumb-wrap {
+  position: relative;
+  width: 100%;
+  height: 190px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0b1120;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.lms-course-builder-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lms-course-builder-card:hover .lms-course-builder-thumb {
+  transform: scale(1.05);
+}
+.lms-course-builder-badge-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 2;
+}
+.lms-course-builder-badge-overlay .ant-tag {
+  backdrop-filter: blur(8px);
+  font-weight: 700;
+  border-radius: 6px;
+  margin: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.lms-course-builder-badge-overlay .ant-tag-green {
+  background: rgba(16, 185, 129, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+.lms-course-builder-badge-overlay .ant-tag-orange {
+  background: rgba(245, 158, 11, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+.lms-course-builder-badge-overlay .ant-tag-blue {
+  background: rgba(59, 130, 246, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+.lms-course-builder-badge-overlay .ant-tag-purple {
+  background: rgba(139, 92, 246, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+.lms-course-builder-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 190px;
+  gap: 12px;
+}
+.lms-course-builder-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lms-course-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 9px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  transition: all 0.2s ease;
+}
+.lms-course-chip:hover {
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.15);
+}
+.lms-course-chip .anticon {
+  color: var(--hub-blue, #2563eb);
+}
+:root[data-theme='dark'] .lms-course-builder-card.ant-card {
+  background: #141b2d;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme='dark'] .lms-course-builder-card.ant-card:hover {
+  box-shadow: 0 20px 40px -4px rgba(0, 0, 0, 0.7);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+:root[data-theme='dark'] .lms-course-chip {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+:root[data-theme='dark'] .lms-course-chip:hover {
+  background: #273549;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lms-kpi-tile,
+  .lms-portal .hub-card,
+  .lms-portal .ant-card,
+  .lms-kpi-icon {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }
 
 /* Buttons — rounder, a soft resting shadow, and a gentle lift on hover

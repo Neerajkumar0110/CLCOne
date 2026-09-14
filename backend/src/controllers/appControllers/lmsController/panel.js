@@ -32,8 +32,21 @@ async function teacherDashboard(req, res) {
   // a manager may look at any teacher via ?teacher=<name>; a Teacher only sees self
   const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
 
+  const isMgr = isManager(admin);
+  const courseFilter = isMgr
+    ? { removed: false }
+    : {
+        removed: false,
+        $or: [
+          { instructor: rx(teacherName) },
+          { instructor: { $exists: false } },
+          { instructor: '' },
+          { instructor: null },
+        ],
+      };
+
   const [courses, batches] = await Promise.all([
-    Course.find({ removed: false, instructor: rx(teacherName) }).lean(),
+    Course.find(courseFilter).lean(),
     Batch.find({ removed: false, trainer: rx(teacherName) }).lean(),
   ]);
 
@@ -115,7 +128,21 @@ async function teacherDashboard(req, res) {
         .filter((s) => (s.attendancePct || 0) < 50 || (s.progress || 0) < 25)
         .slice(0, 10)
         .map((s) => ({ name: s.name, email: s.email, course: s.course, batch: s.batch, attendancePct: s.attendancePct || 0, progress: s.progress || 0 })),
-      courses: courses.slice(0, 20).map((c) => ({ id: String(c._id), title: c.title, status: c.status, enrolled: c.enrolledCount || 0 })),
+      courses: courses.slice(0, 20).map((c) => ({
+        id: String(c._id),
+        title: c.title,
+        status: c.status,
+        enrolled: c.enrolledCount || 0,
+        thumbnailUrl: c.thumbnailUrl || '/course-thumbnail.jpg',
+        category: c.category || 'Certification',
+        level: c.level || 'Beginner',
+        mode: c.mode || 'Live',
+        durationHours: c.durationHours || 0,
+        modules: c.modules || 0,
+        lessons: c.lessons || 0,
+        code: c.code || '',
+        description: c.description || '',
+      })),
       charts: {
         attendanceByClass: ended.slice(-8).map((s) => ({
           name: s.title || s.courseTitle || 'Class',
