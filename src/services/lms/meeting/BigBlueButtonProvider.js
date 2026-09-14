@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const MeetingProvider = require('./MeetingProvider');
 const { lmsConfig } = require('../../../config/lms');
+const { ensureWelcomeSlideUrl } = require('./welcomeSlide');
 
 // Real BigBlueButton rooms. Uses the BBB API directly:
 //   GET <bbb.url>/api/<call>?<params>&checksum=<HASH(call + params + secret)>
@@ -91,6 +92,21 @@ class BigBlueButtonProvider extends MeetingProvider {
     if (session.scheduledEnd) {
       const mins = Math.max(15, Math.round((new Date(session.scheduledEnd) - Date.now()) / 60000) + 30);
       params.duration = String(mins);
+    }
+
+    // Replace BBB's bundled "Welcome To BigBlueButton" demo deck with a
+    // branded title slide naming the class's trainer, so the whiteboard
+    // never opens on generic BBB marketing content.
+    const welcomeSlideUrl = await ensureWelcomeSlideUrl({
+      meetingId,
+      courseTitle: session.courseTitle,
+      batchName: session.batchName || session.title,
+      teacherName: session.teacherName,
+      crmBaseUrl: base,
+    });
+    if (welcomeSlideUrl) {
+      params.preUploadedPresentation = welcomeSlideUrl;
+      params.preUploadedPresentationOverrideDefault = 'true';
     }
 
     const r = await this._call('create', params);
