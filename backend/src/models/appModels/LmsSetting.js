@@ -35,7 +35,7 @@ const schema = new mongoose.Schema({
   chatEnabled: { type: Boolean, default: true },
 
   // notifications
-  notifyBeforeMins: { type: [Number], default: [1440, 60, 15] },
+  notifyBeforeMins: { type: [Number], default: [1440, 60, 30, 15] },
   notifyOnStart: { type: Boolean, default: true },
   notifyOnRecording: { type: Boolean, default: true },
 

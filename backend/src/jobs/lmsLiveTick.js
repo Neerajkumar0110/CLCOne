@@ -20,6 +20,22 @@ async function recipients(session) {
     const enr = await LmsEnrolment.find({ moodleCourseId: session.moodleCourseId, status: { $ne: 'ended' } }, 'crmUser roleShortname').lean();
     enr.forEach((e) => out.set(String(e.crmUser), e.roleShortname === 'editingteacher' ? 'teacher' : 'student'));
   }
+  // Falls back to the batch's Student roster, matched to its login (Admin)
+  // account by email — Moodle sync is optional, so LmsEnrolment can be
+  // completely empty (no Moodle course wired up yet) while the batch still
+  // has real students on its roster; without this, reminders/start/
+  // recording notifications would only ever reach the teacher.
+  if (session.batchName) {
+    const Student = mongoose.model('Student');
+    const Admin = mongoose.model('Admin');
+    const roster = await Student.find({ removed: false, batch: session.batchName }, 'email').lean();
+    const emails = roster.map((r) => r.email).filter(Boolean);
+    if (emails.length) {
+      const emailRxs = emails.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+      const admins = await Admin.find({ removed: false, email: { $in: emailRxs } }, '_id').lean();
+      admins.forEach((a) => !out.has(String(a._id)) && out.set(String(a._id), 'student'));
+    }
+  }
   (session.participants || []).forEach((p) => p.crmUser && !out.has(String(p.crmUser)) && out.set(String(p.crmUser), p.role));
   return out;
 }

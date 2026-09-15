@@ -25,7 +25,7 @@ const DEFAULTS = {
   studentCamera: false,
   studentScreenShare: false,
   chatEnabled: true,
-  notifyBeforeMins: [1440, 60, 15],
+  notifyBeforeMins: [1440, 60, 30, 15],
   notifyOnStart: true,
   notifyOnRecording: true,
 };
