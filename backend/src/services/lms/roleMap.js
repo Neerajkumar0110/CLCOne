@@ -14,7 +14,7 @@ const CRM_TO_LMS = {
   Admin: 'admin',
   'Sales Manager': 'counsellor',
   'Team Manager': 'counsellor',
-  'Team Coordinator': 'counsellor',
+  Support: 'counsellor',
   'Team Leader': 'counsellor',
   'Senior Executive': 'counsellor',
   Executive: 'counsellor',

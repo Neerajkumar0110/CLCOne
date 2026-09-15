@@ -11,7 +11,7 @@ export const ROLES = [
   "Sales Manager",
   "Team Manager",
   "Team Leader",
-  "Team Coordinator",
+  "Support",
   "Senior Executive",
   "Executive",
   "Sales Intern",
@@ -35,7 +35,7 @@ export const ROLE_COLORS = {
   "Sales Manager": "#c2410c",
   "Team Manager": "#7c3aed",
   "Team Leader": "#0f766e",
-  "Team Coordinator": "#0369a1",
+  Support: "#0369a1",
   "Senior Executive": "#4f46e5",
   Executive: "#475569",
   "Sales Intern": "#15803d",
@@ -64,7 +64,7 @@ export const NO_EDIT_ROLES = [...KNOWN_NON_SELECTABLE_ROLES, "Admin", "Sales Man
 // Roles ranked below Team Manager — the pool a manager can assign into their team.
 export const BELOW_TEAM_MANAGER_ROLES = [
   "Team Leader",
-  "Team Coordinator",
+  "Support",
   "Senior Executive",
   "Executive",
   "Sales Intern",

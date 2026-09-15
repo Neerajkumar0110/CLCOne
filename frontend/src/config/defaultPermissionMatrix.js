@@ -3,7 +3,7 @@ import { PERMISSION_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModule
 // Roles that lead a team/desk — broad view/edit access short of the full-access tier.
 const LEAD_TIER_ROLES = ["Team Manager", "Team Leader"];
 // Individual-contributor roles — restricted to the modules they work in day to day.
-const FRONTLINE_ROLES = ["Senior Executive", "Executive", "Team Coordinator", "Sales Intern"];
+const FRONTLINE_ROLES = ["Senior Executive", "Executive", "Sales Intern"];
 
 // The default permission matrix for a single role — the fallback every user
 // of that role gets until an admin customizes it via Roles & Permissions.
@@ -14,16 +14,25 @@ export function defaultMatrixForRole(role) {
   const perModule = {};
   const fullAccess = FULL_ACCESS_ROLES.includes(role);
   const isFinance = role === "Finance";
+  // "Support" is deliberately NOT in FULL_ACCESS_ROLES — that list bypasses
+  // the matrix entirely (see permissionContext's fullAccessMatrix() — those
+  // roles can't be scoped down even from this screen). Support instead gets
+  // a normal, saved, per-role matrix whose seeded default just starts at
+  // full access on every module (same shape as taking a full-access role's
+  // matrix as a template), so an admin can still dial a specific module
+  // back later via Roles & Permissions if needed.
+  const isSupportRole = role === "Support";
 
   PERMISSION_MODULES.forEach((mod) => {
     // Everyone can raise and see support tickets, regardless of role.
     if (mod === "Support") {
-      perModule[mod] = { view: true, edit: true, delete: fullAccess };
+      perModule[mod] = { view: true, edit: true, delete: fullAccess || isSupportRole };
       return;
     }
 
     const canView =
       fullAccess ||
+      isSupportRole ||
       // Reports is restricted to full-access roles only (owner, Super Admin,
       // Admin, Sales Manager) — the backend /api/report/* endpoints enforce
       // this too (403 for anyone else), this just keeps the nav item honest.
@@ -33,10 +42,11 @@ export function defaultMatrixForRole(role) {
 
     const canEdit =
       fullAccess ||
+      isSupportRole ||
       (LEAD_TIER_ROLES.includes(role) && canView) ||
       (isFinance && ["Invoices", "Payments", "Finance"].includes(mod));
 
-    const canDelete = fullAccess;
+    const canDelete = fullAccess || isSupportRole;
 
     perModule[mod] = { view: canView, edit: canEdit, delete: canDelete };
   });

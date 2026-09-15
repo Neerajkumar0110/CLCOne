@@ -2,7 +2,7 @@ const { MANAGEMENT_ROLES } = require('../../../config/roles');
 
 // Map the CRM's existing roles onto the calling module's three tiers.
 // No new auth system — this reads req.admin.role set by adminAuth.
-const MANAGER_ROLES = ['Team Manager', 'Team Coordinator', 'Team Leader', 'Senior Executive'];
+const MANAGER_ROLES = ['Team Manager', 'Support', 'Team Leader', 'Senior Executive'];
 
 function callingTier(req) {
   const role = req.admin && req.admin.role;

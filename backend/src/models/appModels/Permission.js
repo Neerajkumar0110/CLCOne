@@ -37,4 +37,13 @@ const schema = new mongoose.Schema({
   },
 });
 
+// One record per (scope, key) — e.g. only ever one 'role'/"Executive" doc.
+// Without this, a race between concurrent page loads of Roles & Permissions
+// (each independently "create a default if none exists yet") can leave two
+// or more conflicting records for the same role, and whichever one a given
+// read happens to return becomes effectively random — see
+// backend/scripts/dedupePermissionRecords.cjs for the one-off cleanup this
+// index required before it could be created.
+schema.index({ scope: 1, key: 1 }, { unique: true });
+
 module.exports = mongoose.model('Permission', schema);
