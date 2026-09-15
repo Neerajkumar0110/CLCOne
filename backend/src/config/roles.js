@@ -9,7 +9,7 @@ const ROLES = [
   'Team Manager',
   'Senior Executive',
   'Executive',
-  'Team Coordinator',
+  'Support',
   'Team Leader',
   'Sales Intern',
   'Finance',
