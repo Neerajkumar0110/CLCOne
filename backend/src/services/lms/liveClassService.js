@@ -855,17 +855,26 @@ async function issueJoin(id, admin) {
   if (!role) return { error: 403, message: 'You are not a participant of this class.' };
 
   // A class marked 'ended' OR 'recording_processing'/'recording_available'
-  // (early End click, or the auto-lifecycle tick firing a touch ahead of
-  // schedule) resumes for whoever — teacher or student — tries to join it,
-  // for as long as the batch's scheduled time is still running
+  // (early End click, the teacher's own connection dropping, or the
+  // auto-lifecycle tick firing a touch ahead of schedule) resumes for as
+  // long as the batch's scheduled time is still running
   // (withinScheduledWindow). recording_processing is the NORMAL post-end
   // state for any class with recording on (the default — see endSession),
   // not just an edge case, so it needs the same resume path 'ended' gets.
   // `auto: true` skips startSession's teacher-only check since this isn't a
   // fresh "start the class" decision, just resuming a slot that was already
   // live.
+  //
+  // Only the TEACHER can actually trigger the resume (re-opens the BBB room
+  // and re-arms recording — see ensureProviderRoom/startSession): a student
+  // clicking Join first shouldn't be able to spin the meeting back up on
+  // their own, since recording is meant to track the teacher's presence,
+  // not run unattended for whoever happens to click first.
   const resumableStatuses = ['ended', 'recording_processing', 'recording_available'];
   if (resumableStatuses.includes(session.status) && withinScheduledWindow(session)) {
+    if (role !== 'teacher') {
+      return { error: 409, message: 'Waiting for the teacher to rejoin the class.' };
+    }
     const started = await startSession(id, admin, { auto: true });
     if (started.error) return started;
     return issueJoin(id, admin); // re-load now-live session
@@ -1152,6 +1161,29 @@ async function autoLifecycleTick() {
       const running = await provider.isRunning(d).catch(() => null);
       if (running === false) await endSession(d._id, null, { auto: true }).catch(() => {});
     }
+
+    // auto-end (teacher left, students didn't) — recording is meant to
+    // track the teacher's presence, not run unattended for whoever's still
+    // in the room, so a meeting with no moderator left but students still
+    // connected gets ended (which stops/finalizes the recording) the same
+    // as a fully-empty one. Its own shorter grace period (vs. the 5-minute
+    // one above) still gives the teacher's own join a moment to finish its
+    // handshake right after Start before this looks for them.
+    const modGraceCutoff = new Date(now.getTime() - 2 * 60000);
+    const liveNeedingModCheck = await LmsLiveSession.find({
+      removed: false,
+      status: 'live',
+      meetingProvider: 'bigbluebutton',
+      actualStart: { $lt: modGraceCutoff },
+    })
+      .select('+moderatorPW +attendeePW +providerData')
+      .limit(20);
+    for (const d of liveNeedingModCheck) {
+      const participants = await provider.getParticipants(d).catch(() => null);
+      if (!participants || participants.length === 0) continue; // covered by the isRunning check above
+      const hasModerator = participants.some((p) => p.role === 'MODERATOR');
+      if (!hasModerator) await endSession(d._id, null, { auto: true }).catch(() => {});
+    }
   }
 }
 
@@ -1256,7 +1288,14 @@ function attendanceRows(session) {
 
 function safeView(session, role) {
   const online = session.participants.filter((p) => p.online).length;
-  const resumable = session.status === 'ended' && withinScheduledWindow(session);
+  // Must match issueJoin/startSession's resumableStatuses — a class with
+  // recording on (the default) goes through 'recording_processing' /
+  // 'recording_available' when it ends, not 'ended', so checking only
+  // 'ended' here left canJoin/canStart both false for the entire scheduled
+  // window after any normal end, hiding the Join button from the teacher
+  // even though the backend would have happily resumed it.
+  const resumable =
+    ['ended', 'recording_processing', 'recording_available'].includes(session.status) && withinScheduledWindow(session);
   return {
     id: String(session._id),
     title: session.title,
