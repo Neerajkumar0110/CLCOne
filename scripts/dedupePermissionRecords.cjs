@@ -91,14 +91,17 @@ function fullAccessMatrix() {
     console.log(`  deleted ${res.deletedCount} orphaned role:"${key}" record(s)`);
   }
 
-  // 3. de-duplicate any role with more than one saved record — keep the one
-  // with the most modules covered (falls back to most recently updated).
-  const remaining = await Permission.find({ scope: 'role' }).lean();
+  // 3. de-duplicate any (scope, key) pair with more than one saved record —
+  // keep the one with the most modules covered (falls back to most recently
+  // updated). Per-user records (scope:'user') are just as exposed to the
+  // same seed-on-first-load race as role records, so this covers both.
+  const remaining = await Permission.find({}).lean();
   const byKey = {};
   remaining.forEach((r) => {
-    (byKey[r.key] = byKey[r.key] || []).push(r);
+    const k = `${r.scope}::${r.key}`;
+    (byKey[k] = byKey[k] || []).push(r);
   });
-  for (const [key, docs] of Object.entries(byKey)) {
+  for (const [compositeKey, docs] of Object.entries(byKey)) {
     if (docs.length <= 1) continue;
     docs.sort((a, b) => {
       const modDiff = Object.keys(b.matrix || {}).length - Object.keys(a.matrix || {}).length;
@@ -107,7 +110,7 @@ function fullAccessMatrix() {
     });
     const [keep, ...drop] = docs;
     await Permission.deleteMany({ _id: { $in: drop.map((d) => d._id) } });
-    console.log(`  role:"${key}" had ${docs.length} records — kept ${keep._id}, deleted ${drop.length}`);
+    console.log(`  ${compositeKey} had ${docs.length} records — kept ${keep._id}, deleted ${drop.length}`);
   }
 
   console.log('\nDone.');
