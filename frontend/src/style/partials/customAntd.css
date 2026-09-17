@@ -1,11 +1,17 @@
 .ant-layout {
-  background: var(--hub-page-bg, #f4f6fb) !important;
+  background: linear-gradient(135deg, #ffe6e6 0%, #e6f0ff 50%, #e6ffe6 100%) !important;
 }
 .site-layout .site-layout-background {
-  background: var(--hub-page-bg, #fff);
+  background: linear-gradient(135deg, #ffe6e6 0%, #e6f0ff 50%, #e6ffe6 100%);
 }
 [data-theme='dark'] .site-layout .site-layout-background {
-  background: var(--hub-page-bg, #141414);
+  background: #111111 !important;
+}
+
+[data-theme='dark'] .ant-layout,
+[data-theme='dark'] .site-layout,
+[data-theme='dark'] .ant-layout-content {
+  background: #111111 !important;
 }
 
 .headerIcon .ant-dropdown-menu {

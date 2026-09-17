@@ -249,8 +249,8 @@ export function TeamChat() {
                       width: 9,
                       height: 9,
                       borderRadius: "50%",
-                      background: online ? "#52c41a" : "#d9d9d9",
-                      border: "2px solid #fff",
+                      background: online ? "var(--hub-green)" : "var(--hub-muted)",
+                      border: "2px solid var(--hub-surface)",
                     }}
                   />
                 </div>
@@ -277,7 +277,7 @@ export function TeamChat() {
               <div
                 style={{
                   padding: "14px 18px",
-                  borderBottom: "1px solid #f0f0f0",
+                  borderBottom: "1px solid var(--hub-border)",
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
@@ -288,7 +288,7 @@ export function TeamChat() {
                 </div>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 700 }}>{displayName(activeConversation.user)}</div>
-                  <div style={{ fontSize: 11, color: onlineIds.has(activeConversation.user._id) ? "#52c41a" : "#8c8c8c" }}>
+                  <div style={{ fontSize: 11, color: onlineIds.has(activeConversation.user._id) ? "var(--hub-green)" : "var(--hub-muted)" }}>
                     {onlineIds.has(activeConversation.user._id) ? "Online" : "Offline"}
                   </div>
                 </div>
@@ -324,8 +324,8 @@ export function TeamChat() {
                       <div>
                         <div
                           style={{
-                            background: mine ? "#2563eb" : "#f0f2f5",
-                            color: mine ? "#fff" : "#1f1f1f",
+                            background: mine ? "var(--hub-blue)" : "var(--hub-surface-2)",
+                            color: mine ? "#fff" : "var(--hub-text)",
                             padding: m.attachment ? 6 : "8px 12px",
                             borderRadius: 12,
                             borderBottomRightRadius: mine ? 4 : 12,
@@ -336,7 +336,7 @@ export function TeamChat() {
                           {m.replyTo && (
                             <div
                               style={{
-                                borderLeft: `3px solid ${mine ? "rgba(255,255,255,0.6)" : "#2563eb"}`,
+                                borderLeft: `3px solid ${mine ? "rgba(255,255,255,0.6)" : "var(--hub-blue)"}`,
                                 background: mine ? "rgba(255,255,255,0.15)" : "rgba(37,99,235,0.06)",
                                 borderRadius: 6,
                                 padding: "4px 8px",
@@ -364,7 +364,7 @@ export function TeamChat() {
                         <div
                           style={{
                             fontSize: 10,
-                            color: "#8c8c8c",
+                            color: "var(--hub-muted)",
                             marginTop: 3,
                             textAlign: mine ? "right" : "left",
                             display: "flex",
@@ -375,7 +375,7 @@ export function TeamChat() {
                         >
                           {fmtTime(m.created)}
                           {mine && (
-                            <span style={{ color: m.readAt ? "#2563eb" : "#8c8c8c", fontSize: 12, letterSpacing: -2 }}>
+                            <span style={{ color: m.readAt ? "var(--hub-blue)" : "var(--hub-muted)", fontSize: 12, letterSpacing: -2 }}>
                               {m.readAt ? "✓✓" : "✓"}
                             </span>
                           )}
@@ -392,20 +392,20 @@ export function TeamChat() {
                 <div
                   style={{
                     padding: "8px 14px",
-                    borderTop: "1px solid #f0f0f0",
-                    background: "#f8f9fb",
+                    borderTop: "1px solid var(--hub-border)",
+                    background: "var(--hub-surface-2)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 10,
                   }}
                 >
-                  <div style={{ borderLeft: "3px solid #2563eb", paddingLeft: 8, minWidth: 0 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2563eb" }}>Replying to {replyingTo.fromName}</div>
+                  <div style={{ borderLeft: "3px solid var(--hub-blue)", paddingLeft: 8, minWidth: 0 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--hub-blue)" }}>Replying to {replyingTo.fromName}</div>
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#667085",
+                        color: "var(--hub-muted)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -426,7 +426,7 @@ export function TeamChat() {
                 </div>
               )}
 
-              <div style={{ padding: 14, borderTop: "1px solid #f0f0f0", display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ padding: 14, borderTop: "1px solid var(--hub-border)", display: "flex", gap: 10, alignItems: "center" }}>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -460,10 +460,12 @@ export function TeamChat() {
                   style={{
                     flex: 1,
                     padding: "9px 14px",
-                    border: "1px solid #e3e9f5",
+                    border: "1px solid var(--hub-border)",
                     borderRadius: 20,
                     fontSize: 13,
                     outline: "none",
+                    background: "var(--hub-surface)",
+                    color: "var(--hub-text)",
                   }}
                 />
                 <button className="hub-btn hub-btn-primary" type="button" onClick={sendText}>
@@ -554,7 +556,7 @@ function EmailWhatsapp() {
               {connected.email ? "Connected" : "Not Connected"}
             </span>
           </div>
-          <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
             Send and receive email directly from leads and customers.
           </div>
           <button
@@ -573,7 +575,7 @@ function EmailWhatsapp() {
               {connected.whatsapp ? "Connected" : "Not Connected"}
             </span>
           </div>
-          <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
             Message leads on WhatsApp using approved templates.
           </div>
           <button

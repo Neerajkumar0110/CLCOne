@@ -12,6 +12,7 @@ export default function CallHistory() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [count, setCount] = useState(0);
   const [f, setF] = useState({ q: "", campaign: "", agent: "", status: "All", from: "", to: "" });
 
   useEffect(() => {
@@ -20,11 +21,12 @@ export default function CallHistory() {
 
   const load = async (p = 1) => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(p), items: "20" });
+    const params = new URLSearchParams({ page: String(p), items: "10" });
     Object.entries(f).forEach(([k, v]) => v && v !== "All" && params.set(k, v));
     const r = await request.get({ entity: `calling/history?${params}` });
     setRows(r?.success ? r.result : []);
     setPages(r?.pagination?.pages || 1);
+    setCount(r?.pagination?.count || 0);
     setPage(p);
     setLoading(false);
   };
@@ -109,9 +111,14 @@ export default function CallHistory() {
         </div>
 
         {pages > 1 && (
-          <div className="hub-row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-            <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}><LeftOutlined /> Prev</button>
-            <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>Next <RightOutlined /></button>
+          <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
+              Page {page} of {pages} · {count} call{count === 1 ? "" : "s"}
+            </span>
+            <div className="hub-row" style={{ gap: 8 }}>
+              <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}><LeftOutlined /> Prev</button>
+              <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>Next <RightOutlined /></button>
+            </div>
           </div>
         )}
       </div>

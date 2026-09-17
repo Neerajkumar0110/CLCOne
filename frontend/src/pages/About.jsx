@@ -15,6 +15,7 @@ import {
 } from "@ant-design/icons";
 import logo from "@/style/images/Horizontal-1-transparent.png";
 import { request } from "@/request";
+import { BorderTrail } from "@/components/ui/border-trail";
 
 const FEATURES = [
   { icon: <DashboardOutlined />, title: "Live Dashboard", desc: "Real-time KPIs, call trends, and team performance at a glance." },
@@ -47,7 +48,8 @@ export default function About() {
   // About UI update: the module hook applies the default Purple Gradient
   // background and readable palette-aware text to this screen.
   return (
-    <div className="hub-page about-module-shell">
+    <div className="hub-page about-module-shell border-trail-shell">
+      <BorderTrail className="bg-zinc-400 dark:bg-zinc-600" size={100} />
       <div className="hub-header">
         <div>
           <h2>About</h2>

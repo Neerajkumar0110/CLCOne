@@ -284,7 +284,7 @@ function TeacherQuizzes() {
             {(gradeAtt.answers || []).map((a, i) => (
               <Card key={i} size="small" style={{ marginBottom: 8 }}>
                 <b>{a.question}</b> <Tag>{a.type}</Tag> <Tag>max {a.marks}</Tag>
-                <Paragraph style={{ background: '#f6f7f9', padding: 8, borderRadius: 6, marginTop: 6 }}>
+                <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 8, borderRadius: 6, marginTop: 6 }}>
                   {Array.isArray(a.yourAnswer) ? a.yourAnswer.join(', ') : (a.yourAnswer || <i>— blank —</i>)}
                 </Paragraph>
                 {a.needsManual

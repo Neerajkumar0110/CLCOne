@@ -15,10 +15,9 @@ import lmsApi from '@/pages/Lms/api';
 const TeamChat = lazy(() =>
   import('@/pages/Communication').then((m) => ({ default: m.TeamChat }))
 );
-// Sales' Leads / Customers / Calls sub-tabs reuse the existing full pages.
+// Sales' Leads / Customers sub-tabs reuse the existing full pages.
 const Leads = lazy(() => import('@/pages/Leads'));
 const Customer = lazy(() => import('@/pages/Customer'));
-const Calls = lazy(() => import('@/pages/Calls'));
 // Sales' Pipeline tab — live funnel computed from the Deals (salesdeal) list.
 const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
 const SalesDashboard = lazy(() => import('@/pages/SalesDashboard'));
@@ -34,7 +33,6 @@ const EMBED = {
   teamChat: TeamChat,
   leads: Leads,
   customer: Customer,
-  calls: Calls,
   salesPipeline: SalesPipeline,
   salesDashboard: SalesDashboard,
   marketingDashboard: MarketingDashboard,

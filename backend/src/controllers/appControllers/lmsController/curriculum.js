@@ -26,7 +26,7 @@ async function loadOwnedCourse(req, courseId) {
   if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
   const course = await Course.findOne({ _id: courseId, removed: false });
   if (!course) return { err: [404, 'Course not found.'] };
-  if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || ''))) {
+  if (!isManager(req.admin) && course.instructor && !rxEq(course.instructor).test(req.admin.name || '')) {
     return { err: [403, 'You can only edit your own courses.'] };
   }
   return { course };
@@ -66,7 +66,19 @@ async function outline(req, res) {
   }));
 
   return ok(res, {
-    course: { id: String(course._id), title: course.title, status: course.status },
+    course: {
+      id: String(course._id),
+      title: course.title,
+      status: course.status,
+      code: course.code,
+      category: course.category,
+      level: course.level,
+      mode: course.mode,
+      durationHours: course.durationHours,
+      instructor: course.instructor,
+      thumbnailUrl: course.thumbnailUrl || '/course-thumbnail.jpg',
+      description: course.description,
+    },
     modules: tree,
     counts: { modules: modules.length, chapters: chapters.length, lessons: lessons.length },
   });
@@ -80,6 +92,7 @@ async function addModule(req, res) {
     course: course._id,
     title: (req.body.title || 'Untitled module').trim(),
     description: req.body.description || '',
+    hours: req.body.hours !== undefined && req.body.hours !== '' ? Number(req.body.hours) : undefined,
     order: await nextOrder(CourseModule, { course: course._id, removed: false }),
   });
   await syncCourseCounts(course._id);
@@ -92,7 +105,7 @@ async function updateModule(req, res) {
   if (!m) return bad(res, 404, 'Module not found.');
   const { err } = await loadOwnedCourse(req, m.course);
   if (err) return bad(res, err[0], err[1]);
-  for (const f of ['title', 'description', 'order']) if (req.body[f] !== undefined) m[f] = req.body[f];
+  for (const f of ['title', 'description', 'order', 'hours']) if (req.body[f] !== undefined) m[f] = req.body[f];
   m.updated = new Date();
   await m.save();
   return ok(res, { id: String(m._id) }, 'Module updated.');
@@ -126,6 +139,8 @@ async function addChapter(req, res) {
     module: m._id,
     title: (req.body.title || 'Untitled chapter').trim(),
     description: req.body.description || '',
+    sessionLabel: req.body.sessionLabel || undefined,
+    hours: req.body.hours !== undefined && req.body.hours !== '' ? Number(req.body.hours) : undefined,
     order: await nextOrder(Chapter, { module: m._id, removed: false }),
   });
   return ok(res, { id: String(c._id) }, 'Chapter added.');
@@ -137,7 +152,7 @@ async function updateChapter(req, res) {
   if (!c) return bad(res, 404, 'Chapter not found.');
   const { err } = await loadOwnedCourse(req, c.course);
   if (err) return bad(res, err[0], err[1]);
-  for (const f of ['title', 'description', 'order']) if (req.body[f] !== undefined) c[f] = req.body[f];
+  for (const f of ['title', 'description', 'order', 'hours', 'sessionLabel']) if (req.body[f] !== undefined) c[f] = req.body[f];
   c.updated = new Date();
   await c.save();
   return ok(res, { id: String(c._id) }, 'Chapter updated.');

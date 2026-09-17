@@ -37,6 +37,7 @@ const routerApp = (entity, controller) => {
     router.route(`/${entity}/stage-stats`).get(catchErrors(controller['stageStats']));
     router.route(`/${entity}/by-stage`).get(catchErrors(controller['byStage']));
     router.route(`/${entity}/callbacks`).get(catchErrors(controller['callbacks']));
+    router.route(`/${entity}/my-contacts`).get(catchErrors(controller['myContacts']));
   }
 
   if (entity === 'team') {

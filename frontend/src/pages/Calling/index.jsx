@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import HubTabs from "@/components/HubTabs";
 import { request } from "@/request";
 import { ExperimentOutlined } from "@ant-design/icons";
 
 import CallingDashboard from "./Dashboard";
+import Dialer from "./Dialer";
 import Campaigns from "./Campaigns";
 import AutoDialer from "./AutoDialer";
 import AgentScreen from "./AgentScreen";
@@ -12,9 +12,13 @@ import CallHistory from "./CallHistory";
 import Callbacks from "./Callbacks";
 import Recordings from "./Recordings";
 import Reports from "./Reports";
+import TeamOverview from "./TeamOverview";
+import { useCallingMeta } from "./shared";
 
-const TABS = [
+const BASE_TABS = [
   { key: "dashboard", label: "Dashboard", C: CallingDashboard },
+  { key: "team", label: "Team Overview", C: TeamOverview, managerOnly: true },
+  { key: "dial", label: "Dialer", C: Dialer },
   { key: "campaigns", label: "Campaigns", C: Campaigns },
   { key: "dialer", label: "Auto Dialer", C: AutoDialer },
   { key: "agent", label: "Agent Screen", C: AgentScreen },
@@ -25,7 +29,10 @@ const TABS = [
 ];
 
 export default function Calling() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const meta = useCallingMeta();
+  const isManager = meta.tier === "manager" || meta.tier === "admin";
+  const TABS = BASE_TABS.filter((t) => !t.managerOnly || isManager);
   const initial = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "dashboard";
   const [tab, setTab] = useState(initial);
   const [provider, setProvider] = useState(null);
@@ -34,12 +41,21 @@ export default function Calling() {
     request.get({ entity: "calling/status" }).then((r) => r?.success && setProvider(r.result));
   }, []);
 
-  const changeTab = (k) => {
-    setTab(k);
-    const next = new URLSearchParams(params);
-    next.set("tab", k);
-    setParams(next, { replace: true });
-  };
+  useEffect(() => {
+    if (!isManager && tab === "team") setTab("dashboard");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager]);
+
+  // Sidebar links to /calling?tab=<key> without remounting this page (same
+  // route, just a new query param) — pick that up whenever it changes, not
+  // only on first mount.
+  useEffect(() => {
+    const urlTab = params.get("tab");
+    if (urlTab && urlTab !== tab && TABS.some((t) => t.key === urlTab)) {
+      setTab(urlTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   const Active = TABS.find((t) => t.key === tab)?.C || CallingDashboard;
 
@@ -85,12 +101,10 @@ export default function Calling() {
           }}
         >
           Calling is running with the <strong>mock provider</strong>. No real calls are placed. Set{" "}
-          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Edesy) to go live —
+          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Tata Business) to go live —
           the rest of the CRM is unaffected.
         </div>
       )}
-
-      <HubTabs tabs={TABS.map(({ key, label }) => ({ key, label }))} active={tab} onChange={changeTab} />
 
       <Active />
     </div>

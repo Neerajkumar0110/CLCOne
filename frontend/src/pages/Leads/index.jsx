@@ -1920,7 +1920,11 @@ function AllLeads() {
 }
 
 function ImportExport() {
-  const { teamNames } = useTeams();
+  const { teamNames, teams } = useTeams();
+  const [admins, setAdmins] = useState([]);
+  useEffect(() => {
+    request.list({ entity: "admin", options: { items: 500 } }).then((r) => setAdmins(r?.success ? r.result : []));
+  }, []);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -1960,6 +1964,19 @@ function ImportExport() {
   const [assignTeams, setAssignTeams] = useState([]);
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Direct assign: teams and individuals, both multi-select — round-robins
+  // the selected leads across every checked team + every checked person
+  // together, as an alternative to the team-only round-robin flow above.
+  const [assignTeamsDirect, setAssignTeamsDirect] = useState([]);
+  const [assignPersonIds, setAssignPersonIds] = useState([]);
+  const toggleAssignTeamDirect = (t) =>
+    setAssignTeamsDirect((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleAssignPerson = (id) =>
+    setAssignPersonIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  // Admins/owner/Super Admin manage the CRM, they aren't a salesperson a
+  // lead gets handed to — keep them out of the individual-assign list.
+  const assignablePeople = admins.filter((a) => !["owner", "Super Admin", "Admin"].includes(a.role));
 
   // Keep the distribution map in sync as teams are added/removed elsewhere.
   useEffect(() => {
@@ -2063,6 +2080,49 @@ function ImportExport() {
     setAssignTeams([]);
     setSelectedLeadIds([]);
     loadUnassigned(1);
+  };
+
+  // Assign every selected lead to one single team (no round-robin).
+  // Round-robins the selected leads across every checked team AND every
+  // checked individual together — a team target just sets `team`; a person
+  // target sets `assignedUser` plus their team (looked up from Team.members,
+  // since "unassigned" here is defined purely by an empty team field).
+  const assignSelectedDirect = async () => {
+    const targets = [
+      ...assignTeamsDirect.map((t) => ({ type: "team", team: t })),
+      ...assignPersonIds.map((id) => {
+        const admin = assignablePeople.find((a) => a._id === id);
+        const matchedTeam = admin ? teams.find((t) => (t.members || []).includes(admin.name)) : null;
+        return { type: "person", admin, team: matchedTeam?.name };
+      }),
+    ];
+    if (selectedLeadIds.length === 0 || targets.length === 0) return;
+
+    setAssigning(true);
+    let missingTeam = 0;
+    await Promise.all(
+      selectedLeadIds.map((id, i) => {
+        const t = targets[i % targets.length];
+        if (t.type === "team") {
+          return request.update({ entity: "lead", id, jsonData: { team: t.team } });
+        }
+        if (!t.team) missingTeam += 1;
+        const assignedUserName = `${t.admin.name || ""} ${t.admin.surname || ""}`.trim() || t.admin.email;
+        return request.update({
+          entity: "lead",
+          id,
+          jsonData: { assignedUser: t.admin._id, assignedUserName, ...(t.team ? { team: t.team } : {}) },
+        });
+      })
+    );
+    setAssigning(false);
+    setAssignTeamsDirect([]);
+    setAssignPersonIds([]);
+    setSelectedLeadIds([]);
+    loadUnassigned(1);
+    if (missingTeam > 0) {
+      message.warning(`${missingTeam} lead${missingTeam === 1 ? "" : "s"} went to a person without a team — they'll keep showing here until that person is on a team.`);
+    }
   };
 
   // Permanently remove unassigned leads — one row, or every checked row.
@@ -2707,6 +2767,108 @@ function ImportExport() {
             </div>
           </div>
         )}
+
+        <div
+          style={{
+            marginTop: 16,
+            border: "1px solid var(--hub-border)",
+            borderRadius: 12,
+            padding: 14,
+            background: selectedLeadIds.length > 0 ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
+            transition: "background 0.2s ease",
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--hub-text)", marginBottom: 10 }}>
+            Or split {selectedLeadIds.length > 0 ? `${selectedLeadIds.length} selected lead${selectedLeadIds.length === 1 ? "" : "s"}` : "selected leads"} across any mix of teams and individuals
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "var(--hub-muted)", marginBottom: 6 }}>Teams</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {teamNames.length === 0 && <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>No teams yet</span>}
+                {teamNames.map((t) => (
+                  <label
+                    key={t}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      border: `1px solid ${assignTeamsDirect.includes(t) ? "var(--hub-blue)" : "#e3e9f5"}`,
+                      background: assignTeamsDirect.includes(t) ? "var(--hub-blue-soft)" : "var(--hub-surface)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={assignTeamsDirect.includes(t)}
+                      onChange={() => toggleAssignTeamDirect(t)}
+                      style={{ width: 14, height: 14, accentColor: "var(--hub-blue)", cursor: "pointer" }}
+                    />
+                    {t}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "var(--hub-muted)", marginBottom: 6 }}>Individuals</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {assignablePeople.length === 0 && <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>No people yet</span>}
+                {assignablePeople.map((a) => {
+                  const label = `${a.name || ""} ${a.surname || ""}`.trim() || a.email;
+                  return (
+                    <label
+                      key={a._id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        border: `1px solid ${assignPersonIds.includes(a._id) ? "var(--hub-blue)" : "#e3e9f5"}`,
+                        background: assignPersonIds.includes(a._id) ? "var(--hub-blue-soft)" : "var(--hub-surface)",
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={assignPersonIds.includes(a._id)}
+                        onChange={() => toggleAssignPerson(a._id)}
+                        style={{ width: 14, height: 14, accentColor: "var(--hub-blue)", cursor: "pointer" }}
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
+              {selectedLeadIds.length > 0 && assignTeamsDirect.length + assignPersonIds.length > 0
+                ? `${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? "" : "s"} will be split equally across ${assignTeamsDirect.length + assignPersonIds.length} target${assignTeamsDirect.length + assignPersonIds.length === 1 ? "" : "s"}.`
+                : "Select leads above and check one or more teams/individuals."}
+            </span>
+            <button
+              type="button"
+              className="hub-btn hub-btn-primary"
+              disabled={selectedLeadIds.length === 0 || assignTeamsDirect.length + assignPersonIds.length === 0 || assigning}
+              onClick={assignSelectedDirect}
+            >
+              <SwapOutlined /> {assigning ? "Assigning…" : "Assign"}
+            </button>
+          </div>
+        </div>
 
         {!unassignedLoading && unassigned.length > 0 && (
           <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>

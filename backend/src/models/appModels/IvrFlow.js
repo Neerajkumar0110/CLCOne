@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 // An IVR menu: the greeting a caller hears and what each keypress does.
-// The audio + digit gathering happens on the Edesy voice-agent side; this
-// model is the CRM's copy so the webhook can LABEL a pressed digit
+// The audio + digit gathering happens on the provider side (voice companion
+// API, or the bi-directional audio stream for a voice bot); this model is
+// the CRM's copy so the webhook can LABEL a pressed digit
 // ("1" -> "Interested") and ROUTE the call (to a team, an agent, an
 // external number, voicemail, or hang up).
 const optionSchema = new mongoose.Schema(
@@ -51,7 +52,7 @@ const schema = new mongoose.Schema({
   fallbackTeam: String,
   fallbackNumber: String,
 
-  // The provider-side agent/flow id this maps to (Edesy voice-agent `agentId`).
+  // The provider-side agent/flow id this maps to (voice companion API's flow id).
   providerFlowId: String,
 
   createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },

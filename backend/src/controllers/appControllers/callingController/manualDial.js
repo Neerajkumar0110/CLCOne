@@ -4,9 +4,11 @@ const { getProvider } = require('../../../services/calling');
 
 // "Call this lead" from a lead row / the agent screen.
 //
-//  • CALLING_PROVIDER=cloud  → the provider (Tata Smartflo / …) rings the
-//    agent's phone first, then the customer, and bridges — a real, recorded,
-//    server-placed call. Returns { record, bridged:true }.
+//  • CALLING_PROVIDER=cloud  → the provider (Tata Smartflo Support API)
+//    rings the customer first; once they answer, Tata connects the second
+//    leg to whatever destination is configured for that API key on the
+//    Tata portal — a real, recorded, server-placed call. Returns
+//    { record, bridged:true }.
 //  • otherwise                → device tel: link: the call runs on the
 //    agent's own phone / softphone; the CRM just tracks it (contact, timing,
 //    disposition, notes, callback). Returns { record, tel:'tel:…' }.
@@ -40,8 +42,8 @@ const dial = async (req, res) => {
     }
   }
 
-  // Cloud provider (Tata Smartflo / …): place a real bridged call — the
-  // provider rings the agent's phone, then the customer.
+  // Cloud provider (Tata Smartflo Support API): place a real call — the
+  // provider rings the customer first, then connects the second leg.
   const provider = getProvider();
   if (provider.name === 'cloud' && typeof provider.placeCall === 'function') {
     const r = await provider.placeCall({
@@ -52,7 +54,8 @@ const dial = async (req, res) => {
       callLead: b.callLead || undefined,
       campaign,
     });
-    // Remember the agent's number for next time if they supplied one.
+    // Remember the agent's number for next time if they supplied one (used
+    // for CDR agent-attribution matching, not to place this call).
     if (r.ok && b.agentPhone && !req.admin.phone) {
       await mongoose.model('Admin').updateOne({ _id: req.admin._id }, { $set: { phone: String(b.agentPhone).trim() } });
     }
@@ -62,7 +65,7 @@ const dial = async (req, res) => {
     return res.status(200).json({
       success: true,
       result: { record: r.callRecord, bridged: true },
-      message: 'Calling your phone now — pick up, then you\'ll be connected to the customer.',
+      message: 'Calling the customer now — they\'ll be connected once they pick up.',
     });
   }
 

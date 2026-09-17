@@ -52,7 +52,6 @@ import {
   MobileOutlined,
   ContactsOutlined,
   SolutionOutlined,
-  PhoneOutlined,
   FieldTimeOutlined,
   ScheduleOutlined,
   CoffeeOutlined,
@@ -114,13 +113,14 @@ export const FEATURE_SECTIONS = [
         // Live weighted-funnel board computed from the Deals tab (salesdeal).
         embed: 'salesPipeline',
       },
-      // Leads / Customers / Calls live under Sales now. `embed` renders the
+      // Leads / Customers live under Sales now. `embed` renders the
       // existing full-featured pages (ads integrations, imports, etc.) inside
       // the section shell — see EMBED in pages/ModuleScaffold. Old top-level
-      // routes /leads /customer /calls still resolve for saved links.
+      // routes /leads /customer still resolve for saved links. Calling now
+      // lives only in the dedicated Calling module (/calling) — see
+      // pages/Calling.
       { key: 'leads', label: 'Leads', Icon: SolutionOutlined, embed: 'leads' },
       { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer', dashboard: 'customers' },
-      { key: 'calls', label: 'Calls', Icon: PhoneOutlined, embed: 'calls' },
       {
         key: 'deals',
         label: 'Deals',

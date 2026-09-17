@@ -35,7 +35,6 @@ const Invoice = lazy(() => import('@/pages/Invoice'));
 const Payment = lazy(() => import('@/pages/Payment/index'));
 
 const Settings = lazy(() => import('@/pages/Settings/Settings'));
-const Calls = lazy(() => import('@/pages/Calls'));
 const Calling = lazy(() => import('@/pages/Calling'));
 
 const Performance = lazy(() => import('@/pages/Performance'));
@@ -79,21 +78,14 @@ let routes = {
         </RequirePermission>
       ),
     },
-    // Leads / Customers / Calls moved under Sales (rendered as sub-tabs at
-    // /sales/*). These top-level paths stay for old links; all gated by Sales.
+    // Leads / Customers moved under Sales (rendered as sub-tabs at
+    // /sales/*). This top-level path stays for old links; gated by Sales.
+    // Calling lives only in the dedicated Calling module below.
     {
       path: '/customer',
       element: (
         <RequirePermission module="Sales">
           <Customer />
-        </RequirePermission>
-      ),
-    },
-    {
-      path: '/calls',
-      element: (
-        <RequirePermission module="Sales">
-          <Calls />
         </RequirePermission>
       ),
     },

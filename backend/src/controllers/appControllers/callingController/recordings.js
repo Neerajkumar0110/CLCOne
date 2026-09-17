@@ -96,6 +96,16 @@ const stream = async (req, res) => {
   if (!(await authorize(req, rec))) {
     return res.status(403).json({ success: false, message: 'Not authorised for this recording.' });
   }
+  // Cloud provider (Tata Smartflo / …): recording.url is already an
+  // external, provider-hosted, pre-signed/expiring link (see
+  // CloudCallProvider.syncCdr) — redirect rather than relay the audio
+  // bytes ourselves. Only telephony mode owns/streams the raw file.
+  if (callingConfig.provider === 'cloud') {
+    if (!rec.recording || rec.recording.status !== 'available' || !rec.recording.url) {
+      return res.status(409).json({ success: false, message: 'Recording not ready.' });
+    }
+    return res.redirect(302, rec.recording.url);
+  }
   if (callingConfig.provider !== 'telephony') {
     return res.status(404).json({ success: false, message: 'No audio in this mode.' });
   }
