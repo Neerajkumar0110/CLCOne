@@ -548,6 +548,19 @@ export default function CourseBuilder() {
             </Form.Item>
           )}
 
+          {(modal?.kind === 'module' || modal?.kind === 'chapter') && (
+            <Space size="large">
+              {modal?.kind === 'chapter' && (
+                <Form.Item name="sessionLabel" label="Session label">
+                  <Input placeholder="e.g. S1 or S2–3" style={{ width: 140 }} />
+                </Form.Item>
+              )}
+              <Form.Item name="hours" label="Hours">
+                <InputNumber min={0} step={0.5} style={{ width: 120 }} />
+              </Form.Item>
+            </Space>
+          )}
+
           {modal?.kind === 'lesson' && (
             <>
               <Form.Item name="type" label="Lesson type" rules={[{ required: true }]}>
