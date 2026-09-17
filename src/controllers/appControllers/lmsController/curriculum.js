@@ -92,6 +92,7 @@ async function addModule(req, res) {
     course: course._id,
     title: (req.body.title || 'Untitled module').trim(),
     description: req.body.description || '',
+    hours: req.body.hours !== undefined && req.body.hours !== '' ? Number(req.body.hours) : undefined,
     order: await nextOrder(CourseModule, { course: course._id, removed: false }),
   });
   await syncCourseCounts(course._id);
@@ -104,7 +105,7 @@ async function updateModule(req, res) {
   if (!m) return bad(res, 404, 'Module not found.');
   const { err } = await loadOwnedCourse(req, m.course);
   if (err) return bad(res, err[0], err[1]);
-  for (const f of ['title', 'description', 'order']) if (req.body[f] !== undefined) m[f] = req.body[f];
+  for (const f of ['title', 'description', 'order', 'hours']) if (req.body[f] !== undefined) m[f] = req.body[f];
   m.updated = new Date();
   await m.save();
   return ok(res, { id: String(m._id) }, 'Module updated.');
@@ -138,6 +139,8 @@ async function addChapter(req, res) {
     module: m._id,
     title: (req.body.title || 'Untitled chapter').trim(),
     description: req.body.description || '',
+    sessionLabel: req.body.sessionLabel || undefined,
+    hours: req.body.hours !== undefined && req.body.hours !== '' ? Number(req.body.hours) : undefined,
     order: await nextOrder(Chapter, { module: m._id, removed: false }),
   });
   return ok(res, { id: String(c._id) }, 'Chapter added.');
@@ -149,7 +152,7 @@ async function updateChapter(req, res) {
   if (!c) return bad(res, 404, 'Chapter not found.');
   const { err } = await loadOwnedCourse(req, c.course);
   if (err) return bad(res, err[0], err[1]);
-  for (const f of ['title', 'description', 'order']) if (req.body[f] !== undefined) c[f] = req.body[f];
+  for (const f of ['title', 'description', 'order', 'hours', 'sessionLabel']) if (req.body[f] !== undefined) c[f] = req.body[f];
   c.updated = new Date();
   await c.save();
   return ok(res, { id: String(c._id) }, 'Chapter updated.');

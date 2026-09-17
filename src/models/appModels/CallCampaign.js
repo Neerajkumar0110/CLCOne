@@ -33,7 +33,7 @@ const schema = new mongoose.Schema({
   maxAttempts: { type: Number, default: 3 }, // per lead before it's parked as Failed
   retryDelayMin: { type: Number, default: 30 }, // wait between attempts on a soft outcome
 
-  // Inbound campaigns: the IVR menu callers land in (Edesy voice-agent).
+  // Inbound campaigns: the IVR menu callers land in.
   ivrFlow: { type: mongoose.Schema.ObjectId, ref: 'IvrFlow' },
 
   status: {
