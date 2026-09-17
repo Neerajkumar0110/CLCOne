@@ -30,6 +30,12 @@ import {
   GithubOutlined,
   CloudServerOutlined,
   PhoneOutlined,
+  RocketOutlined,
+  ThunderboltOutlined,
+  UserOutlined,
+  HistoryOutlined,
+  ClockCircleOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -37,6 +43,21 @@ const { Sider } = Layout;
 const NAV_KEY_MODULE = Object.fromEntries(
   Object.entries(MODULE_NAV_KEY).map(([mod, key]) => [key, mod])
 );
+
+// Calling's 10 tabs are one page switched by a `?tab=` query param (see
+// pages/Calling/index.jsx), not separate routes — so the sidebar's synthetic
+// "current path" for /calling folds the query param in, the same way
+// "sales/leads" folds a real route segment in for feature sections.
+const CALLING_TABS = ['dashboard', 'team', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports'];
+function pathKeyFor(loc) {
+  if (loc.pathname === '/') return 'dashboard';
+  const base = loc.pathname.slice(1);
+  if (base === 'calling') {
+    const tab = new URLSearchParams(loc.search).get('tab');
+    return `calling-${CALLING_TABS.includes(tab) ? tab : 'dashboard'}`;
+  }
+  return base;
+}
 
 export default function Navigation() {
   const { isMobile } = useResponsive();
@@ -55,7 +76,7 @@ function Sidebar({ collapsible, isMobile = false }) {
   const openTicketsCount = tickets.filter((t) => t.status === 'Open').length;
   const { totalUnread } = useMessages();
   const [showLogoApp, setLogoApp] = useState(isNavMenuClose);
-  const [currentPath, setCurrentPath] = useState(location.pathname.slice(1));
+  const [currentPath, setCurrentPath] = useState(pathKeyFor(location));
 
   const translate = useLanguage();
   const navigate = useNavigate();
@@ -66,8 +87,17 @@ function Sidebar({ collapsible, isMobile = false }) {
     // Sales pipeline
     leads: '/leads',
     customer: '/customer',
-    calls: '/calls',
     calling: '/calling',
+    'calling-dashboard': '/calling?tab=dashboard',
+    'calling-team': '/calling?tab=team',
+    'calling-dial': '/calling?tab=dial',
+    'calling-campaigns': '/calling?tab=campaigns',
+    'calling-dialer': '/calling?tab=dialer',
+    'calling-agent': '/calling?tab=agent',
+    'calling-history': '/calling?tab=history',
+    'calling-callbacks': '/calling?tab=callbacks',
+    'calling-recordings': '/calling?tab=recordings',
+    'calling-reports': '/calling?tab=reports',
     communication: '/communication',
     // Analytics
     performance: '/performance',
@@ -123,15 +153,31 @@ function Sidebar({ collapsible, isMobile = false }) {
       label: translate('dashboard'),
     },
 
-    // ---- New business sections ---- (Sales now carries Leads / Customers /
-    // Calls as sub-tabs — see config/featureSections.js)
+    // ---- New business sections ---- (Sales now carries Leads / Customers
+    // as sub-tabs — see config/featureSections.js. Calling is its own
+    // section below, not a Sales sub-tab.)
     ...featureItems,
 
-    // ---- Call center (VICIdial-ready, mock by default) ----
+    // ---- Call center (VICIdial-ready, mock by default) ---- its 10 tabs are
+    // in-page (?tab=…, see pages/Calling/index.jsx) rather than real routes,
+    // so each child navigates to /calling with that query param — see
+    // routeByKey and CALLING_TABS above.
     {
       key: 'calling',
       label: 'Calls',
       icon: <PhoneOutlined />,
+      children: [
+        { key: 'calling-dashboard', label: 'Dashboard', icon: <DashboardOutlined /> },
+        { key: 'calling-team', label: 'Team Overview', icon: <TeamOutlined /> },
+        { key: 'calling-dial', label: 'Dialer', icon: <PhoneOutlined /> },
+        { key: 'calling-campaigns', label: 'Campaigns', icon: <RocketOutlined /> },
+        { key: 'calling-dialer', label: 'Auto Dialer', icon: <ThunderboltOutlined /> },
+        { key: 'calling-agent', label: 'Agent Screen', icon: <UserOutlined /> },
+        { key: 'calling-history', label: 'Call History', icon: <HistoryOutlined /> },
+        { key: 'calling-callbacks', label: 'Callbacks', icon: <ClockCircleOutlined /> },
+        { key: 'calling-recordings', label: 'Recordings', icon: <PlayCircleOutlined /> },
+        { key: 'calling-reports', label: 'Reports', icon: <BarChartOutlined /> },
+      ],
     },
 
     // ---- Analytics: Reports ▸ (Overview + Performance) ----
@@ -227,18 +273,16 @@ function Sidebar({ collapsible, isMobile = false }) {
     let want = active ? active.key : null;
     if (!want && (currentPath === 'reports' || currentPath === 'performance')) want = 'reports-group';
     if (!want && ['finance', 'invoice', 'payment'].includes(currentPath)) want = 'finance-group';
+    if (!want && currentPath.startsWith('calling-')) want = 'calling';
     if (want) {
       setOpenKeys((prev) => (prev.includes(want) ? prev : [...prev, want]));
     }
   }, [currentPath]);
 
   useEffect(() => {
-    if (location)
-      if (currentPath !== location.pathname) {
-        if (location.pathname === '/') {
-          setCurrentPath('dashboard');
-        } else setCurrentPath(location.pathname.slice(1));
-      }
+    if (!location) return;
+    const next = pathKeyFor(location);
+    if (currentPath !== next) setCurrentPath(next);
   }, [location, currentPath]);
 
   useEffect(() => {

@@ -9,7 +9,8 @@ export const PERMISSION_MODULES = [
   'Dashboard',
   // Business sections (expandable sidebar submenus — see config/featureSections.js).
   // One permission module gates the whole section and all its scaffold sub-modules.
-  // Sales now also covers Leads / Customers / Calls (moved in as sub-tabs).
+  // Sales now also covers Leads / Customers (moved in as sub-tabs). Calling
+  // lives in its own "Calling" module below, not under Sales.
   'Sales',
   'Marketing',
   'Operations',

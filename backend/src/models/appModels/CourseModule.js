@@ -11,6 +11,9 @@ const schema = new mongoose.Schema({
   course: { type: mongoose.Schema.ObjectId, ref: 'Course', required: true, index: true },
   title: { type: String, required: true },
   description: { type: String },
+  // Total teaching hours for this unit (e.g. a curriculum imported from a
+  // syllabus PDF that states hours per unit) — optional, purely informational.
+  hours: { type: Number },
   order: { type: Number, default: 0, index: true },
 
   created: { type: Date, default: Date.now },

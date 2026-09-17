@@ -4,13 +4,14 @@ const { callingConfig } = require('../../../config/calling');
 const { setAgent, wrapupAgent, resolveLead, recountCampaign } = require('../../../services/calling/callingShared');
 
 // POST /api/cloud-call/webhook — call-status + IVR callbacks from the cloud
-// calling provider. Handles two Edesy products on one endpoint:
-//   • number masking   — outbound bridge status + recording
-//   • voice-agent       — inbound IVR: call.started / dtmf / transfer / ended
+// calling provider (Tata Tele Business Services). Handles both Tata
+// products on one endpoint:
+//   • Smartflo click_to_call    — agent-bridge status + recording
+//   • Click-to-Call Support API — direct-to-customer / voice-bot call status
 //
 // Unauthenticated (the provider has no CRM session); protected by a shared
-// secret in ?secret= / x-webhook-secret, OR an HMAC-SHA256 signature header
-// (Edesy-style), matched against CLOUD_CALL_WEBHOOK_SECRET.
+// secret in ?secret= / x-webhook-secret, OR an HMAC-SHA256 signature header,
+// matched against CLOUD_CALL_WEBHOOK_SECRET.
 //
 // Provider payloads vary, so every field is read from a list of likely key
 // names and the raw body is always stored on the CallRecord.
@@ -121,7 +122,6 @@ const cloudWebhook = async (req, res) => {
   if (secretExpected) {
     const rawBody = req.rawBody || JSON.stringify(req.body || {});
     const sigHeader =
-      req.get('x-edesy-signature') ||
       req.get('x-webhook-signature') ||
       req.get('x-signature') ||
       req.get('x-smartflo-signature');
@@ -133,7 +133,7 @@ const cloudWebhook = async (req, res) => {
     if (!ok) return res.status(401).json({ success: false, message: 'bad secret' });
   }
 
-  // Edesy nests call fields under `data` with `event` + `call_sid` on top.
+  // Some providers nest call fields under `data` with `event` + `call_sid` on top.
   const body = req.body || {};
   const nested = body.data && typeof body.data === 'object' ? body.data : {};
   const b = { ...body, ...nested, ...(req.query || {}) };

@@ -183,7 +183,7 @@ export default function MarketingDashboard() {
 
 function Mini({ label, value, tone = "#0f172a" }) {
   return (
-    <div style={{ minWidth: 0, background: "var(--hub-bg-soft)", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 14px" }}>
+    <div style={{ minWidth: 0, background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)", borderRadius: 12, padding: "12px 14px" }}>
       <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 800, color: tone, marginTop: 3 }}>{value}</div>
     </div>
@@ -194,7 +194,7 @@ function NumbersTable({ rows }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 12 }}>
       <tbody>{rows.map(([k, v]) => (
-        <tr key={k} style={{ borderTop: "1px solid #f1f5f9" }}>
+        <tr key={k} style={{ borderTop: "1px solid var(--hub-border)" }}>
           <td style={{ padding: "6px 4px", fontWeight: 600, color: "var(--hub-text-soft)" }}>{k}</td>
           <td style={{ padding: "6px 4px", textAlign: "right", color: "var(--hub-text)", fontWeight: 700 }}>{v}</td>
         </tr>
@@ -212,7 +212,7 @@ function ChipRow({ value, onChange, items, tone }) {
         const on = value === it.key;
         return (
           <button key={it.key} type="button" onClick={() => onChange(it.key)}
-            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "var(--hub-border)"}`, background: on ? tone : "#fff", color: on ? "#fff" : "var(--hub-text-soft)" }}>
+            style={{ padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? tone : "var(--hub-border)"}`, background: on ? tone : "var(--hub-surface-2)", color: on ? "#fff" : "var(--hub-text-soft)" }}>
             {it.label}
           </button>
         );

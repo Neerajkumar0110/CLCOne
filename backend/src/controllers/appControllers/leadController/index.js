@@ -9,6 +9,7 @@ const teamStats = require('./teamStats');
 const stageStats = require('./stageStats');
 const byStage = require('./byStage');
 const callbacks = require('./callbacks');
+const myContacts = require('./myContacts');
 
 methods.create = create;
 // Custom update: records stage-change history on the SAME lead record.
@@ -19,5 +20,6 @@ methods.teamStats = teamStats;
 methods.stageStats = stageStats;
 methods.byStage = byStage;
 methods.callbacks = callbacks;
+methods.myContacts = myContacts;
 
 module.exports = methods;

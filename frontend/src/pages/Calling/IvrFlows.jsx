@@ -81,8 +81,9 @@ export default function IvrFlows() {
           )}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 10 }}>
-          The menu callers hear and where each keypress routes. Audio &amp; digit gathering run on the Edesy voice-agent;
-          this is the CRM copy that labels pressed digits in Call History and drives the transfer.
+          The menu callers hear and where each keypress routes. Audio &amp; digit gathering run on the provider
+          (voice companion API, or the bi-directional audio stream for a voice bot); this is the CRM copy that
+          labels pressed digits in Call History and drives the transfer.
         </div>
 
         <div className="hub-table-wrapper">
@@ -225,7 +226,7 @@ function IvrForm({ flow, meta, onClose, onSave }) {
           <input className="hub-input" value={f.promptKey} onChange={set("promptKey")} />
         </div>
         <div className="hub-form-row">
-          <label>Provider Flow ID (Edesy agentId)</label>
+          <label>Provider Flow ID</label>
           <input className="hub-input" value={f.providerFlowId || ""} onChange={set("providerFlowId")} />
         </div>
       </div>

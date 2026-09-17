@@ -64,6 +64,11 @@ const server = app.listen(app.get('port'), () => {
 const { initSocket } = require('./socket');
 initSocket(server);
 
+// Tata bi-directional audio streaming (IVR / voice bot) — same raw
+// http.Server as sockets above; no-op unless CLOUD_CALL_VOICE_STREAM_ENABLED.
+const { initVoiceStream } = require('./services/calling/voiceStream');
+initVoiceStream(server);
+
 // Retries failed Facebook lead webhook deliveries (no queue infra exists in
 // this app, so this is a minimal in-process poller — see the file itself).
 const startFacebookWebhookRetryJob = require('./jobs/facebookWebhookRetry');
@@ -82,6 +87,11 @@ startLinkedInLeadPoller();
 // Active campaigns, clears stuck calls (no-op unless CALLING_PROVIDER is set).
 const startCallingDialerTick = require('./jobs/callingDialerTick');
 startCallingDialerTick();
+
+// Pulls call recordings from Tata Smartflo's CDR API — the call-status
+// webhook doesn't carry a recording URL, only GET /v1/call/records does.
+const startCallingRecordingSync = require('./jobs/callingRecordingSync');
+startCallingRecordingSync();
 
 // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
 // failed inbound webhook events, runs the nightly reconcile. No-op until

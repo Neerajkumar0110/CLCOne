@@ -180,7 +180,7 @@ function TeacherAssignments() {
       <Modal open={!!evalRow} title={evalRow ? `Evaluate — ${evalRow.studentName}` : ''} onCancel={() => setEvalRow(null)} onOk={doEvaluate} okText="Save" destroyOnClose>
         {evalRow && (
           <>
-            {evalRow.text && <Paragraph style={{ background: '#f6f7f9', padding: 10, borderRadius: 8 }}>{evalRow.text}</Paragraph>}
+            {evalRow.text && <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 10, borderRadius: 8 }}>{evalRow.text}</Paragraph>}
             {(evalRow.files || []).map((f, i) => <div key={i}><a href={f.url} target="_blank" rel="noopener">{f.name || f.url}</a></div>)}
             <Form form={evalForm} layout="vertical" style={{ marginTop: 12 }} preserve={false}>
               <Space size="large">
@@ -255,7 +255,7 @@ function StudentAssignments() {
                 {s && s.marks != null && <Tag color="green">{s.marks}/{r.maxMarks}{s.grade ? ` · ${s.grade}` : ''}</Tag>}
               </div>
               {s && s.feedback && (
-                <Paragraph style={{ background: '#f0f9ff', padding: 10, borderRadius: 8, marginTop: 8 }}>
+                <Paragraph style={{ background: 'var(--hub-blue-soft)', padding: 10, borderRadius: 8, marginTop: 8 }}>
                   <b>Feedback:</b> {s.feedback}
                 </Paragraph>
               )}

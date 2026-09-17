@@ -7,7 +7,6 @@ import {
   AudioMutedOutlined,
   SwapOutlined,
   CloseCircleOutlined,
-  MobileOutlined,
 } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, useCallingMeta, usePoll, toDatetimeLocal, openTel } from "./shared";
 
@@ -20,22 +19,6 @@ export default function AgentScreen() {
   const [disp, setDisp] = useState("");
   const [note, setNote] = useState("");
   const noteInit = useRef(false);
-
-  // Quick-call form on the idle screen.
-  const [qcPhone, setQcPhone] = useState("");
-  const [qcName, setQcName] = useState("");
-  const [qcErr, setQcErr] = useState("");
-  const [qcMsg, setQcMsg] = useState("");
-  // Agent's own number — needed when CALLING_PROVIDER=cloud (provider rings
-  // this first). Remembered per-device.
-  const [qcMy, setQcMy] = useState(() => {
-    try { return localStorage.getItem("calling.agentPhone") || ""; } catch { return ""; }
-  });
-  const [prov, setProv] = useState(null);
-  useEffect(() => {
-    request.get({ entity: "calling/status" }).then((r) => r?.success && setProv(r.result));
-  }, []);
-  const isCloud = prov?.provider === "cloud";
 
   const refresh = async () => {
     const r = await request.get({ entity: "calling/agent/active" });
@@ -83,36 +66,6 @@ export default function AgentScreen() {
     refresh();
   };
 
-  const startQuickCall = async () => {
-    setQcErr("");
-    setQcMsg("");
-    if (qcPhone.replace(/\D/g, "").length < 8) return setQcErr("Enter a valid phone number.");
-    if (isCloud && qcMy.replace(/\D/g, "").length < 8) return setQcErr("Enter your own number — the provider rings you first.");
-    if (isCloud) {
-      try { localStorage.setItem("calling.agentPhone", qcMy); } catch { /* ignore */ }
-    }
-    const r = await request.post({
-      entity: "calling/manual/dial",
-      jsonData: {
-        phone: qcPhone,
-        contactName: qcName || undefined,
-        agentPhone: isCloud ? qcMy : undefined,
-      },
-    });
-    if (r?.success) {
-      if (r.result?.bridged) {
-        setQcMsg(r.message || "Calling your phone now — pick up to connect.");
-      } else if (r.result?.tel) {
-        openTel(r.result.tel);
-      }
-      setQcPhone("");
-      setQcName("");
-      refresh();
-    } else {
-      setQcErr(r?.message || "Could not start the call.");
-    }
-  };
-
   if (data === undefined) return <div className="hub-card"><div className="hub-empty">Loading…</div></div>;
 
   // ── idle ──────────────────────────────────────────────────────────────
@@ -122,43 +75,9 @@ export default function AgentScreen() {
         <div className="hub-card">
           <div className="hub-card-header"><h3><PhoneOutlined /> Agent Calling Screen</h3></div>
           <div className="hub-empty">
-            No active call. Use <strong>Dial Next</strong> on the Auto Dialer for a simulated call, or make a real
-            call from your phone below.
-          </div>
-        </div>
-
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3><MobileOutlined /> Quick Call {isCloud ? "" : "(from your phone)"}</h3>
-            {prov && <span className={`hub-badge ${isCloud ? "hub-badge-green" : "hub-badge-gray"}`}>{prov.label}</span>}
-          </div>
-          <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
-            {isCloud
-              ? "The provider rings your number first — pick up, then it connects you to the customer. The call is recorded and logged."
-              : "Opens your device dialer / softphone. The voice call runs on your phone; the CRM logs the contact, timing, disposition and notes."}
-          </div>
-          <div className="hub-grid-2">
-            {isCloud && (
-              <div className="hub-form-row">
-                <label>Your Number (rings first)</label>
-                <input className="hub-input" value={qcMy} onChange={(e) => setQcMy(e.target.value)} placeholder="+91 90000 00000" />
-              </div>
-            )}
-            <div className="hub-form-row">
-              <label>Customer Phone Number</label>
-              <input className="hub-input" value={qcPhone} onChange={(e) => setQcPhone(e.target.value)} placeholder="+91 98765 43210" />
-            </div>
-            <div className="hub-form-row">
-              <label>Contact Name (optional)</label>
-              <input className="hub-input" value={qcName} onChange={(e) => setQcName(e.target.value)} />
-            </div>
-          </div>
-          <div className="hub-row" style={{ gap: 8, alignItems: "center" }}>
-            <button type="button" className="hub-btn hub-btn-primary" onClick={startQuickCall}>
-              <PhoneOutlined /> Call
-            </button>
-            {qcErr && <span className="hub-badge hub-badge-red">{qcErr}</span>}
-            {qcMsg && <span className="hub-badge hub-badge-green">{qcMsg}</span>}
+            No active call right now. Go to the <strong>Dialer</strong> tab to place a call, or use{" "}
+            <strong>Dial Next</strong> on the Auto Dialer for a campaign call — once a call connects, it shows
+            up here for mute, hold, transfer, disposition and notes.
           </div>
         </div>
       </div>

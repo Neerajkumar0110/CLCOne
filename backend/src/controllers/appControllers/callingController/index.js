@@ -11,6 +11,7 @@ const callbacks = require('./callbacks');
 const recordings = require('./recordings');
 const reports = require('./reports');
 const manualDial = require('./manualDial');
+const supportDial = require('./supportDial');
 const ivrFlows = require('./ivrFlows');
 
 module.exports = {
@@ -45,6 +46,7 @@ module.exports = {
 
   manualDial: manualDial.dial,
   manualEnd: manualDial.end,
+  supportDial: supportDial.dial,
 
   historyList: history.list,
 

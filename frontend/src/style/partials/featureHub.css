@@ -150,15 +150,17 @@
 }
 
 /* ============================================================
-   ANALYTICS AREA (Sales + Marketing) — full dark treatment so
-   every tab in those sections matches the dashboard look:
+   EVERY FEATURE SECTION (Sales / Marketing / Operations / Project
+   Management / LMS / HR / Messenger / …) — full dark treatment so
+   every tab in every section matches the dashboard look:
    • no wrapper backgrounds (one seamless dark ground)
    • every panel = a rounded, bordered card
    • all text readable
-   Scoped to the two sections; Operations / LMS / HR untouched.
+   Scoped via the bare [data-section] attribute (any value) that
+   ModuleScaffold stamps on .hub-page for every section — new
+   sections get this automatically, nothing to add here.
    ============================================================ */
-:root[data-theme='dark'] .hub-page[data-section='sales'],
-:root[data-theme='dark'] .hub-page[data-section='marketing'] {
+:root[data-theme='dark'] .hub-page[data-section] {
   color: var(--hub-text);
   /* Black dark ground for the whole section. */
   /* background: var(--hub-page-bg); */
@@ -167,155 +169,110 @@
 /* --- nested .hub-page from an embedded page (Leads/Calls/Customer/etc.):
    drop its fill AND its redundant padding so content aligns to the section
    edge instead of being double-indented. --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-page,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-page {
+:root[data-theme='dark'] .hub-page[data-section] .hub-page {
   background: transparent;
   padding: 0;
 }
 
 /* --- remove fills from grouping-only wrappers --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-stack,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-row,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-grid-2,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-grid-3,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-shell,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-stack,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-row,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-grid-2,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-grid-3,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-shell {
+:root[data-theme='dark'] .hub-page[data-section] .hub-stack,
+:root[data-theme='dark'] .hub-page[data-section] .hub-row,
+:root[data-theme='dark'] .hub-page[data-section] .hub-grid-2,
+:root[data-theme='dark'] .hub-page[data-section] .hub-grid-3,
+:root[data-theme='dark'] .hub-page[data-section] .dash-shell {
   background: transparent;
   border: 0;
   box-shadow: none;
 }
 
 /* --- text --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] h1,
-:root[data-theme='dark'] .hub-page[data-section='sales'] h2,
-:root[data-theme='dark'] .hub-page[data-section='sales'] h3,
-:root[data-theme='dark'] .hub-page[data-section='sales'] h4,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .crud-title,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-card-header h3,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-kpi-value,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head-text h2,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] h1,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] h2,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] h3,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] h4,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .crud-title,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-card-header h3,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-kpi-value,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head-text h2 {
+:root[data-theme='dark'] .hub-page[data-section] h1,
+:root[data-theme='dark'] .hub-page[data-section] h2,
+:root[data-theme='dark'] .hub-page[data-section] h3,
+:root[data-theme='dark'] .hub-page[data-section] h4,
+:root[data-theme='dark'] .hub-page[data-section] .crud-title,
+:root[data-theme='dark'] .hub-page[data-section] .hub-card-header h3,
+:root[data-theme='dark'] .hub-page[data-section] .hub-kpi-value,
+:root[data-theme='dark'] .hub-page[data-section] .section-head-text h2 {
   color: var(--hub-text);
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head-text p,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head-crumb,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-header p,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-kpi-label,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head-text p,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head-crumb,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-header p,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-kpi-label {
+:root[data-theme='dark'] .hub-page[data-section] .section-head-text p,
+:root[data-theme='dark'] .hub-page[data-section] .section-head-crumb,
+:root[data-theme='dark'] .hub-page[data-section] .hub-header p,
+:root[data-theme='dark'] .hub-page[data-section] .hub-kpi-label {
   color: var(--hub-muted);
 }
 
 /* --- every panel (incl. the header) = a rounded bordered dark container,
    exactly like the Executive Overview header on "/". --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-card,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-kpi,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-notice,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-empty,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-callpanel,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-callmini,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-player,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .crud-section,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-header,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-filter-card,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-card,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-kpi,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-notice,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-empty,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .crud-section,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-header,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-filter-card,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head {
+:root[data-theme='dark'] .hub-page[data-section] .hub-card,
+:root[data-theme='dark'] .hub-page[data-section] .hub-kpi,
+:root[data-theme='dark'] .hub-page[data-section] .hub-notice,
+:root[data-theme='dark'] .hub-page[data-section] .hub-empty,
+:root[data-theme='dark'] .hub-page[data-section] .hub-callpanel,
+:root[data-theme='dark'] .hub-page[data-section] .hub-callmini,
+:root[data-theme='dark'] .hub-page[data-section] .hub-player,
+:root[data-theme='dark'] .hub-page[data-section] .crud-section,
+:root[data-theme='dark'] .hub-page[data-section] .dash-header,
+:root[data-theme='dark'] .hub-page[data-section] .dash-filter-card,
+:root[data-theme='dark'] .hub-page[data-section] .section-head {
   background: var(--hub-surface);
   border: 1px solid var(--hub-border);
   border-radius: var(--hub-r-lg);
   box-shadow: var(--hub-shadow-sm);
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-header,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .dash-filter-card,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-header,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .dash-filter-card,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head {
+:root[data-theme='dark'] .hub-page[data-section] .dash-header,
+:root[data-theme='dark'] .hub-page[data-section] .dash-filter-card,
+:root[data-theme='dark'] .hub-page[data-section] .section-head {
   padding: 20px 24px;
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .section-head-icon,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .section-head-icon {
+:root[data-theme='dark'] .hub-page[data-section] .section-head-icon {
   background: var(--hub-blue-soft);
   border-color: var(--hub-border);
 }
 
 /* --- tables / inset surfaces --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-tabbar,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-table thead th,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-progress-track,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-accordion-toggle,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-tabbar,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-table thead th {
+:root[data-theme='dark'] .hub-page[data-section] .hub-tabbar,
+:root[data-theme='dark'] .hub-page[data-section] .hub-table thead th,
+:root[data-theme='dark'] .hub-page[data-section] .hub-progress-track,
+:root[data-theme='dark'] .hub-page[data-section] .hub-accordion-toggle {
   background: var(--hub-surface-2);
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-table td,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-table th,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-table td,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-table th {
+:root[data-theme='dark'] .hub-page[data-section] .hub-table td,
+:root[data-theme='dark'] .hub-page[data-section] .hub-table th {
   border-color: var(--hub-border);
   color: var(--hub-text-soft);
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-table tbody tr:hover td,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-table tbody tr:hover td {
+:root[data-theme='dark'] .hub-page[data-section] .hub-table tbody tr:hover td {
   background: rgba(255, 255, 255, 0.04);
 }
 
 /* --- controls --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-input,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-select,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-btn,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-icon-btn,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-pill-filter,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-input,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-select,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-btn,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-icon-btn,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-pill-filter {
+:root[data-theme='dark'] .hub-page[data-section] .hub-input,
+:root[data-theme='dark'] .hub-page[data-section] .hub-select,
+:root[data-theme='dark'] .hub-page[data-section] .hub-btn,
+:root[data-theme='dark'] .hub-page[data-section] .hub-icon-btn,
+:root[data-theme='dark'] .hub-page[data-section] .hub-pill-filter {
   background: var(--hub-surface-2);
   color: var(--hub-text-soft);
   border-color: var(--hub-border);
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-btn-primary,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-pill-btn.active,
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-tab.active,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-btn-primary,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-pill-btn.active,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-tab.active {
+:root[data-theme='dark'] .hub-page[data-section] .hub-btn-primary,
+:root[data-theme='dark'] .hub-page[data-section] .hub-pill-btn.active,
+:root[data-theme='dark'] .hub-page[data-section] .hub-tab.active {
   color: #fff;
 }
-:root[data-theme='dark'] .hub-page[data-section='sales'] .hub-tab,
-:root[data-theme='dark'] .hub-page[data-section='marketing'] .hub-tab {
+:root[data-theme='dark'] .hub-page[data-section] .hub-tab {
   color: var(--hub-muted);
 }
 
 /* --- legacy inline-styled wrappers (Leads / Calls / Customer / Pipeline /
-   Marketing Mini tiles): catch common class-name shapes + inset off-white. --- */
-:root[data-theme='dark'] .hub-page[data-section='sales'] [class*='panel'],
-:root[data-theme='dark'] .hub-page[data-section='sales'] [class*='Panel'],
-:root[data-theme='dark'] .hub-page[data-section='sales'] [class*='board'],
-:root[data-theme='dark'] .hub-page[data-section='sales'] [class*='Board'],
-:root[data-theme='dark'] .hub-page[data-section='marketing'] [class*='panel'],
-:root[data-theme='dark'] .hub-page[data-section='marketing'] [class*='Panel'] {
+   Marketing Mini tiles / etc.): catch common class-name shapes + inset
+   off-white. --- */
+:root[data-theme='dark'] .hub-page[data-section] [class*='panel'],
+:root[data-theme='dark'] .hub-page[data-section] [class*='Panel'],
+:root[data-theme='dark'] .hub-page[data-section] [class*='board'],
+:root[data-theme='dark'] .hub-page[data-section] [class*='Board'] {
   background: var(--hub-surface);
   border-color: var(--hub-border);
   color: var(--hub-text-soft);
@@ -491,6 +448,10 @@
   --sales-text-primary: #ffffff;
   --sales-text-secondary: #a3a3a3;
   --sales-border: rgba(255, 255, 255, 0.4);
+  /* The base rule hardcodes background:#ffffff instead of using
+     var(--sales-page-bg) — override it here so dark mode isn't left with a
+     white frame around every Sales tab (Leads/Customers/Calls/Pipeline/…). */
+  background: var(--sales-page-bg) !important;
 }
 
 :root[data-palette='dark'] .hub-page[data-section='sales'] .hub-card,

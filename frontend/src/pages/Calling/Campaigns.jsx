@@ -521,7 +521,7 @@ function CampaignDetail({ campaign, meta, onBack, onAction }) {
                           });
                           if (r?.success) {
                             if (r.result?.tel) openTel(r.result.tel);
-                            // bridged (cloud provider): the provider rings the agent's phone — nothing to open.
+                            // bridged (cloud provider): the provider rings the customer first — nothing to open.
                             load(page);
                           } else {
                             window.alert(r?.message || "Could not start the call.");
