@@ -6,6 +6,7 @@ const { calculate } = require('../../../helpers');
 const { increaseBySettingKey } = require('../../../middlewares/settings');
 const { notify } = require('../../../notify');
 const schema = require('./schemaValidate');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const create = async (req, res) => {
   let body = req.body;
@@ -64,21 +65,26 @@ const create = async (req, res) => {
     settingKey: 'last_invoice_number',
   });
 
+  // client is a plain ref now (Client=salesDb, Invoice=financeDb —
+  // autopopulate can't cross databases) — hydrate manually so both the
+  // notification title and the response keep seeing a populated client.
+  const hydratedResult = await hydrateClientAndAdmin(updateResult);
+
   notify({
     audience: 'management',
     actorId: req.admin._id,
     actorName: req.admin.name,
     module: 'Invoices',
     type: 'invoice.created',
-    title: `New invoice for ${updateResult.client?.name || 'a client'}`,
-    body: `Total ${updateResult.currency} ${updateResult.total}`,
+    title: `New invoice for ${hydratedResult.client?.name || 'a client'}`,
+    body: `Total ${hydratedResult.currency} ${hydratedResult.total}`,
     link: '/invoice',
   });
 
   // Returning successfull response
   return res.status(200).json({
     success: true,
-    result: updateResult,
+    result: hydratedResult,
     message: 'Invoice created successfully',
   });
 };

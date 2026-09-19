@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES } = require('../../../config/roles');
 const { stageForStatus } = require('../../../config/leadStages');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const RANGE_DAYS = { '1W': 7, '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -70,15 +71,19 @@ const summary = async (req, res) => {
     return true;
   };
 
-  const rawPayments = await Payment.find({ removed: false, created: { $gte: since } })
+  // createdBy (Admin, coreDb) is a plain ref now on both Payment (financeDb)
+  // and Client (salesDb) — autopopulate/.populate() can't cross databases —
+  // hydrated manually right after each fetch, same {_id, name} shape as before.
+  const rawPaymentsUnhydrated = await Payment.find({ removed: false, created: { $gte: since } })
     .select('amount createdBy created')
     .lean();
+  const rawPayments = await hydrateClientAndAdmin(rawPaymentsUnhydrated, { adminSelect: 'name' });
   const payments = rawPayments.filter((p) => inScope(p.createdBy?.name));
 
-  const rawClients = await Client.find({ removed: false, created: { $gte: since } })
+  const rawClientsUnhydrated = await Client.find({ removed: false, created: { $gte: since } })
     .select('createdBy created')
-    .populate('createdBy', 'name')
     .lean();
+  const rawClients = await hydrateClientAndAdmin(rawClientsUnhydrated, { adminSelect: 'name' });
   const clients = rawClients.filter((c) => inScope(c.createdBy?.name));
 
   const agentNames = scopeAgent

@@ -6,6 +6,7 @@ const custom = require('../../pdfController');
 
 const { calculate } = require('../../../helpers');
 const schema = require('./schemaValidate');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const update = async (req, res) => {
   let body = req.body;
@@ -73,9 +74,13 @@ const update = async (req, res) => {
 
   // Returning successfull response
 
+  // client is a plain ref now — hydrate manually (see
+  // services/finance/hydrateClientAndAdmin.js) so response shape is unchanged.
+  const hydratedResult = await hydrateClientAndAdmin(result);
+
   return res.status(200).json({
     success: true,
-    result,
+    result: hydratedResult,
     message: 'we update this document ',
   });
 };

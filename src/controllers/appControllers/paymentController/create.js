@@ -7,6 +7,7 @@ const custom = require('../../pdfController');
 const { calculate } = require('../../../helpers');
 const { increaseBySettingKey } = require('../../../middlewares/settings');
 const { notify } = require('../../../notify');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const create = async (req, res) => {
   // Creating a new document in the collection
@@ -93,9 +94,14 @@ const create = async (req, res) => {
     link: '/payment',
   });
 
+  // client/createdBy are plain refs now (Client=salesDb, Admin=coreDb,
+  // Payment=financeDb — autopopulate can't cross databases), hydrate them
+  // manually so the response shape is unchanged.
+  const hydratedResult = await hydrateClientAndAdmin(updatePath);
+
   return res.status(200).json({
     success: true,
-    result: updatePath,
+    result: hydratedResult,
     message: 'Payment Invoice created successfully',
   });
 };

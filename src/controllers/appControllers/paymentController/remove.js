@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const Model = mongoose.model('Payment');
 const Invoice = mongoose.model('Invoice');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const remove = async (req, res) => {
   // Find document by id and updates with the required fields
@@ -58,9 +59,13 @@ const remove = async (req, res) => {
     }
   ).exec();
 
+  // client/createdBy are plain refs now — hydrate manually (see
+  // services/finance/hydrateClientAndAdmin.js) so response shape is unchanged.
+  const hydratedResult = await hydrateClientAndAdmin(result);
+
   return res.status(200).json({
     success: true,
-    result,
+    result: hydratedResult,
     message: 'Successfully Deleted the document ',
   });
 };
