@@ -1,17 +1,7 @@
 'use client';
 
-import type { CSSProperties } from 'react';
-import { motion, type Transition } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-
-type BorderTrailProps = {
-  className?: string;
-  size?: number;
-  transition?: Transition;
-  delay?: number;
-  onAnimationComplete?: () => void;
-  style?: CSSProperties;
-};
 
 export function BorderTrail({
   className,
@@ -20,8 +10,8 @@ export function BorderTrail({
   delay,
   onAnimationComplete,
   style,
-}: BorderTrailProps) {
-  const baseTransition: Transition = {
+}) {
+  const baseTransition = {
     repeat: Infinity,
     duration: 5,
     ease: 'linear',

@@ -29,6 +29,14 @@ const LmsStudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
 const LmsLiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const LmsRecordings = lazy(() => import('@/pages/Lms/Recordings'));
 const LmsAttendance = lazy(() => import('@/pages/Lms/Attendance'));
+const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
+const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
+// Basic/Major/Micro Test entries from the reference nav's dropdown picker.
+const LmsBasicTest = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.BasicTest })));
+const LmsMajorTestPythonSql = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestPythonSql })));
+const LmsMajorTestNlp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestNlp })));
+const LmsMicroTestSqlDb = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestSqlDb })));
+const LmsMicroTestNlpSerp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestNlpSerp })));
 const EMBED = {
   teamChat: TeamChat,
   leads: Leads,
@@ -41,6 +49,13 @@ const EMBED = {
   lmsLiveClasses: LmsLiveClasses,
   lmsRecordings: LmsRecordings,
   lmsAttendance: LmsAttendance,
+  lmsCurriculum: LmsCurriculum,
+  lmsAttemptsAdmin: LmsAttemptsAdmin,
+  lmsBasicTest: LmsBasicTest,
+  lmsMajorTestPythonSql: LmsMajorTestPythonSql,
+  lmsMajorTestNlp: LmsMajorTestNlp,
+  lmsMicroTestSqlDb: LmsMicroTestSqlDb,
+  lmsMicroTestNlpSerp: LmsMicroTestNlpSerp,
 };
 
 /**
@@ -73,14 +88,16 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
   const TabIcon = tab.Icon;
 
   // Analytics-shell tabs carry their own dark header card (<DashboardHeader>),
-  // so the section-head breadcrumb would just be a redundant second title —
-  // hide it there and let the dashboard be the top element (matches the
-  // standalone Executive Overview at "/").
-  const isDashboardTab = !!tab.dashboard || tab.embed === 'salesDashboard';
+  // and every LMS embed renders its own <PageHeading>/`.lms-portal-head` —
+  // so the section-head breadcrumb + generic section blurb would just be a
+  // redundant second title stacked above it. Hide it there and let the
+  // embed's own header be the top element (matches the standalone Executive
+  // Overview at "/").
+  const hasOwnHeader = !!tab.dashboard || tab.embed === 'salesDashboard' || (typeof tab.embed === 'string' && tab.embed.startsWith('lms'));
 
   return (
     <div className="hub-page" data-section={section.key}>
-      {!isDashboardTab && (
+      {!hasOwnHeader && (
         <div className="section-head">
           <div className="section-head-icon">{SectionIcon ? <SectionIcon /> : null}</div>
           <div className="section-head-text">

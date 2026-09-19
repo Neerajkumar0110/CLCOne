@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Drawer, Space, Empty,
-  Skeleton, message, Typography, Radio, Progress, Result, List, Divider, Statistic,
+  Card, Table, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Drawer, Space, Empty,
+  Skeleton, message, Typography, Radio, Progress, Result, List, Divider, Statistic, Alert,
 } from 'antd';
-import { PlusOutlined, FormOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, FormOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
+import ProctorGate from '../components/ProctorGate';
+import { PageHeading, StatusPill, tablePagination } from '../components/ui';
 
 const { Text, Paragraph, Title } = Typography;
 const QTYPES = [
@@ -120,10 +122,12 @@ function TeacherQuizzes() {
 
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div><h2><FormOutlined /> Quizzes & Exams</h2><p>Build, publish, and grade.</p></div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openQuizEditor(null)} disabled={!courses.length}>New quiz</Button>
-      </div>
+      <PageHeading
+        icon={<FormOutlined />}
+        title="Quizzes & Exams"
+        description="Build, publish, and grade your course quizzes and exams."
+        actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => openQuizEditor(null)} disabled={!courses.length}>New quiz</Button>}
+      />
 
       {rows.length === 0 ? (
         <Card><Empty description={courses.length ? 'No quizzes yet.' : 'You have no courses assigned.'} /></Card>
@@ -131,15 +135,16 @@ function TeacherQuizzes() {
         <Table
           rowKey="id"
           dataSource={rows}
-          pagination={false}
+          scroll={{ x: 'max-content' }}
+          pagination={tablePagination({ pageSize: 10 })}
           columns={[
-            { title: 'Title', dataIndex: 'title' },
-            { title: 'Type', dataIndex: 'type', render: (t) => <Tag>{t}</Tag> },
-            { title: 'Qs', dataIndex: 'questions', width: 60 },
-            { title: 'Attempts', dataIndex: 'attempts', width: 90 },
-            { title: 'Avg %', dataIndex: 'avgPercent', width: 80 },
-            { title: 'Pass %', dataIndex: 'passingPercent', width: 80 },
-            { title: 'Status', dataIndex: 'published', render: (p) => <Tag color={p ? 'green' : 'default'}>{p ? 'Published' : 'Draft'}</Tag> },
+            { title: 'Title', dataIndex: 'title', fixed: 'left', width: 220, render: (v) => <Text strong>{v}</Text> },
+            { title: 'Type', dataIndex: 'type', width: 100, render: (t) => <StatusPill tone="info">{t}</StatusPill> },
+            { title: 'Qs', dataIndex: 'questions', width: 60, align: 'center' },
+            { title: 'Attempts', dataIndex: 'attempts', width: 90, align: 'center' },
+            { title: 'Avg %', dataIndex: 'avgPercent', width: 80, align: 'center' },
+            { title: 'Pass %', dataIndex: 'passingPercent', width: 80, align: 'center' },
+            { title: 'Status', dataIndex: 'published', width: 110, render: (p) => <StatusPill tone={p ? 'success' : 'neutral'}>{p ? 'Published' : 'Draft'}</StatusPill> },
             {
               title: '', width: 260, render: (_, r) => (
                 <Space>
@@ -193,7 +198,7 @@ function TeacherQuizzes() {
                 <Button key="d" size="small" danger icon={<DeleteOutlined />} onClick={async () => { await lmsApi.deleteQuestion(q.id); openQuestions(qDrawer); load(); }} />,
               ]}>
                 <List.Item.Meta
-                  title={<span>{i + 1}. {q.text} <Tag>{q.type}</Tag><Tag>{q.marks} mk</Tag></span>}
+                  title={<span>{i + 1}. {q.text} <StatusPill tone="info">{q.type}</StatusPill> <StatusPill tone="neutral">{q.marks} mk</StatusPill></span>}
                   description={
                     ['mcq', 'multiple', 'truefalse'].includes(q.type)
                       ? (q.options || []).map((o) => `${o.correct ? '✓ ' : ''}${o.text}`).join('   ·   ')
@@ -264,14 +269,14 @@ function TeacherQuizzes() {
             rowKey="id"
             size="small"
             dataSource={results.attempts}
-            pagination={false}
+            pagination={results.attempts.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
             locale={{ emptyText: 'No attempts yet' }}
             columns={[
               { title: 'Student', dataIndex: 'studentName' },
               { title: 'Score', render: (_, r) => `${r.totalScore}/${r.maxScore}` },
               { title: '%', dataIndex: 'percent', width: 60 },
-              { title: 'Result', render: (_, r) => <Tag color={r.passed ? 'green' : 'red'}>{r.passed ? 'PASS' : 'FAIL'}</Tag> },
-              { title: 'Status', dataIndex: 'status', render: (s, r) => r.needsManual ? <Tag color="orange">needs grading</Tag> : <Tag>{s}</Tag> },
+              { title: 'Result', render: (_, r) => <StatusPill tone={r.passed ? 'success' : 'danger'}>{r.passed ? 'PASS' : 'FAIL'}</StatusPill> },
+              { title: 'Status', dataIndex: 'status', render: (s, r) => r.needsManual ? <StatusPill tone="warning">needs grading</StatusPill> : <StatusPill tone="neutral">{s}</StatusPill> },
               { title: '', render: (_, r) => <Button size="small" onClick={() => openGrade(r)}>{r.needsManual ? 'Grade' : 'View'}</Button> },
             ]}
           />
@@ -283,7 +288,7 @@ function TeacherQuizzes() {
           <Form form={gradeForm} layout="vertical" preserve={false}>
             {(gradeAtt.answers || []).map((a, i) => (
               <Card key={i} size="small" style={{ marginBottom: 8 }}>
-                <b>{a.question}</b> <Tag>{a.type}</Tag> <Tag>max {a.marks}</Tag>
+                <b>{a.question}</b> <StatusPill tone="info">{a.type}</StatusPill> <StatusPill tone="neutral">max {a.marks}</StatusPill>
                 <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 8, borderRadius: 6, marginTop: 6 }}>
                   {Array.isArray(a.yourAnswer) ? a.yourAnswer.join(', ') : (a.yourAnswer || <i>— blank —</i>)}
                 </Paragraph>
@@ -308,6 +313,8 @@ function StudentQuizzes() {
   const [result, setResult] = useState(null);
   const [remaining, setRemaining] = useState(null);
   const timer = useRef(null);
+  const [proctorFor, setProctorFor] = useState(null); // row awaiting camera/mic check
+  const [violations, setViolations] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -328,12 +335,46 @@ function StudentQuizzes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runner]);
 
+  // Proctoring: flag tab switches / window blur while a test is in progress,
+  // same event taxonomy + 1s debounce as a server-reported proctor session
+  // (TAB_SWITCH, WINDOW_BLUR); after 3 warnings the attempt is auto-submitted,
+  // mirroring an onSuspended callback. All client-side — no backend call yet.
+  useEffect(() => {
+    if (!runner) return;
+    let lastReport = 0;
+    let suspended = false;
+    const report = () => {
+      if (suspended) return;
+      const now = Date.now();
+      if (now - lastReport < 1000) return;
+      lastReport = now;
+      setViolations((v) => {
+        const next = v + 1;
+        if (next >= 3) {
+          suspended = true;
+          message.warning('Too many violations — this attempt has been submitted.');
+          submit();
+        }
+        return next;
+      });
+    };
+    const onVis = () => { if (document.visibilityState === 'hidden') report(); };
+    const onBlur = () => { if (!document.hidden) report(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('blur', onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runner]);
+
   const start = async (row) => {
     try {
       const res = await lmsApi.startQuiz(row.id);
       const r = (res && res.result) || null;
       if (!r) return;
-      setRunner(r); setAnswers({}); setResult(null);
+      setRunner(r); setAnswers({}); setResult(null); setViolations(0);
     } catch (e) {
       message.error(e?.response?.data?.message || 'Could not start.');
       load();
@@ -374,8 +415,17 @@ function StudentQuizzes() {
           <div><h2>{runner.quiz.title}</h2><Text type="secondary">{runner.questions.length} questions</Text></div>
           {remaining != null && <Statistic title="Time left" value={`${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`} />}
         </div>
+        {violations > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<WarningOutlined />}
+            style={{ marginBottom: 10 }}
+            message={`Tab switch detected (${violations}) — this is flagged for the teacher.`}
+          />
+        )}
         {runner.questions.map((q, i) => (
-          <Card key={q.id} size="small" style={{ marginBottom: 10 }} title={<span>{i + 1}. {q.text} <Tag>{q.marks} mk</Tag></span>}>
+          <Card key={q.id} size="small" style={{ marginBottom: 10 }} title={<span>{i + 1}. {q.text} <StatusPill tone="neutral">{q.marks} mk</StatusPill></span>}>
             {q.type === 'mcq' || q.type === 'truefalse' ? (
               <Radio.Group
                 onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: { chosen: [e.target.value] } }))}
@@ -416,7 +466,7 @@ function StudentQuizzes() {
         />
         {result.full && (result.answers || []).map((a, i) => (
           <Card key={i} size="small" style={{ marginBottom: 8 }}>
-            <b>{a.question}</b> <Tag color={a.correct ? 'green' : a.correct === false ? 'red' : 'default'}>{a.awarded}/{a.marks}</Tag>
+            <b>{a.question}</b> <StatusPill tone={a.correct ? 'success' : a.correct === false ? 'danger' : 'neutral'}>{a.awarded}/{a.marks}</StatusPill>
             <div style={{ marginTop: 4 }}><Text type="secondary">Your answer: </Text>{Array.isArray(a.yourAnswer) ? a.yourAnswer.join(', ') : (a.yourAnswer || '—')}</div>
             {a.correctAnswer && <div><Text type="secondary">Correct: </Text>{Array.isArray(a.correctAnswer) ? a.correctAnswer.join(', ') : a.correctAnswer}</div>}
             {a.explanation && <Paragraph type="secondary" style={{ marginTop: 4 }}>{a.explanation}</Paragraph>}
@@ -429,36 +479,49 @@ function StudentQuizzes() {
   // ---- list ----
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><FormOutlined /> Quizzes</h2><p>Take quizzes and review results.</p></div></div>
+      <PageHeading icon={<FormOutlined />} title="Quizzes" description="Take quizzes and review your results." />
       {rows.length === 0 ? (
         <Card><Empty description="No quizzes yet." /></Card>
       ) : (
-        rows.map((r) => {
-          const attemptsLeft = (r.attemptsAllowed || 1) - (r.attemptsUsed || 0);
-          return (
-            <Card key={r.id} size="small" style={{ marginBottom: 12 }}
-              title={<Space><b>{r.title}</b><Tag>{r.course}</Tag><Tag>{r.type}</Tag></Space>}
-              extra={<Text type="secondary">{r.questions} Qs{r.timeLimitMin ? ` · ${r.timeLimitMin} min` : ''} · pass {r.passingPercent}%</Text>}>
-              <Space wrap>
-                {r.lastResult && <Tag color={r.lastResult.passed ? 'green' : 'red'}>Last: {r.lastResult.percent}% {r.lastResult.status === 'submitted' ? '(pending)' : ''}</Tag>}
-                <Text type="secondary">Attempts left: {Math.max(0, attemptsLeft)}</Text>
-              </Space>
-              <div style={{ marginTop: 10 }}>
-                <Space>
-                  {r.inProgressAttemptId ? (
-                    <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => start(r)}>Resume</Button>
-                  ) : (
-                    <Button type="primary" icon={<PlayCircleOutlined />} disabled={attemptsLeft <= 0} onClick={() => start(r)}>
-                      {r.attemptsUsed > 0 ? 'Retake' : 'Start'}
-                    </Button>
+        <List
+          dataSource={rows}
+          pagination={rows.length > 8 ? { pageSize: 8, align: 'center' } : false}
+          renderItem={(r) => {
+            const attemptsLeft = (r.attemptsAllowed || 1) - (r.attemptsUsed || 0);
+            return (
+              <Card size="small" style={{ marginBottom: 12 }}
+                title={<Space wrap><b>{r.title}</b><StatusPill tone="info">{r.course}</StatusPill><StatusPill tone="neutral">{r.type}</StatusPill></Space>}
+                extra={<Text type="secondary">{r.questions} Qs{r.timeLimitMin ? ` · ${r.timeLimitMin} min` : ''} · pass {r.passingPercent}%</Text>}>
+                <Space wrap>
+                  {r.lastResult && (
+                    <StatusPill tone={r.lastResult.passed ? 'success' : 'danger'}>
+                      Last: {r.lastResult.percent}% {r.lastResult.status === 'submitted' ? '(pending)' : ''}
+                    </StatusPill>
                   )}
-                  {r.lastResult && <Button onClick={() => viewResult(r.lastResult.attemptId)}>View result</Button>}
+                  <Text type="secondary">Attempts left: {Math.max(0, attemptsLeft)}</Text>
                 </Space>
-              </div>
-            </Card>
-          );
-        })
+                <div style={{ marginTop: 10 }}>
+                  <Space>
+                    {r.inProgressAttemptId ? (
+                      <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setProctorFor(r)}>Resume</Button>
+                    ) : (
+                      <Button type="primary" icon={<PlayCircleOutlined />} disabled={attemptsLeft <= 0} onClick={() => setProctorFor(r)}>
+                        {r.attemptsUsed > 0 ? 'Retake' : 'Start'}
+                      </Button>
+                    )}
+                    {r.lastResult && <Button onClick={() => viewResult(r.lastResult.attemptId)}>View result</Button>}
+                  </Space>
+                </div>
+              </Card>
+            );
+          }}
+        />
       )}
+      <ProctorGate
+        open={!!proctorFor}
+        onCancel={() => setProctorFor(null)}
+        onReady={() => { const row = proctorFor; setProctorFor(null); start(row); }}
+      />
     </div>
   );
 }
