@@ -1,2 +1,5 @@
 
 *.env.bak*
+db-backups/
+vps-backups/
+.DS_Store

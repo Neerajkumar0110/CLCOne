@@ -74,6 +74,11 @@ try {
   // (plain local `node src/server.js`, no bundler involved).
   const unwrap = (mod) => (mod && typeof mod === 'object' && 'default' in mod ? mod.default : mod);
 
+  // Routes every model to its own per-module database (salesDb, marketingDb,
+  // lmsDb, financeDb, hrmsDb, operationDb, coreDb) within this same cluster —
+  // must run before any model below registers itself.
+  unwrap(require('../src/config/multiDb')).installMultiDbRouting();
+
   const models = {
     Call: unwrap(require('../src/models/appModels/Call')),
     CaptureFormConfig: unwrap(require('../src/models/appModels/CaptureFormConfig')),

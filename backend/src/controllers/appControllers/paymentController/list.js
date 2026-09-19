@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 // GET /api/payment/list?page=&items=&q= — overrides the generic
 // paginatedList (single filter/equal field only) so the Payments page can
@@ -33,10 +34,14 @@ const list = async (req, res) => {
     match.$or = or;
   }
 
-  const [result, count] = await Promise.all([
+  const [rawResult, count] = await Promise.all([
     Model.find(match).sort({ created: -1 }).skip(skip).limit(limit).exec(),
     Model.countDocuments(match),
   ]);
+
+  // client/createdBy are plain refs now — hydrate manually (see
+  // services/finance/hydrateClientAndAdmin.js) so response shape is unchanged.
+  const result = await hydrateClientAndAdmin(rawResult);
 
   const pagination = { page, pages: Math.ceil(count / limit) || 1, count };
 

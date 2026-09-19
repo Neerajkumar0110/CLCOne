@@ -37,6 +37,11 @@ if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
 
 mongoose.connect(process.env.DATABASE);
 
+// Routes every model to its own per-module database (salesDb, marketingDb,
+// lmsDb, financeDb, hrmsDb, operationDb, coreDb) within this same cluster —
+// must run before any model file below registers itself.
+require('./config/multiDb').installMultiDbRouting();
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 mongoose.connection.on('error', (error) => {

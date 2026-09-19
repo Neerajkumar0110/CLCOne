@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 // GET /api/invoice/list?page=&items=&status=&q= — overrides the generic
 // paginatedList (single filter/equal field only) so the Invoices page can
@@ -34,10 +35,15 @@ const list = async (req, res) => {
 
   const sortDir = req.query.sort === 'asc' ? 1 : -1;
 
-  const [result, count] = await Promise.all([
-    Model.find(match).sort({ created: sortDir }).skip(skip).limit(limit).populate('createdBy', 'name').exec(),
+  const [rawResult, count] = await Promise.all([
+    Model.find(match).sort({ created: sortDir }).skip(skip).limit(limit).exec(),
     Model.countDocuments(match),
   ]);
+
+  // createdBy (Admin, coreDb) and client (Client, salesDb) are plain refs
+  // now — Invoice is financeDb, so autopopulate/.populate() can't cross
+  // databases. Hydrate both manually so response shape is unchanged.
+  const result = await hydrateClientAndAdmin(rawResult, { adminSelect: 'name' });
 
   const pagination = { page, pages: Math.ceil(count / limit) || 1, count };
 

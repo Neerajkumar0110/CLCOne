@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES } = require('../../../config/roles');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 
@@ -67,16 +68,18 @@ const summary = async (req, res) => {
   const calls = await Call.find(callMatch).select('status duration calledBy created').lean();
 
   // ---- Payments — real per-agent revenue. Payment has no team field of its
-  // own (createdBy is autopopulated with the Admin doc — see Payment model),
-  // so team scoping is applied here in JS against that team's member list
-  // rather than in the query. ----
+  // own, so team scoping is applied here in JS against that team's member
+  // list rather than in the query. createdBy (Admin, coreDb) is a plain ref
+  // now — Payment is financeDb, autopopulate can't cross databases — so it's
+  // hydrated manually right after the fetch, same {_id, name} shape as before. ----
   const memberSet = scopeTeam
     ? new Set((allTeams.find((t) => t.name === scopeTeam) || {}).members || [])
     : null;
 
-  const rawPayments = await Payment.find({ removed: false, created: { $gte: since } })
+  const rawPaymentsUnhydrated = await Payment.find({ removed: false, created: { $gte: since } })
     .select('amount createdBy created')
     .lean();
+  const rawPayments = await hydrateClientAndAdmin(rawPaymentsUnhydrated, { adminSelect: 'name' });
 
   const payments = rawPayments.filter((p) => {
     const name = p.createdBy?.name;

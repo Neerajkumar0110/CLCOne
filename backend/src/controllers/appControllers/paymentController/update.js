@@ -5,6 +5,7 @@ const Invoice = mongoose.model('Invoice');
 const custom = require('../../pdfController');
 
 const { calculate } = require('../../../helpers');
+const { hydrateClientAndAdmin } = require('../../../services/finance/hydrateClientAndAdmin');
 
 const update = async (req, res) => {
   if (req.body.amount === 0) {
@@ -76,9 +77,13 @@ const update = async (req, res) => {
     }
   ).exec();
 
+  // client/createdBy are plain refs now — hydrate manually (see
+  // services/finance/hydrateClientAndAdmin.js) so response shape is unchanged.
+  const hydratedResult = await hydrateClientAndAdmin(result);
+
   return res.status(200).json({
     success: true,
-    result,
+    result: hydratedResult,
     message: 'Successfully updated the Payment ',
   });
 };

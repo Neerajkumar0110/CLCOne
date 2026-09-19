@@ -6,7 +6,13 @@ const paymentSchema = new mongoose.Schema({
     default: false,
   },
 
-  createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin', autopopulate: true, required: true },
+  // Admin lives in coreDb and Client in salesDb, Payment in financeDb —
+  // mongoose-autopopulate can't follow a ref across databases (it would
+  // throw MissingSchemaError), so these stay plain unpopulated refs. See
+  // services/finance/hydrateClientAndAdmin.js for the manual two-step
+  // lookup that replaces it. `invoice` below stays autopopulate: true since
+  // Invoice is also in financeDb — same-database populate is unaffected.
+  createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
   number: {
     type: Number,
     required: true,
@@ -14,7 +20,6 @@ const paymentSchema = new mongoose.Schema({
   client: {
     type: mongoose.Schema.ObjectId,
     ref: 'Client',
-    autopopulate: true,
     required: true,
   },
   invoice: {

@@ -28,11 +28,14 @@ const invoiceSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  // Client lives in salesDb, Invoice in financeDb — mongoose-autopopulate
+  // can't follow a ref across databases (it would throw MissingSchemaError),
+  // so this stays a plain unpopulated ref. See services/finance/
+  // hydrateClientAndAdmin.js for the manual two-step lookup that replaces it.
   client: {
     type: mongoose.Schema.ObjectId,
     ref: 'Client',
     required: true,
-    autopopulate: true,
   },
   converted: {
     from: {

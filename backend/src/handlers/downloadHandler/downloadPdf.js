@@ -1,10 +1,15 @@
 const custom = require('../../controllers/pdfController');
 const mongoose = require('mongoose');
+const { DB_MAP } = require('../../config/multiDb');
 
 module.exports = downloadPdf = async (req, res, { directory, id }) => {
   try {
     const modelName = directory.slice(0, 1).toUpperCase() + directory.slice(1);
-    if (mongoose.models[modelName]) {
+    // `mongoose.models[...]` only ever reflects the default connection's
+    // registry — every model now lives on its own per-module connection
+    // (see config/multiDb.js), so check DB_MAP instead of the (now always
+    // empty) default registry.
+    if (DB_MAP[modelName]) {
       const Model = mongoose.model(modelName);
       const result = await Model.findOne({
         _id: id,
