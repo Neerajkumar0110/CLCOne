@@ -216,7 +216,7 @@ class TelephonyProvider extends CallingProvider {
   // consistent even if the CRM was briefly down when an event arrived.
   async tick() {
     try {
-      const { replayFailed } = require('../../controllers/appControllers/telephonyController');
+      const { replayFailed } = require('../../controllers/appControllers/operation/telephonyController/index');
       const r = await replayFailed(15);
       return { advanced: r.fixed || 0 };
     } catch (e) {

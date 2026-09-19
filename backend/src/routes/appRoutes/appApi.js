@@ -105,14 +105,14 @@ router.route('/about/info').get(catchErrors(appControllers.aboutController.info)
 // .default fallback: Vercel's Rolldown build lazy-wraps local requires (see
 // the note in backend/api/index.js) — reading `.default` unwraps it; on a
 // plain Node run `.default` is undefined and we use the module as-is.
-const presenceControllerMod = require('../../controllers/appControllers/presenceController');
+const presenceControllerMod = require('../../controllers/appControllers/operation/presenceController/index');
 const presenceController = presenceControllerMod.default || presenceControllerMod;
 router.route('/presence/ping').post(catchErrors(presenceController.ping));
 
 // Sales B2B/B2C combined dashboard — aggregates Lead/Call/CallRecord scoped
 // to teams matching a "System" filter (Team.businessType/region/systemType),
 // + manual monthly cost rows (SalesCost) for the CAC / ROI ratios.
-const salesDashMod = require('../../controllers/appControllers/salesDashboardController');
+const salesDashMod = require('../../controllers/appControllers/sales/salesDashboardController/index');
 const salesDash = salesDashMod.default || salesDashMod;
 router.route('/sales-dashboard/summary').get(catchErrors(salesDash.summary));
 router.route('/sales-dashboard/marketing').get(catchErrors(salesDash.marketingSummary));
@@ -125,7 +125,7 @@ router.route('/sales-dashboard/cost/:id').delete(catchErrors(salesDash.deleteCos
 // Leaves are computed from real CRM data (leads by channel/region, campaigns) or
 // from manual monthly metric rows (MarketingMetric) with ratios derived from
 // METRIC_TEMPLATES formulas. No model of its own for the aggregate reads.
-const marketingHubMod = require('../../controllers/appControllers/marketingHubController');
+const marketingHubMod = require('../../controllers/appControllers/marketing/marketingHubController/index');
 const marketingHub = marketingHubMod.default || marketingHubMod;
 router.route('/marketing-hub/tree').get(catchErrors(marketingHub.tree));
 router.route('/marketing-hub/dashboard/:key').get(catchErrors(marketingHub.dashboard));
@@ -142,7 +142,7 @@ router.route('/marketing-hub/rows/:key').get(catchErrors(marketingHub.rows));
 // leads, customers, interns, calls, deals, quotes, orders, products).
 // :module/summary returns the uniform {kpis,ratios,charts,funnel,table,facets}
 // payload; :module/rows backs the server-mode data tables (leads, calls).
-const analyticsMod = require('../../controllers/appControllers/analyticsController');
+const analyticsMod = require('../../controllers/appControllers/core/analyticsController/index');
 const analytics = analyticsMod.default || analyticsMod;
 router.route('/analytics/:module/summary').get(catchErrors(analytics.summary));
 router.route('/analytics/:module/rows').get(catchErrors(analytics.rows));
