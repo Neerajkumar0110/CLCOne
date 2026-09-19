@@ -59,6 +59,21 @@ function pathKeyFor(loc) {
   return base;
 }
 
+// Recursively builds a section's tab items — a tab may itself be a pure
+// grouping node (no route of its own, e.g. "Quizzes & Exams") whose
+// `children` render as a nested dropdown, same shape/depth as the
+// Teacher/Student sidebar in LmsPanelApp.
+function buildTabItems(sectionKey, tabs, prefix = '') {
+  return tabs.map((tab) => {
+    const TabIcon = tab.Icon;
+    const key = `${sectionKey}/${prefix}${tab.key}`;
+    const icon = TabIcon ? <TabIcon /> : undefined;
+    return tab.children
+      ? { key, icon, label: tab.label, children: buildTabItems(sectionKey, tab.children, `${prefix}${tab.key}/`) }
+      : { key, icon, label: tab.label };
+  });
+}
+
 export default function Navigation() {
   const { isMobile } = useResponsive();
 
@@ -134,14 +149,7 @@ function Sidebar({ collapsible, isMobile = false }) {
       key: section.key,
       icon: SectionIcon ? <SectionIcon /> : undefined,
       label,
-      children: section.tabs.map((tab) => {
-        const TabIcon = tab.Icon;
-        return {
-          key: `${section.key}/${tab.key}`,
-          icon: TabIcon ? <TabIcon /> : undefined,
-          label: tab.label,
-        };
-      }),
+      children: buildTabItems(section.key, section.tabs),
     };
   });
 
