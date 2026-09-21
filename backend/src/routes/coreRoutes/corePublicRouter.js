@@ -6,11 +6,11 @@ const path = require('path');
 const { isPathInside } = require('../../utils/is-path-inside');
 const { submitWebsiteLead } = require('../../controllers/corePublicControllers/websiteLead');
 const { renderLeadFormPage, leadFormConfig } = require('../../controllers/corePublicControllers/leadFormPage');
-const facebookController = require('../../controllers/appControllers/facebookController');
-const googleController = require('../../controllers/appControllers/googleController');
-const linkedinController = require('../../controllers/appControllers/linkedinController');
-const gitController = require('../../controllers/appControllers/gitConnectionController');
-const vercelController = require('../../controllers/appControllers/vercelConnectionController');
+const facebookController = require('../../controllers/appControllers/marketing/facebookController/index');
+const googleController = require('../../controllers/appControllers/marketing/googleController/index');
+const linkedinController = require('../../controllers/appControllers/marketing/linkedinController/index');
+const gitController = require('../../controllers/appControllers/operation/gitConnectionController/index');
+const vercelController = require('../../controllers/appControllers/operation/vercelConnectionController/index');
 const { catchErrors } = require('../../handlers/errorHandlers');
 
 // These three are hit by anonymous website visitors and by Meta's own

@@ -23,6 +23,13 @@ import {
   UserOutlined,
   MoonOutlined,
   SunOutlined,
+  ScheduleOutlined,
+  AuditOutlined,
+  LineChartOutlined,
+  AppstoreOutlined,
+  ProfileOutlined,
+  ExperimentOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -51,6 +58,12 @@ const Doubts = lazy(() => import('@/pages/Lms/Doubts'));
 const AnnouncementsPage = lazy(() => import('@/pages/Lms/Announcements'));
 const Certificates = lazy(() => import('@/pages/Lms/Certificates'));
 const Analytics = lazy(() => import('@/pages/Lms/Analytics'));
+const Curriculum = lazy(() => import('@/pages/Lms/Curriculum'));
+const AttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
+const Results = lazy(() => import('@/pages/Lms/Results'));
+const AssessmentRoadmap = lazy(() => import('@/pages/Lms/AssessmentRoadmap'));
+const AssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
+const TestIntro = lazy(() => import('@/pages/Lms/TestIntro'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -58,16 +71,85 @@ const ComingSoon = ({ title }) => (
   </div>
 );
 
+// "Quizzes & Exams" as one dropdown group with 3 sub-tabs — Basic (flat),
+// Major and Micro (each its own dropdown of the reference nav's 2 variants).
+// [path, label, icon, element] — a group entry carries a 5th array of
+// children of the same shape, nested to any depth.
+function quizzesGroup(base, label) {
+  return [
+    'group:quizzes', label, <FormOutlined />, null,
+    [
+      [
+        `${base}/tests/basic`,
+        'Basic',
+        <ProfileOutlined />,
+        <TestIntro testType="BASIC" icon={<ProfileOutlined />} eyebrow="Foundational Assessment" title="Basic Test" description="Multiple-choice, output-based, and short programming questions covering core fundamentals." />,
+      ],
+      [
+        'group:major-test', 'Major', <FormOutlined />, null,
+        [
+          [
+            `${base}/tests/major/python-sql`,
+            'Python Programming Foundations & SQL Basics',
+            <FormOutlined />,
+            <TestIntro testType="MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="Python Programming Foundations & SQL Basics" description="In-depth, advanced-level questions administered under full proctoring." />,
+          ],
+          [
+            `${base}/tests/major/nlp`,
+            'NLP Fundamentals & Introduction to LLMs',
+            <FormOutlined />,
+            <TestIntro testType="NLP_MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="NLP Fundamentals & Introduction to LLMs" description="Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals." />,
+          ],
+        ],
+      ],
+      [
+        'group:micro-test', 'Micro', <ExperimentOutlined />, null,
+        [
+          [
+            `${base}/tests/micro/sql-db`,
+            'SQL-Backed Keyword Database',
+            <ExperimentOutlined />,
+            <TestIntro testType="MICRO" icon={<ExperimentOutlined />} eyebrow="Applied Project" title="Micro Test — SQL-Backed Keyword Database" description="Design and query a SQL-backed keyword database." />,
+          ],
+          [
+            `${base}/tests/micro/nlp-serp`,
+            'NLP on a SERP Dataset',
+            <ExperimentOutlined />,
+            <TestIntro testType="NLP_MICRO" icon={<ExperimentOutlined />} eyebrow="Applied Project" title="Micro Test — NLP on a SERP Dataset" description="Given 20 scraped article titles: extract keywords, classify intent, output ranked report." />,
+          ],
+        ],
+      ],
+    ],
+  ];
+}
+
+// Recursively flattens nav entries into their routable leaves — a "group:"
+// entry (no route of its own) may itself contain further group entries
+// (Major/Micro nested inside Quizzes & Exams), so this recurses to any depth.
+function flattenNavLeaves(entries) {
+  return entries.flatMap((entry) => (entry[4] ? flattenNavLeaves(entry[4]) : [entry]));
+}
+
+// Recursively builds AntD Menu items, preserving nested dropdown groups.
+function buildMenuItems(entries) {
+  return entries.map(([path, label, icon, , children]) =>
+    children ? { key: path, icon, label, children: buildMenuItems(children) } : { key: path, icon, label }
+  );
+}
+
 // [path, label, icon, element]
 const TEACHER_NAV = [
   ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
+  ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   ['/teacher/courses', 'My Courses', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/teacher/students', 'Students', <TeamOutlined />, <ComingSoon title="Students" />],
   ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
-  ['/teacher/quizzes', 'Quizzes & Exams', <FormOutlined />, <Quizzes />],
+  quizzesGroup('/teacher', 'Quizzes & Exams'),
+  ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
+  ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
@@ -78,13 +160,16 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
+  ['/learn/roadmap', 'Assessment Roadmap', <AppstoreOutlined />, <AssessmentRoadmap />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/learn/calendar', 'Calendar', <CalendarOutlined />, <ComingSoon title="Calendar" />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
-  ['/learn/quizzes', 'Quizzes', <FormOutlined />, <Quizzes />],
+  quizzesGroup('/learn', 'Quizzes & Exams'),
+  ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
   ['/learn/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
   ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
@@ -110,17 +195,21 @@ export default function LmsPanelApp() {
   const isTeacher = LMS_TEACHER_ROLES.includes(admin.role);
   const base = isTeacher ? '/teacher' : '/learn';
   const nav = isTeacher ? TEACHER_NAV : STUDENT_NAV;
+  // A "group:" entry (Quizzes & Exams / Major / Micro) has no route of its
+  // own — its 5th element carries the real, routable leaf entries, to any
+  // nesting depth.
+  const leaves = useMemo(() => flattenNavLeaves(nav), [nav]);
   const collapsed = isMobile ? false : isNavMenuClose;
   const sidebarGap = isMobile ? 0 : collapsed ? 80 : 256;
 
   const selectedKey = useMemo(() => {
     // longest matching path wins so /teacher/classes doesn't select /teacher
-    const match = nav
+    const match = leaves
       .map(([p]) => p)
       .filter((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
       .sort((a, b) => b.length - a.length)[0];
     return match || base;
-  }, [location.pathname, nav, base]);
+  }, [location.pathname, leaves, base]);
 
   const go = (path) => {
     navigate(path);
@@ -175,8 +264,8 @@ export default function LmsPanelApp() {
       theme="dark"
       selectedKeys={[selectedKey]}
       inlineCollapsed={isMobile ? false : collapsed}
-      onClick={({ key }) => go(key)}
-      items={nav.map(([path, label, icon]) => ({ key: path, icon, label }))}
+      onClick={({ key }) => key.startsWith('group:') || go(key)}
+      items={buildMenuItems(nav)}
       style={{ borderRight: 0, background: 'transparent', width: '100%' }}
     />
   );
@@ -188,9 +277,12 @@ export default function LmsPanelApp() {
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {nav.map(([path, , , element]) => (
+        {leaves.map(([path, , , element]) => (
           <Route key={path} path={path} element={element} />
         ))}
+        {/* Not in the sidebar (dropped along with "All Quizzes"), but every
+            Test Intro card's "Go to Quizzes & Exams" button still points here. */}
+        <Route path={`${base}/quizzes`} element={<Quizzes />} />
         <Route path="*" element={<Navigate to={base} replace />} />
       </Routes>
     </Suspense>

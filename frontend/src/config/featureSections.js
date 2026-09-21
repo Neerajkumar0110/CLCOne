@@ -64,6 +64,11 @@ import {
   SoundOutlined,
   GiftOutlined,
   LogoutOutlined,
+  AuditOutlined,
+  ProfileOutlined,
+  ExperimentOutlined,
+  FormOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 
 /* ---- shared option lists (must match genFeatureModels.cjs) ---- */
@@ -935,6 +940,66 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsAttendance',
       },
       {
+        key: 'assessment-dashboard',
+        label: 'Assessment',
+        Icon: RocketOutlined,
+        // Ported 1:1 from the reference project's own candidate landing page
+        // ("Welcome, {name}" + the full assessment grid). Same component used
+        // on the Teacher/Student sidebars (pages/Lms/AssessmentDashboard) —
+        // an unlocked card renders its TestIntro variant in place.
+        embed: 'lmsAssessmentDashboard',
+      },
+      {
+        key: 'curriculum',
+        label: 'Curriculum Tracker',
+        Icon: ScheduleOutlined,
+        // Batch/track filter, per-unit session delivery status, backed by
+        // /api/lms/assessments/admin/curriculum/sessions. See pages/Lms/Curriculum.
+        embed: 'lmsCurriculum',
+      },
+      {
+        key: 'attempts',
+        label: 'Test Attempts',
+        Icon: AuditOutlined,
+        // Stat tiles, filters, CSV export, per-topic breakdown, backed by
+        // /api/lms/assessments/admin/{summary,attempts}. See pages/Lms/AttemptsAdmin.
+        embed: 'lmsAttemptsAdmin',
+      },
+      {
+        key: 'quizzes',
+        label: 'Quizzes & Exams',
+        Icon: FormOutlined,
+        // Reference nav's Basic/Major/Micro Test picker, as a nested dropdown
+        // (same shape as the Teacher/Student sidebar) — each opens the real,
+        // backend-wired proctored test flow. See pages/Lms/TestIntro.
+        children: [
+          {
+            key: 'basic',
+            label: 'Basic',
+            Icon: ProfileOutlined,
+            embed: 'lmsBasicTest',
+          },
+          {
+            key: 'major',
+            label: 'Major',
+            Icon: FormOutlined,
+            children: [
+              { key: 'python-sql', label: 'Python Programming Foundations & SQL Basics', Icon: FormOutlined, embed: 'lmsMajorTestPythonSql' },
+              { key: 'nlp', label: 'NLP Fundamentals & Introduction to LLMs', Icon: FormOutlined, embed: 'lmsMajorTestNlp' },
+            ],
+          },
+          {
+            key: 'micro',
+            label: 'Micro',
+            Icon: ExperimentOutlined,
+            children: [
+              { key: 'sql-db', label: 'SQL-Backed Keyword Database', Icon: ExperimentOutlined, embed: 'lmsMicroTestSqlDb' },
+              { key: 'nlp-serp', label: 'NLP on a SERP Dataset', Icon: ExperimentOutlined, embed: 'lmsMicroTestNlpSerp' },
+            ],
+          },
+        ],
+      },
+      {
         key: 'certificates',
         label: 'Certificates',
         Icon: TrophyOutlined,
@@ -1665,11 +1730,21 @@ function messengerConversationFields(handleLabel) {
   ];
 }
 
-// One route per sub-tab: /<section>/<tab>. Consumed by router/routes.jsx,
-// which also adds a /<section> -> first-tab redirect.
+// A tab may itself be a pure grouping node (no embed/entity/dashboard of its
+// own, e.g. "Quizzes & Exams") whose `children` are the real, routable
+// leaves — nested to any depth, same shape as the Teacher/Student sidebar.
+function flattenTabRoutes(tabs, prefix = '') {
+  return tabs.flatMap((tab) =>
+    tab.children ? flattenTabRoutes(tab.children, `${prefix}${tab.key}/`) : [{ segment: `${prefix}${tab.key}`, tab }]
+  );
+}
+
+// One route per leaf sub-tab: /<section>/<tab> or /<section>/<group>/<tab>
+// for a nested one. Consumed by router/routes.jsx, which also adds a
+// /<section> -> first-tab redirect.
 export const FEATURE_ROUTES = FEATURE_SECTIONS.flatMap((section) =>
-  section.tabs.map((tab) => ({
-    path: `${section.route}/${tab.key}`,
+  flattenTabRoutes(section.tabs).map(({ segment, tab }) => ({
+    path: `${section.route}/${segment}`,
     section,
     tab,
   }))
@@ -1681,11 +1756,20 @@ export function findSection(pathname) {
   return FEATURE_SECTIONS.find((s) => s.route === seg) || null;
 }
 
-// Resolve { section, tab } from a full path like '/hr/employees'.
+function findTabByParts(tabs, parts) {
+  if (!parts.length) return null;
+  const [key, ...rest] = parts;
+  const tab = tabs.find((t) => t.key === key);
+  if (!tab) return null;
+  return tab.children ? findTabByParts(tab.children, rest) : tab;
+}
+
+// Resolve { section, tab } from a full path like '/hr/employees' or the
+// nested '/lms/quizzes/major/nlp'.
 export function findFeatureTab(pathname) {
   const parts = String(pathname || '').replace(/^\//, '').split('/');
   const section = FEATURE_SECTIONS.find((s) => s.route === '/' + parts[0]);
   if (!section) return null;
-  const tab = section.tabs.find((t) => t.key === parts[1]) || section.tabs[0];
+  const tab = findTabByParts(section.tabs, parts.slice(1)) || section.tabs[0];
   return { section, tab };
 }

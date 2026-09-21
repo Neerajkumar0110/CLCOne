@@ -13,20 +13,20 @@ const adminAuth = require('./controllers/coreControllers/adminAuth');
 
 const errorHandlers = require('./handlers/errorHandlers');
 const erpApiRouter = require('./routes/appRoutes/appApi');
-const callingApiRouter = require('./routes/appRoutes/callingApi');
-const telephonyWebhookRouter = require('./routes/appRoutes/telephonyWebhookApi');
+const callingApiRouter = require('./routes/appRoutes/operation/callingApi');
+const telephonyWebhookRouter = require('./routes/appRoutes/operation/telephonyWebhookApi');
 const telephonyHmacAuth = require('./middlewares/telephonyHmacAuth');
-const cloudCallWebhookRouter = require('./routes/appRoutes/cloudCallWebhookApi');
-const lmsWebhookRouter = require('./routes/appRoutes/lmsWebhookApi');
-const lmsLivePublicRouter = require('./routes/appRoutes/lmsLivePublicApi');
-const lmsBbbWebhookRouter = require('./routes/appRoutes/lmsBbbWebhookApi');
-const lmsApiRouter = require('./routes/appRoutes/lmsApi');
+const cloudCallWebhookRouter = require('./routes/appRoutes/operation/cloudCallWebhookApi');
+const lmsWebhookRouter = require('./routes/appRoutes/lms/lmsWebhookApi');
+const lmsLivePublicRouter = require('./routes/appRoutes/lms/lmsLivePublicApi');
+const lmsBbbWebhookRouter = require('./routes/appRoutes/lms/lmsBbbWebhookApi');
+const lmsApiRouter = require('./routes/appRoutes/lms/lmsApi');
 const lmsBrowserGuard = require('./middlewares/lmsBrowserGuard');
-const facebookApiRouter = require('./routes/appRoutes/facebookApi');
-const googleApiRouter = require('./routes/appRoutes/googleApi');
-const linkedinApiRouter = require('./routes/appRoutes/linkedinApi');
-const gitApiRouter = require('./routes/appRoutes/gitApi');
-const vercelApiRouter = require('./routes/appRoutes/vercelApi');
+const facebookApiRouter = require('./routes/appRoutes/marketing/facebookApi');
+const googleApiRouter = require('./routes/appRoutes/marketing/googleApi');
+const linkedinApiRouter = require('./routes/appRoutes/marketing/linkedinApi');
+const gitApiRouter = require('./routes/appRoutes/operation/gitApi');
+const vercelApiRouter = require('./routes/appRoutes/operation/vercelApi');
 
 const fileUpload = require('express-fileupload');
 // create our Express app

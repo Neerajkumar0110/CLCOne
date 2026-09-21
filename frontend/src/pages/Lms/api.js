@@ -144,6 +144,22 @@ const lmsApi = {
   submitQuizAttempt: (id, b) => request.post({ entity: `lms/attempts/${id}/submit`, jsonData: b }),
   attemptResult: (id) => request.get({ entity: `lms/attempts/${id}/result` }),
 
+  // ── assessments (ported from the python-test-platform reference project;
+  // distinct from the generic quizzes/attempts calls above) ──────────
+  startAssessment: (testType) => request.post({ entity: `lms/assessments/start/${testType}`, jsonData: {} }),
+  submitAssessment: (attemptId, b) => request.post({ entity: `lms/assessments/${attemptId}/submit`, jsonData: b }),
+  runAssessmentCode: (code) => request.post({ entity: 'lms/assessments/run-code', jsonData: { code } }),
+  reportAssessmentProctorEvent: (attemptId, type) =>
+    request.post({ entity: `lms/assessments/${attemptId}/proctor-event`, jsonData: { type } }),
+  myAssessmentResults: () => request.get({ entity: 'lms/assessments/my-results' }),
+  assessmentBreakdown: (attemptId) => request.get({ entity: `lms/assessments/${attemptId}/breakdown` }),
+  adminAssessmentSummary: () => request.get({ entity: 'lms/assessments/admin/summary' }),
+  adminAssessmentAttempts: (f = {}) => request.get({ entity: `lms/assessments/admin/attempts${qs(f)}` }),
+  adminAssessmentReport: (attemptId) => request.get({ entity: `lms/assessments/admin/attempts/${attemptId}/report` }),
+  assessmentCurriculumSessions: (f = {}) => request.get({ entity: `lms/assessments/admin/curriculum/sessions${qs(f)}` }),
+  updateAssessmentDelivery: (sessionId, b) =>
+    request.patch({ entity: `lms/assessments/admin/curriculum/sessions/${sessionId}/delivery`, jsonData: b }),
+
   // ── doubts ─────────────────────────────────────────────────────
   doubts: (f = {}) => request.get({ entity: `lms/doubts${qs(f)}` }),
   askDoubt: (b) => request.post({ entity: 'lms/doubts', jsonData: b }),

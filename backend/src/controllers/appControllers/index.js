@@ -1,30 +1,30 @@
 const createCRUDController = require('../middlewaresControllers/createCRUDController');
 const { routesList } = require('../../models/utils');
-const callingModelGuards = require('./callingModelGuards');
+const callingModelGuards = require('./operation/callingModelGuards');
 
 // Requiring each controller by a literal path (rather than discovering
 // directories with glob + a dynamic require) so bundlers that statically
 // trace dependencies (e.g. Vercel's serverless build) include all of them.
 const controllerModules = {
-  aboutController: require('./aboutController'),
-  callController: require('./callController'),
-  clientController: require('./clientController'),
-  dashboardController: require('./dashboardController'),
-  facebookController: require('./facebookController'),
-  gitConnectionController: require('./gitConnectionController'),
-  googleController: require('./googleController'),
-  invoiceController: require('./invoiceController'),
-  leadController: require('./leadController'),
-  linkedinController: require('./linkedinController'),
-  loginActivityController: require('./loginActivityController'),
-  messageController: require('./messageController'),
-  notificationController: require('./notificationController'),
-  paymentController: require('./paymentController'),
-  performanceController: require('./performanceController'),
-  reportController: require('./reportController'),
-  teamController: require('./teamController'),
-  ticketController: require('./ticketController'),
-  vercelConnectionController: require('./vercelConnectionController'),
+  aboutController: require('./core/aboutController'),
+  callController: require('./operation/callController'),
+  clientController: require('./sales/clientController'),
+  dashboardController: require('./core/dashboardController'),
+  facebookController: require('./marketing/facebookController'),
+  gitConnectionController: require('./operation/gitConnectionController'),
+  googleController: require('./marketing/googleController'),
+  invoiceController: require('./finance/invoiceController'),
+  leadController: require('./sales/leadController'),
+  linkedinController: require('./marketing/linkedinController'),
+  loginActivityController: require('./hrms/loginActivityController'),
+  messageController: require('./operation/messageController'),
+  notificationController: require('./operation/notificationController'),
+  paymentController: require('./finance/paymentController'),
+  performanceController: require('./sales/performanceController'),
+  reportController: require('./core/reportController'),
+  teamController: require('./core/teamController'),
+  ticketController: require('./lms/ticketController'),
+  vercelConnectionController: require('./operation/vercelConnectionController'),
   ...callingModelGuards,
 };
 

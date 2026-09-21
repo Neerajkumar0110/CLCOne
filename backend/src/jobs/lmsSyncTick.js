@@ -74,7 +74,7 @@ async function drainQueue() {
 
 async function retryWebhooks() {
   const LmsWebhookEvent = mongoose.model('LmsWebhookEvent');
-  const { processEvent } = require('../controllers/appControllers/lmsController');
+  const { processEvent } = require('../controllers/appControllers/lms/lmsController/index');
   const due = await LmsWebhookEvent.find({
     status: 'failed',
     attempts: { $lt: lmsConfig.sync.maxAttempts },
