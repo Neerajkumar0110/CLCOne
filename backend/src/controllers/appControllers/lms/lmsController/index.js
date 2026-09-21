@@ -16,6 +16,7 @@ const quizzes = require('./quizzes');
 const engagement = require('./engagement');
 const certificates = require('./certificates');
 const analytics = require('./analytics');
+const assessments = require('./assessments');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -173,4 +174,18 @@ module.exports = {
   liveAnalytics: scope.analytics,
   liveSettingsGet: scope.getSettings,
   liveSettingsUpdate: scope.updateSettings,
+
+  // assessments (ported from the python-test-platform reference project) —
+  // distinct from the generic quizzes/* system above
+  assessmentStart: assessments.startTest,
+  assessmentSubmit: assessments.submitTest,
+  assessmentRunCode: assessments.runCode,
+  assessmentMyResults: assessments.getMyResults,
+  assessmentBreakdown: assessments.getAttemptBreakdown,
+  assessmentProctorEvent: assessments.logProctorEvent,
+  assessmentAdminAttempts: assessments.getAttempts,
+  assessmentAdminAttemptReport: assessments.getAttemptReport,
+  assessmentAdminSummary: assessments.getSummary,
+  assessmentCurriculumSessions: assessments.getSessions,
+  assessmentCurriculumUpdateDelivery: assessments.updateDelivery,
 };

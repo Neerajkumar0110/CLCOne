@@ -1,31 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Row, Table, Select, Input, DatePicker, InputNumber, Space, Button, Typography, message } from 'antd';
 import { AuditOutlined, DownloadOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import lmsApi from '@/pages/Lms/api';
 import KpiTile from '../components/KpiTile';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
-// UI-only mock — wire to GET /api/admin/summary, GET /api/admin/attempts and
-// GET /api/admin/attempts/:id/report once those exist. Field names
-// (studentName/testType/qualified/warningCount/...) and the breakdown shape
-// (correct/incorrect/ungraded) match that reference API 1:1.
+// Wired to GET /api/lms/assessments/admin/summary, GET .../admin/attempts and
+// GET .../admin/attempts/:id/report (ported from the python-test-platform
+// reference project).
 const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major' };
 const STATUS_TONE = { SUBMITTED: 'success', SUSPENDED: 'danger', IN_PROGRESS: 'warning' };
 const BATCHES = ['4:00 PM - 5:30 PM', '6:00 PM - 7:30 PM', '8:00 PM - 9:30 PM'];
-
-const MOCK_ATTEMPTS = [
-  { attemptId: 'a1', studentName: 'Aarav Sharma', studentEmail: 'aarav@example.com', testType: 'MAJOR', status: 'SUBMITTED', score: 41, totalCount: 50, warningCount: 0, startedAt: '2026-09-15T10:02:00Z', submittedAt: '2026-09-15T11:10:00Z', qualified: true, attemptNumber: 1, studentBatch: '4:00 PM - 5:30 PM',
-    breakdown: [{ topic: 'Components & Props', correct: 8, incorrect: 2, ungraded: 0 }, { topic: 'Hooks', correct: 6, incorrect: 2, ungraded: 0 }] },
-  { attemptId: 'a2', studentName: 'Priya Nair', studentEmail: 'priya@example.com', testType: 'MAJOR', status: 'SUBMITTED', score: 32, totalCount: 50, warningCount: 1, startedAt: '2026-09-15T09:30:00Z', submittedAt: '2026-09-15T10:35:00Z', qualified: true, attemptNumber: 1, studentBatch: '4:00 PM - 5:30 PM',
-    breakdown: [{ topic: 'Components & Props', correct: 6, incorrect: 4, ungraded: 0 }, { topic: 'Hooks', correct: 4, incorrect: 4, ungraded: 0 }] },
-  { attemptId: 'a3', studentName: 'Rohit Verma', studentEmail: 'rohit@example.com', testType: 'BASIC', status: 'SUSPENDED', score: 12, totalCount: 40, warningCount: 3, startedAt: '2026-09-14T18:05:00Z', submittedAt: null, qualified: false, attemptNumber: 1, studentBatch: '6:00 PM - 7:30 PM',
-    breakdown: [{ topic: 'Closures', correct: 2, incorrect: 6, ungraded: 0 }, { topic: 'Async/Await', correct: 2, incorrect: 4, ungraded: 0 }] },
-  { attemptId: 'a4', studentName: 'Sneha Iyer', studentEmail: 'sneha@example.com', testType: 'BASIC', status: 'SUBMITTED', score: 28, totalCount: 40, warningCount: 0, startedAt: '2026-09-13T20:00:00Z', submittedAt: '2026-09-13T20:55:00Z', qualified: true, attemptNumber: 2, studentBatch: '8:00 PM - 9:30 PM',
-    breakdown: [{ topic: 'Closures', correct: 6, incorrect: 2, ungraded: 0 }, { topic: 'Async/Await', correct: 4, incorrect: 2, ungraded: 0 }] },
-  { attemptId: 'a5', studentName: 'Karan Mehta', studentEmail: 'karan@example.com', testType: 'MICRO', status: 'IN_PROGRESS', score: null, totalCount: null, warningCount: 0, startedAt: '2026-09-16T08:00:00Z', submittedAt: null, qualified: null, attemptNumber: 1, studentBatch: '4:00 PM - 5:30 PM', breakdown: [] },
-];
 
 const DEFAULT_FILTERS = { testType: '', status: '', qualified: '', attemptNumber: '', batch: '', minScore: null, maxScore: null, search: '', range: null, sortBy: 'startedAt', sortOrder: 'desc' };
 
@@ -37,63 +25,73 @@ function toCsvValue(v) {
 export default function AttemptsAdmin() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [applied, setApplied] = useState(DEFAULT_FILTERS);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({});
   const [openReportId, setOpenReportId] = useState(null);
+  const [reports, setReports] = useState({}); // attemptId -> { loading, breakdown }
 
-  const filtered = useMemo(() => {
-    let rows = MOCK_ATTEMPTS.filter((a) => {
-      if (applied.testType && a.testType !== applied.testType) return false;
-      if (applied.status && a.status !== applied.status) return false;
-      if (applied.qualified && String(a.qualified) !== applied.qualified) return false;
-      if (applied.attemptNumber && String(a.attemptNumber) !== applied.attemptNumber) return false;
-      if (applied.batch && a.studentBatch !== applied.batch) return false;
-      if (applied.minScore != null && (a.score == null || a.score < applied.minScore)) return false;
-      if (applied.maxScore != null && (a.score == null || a.score > applied.maxScore)) return false;
-      if (applied.search) {
-        const q = applied.search.toLowerCase();
-        if (!a.studentName.toLowerCase().includes(q) && !a.studentEmail.toLowerCase().includes(q)) return false;
-      }
-      if (applied.range && applied.range[0] && applied.range[1]) {
-        const d = new Date(a.startedAt).getTime();
-        if (d < applied.range[0].startOf('day').valueOf() || d > applied.range[1].endOf('day').valueOf()) return false;
-      }
-      return true;
-    });
-    const dir = applied.sortOrder === 'asc' ? 1 : -1;
-    rows = [...rows].sort((x, y) => {
-      if (applied.sortBy === 'score') return ((x.score ?? -1) - (y.score ?? -1)) * dir;
-      if (applied.sortBy === 'submittedAt') return (new Date(x.submittedAt || 0) - new Date(y.submittedAt || 0)) * dir;
-      return (new Date(x.startedAt) - new Date(y.startedAt)) * dir;
-    });
-    return rows;
-  }, [applied]);
-
-  const summary = useMemo(() => {
-    const total = MOCK_ATTEMPTS.length;
-    const today = new Date().toISOString().slice(0, 10);
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const submitted = MOCK_ATTEMPTS.filter((a) => a.status === 'SUBMITTED');
-    const avg = submitted.length ? Math.round(submitted.reduce((s, a) => s + (a.score / a.totalCount) * 100, 0) / submitted.length) : 0;
-    const qualifiedCount = MOCK_ATTEMPTS.filter((a) => a.qualified === true).length;
-    const topicWrong = {};
-    MOCK_ATTEMPTS.forEach((a) => (a.breakdown || []).forEach((t) => { topicWrong[t.topic] = (topicWrong[t.topic] || 0) + t.incorrect; }));
-    const toughest = Object.entries(topicWrong).sort((x, y) => y[1] - x[1])[0];
-    return {
-      totalAttempts: total,
-      attemptsToday: MOCK_ATTEMPTS.filter((a) => a.startedAt.slice(0, 10) === today).length,
-      attemptsThisWeek: MOCK_ATTEMPTS.filter((a) => new Date(a.startedAt).getTime() >= weekAgo).length,
-      averageScorePercent: avg,
-      qualificationRate: submitted.length ? Math.round((qualifiedCount / submitted.length) * 100) : 0,
-      mostStruggledTopic: toughest ? { topic: toughest[0], wrongCount: toughest[1] } : null,
+  const query = useMemo(() => {
+    const q = {
+      testType: applied.testType || undefined,
+      status: applied.status || undefined,
+      qualified: applied.qualified || undefined,
+      attemptNumber: applied.attemptNumber || undefined,
+      batch: applied.batch || undefined,
+      minScore: applied.minScore ?? undefined,
+      maxScore: applied.maxScore ?? undefined,
+      search: applied.search || undefined,
+      sortBy: applied.sortBy,
+      sortOrder: applied.sortOrder,
+      page,
+      pageSize,
     };
+    if (applied.range && applied.range[0] && applied.range[1]) {
+      q.startDate = applied.range[0].startOf('day').toISOString();
+      q.endDate = applied.range[1].endOf('day').toISOString();
+    }
+    return q;
+  }, [applied, page, pageSize]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const res = await lmsApi.adminAssessmentAttempts(query);
+      if (cancelled) return;
+      const data = (res && res.result) || {};
+      setRows(data.results || []);
+      setTotal((data.pagination && data.pagination.total) || 0);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [query]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await lmsApi.adminAssessmentSummary();
+      setSummary((res && res.result) || {});
+    })();
   }, []);
 
-  const applyFilters = () => setApplied(filters);
-  const resetFilters = () => { setFilters(DEFAULT_FILTERS); setApplied(DEFAULT_FILTERS); };
+  const loadReport = async (attemptId) => {
+    if (reports[attemptId]) return;
+    setReports((prev) => ({ ...prev, [attemptId]: { loading: true, breakdown: [] } }));
+    const res = await lmsApi.adminAssessmentReport(attemptId);
+    const breakdown = (res && res.result && res.result.breakdown) || [];
+    setReports((prev) => ({ ...prev, [attemptId]: { loading: false, breakdown } }));
+  };
+
+  const applyFilters = () => { setPage(1); setApplied(filters); };
+  const resetFilters = () => { setFilters(DEFAULT_FILTERS); setApplied(DEFAULT_FILTERS); setPage(1); };
 
   const exportCsv = () => {
     const header = ['Name', 'Email', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Warnings', 'Started At', 'Submitted At'];
     const lines = [header.map(toCsvValue).join(',')];
-    filtered.forEach((a) => {
+    rows.forEach((a) => {
       lines.push([
         toCsvValue(a.studentName), toCsvValue(a.studentEmail), toCsvValue(a.testType), toCsvValue(a.status),
         toCsvValue(a.score), toCsvValue(a.totalCount), toCsvValue(a.qualified === null ? '' : a.qualified ? 'Yes' : 'No'),
@@ -109,8 +107,9 @@ export default function AttemptsAdmin() {
   };
 
   const copyReportSummary = (a) => {
+    const b = reports[a.attemptId];
     const scoreLine = a.status === 'SUBMITTED' ? `Score: ${a.score}/${a.totalCount}` : `Status: ${a.status}`;
-    const topicLines = (a.breakdown || []).map((t) => {
+    const topicLines = ((b && b.breakdown) || []).map((t) => {
       const answered = t.correct + t.incorrect;
       return `- ${t.topic}: ${answered > 0 ? `${t.correct}/${answered} correct` : 'Not answered'}`;
     }).join('\n');
@@ -124,15 +123,15 @@ export default function AttemptsAdmin() {
         icon={<AuditOutlined />}
         title="Test Attempts"
         description="Review every assessment attempt across all candidates, with a topic-wise breakdown for each."
-        actions={<Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!filtered.length}>Export CSV</Button>}
+        actions={<Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!rows.length}>Export CSV</Button>}
       />
 
       <Row gutter={[14, 14]}>
-        <KpiTile title="Total Attempts" value={summary.totalAttempts} tone="blue" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
-        <KpiTile title="Today" value={summary.attemptsToday} tone="cyan" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
-        <KpiTile title="This Week" value={summary.attemptsThisWeek} tone="purple" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
-        <KpiTile title="Avg Score" value={summary.averageScorePercent} suffix="%" tone="green" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
-        <KpiTile title="Qualification Rate" value={summary.qualificationRate} suffix="%" tone="amber" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
+        <KpiTile title="Total Attempts" value={summary.totalAttempts ?? 0} tone="blue" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
+        <KpiTile title="Today" value={summary.attemptsToday ?? 0} tone="cyan" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
+        <KpiTile title="This Week" value={summary.attemptsThisWeek ?? 0} tone="purple" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
+        <KpiTile title="Avg Score" value={summary.averageScorePercent ?? 0} suffix="%" tone="green" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
+        <KpiTile title="Qualification Rate" value={summary.qualificationRate ?? 0} suffix="%" tone="amber" span={{ xs: 12, sm: 8, lg: 4, xxl: 4 }} />
         <KpiTile title="Toughest Topic" value={summary.mostStruggledTopic ? summary.mostStruggledTopic.topic : '—'} tone="slate" span={{ xs: 24, sm: 8, lg: 4, xxl: 4 }} />
       </Row>
 
@@ -173,40 +172,45 @@ export default function AttemptsAdmin() {
 
       <Table
         rowKey="attemptId"
-        dataSource={filtered}
+        dataSource={rows}
+        loading={loading}
         size="middle"
         tableLayout="fixed"
-        pagination={tablePagination({ pageSize: 10 })}
+        pagination={{ ...tablePagination({ pageSize }), current: page, total, onChange: (p, ps) => { setPage(p); setPageSize(ps); } }}
         locale={{ emptyText: 'No attempts match these filters.' }}
         expandable={{
           expandedRowKeys: openReportId ? [openReportId] : [],
-          onExpand: (expanded, r) => setOpenReportId(expanded ? r.attemptId : null),
-          expandedRowRender: (a) => (
-            <div>
-              <Space style={{ marginBottom: 8 }}>
-                <Button size="small" icon={<DownloadOutlined />} onClick={() => exportCsv()}>Download Report</Button>
-                <Button size="small" icon={<CopyOutlined />} onClick={() => copyReportSummary(a)}>Copy Summary</Button>
-              </Space>
-              <Table
-                size="small"
-                rowKey="topic"
-                dataSource={a.breakdown}
-                pagination={a.breakdown.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
-                locale={{ emptyText: 'No report available.' }}
-                columns={[
-                  { title: 'Topic', dataIndex: 'topic' },
-                  {
-                    title: 'Result',
-                    render: (_, t) => {
-                      const answered = t.correct + t.incorrect;
-                      return answered > 0 ? `${t.correct}/${answered} correct` : 'Not answered';
+          onExpand: (expanded, r) => { setOpenReportId(expanded ? r.attemptId : null); if (expanded) loadReport(r.attemptId); },
+          expandedRowRender: (a) => {
+            const b = reports[a.attemptId];
+            return (
+              <div>
+                <Space style={{ marginBottom: 8 }}>
+                  <Button size="small" icon={<DownloadOutlined />} onClick={() => exportCsv()}>Download Report</Button>
+                  <Button size="small" icon={<CopyOutlined />} onClick={() => copyReportSummary(a)}>Copy Summary</Button>
+                </Space>
+                <Table
+                  size="small"
+                  rowKey="topic"
+                  loading={!b || b.loading}
+                  dataSource={(b && b.breakdown) || []}
+                  pagination={b && b.breakdown && b.breakdown.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
+                  locale={{ emptyText: 'No report available.' }}
+                  columns={[
+                    { title: 'Topic', dataIndex: 'topic' },
+                    {
+                      title: 'Result',
+                      render: (_, t) => {
+                        const answered = t.correct + t.incorrect;
+                        return answered > 0 ? `${t.correct}/${answered} correct` : 'Not answered';
+                      },
                     },
-                  },
-                  { title: 'Ungraded', dataIndex: 'ungraded', width: 100 },
-                ]}
-              />
-            </div>
-          ),
+                    { title: 'Ungraded', dataIndex: 'ungraded', width: 100 },
+                  ]}
+                />
+              </div>
+            );
+          },
         }}
         columns={[
           {
@@ -247,9 +251,6 @@ export default function AttemptsAdmin() {
           },
         ]}
       />
-      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-        Showing sample data — live attempts will replace this once wired to the backend.
-      </Text>
     </div>
   );
 }

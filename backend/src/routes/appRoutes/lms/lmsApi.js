@@ -156,6 +156,26 @@ router.route('/admin/live-analytics').get(requireManager, catchErrors(lms.liveAn
 router.route('/admin/live-settings').get(requireManager, catchErrors(lms.liveSettingsGet));
 router.route('/admin/live-settings').post(requireManager, catchErrors(lms.liveSettingsUpdate));
 
+// ── assessments (ported from the python-test-platform reference project) ──
+// Self-service, self-scoped by req.admin (no role check, matching that
+// project). Distinct from the generic /quizzes /attempts system above.
+router.route('/assessments/start/:testType').post(catchErrors(lms.assessmentStart));
+router.route('/assessments/run-code').post(catchErrors(lms.assessmentRunCode));
+router.route('/assessments/my-results').get(catchErrors(lms.assessmentMyResults));
+router.route('/assessments/:attemptId/submit').post(catchErrors(lms.assessmentSubmit));
+router.route('/assessments/:attemptId/breakdown').get(catchErrors(lms.assessmentBreakdown));
+router.route('/assessments/:attemptId/proctor-event').post(catchErrors(lms.assessmentProctorEvent));
+
+router.route('/assessments/admin/summary').get(requireManager, catchErrors(lms.assessmentAdminSummary));
+router.route('/assessments/admin/attempts').get(requireManager, catchErrors(lms.assessmentAdminAttempts));
+router
+  .route('/assessments/admin/attempts/:attemptId/report')
+  .get(requireManager, catchErrors(lms.assessmentAdminAttemptReport));
+router.route('/assessments/admin/curriculum/sessions').get(requireManager, catchErrors(lms.assessmentCurriculumSessions));
+router
+  .route('/assessments/admin/curriculum/sessions/:sessionId/delivery')
+  .patch(requireManager, catchErrors(lms.assessmentCurriculumUpdateDelivery));
+
 // ── PILOT / internal test (management only) — see deploy/moodle/PILOT.md ──
 router.route('/admin/pilot/seed').post(requireManager, catchErrors(lms.pilotSeed));
 router.route('/admin/pilot/liveclass/:id/start').post(requireManager, catchErrors(lms.pilotLiveStart));

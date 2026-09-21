@@ -1,63 +1,48 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Table, Tag, Skeleton, Empty, Typography, Space, Button } from 'antd';
+import { Card, Row, Col, Table, Tag, Skeleton, Empty, Typography } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
-import KpiTile from '../components/KpiTile';
+import lmsApi from '@/pages/Lms/api';
 
 const { Text } = Typography;
 
-// UI-only mock — wire to GET /api/tests/my-results and
-// GET /api/tests/:attemptId/breakdown once those exist. Field names
-// (testType/status/qualified/warningCount/...) and the breakdown shape
-// (correct/incorrect/ungraded) match that reference API 1:1.
+// Wired to GET /api/lms/assessments/my-results and
+// GET /api/lms/assessments/:attemptId/breakdown (ported from the
+// python-test-platform reference project — see AssessmentRunner/TestIntro).
 const TEST_TYPE_LABELS = { BASIC: 'Basic Test', MAJOR: 'Major Test', MICRO: 'Micro Test', NLP_MICRO: 'NLP Micro Test', NLP_MAJOR: 'NLP Major Test' };
 const STATUS_COLOR = { SUBMITTED: 'green', SUSPENDED: 'red', IN_PROGRESS: 'gold' };
-
-const MOCK_ATTEMPTS_BY_TYPE = {
-  BASIC: { used: 2, max: 3, remaining: 1, nextEligibleAt: null },
-  MAJOR: { used: 1, max: 3, remaining: 2, nextEligibleAt: null },
-  MICRO: { used: 3, max: 3, remaining: 0, nextEligibleAt: null },
-};
-
-const MOCK_RESULTS = [
-  {
-    attemptId: 'r1', testType: 'MAJOR', status: 'SUBMITTED', score: 41, totalCount: 50, warningCount: 0,
-    startedAt: '2026-08-20T10:00:00Z', submittedAt: '2026-08-20T11:05:00Z', qualified: true,
-    breakdown: [
-      { topic: 'Components & Props', correct: 8, incorrect: 2, ungraded: 0 },
-      { topic: 'Hooks', correct: 6, incorrect: 2, ungraded: 0 },
-      { topic: 'Routing', correct: 4, incorrect: 1, ungraded: 0 },
-    ],
-  },
-  {
-    attemptId: 'r2', testType: 'BASIC', status: 'SUBMITTED', score: 23, totalCount: 40, warningCount: 1,
-    startedAt: '2026-08-10T09:00:00Z', submittedAt: '2026-08-10T09:50:00Z', qualified: false,
-    breakdown: [
-      { topic: 'Closures', correct: 3, incorrect: 5, ungraded: 0 },
-      { topic: 'Async/Await', correct: 4, incorrect: 2, ungraded: 0 },
-      { topic: 'Array methods', correct: 6, incorrect: 2, ungraded: 0 },
-    ],
-  },
-  {
-    attemptId: 'r3', testType: 'MICRO', status: 'SUSPENDED', score: 5, totalCount: 20, warningCount: 3,
-    startedAt: '2026-08-02T14:00:00Z', submittedAt: null, qualified: false,
-    breakdown: [{ topic: 'SQL Queries', correct: 1, incorrect: 3, ungraded: 0 }],
-  },
-];
 
 export default function Results() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [attemptsByType, setAttemptsByType] = useState({});
   const [expandedId, setExpandedId] = useState(null);
+  const [breakdowns, setBreakdowns] = useState({}); // attemptId -> { loading, data }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setRows(MOCK_RESULTS);
-      setAttemptsByType(MOCK_ATTEMPTS_BY_TYPE);
+    let cancelled = false;
+    (async () => {
+      const res = await lmsApi.myAssessmentResults();
+      if (cancelled) return;
+      const data = (res && res.result) || {};
+      setRows(data.results || []);
+      setAttemptsByType(data.attemptsByType || {});
       setLoading(false);
-    }, 500);
-    return () => clearTimeout(t);
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  const loadBreakdown = async (attemptId) => {
+    if (breakdowns[attemptId]) return;
+    setBreakdowns((prev) => ({ ...prev, [attemptId]: { loading: true, data: [] } }));
+    const res = await lmsApi.assessmentBreakdown(attemptId);
+    const data = (res && res.result && res.result.breakdown) || [];
+    setBreakdowns((prev) => ({ ...prev, [attemptId]: { loading: false, data } }));
+  };
+
+  const onExpand = (expanded, r) => {
+    setExpandedId(expanded ? r.attemptId : null);
+    if (expanded) loadBreakdown(r.attemptId);
+  };
 
   if (loading) return <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 24 }} />;
 
@@ -101,29 +86,33 @@ export default function Results() {
           pagination={false}
           expandable={{
             expandedRowKeys: expandedId ? [expandedId] : [],
-            onExpand: (expanded, r) => setExpandedId(expanded ? r.attemptId : null),
+            onExpand,
             rowExpandable: (r) => r.status === 'SUBMITTED' || r.status === 'SUSPENDED',
-            expandedRowRender: (r) => (
-              <Table
-                size="small"
-                rowKey="topic"
-                dataSource={r.breakdown}
-                pagination={false}
-                locale={{ emptyText: 'No report available for this attempt.' }}
-                columns={[
-                  { title: 'Topic', dataIndex: 'topic' },
-                  {
-                    title: 'Result',
-                    render: (_, t) => {
-                      const answered = t.correct + t.incorrect;
-                      return answered > 0
-                        ? `${t.correct}/${answered} correct${t.ungraded > 0 ? ` · ${t.ungraded} unanswered` : ''}`
-                        : 'Not answered';
+            expandedRowRender: (r) => {
+              const b = breakdowns[r.attemptId];
+              return (
+                <Table
+                  size="small"
+                  rowKey="topic"
+                  loading={!b || b.loading}
+                  dataSource={(b && b.data) || []}
+                  pagination={false}
+                  locale={{ emptyText: 'No report available for this attempt.' }}
+                  columns={[
+                    { title: 'Topic', dataIndex: 'topic' },
+                    {
+                      title: 'Result',
+                      render: (_, t) => {
+                        const answered = t.correct + t.incorrect;
+                        return answered > 0
+                          ? `${t.correct}/${answered} correct${t.ungraded > 0 ? ` · ${t.ungraded} unanswered` : ''}`
+                          : 'Not answered';
+                      },
                     },
-                  },
-                ]}
-              />
-            ),
+                  ]}
+                />
+              );
+            },
           }}
           columns={[
             { title: 'Test', dataIndex: 'testType', render: (v) => TEST_TYPE_LABELS[v] || v },
@@ -135,9 +124,6 @@ export default function Results() {
           ]}
         />
       )}
-      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-        Showing sample data — live results will replace this once wired to your attempt history.
-      </Text>
     </div>
   );
 }

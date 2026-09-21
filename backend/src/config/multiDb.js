@@ -54,6 +54,14 @@ const DB_MAP = {
   // ---- lmsDb (includes Support/Ticket per product decision) ----
   Assignment: 'lmsDb',
   AssignmentSubmission: 'lmsDb',
+  // ported from the python-test-platform reference project (Prisma/Postgres -> Mongoose)
+  AssessmentAttempt: 'lmsDb',
+  AssessmentAttemptQuestion: 'lmsDb',
+  AssessmentCurriculumSession: 'lmsDb',
+  AssessmentDeliveryRecord: 'lmsDb',
+  AssessmentProctorEvent: 'lmsDb',
+  AssessmentQuestion: 'lmsDb',
+  AssessmentRoundRobinCursor: 'lmsDb',
   AttendanceRecord: 'lmsDb',
   Batch: 'lmsDb',
   Certificate: 'lmsDb',

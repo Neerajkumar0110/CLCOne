@@ -1,37 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Collapse, Segmented, Progress, Table, DatePicker, Space, Typography, Empty, Button } from 'antd';
 import { ScheduleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import lmsApi from '@/pages/Lms/api';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
 
 const { Text } = Typography;
 
-// UI-only mock — wire to GET /api/admin/curriculum/sessions?batch&track and
-// PATCH /api/admin/curriculum/sessions/:id/delivery once the backend exists.
-// Field shape and status vocabulary (PENDING/DELIVERED/SKIPPED) match that
-// reference API 1:1 so swapping the mock for a real fetch is a drop-in.
+// Wired to GET /api/lms/assessments/admin/curriculum/sessions?batch&track and
+// PATCH .../admin/curriculum/sessions/:id/delivery (ported from the
+// python-test-platform reference project).
 const TRACKS = [
   { value: 'FOUNDATION', label: 'Foundation (6-Month)' },
   { value: 'ELITE', label: 'Elite (12-Month)' },
 ];
 const BATCHES = ['4:00 PM - 5:30 PM', '6:00 PM - 7:30 PM', '8:00 PM - 9:30 PM'];
 const STATUS_TONE = { DELIVERED: 'success', SKIPPED: 'warning', PENDING: 'neutral' };
-
-const MOCK_SESSIONS = {
-  FOUNDATION: [
-    { sessionId: 's1', code: 'F-U1-01', unit: 'Unit 1 — HTML, CSS & JS Foundations', title: 'HTML5 semantics & forms', hours: 3, order: 1, status: 'DELIVERED', plannedDate: '2026-08-04', actualDate: '2026-08-04', notes: null },
-    { sessionId: 's2', code: 'F-U1-02', unit: 'Unit 1 — HTML, CSS & JS Foundations', title: 'CSS layout — flexbox & grid', hours: 3, order: 2, status: 'DELIVERED', plannedDate: '2026-08-06', actualDate: '2026-08-06', notes: null },
-    { sessionId: 's3', code: 'F-U1-03', unit: 'Unit 1 — HTML, CSS & JS Foundations', title: 'JS fundamentals & DOM', hours: 4, order: 3, status: 'DELIVERED', plannedDate: '2026-08-08', actualDate: '2026-08-09', notes: null },
-    { sessionId: 's4', code: 'F-U2-01', unit: 'Unit 2 — React Basics', title: 'Components & props', hours: 3, order: 4, status: 'DELIVERED', plannedDate: '2026-08-11', actualDate: '2026-08-11', notes: null },
-    { sessionId: 's5', code: 'F-U2-02', unit: 'Unit 2 — React Basics', title: 'State & hooks', hours: 3, order: 5, status: 'SKIPPED', plannedDate: '2026-08-13', actualDate: null, notes: 'Public holiday — moved to next slot.' },
-    { sessionId: 's6', code: 'F-U2-03', unit: 'Unit 2 — React Basics', title: 'Forms & events', hours: 3, order: 6, status: 'PENDING', plannedDate: '2026-09-05', actualDate: null, notes: null },
-    { sessionId: 's7', code: 'F-U3-01', unit: 'Unit 3 — Backend with Node & Express', title: 'REST API basics', hours: 4, order: 7, status: 'PENDING', plannedDate: '2026-09-08', actualDate: null, notes: null },
-  ],
-  ELITE: [
-    { sessionId: 'e1', code: 'E-U1-01', unit: 'Unit 1 — Foundations', title: 'Advanced JS & TypeScript', hours: 4, order: 1, status: 'DELIVERED', plannedDate: '2026-08-05', actualDate: '2026-08-05', notes: null },
-    { sessionId: 'e2', code: 'E-U2-01', unit: 'Unit 2 — System Design', title: 'Scalable architecture patterns', hours: 4, order: 2, status: 'PENDING', plannedDate: '2026-09-02', actualDate: null, notes: null },
-  ],
-};
 
 function isBehindSchedule(s) {
   if (s.status !== 'PENDING' || !s.plannedDate) return false;
@@ -49,20 +33,31 @@ function groupByUnit(sessions) {
 export default function Curriculum() {
   const [track, setTrack] = useState('FOUNDATION');
   const [batch, setBatch] = useState(BATCHES[0]);
-  const [sessionsByTrack, setSessionsByTrack] = useState(MOCK_SESSIONS);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const sessions = sessionsByTrack[track] || [];
+  const load = async () => {
+    setLoading(true);
+    const res = await lmsApi.assessmentCurriculumSessions({ batch, track });
+    const data = (res && res.result) || {};
+    setSessions(data.sessions || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track, batch]);
+
   const progress = useMemo(() => {
     const delivered = sessions.filter((s) => s.status === 'DELIVERED').length;
     const total = sessions.length;
     return { delivered, total, percent: total ? Math.round((delivered / total) * 100) : 0 };
   }, [sessions]);
 
-  const updateDelivery = (sessionId, updates) => {
-    setSessionsByTrack((prev) => ({
-      ...prev,
-      [track]: prev[track].map((s) => (s.sessionId === sessionId ? { ...s, ...updates } : s)),
-    }));
+  const updateDelivery = async (sessionId, patch) => {
+    await lmsApi.updateAssessmentDelivery(sessionId, { batch, ...patch });
+    load();
   };
 
   const grouped = groupByUnit(sessions);
@@ -90,7 +85,7 @@ export default function Curriculum() {
         <Progress percent={progress.percent} showInfo={false} style={{ marginTop: 8 }} />
       </Card>
 
-      {sessions.length === 0 ? (
+      {!loading && sessions.length === 0 ? (
         <Card><Empty description="No sessions for this batch yet." /></Card>
       ) : (
         <Collapse
@@ -109,6 +104,7 @@ export default function Curriculum() {
               <Table
                 size="small"
                 rowKey="sessionId"
+                loading={loading}
                 dataSource={unitSessions}
                 pagination={unitSessions.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
                 rowClassName={(s) => (isBehindSchedule(s) ? 'lms-row-behind' : '')}
@@ -184,9 +180,6 @@ export default function Curriculum() {
           }))}
         />
       )}
-      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-        Showing sample data — live sessions will replace this once wired to the backend.
-      </Text>
     </div>
   );
 }
