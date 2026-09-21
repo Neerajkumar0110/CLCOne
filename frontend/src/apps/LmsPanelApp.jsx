@@ -29,6 +29,7 @@ import {
   AppstoreOutlined,
   ProfileOutlined,
   ExperimentOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -61,6 +62,7 @@ const Curriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const AttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
 const Results = lazy(() => import('@/pages/Lms/Results'));
 const AssessmentRoadmap = lazy(() => import('@/pages/Lms/AssessmentRoadmap'));
+const AssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
 const TestIntro = lazy(() => import('@/pages/Lms/TestIntro'));
 
 const ComingSoon = ({ title }) => (
@@ -157,6 +159,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn/dashboard', 'Dashboard', <RocketOutlined />, <AssessmentDashboard />],
   ['/learn/roadmap', 'Assessment Roadmap', <AppstoreOutlined />, <AssessmentRoadmap />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
