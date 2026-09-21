@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layout, Menu, Button, Grid, Drawer, Empty, Badge, Dropdown, message } from 'antd';
 import lmsApi from '@/pages/Lms/api';
+import { getSocket } from '@/socket';
 import {
   DashboardOutlined,
   ReadOutlined,
@@ -216,7 +217,15 @@ export default function LmsPanelApp() {
     setDrawer(false);
   };
 
-  // ── lightweight real-time: poll /api/lms/my/updates every 20s ──
+  // ── real-time: Socket.IO push refetches /api/lms/my/updates instead of a
+  // tight poll. backend/src/services/lms/realtime.js already emits
+  // 'notification:new' (assignments graded, doubt replies, announcements)
+  // and the 'lms:announcement' / 'lms:doubt' broadcasts whenever something
+  // changes — we just never had a client listening. The REST endpoint stays
+  // the source of truth (a socket event only says "go refetch"); the
+  // interval below drops to a long safety net in case a socket event is
+  // ever missed or the connection is mid-reconnect (also a no-op on Vercel
+  // serverless, where the socket layer doesn't run at all).
   const [updates, setUpdates] = useState({ unread: 0, notifications: [], liveNow: [] });
   const lastTopId = useRef(null);
   const pollUpdates = useCallback(async () => {
@@ -235,16 +244,28 @@ export default function LmsPanelApp() {
   }, []);
   useEffect(() => {
     pollUpdates();
-    const iv = setInterval(pollUpdates, 20000);
+    const iv = setInterval(pollUpdates, 180000); // 3-min safety net, not the primary trigger
     const onVis = () => document.visibilityState === 'visible' && pollUpdates();
     document.addEventListener('visibilitychange', onVis);
     // also refresh when a live-class socket event bubbles (VPS deployments)
     const onLive = () => pollUpdates();
     window.addEventListener('lms:liveclass', onLive);
+
+    const socket = getSocket();
+    const onNotification = (doc) => {
+      if (doc?.module === 'LMS') pollUpdates();
+    };
+    socket?.on('notification:new', onNotification);
+    socket?.on('lms:announcement', pollUpdates);
+    socket?.on('lms:doubt', pollUpdates);
+
     return () => {
       clearInterval(iv);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('lms:liveclass', onLive);
+      socket?.off('notification:new', onNotification);
+      socket?.off('lms:announcement', pollUpdates);
+      socket?.off('lms:doubt', pollUpdates);
     };
   }, [pollUpdates]);
 
