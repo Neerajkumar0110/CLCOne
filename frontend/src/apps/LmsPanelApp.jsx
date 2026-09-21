@@ -140,6 +140,7 @@ function buildMenuItems(entries) {
 // [path, label, icon, element]
 const TEACHER_NAV = [
   ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
+  ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   ['/teacher/courses', 'My Courses', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
@@ -159,7 +160,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
-  ['/learn/dashboard', 'Dashboard', <RocketOutlined />, <AssessmentDashboard />],
+  ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   ['/learn/roadmap', 'Assessment Roadmap', <AppstoreOutlined />, <AssessmentRoadmap />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],

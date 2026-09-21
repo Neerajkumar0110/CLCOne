@@ -31,6 +31,7 @@ const LmsRecordings = lazy(() => import('@/pages/Lms/Recordings'));
 const LmsAttendance = lazy(() => import('@/pages/Lms/Attendance'));
 const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
+const LmsAssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
 // Basic/Major/Micro Test entries from the reference nav's dropdown picker.
 const LmsBasicTest = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.BasicTest })));
 const LmsMajorTestPythonSql = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestPythonSql })));
@@ -51,6 +52,7 @@ const EMBED = {
   lmsAttendance: LmsAttendance,
   lmsCurriculum: LmsCurriculum,
   lmsAttemptsAdmin: LmsAttemptsAdmin,
+  lmsAssessmentDashboard: LmsAssessmentDashboard,
   lmsBasicTest: LmsBasicTest,
   lmsMajorTestPythonSql: LmsMajorTestPythonSql,
   lmsMajorTestNlp: LmsMajorTestNlp,

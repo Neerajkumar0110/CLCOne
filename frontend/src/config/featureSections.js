@@ -68,6 +68,7 @@ import {
   ProfileOutlined,
   ExperimentOutlined,
   FormOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 
 /* ---- shared option lists (must match genFeatureModels.cjs) ---- */
@@ -939,29 +940,38 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsAttendance',
       },
       {
+        key: 'assessment-dashboard',
+        label: 'Assessment',
+        Icon: RocketOutlined,
+        // Ported 1:1 from the reference project's own candidate landing page
+        // ("Welcome, {name}" + the full assessment grid). Same component used
+        // on the Teacher/Student sidebars (pages/Lms/AssessmentDashboard) —
+        // an unlocked card renders its TestIntro variant in place.
+        embed: 'lmsAssessmentDashboard',
+      },
+      {
         key: 'curriculum',
         label: 'Curriculum Tracker',
         Icon: ScheduleOutlined,
-        // UI-only preview (mock data) — batch/track filter, per-unit session
-        // delivery status. See pages/Lms/Curriculum. Backend wiring pending.
+        // Batch/track filter, per-unit session delivery status, backed by
+        // /api/lms/assessments/admin/curriculum/sessions. See pages/Lms/Curriculum.
         embed: 'lmsCurriculum',
       },
       {
         key: 'attempts',
         label: 'Test Attempts',
         Icon: AuditOutlined,
-        // UI-only preview (mock data) — stat tiles, filters, CSV export,
-        // per-topic breakdown. See pages/Lms/AttemptsAdmin. Backend wiring pending.
+        // Stat tiles, filters, CSV export, per-topic breakdown, backed by
+        // /api/lms/assessments/admin/{summary,attempts}. See pages/Lms/AttemptsAdmin.
         embed: 'lmsAttemptsAdmin',
       },
       {
         key: 'quizzes',
         label: 'Quizzes & Exams',
         Icon: FormOutlined,
-        // Reference nav's Basic/Major/Micro Test picker, ported UI-only as a
-        // nested dropdown (same shape as the Teacher/Student sidebar) —
-        // "Start" on each opens the real Quizzes & Exams area.
-        // See pages/Lms/TestIntro.
+        // Reference nav's Basic/Major/Micro Test picker, as a nested dropdown
+        // (same shape as the Teacher/Student sidebar) — each opens the real,
+        // backend-wired proctored test flow. See pages/Lms/TestIntro.
         children: [
           {
             key: 'basic',
