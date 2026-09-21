@@ -3,3 +3,4 @@
 db-backups/
 vps-backups/
 .DS_Store
+frontend/.env.production

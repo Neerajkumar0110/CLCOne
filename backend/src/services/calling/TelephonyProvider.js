@@ -26,7 +26,7 @@ class TelephonyProvider extends CallingProvider {
     }
     const t = this.config.telephony;
     const url = t.apiUrl.replace(/\/+$/, '') + path;
-    const { headers, rawBody } = buildHeaders({ apiKey: t.apiKey, secret: t.hmacSecret, body: body || {} });
+    const { headers, rawBody } = buildHeaders({ apiKey: t.apiKey, secret: t.hmacSecret, body: method === "GET" ? "" : (body || {}) });
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), t.timeoutMs || 8000);
     try {
