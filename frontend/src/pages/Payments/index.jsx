@@ -9,13 +9,11 @@ import {
   Select,
   Button,
   Table,
-  Tag,
   Modal,
   message,
   Empty,
   Skeleton,
   Tooltip,
-  Descriptions,
   Image,
   Space,
 } from 'antd';
@@ -188,25 +186,36 @@ export default function Payments() {
     }
   };
 
+  const initialsOf = (name) =>
+    String(name || '?')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('') || '?';
+
   const columns = [
     {
       title: 'Student',
       key: 'student',
       render: (_, r) => (
-        <div>
-          <div style={{ fontWeight: 700, color: 'var(--hub-text)' }}>{r.studentName}</div>
-          <div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.studentEmail}</div>
+        <div className="pay-row-student">
+          <div className="pay-row-avatar">{initialsOf(r.studentName)}</div>
+          <div className="pay-row-student-info">
+            <div className="pay-row-name">{r.studentName}</div>
+            <div className="pay-row-email">{r.studentEmail}</div>
+          </div>
         </div>
       ),
     },
-    { title: 'Course', dataIndex: 'course', render: (v) => v || '—' },
-    { title: 'Amount', dataIndex: 'amount', render: (v) => <b>{fmtInr(v)}</b> },
+    { title: 'Course', dataIndex: 'course', render: (v) => v || <span className="pay-row-muted">—</span> },
+    { title: 'Amount', dataIndex: 'amount', render: (v) => <span className="pay-row-amount">{fmtInr(v)}</span> },
     {
       title: 'Status',
       dataIndex: 'status',
       render: (v) => {
         const meta = STATUS_META[v] || { color: 'default', label: v };
-        return <Tag color={meta.color}>{meta.label}</Tag>;
+        return <span className={`pay-pill pay-pill--${meta.color}`}>{meta.label}</span>;
       },
     },
     {
@@ -214,40 +223,40 @@ export default function Payments() {
       dataIndex: 'kycSubmitted',
       render: (v, r) =>
         v ? (
-          <Tag icon={<CheckCircleFilled />} color="green" style={{ cursor: 'pointer' }} onClick={() => openKyc(r)}>
-            Submitted
-          </Tag>
+          <span className="pay-pill pay-pill--green pay-pill--clickable" onClick={() => openKyc(r)}>
+            <CheckCircleFilled /> Submitted
+          </span>
         ) : r.status === 'paid' ? (
-          <Tag icon={<ClockCircleOutlined />} color="orange">
-            Pending
-          </Tag>
+          <span className="pay-pill pay-pill--orange">
+            <ClockCircleOutlined /> Pending
+          </span>
         ) : (
-          <span style={{ color: 'var(--hub-muted)' }}>—</span>
+          <span className="pay-row-muted">—</span>
         ),
     },
     {
       title: '',
       key: 'actions',
       render: (_, r) => (
-        <Space>
+        <Space size={4}>
           {r.shortUrl && (
             <Tooltip title="Copy payment link">
-              <Button size="small" icon={<CopyOutlined />} onClick={() => copyLink(r.shortUrl)} />
+              <Button className="pay-row-action" type="text" icon={<CopyOutlined />} onClick={() => copyLink(r.shortUrl)} />
             </Tooltip>
           )}
           {r.status !== 'paid' && (
             <Tooltip title="Re-send email">
-              <Button size="small" icon={<MailOutlined />} loading={busyId === r.id} onClick={() => doResend(r.id)} />
+              <Button className="pay-row-action" type="text" icon={<MailOutlined />} loading={busyId === r.id} onClick={() => doResend(r.id)} />
             </Tooltip>
           )}
           {r.status !== 'paid' && (
             <Tooltip title="Refresh status from Razorpay">
-              <Button size="small" icon={<ReloadOutlined />} loading={busyId === r.id} onClick={() => doRefresh(r.id)} />
+              <Button className="pay-row-action" type="text" icon={<ReloadOutlined />} loading={busyId === r.id} onClick={() => doRefresh(r.id)} />
             </Tooltip>
           )}
           {r.kycSubmitted && (
             <Tooltip title="View KYC">
-              <Button size="small" icon={<EyeOutlined />} onClick={() => openKyc(r)} />
+              <Button className="pay-row-action" type="text" icon={<EyeOutlined />} onClick={() => openKyc(r)} />
             </Tooltip>
           )}
         </Space>
@@ -348,44 +357,89 @@ export default function Payments() {
             ) : rows.length === 0 ? (
               <Empty description="No payment requests yet." />
             ) : (
-              <Table rowKey="id" size="small" dataSource={rows} columns={columns} pagination={{ pageSize: 10 }} />
+              <Table className="pay-table" rowKey="id" dataSource={rows} columns={columns} pagination={{ pageSize: 10 }} />
             )}
           </Card>
         </Col>
       </Row>
 
-      <Modal open={!!kycFor} title="KYC details" footer={null} onCancel={() => setKycFor(null)} width={680}>
+      <Modal
+        open={!!kycFor}
+        title={null}
+        footer={null}
+        onCancel={() => setKycFor(null)}
+        width={720}
+        className="pay-kyc-modal"
+      >
         {kycLoading || !kycFor ? (
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <Skeleton active avatar paragraph={{ rows: 6 }} style={{ padding: 28 }} />
         ) : !kycFor.kyc ? (
-          <Empty description="KYC not submitted yet." />
+          <Empty description="KYC not submitted yet." style={{ padding: 28 }} />
         ) : (
-          <>
-            <Descriptions column={2} size="small" bordered>
-              <Descriptions.Item label="Name">{kycFor.kyc.name}</Descriptions.Item>
-              <Descriptions.Item label="Father's name">{kycFor.kyc.fatherName}</Descriptions.Item>
-              <Descriptions.Item label="Mother's name">{kycFor.kyc.motherName}</Descriptions.Item>
-              <Descriptions.Item label="Pincode">{kycFor.kyc.pincode}</Descriptions.Item>
-              <Descriptions.Item label="State">{kycFor.kyc.state}</Descriptions.Item>
-              <Descriptions.Item label="District">{kycFor.kyc.district}</Descriptions.Item>
-              <Descriptions.Item label="City">{kycFor.kyc.city}</Descriptions.Item>
-              <Descriptions.Item label="Address" span={2}>
-                {kycFor.kyc.address}
-              </Descriptions.Item>
-            </Descriptions>
-            <div className="pay-kyc-docs">
-              {[
-                ['Aadhar — front', kycFor.kyc.aadharFront],
-                ['Aadhar — back', kycFor.kyc.aadharBack],
-                ['PAN — front', kycFor.kyc.panFront],
-              ].map(([label, path]) => (
-                <div className="pay-kyc-doc" key={label}>
-                  <div className="pay-kyc-doc-label">{label}</div>
-                  {path ? <Image src={`${BASE_URL}${path}`} width={140} /> : <span style={{ color: 'var(--hub-muted)' }}>—</span>}
+          <div className="pay-kyc-modal-body">
+            <div className="pay-kyc-modal-head">
+              <div className="pay-kyc-modal-avatar">{initialsOf(kycFor.kyc.name || kycFor.studentName)}</div>
+              <div className="pay-kyc-modal-who">
+                <div className="pay-kyc-modal-name">{kycFor.kyc.name || kycFor.studentName}</div>
+                <div className="pay-kyc-modal-meta">
+                  {kycFor.course || 'No course'} {kycFor.amount ? `· ${fmtInr(kycFor.amount)}` : ''}
                 </div>
-              ))}
+              </div>
+              <span className="pay-pill pay-pill--green pay-kyc-modal-status">
+                <CheckCircleFilled /> KYC submitted
+              </span>
             </div>
-          </>
+
+            <div className="pay-kyc-modal-section-label">Personal details</div>
+            <div className="pay-kyc-modal-grid">
+              <div className="pay-kyc-modal-field">
+                <span>Father's name</span>
+                <b>{kycFor.kyc.fatherName || '—'}</b>
+              </div>
+              <div className="pay-kyc-modal-field">
+                <span>Mother's name</span>
+                <b>{kycFor.kyc.motherName || '—'}</b>
+              </div>
+              <div className="pay-kyc-modal-field">
+                <span>State</span>
+                <b>{kycFor.kyc.state || '—'}</b>
+              </div>
+              <div className="pay-kyc-modal-field">
+                <span>District</span>
+                <b>{kycFor.kyc.district || '—'}</b>
+              </div>
+              <div className="pay-kyc-modal-field">
+                <span>City</span>
+                <b>{kycFor.kyc.city || '—'}</b>
+              </div>
+              <div className="pay-kyc-modal-field">
+                <span>Pincode</span>
+                <b>{kycFor.kyc.pincode || '—'}</b>
+              </div>
+            </div>
+            <div className="pay-kyc-modal-field pay-kyc-modal-field--full">
+              <span>Address</span>
+              <b>{kycFor.kyc.address || '—'}</b>
+            </div>
+
+            <div className="pay-kyc-modal-section-label">Documents</div>
+            <Image.PreviewGroup>
+              <div className="pay-kyc-modal-docs">
+                {[
+                  ['Aadhar — front', kycFor.kyc.aadharFront],
+                  ['Aadhar — back', kycFor.kyc.aadharBack],
+                  ['PAN — front', kycFor.kyc.panFront],
+                ].map(([label, path]) => (
+                  <div className="pay-kyc-modal-doc" key={label}>
+                    <div className="pay-kyc-modal-doc-frame">
+                      {path ? <Image src={`${BASE_URL}${path}`} /> : <span className="pay-row-muted">No file</span>}
+                    </div>
+                    <div className="pay-kyc-modal-doc-label">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </Image.PreviewGroup>
+          </div>
         )}
       </Modal>
     </div>

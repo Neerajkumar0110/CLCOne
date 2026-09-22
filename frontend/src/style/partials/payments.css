@@ -98,19 +98,232 @@
   100% { box-shadow: 0 0 0 16px rgba(22, 163, 74, 0); }
 }
 
-.pay-kyc-docs {
+/* ── Payment requests table ──────────────────────────────────────────────
+   A dedicated .pay-table class (rather than leaning on .lms-portal's
+   generic table overrides) so this reads as a clean neutral data grid
+   regardless of which pastel app palette (themes.js) is active — same
+   reasoning as the LMS pages' own table overrides. */
+.pay-table .ant-table {
+  background: transparent;
+}
+.pay-table .ant-table-container {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--hub-border);
+}
+.pay-table .ant-table-thead > tr > th {
+  background: var(--hub-bg-soft, #f8fafc) !important;
+  color: var(--hub-text-soft, #475569);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--hub-border) !important;
+}
+.pay-table .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+.pay-table .ant-table-tbody > tr > td {
+  background: var(--hub-surface, #fff);
+  border-bottom: 1px solid var(--hub-border);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.pay-table .ant-table-tbody > tr:hover > td {
+  background: var(--hub-bg-soft, #f8fafc) !important;
+}
+.pay-table .ant-table-placeholder .ant-table-cell {
+  background: var(--hub-surface, #fff);
+}
+
+.pay-row-student {
   display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-top: 16px;
+  align-items: center;
+  gap: 10px;
 }
-.pay-kyc-doc {
-  text-align: center;
+.pay-row-avatar {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
 }
-.pay-kyc-doc-label {
+.pay-row-name {
+  font-weight: 700;
+  color: var(--hub-text);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.pay-row-email {
   font-size: 12px;
   color: var(--hub-muted);
-  margin-bottom: 6px;
+}
+.pay-row-amount {
+  font-weight: 700;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
+}
+.pay-row-muted {
+  color: var(--hub-muted);
+}
+.pay-row-action.ant-btn {
+  color: var(--hub-text-soft, #64748b);
+  border-radius: 8px;
+}
+.pay-row-action.ant-btn:hover {
+  color: var(--hub-blue, #2563eb);
+  background: color-mix(in srgb, var(--hub-blue, #2563eb) 8%, transparent);
+}
+
+/* Status / KYC pills — same dot-pill language as LiveClasses' .lms-live-badge */
+.pay-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.pay-pill--clickable { cursor: pointer; }
+.pay-pill--blue { color: #2563eb; background: color-mix(in srgb, #2563eb 14%, transparent); }
+.pay-pill--green { color: #059669; background: color-mix(in srgb, #059669 14%, transparent); }
+.pay-pill--orange { color: #d97706; background: color-mix(in srgb, #d97706 14%, transparent); }
+.pay-pill--red { color: #dc2626; background: color-mix(in srgb, #dc2626 14%, transparent); }
+.pay-pill--default { color: var(--hub-muted); background: var(--hub-bg-soft); }
+:root[data-theme='dark'] .pay-pill--blue { color: #93c5fd; }
+:root[data-theme='dark'] .pay-pill--green { color: #6ee7b7; }
+:root[data-theme='dark'] .pay-pill--orange { color: #fbbf24; }
+:root[data-theme='dark'] .pay-pill--red { color: #f87171; }
+
+/* ── KYC details modal (admin) ──────────────────────────────────────────── */
+.pay-kyc-modal .ant-modal-content {
+  border-radius: 18px;
+  padding: 0;
+  overflow: hidden;
+}
+.pay-kyc-modal .ant-modal-close {
+  top: 18px;
+  inset-inline-end: 18px;
+}
+.pay-kyc-modal-body {
+  padding: 26px 28px 30px;
+}
+.pay-kyc-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--hub-border);
+}
+.pay-kyc-modal-avatar {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+.pay-kyc-modal-who { flex: 1; min-width: 0; }
+.pay-kyc-modal-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--hub-text);
+}
+.pay-kyc-modal-meta {
+  font-size: 12.5px;
+  color: var(--hub-muted);
+  margin-top: 1px;
+}
+.pay-kyc-modal-status { flex: none; }
+.pay-kyc-modal-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hub-blue, #2563eb);
+  margin: 0 0 12px;
+}
+.pay-kyc-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 16px;
+  margin-bottom: 14px;
+}
+@media (max-width: 620px) {
+  .pay-kyc-modal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.pay-kyc-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pay-kyc-modal-field span {
+  font-size: 11px;
+  color: var(--hub-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.pay-kyc-modal-field b {
+  font-size: 13.5px;
+  color: var(--hub-text);
+  font-weight: 600;
+}
+.pay-kyc-modal-field--full {
+  margin-bottom: 24px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--hub-border);
+  padding-top: 14px;
+}
+.pay-kyc-modal-docs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 560px) {
+  .pay-kyc-modal-docs { grid-template-columns: 1fr; }
+}
+.pay-kyc-modal-doc-frame {
+  width: 100%;
+  height: 130px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--hub-border);
+  background: #0b1220;
+  display: grid;
+  place-items: center;
+}
+.pay-kyc-modal-doc-frame .ant-image {
+  width: 100%;
+  height: 100%;
+}
+.pay-kyc-modal-doc-frame .ant-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+.pay-kyc-modal-doc-frame .pay-row-muted {
+  font-size: 12px;
+}
+.pay-kyc-modal-doc-label {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hub-text-soft, #475569);
+  text-align: center;
 }
 
 /* ── Public KYC page — no CRM shell, full-viewport ───────────────────────── */
