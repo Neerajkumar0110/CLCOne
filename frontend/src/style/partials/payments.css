@@ -10,6 +10,22 @@
   border-radius: var(--hub-r-lg, 16px);
 }
 
+/* Fee-plan breakdown shown under Amount once a catalog course is picked
+   (see courseCatalog.js on the backend) — sits between the Amount and Notes
+   fields, so it reads as a note about the value just filled in above it. */
+.pay-fee-hint {
+  margin: -10px 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hub-blue, #2563eb) 8%, transparent);
+  color: var(--hub-text-soft, #475569);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pay-fee-hint b {
+  color: var(--hub-text);
+}
+
 .pay-result {
   display: flex;
   gap: 16px;
@@ -196,6 +212,12 @@
   color: var(--hub-text);
   font-variant-numeric: tabular-nums;
 }
+.pay-row-inst {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--hub-muted);
+  margin-top: 1px;
+}
 .pay-row-muted {
   color: var(--hub-muted);
 }
@@ -230,6 +252,141 @@
 :root[data-theme='dark'] .pay-pill--green { color: #6ee7b7; }
 :root[data-theme='dark'] .pay-pill--orange { color: #fbbf24; }
 :root[data-theme='dark'] .pay-pill--red { color: #f87171; }
+
+/* ── Fee plan / EMI panel (inside the admin modal) ───────────────────────
+   Shows total fee, paid-so-far, remaining balance and a "collect the next
+   installment" mini-form — see PaymentRequest.planGroupId and
+   paymentsController/get.js's `plan` summary. */
+.pay-plan {
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  border-radius: 14px;
+  background: var(--hub-bg-soft, #f8fafc);
+  border: 1px solid var(--hub-border);
+}
+.pay-plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pay-plan-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--hub-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pay-plan-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--hub-blue, #2563eb);
+  background: color-mix(in srgb, var(--hub-blue, #2563eb) 14%, transparent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.pay-plan-total {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--hub-muted);
+}
+.pay-plan-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hub-border) 70%, transparent);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.pay-plan-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+.pay-plan-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.pay-plan-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pay-plan-stat span {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hub-muted);
+}
+.pay-plan-stat b {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
+}
+.pay-plan-stat b.is-due {
+  color: #d97706;
+}
+:root[data-theme='dark'] .pay-plan-stat b.is-due {
+  color: #fbbf24;
+}
+.pay-plan-collect {
+  display: flex;
+  gap: 8px;
+}
+.pay-plan-collect-amount {
+  flex: 1;
+}
+.pay-plan-collect-result {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-top: 4px;
+}
+.pay-plan-collect-result img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px solid var(--hub-border);
+  background: #fff;
+  padding: 4px;
+  flex: none;
+}
+.pay-plan-collect-result-info {
+  flex: 1;
+  min-width: 0;
+}
+.pay-plan-installments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--hub-border);
+}
+.pay-plan-inst {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.pay-plan-inst-no {
+  flex: none;
+  width: 26px;
+  color: var(--hub-muted);
+  font-weight: 700;
+}
+.pay-plan-inst-amount {
+  flex: 1;
+  font-weight: 700;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── KYC details modal (admin) ──────────────────────────────────────────── */
 .pay-kyc-modal .ant-modal-content {

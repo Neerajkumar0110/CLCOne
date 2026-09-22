@@ -31,6 +31,19 @@ const schema = new mongoose.Schema(
     },
     paidAt: Date,
 
+    // EMI / installment plan — only populated when `course` matches a known
+    // fee plan (see services/payments/courseCatalog.js). installmentCount is
+    // 1 for a plain one-off payment. All installments of one enrollment
+    // share `planGroupId`; `planTotal` (incl. GST) is copied onto every one
+    // of them so "remaining balance" can be computed without a join.
+    planGroupId: { type: String, index: true },
+    installmentNo: { type: Number, default: 1 },
+    installmentCount: { type: Number, default: 1 },
+    planTotal: { type: Number },
+    // Set once this installment is paid, when more installments remain —
+    // "second installment due one month from the day this one was paid".
+    nextInstallmentDueAt: Date,
+
     kycSubmitted: { type: Boolean, default: false },
     kycSubmittedAt: Date,
 

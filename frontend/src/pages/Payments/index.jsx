@@ -61,6 +61,25 @@ export default function Payments() {
       .catch(() => {});
   }, []);
 
+  // Known-plan fee lookup (see backend courseCatalog.js) — auto-fills Amount
+  // with the first EMI installment and shows the GST breakdown when the
+  // chosen course is one of the catalog's fee plans.
+  const [feeHint, setFeeHint] = useState(null);
+  const onCourseChange = async (val) => {
+    if (!val) {
+      setFeeHint(null);
+      return;
+    }
+    try {
+      const res = await paymentsApi.courseFee(val);
+      const fee = (res && res.result) || null;
+      setFeeHint(fee);
+      if (fee) form.setFieldsValue({ amount: fee.installmentAmount });
+    } catch (e) {
+      setFeeHint(null);
+    }
+  };
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
@@ -135,6 +154,7 @@ export default function Payments() {
         setResult(res.result);
         message.success('Payment request created.');
         form.resetFields();
+        setFeeHint(null);
         load();
       } else {
         message.error((res && res.message) || 'Could not create the payment request.');
@@ -175,14 +195,45 @@ export default function Payments() {
 
   const [kycFor, setKycFor] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
+  const [planAmount, setPlanAmount] = useState(null);
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planResult, setPlanResult] = useState(null);
   const openKyc = async (row) => {
     setKycFor({ ...row });
+    setPlanAmount(null);
+    setPlanResult(null);
     setKycLoading(true);
     try {
       const res = await paymentsApi.get(row.id);
-      setKycFor((res && res.result) || null);
+      const result = (res && res.result) || null;
+      setKycFor(result);
+      if (result && result.plan) setPlanAmount(result.plan.suggestedNextAmount || result.plan.remaining || null);
     } finally {
       setKycLoading(false);
+    }
+  };
+
+  // Collect another EMI installment right from the modal — "baki" (the
+  // remaining balance) is shown above this, the amount defaults to the
+  // suggested next installment but the admin can change it to any figure.
+  const collectNextInstallment = async () => {
+    if (!kycFor || !planAmount || planAmount <= 0) return;
+    setPlanBusy(true);
+    try {
+      const res = await paymentsApi.nextInstallment(kycFor.id, planAmount);
+      if (res && res.success) {
+        setPlanResult(res.result);
+        message.success('Payment link created.');
+        load();
+        const fresh = await paymentsApi.get(kycFor.id);
+        if (fresh && fresh.result) setKycFor(fresh.result);
+      } else {
+        message.error((res && res.message) || 'Could not create the payment link.');
+      }
+    } catch (e) {
+      message.error('Could not create the payment link.');
+    } finally {
+      setPlanBusy(false);
     }
   };
 
@@ -226,7 +277,21 @@ export default function Payments() {
           <span className="pay-row-muted">—</span>
         ),
     },
-    { title: 'Amount', dataIndex: 'amount', width: 100, render: (v) => <span className="pay-row-amount">{fmtInr(v)}</span> },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      width: 110,
+      render: (v, r) => (
+        <div>
+          <span className="pay-row-amount">{fmtInr(v)}</span>
+          {r.installmentCount > 1 && (
+            <div className="pay-row-inst">
+              Inst. {r.installmentNo}/{r.installmentCount}
+            </div>
+          )}
+        </div>
+      ),
+    },
     {
       title: 'Status',
       dataIndex: 'status',
@@ -273,8 +338,8 @@ export default function Payments() {
               <Button className="pay-row-action" type="text" icon={<ReloadOutlined />} loading={busyId === r.id} onClick={() => doRefresh(r.id)} />
             </Tooltip>
           )}
-          {r.kycSubmitted && (
-            <Tooltip title="View KYC">
+          {(r.kycSubmitted || r.installmentCount > 1) && (
+            <Tooltip title={r.kycSubmitted ? 'View KYC' : 'View fee plan'}>
               <Button className="pay-row-action" type="text" icon={<EyeOutlined />} onClick={() => openKyc(r)} />
             </Tooltip>
           )}
@@ -318,11 +383,18 @@ export default function Payments() {
                   placeholder="Select a course (optional)"
                   optionFilterProp="label"
                   options={courses.map((c) => ({ value: c.title, label: `${c.code ? c.code + ' — ' : ''}${c.title}` }))}
+                  onChange={onCourseChange}
                 />
               </Form.Item>
               <Form.Item name="amount" label="Amount (INR)" rules={[{ required: true, message: 'Enter an amount.' }]}>
                 <InputNumber style={{ width: '100%' }} min={1} step={100} placeholder="e.g. 15000" />
               </Form.Item>
+              {feeHint && (
+                <div className="pay-fee-hint">
+                  <b>{fmtInr(feeHint.totalFee)}</b> total ({fmtInr(feeHint.baseFee)} + 18% GST) · {feeHint.durationMonths} monthly
+                  installments of <b>{fmtInr(feeHint.installmentAmount)}</b>
+                </div>
+              )}
               <Form.Item name="notes" label="Notes (optional)">
                 <Input.TextArea rows={2} placeholder="Internal note — not shown to the student" />
               </Form.Item>
@@ -399,23 +471,121 @@ export default function Payments() {
       >
         {kycLoading || !kycFor ? (
           <Skeleton active avatar paragraph={{ rows: 6 }} style={{ padding: 28 }} />
-        ) : !kycFor.kyc ? (
-          <Empty description="KYC not submitted yet." style={{ padding: 28 }} />
         ) : (
           <div className="pay-kyc-modal-body">
             <div className="pay-kyc-modal-head">
-              <div className="pay-kyc-modal-avatar">{initialsOf(kycFor.kyc.name || kycFor.studentName)}</div>
+              <div className="pay-kyc-modal-avatar">{initialsOf((kycFor.kyc && kycFor.kyc.name) || kycFor.studentName)}</div>
               <div className="pay-kyc-modal-who">
-                <div className="pay-kyc-modal-name">{kycFor.kyc.name || kycFor.studentName}</div>
+                <div className="pay-kyc-modal-name">{(kycFor.kyc && kycFor.kyc.name) || kycFor.studentName}</div>
                 <div className="pay-kyc-modal-meta">
                   {kycFor.course || 'No course'} {kycFor.amount ? `· ${fmtInr(kycFor.amount)}` : ''}
                 </div>
               </div>
-              <span className="pay-pill pay-pill--green pay-kyc-modal-status">
-                <CheckCircleFilled /> KYC submitted
-              </span>
+              {kycFor.kycSubmitted ? (
+                <span className="pay-pill pay-pill--green pay-kyc-modal-status">
+                  <CheckCircleFilled /> KYC submitted
+                </span>
+              ) : (
+                <span className="pay-pill pay-pill--orange pay-kyc-modal-status">
+                  <ClockCircleOutlined /> KYC pending
+                </span>
+              )}
             </div>
 
+            {kycFor.plan && (
+              <div className="pay-plan">
+                <div className="pay-plan-head">
+                  <div className="pay-plan-title">
+                    Fee plan
+                    <span className="pay-plan-badge">
+                      Installment {kycFor.installmentNo} of {kycFor.plan.installmentCount}
+                    </span>
+                  </div>
+                  <div className="pay-plan-total">{fmtInr(kycFor.plan.planTotal)} total</div>
+                </div>
+                <div className="pay-plan-bar">
+                  <div
+                    className="pay-plan-bar-fill"
+                    style={{ width: `${Math.min(100, (kycFor.plan.paidTotal / kycFor.plan.planTotal) * 100 || 0)}%` }}
+                  />
+                </div>
+                <div className="pay-plan-stats">
+                  <div className="pay-plan-stat">
+                    <span>Paid</span>
+                    <b>{fmtInr(kycFor.plan.paidTotal)}</b>
+                  </div>
+                  <div className="pay-plan-stat">
+                    <span>Remaining</span>
+                    <b className={kycFor.plan.remaining > 0 ? 'is-due' : ''}>{fmtInr(kycFor.plan.remaining)}</b>
+                  </div>
+                  {kycFor.plan.remaining > 0 && kycFor.plan.nextInstallmentDueAt && (
+                    <div className="pay-plan-stat">
+                      <span>Next due</span>
+                      <b>
+                        {new Date(kycFor.plan.nextInstallmentDueAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </b>
+                    </div>
+                  )}
+                </div>
+
+                {kycFor.plan.remaining > 0 &&
+                  (planResult ? (
+                    <div className="pay-plan-collect-result">
+                      <img src={planResult.qrDataUrl} alt="Payment QR" />
+                      <div className="pay-plan-collect-result-info">
+                        <div className="pay-result-link">
+                          <Input readOnly size="small" value={planResult.shortUrl} />
+                          <Button size="small" icon={<CopyOutlined />} onClick={() => copyLink(planResult.shortUrl)}>
+                            Copy
+                          </Button>
+                        </div>
+                        <div className={`pay-result-email ${planResult.emailSent ? 'is-ok' : 'is-warn'}`}>
+                          <MailOutlined /> {planResult.emailSent ? 'Email sent to the student.' : 'Email not sent.'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pay-plan-collect">
+                      <InputNumber
+                        className="pay-plan-collect-amount"
+                        min={1}
+                        step={100}
+                        value={planAmount}
+                        onChange={setPlanAmount}
+                        formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        parser={(v) => v.replace(/[₹,\s]/g, '')}
+                      />
+                      <Button type="primary" loading={planBusy} onClick={collectNextInstallment}>
+                        Collect payment
+                      </Button>
+                    </div>
+                  ))}
+
+                {kycFor.plan.installments.length > 1 && (
+                  <div className="pay-plan-installments">
+                    {kycFor.plan.installments.map((ins) => {
+                      const meta = STATUS_META[ins.status] || { color: 'default', label: ins.status };
+                      return (
+                        <div className="pay-plan-inst" key={ins.id}>
+                          <span className="pay-plan-inst-no">#{ins.installmentNo}</span>
+                          <span className="pay-plan-inst-amount">{fmtInr(ins.amount)}</span>
+                          <span className={`pay-pill pay-pill--${meta.color}`}>{meta.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!kycFor.kyc ? (
+              <Empty description="KYC not submitted yet." style={{ padding: '20px 0 4px' }} />
+            ) : (
+              <>
             <div className="pay-kyc-modal-section-label">Personal details</div>
             <div className="pay-kyc-modal-grid">
               <div className="pay-kyc-modal-field">
@@ -465,6 +635,8 @@ export default function Payments() {
                 ))}
               </div>
             </Image.PreviewGroup>
+              </>
+            )}
           </div>
         )}
       </Modal>

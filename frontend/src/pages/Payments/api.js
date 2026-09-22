@@ -14,6 +14,8 @@ const paymentsApi = {
   get: (id) => request.get({ entity: `payments/${id}` }),
   resend: (id) => request.post({ entity: `payments/${id}/resend`, jsonData: {} }),
   refresh: (id) => request.post({ entity: `payments/${id}/refresh`, jsonData: {} }),
+  courseFee: (course) => request.get({ entity: `payments/course-fee${qs({ course })}` }),
+  nextInstallment: (id, amount) => request.post({ entity: `payments/${id}/next-installment`, jsonData: { amount } }),
 };
 
 export default paymentsApi;

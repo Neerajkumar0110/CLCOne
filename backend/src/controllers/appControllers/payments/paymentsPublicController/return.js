@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const razorpayService = require('../../../../services/payments/razorpayService');
 const { notifyPaid } = require('../../../../services/payments/realtime');
+const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
 const { paymentsConfig } = require('../../../../config/payments');
 
 // GET /api/payments/public/return?token=...&razorpay_payment_id=...&... —
@@ -26,6 +27,7 @@ async function returnHandler(req, res) {
     doc.status = 'paid';
     doc.paidAt = new Date();
     doc.razorpayPaymentId = String(req.query.razorpay_payment_id || '');
+    stampNextInstallmentDue(doc);
     await doc.save();
     notifyPaid(doc);
   }

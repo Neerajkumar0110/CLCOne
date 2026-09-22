@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const razorpayService = require('../../../../services/payments/razorpayService');
 const { notifyPaid } = require('../../../../services/payments/realtime');
+const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
 
 // POST /api/payments/:id/refresh — admin safety net: re-asks Razorpay
 // directly for this Payment Link's status, in case the student paid but
@@ -25,6 +26,7 @@ async function refreshStatus(req, res) {
     doc.paidAt = new Date();
     const payment = (link.payments || []).find((p) => p.status === 'captured') || (link.payments || [])[0];
     if (payment) doc.razorpayPaymentId = payment.payment_id;
+    stampNextInstallmentDue(doc);
   } else if (['expired', 'cancelled'].includes(link.status) && doc.status === 'created') {
     doc.status = link.status;
   }

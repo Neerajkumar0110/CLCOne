@@ -42,6 +42,8 @@ async function list(req, res) {
       createdByName: p.createdByName,
       created: p.created,
       paidAt: p.paidAt,
+      installmentNo: p.installmentNo,
+      installmentCount: p.installmentCount,
     })),
     pagination: { page, pages: Math.max(1, Math.ceil(count / limit)), count },
   });
