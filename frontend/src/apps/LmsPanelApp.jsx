@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layout, Menu, Button, Grid, Drawer, Empty, Badge, Dropdown, message } from 'antd';
+import axios from 'axios';
 import lmsApi from '@/pages/Lms/api';
 import { getSocket } from '@/socket';
 import {
@@ -27,10 +28,12 @@ import {
   ScheduleOutlined,
   AuditOutlined,
   LineChartOutlined,
-  AppstoreOutlined,
   ProfileOutlined,
   ExperimentOutlined,
   RocketOutlined,
+  FileProtectOutlined,
+  SafetyCertificateOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -62,9 +65,17 @@ const Analytics = lazy(() => import('@/pages/Lms/Analytics'));
 const Curriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const AttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
 const Results = lazy(() => import('@/pages/Lms/Results'));
-const AssessmentRoadmap = lazy(() => import('@/pages/Lms/AssessmentRoadmap'));
 const AssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
 const TestIntro = lazy(() => import('@/pages/Lms/TestIntro'));
+const Policies = lazy(() => import('@/pages/Lms/Policies'));
+const Eligibility = lazy(() => import('@/pages/Lms/Eligibility'));
+const Projects = lazy(() => import('@/pages/Lms/Projects'));
+const Learner360 = lazy(() => import('@/pages/Lms/Learner360'));
+// Same month-grid calendar the CRM's LMS → Calendar tab uses — the backend's
+// listFor()/resolveRole() already scope GET /lms/live-classes to "every batch
+// I teach" for a Teacher and "just my batch" for a Student, so one component
+// serves both roles unchanged.
+const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -132,10 +143,22 @@ function flattenNavLeaves(entries) {
 }
 
 // Recursively builds AntD Menu items, preserving nested dropdown groups.
-function buildMenuItems(entries) {
-  return entries.map(([path, label, icon, , children]) =>
-    children ? { key: path, icon, label, children: buildMenuItems(children) } : { key: path, icon, label }
-  );
+// unreadPaths (a Set of nav paths) draws a small live dot next to any item
+// with an unread notification pointing at it — stays lit until that
+// notification is read (see markLinkRead), not on a timer.
+function buildMenuItems(entries, unreadPaths) {
+  return entries.map(([path, label, icon, , children]) => {
+    const dotted = unreadPaths && unreadPaths.has(path);
+    const renderedLabel = dotted ? (
+      <span className="lms-nav-unread-label">
+        {label}
+        <i className="lms-nav-unread-dot" />
+      </span>
+    ) : label;
+    return children
+      ? { key: path, icon, label: renderedLabel, children: buildMenuItems(children, unreadPaths) }
+      : { key: path, icon, label: renderedLabel };
+  });
 }
 
 // [path, label, icon, element]
@@ -148,32 +171,38 @@ const TEACHER_NAV = [
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/teacher/students', 'Students', <TeamOutlined />, <ComingSoon title="Students" />],
   ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
   ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
+  ['/teacher/policies', 'Policies', <FileProtectOutlined />, <Policies />],
+  ['/teacher/eligibility', 'Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
+  ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <Learner360 />],
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
   ['/teacher/analytics', 'Analytics', <BarChartOutlined />, <Analytics />],
-  ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <ComingSoon title="Calendar" />],
+  ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
   ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
-  ['/learn/roadmap', 'Assessment Roadmap', <AppstoreOutlined />, <AssessmentRoadmap />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
-  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <ComingSoon title="Calendar" />],
+  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['/learn/projects', 'My Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/learn', 'Quizzes & Exams'),
   ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
   ['/learn/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
   ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
   ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
+  ['/learn/policies', 'Policies', <FileProtectOutlined />, <Policies />],
+  ['/learn/eligibility', 'My Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
   ['/learn/certificates', 'My Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
@@ -211,11 +240,6 @@ export default function LmsPanelApp() {
       .sort((a, b) => b.length - a.length)[0];
     return match || base;
   }, [location.pathname, leaves, base]);
-
-  const go = (path) => {
-    navigate(path);
-    setDrawer(false);
-  };
 
   // ── real-time: Socket.IO push refetches /api/lms/my/updates instead of a
   // tight poll. backend/src/services/lms/realtime.js already emits
@@ -269,10 +293,58 @@ export default function LmsPanelApp() {
     };
   }, [pollUpdates]);
 
+  // Marks notifications read — optimistic locally (so the dot/badge drops
+  // the instant the matching page is opened, not on the next 3-min poll)
+  // and persisted via the generic /notification/:id/read route (same one
+  // the main CRM bell uses). Calls axios directly rather than request.patch
+  // — that helper always pops a "Marked as read" success toast, which is
+  // fine for one explicit bell click but noisy fired silently on every nav.
+  const markRead = useCallback((ids) => {
+    if (!ids || !ids.length) return;
+    setUpdates((u) => ({
+      ...u,
+      unread: Math.max(0, (u.unread || 0) - ids.length),
+      notifications: (u.notifications || []).map((n) => (ids.includes(n.id) ? { ...n, read: true } : n)),
+    }));
+    ids.forEach((id) => axios.patch(`notification/${id}/read`).catch(() => {}));
+  }, []);
+  const markLinkRead = useCallback(
+    (path) => {
+      const ids = (updates.notifications || [])
+        .filter((n) => !n.read && n.link && n.link.replace(/^\/(learn|teacher)/, base) === path)
+        .map((n) => n.id);
+      markRead(ids);
+    },
+    [updates.notifications, base, markRead]
+  );
+
+  // Live dot next to a sidebar item stays lit until its matching
+  // notification(s) get marked read — see buildMenuItems.
+  const unreadPaths = useMemo(() => {
+    const set = new Set();
+    (updates.notifications || []).forEach((n) => {
+      if (n.read || !n.link) return;
+      set.add(n.link.replace(/^\/(learn|teacher)/, base));
+    });
+    return set;
+  }, [updates.notifications, base]);
+
+  const go = (path) => {
+    navigate(path);
+    setDrawer(false);
+    markLinkRead(path);
+  };
+
   const notifItems = (updates.notifications || []).slice(0, 10).map((n) => ({
     key: n.id,
     label: (
-      <div style={{ maxWidth: 320, whiteSpace: 'normal', padding: '2px 0' }} onClick={() => n.link && navigate(n.link.replace(/^\/(learn|teacher)/, base))}>
+      <div
+        style={{ maxWidth: 320, whiteSpace: 'normal', padding: '2px 0' }}
+        onClick={() => {
+          if (n.link) navigate(n.link.replace(/^\/(learn|teacher)/, base));
+          if (!n.read) markRead([n.id]);
+        }}
+      >
         <div style={{ fontWeight: n.read ? 400 : 600, fontSize: 13 }}>{n.title}</div>
         {n.body ? <div style={{ fontSize: 12, color: '#667085' }}>{n.body}</div> : null}
       </div>
@@ -286,7 +358,7 @@ export default function LmsPanelApp() {
       selectedKeys={[selectedKey]}
       inlineCollapsed={isMobile ? false : collapsed}
       onClick={({ key }) => key.startsWith('group:') || go(key)}
-      items={buildMenuItems(nav)}
+      items={buildMenuItems(nav, unreadPaths)}
       style={{ borderRight: 0, background: 'transparent', width: '100%' }}
     />
   );

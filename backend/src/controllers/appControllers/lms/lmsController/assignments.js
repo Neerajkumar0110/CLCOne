@@ -215,6 +215,15 @@ async function evaluate(req, res) {
     /* non-fatal */
   }
 
+  require('../../../../services/lms/auditLog').record({
+    module: 'assessment',
+    action: 'evaluate-assignment',
+    entityType: 'AssignmentSubmission',
+    entityId: s._id,
+    admin: req.admin,
+    after: { status: s.status, marks: s.marks },
+  });
+
   return ok(res, { id: String(s._id), status: s.status }, 'Saved.');
 }
 

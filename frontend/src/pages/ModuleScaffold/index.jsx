@@ -1,7 +1,7 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { message } from 'antd';
-import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined } from '@ant-design/icons';
+import { message, Select } from 'antd';
+import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
@@ -9,7 +9,10 @@ import { findFeatureTab } from '@/config/featureSections';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { DASH_CONFIGS } from '@/components/dashboard/configs';
 import BatchStudentsPanel from '@/pages/Lms/components/BatchStudentsPanel';
+import CurriculumViewer from '@/pages/Lms/components/CurriculumViewer';
+import AssignStudentModal from '@/pages/Lms/components/AssignStudentModal';
 import lmsApi from '@/pages/Lms/api';
+import { request } from '@/request';
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
 const TeamChat = lazy(() =>
@@ -29,6 +32,12 @@ const LmsStudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
 const LmsLiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const LmsRecordings = lazy(() => import('@/pages/Lms/Recordings'));
 const LmsAttendance = lazy(() => import('@/pages/Lms/Attendance'));
+const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
+const LmsPolicies = lazy(() => import('@/pages/Lms/Policies'));
+const LmsEligibility = lazy(() => import('@/pages/Lms/Eligibility'));
+const LmsProjects = lazy(() => import('@/pages/Lms/Projects'));
+const LmsSystemHealth = lazy(() => import('@/pages/Lms/SystemHealth'));
+const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
 const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
 const LmsAssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
@@ -38,6 +47,12 @@ const LmsMajorTestPythonSql = lazy(() => import('@/pages/Lms/TestIntro/variants'
 const LmsMajorTestNlp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestNlp })));
 const LmsMicroTestSqlDb = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestSqlDb })));
 const LmsMicroTestNlpSerp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestNlpSerp })));
+// HRMS "Users" tab — same login-account list/creation flow as Settings' User
+// Management, reachable without leaving HRMS (see frontend/src/pages/Hr/UsersTab.jsx).
+const HrmsUsers = lazy(() => import('@/pages/Hr/UsersTab'));
+// Sales' "Payments" tab — Razorpay fee-collection link + QR + email, then a
+// post-payment KYC form (public, outside this shell — see pages/Payments).
+const Payments = lazy(() => import('@/pages/Payments'));
 const EMBED = {
   teamChat: TeamChat,
   leads: Leads,
@@ -50,6 +65,12 @@ const EMBED = {
   lmsLiveClasses: LmsLiveClasses,
   lmsRecordings: LmsRecordings,
   lmsAttendance: LmsAttendance,
+  lmsCalendar: LmsCalendar,
+  lmsPolicies: LmsPolicies,
+  lmsEligibility: LmsEligibility,
+  lmsProjects: LmsProjects,
+  lmsSystemHealth: LmsSystemHealth,
+  lmsLearner360: LmsLearner360,
   lmsCurriculum: LmsCurriculum,
   lmsAttemptsAdmin: LmsAttemptsAdmin,
   lmsAssessmentDashboard: LmsAssessmentDashboard,
@@ -58,6 +79,8 @@ const EMBED = {
   lmsMajorTestNlp: LmsMajorTestNlp,
   lmsMicroTestSqlDb: LmsMicroTestSqlDb,
   lmsMicroTestNlpSerp: LmsMicroTestNlpSerp,
+  hrmsUsers: HrmsUsers,
+  payments: Payments,
 };
 
 /**
@@ -133,6 +156,41 @@ function TabBody({ section, tab }) {
   // action button (see renderRowExtra below).
   const [batchPanel, setBatchPanel] = useState(null); // { id, name } | null
   const [regenBusyId, setRegenBusyId] = useState(null);
+  // Courses only — "view curriculum" modal, same row-extra pattern.
+  const [curriculumPanel, setCurriculumPanel] = useState(null); // { id, title } | null
+  // Students only — "assign to batch" modal. `true` = fresh search (opened
+  // from the header button), a row object = pre-filled from that row's
+  // extra action button. `studentsRefreshTick` forces the list to reload
+  // after an assignment since CrudTab owns its own data with no exposed
+  // refresh handle — remounting it (via key) is the simplest way in.
+  const [assignStudent, setAssignStudent] = useState(null); // true | { name, email } | null
+  const [studentsRefreshTick, setStudentsRefreshTick] = useState(0);
+  // Students only — Course → Batch cascading filter bar above the list.
+  // Only one of these is ever sent to the backend (CrudTab's fixedFilter
+  // supports a single field/value pair) — Batch wins when both are set,
+  // since a specific batch already implies its course.
+  const [filterCourses, setFilterCourses] = useState([]);
+  const [filterBatches, setFilterBatches] = useState([]);
+  const [studentCourseFilter, setStudentCourseFilter] = useState(null);
+  const [studentBatchFilter, setStudentBatchFilter] = useState(null);
+
+  useEffect(() => {
+    if (tab.entity !== 'student') return;
+    request.listAll({ entity: 'course' }).then((res) => setFilterCourses(res?.success ? res.result : []));
+    request.listAll({ entity: 'batch' }).then((res) => setFilterBatches(res?.success ? res.result : []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.entity]);
+
+  const batchOptionsForCourse = useMemo(
+    () => filterBatches.filter((b) => !studentCourseFilter || b.course === studentCourseFilter),
+    [filterBatches, studentCourseFilter]
+  );
+
+  const studentFixedFilter = useMemo(() => {
+    if (studentBatchFilter) return { field: 'batch', value: studentBatchFilter };
+    if (studentCourseFilter) return { field: 'course', value: studentCourseFilter };
+    return undefined;
+  }, [studentCourseFilter, studentBatchFilter]);
 
   const regenerateBatch = async (row) => {
     setRegenBusyId(row._id);
@@ -159,11 +217,45 @@ function TabBody({ section, tab }) {
     </Suspense>
   ) : tab.entity ? (
     <>
+      {tab.entity === 'student' && (
+        <div className="hub-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+          <div className="hub-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FilterOutlined style={{ color: 'var(--hub-muted)' }} />
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Filter by course…"
+              style={{ minWidth: 220 }}
+              value={studentCourseFilter}
+              onChange={(v) => {
+                setStudentCourseFilter(v || null);
+                setStudentBatchFilter(null);
+              }}
+              options={filterCourses.map((c) => ({ value: c.title, label: c.title }))}
+            />
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={studentCourseFilter ? 'Filter by batch…' : 'Select a course first'}
+              style={{ minWidth: 220 }}
+              value={studentBatchFilter}
+              disabled={!studentCourseFilter}
+              onChange={(v) => setStudentBatchFilter(v || null)}
+              options={batchOptionsForCourse.map((b) => ({ value: b.name, label: b.name }))}
+            />
+          </div>
+          <button type="button" className="hub-btn hub-btn-primary" onClick={() => setAssignStudent(true)}>
+            <UsergroupAddOutlined /> Assign to Batch
+          </button>
+        </div>
+      )}
       <CrudTab
-        key={`${section.key}/${tab.key}`}
+        key={tab.entity === 'student' ? `${section.key}/${tab.key}/${studentsRefreshTick}` : `${section.key}/${tab.key}`}
         entity={tab.entity}
         fields={tab.fields}
-        fixedFilter={tab.fixedFilter}
+        fixedFilter={tab.entity === 'student' ? studentFixedFilter : tab.fixedFilter}
         title={tab.label}
         icon={tab.Icon}
         renderRowExtra={
@@ -189,6 +281,28 @@ function TabBody({ section, tab }) {
                   </button>
                 </>
               )
+            : tab.entity === 'course'
+            ? (row) => (
+                <button
+                  type="button"
+                  className="hub-icon-btn"
+                  title="View full curriculum"
+                  onClick={() => setCurriculumPanel({ id: row._id, title: row.title })}
+                >
+                  <ReadOutlined />
+                </button>
+              )
+            : tab.entity === 'student'
+            ? (row) => (
+                <button
+                  type="button"
+                  className="hub-icon-btn"
+                  title="Assign to another batch"
+                  onClick={() => setAssignStudent({ name: row.name, email: row.email })}
+                >
+                  <UsergroupAddOutlined />
+                </button>
+              )
             : undefined
         }
       />
@@ -198,6 +312,22 @@ function TabBody({ section, tab }) {
           onClose={() => setBatchPanel(null)}
           batchId={batchPanel && batchPanel.id}
           batchName={batchPanel && batchPanel.name}
+        />
+      )}
+      {tab.entity === 'course' && (
+        <CurriculumViewer
+          open={!!curriculumPanel}
+          onClose={() => setCurriculumPanel(null)}
+          courseId={curriculumPanel && curriculumPanel.id}
+          courseTitle={curriculumPanel && curriculumPanel.title}
+        />
+      )}
+      {tab.entity === 'student' && (
+        <AssignStudentModal
+          open={!!assignStudent}
+          onClose={() => setAssignStudent(null)}
+          presetStudent={assignStudent && assignStudent !== true ? assignStudent : null}
+          onAssigned={() => setStudentsRefreshTick((n) => n + 1)}
         />
       )}
     </>

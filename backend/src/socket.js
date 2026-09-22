@@ -168,6 +168,10 @@ module.exports = {
   emitRead,
   emitNotification,
   emitLmsBroadcast,
+  // Same io.emit(...) as emitLmsBroadcast — a plain generic name for
+  // non-LMS call-sites (e.g. services/payments/realtime.js) so they don't
+  // read as an LMS-only API despite sharing the implementation.
+  emitBroadcast: emitLmsBroadcast,
   emitLmsToUsers,
   getOnlineUserIds,
 };

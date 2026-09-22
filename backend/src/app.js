@@ -22,6 +22,8 @@ const lmsLivePublicRouter = require('./routes/appRoutes/lms/lmsLivePublicApi');
 const lmsBbbWebhookRouter = require('./routes/appRoutes/lms/lmsBbbWebhookApi');
 const lmsApiRouter = require('./routes/appRoutes/lms/lmsApi');
 const lmsBrowserGuard = require('./middlewares/lmsBrowserGuard');
+const paymentsPublicRouter = require('./routes/appRoutes/payments/paymentsPublicApi');
+const paymentsApiRouter = require('./routes/appRoutes/payments/paymentsApi');
 const facebookApiRouter = require('./routes/appRoutes/marketing/facebookApi');
 const googleApiRouter = require('./routes/appRoutes/marketing/googleApi');
 const linkedinApiRouter = require('./routes/appRoutes/marketing/linkedinApi');
@@ -85,6 +87,11 @@ app.use('/api/lms/live', lmsLivePublicRouter);
 // checked in the handler, idempotent.
 app.use('/api/lms/webhooks', lmsBbbWebhookRouter);
 
+// Razorpay Payment Link callback + the public post-payment KYC form's API —
+// before the bearer gate; the unguessable publicToken in the URL (and, for
+// /return, Razorpay's own HMAC signature) stands in for a CRM login.
+app.use('/api/payments/public', paymentsPublicRouter);
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
@@ -92,6 +99,7 @@ app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token
 // (old links, bookmarks) — before the bearer gate; XHR + tokened calls pass through
 app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, lmsApiRouter);
+app.use('/api/payments', adminAuth.isValidAuthToken, paymentsApiRouter);
 app.use('/api/facebook', adminAuth.isValidAuthToken, facebookApiRouter);
 app.use('/api/google', adminAuth.isValidAuthToken, googleApiRouter);
 app.use('/api/linkedin', adminAuth.isValidAuthToken, linkedinApiRouter);

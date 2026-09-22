@@ -5,6 +5,7 @@ import { request } from "@/request";
 import { silentGet } from "@/request/silent";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { startPoll } from "@/utils/poll";
+import { getSocket } from "@/socket";
 
 // Poll interval for event notifications — the "real-time" path now that the
 // backend has no live socket on serverless (see context/socketContext).
@@ -42,7 +43,19 @@ export function NotificationsProvider({ children }) {
     if (!currentAdmin?._id) return undefined;
     latestIdRef.current = null;
     // startPoll fires the first call itself and pauses while the tab is hidden.
-    return startPoll(refreshNotifications, POLL_INTERVAL_MS);
+    const stopPoll = startPoll(refreshNotifications, POLL_INTERVAL_MS);
+
+    // Instant push on top of the 20s poll — a no-op on serverless (no
+    // persistent socket there, see backend/src/socket.js), live on the VPS
+    // process, same pattern LmsPanelApp already uses for its own bell.
+    const socket = getSocket();
+    const onNotification = () => refreshNotifications();
+    socket?.on("notification:new", onNotification);
+
+    return () => {
+      stopPoll();
+      socket?.off("notification:new", onNotification);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAdmin?._id]);
 

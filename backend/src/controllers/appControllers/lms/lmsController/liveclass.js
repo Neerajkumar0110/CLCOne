@@ -10,9 +10,13 @@ function send(res, out) {
   return res.status(200).json({ success: true, result: out.result });
 }
 
-// GET /api/lms/liveclasses?scope=upcoming|live|ended
+// GET /api/lms/liveclasses?scope=upcoming|live|ended&from=&to=&batchId=
+// from/to (ISO dates) return every matching session in that window (e.g. one
+// calendar month), instead of scope's default "one card per batch" collapse
+// — see liveClassService.listFor.
 async function list(req, res) {
-  const rows = await liveClassService.listFor(req.admin, { scope: req.query.scope });
+  const { scope, from, to, batchId, courseTitle, teacherName } = req.query;
+  const rows = await liveClassService.listFor(req.admin, { scope, from, to, batchId, courseTitle, teacherName });
   return res.status(200).json({ success: true, result: rows });
 }
 
@@ -217,4 +221,27 @@ ul{margin:6px 0 0 18px}button{font:inherit;padding:9px 14px;border-radius:8px;bo
 <button onclick="fetch('/api/lms/live/left?s=${s._id}&u=${uid}',{method:'POST'}).then(()=>document.body.innerHTML='<p style=\\'font:16px system-ui;margin:40px\\'>You left the class.</p>')">Leave class</button></div>`);
 }
 
-module.exports = { list, get, create, updateTime, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom };
+// POST /api/lms/live-classes/:id/device-check — pre-join camera/mic/speaker
+// check result (spec §6). Logged for audit ("permission/entry failures")
+// without storing any raw video/audio — only booleans + the pass/fail
+// outcome ever reach the server; the browser-side getUserMedia stream never
+// leaves the client.
+async function deviceCheck(req, res) {
+  const b = req.body || {};
+  try {
+    const auditLog = require('../../../../services/lms/auditLog');
+    await auditLog.record({
+      module: 'device-check',
+      action: 'pre-join',
+      entityType: 'LmsLiveSession',
+      entityId: req.params.id,
+      admin: req.admin,
+      after: { camera: !!b.camera, microphone: !!b.microphone, speaker: !!b.speaker, passed: !!b.passed },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+  return res.status(200).json({ success: true, result: { logged: true } });
+}
+
+module.exports = { list, get, create, updateTime, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };

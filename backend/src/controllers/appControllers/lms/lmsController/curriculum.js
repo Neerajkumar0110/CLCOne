@@ -32,13 +32,26 @@ async function loadOwnedCourse(req, courseId) {
   return { course };
 }
 
+// Same course lookup, but WITHOUT the instructor-match check — used only by
+// the read-only outline() below. That check exists to stop a teacher from
+// editing someone else's course; it has no business blocking a plain VIEW,
+// which is also how Course Builder (teacher) and My Courses (student) both
+// now read this same endpoint via CurriculumViewer.jsx.
+async function loadCourseForRead(courseId) {
+  const Course = mongoose.model('Course');
+  if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
+  const course = await Course.findOne({ _id: courseId, removed: false });
+  if (!course) return { err: [404, 'Course not found.'] };
+  return { course };
+}
+
 async function nextOrder(Model, filter) {
   const last = await Model.findOne(filter).sort({ order: -1 }).select('order').lean();
   return (last && last.order != null ? last.order : 0) + 10;
 }
 
 async function outline(req, res) {
-  const { course, err } = await loadOwnedCourse(req, req.params.courseId);
+  const { course, err } = await loadCourseForRead(req.params.courseId);
   if (err) return bad(res, err[0], err[1]);
 
   const CourseModule = mongoose.model('CourseModule');

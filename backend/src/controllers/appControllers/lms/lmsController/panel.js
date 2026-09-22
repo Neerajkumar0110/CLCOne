@@ -33,22 +33,21 @@ async function teacherDashboard(req, res) {
   const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
 
   const isMgr = isManager(admin);
-  const courseFilter = isMgr
-    ? { removed: false }
-    : {
-        removed: false,
-        $or: [
-          { instructor: rx(teacherName) },
-          { instructor: { $exists: false } },
-          { instructor: '' },
-          { instructor: null },
-        ],
-      };
 
-  const [courses, batches] = await Promise.all([
-    Course.find(courseFilter).lean(),
+  const [allCourses, batches] = await Promise.all([
+    Course.find({ removed: false }).lean(),
     Batch.find({ removed: false, trainer: rx(teacherName) }).lean(),
   ]);
+
+  // A teacher only sees courses actually reachable through a batch they've
+  // been assigned as trainer, plus anything explicitly marked with them as
+  // `instructor` — NOT every course with a blank instructor field, which
+  // used to leak every un-assigned/seed course (e.g. a freshly-imported
+  // curriculum with no instructor set yet) to every teacher.
+  const batchCourseTitles = new Set(batches.map((b) => b.course).filter(Boolean));
+  const courses = isMgr
+    ? allCourses
+    : allCourses.filter((c) => batchCourseTitles.has(c.title) || (c.instructor && rx(teacherName).test(c.instructor)));
 
   // A session's teacherName/teacherCrmUser is a snapshot taken once at
   // batch-creation time (services/lms/recurrence.js) and never refreshed if
@@ -142,6 +141,24 @@ async function teacherDashboard(req, res) {
         lessons: c.lessons || 0,
         code: c.code || '',
         description: c.description || '',
+      })),
+      // The batches this teacher is actually the trainer for — real
+      // assignment data, used by Course Builder to show only "my batches"
+      // instead of every course in the system.
+      batches: batches.map((b) => ({
+        id: String(b._id),
+        name: b.name,
+        code: b.code || '',
+        course: b.course || '',
+        mode: b.mode || 'Online',
+        status: b.status || 'Planned',
+        startDate: b.startDate,
+        endDate: b.endDate,
+        classDays: b.classDays || '',
+        classTime: b.classTime || '',
+        endTime: b.endTime || '',
+        seats: b.seats || 0,
+        enrolled: b.enrolled || 0,
       })),
       charts: {
         attendanceByClass: ended.slice(-8).map((s) => ({

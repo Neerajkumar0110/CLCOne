@@ -108,3 +108,8 @@ startLmsSyncTick();
 // start/end per policy), BBB recording polling, and class notifications.
 const startLmsLiveTick = require('./jobs/lmsLiveTick');
 startLmsLiveTick();
+
+// LMS policy-acknowledgement reminders (spec §8/§12) — email + in-app only
+// (no WhatsApp leg yet). Re-reminds any pending acknowledgement on a cycle.
+const startLmsPolicyReminderTick = require('./jobs/lmsPolicyReminderTick');
+startLmsPolicyReminderTick();

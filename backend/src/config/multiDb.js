@@ -54,6 +54,11 @@ const DB_MAP = {
   // ---- lmsDb (includes Support/Ticket per product decision) ----
   Assignment: 'lmsDb',
   AssignmentSubmission: 'lmsDb',
+  AuditLog: 'lmsDb',
+  EligibilityRule: 'lmsDb',
+  PolicyAcknowledgement: 'lmsDb',
+  PolicyDocument: 'lmsDb',
+  Project: 'lmsDb',
   // ported from the python-test-platform reference project (Prisma/Postgres -> Mongoose)
   AssessmentAttempt: 'lmsDb',
   AssessmentAttemptQuestion: 'lmsDb',
@@ -93,6 +98,8 @@ const DB_MAP = {
   // ---- financeDb ----
   Invoice: 'financeDb',
   Payment: 'financeDb',
+  PaymentRequest: 'financeDb',
+  PaymentKyc: 'financeDb',
 
   // ---- hrmsDb ----
   Announcement: 'hrmsDb',

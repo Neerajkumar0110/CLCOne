@@ -147,6 +147,8 @@ try {
     // ---- finance (financeDb) ----
     Invoice: unwrap(require('../src/models/appModels/finance/Invoice')),
     Payment: unwrap(require('../src/models/appModels/finance/Payment')),
+    PaymentRequest: unwrap(require('../src/models/appModels/finance/PaymentRequest')),
+    PaymentKyc: unwrap(require('../src/models/appModels/finance/PaymentKyc')),
 
     // ---- hrms (hrmsDb) ----
     LoginActivity: unwrap(require('../src/models/appModels/hrms/LoginActivity')),
@@ -202,6 +204,22 @@ try {
     Doubt: unwrap(require('../src/models/appModels/lms/Doubt')),
     LmsAnnouncement: unwrap(require('../src/models/appModels/lms/LmsAnnouncement')),
     CertificateRule: unwrap(require('../src/models/appModels/lms/CertificateRule')),
+    PolicyDocument: unwrap(require('../src/models/appModels/lms/PolicyDocument')),
+    PolicyAcknowledgement: unwrap(require('../src/models/appModels/lms/PolicyAcknowledgement')),
+    AuditLog: unwrap(require('../src/models/appModels/lms/AuditLog')),
+    EligibilityRule: unwrap(require('../src/models/appModels/lms/EligibilityRule')),
+    Project: unwrap(require('../src/models/appModels/lms/Project')),
+    // Proctored-assessment subsystem (ported from python-test-platform) — was
+    // missing from this force-require list entirely (pre-existing gap, found
+    // while verifying the Vercel serverless boot path); without these, every
+    // /api/lms/assessments/* route 500s on serverless with MissingSchemaError.
+    AssessmentQuestion: unwrap(require('../src/models/appModels/lms/assessments/AssessmentQuestion')),
+    AssessmentProctorEvent: unwrap(require('../src/models/appModels/lms/assessments/AssessmentProctorEvent')),
+    AssessmentRoundRobinCursor: unwrap(require('../src/models/appModels/lms/assessments/AssessmentRoundRobinCursor')),
+    AssessmentCurriculumSession: unwrap(require('../src/models/appModels/lms/assessments/AssessmentCurriculumSession')),
+    AssessmentDeliveryRecord: unwrap(require('../src/models/appModels/lms/assessments/AssessmentDeliveryRecord')),
+    AssessmentAttempt: unwrap(require('../src/models/appModels/lms/assessments/AssessmentAttempt')),
+    AssessmentAttemptQuestion: unwrap(require('../src/models/appModels/lms/assessments/AssessmentAttemptQuestion')),
 
     // ---- core (coreDb) — shared/auth, plus appModels/core (Team, Permission).
     Permission: unwrap(require('../src/models/appModels/core/Permission')),

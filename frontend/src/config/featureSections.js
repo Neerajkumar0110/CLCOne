@@ -40,9 +40,12 @@ import {
   ProjectOutlined,
   ShopOutlined,
   FileProtectOutlined,
+  SafetyCertificateOutlined,
+  HeartOutlined,
   CheckSquareOutlined,
   TeamOutlined,
   UserOutlined,
+  UserAddOutlined,
   VideoCameraOutlined,
   TrophyOutlined,
   UsergroupAddOutlined,
@@ -126,6 +129,14 @@ export const FEATURE_SECTIONS = [
       // pages/Calling.
       { key: 'leads', label: 'Leads', Icon: SolutionOutlined, embed: 'leads' },
       { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer', dashboard: 'customers' },
+      {
+        key: 'payments',
+        label: 'Payments',
+        Icon: WalletOutlined,
+        // Razorpay fee collection — payment link + QR + email, then a
+        // post-payment KYC form. See pages/Payments + /api/payments.
+        embed: 'payments',
+      },
       {
         key: 'deals',
         label: 'Deals',
@@ -712,16 +723,6 @@ export const FEATURE_SECTIONS = [
     blurb: 'Courses, batches, students, live classes, attendance and certificates.',
     tabs: [
       {
-        key: 'my-learning',
-        label: 'My Learning',
-        Icon: LaptopOutlined,
-        // Student portal shell over Moodle — My Courses / Continue Learning /
-        // account state. Reads /api/lms/portal/* (backend services/lms/).
-        // Phase 2 of the Moodle LMS Build Blueprint; deeper phases add the
-        // course player, live classes, assignments and exams.
-        embed: 'lmsStudentPortal',
-      },
-      {
         key: 'overview',
         label: 'Overview',
         Icon: DashboardOutlined,
@@ -923,6 +924,15 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsLiveClasses',
       },
       {
+        key: 'calendar',
+        label: 'Calendar',
+        Icon: CalendarOutlined,
+        // Month grid of the same auto-generated sessions as Live Classes —
+        // every batch's Start/End time + Class days (recurrence.js) already
+        // saves its full schedule here automatically, nothing to configure.
+        embed: 'lmsCalendar',
+      },
+      {
         key: 'recordings',
         label: 'Recordings',
         Icon: VideoCameraOutlined,
@@ -938,6 +948,53 @@ export const FEATURE_SECTIONS = [
         // (KPIs, filters, table, export). Student -> own attendance only.
         // See pages/Lms/Attendance + /api/lms/{admin,teacher,student}/attendance.
         embed: 'lmsAttendance',
+      },
+      {
+        key: 'policies',
+        label: 'Policies',
+        Icon: FileProtectOutlined,
+        // Policy & Acknowledgement Centre (spec §12) — admin uploads/versions/
+        // publishes policies; publishing auto-creates a pending acknowledgement
+        // per applicable student + notifies + auto-reminds until signed.
+        // See pages/Lms/Policies + /api/lms/policies, /api/lms/my/policies.
+        embed: 'lmsPolicies',
+      },
+      {
+        key: 'eligibility',
+        label: 'Eligibility',
+        Icon: SafetyCertificateOutlined,
+        // Eligibility / Placement Readiness Engine (spec §4) — admin-configurable
+        // per-course criteria + weights + threshold, computed live per student.
+        // See pages/Lms/Eligibility + /api/lms/courses/:id/eligibility-rule,
+        // /api/lms/eligibility/course/:id/report, /api/lms/my/eligibility.
+        embed: 'lmsEligibility',
+      },
+      {
+        key: 'projects',
+        label: 'Projects',
+        Icon: ProjectOutlined,
+        // Project Management Module (spec §10) — individual learner workspace,
+        // mentor review/revision cycle, GitHub+deployment URLs, rubric scoring.
+        // Confidentiality enforced server-side (owner student + mentor + admin
+        // only). See pages/Lms/Projects + /api/lms/projects, /api/lms/my/projects.
+        embed: 'lmsProjects',
+      },
+      {
+        key: 'system-health',
+        label: 'System Health',
+        Icon: HeartOutlined,
+        // Spec §18 health checks + §2 "admin availability... monitoring".
+        // See pages/Lms/SystemHealth + /api/lms/admin/system-health.
+        embed: 'lmsSystemHealth',
+      },
+      {
+        key: 'learner-360',
+        label: 'Learner 360',
+        Icon: ProfileOutlined,
+        // Spec §16 Learner 360 report — attendance+curriculum+assessments+
+        // project+acknowledgements+eligibility+certificate, one row per
+        // student, CSV/XLSX export. See pages/Lms/Learner360.
+        embed: 'lmsLearner360',
       },
       {
         key: 'assessment-dashboard',
@@ -1065,6 +1122,13 @@ export const FEATURE_SECTIONS = [
           { label: 'Recognitions Awarded', entity: 'recognition', filter: 'status', equal: 'Awarded' },
           { label: 'Exits In Progress', entity: 'exitrecord', filter: 'status', equal: 'Notice Period' },
         ],
+      },
+      {
+        key: 'users',
+        label: 'Users',
+        Icon: UserAddOutlined,
+        embed: 'hrmsUsers',
+        note: 'Create and manage login accounts for every role. Only owner, Super Admin and Admin can add a new user — everyone else with access here can view and filter by role.',
       },
       {
         key: 'employees',

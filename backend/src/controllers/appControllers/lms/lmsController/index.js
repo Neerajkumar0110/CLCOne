@@ -17,6 +17,11 @@ const engagement = require('./engagement');
 const certificates = require('./certificates');
 const analytics = require('./analytics');
 const assessments = require('./assessments');
+const policies = require('./policies');
+const eligibility = require('./eligibility');
+const projects = require('./projects');
+const health = require('./health');
+const learner360 = require('./learner360');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -174,6 +179,9 @@ module.exports = {
   liveAnalytics: scope.analytics,
   liveSettingsGet: scope.getSettings,
   liveSettingsUpdate: scope.updateSettings,
+  liveJoinPolicy: scope.joinPolicy,
+  liveAttendanceCorrect: scope.correctAttendanceHandler,
+  liveDeviceCheck: liveclass.deviceCheck,
 
   // assessments (ported from the python-test-platform reference project) —
   // distinct from the generic quizzes/* system above
@@ -188,4 +196,37 @@ module.exports = {
   assessmentAdminSummary: assessments.getSummary,
   assessmentCurriculumSessions: assessments.getSessions,
   assessmentCurriculumUpdateDelivery: assessments.updateDelivery,
+
+  // policy & acknowledgement centre
+  policyCreate: policies.create,
+  policyList: policies.list,
+  policyGet: policies.getOne,
+  policyPublish: policies.publish,
+  policyArchive: policies.archive,
+  policyReport: policies.acknowledgementReport,
+  myPolicies: policies.myPolicies,
+  policyAcknowledge: policies.acknowledge,
+
+  // eligibility / placement readiness engine
+  eligibilityRuleGet: eligibility.getRule,
+  eligibilityRuleUpsert: eligibility.upsertRule,
+  eligibilityCourseReport: eligibility.courseReport,
+  myEligibility: eligibility.myEligibility,
+
+  // project management module
+  projectAssign: projects.assign,
+  projectList: projects.list,
+  projectMyList: projects.myProjects,
+  projectGet: projects.getOne,
+  projectUpdate: projects.update,
+  projectUpdateMilestone: projects.updateMilestone,
+  projectSubmit: projects.submit,
+  projectReview: projects.review,
+
+  // system health
+  systemHealth: health.systemHealth,
+
+  // learner 360 report
+  learner360Report: learner360.courseReport,
+  learner360Export: learner360.courseReportExport,
 };

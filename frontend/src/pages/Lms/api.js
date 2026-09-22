@@ -22,6 +22,10 @@ const lmsApi = {
 
   // ── live classes (auto meeting rooms) ──────────────────────────────
   liveClasses: (scope) => request.get({ entity: `lms/live-classes${qs({ scope })}` }),
+  // Every session (any status) whose scheduledStart falls in [from, to] —
+  // uncollapsed (unlike the default/scope view, which shows one card per
+  // batch) — e.g. a calendar month grid, or a batch's own upcoming list.
+  liveClassesRange: (from, to) => request.get({ entity: `lms/live-classes${qs({ scope: 'all', from, to })}` }),
   liveClass: (id) => request.get({ entity: `lms/live-classes/${id}` }),
   // teacher / manager: set or edit a class's scheduled start + duration
   // ({ scheduledStart, scheduledDurationMin, autoStartAt, title }).
@@ -189,6 +193,56 @@ const lmsApi = {
 
   // ── panel real-time poll ─────────────────────────────────────
   updates: () => request.get({ entity: 'lms/my/updates' }),
+
+  // ── policy & acknowledgement centre ──────────────────────────
+  listPolicies: (f = {}) => request.get({ entity: `lms/policies${qs(f)}` }),
+  createPolicy: (b) => request.post({ entity: 'lms/policies', jsonData: b }),
+  getPolicy: (id) => request.get({ entity: `lms/policies/${id}` }),
+  publishPolicy: (id) => request.post({ entity: `lms/policies/${id}/publish`, jsonData: {} }),
+  archivePolicy: (id) => request.post({ entity: `lms/policies/${id}/archive`, jsonData: {} }),
+  policyReport: (id) => request.get({ entity: `lms/policies/${id}/report` }),
+  myPolicies: () => request.get({ entity: 'lms/my/policies' }),
+  acknowledgePolicy: (id) => request.post({ entity: `lms/policies/${id}/acknowledge`, jsonData: {} }),
+
+  // ── eligibility / placement readiness engine ─────────────────
+  eligibilityRule: (courseId) => request.get({ entity: `lms/courses/${courseId}/eligibility-rule` }),
+  saveEligibilityRule: (courseId, b) => request.post({ entity: `lms/courses/${courseId}/eligibility-rule`, jsonData: b }),
+  eligibilityCourseReport: (courseId) => request.get({ entity: `lms/eligibility/course/${courseId}/report` }),
+  myEligibility: () => request.get({ entity: 'lms/my/eligibility' }),
+
+  // ── project management module ────────────────────────────────
+  projects: (f = {}) => request.get({ entity: `lms/projects${qs(f)}` }),
+  teacherProjects: (f = {}) => request.get({ entity: `lms/teacher/projects${qs(f)}` }),
+  myProjects: () => request.get({ entity: 'lms/my/projects' }),
+  getProject: (id) => request.get({ entity: `lms/projects/${id}` }),
+  assignProject: (b) => request.post({ entity: 'lms/projects', jsonData: b }),
+  updateProject: (id, b) => request.patch({ entity: `lms/projects/${id}`, jsonData: b }),
+  updateMilestone: (id, b) => request.post({ entity: `lms/projects/${id}/milestones`, jsonData: b }),
+  submitProject: (id, b) => request.post({ entity: `lms/projects/${id}/submit`, jsonData: b }),
+  reviewProject: (id, b) => request.post({ entity: `lms/projects/${id}/review`, jsonData: b }),
+
+  // ── camera/mic pre-join + attendance correction + system health ──
+  joinPolicy: () => request.get({ entity: 'lms/live-settings/join-policy' }),
+  deviceCheckLog: (id, b) => request.post({ entity: `lms/live-classes/${id}/device-check`, jsonData: b }),
+  correctAttendance: (sessionId, b) => request.post({ entity: `lms/live-classes/${sessionId}/attendance/correct`, jsonData: b }),
+  systemHealth: () => request.get({ entity: 'lms/admin/system-health' }),
+
+  // ── learner 360 report ────────────────────────────────────────
+  learner360: (courseId) => request.get({ entity: `lms/admin/learner-360/${courseId}` }),
+  learner360Export: async (courseId, format = 'csv') => {
+    let token = '';
+    try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
+    const res = await axios.get(`${API_BASE_URL}lms/admin/learner-360/${courseId}/export${qs({ format })}`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `learner-360.${format}`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export default lmsApi;

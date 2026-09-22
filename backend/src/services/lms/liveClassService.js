@@ -555,7 +555,13 @@ async function ensureBatchRoom(batchDoc) {
   });
   return room;
 }
-async function ensureProviderRoom(session) {
+// `forceNoRecord` — set when a session is being auto-started by the
+// background lifecycle tick with no teacher behind it yet (see startSession)
+// so the room is opened WITHOUT autoStartRecording, instead of recording an
+// empty room nobody asked for. Once the teacher actually joins as
+// moderator, BBB's own "allowStartStopRecording" (always left on below)
+// gives them a Record button in the meeting UI if they want one.
+async function ensureProviderRoom(session, { forceNoRecord = false } = {}) {
   const provider = getMeetingProvider();
   if (session.meetingProvider !== provider.name) {
     session.meetingProvider = provider.name;
@@ -597,7 +603,7 @@ async function ensureProviderRoom(session) {
       if (needsCreate) {
         const created = await provider.ensureRoom(
           { _id: room._id, meetingId: room.meetingId, roomName: room.roomName, title: room.batchName, courseTitle: room.courseTitle, batchName: room.batchName, teacherName: room.teacherName, scheduledEnd: room.validUntil, publicKey: room.publicKey, moderatorPW: room.moderatorPW, attendeePW: room.attendeePW },
-          { record: session.recordingEnabled && s.recordingAutoStart }
+          { record: !forceNoRecord && session.recordingEnabled && s.recordingAutoStart }
         );
         room.meetingId = created.meetingId || room.meetingId || room.roomName;
         if (created.roomName) room.roomName = created.roomName;
@@ -622,7 +628,7 @@ async function ensureProviderRoom(session) {
 
   // no batch — per-session room (manual one-off classes)
   if (session.meetingId && session.meetingProvider !== 'mock') return session;
-  const room = await provider.ensureRoom(session, { record: session.recordingEnabled && s.recordingAutoStart });
+  const room = await provider.ensureRoom(session, { record: !forceNoRecord && session.recordingEnabled && s.recordingAutoStart });
   session.meetingId = room.meetingId || session.meetingId || session.roomName;
   if (room.roomName) session.roomName = room.roomName;
   if (room.moderatorPW) session.moderatorPW = room.moderatorPW;
@@ -665,6 +671,14 @@ async function startSession(id, admin, { auto = false } = {}) {
     const role = await resolveRole(session, admin);
     if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can start it.' };
   }
+  // The background lifecycle tick (autoLifecycleTick) can flip a session to
+  // 'live' purely on schedule, with no admin at all (admin is literally
+  // null there) so the batch's calendar slot goes live Mon-Fri on its own —
+  // that's intentional. But it means "live" no longer implies "the teacher
+  // is actually here", so recording must not auto-arm off that alone: only
+  // a real teacher action (the Start button, or a teacher's own resume-join
+  // — both pass a real `admin`) is allowed to start a recording.
+  const teacherPresent = !auto || !!admin;
   // recording_processing/available is the normal post-end state (any class
   // with recording enabled — the default — goes through it, not 'ended';
   // see endSession). Still resumable for as long as the scheduled window is
@@ -681,7 +695,7 @@ async function startSession(id, admin, { auto = false } = {}) {
   session.status = 'starting';
   await session.save();
   try {
-    await ensureProviderRoom(session);
+    await ensureProviderRoom(session, { forceNoRecord: !teacherPresent });
   } catch (e) {
     session.status = session.actualStart ? 'live' : 'scheduled';
     await session.save();
@@ -698,7 +712,7 @@ async function startSession(id, admin, { auto = false } = {}) {
   // 'PROCESSING' (never 'RECORDING'), falls through to plain 'ended'
   // instead of 'recording_processing', and pollRecordings (which only
   // looks at 'recording_processing' sessions) never checks this one again.
-  if (session.recordingEnabled && s.recordingAutoStart && session.recordingStatus !== 'AVAILABLE') {
+  if (teacherPresent && session.recordingEnabled && s.recordingAutoStart && session.recordingStatus !== 'AVAILABLE') {
     session.recordingStatus = 'RECORDING';
     // Created here (upsert), not when the session/schedule was generated —
     // only classes that actually go live get a recording row at all.
@@ -1232,7 +1246,13 @@ async function pollRecordings() {
 }
 
 /* ───────────────────────── roles / reads ───────────────────────── */
-async function resolveRole(session, admin) {
+// `cache` (optional) lets a caller iterating many sessions for the same
+// admin (listFor) memoize the DB-dependent branches below by their key —
+// batch/moodleCourseId/batchName repeat across every recurring session of
+// the same batch (~130 of them per recurrence.js), so without this a
+// listFor() call was re-issuing the same Batch/LmsEnrolment/Student lookups
+// hundreds of times per request.
+async function resolveRole(session, admin, cache) {
   if (!admin) return null;
   if (session.teacherCrmUser && String(session.teacherCrmUser) === String(admin._id)) return 'teacher';
   if (session.teacherName && admin.name && session.teacherName.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
@@ -1244,14 +1264,29 @@ async function resolveRole(session, admin) {
   // Falling back to the batch's CURRENT trainer keeps this self-healing
   // instead of needing a one-off data migration.
   if (session.batch && admin.name) {
-    const Batch = mongoose.model('Batch');
-    const batch = await Batch.findById(session.batch).select('trainer').lean();
-    if (batch && batch.trainer && batch.trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+    const batchKey = String(session.batch);
+    let trainer;
+    if (cache && cache.batchTrainer.has(batchKey)) {
+      trainer = cache.batchTrainer.get(batchKey);
+    } else {
+      const Batch = mongoose.model('Batch');
+      const batch = await Batch.findById(session.batch).select('trainer').lean();
+      trainer = (batch && batch.trainer) || null;
+      if (cache) cache.batchTrainer.set(batchKey, trainer);
+    }
+    if (trainer && trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
   }
   if (isManager(admin)) return 'teacher';
   if (session.participants.some((p) => String(p.crmUser) === String(admin._id))) return 'student';
   if (session.moodleCourseId) {
-    const enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId });
+    const mcKey = String(session.moodleCourseId);
+    let enr;
+    if (cache && cache.enrolment.has(mcKey)) {
+      enr = cache.enrolment.get(mcKey);
+    } else {
+      enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId }).lean();
+      if (cache) cache.enrolment.set(mcKey, enr || null);
+    }
     if (enr) return enr.roleShortname === 'editingteacher' ? 'teacher' : 'student';
   }
   // Same roster-batch match the Student Dashboard already uses (panel.js's
@@ -1261,9 +1296,16 @@ async function resolveRole(session, admin) {
   // 'student' here, so "My Classes" shows nothing and there is no Join
   // button to click at all.
   if (session.batchName && admin.email) {
-    const Student = mongoose.model('Student');
-    const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-    const onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName });
+    const rosterKey = session.batchName;
+    let onRoster;
+    if (cache && cache.roster.has(rosterKey)) {
+      onRoster = cache.roster.get(rosterKey);
+    } else {
+      const Student = mongoose.model('Student');
+      const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName });
+      if (cache) cache.roster.set(rosterKey, onRoster);
+    }
     if (onRoster) return 'student';
   }
   return null;
@@ -1271,6 +1313,7 @@ async function resolveRole(session, admin) {
 
 function attendanceRows(session) {
   return session.participants.map((p) => ({
+    crmUser: p.crmUser ? String(p.crmUser) : undefined,
     name: p.name,
     email: p.email,
     role: p.role,
@@ -1283,7 +1326,39 @@ function attendanceRows(session) {
     joinCount: p.joinCount,
     leaveCount: p.leaveCount,
     online: p.online,
+    corrected: !!p.correctedAt,
+    correctedByName: p.correctedByName,
+    correctedReason: p.correctedReason,
   }));
+}
+
+// Admin correction (spec §5/§2): overrides a participant's attendanceStatus
+// with a reason + timestamp. If the student never has a participant row
+// (never attempted to join), one is created directly from the correction —
+// otherwise a truly-absent student could never be marked EXCUSED etc.
+async function correctAttendance(sessionId, { crmUserId, status, reason, admin }) {
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const session = await LmsLiveSession.findOne({ _id: sessionId, removed: false });
+  if (!session) throw new Error('Session not found');
+
+  let p = session.participants.find((x) => String(x.crmUser) === String(crmUserId));
+  if (!p) {
+    const Admin = mongoose.model('Admin');
+    const user = await Admin.findById(crmUserId).select('name email').lean();
+    if (!user) throw new Error('Student not found');
+    session.participants.push({ crmUser: crmUserId, name: user.name, email: user.email, role: 'student' });
+    p = session.participants[session.participants.length - 1];
+  }
+  p.attendanceStatus = status;
+  p.present = status === 'PRESENT' || status === 'LATE';
+  if (status === 'EXCUSED') p.excusedReason = reason;
+  p.correctedBy = admin._id;
+  p.correctedByName = admin.name;
+  p.correctedAt = new Date();
+  p.correctedReason = reason;
+
+  await session.save();
+  return { name: p.name, email: p.email, status: p.attendanceStatus };
 }
 
 function safeView(session, role) {
@@ -1343,10 +1418,37 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   if (courseTitle) q.courseTitle = courseTitle;
   if (teacherName) q.teacherName = teacherName;
   if (from || to) q.scheduledStart = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
+
+  // Narrow the query to sessions this admin could plausibly resolve a role
+  // for, instead of pulling up to 500 org-wide sessions and running
+  // resolveRole's DB lookups on every single one — with a handful of
+  // 6-month batches (~130 auto-generated sessions each, recurrence.js) an
+  // unscoped load was issuing hundreds of sequential queries per request.
+  // A manager legitimately sees everything, so it's left unscoped for them.
+  if (admin && !isManager(admin) && !batchId) {
+    const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const scopeOr = [{ teacherCrmUser: admin._id }, { 'participants.crmUser': admin._id }];
+    if (admin.name) scopeOr.push({ teacherName: new RegExp(`^${esc(admin.name)}$`, 'i') });
+    const [trainerBatches, rosterBatchNames, enrolments] = await Promise.all([
+      admin.name
+        ? mongoose.model('Batch').find({ trainer: new RegExp(`^${esc(admin.name)}$`, 'i') }).select('_id').lean()
+        : Promise.resolve([]),
+      admin.email
+        ? mongoose.model('Student').find({ removed: false, email: new RegExp(`^${esc(admin.email)}$`, 'i') }).distinct('batch')
+        : Promise.resolve([]),
+      mongoose.model('LmsEnrolment').find({ crmUser: admin._id }).distinct('moodleCourseId'),
+    ]);
+    if (trainerBatches.length) scopeOr.push({ batch: { $in: trainerBatches.map((b) => b._id) } });
+    if (rosterBatchNames.length) scopeOr.push({ batchName: { $in: rosterBatchNames } });
+    if (enrolments.length) scopeOr.push({ moodleCourseId: { $in: enrolments } });
+    q.$or = scopeOr;
+  }
+
   const all = await LmsLiveSession.find(q).sort({ scheduledStart: 1, created: -1 }).limit(500);
+  const cache = { batchTrainer: new Map(), enrolment: new Map(), roster: new Map() };
   const out = [];
   for (const sn of all) {
-    const role = await resolveRole(sn, admin);
+    const role = await resolveRole(sn, admin, cache);
     if (!role) continue;
     const v = safeView(sn, role);
     if (scope === 'live' && sn.status !== 'live') continue;
@@ -1420,5 +1522,6 @@ module.exports = {
   getOne,
   resolveRole,
   attendanceRows,
+  correctAttendance,
   safeView,
 };

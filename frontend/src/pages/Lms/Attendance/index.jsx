@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress } from 'antd';
-import { ReloadOutlined, DownloadOutlined, CheckSquareOutlined } from '@ant-design/icons';
+import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress, Modal, Form, message } from 'antd';
+import { ReloadOutlined, DownloadOutlined, CheckSquareOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
 
@@ -18,6 +19,9 @@ function Dashboard({ role }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [f, setF] = useState({ courseTitle: '', batchName: '', teacherName: '', student: '', status: undefined, from: null, to: null });
+  const [correcting, setCorrecting] = useState(null); // row being corrected
+  const [correctForm] = Form.useForm();
+  const [correctBusy, setCorrectBusy] = useState(false);
 
   const fetcher = role === 'admin' ? lmsApi.adminAttendance : lmsApi.teacherAttendance;
 
@@ -42,6 +46,17 @@ function Dashboard({ role }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const submitCorrection = async () => {
+    let v;
+    try { v = await correctForm.validateFields(); } catch (e) { return; }
+    setCorrectBusy(true);
+    try {
+      const res = await lmsApi.correctAttendance(correcting.sessionId, { crmUserId: correcting.crmUser, status: v.status, reason: v.reason });
+      message.success(res?.message || 'Corrected.');
+      setCorrecting(null); correctForm.resetFields(); load();
+    } catch (e) { message.error('Correction failed.'); } finally { setCorrectBusy(false); }
+  };
 
   const rows = (data && data.rows) || [];
   const k = (data && data.kpis) || {};
@@ -100,9 +115,65 @@ function Dashboard({ role }) {
           { title: '%', dataIndex: 'attendancePct', width: 110, render: (v) => <Progress percent={v} size="small" /> },
           { title: 'Joins', dataIndex: 'joins', width: 60 },
           { title: 'Leaves', dataIndex: 'leaves', width: 70 },
-          { title: 'Status', dataIndex: 'status', fixed: 'right', width: 100, render: (v) => <Tag color={SC[v]}>{v}</Tag> },
+          {
+            title: 'Status', dataIndex: 'status', fixed: 'right', width: 130,
+            render: (v, r) => (
+              <Space size={4}>
+                <Tag color={SC[v]}>{v}</Tag>
+                {r.corrected && <Tag color="purple" title={`${r.correctedByName}: ${r.correctedReason}`}>corrected</Tag>}
+              </Space>
+            ),
+          },
+          ...(role === 'admin'
+            ? [{
+                title: '', fixed: 'right', width: 40,
+                render: (_, r) => (
+                  <Button
+                    size="small" type="text" icon={<EditOutlined />} disabled={!r.crmUser}
+                    title={r.crmUser ? 'Correct attendance' : 'No login account for this row'}
+                    onClick={() => { setCorrecting(r); correctForm.setFieldsValue({ status: r.status, reason: '' }); }}
+                  />
+                ),
+              }]
+            : []),
         ]}
       />
+
+      <Modal
+        className="crud-modal"
+        open={!!correcting}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><EditOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">Correct attendance</span>
+              <span className="crud-modal-title-main">{correcting ? correcting.studentName : ''}</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setCorrecting(null)}
+        onOk={submitCorrection}
+        confirmLoading={correctBusy}
+        okText="Save correction"
+        destroyOnClose
+        maskClosable={false}
+      >
+        <Form form={correctForm} layout="vertical" className="crud-form" preserve={false}>
+          <div className="crud-form-grid">
+            <Form.Item name="status" label={<span className="crud-lbl"><span className="crud-lbl-icon"><CheckSquareOutlined /></span>Corrected status</span>} rules={[{ required: true }]} className="crud-form-full">
+              <Select options={['PRESENT', 'LATE', 'PARTIAL', 'ABSENT', 'EXCUSED'].map((s) => ({ value: s, label: s }))} />
+            </Form.Item>
+            <Form.Item
+              name="reason"
+              label={<span className="crud-lbl"><span className="crud-lbl-icon"><FileTextOutlined /></span>Reason (required, audited)</span>}
+              className="crud-form-full"
+              rules={[{ required: true, message: 'A reason is required for every correction.' }]}
+            >
+              <Input.TextArea rows={3} placeholder="e.g. Internet outage confirmed via support ticket #123" />
+            </Form.Item>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }
@@ -165,19 +236,16 @@ function MyAttendance() {
 
 export default function Attendance() {
   const admin = useSelector(selectCurrentAdmin) || {};
-  const role = MGR.includes(admin.role) ? 'admin' : 'student';
-  // A non-manager who actually teaches still sees their own classes via the
-  // teacher dashboard fallback inside Dashboard(role='teacher'); we surface the
-  // student view by default and let managers see the full dashboard.
+  const role = MGR.includes(admin.role) ? 'admin' : LMS_TEACHER_ROLES.includes(admin.role) ? 'teacher' : 'student';
   return (
     <div className="lms-portal lms-section-attendance">
       <div className="lms-portal-head">
         <div>
           <h2><CheckSquareOutlined /> Attendance</h2>
-          <p>{role === 'admin' ? 'Auto-captured from join/leave events across all classes.' : 'Your live-class attendance.'}</p>
+          <p>{role === 'student' ? 'Your live-class attendance.' : 'Auto-captured from join/leave events across all classes.'}</p>
         </div>
       </div>
-      {role === 'admin' ? <Dashboard role="admin" /> : <MyAttendance />}
+      {role === 'student' ? <MyAttendance /> : <Dashboard role={role} />}
     </div>
   );
 }

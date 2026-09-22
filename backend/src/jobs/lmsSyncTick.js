@@ -123,6 +123,7 @@ function startLmsSyncTick() {
   }
   setInterval(async () => {
     try {
+      require('../services/lms/health').ping('lmsSyncTick');
       // queue + webhook retries run even while unconfigured so jobs park
       // cleanly; syncService functions no-op until Moodle is reachable.
       await drainQueue();

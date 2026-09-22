@@ -48,6 +48,14 @@ const participantSchema = new mongoose.Schema(
     excusedReason: { type: String },
     // transient: is the participant currently "in" (a session with no leftAt)
     online: { type: Boolean, default: false },
+
+    // manual admin correction (spec §5/§2 — "authorized admin can correct
+    // attendance only with reason, timestamp and audit log"; the audit log
+    // entry itself lives in AuditLog, this is the quick on-row trace).
+    correctedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    correctedByName: { type: String },
+    correctedAt: { type: Date },
+    correctedReason: { type: String },
   },
   { _id: false }
 );

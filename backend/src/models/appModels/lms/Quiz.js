@@ -14,7 +14,9 @@ const schema = new mongoose.Schema({
 
   title: { type: String, required: true },
   description: { type: String },
-  type: { type: String, enum: ['quiz', 'exam'], default: 'quiz' },
+  // 'surprise_test' is additive (spec §3/§9 "Surprise Tests" as their own
+  // tracked category) — existing docs are unaffected, default stays 'quiz'.
+  type: { type: String, enum: ['quiz', 'exam', 'surprise_test'], default: 'quiz' },
 
   timeLimitMin: { type: Number, default: 0 },          // 0 = no limit
   totalQuestions: { type: Number, default: 0 },        // 0 = use all

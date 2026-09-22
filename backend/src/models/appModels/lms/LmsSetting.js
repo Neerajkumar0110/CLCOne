@@ -23,8 +23,11 @@ const schema = new mongoose.Schema({
   recordingAccess: { type: String, enum: ['enrolled', 'batch', 'course', 'admin-only'], default: 'enrolled' },
   recordingAvailableImmediately: { type: Boolean, default: true },
 
-  // class lifecycle policy
-  autoStartPolicy: { type: String, enum: ['manual', 'at-schedule'], default: 'manual' },
+  // class lifecycle policy — 'at-schedule' means every batch's recurring
+  // sessions open their room by themselves at scheduledStart (lmsLiveTick.js's
+  // autoLifecycleTick), matching what a batch's Start/End time + Class days
+  // already promise; 'manual' would need a teacher to click Start each time.
+  autoStartPolicy: { type: String, enum: ['manual', 'at-schedule'], default: 'at-schedule' },
   autoEndPolicy: { type: String, enum: ['manual', 'at-schedule', 'grace'], default: 'grace' },
   autoEndGraceMin: { type: Number, default: 20 }, // end N min after scheduledEnd if still live
 
@@ -33,6 +36,11 @@ const schema = new mongoose.Schema({
   studentCamera: { type: Boolean, default: false },
   studentScreenShare: { type: Boolean, default: false },
   chatEnabled: { type: Boolean, default: true },
+
+  // pre-join device check (spec §6) — enforced client-side (a browser can't
+  // be forced open server-side); the server's role is policy + audit only.
+  deviceCheckRequired: { type: Boolean, default: true }, // show the pre-join camera/mic check at all
+  cameraRequiredToJoin: { type: Boolean, default: false }, // block Join until camera permission is granted
 
   // notifications
   notifyBeforeMins: { type: [Number], default: [1440, 60, 30, 15] },

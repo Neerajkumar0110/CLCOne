@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import lmsApi from '../api';
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
+import DevicePreflightModal from '../components/DevicePreflightModal';
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -78,7 +79,13 @@ export default function LiveClasses() {
   const [editBusy, setEditBusy] = useState(false);
   const [editForm] = Form.useForm();
   const [addFor, setAddFor] = useState(null);
+  const [policy, setPolicy] = useState(null);
+  const [preflight, setPreflight] = useState(null); // row awaiting device check
   const timer = useRef(null);
+
+  useEffect(() => {
+    lmsApi.joinPolicy().then((r) => setPolicy((r && r.result) || null)).catch(() => {});
+  }, []);
 
   const load = useCallback(async (silent) => {
     if (!silent) setLoading(true);
@@ -122,6 +129,14 @@ export default function LiveClasses() {
       load(true);
     }
   };
+  // Student joins go through the device pre-check (spec §6) when the admin
+  // has it enabled; teachers/hosts skip straight through (they're not the
+  // ones the camera-on policy targets).
+  const handleJoin = (r) => {
+    if (r.myRole === 'teacher' || !policy || !policy.deviceCheckRequired) return onJoin(r.id);
+    setPreflight(r);
+  };
+
   const onStart = async (id) => {
     setBusyId(id);
     try {
@@ -217,38 +232,42 @@ export default function LiveClasses() {
 
   return (
     <div className="lms-portal lms-section-live">
-      <div className="lms-portal-head">
-        <div>
-          <h2><VideoCameraOutlined /> Live Classes</h2>
-          <p>Rooms are created automatically per batch — no meeting links to manage.</p>
+      <div className="lms-live-hero">
+        <div className="lms-live-hero-info">
+          <span className="lms-live-hero-icon"><VideoCameraOutlined /></span>
+          <div>
+            <h2>Live Classes</h2>
+            <p>Rooms are created automatically per batch — no meeting links to manage.</p>
+          </div>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={() => load()}>Refresh</Button>
+        <Button className="lms-live-refresh" icon={<ReloadOutlined />} onClick={() => load()}>Refresh</Button>
       </div>
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
 
       {liveNow.length > 0 && (
-        <Alert
-          type="error"
-          showIcon
-          style={{ marginBottom: 16 }}
-          className="lms-livenow"
-          message={`LIVE NOW — ${liveNow.length} class${liveNow.length > 1 ? 'es' : ''}`}
-          description={
-            <div className="lms-livenow-row">
-              {liveNow.map((r) => (
-                <span key={r.id}>
-                  <b>{r.title}</b> · {r.courseTitle} · {r.teacherName}
-                  {r.canJoin && (
-                    <Button size="small" type="primary" style={{ marginLeft: 8 }} loading={busyId === r.id} onClick={() => onJoin(r.id)}>
-                      {r.myRole === 'teacher' ? 'Join as host' : 'JOIN LIVE CLASS'}
-                    </Button>
-                  )}
-                </span>
-              ))}
-            </div>
-          }
-        />
+        <div className="lms-livenow2">
+          <div className="lms-livenow2-head">
+            <span className="lms-livenow2-dot" />
+            <span className="lms-livenow2-title">LIVE NOW</span>
+            <span className="lms-livenow2-count">{liveNow.length} class{liveNow.length > 1 ? 'es' : ''}</span>
+          </div>
+          <div className="lms-livenow2-list">
+            {liveNow.map((r) => (
+              <div className="lms-livenow2-row" key={r.id}>
+                <div>
+                  <div className="lms-livenow2-name">{r.title}</div>
+                  <div className="lms-livenow2-sub">{r.courseTitle} · {r.teacherName}</div>
+                </div>
+                {r.canJoin && (
+                  <Button size="small" className="lms-livenow2-btn" loading={busyId === r.id} onClick={() => handleJoin(r)}>
+                    {r.myRole === 'teacher' ? 'Join as host' : 'Join live class'}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {rows.length === 0 ? (
@@ -263,11 +282,15 @@ export default function LiveClasses() {
           {rows.map((r) => {
             const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
             const busy = busyId === r.id;
+            const isLive = r.status === 'LIVE' || r.status === 'STARTING';
             return (
               <Col xs={24} sm={12} lg={8} key={r.id}>
-                <Card size="small" className={`lms-live-card lms-live-${r.lifecycle}`}>
+                <Card size="small" className={`lms-live-card lms-live-${r.lifecycle}${isLive ? ' is-live' : ''}`}>
                   <div className="lms-live-top">
-                    <Tag color={meta.color}>{meta.label}</Tag>
+                    <span className={`lms-live-badge lms-live-badge--${meta.color}`}>
+                      {isLive && <i className="lms-live-badge-dot" />}
+                      {meta.label}
+                    </span>
                     <span className="lms-live-provider">
                       {r.meetingProvider === 'bigbluebutton' ? 'BigBlueButton' : r.meetingProvider === 'jitsi' ? 'Jitsi' : 'Room'}
                       {r.isMock ? ' · mock' : ''}
@@ -293,7 +316,7 @@ export default function LiveClasses() {
                       </Button>
                     )}
                     {r.canJoin && !r.canStart && (
-                      <Button type="primary" size="small" icon={<LoginOutlined />} loading={busy} onClick={() => onJoin(r.id)}>
+                      <Button type="primary" size="small" icon={<LoginOutlined />} loading={busy} onClick={() => handleJoin(r)}>
                         {r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class'}
                       </Button>
                     )}
@@ -407,6 +430,18 @@ export default function LiveClasses() {
           ]}
         />
       </Modal>
+
+      <DevicePreflightModal
+        open={!!preflight}
+        sessionId={preflight && preflight.id}
+        policy={policy}
+        onCancel={() => setPreflight(null)}
+        onConfirm={() => {
+          const id = preflight && preflight.id;
+          setPreflight(null);
+          if (id) onJoin(id);
+        }}
+      />
     </div>
   );
 }

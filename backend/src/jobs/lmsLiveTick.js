@@ -28,7 +28,10 @@ async function recipients(session) {
   if (session.batchName) {
     const Student = mongoose.model('Student');
     const Admin = mongoose.model('Admin');
-    const roster = await Student.find({ removed: false, batch: session.batchName }, 'email').lean();
+    // status: 'Active' only — spec §2 "Archive/suspend/withdraw states must
+    // immediately affect all scheduled communications" (a Dropped/On Hold/
+    // Completed/Deferred student must stop getting class-reminder pings).
+    const roster = await Student.find({ removed: false, batch: session.batchName, status: 'Active' }, 'email').lean();
     const emails = roster.map((r) => r.email).filter(Boolean);
     if (emails.length) {
       const emailRxs = emails.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
@@ -103,6 +106,7 @@ async function runNotifications() {
 
 function start() {
   setInterval(async () => {
+    require('../services/lms/health').ping('lmsLiveTick');
     try {
       await liveClassService.autoLifecycleTick();
     } catch (e) {

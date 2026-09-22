@@ -348,6 +348,8 @@ async function attendanceDashboard(req, res) {
       else if (p.attendanceStatus === 'PARTIAL') partial += 1;
       else absent += 1;
       rows.push({
+        sessionId: String(s._id),
+        crmUser: p.crmUser ? String(p.crmUser) : undefined,
         studentName: p.name,
         email: p.email,
         batch: s.batchName,
@@ -362,6 +364,9 @@ async function attendanceDashboard(req, res) {
         status: p.attendanceStatus,
         joins: p.joinCount,
         leaves: p.leaveCount,
+        corrected: !!p.correctedAt,
+        correctedByName: p.correctedByName,
+        correctedReason: p.correctedReason,
       });
     }
   }
@@ -531,6 +536,57 @@ async function updateSettings(req, res) {
   return res.status(200).json({ success: true, result: await settingsService.update(req.body || {}) });
 }
 
+// GET /api/lms/live-settings/join-policy — any authenticated user (not just
+// managers) needs to know whether camera is mandatory before it can gate
+// their own Join button. Deliberately a narrow read, not the full settings
+// dump (which stays manager-only via /admin/live-settings).
+async function joinPolicy(req, res) {
+  const s = await settingsService.get();
+  return res.status(200).json({
+    success: true,
+    result: {
+      deviceCheckRequired: s.deviceCheckRequired,
+      cameraRequiredToJoin: s.cameraRequiredToJoin,
+      studentCamera: s.studentCamera,
+      studentMic: s.studentMic,
+    },
+  });
+}
+
+// POST /api/lms/live-classes/:id/attendance/correct — manager only. See
+// spec §5 "Admin correction: authorized admin can correct attendance only
+// with reason, timestamp and audit log" — the audit trail write is here,
+// not just the on-row trace, so it shows up in the org-wide AuditLog too.
+async function correctAttendanceHandler(req, res) {
+  if (!isManager(req.admin)) return res.status(403).json({ success: false, message: 'Management role required.' });
+  const b = req.body || {};
+  if (!b.crmUserId || !b.status || !String(b.reason || '').trim())
+    return res.status(400).json({ success: false, message: 'crmUserId, status and reason are all required.' });
+  if (!['PRESENT', 'PARTIAL', 'ABSENT', 'LATE', 'EXCUSED'].includes(b.status))
+    return res.status(400).json({ success: false, message: 'Invalid status.' });
+  try {
+    const result = await liveClassService.correctAttendance(req.params.id, {
+      crmUserId: b.crmUserId,
+      status: b.status,
+      reason: b.reason.trim(),
+      admin: req.admin,
+    });
+    const auditLog = require('../../../../services/lms/auditLog');
+    await auditLog.record({
+      module: 'attendance',
+      action: 'correct',
+      entityType: 'LmsLiveSession',
+      entityId: req.params.id,
+      admin: req.admin,
+      reason: b.reason.trim(),
+      after: { student: result.email, status: result.status },
+    });
+    return res.status(200).json({ success: true, result, message: `Attendance corrected to ${result.status}.` });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+}
+
 module.exports = {
   studentLiveClasses,
   studentAttendance,
@@ -544,4 +600,6 @@ module.exports = {
   analytics,
   getSettings,
   updateSettings,
+  joinPolicy,
+  correctAttendanceHandler,
 };

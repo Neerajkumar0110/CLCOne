@@ -499,6 +499,14 @@ async function evaluateAttempt(req, res) {
   attempt.updated = new Date();
   await attempt.save();
   await mirrorQuizScoreToRoster(attempt, quiz);
+  await require('../../../../services/lms/auditLog').record({
+    module: 'assessment',
+    action: 'evaluate-quiz',
+    entityType: 'QuizAttempt',
+    entityId: attempt._id,
+    admin: req.admin,
+    after: { percent: attempt.percent, passed: attempt.passed, manualScore: manual },
+  });
   return ok(res, { id: String(attempt._id), percent: attempt.percent, passed: attempt.passed }, 'Evaluated.');
 }
 

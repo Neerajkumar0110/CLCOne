@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 
 import { useSelector } from 'react-redux';
 import { selectAuth, selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -16,6 +17,11 @@ import { notification } from 'antd';
 
 const ErpApp = lazy(() => import('./ErpApp'));
 const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
+// Public post-payment KYC form (/kyc/:token) — reached by a student straight
+// off the payment email/QR, never through a CRM login. Bypasses the
+// isLoggedIn branch below entirely, the one architectural spot that can
+// render something regardless of auth state.
+const PublicKycForm = lazy(() => import('@/pages/Payments/PublicKycForm'));
 
 const DefaultApp = () => {
   const current = useSelector(selectCurrentAdmin);
@@ -45,6 +51,7 @@ const DefaultApp = () => {
 
 export default function IdurarOs() {
   const { isLoggedIn } = useSelector(selectAuth);
+  const location = useLocation();
 
   console.log(
     '🚀 Welcome to IDURAR ERP CRM! Did you know that we also offer commercial customization services? Contact us at hello@idurarapp.com for more information.'
@@ -83,6 +90,18 @@ export default function IdurarOs() {
   //     window.removeEventListener('offline', handleStatusChange);
   //   };
   // }, [navigator.onLine]);
+
+  if (location.pathname.startsWith('/kyc/')) {
+    return (
+      <Localization>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/kyc/:token" element={<PublicKycForm />} />
+          </Routes>
+        </Suspense>
+      </Localization>
+    );
+  }
 
   if (!isLoggedIn)
     return (

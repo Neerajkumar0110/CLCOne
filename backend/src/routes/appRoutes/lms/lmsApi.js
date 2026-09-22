@@ -28,6 +28,8 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id/join/student`).post(catchErrors(lms.liveJoin));
   router.route(`${base}/:id/leave`).post(catchErrors(lms.liveLeave));
   router.route(`${base}/:id/attendance`).get(catchErrors(lms.liveAttendance));
+  router.route(`${base}/:id/attendance/correct`).post(requireManager, catchErrors(lms.liveAttendanceCorrect));
+  router.route(`${base}/:id/device-check`).post(catchErrors(lms.liveDeviceCheck));
   router.route(`${base}/:id/regenerate`).post(requireManager, catchErrors(lms.liveRegenerate));
   router.route(`${base}/:id/open`).get(catchErrors(lms.liveOpenEntry));
 });
@@ -155,6 +157,12 @@ router.route('/admin/live-monitor').get(requireManager, catchErrors(lms.liveMoni
 router.route('/admin/live-analytics').get(requireManager, catchErrors(lms.liveAnalytics));
 router.route('/admin/live-settings').get(requireManager, catchErrors(lms.liveSettingsGet));
 router.route('/admin/live-settings').post(requireManager, catchErrors(lms.liveSettingsUpdate));
+router.route('/live-settings/join-policy').get(catchErrors(lms.liveJoinPolicy));
+router.route('/admin/system-health').get(requireManager, catchErrors(lms.systemHealth));
+
+// ── learner 360 report ───────────────────────────────────────────────
+router.route('/admin/learner-360/:courseId').get(catchErrors(lms.learner360Report));
+router.route('/admin/learner-360/:courseId/export').get(catchErrors(lms.learner360Export));
 
 // ── assessments (ported from the python-test-platform reference project) ──
 // Self-service, self-scoped by req.admin (no role check, matching that
@@ -175,6 +183,29 @@ router.route('/assessments/admin/curriculum/sessions').get(requireManager, catch
 router
   .route('/assessments/admin/curriculum/sessions/:sessionId/delivery')
   .patch(requireManager, catchErrors(lms.assessmentCurriculumUpdateDelivery));
+
+// ── policy & acknowledgement centre ─────────────────────────────────
+router.route('/policies').get(requireManager, catchErrors(lms.policyList)).post(requireManager, catchErrors(lms.policyCreate));
+router.route('/policies/:id').get(catchErrors(lms.policyGet));
+router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.policyPublish));
+router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));
+router.route('/policies/:id/report').get(requireManager, catchErrors(lms.policyReport));
+router.route('/policies/:id/acknowledge').post(catchErrors(lms.policyAcknowledge));
+router.route('/my/policies').get(catchErrors(lms.myPolicies));
+
+// ── eligibility / placement readiness engine ────────────────────────
+router.route('/courses/:courseId/eligibility-rule').get(catchErrors(lms.eligibilityRuleGet)).post(requireManager, catchErrors(lms.eligibilityRuleUpsert));
+router.route('/eligibility/course/:courseId/report').get(catchErrors(lms.eligibilityCourseReport));
+router.route('/my/eligibility').get(catchErrors(lms.myEligibility));
+
+// ── project management module ───────────────────────────────────────
+router.route('/projects').get(catchErrors(lms.projectList)).post(catchErrors(lms.projectAssign));
+router.route('/projects/:id').get(catchErrors(lms.projectGet)).patch(catchErrors(lms.projectUpdate));
+router.route('/projects/:id/milestones').post(catchErrors(lms.projectUpdateMilestone));
+router.route('/projects/:id/submit').post(catchErrors(lms.projectSubmit));
+router.route('/projects/:id/review').post(catchErrors(lms.projectReview));
+router.route('/my/projects').get(catchErrors(lms.projectMyList));
+router.route('/teacher/projects').get(catchErrors(lms.projectList));
 
 // ── PILOT / internal test (management only) — see deploy/moodle/PILOT.md ──
 router.route('/admin/pilot/seed').post(requireManager, catchErrors(lms.pilotSeed));
