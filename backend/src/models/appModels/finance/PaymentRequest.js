@@ -54,6 +54,17 @@ const schema = new mongoose.Schema(
     // Calendar-day dedup for the reminder job — at most one reminder email
     // per day even though the tick runs more often than that.
     lastReminderSentAt: Date,
+    // Full history of every reminder email actually sent for this
+    // installment (jobs/financeEmiTick.js) — shown in the Finance hub's
+    // payment detail modal so an admin can see exactly who was reminded and
+    // when, not just "a reminder went out at some point".
+    reminderLog: [
+      {
+        _id: false,
+        sentAt: { type: Date, required: true },
+        daysUntilDue: { type: Number, required: true },
+      },
+    ],
 
     kycSubmitted: { type: Boolean, default: false },
     kycSubmittedAt: Date,

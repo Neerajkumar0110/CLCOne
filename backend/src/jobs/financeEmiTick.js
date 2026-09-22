@@ -118,7 +118,10 @@ async function sendEmiReminders() {
       continue;
     }
     // eslint-disable-next-line no-await-in-loop
-    await PaymentRequest.updateOne({ _id: doc._id }, { $set: { lastReminderSentAt: now } });
+    await PaymentRequest.updateOne(
+      { _id: doc._id },
+      { $set: { lastReminderSentAt: now }, $push: { reminderLog: { sentAt: now, daysUntilDue: daysUntil } } }
+    );
   }
 }
 

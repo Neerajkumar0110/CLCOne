@@ -38,7 +38,13 @@ async function get(req, res) {
         installmentNo: s.installmentNo,
         amount: s.amount,
         status: s.status,
+        dueAt: s.dueAt,
         paidAt: s.paidAt,
+        emailSent: s.emailSent,
+        emailSentAt: s.emailSentAt,
+        reminderCount: (s.reminderLog || []).length,
+        lastReminderSentAt: s.lastReminderSentAt,
+        createdByName: s.createdByName,
       })),
     };
   }
@@ -57,12 +63,16 @@ async function get(req, res) {
       shortUrl: doc.razorpayShortUrl,
       razorpayPaymentId: doc.razorpayPaymentId,
       emailSent: doc.emailSent,
+      emailSentAt: doc.emailSentAt,
       emailError: doc.emailError,
       kycSubmitted: doc.kycSubmitted,
       created: doc.created,
+      createdByName: doc.createdByName,
       paidAt: doc.paidAt,
+      dueAt: doc.dueAt,
       installmentNo: doc.installmentNo,
       installmentCount: doc.installmentCount,
+      reminderLog: doc.reminderLog || [],
       plan,
       kyc: kyc
         ? {
