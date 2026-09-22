@@ -198,21 +198,39 @@ export default function Payments() {
     {
       title: 'Student',
       key: 'student',
+      width: 220,
       render: (_, r) => (
         <div className="pay-row-student">
           <div className="pay-row-avatar">{initialsOf(r.studentName)}</div>
           <div className="pay-row-student-info">
-            <div className="pay-row-name">{r.studentName}</div>
-            <div className="pay-row-email">{r.studentEmail}</div>
+            <div className="pay-row-name" title={r.studentName}>
+              {r.studentName}
+            </div>
+            <div className="pay-row-email" title={r.studentEmail}>
+              {r.studentEmail}
+            </div>
           </div>
         </div>
       ),
     },
-    { title: 'Course', dataIndex: 'course', render: (v) => v || <span className="pay-row-muted">—</span> },
-    { title: 'Amount', dataIndex: 'amount', render: (v) => <span className="pay-row-amount">{fmtInr(v)}</span> },
+    {
+      title: 'Course',
+      dataIndex: 'course',
+      width: 180,
+      render: (v) =>
+        v ? (
+          <span className="pay-row-course" title={v}>
+            {v}
+          </span>
+        ) : (
+          <span className="pay-row-muted">—</span>
+        ),
+    },
+    { title: 'Amount', dataIndex: 'amount', width: 100, render: (v) => <span className="pay-row-amount">{fmtInr(v)}</span> },
     {
       title: 'Status',
       dataIndex: 'status',
+      width: 130,
       render: (v) => {
         const meta = STATUS_META[v] || { color: 'default', label: v };
         return <span className={`pay-pill pay-pill--${meta.color}`}>{meta.label}</span>;
@@ -221,6 +239,7 @@ export default function Payments() {
     {
       title: 'KYC',
       dataIndex: 'kycSubmitted',
+      width: 130,
       render: (v, r) =>
         v ? (
           <span className="pay-pill pay-pill--green pay-pill--clickable" onClick={() => openKyc(r)}>
@@ -357,7 +376,14 @@ export default function Payments() {
             ) : rows.length === 0 ? (
               <Empty description="No payment requests yet." />
             ) : (
-              <Table className="pay-table" rowKey="id" dataSource={rows} columns={columns} pagination={{ pageSize: 10 }} />
+              <Table
+                className="pay-table"
+                rowKey="id"
+                dataSource={rows}
+                columns={columns}
+                pagination={{ pageSize: 10 }}
+                scroll={{ x: 'max-content' }}
+              />
             )}
           </Card>
         </Col>

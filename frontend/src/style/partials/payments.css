@@ -106,6 +106,13 @@
 .pay-table .ant-table {
   background: transparent;
 }
+/* Fixed layout so the explicit column `width`s in Payments/index.jsx are
+   actually honored instead of antd's auto algorithm handing most of the row
+   to whichever cell has the longest text (a long course title was pushing
+   the Student column down to almost nothing and forcing it to wrap). */
+.pay-table table {
+  table-layout: fixed;
+}
 .pay-table .ant-table-container {
   border-radius: 14px;
   overflow: hidden;
@@ -137,31 +144,52 @@
 }
 
 .pay-row-student {
-  display: flex;
+  display: flex !important;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 10px;
+  min-width: 0;
 }
 .pay-row-avatar {
   flex: none;
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  display: grid;
+  display: grid !important;
   place-items: center;
   font-size: 12.5px;
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, #2563eb, #7c3aed);
 }
+.pay-row-student-info {
+  min-width: 0;
+  flex: 1;
+}
 .pay-row-name {
   font-weight: 700;
   color: var(--hub-text);
   font-size: 13.5px;
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pay-row-email {
   font-size: 12px;
   color: var(--hub-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pay-row-course {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--hub-text);
+  line-height: 1.35;
 }
 .pay-row-amount {
   font-weight: 700;
@@ -182,7 +210,7 @@
 
 /* Status / KYC pills — same dot-pill language as LiveClasses' .lms-live-badge */
 .pay-pill {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   gap: 5px;
   padding: 3px 10px;
