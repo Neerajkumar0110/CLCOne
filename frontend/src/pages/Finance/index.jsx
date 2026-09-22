@@ -637,7 +637,12 @@ function PaymentDetailModal({ id, onClose }) {
           </div>
 
           <div className="fin-pm-section">
-            <div className="fin-pm-section-label">Summary</div>
+            <div className="fin-pm-section-label">
+              <span className="fin-pm-section-icon">
+                <FundOutlined />
+              </span>
+              Summary
+            </div>
             <div className="fin-pm-grid">
               <div className="fin-pm-field">
                 <span>Course</span>
@@ -671,7 +676,10 @@ function PaymentDetailModal({ id, onClose }) {
 
           <div className="fin-pm-section">
             <div className="fin-pm-section-label">
-              <MailOutlined /> Emails
+              <span className="fin-pm-section-icon">
+                <MailOutlined />
+              </span>
+              Emails
             </div>
             <div className="fin-pm-email-row">
               <div className={`fin-pm-email-icon ${detail.emailSent ? "is-ok" : "is-warn"}`}>
@@ -709,45 +717,39 @@ function PaymentDetailModal({ id, onClose }) {
 
           {detail.plan && (
             <div className="fin-pm-section">
-              <div className="fin-pm-section-label">Installment schedule — which month's payment has come in</div>
-              <div className="hub-table-wrapper">
-                <table className="hub-table fin-pm-schedule">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Month</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Emails</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.plan.installments.map((ins) => (
-                      <tr key={ins.installmentNo} className={ins.projected ? "is-projected" : ""}>
-                        <td className="fin-pm-inst-no">
-                          {ins.installmentNo}/{detail.plan.installmentCount}
-                        </td>
-                        <td>{monthLabel(ins)}</td>
-                        <td>{money(ins.amount)}</td>
-                        <td>
-                          <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[ins.status] || "hub-badge-gray"}`}>{ins.status}</span>
-                        </td>
-                        <td style={{ fontSize: 12 }}>
-                          {ins.projected
-                            ? "—"
-                            : ins.status === "paid"
-                            ? `Paid ${formatDate(ins.paidAt)}`
-                            : ins.emailSent
-                            ? "Link sent"
-                            : "No link email"}
-                          {!ins.projected && ins.status !== "paid" && ins.reminderCount
-                            ? ` · ${ins.reminderCount} reminder${ins.reminderCount === 1 ? "" : "s"}`
-                            : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="fin-pm-section-label">
+                <span className="fin-pm-section-icon">
+                  <WalletOutlined />
+                </span>
+                Installment schedule — which month's payment has come in
+              </div>
+              <div className="fin-pm-sched-list">
+                {detail.plan.installments.map((ins) => (
+                  <div className={`fin-pm-sched-row ${ins.projected ? "is-projected" : ""}`} key={ins.installmentNo}>
+                    <div className="fin-pm-sched-no">
+                      {ins.installmentNo}/{detail.plan.installmentCount}
+                    </div>
+                    <div className="fin-pm-sched-mid">
+                      <div className="fin-pm-sched-month">{monthLabel(ins)}</div>
+                      <div className="fin-pm-sched-emails">
+                        {ins.projected
+                          ? "Not created yet"
+                          : ins.status === "paid"
+                          ? `Paid ${formatDate(ins.paidAt)}`
+                          : ins.emailSent
+                          ? "Link sent"
+                          : "No link email"}
+                        {!ins.projected && ins.status !== "paid" && ins.reminderCount
+                          ? ` · ${ins.reminderCount} reminder${ins.reminderCount === 1 ? "" : "s"}`
+                          : ""}
+                      </div>
+                    </div>
+                    <div className="fin-pm-sched-end">
+                      <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[ins.status] || "hub-badge-gray"}`}>{ins.status}</span>
+                      <span className="fin-pm-sched-amount">{money(ins.amount)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

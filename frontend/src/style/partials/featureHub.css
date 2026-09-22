@@ -1929,32 +1929,37 @@
 
 /* ---------- Finance: Payment detail modal (pages/Finance) ---------- */
 
+/* Banner header — bleeds to the modal's own edges (negative margin cancels
+   .hub-modal-body's padding) so it reads as a proper hero strip, not just
+   another block of body text. */
 .fin-pm-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 18px;
-  margin-bottom: 18px;
+  gap: 16px;
+  margin: -22px -24px 20px;
+  padding: 22px 24px 20px;
+  background: linear-gradient(135deg, var(--hub-blue-soft), transparent 75%);
   border-bottom: 1px solid var(--hub-border);
 }
 .fin-pm-avatar {
   flex: none;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, var(--hub-blue), var(--hub-purple));
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
 }
 .fin-pm-who {
   flex: 1;
   min-width: 0;
 }
 .fin-pm-name {
-  font-size: 16px;
+  font-size: 16.5px;
   font-weight: 800;
   color: var(--hub-text);
   line-height: 1.25;
@@ -1969,15 +1974,26 @@
   text-align: right;
 }
 .fin-pm-amount-value {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
   color: var(--hub-text);
   font-variant-numeric: tabular-nums;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
+/* Every section is its own elevated card — this is the "box shadow" ask:
+   real depth instead of flat text blocks separated by a label. */
 .fin-pm-section {
-  margin-bottom: 22px;
+  background: var(--hub-surface, #fff);
+  border: 1px solid var(--hub-border);
+  border-radius: var(--hub-r-lg);
+  box-shadow: var(--hub-shadow-xs);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  transition: box-shadow 0.15s ease;
+}
+.fin-pm-section:hover {
+  box-shadow: var(--hub-shadow-sm);
 }
 .fin-pm-section:last-child {
   margin-bottom: 0;
@@ -1988,10 +2004,20 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--hub-blue);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+.fin-pm-section-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--hub-blue-soft);
+  font-size: 11.5px;
 }
 
 .fin-pm-grid {
@@ -2036,12 +2062,13 @@
 }
 .fin-pm-email-icon {
   flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 12.5px;
+  font-size: 13px;
+  box-shadow: var(--hub-shadow-xs);
 }
 .fin-pm-email-icon.is-ok {
   background: var(--hub-green-soft);
@@ -2071,6 +2098,9 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hub-border);
 }
 .fin-pm-reminder {
   display: flex;
@@ -2086,6 +2116,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--hub-blue);
+  box-shadow: 0 0 0 3px var(--hub-blue-soft);
 }
 .fin-pm-reminder-tag {
   font-weight: 700;
@@ -2099,16 +2130,82 @@
   white-space: nowrap;
 }
 
-.fin-pm-schedule tr.is-projected {
-  opacity: 0.55;
+/* Installment schedule — a compact flex-row list, deliberately NOT the
+   generic .hub-table (whose 700px min-width forced a horizontal scrollbar
+   that visually clipped against the modal's rounded corner). Every row
+   fits the modal at any width, phone included. */
+.fin-pm-sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.fin-pm-schedule tr.is-projected td {
+.fin-pm-sched-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--hub-r-md);
+  background: var(--hub-bg-soft);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fin-pm-sched-row:hover {
+  border-color: var(--hub-border-strong);
+}
+.fin-pm-sched-row.is-projected {
+  background: transparent;
+  border: 1.5px dashed var(--hub-border);
+}
+.fin-pm-sched-no {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--hub-text-soft);
+  background: var(--hub-surface, #fff);
+  box-shadow: var(--hub-shadow-xs);
+  font-variant-numeric: tabular-nums;
+}
+.fin-pm-sched-row.is-projected .fin-pm-sched-no {
+  background: transparent;
+  box-shadow: none;
+  color: var(--hub-muted);
+}
+.fin-pm-sched-mid {
+  flex: 1;
+  min-width: 0;
+}
+.fin-pm-sched-month {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--hub-text);
+}
+.fin-pm-sched-row.is-projected .fin-pm-sched-month {
+  color: var(--hub-muted);
   font-style: italic;
 }
-.fin-pm-schedule .fin-pm-inst-no {
-  font-variant-numeric: tabular-nums;
+.fin-pm-sched-emails {
+  font-size: 11.5px;
   color: var(--hub-muted);
-  font-weight: 700;
+  margin-top: 1px;
+}
+.fin-pm-sched-end {
+  flex: none;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+.fin-pm-sched-amount {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Audio player (recordings) ---------- */
