@@ -15,6 +15,16 @@ function fmtInr(n) {
   }
 }
 
+function broadcastUpdate(doc, extra) {
+  try {
+    if (socket.emitBroadcast) {
+      socket.emitBroadcast('payments:updated', { id: String(doc._id), publicToken: doc.publicToken, status: doc.status, ...extra });
+    }
+  } catch (e) {
+    /* best-effort */
+  }
+}
+
 // Fired once a PaymentRequest actually transitions to 'paid' (see
 // paymentsPublicController/return.js and paymentsController/refreshStatus.js
 // — both call this only on the created->paid edge, never on every poll).
@@ -35,13 +45,27 @@ async function notifyPaid(doc) {
   } catch (e) {
     /* best-effort */
   }
+  broadcastUpdate(doc);
+}
+
+// Fired once a student submits the post-payment KYC form (see
+// paymentsPublicController/submitKyc.js). Same two effects as notifyPaid —
+// bell notification + live table nudge — so the "KYC" column flips from
+// Pending to Submitted without a manual refresh.
+async function notifyKycSubmitted(doc) {
   try {
-    if (socket.emitBroadcast) {
-      socket.emitBroadcast('payments:updated', { id: String(doc._id), publicToken: doc.publicToken, status: doc.status });
-    }
+    await notify({
+      audience: 'management',
+      module: 'Payments',
+      type: 'payment.kyc_submitted',
+      title: `KYC submitted — ${doc.studentName}`,
+      body: doc.course || '',
+      link: '/sales/payments',
+    });
   } catch (e) {
     /* best-effort */
   }
+  broadcastUpdate(doc, { kycSubmitted: true });
 }
 
-module.exports = { notifyPaid };
+module.exports = { notifyPaid, notifyKycSubmitted };

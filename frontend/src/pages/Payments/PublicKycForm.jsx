@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Form, Input, Button, Upload, message, Result, Spin } from 'antd';
-import { UploadOutlined, CheckCircleFilled, ClockCircleOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { UploadOutlined, CheckCircleFilled, ClockCircleOutlined, SafetyCertificateOutlined, CloseCircleFilled } from '@ant-design/icons';
 import paymentsPublicApi from './publicApi';
+import logo from '@/style/images/Horizontal-1-transparent.png';
 
 const fmtInr = (n) => {
   try {
@@ -12,12 +13,22 @@ const fmtInr = (n) => {
   }
 };
 
+// PAN back is deliberately not collected — the front alone carries the PAN
+// number, name and photo; a back-side scan (usually blank or a signature
+// strip) was extra friction with no verification value.
 const DOC_FIELDS = [
-  ['aadharFront', 'Aadhar card — front'],
-  ['aadharBack', 'Aadhar card — back'],
-  ['panFront', 'PAN card — front'],
-  ['panBack', 'PAN card — back'],
+  ['aadharFront', 'Aadhar card', 'Front side'],
+  ['aadharBack', 'Aadhar card', 'Back side'],
+  ['panFront', 'PAN card', 'Front side'],
 ];
+
+function Header() {
+  return (
+    <div className="pay-kyc-brand">
+      <img src={logo} alt="Career Lab Consulting" />
+    </div>
+  );
+}
 
 export default function PublicKycForm() {
   const { token } = useParams();
@@ -27,6 +38,7 @@ export default function PublicKycForm() {
   const [info, setInfo] = useState(null); // { studentName, course, amount, status, shortUrl, kycSubmitted }
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [previews, setPreviews] = useState({});
   const files = useRef({});
   const pollTimer = useRef(null);
 
@@ -56,15 +68,35 @@ export default function PublicKycForm() {
     return () => clearTimeout(pollTimer.current);
   }, [info, load]);
 
+  // Revoke every preview blob URL on unmount so we don't leak memory.
+  useEffect(() => {
+    return () => Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onPickFile = (field) => (file) => {
     files.current[field] = file;
+    setPreviews((p) => {
+      if (p[field]) URL.revokeObjectURL(p[field]);
+      return { ...p, [field]: URL.createObjectURL(file) };
+    });
     return false; // prevent antd Upload's own auto-upload — we upload on submit
+  };
+
+  const clearFile = (field) => {
+    delete files.current[field];
+    setPreviews((p) => {
+      if (p[field]) URL.revokeObjectURL(p[field]);
+      const next = { ...p };
+      delete next[field];
+      return next;
+    });
   };
 
   const onSubmit = async (values) => {
     const missing = DOC_FIELDS.filter(([field]) => !files.current[field]);
     if (missing.length) {
-      message.error(`Please attach: ${missing.map(([, label]) => label).join(', ')}.`);
+      message.error(`Please attach: ${missing.map(([title, sub]) => `${title} (${sub})`).join(', ')}.`);
       return;
     }
     setSubmitting(true);
@@ -86,6 +118,7 @@ export default function PublicKycForm() {
   if (loading) {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
+        <Header />
         <Spin size="large" />
       </div>
     );
@@ -93,24 +126,31 @@ export default function PublicKycForm() {
   if (notFound) {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Result status="404" title="Link not found" subTitle="This payment link is invalid or has expired." />
+        <Header />
+        <div className="pay-kyc-card pay-kyc-card--narrow">
+          <Result status="404" title="Link not found" subTitle="This payment link is invalid or has expired." />
+        </div>
       </div>
     );
   }
   if (done || info.kycSubmitted) {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Result
-          icon={<CheckCircleFilled style={{ color: '#22c55e' }} />}
-          title="Submitted"
-          subTitle="Thanks — your details have been received. Our team will reach out if anything else is needed."
-        />
+        <Header />
+        <div className="pay-kyc-card pay-kyc-card--narrow">
+          <Result
+            icon={<CheckCircleFilled style={{ color: '#22c55e' }} />}
+            title="Submitted"
+            subTitle="Thanks — your details have been received. Our team will reach out if anything else is needed."
+          />
+        </div>
       </div>
     );
   }
   if (info.status !== 'paid') {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
+        <Header />
         <div className="pay-kyc-waitcard">
           <ClockCircleOutlined className="pay-kyc-wait-icon" />
           <h2>Complete your payment</h2>
@@ -130,6 +170,7 @@ export default function PublicKycForm() {
 
   return (
     <div className="pay-kyc-shell">
+      <Header />
       <div className="pay-kyc-card">
         <div className="pay-kyc-head">
           <SafetyCertificateOutlined className="pay-kyc-head-icon" />
@@ -143,6 +184,7 @@ export default function PublicKycForm() {
         </div>
 
         <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false}>
+          <div className="pay-kyc-section-head">Personal details</div>
           <div className="pay-kyc-grid">
             <Form.Item name="name" label="Full name" rules={[{ required: true, message: 'Required' }]}>
               <Input />
@@ -170,16 +212,41 @@ export default function PublicKycForm() {
             <Input.TextArea rows={3} />
           </Form.Item>
 
-          <div className="pay-kyc-docs-head">Upload documents</div>
+          <div className="pay-kyc-section-head">Documents</div>
           <div className="pay-kyc-doc-grid">
-            {DOC_FIELDS.map(([field, label]) => (
-              <div className="pay-kyc-doc-slot" key={field}>
-                <div className="pay-kyc-doc-label">{label}</div>
-                <Upload beforeUpload={onPickFile(field)} maxCount={1} accept="image/*">
-                  <Button icon={<UploadOutlined />}>Choose file</Button>
-                </Upload>
-              </div>
-            ))}
+            {DOC_FIELDS.map(([field, title, sub]) => {
+              const preview = previews[field];
+              return (
+                <div className={`pay-kyc-doc-slot${preview ? ' has-file' : ''}`} key={field}>
+                  {preview ? (
+                    <>
+                      <div className="pay-kyc-doc-thumb">
+                        <img src={preview} alt={title} />
+                        <button type="button" className="pay-kyc-doc-remove" onClick={() => clearFile(field)} aria-label={`Remove ${title}`}>
+                          <CloseCircleFilled />
+                        </button>
+                      </div>
+                      <div className="pay-kyc-doc-caption">
+                        <span className="pay-kyc-doc-title">{title}</span>
+                        <span className="pay-kyc-doc-sub">{sub}</span>
+                        <span className="pay-kyc-doc-filename" title={files.current[field]?.name}>
+                          {files.current[field]?.name}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <Upload beforeUpload={onPickFile(field)} maxCount={1} accept="image/*" showUploadList={false}>
+                      <div className="pay-kyc-doc-empty">
+                        <UploadOutlined className="pay-kyc-doc-icon" />
+                        <span className="pay-kyc-doc-title">{title}</span>
+                        <span className="pay-kyc-doc-sub">{sub}</span>
+                        <Button size="small">Choose file</Button>
+                      </div>
+                    </Upload>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <Button type="primary" htmlType="submit" block size="large" loading={submitting} className="pay-kyc-submit">

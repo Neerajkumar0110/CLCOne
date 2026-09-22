@@ -378,7 +378,6 @@ export default function Payments() {
                 ['Aadhar — front', kycFor.kyc.aadharFront],
                 ['Aadhar — back', kycFor.kyc.aadharBack],
                 ['PAN — front', kycFor.kyc.panFront],
-                ['PAN — back', kycFor.kyc.panBack],
               ].map(([label, path]) => (
                 <div className="pay-kyc-doc" key={label}>
                   <div className="pay-kyc-doc-label">{label}</div>

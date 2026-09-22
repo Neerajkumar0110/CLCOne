@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
+const { notifyKycSubmitted } = require('../../../../services/payments/realtime');
 
 // POST /api/payments/public/:token/kyc — JSON body with the text fields plus
-// the 4 file paths already returned by upload.js. Only allowed once per
-// payment request, and only after the payment is actually confirmed paid.
+// the 3 file paths already returned by upload.js (Aadhar front/back, PAN
+// front only — no PAN back). Only allowed once per payment request, and
+// only after the payment is actually confirmed paid.
 async function submitKyc(req, res) {
   const PaymentRequest = mongoose.model('PaymentRequest');
   const PaymentKyc = mongoose.model('PaymentKyc');
@@ -17,9 +19,9 @@ async function submitKyc(req, res) {
   const missingField = required.find((f) => !String(b[f] || '').trim());
   if (missingField) return res.status(400).json({ success: false, message: `Please fill in all fields.` });
 
-  const requiredDocs = ['aadharFront', 'aadharBack', 'panFront', 'panBack'];
+  const requiredDocs = ['aadharFront', 'aadharBack', 'panFront'];
   const missingDoc = requiredDocs.find((f) => !String(b[f] || '').trim());
-  if (missingDoc) return res.status(400).json({ success: false, message: 'Please upload all 4 documents.' });
+  if (missingDoc) return res.status(400).json({ success: false, message: 'Please upload all documents.' });
 
   await PaymentKyc.create({
     paymentRequest: doc._id,
@@ -34,12 +36,12 @@ async function submitKyc(req, res) {
     aadharFront: String(b.aadharFront).trim(),
     aadharBack: String(b.aadharBack).trim(),
     panFront: String(b.panFront).trim(),
-    panBack: String(b.panBack).trim(),
   });
 
   doc.kycSubmitted = true;
   doc.kycSubmittedAt = new Date();
   await doc.save();
+  notifyKycSubmitted(doc);
 
   return res.status(200).json({ success: true, result: { submitted: true } });
 }

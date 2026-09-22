@@ -117,55 +117,85 @@
 .pay-kyc-shell {
   min-height: 100vh;
   width: 100%;
-  background: var(--hub-bg-soft, #f4f6fb);
-  padding: 32px 16px;
+  background: radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, #2563eb 8%, transparent), transparent),
+    var(--hub-bg-soft, #f4f6fb);
+  padding: 32px 16px 56px;
   box-sizing: border-box;
 }
 .pay-kyc-center {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: calc(100vh - 88px);
 }
+.pay-kyc-center .ant-spin { margin-top: 8px; }
+
+.pay-kyc-brand {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 28px;
+}
+.pay-kyc-brand img {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+}
+
 .pay-kyc-card {
   max-width: 680px;
   margin: 0 auto;
   background: var(--hub-surface, #fff);
   border: 1px solid var(--hub-border);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: var(--hub-shadow-md, 0 10px 30px rgba(15, 23, 42, 0.08));
-  padding: 28px 28px 32px;
+  padding: 30px 30px 34px;
+}
+.pay-kyc-card--narrow {
+  padding: 12px 12px 4px;
 }
 .pay-kyc-head {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  margin-bottom: 22px;
-  padding-bottom: 18px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--hub-border);
 }
 .pay-kyc-head-icon {
   flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: 21px;
   color: #fff;
   background: linear-gradient(135deg, #16a34a, #2563eb);
+  box-shadow: 0 6px 16px color-mix(in srgb, #2563eb 35%, transparent);
 }
 .pay-kyc-head h2 {
   margin: 0 0 4px;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--hub-text);
+  letter-spacing: -0.01em;
 }
 .pay-kyc-head p {
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--hub-muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
+.pay-kyc-section-head {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--hub-blue, #2563eb);
+  margin: 22px 0 14px;
+}
+.pay-kyc-section-head:first-of-type { margin-top: 0; }
 .pay-kyc-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -174,25 +204,98 @@
 @media (max-width: 560px) {
   .pay-kyc-grid { grid-template-columns: 1fr; }
 }
-.pay-kyc-docs-head {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--hub-text);
-  margin: 8px 0 12px;
-}
+
 .pay-kyc-doc-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 22px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
 }
-@media (max-width: 560px) {
+@media (max-width: 680px) {
+  .pay-kyc-doc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 420px) {
   .pay-kyc-doc-grid { grid-template-columns: 1fr; }
 }
 .pay-kyc-doc-slot {
-  border: 1px dashed var(--hub-border);
-  border-radius: 10px;
-  padding: 12px;
+  border: 1.5px dashed var(--hub-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--hub-bg-soft, #f8fafc);
+  transition: border-color 0.15s ease;
+}
+.pay-kyc-doc-slot.has-file {
+  border-style: solid;
+  border-color: color-mix(in srgb, #16a34a 45%, var(--hub-border));
+  background: var(--hub-surface, #fff);
+}
+.pay-kyc-doc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 10px;
+  cursor: pointer;
+  text-align: center;
+}
+.pay-kyc-doc-icon {
+  font-size: 22px;
+  color: var(--hub-blue, #2563eb);
+  margin-bottom: 4px;
+}
+.pay-kyc-doc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hub-text);
+}
+.pay-kyc-doc-sub {
+  font-size: 11.5px;
+  color: var(--hub-muted);
+  margin-bottom: 4px;
+}
+.pay-kyc-doc-thumb {
+  position: relative;
+  width: 100%;
+  height: 92px;
+  background: #0b1220;
+}
+.pay-kyc-doc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pay-kyc-doc-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.pay-kyc-doc-remove:hover { background: #dc2626; }
+.pay-kyc-doc-caption {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pay-kyc-doc-filename {
+  font-size: 11px;
+  color: var(--hub-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .pay-kyc-submit {
   margin-top: 6px;
