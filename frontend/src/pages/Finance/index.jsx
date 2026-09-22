@@ -3,6 +3,7 @@ import HubTabs from "@/components/HubTabs";
 import NewTicketModal from "@/components/NewTicketModal";
 import { useTickets } from "@/context/ticketsContext";
 import { request } from "@/request";
+import paymentsApi from "@/pages/Payments/api";
 import {
   FundOutlined,
   SolutionOutlined,
@@ -10,6 +11,7 @@ import {
   CheckOutlined,
   PlusOutlined,
   ExportOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -541,6 +543,174 @@ function FinanceSupportTab() {
 }
 
 /* =========================================================
+   PAYMENTS — the Razorpay/EMI fee-collection stream (pages/Payments),
+   shown here so Finance can see every payment coming in without switching
+   modules — with a Team/Individual (by agent) filter and name/email/agent
+   search. Fetches once and filters client-side, same pattern as the
+   Manager/Executive tabs above (listAllSafe over the whole set).
+========================================================= */
+
+const PAYMENT_REQUEST_STATUS_META = {
+  paid: "hub-badge-green",
+  created: "hub-badge-yellow",
+  expired: "hub-badge-gray",
+  cancelled: "hub-badge-gray",
+  failed: "hub-badge-red",
+};
+
+function FinancePaymentsTab() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState("team"); // 'team' = everyone, 'individual' = one agent
+  const [agent, setAgent] = useState("");
+  const [search, setSearch] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    const res = await paymentsApi.list({ limit: 500 });
+    setRows((res && res.result) || []);
+    setLoading(false);
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const agents = [...new Set(rows.map((r) => r.createdByName).filter(Boolean))].sort();
+
+  const q = search.trim().toLowerCase();
+  const filtered = rows.filter((r) => {
+    if (scope === "individual" && agent && (r.createdByName || "") !== agent) return false;
+    if (!q) return true;
+    return (
+      (r.studentName || "").toLowerCase().includes(q) ||
+      (r.studentEmail || "").toLowerCase().includes(q) ||
+      (r.createdByName || "").toLowerCase().includes(q) ||
+      (r.course || "").toLowerCase().includes(q)
+    );
+  });
+
+  const totalCollected = filtered.filter((r) => r.status === "paid").reduce((s, r) => s + (r.amount || 0), 0);
+  const totalPending = filtered.filter((r) => r.status === "created").reduce((s, r) => s + (r.amount || 0), 0);
+
+  return (
+    <div className="hub-stack">
+      <div className="hub-kpi-row">
+        <div className="hub-kpi">
+          <div className="hub-kpi-label">Payments</div>
+          <div className="hub-kpi-value">{filtered.length}</div>
+        </div>
+        <div className="hub-kpi">
+          <div className="hub-kpi-label">Collected</div>
+          <div className="hub-kpi-value">{money(totalCollected)}</div>
+        </div>
+        <div className="hub-kpi">
+          <div className="hub-kpi-label">Awaiting Payment</div>
+          <div className="hub-kpi-value">{money(totalPending)}</div>
+        </div>
+        <div className="hub-kpi">
+          <div className="hub-kpi-label">Agents</div>
+          <div className="hub-kpi-value">{agents.length}</div>
+        </div>
+      </div>
+
+      <div className="hub-card">
+        <div className="hub-card-header">
+          <h3>All Payments</h3>
+          <div className="hub-row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div className="hub-pill-filter">
+              <button
+                type="button"
+                className={`hub-pill-btn ${scope === "team" ? "active" : ""}`}
+                onClick={() => setScope("team")}
+              >
+                Team
+              </button>
+              <button
+                type="button"
+                className={`hub-pill-btn ${scope === "individual" ? "active" : ""}`}
+                onClick={() => setScope("individual")}
+              >
+                Individual
+              </button>
+            </div>
+            {scope === "individual" && (
+              <select
+                value={agent}
+                onChange={(e) => setAgent(e.target.value)}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e3e8ef", fontSize: 13 }}
+              >
+                <option value="">All agents</option>
+                {agents.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            )}
+            <input
+              type="text"
+              placeholder="Search name, email or agent…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e3e8ef", fontSize: 13, minWidth: 220 }}
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="hub-empty">Loading payments…</div>
+        ) : (
+          <div className="hub-table-wrapper">
+            <table className="hub-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Course</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Agent</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="hub-empty">No payments match this filter.</div>
+                    </td>
+                  </tr>
+                )}
+                {filtered
+                  .slice()
+                  .sort((a, b) => new Date(b.created) - new Date(a.created))
+                  .map((r) => (
+                    <tr key={r.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{r.studentName}</div>
+                        <div style={{ fontSize: 12, color: "#667085" }}>{r.studentEmail}</div>
+                      </td>
+                      <td>
+                        {r.course || "—"}
+                        {r.installmentCount > 1 ? ` (${r.installmentNo}/${r.installmentCount})` : ""}
+                      </td>
+                      <td>{money(r.amount)}</td>
+                      <td>
+                        <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[r.status] || "hub-badge-gray"}`}>{r.status}</span>
+                      </td>
+                      <td>{r.createdByName || "—"}</td>
+                      <td>{formatDate(r.created)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    PAGE
 ========================================================= */
 
@@ -575,6 +745,7 @@ export default function Finance() {
         tabs={[
           { key: "manager", label: "Finance Manager", icon: <FundOutlined /> },
           { key: "executive", label: "Finance Executive", icon: <SolutionOutlined /> },
+          { key: "payments", label: "Payments", icon: <WalletOutlined /> },
           { key: "support", label: "Finance Support", icon: <CustomerServiceOutlined /> },
         ]}
         active={tab}
@@ -585,6 +756,7 @@ export default function Finance() {
         <FinanceManagerTab invoices={invoices} payments={payments} loading={loading} onApproved={loadData} />
       )}
       {tab === "executive" && <FinanceExecutiveTab invoices={invoices} payments={payments} loading={loading} />}
+      {tab === "payments" && <FinancePaymentsTab />}
       {tab === "support" && <FinanceSupportTab />}
     </div>
   );
