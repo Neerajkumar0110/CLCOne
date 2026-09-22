@@ -570,15 +570,34 @@ function FinanceSupportTab() {
 const PAYMENT_REQUEST_STATUS_META = {
   paid: "hub-badge-green",
   created: "hub-badge-yellow",
+  upcoming: "hub-badge-purple",
   expired: "hub-badge-gray",
   cancelled: "hub-badge-gray",
   failed: "hub-badge-red",
 };
 
+function initialsOf(name) {
+  return (
+    String(name || "?")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
+
+function reminderTag(daysUntilDue) {
+  if (daysUntilDue > 0) return `${daysUntilDue} day${daysUntilDue === 1 ? "" : "s"} before due`;
+  if (daysUntilDue === 0) return "on due date";
+  return "overdue";
+}
+
 // Row-click detail modal — pulls the enriched single-record view
 // (paymentsController/get.js) so Finance can see exactly who was emailed,
-// when every reminder went out, and — for an EMI plan — every installment's
-// month/status side by side, not just the one row that was clicked.
+// when every reminder went out, and — for an EMI plan — the full
+// 1..installmentCount schedule (including installments not yet created)
+// side by side, not just the one row that was clicked.
 function PaymentDetailModal({ id, onClose }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -587,6 +606,7 @@ function PaymentDetailModal({ id, onClose }) {
     if (!id) return;
     let cancelled = false;
     setLoading(true);
+    setDetail(null);
     paymentsApi.get(id).then((res) => {
       if (!cancelled) {
         setDetail((res && res.result) || null);
@@ -599,93 +619,99 @@ function PaymentDetailModal({ id, onClose }) {
   }, [id]);
 
   return (
-    <HubModal open={!!id} onClose={onClose} title="Payment details" subtitle={detail ? `${detail.studentName} · ${detail.studentEmail}` : ""} width={640}>
+    <HubModal open={!!id} onClose={onClose} title="Payment details" width={680}>
       {loading || !detail ? (
         <div className="hub-empty">Loading…</div>
       ) : (
-        <div className="hub-stack">
-          <div className="hub-row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-            <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[detail.status] || "hub-badge-gray"}`}>{detail.status}</span>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>{money(detail.amount)}</span>
+        <div>
+          <div className="fin-pm-head">
+            <div className="fin-pm-avatar">{initialsOf(detail.studentName)}</div>
+            <div className="fin-pm-who">
+              <div className="fin-pm-name">{detail.studentName}</div>
+              <div className="fin-pm-email">{detail.studentEmail}</div>
+            </div>
+            <div className="fin-pm-amount">
+              <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[detail.status] || "hub-badge-gray"}`}>{detail.status}</span>
+              <div className="fin-pm-amount-value">{money(detail.amount)}</div>
+            </div>
           </div>
 
-          <div className="hub-card" style={{ padding: 14 }}>
-            <div className="hub-kpi-row">
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Course</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>
+          <div className="fin-pm-section">
+            <div className="fin-pm-section-label">Summary</div>
+            <div className="fin-pm-grid">
+              <div className="fin-pm-field">
+                <span>Course</span>
+                <b>
                   {detail.course || "—"}
                   {detail.installmentCount > 1 ? ` (${detail.installmentNo}/${detail.installmentCount})` : ""}
-                </div>
+                </b>
               </div>
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Month</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>{monthLabel(detail)}</div>
+              <div className="fin-pm-field">
+                <span>Month</span>
+                <b>{monthLabel(detail)}</b>
               </div>
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Agent</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>{detail.createdByName || "—"}</div>
+              <div className="fin-pm-field">
+                <span>Agent</span>
+                <b>{detail.createdByName || "—"}</b>
               </div>
-            </div>
-            <div className="hub-kpi-row" style={{ marginTop: 10 }}>
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Due date</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>{formatDate(detail.dueAt)}</div>
+              <div className="fin-pm-field">
+                <span>Due date</span>
+                <b>{formatDate(detail.dueAt)}</b>
               </div>
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Paid on</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>{formatDate(detail.paidAt)}</div>
+              <div className="fin-pm-field">
+                <span>Paid on</span>
+                <b>{formatDate(detail.paidAt)}</b>
               </div>
-              <div className="hub-kpi">
-                <div className="hub-kpi-label">Created</div>
-                <div className="hub-kpi-value" style={{ fontSize: 14 }}>{formatDate(detail.created)}</div>
+              <div className="fin-pm-field">
+                <span>Created</span>
+                <b>{formatDate(detail.created)}</b>
               </div>
             </div>
           </div>
 
-          <div className="hub-card" style={{ padding: 14 }}>
-            <div className="hub-card-header" style={{ marginBottom: 10 }}>
-              <h3 style={{ fontSize: 14 }}>
-                <MailOutlined /> Emails sent
-              </h3>
+          <div className="fin-pm-section">
+            <div className="fin-pm-section-label">
+              <MailOutlined /> Emails
             </div>
-            <div style={{ fontSize: 13, marginBottom: 8 }}>
-              <b>Payment link email:</b>{" "}
-              {detail.emailSent ? (
-                <span style={{ color: "#12b76a" }}>sent {formatDateTime(detail.emailSentAt)}</span>
-              ) : (
-                <span style={{ color: "#f04438" }}>not sent{detail.emailError ? ` — ${detail.emailError}` : ""}</span>
-              )}
+            <div className="fin-pm-email-row">
+              <div className={`fin-pm-email-icon ${detail.emailSent ? "is-ok" : "is-warn"}`}>
+                <MailOutlined />
+              </div>
+              <div className="fin-pm-email-text">
+                <b>Payment link email</b> — {detail.emailSent ? "sent" : `not sent${detail.emailError ? ` (${detail.emailError})` : ""}`}
+              </div>
+              {detail.emailSent && <div className="fin-pm-email-when">{formatDateTime(detail.emailSentAt)}</div>}
             </div>
-            <div style={{ fontSize: 13, marginBottom: 6 }}>
-              <b>
-                <BellOutlined /> EMI reminders ({(detail.reminderLog || []).length}):
-              </b>
+
+            <div className="fin-pm-email-row">
+              <div className="fin-pm-email-icon is-info">
+                <BellOutlined />
+              </div>
+              <div className="fin-pm-email-text">
+                <b>{(detail.reminderLog || []).length}</b> EMI reminder{(detail.reminderLog || []).length === 1 ? "" : "s"} sent
+              </div>
             </div>
-            {(detail.reminderLog || []).length === 0 ? (
-              <div className="hub-empty" style={{ padding: "8px 0" }}>No reminder emails sent for this installment yet.</div>
-            ) : (
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: "#475467" }}>
+            {(detail.reminderLog || []).length > 0 && (
+              <div className="fin-pm-reminder-list">
                 {detail.reminderLog
                   .slice()
                   .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
                   .map((r, i) => (
-                    <li key={i}>
-                      {formatDateTime(r.sentAt)} —{" "}
-                      {r.daysUntilDue > 0 ? `${r.daysUntilDue} day${r.daysUntilDue === 1 ? "" : "s"} before due` : r.daysUntilDue === 0 ? "due date" : "overdue"}
-                    </li>
+                    <div className="fin-pm-reminder" key={i}>
+                      <span className="fin-pm-reminder-dot" />
+                      <span className="fin-pm-reminder-tag">{reminderTag(r.daysUntilDue)}</span>
+                      <span className="fin-pm-reminder-when">{formatDateTime(r.sentAt)}</span>
+                    </div>
                   ))}
-              </ul>
+              </div>
             )}
           </div>
 
           {detail.plan && (
-            <div className="hub-card" style={{ padding: 14 }}>
-              <div className="hub-card-header" style={{ marginBottom: 10 }}>
-                <h3 style={{ fontSize: 14 }}>Installment schedule — which month's payment has come in</h3>
-              </div>
+            <div className="fin-pm-section">
+              <div className="fin-pm-section-label">Installment schedule — which month's payment has come in</div>
               <div className="hub-table-wrapper">
-                <table className="hub-table">
+                <table className="hub-table fin-pm-schedule">
                   <thead>
                     <tr>
                       <th>#</th>
@@ -697,16 +723,26 @@ function PaymentDetailModal({ id, onClose }) {
                   </thead>
                   <tbody>
                     {detail.plan.installments.map((ins) => (
-                      <tr key={ins.id}>
-                        <td>{ins.installmentNo}/{detail.plan.installmentCount}</td>
+                      <tr key={ins.installmentNo} className={ins.projected ? "is-projected" : ""}>
+                        <td className="fin-pm-inst-no">
+                          {ins.installmentNo}/{detail.plan.installmentCount}
+                        </td>
                         <td>{monthLabel(ins)}</td>
                         <td>{money(ins.amount)}</td>
                         <td>
                           <span className={`hub-badge ${PAYMENT_REQUEST_STATUS_META[ins.status] || "hub-badge-gray"}`}>{ins.status}</span>
                         </td>
                         <td style={{ fontSize: 12 }}>
-                          {ins.emailSent ? "Link sent" : "No link email"}
-                          {ins.reminderCount ? ` · ${ins.reminderCount} reminder${ins.reminderCount === 1 ? "" : "s"}` : ""}
+                          {ins.projected
+                            ? "—"
+                            : ins.status === "paid"
+                            ? `Paid ${formatDate(ins.paidAt)}`
+                            : ins.emailSent
+                            ? "Link sent"
+                            : "No link email"}
+                          {!ins.projected && ins.status !== "paid" && ins.reminderCount
+                            ? ` · ${ins.reminderCount} reminder${ins.reminderCount === 1 ? "" : "s"}`
+                            : ""}
                         </td>
                       </tr>
                     ))}

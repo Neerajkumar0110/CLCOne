@@ -1927,6 +1927,190 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ---------- Finance: Payment detail modal (pages/Finance) ---------- */
+
+.fin-pm-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--hub-border);
+}
+.fin-pm-avatar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--hub-blue), var(--hub-purple));
+}
+.fin-pm-who {
+  flex: 1;
+  min-width: 0;
+}
+.fin-pm-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--hub-text);
+  line-height: 1.25;
+}
+.fin-pm-email {
+  font-size: 12.5px;
+  color: var(--hub-muted);
+  margin-top: 1px;
+}
+.fin-pm-amount {
+  flex: none;
+  text-align: right;
+}
+.fin-pm-amount-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--hub-text);
+  font-variant-numeric: tabular-nums;
+  margin-top: 6px;
+}
+
+.fin-pm-section {
+  margin-bottom: 22px;
+}
+.fin-pm-section:last-child {
+  margin-bottom: 0;
+}
+.fin-pm-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hub-blue);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fin-pm-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 18px;
+}
+@media (max-width: 560px) {
+  .fin-pm-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.fin-pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fin-pm-field span {
+  font-size: 10.5px;
+  color: var(--hub-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fin-pm-field b {
+  font-size: 13.5px;
+  color: var(--hub-text);
+  font-weight: 700;
+}
+
+.fin-pm-email-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--hub-border);
+  font-size: 13px;
+  color: var(--hub-text-soft);
+}
+.fin-pm-email-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.fin-pm-email-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+}
+.fin-pm-email-icon.is-ok {
+  background: var(--hub-green-soft);
+  color: var(--hub-green);
+}
+.fin-pm-email-icon.is-warn {
+  background: var(--hub-red-soft);
+  color: var(--hub-red);
+}
+.fin-pm-email-icon.is-info {
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue);
+}
+.fin-pm-email-text b {
+  color: var(--hub-text);
+  font-weight: 700;
+}
+.fin-pm-email-when {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--hub-muted);
+  flex: none;
+  white-space: nowrap;
+}
+
+.fin-pm-reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fin-pm-reminder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 12.5px;
+  color: var(--hub-text-soft);
+}
+.fin-pm-reminder-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hub-blue);
+}
+.fin-pm-reminder-tag {
+  font-weight: 700;
+  color: var(--hub-text);
+}
+.fin-pm-reminder-when {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--hub-muted);
+  flex: none;
+  white-space: nowrap;
+}
+
+.fin-pm-schedule tr.is-projected {
+  opacity: 0.55;
+}
+.fin-pm-schedule tr.is-projected td {
+  font-style: italic;
+}
+.fin-pm-schedule .fin-pm-inst-no {
+  font-variant-numeric: tabular-nums;
+  color: var(--hub-muted);
+  font-weight: 700;
+}
+
 /* ---------- Audio player (recordings) ---------- */
 
 .hub-player {
