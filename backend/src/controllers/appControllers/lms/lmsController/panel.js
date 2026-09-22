@@ -303,12 +303,34 @@ async function myUpdates(req, res) {
     ? await LmsLiveSession.find({ removed: false, ...liveQuery }).select('title courseTitle batchName status').limit(10).lean()
     : [];
 
+  // EMI finance-hold status (see services/payments/financeHold.js and
+  // jobs/financeEmiTick.js) — the panel polls this same endpoint on the
+  // socket 'notification:new' event, so this is also how it notices the
+  // instant a hold clears after payment, not just when one starts.
+  let finance = { hold: !!admin.financeHold };
+  if (admin.financeHold) {
+    const PaymentRequest = mongoose.model('PaymentRequest');
+    const overdue = await PaymentRequest.findOne({ removed: false, studentEmail: (admin.email || '').toLowerCase(), status: 'created' })
+      .sort({ dueAt: 1 })
+      .lean();
+    if (overdue) {
+      finance.outstanding = {
+        id: String(overdue._id),
+        amount: overdue.amount,
+        course: overdue.course,
+        dueAt: overdue.dueAt,
+        shortUrl: overdue.razorpayShortUrl,
+      };
+    }
+  }
+
   return res.status(200).json({
     success: true,
     result: {
       unread,
       notifications: recent.map((n) => ({ id: String(n._id), type: n.type, title: n.title, body: n.body, link: n.link, at: n.created, read: !!n.readAt })),
       liveNow: live.map((s) => ({ id: String(s._id), title: s.title, course: s.courseTitle, batch: s.batchName })),
+      finance,
     },
   });
 }

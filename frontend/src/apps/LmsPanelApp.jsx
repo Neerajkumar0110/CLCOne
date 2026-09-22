@@ -34,6 +34,7 @@ import {
   FileProtectOutlined,
   SafetyCertificateOutlined,
   ProjectOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -82,6 +83,72 @@ const ComingSoon = ({ title }) => (
     <Empty description={<span><b>{title}</b><br />This section is being rolled out in the next update.</span>} />
   </div>
 );
+
+const fmtInr = (n) => {
+  try {
+    return Number(n).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+  } catch (e) {
+    return `₹${n}`;
+  }
+};
+
+// Rendered in place of every route once the finance tick (see backend
+// jobs/financeEmiTick.js) has put this account on hold for an EMI
+// installment more than 24h overdue — see updates.finance in the
+// /my/updates poll below. Clears itself automatically: the same poll
+// notices financeHold flip back to false the moment the payment lands
+// (paymentsController/refreshStatus.js and paymentsPublicController/
+// return.js both call services/payments/financeHold.js's unblockIfClear).
+function FinanceHoldScreen({ info }) {
+  return (
+    <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div
+        style={{
+          maxWidth: 440,
+          width: '100%',
+          textAlign: 'center',
+          background: 'var(--hub-surface, #fff)',
+          border: '1px solid var(--hub-border, #e5e7eb)',
+          borderRadius: 18,
+          padding: '40px 32px',
+          boxShadow: '0 10px 30px rgba(15,23,42,.08)',
+        }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            margin: '0 auto 18px',
+            display: 'grid',
+            placeItems: 'center',
+            background: 'color-mix(in srgb, #dc2626 14%, transparent)',
+            color: '#dc2626',
+            fontSize: 26,
+          }}
+        >
+          <LockOutlined />
+        </div>
+        <h2 style={{ margin: '0 0 8px', fontSize: 19, fontWeight: 800 }}>Access on hold</h2>
+        <p style={{ color: '#667085', fontSize: 14, marginBottom: 20 }}>
+          Your course access is paused because an EMI installment is overdue{info?.course ? ` for ${info.course}` : ''}. Pay
+          now to reactivate instantly.
+        </p>
+        {info?.amount ? <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 20 }}>{fmtInr(info.amount)}</div> : null}
+        {info?.shortUrl ? (
+          <a href={info.shortUrl} target="_blank" rel="noreferrer">
+            <Button type="primary" size="large" block>
+              Pay now
+            </Button>
+          </a>
+        ) : (
+          <p style={{ fontSize: 13, color: '#94a3b8' }}>Contact your program coordinator for the payment link.</p>
+        )}
+        <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 18 }}>This page updates automatically once your payment is confirmed.</p>
+      </div>
+    </div>
+  );
+}
 
 // "Quizzes & Exams" as one dropdown group with 3 sub-tabs — Basic (flat),
 // Major and Micro (each its own dropdown of the reference nav's 2 variants).
@@ -367,17 +434,22 @@ export default function LmsPanelApp() {
   // matches against the full browser pathname — route paths must stay
   // absolute (e.g. "/teacher/courses"), never stripped down to a relative
   // fragment, or nothing below the sidebar will ever match a click.
+  const financeHold = updates.finance && updates.finance.hold;
   const routes = (
     <Suspense fallback={<PageLoader />}>
-      <Routes>
-        {leaves.map(([path, , , element]) => (
-          <Route key={path} path={path} element={element} />
-        ))}
-        {/* Not in the sidebar (dropped along with "All Quizzes"), but every
-            Test Intro card's "Go to Quizzes & Exams" button still points here. */}
-        <Route path={`${base}/quizzes`} element={<Quizzes />} />
-        <Route path="*" element={<Navigate to={base} replace />} />
-      </Routes>
+      {financeHold ? (
+        <FinanceHoldScreen info={updates.finance.outstanding} />
+      ) : (
+        <Routes>
+          {leaves.map(([path, , , element]) => (
+            <Route key={path} path={path} element={element} />
+          ))}
+          {/* Not in the sidebar (dropped along with "All Quizzes"), but every
+              Test Intro card's "Go to Quizzes & Exams" button still points here. */}
+          <Route path={`${base}/quizzes`} element={<Quizzes />} />
+          <Route path="*" element={<Navigate to={base} replace />} />
+        </Routes>
+      )}
     </Suspense>
   );
 

@@ -113,3 +113,10 @@ startLmsLiveTick();
 // (no WhatsApp leg yet). Re-reminds any pending acknowledgement on a cycle.
 const startLmsPolicyReminderTick = require('./jobs/lmsPolicyReminderTick');
 startLmsPolicyReminderTick();
+
+// Finance EMI automation — auto-creates each installment's payment link 10
+// days before it's due, emails reminders (10/7/5 days before, then daily
+// through the due date), and puts a student's LMS access on hold 24h past
+// due (auto-restored the instant they pay — see services/payments/financeHold.js).
+const startFinanceEmiTick = require('./jobs/financeEmiTick');
+startFinanceEmiTick();

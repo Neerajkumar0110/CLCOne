@@ -51,6 +51,14 @@ const adminSchema = new Schema({
     type: String,
     enum: FINANCE_SUB_ROLES,
   },
+  // Set by jobs/financeEmiTick.js when a Student's EMI installment goes more
+  // than 24h past its due date, cleared automatically the moment they clear
+  // every overdue installment (see services/payments/financeHold.js). Does
+  // NOT touch `enabled` — login still works — financeHoldGuard.js instead
+  // gates /api/lms access so the panel shows a "pay now" screen instead of
+  // course content. Never set/cleared for a manual admin-disabled account.
+  financeHold: { type: Boolean, default: false },
+  financeHoldAt: Date,
 });
 
 module.exports = mongoose.model('Admin', adminSchema);

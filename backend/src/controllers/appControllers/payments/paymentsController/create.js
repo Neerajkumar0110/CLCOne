@@ -17,6 +17,7 @@ async function create(req, res) {
   const b = req.body || {};
   const studentName = String(b.studentName || '').trim();
   const studentEmail = String(b.studentEmail || '').trim().toLowerCase();
+  const studentPhone = String(b.studentPhone || '').trim();
   const amount = Number(b.amount);
   const course = String(b.course || '').trim();
   const notes = String(b.notes || '').trim();
@@ -31,6 +32,7 @@ async function create(req, res) {
   const doc = new PaymentRequest({
     studentName,
     studentEmail,
+    studentPhone,
     course,
     amount,
     notes,

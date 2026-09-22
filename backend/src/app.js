@@ -22,6 +22,7 @@ const lmsLivePublicRouter = require('./routes/appRoutes/lms/lmsLivePublicApi');
 const lmsBbbWebhookRouter = require('./routes/appRoutes/lms/lmsBbbWebhookApi');
 const lmsApiRouter = require('./routes/appRoutes/lms/lmsApi');
 const lmsBrowserGuard = require('./middlewares/lmsBrowserGuard');
+const financeHoldGuard = require('./middlewares/financeHoldGuard');
 const paymentsPublicRouter = require('./routes/appRoutes/payments/paymentsPublicApi');
 const paymentsApiRouter = require('./routes/appRoutes/payments/paymentsApi');
 const facebookApiRouter = require('./routes/appRoutes/marketing/facebookApi');
@@ -98,7 +99,7 @@ app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token
 // (old links, bookmarks) — before the bearer gate; XHR + tokened calls pass through
-app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, lmsApiRouter);
+app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, financeHoldGuard, lmsApiRouter);
 app.use('/api/payments', adminAuth.isValidAuthToken, paymentsApiRouter);
 app.use('/api/facebook', adminAuth.isValidAuthToken, facebookApiRouter);
 app.use('/api/google', adminAuth.isValidAuthToken, googleApiRouter);

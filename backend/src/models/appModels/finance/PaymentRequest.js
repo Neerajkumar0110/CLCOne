@@ -13,6 +13,7 @@ const schema = new mongoose.Schema(
 
     studentName: { type: String, required: true },
     studentEmail: { type: String, required: true, index: true },
+    studentPhone: { type: String, default: '', trim: true },
     course: { type: String, default: '' },
     amount: { type: Number, required: true }, // rupees (not paise)
     currency: { type: String, default: 'INR' },
@@ -43,6 +44,16 @@ const schema = new mongoose.Schema(
     // Set once this installment is paid, when more installments remain —
     // "second installment due one month from the day this one was paid".
     nextInstallmentDueAt: Date,
+
+    // Set only on an installment that was itself spawned to collect a due
+    // EMI (see jobs/financeEmiTick.js) — copied from the predecessor's
+    // nextInstallmentDueAt. Drives the 10/7/5/daily reminder schedule and
+    // the 24h-overdue auto-block; a plan's very first installment and any
+    // plain one-off payment have no dueAt and are never reminded/blocked.
+    dueAt: Date,
+    // Calendar-day dedup for the reminder job — at most one reminder email
+    // per day even though the tick runs more often than that.
+    lastReminderSentAt: Date,
 
     kycSubmitted: { type: Boolean, default: false },
     kycSubmittedAt: Date,

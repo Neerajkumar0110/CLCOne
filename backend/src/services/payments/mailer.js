@@ -62,4 +62,47 @@ async function sendPaymentLinkEmail({ email, name, course, amount, shortUrl, qrD
   });
 }
 
-module.exports = { sendPaymentLinkEmail };
+function fmtDate(d) {
+  try {
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return '';
+  }
+}
+
+// daysUntilDue: positive = still ahead of the due date, 0 = due today.
+function emiReminderEmailHtml({ name, course, amount, dueAt, daysUntilDue, shortUrl }) {
+  const urgent = daysUntilDue <= 1;
+  const whenLine =
+    daysUntilDue === 0
+      ? 'due <b>today</b>'
+      : daysUntilDue === 1
+      ? 'due <b>tomorrow</b>'
+      : `due in <b>${daysUntilDue} days</b>`;
+  return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
+  <h2 style="margin:0 0 4px">EMI installment reminder</h2>
+  <p style="color:#556;margin:0 0 18px">Hi ${esc(name)}, your next EMI installment is ${whenLine} — ${esc(fmtDate(dueAt))}.</p>
+  <div style="border:1px solid #e3e8ef;border-radius:12px;padding:18px 20px;margin:0 0 18px${urgent ? ';border-color:#f0b4b4;background:#fff8f8' : ''}">
+    <p style="margin:0 0 6px;color:#889;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px">Amount due</p>
+    <p style="margin:0 0 6px;font-size:26px;font-weight:800;color:#17202c">${esc(fmtInr(amount))}</p>
+    <p style="margin:0;color:#334">Due date: <b>${esc(fmtDate(dueAt))}</b></p>
+    ${course ? `<p style="margin:6px 0 0;color:#334"><b>Course:</b> ${esc(course)}</p>` : ''}
+  </div>
+  <p style="margin:0 0 18px">
+    <a href="${esc(shortUrl)}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Pay Now</a>
+  </p>
+  <p style="color:#889;font-size:13px;margin:0">If your payment is already made, please ignore this reminder — it can take a few minutes to reflect. Missing the due date by more than a day pauses your course access until payment is received.</p>
+</div>`;
+}
+
+async function sendEmiReminderEmail({ email, name, course, amount, dueAt, daysUntilDue, shortUrl }) {
+  return mailer.sendMail([email], {
+    subject:
+      daysUntilDue <= 0
+        ? `EMI due today — ${fmtInr(amount)}${course ? ` (${course})` : ''}`
+        : `EMI due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'} — ${fmtInr(amount)}${course ? ` (${course})` : ''}`,
+    html: emiReminderEmailHtml({ name, course, amount, dueAt, daysUntilDue, shortUrl }),
+  });
+}
+
+module.exports = { sendPaymentLinkEmail, sendEmiReminderEmail };

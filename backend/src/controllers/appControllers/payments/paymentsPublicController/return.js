@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const razorpayService = require('../../../../services/payments/razorpayService');
 const { notifyPaid } = require('../../../../services/payments/realtime');
 const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
+const { unblockIfClear } = require('../../../../services/payments/financeHold');
 const { paymentsConfig } = require('../../../../config/payments');
 
 // GET /api/payments/public/return?token=...&razorpay_payment_id=...&... —
@@ -30,6 +31,7 @@ async function returnHandler(req, res) {
     stampNextInstallmentDue(doc);
     await doc.save();
     notifyPaid(doc);
+    unblockIfClear(doc.studentEmail);
   }
 
   return res.redirect(302, kycUrl());

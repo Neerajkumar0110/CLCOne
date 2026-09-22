@@ -28,6 +28,7 @@ async function nextInstallment(req, res) {
   const doc = new PaymentRequest({
     studentName: source.studentName,
     studentEmail: source.studentEmail,
+    studentPhone: source.studentPhone,
     course: source.course,
     amount,
     notes: source.notes,
@@ -37,6 +38,10 @@ async function nextInstallment(req, res) {
     installmentNo,
     installmentCount: source.installmentCount,
     planTotal: source.planTotal,
+    // Carries the automatic reminder/overdue-block schedule over even when
+    // the admin manually collects early instead of waiting for the cron
+    // (jobs/financeEmiTick.js) to auto-create it at the 10-day mark.
+    dueAt: source.nextInstallmentDueAt || undefined,
   });
 
   let qr;

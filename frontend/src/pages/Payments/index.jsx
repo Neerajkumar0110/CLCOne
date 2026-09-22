@@ -376,6 +376,9 @@ export default function Payments() {
               >
                 <Input placeholder="name@example.com" />
               </Form.Item>
+              <Form.Item name="studentPhone" label="Student phone (optional)">
+                <Input placeholder="For future WhatsApp reminders" />
+              </Form.Item>
               <Form.Item name="course" label="Course">
                 <Select
                   showSearch
