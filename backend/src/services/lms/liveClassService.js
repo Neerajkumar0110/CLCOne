@@ -643,8 +643,17 @@ async function ensureProviderRoom(session, { forceNoRecord = false } = {}) {
     }
   }
 
-  // no batch — per-session room (manual one-off classes)
-  if (session.meetingId && session.meetingProvider !== 'mock') return session;
+  // no batch — per-session room (manual one-off classes). Same reasoning as
+  // the batch-room branch above: a real provider needs ensureRoom() (BBB's
+  // `create`) called again on every resume, not just the first time this
+  // session ever went live — skipping it whenever meetingId was already set
+  // (the old check here) meant resuming a class that had actually been
+  // ended (explicit End button, the auto-lifecycle tick, or a BBB webhook
+  // reporting the meeting died on its own) tried to join a meetingID BBB
+  // had already marked ended, which BBB rejects outright ("You can not join
+  // a meeting that has already been forcibly ended"). Only the mock
+  // provider's cheap label still gets created once and left alone.
+  if (provider.name === 'mock' && session.meetingId) return session;
   const room = await provider.ensureRoom(session, { record: !forceNoRecord && session.recordingEnabled && s.recordingAutoStart });
   session.meetingId = room.meetingId || session.meetingId || session.roomName;
   if (room.roomName) session.roomName = room.roomName;
@@ -988,6 +997,20 @@ async function redeemTicket(ticketStr) {
 
   const user = await mongoose.model('Admin').findById(t.crmUser);
   const provider = getMeetingProvider();
+  // Last-mile safety net: this is the actual point the real BBB join URL
+  // gets built, and it's possible for BBB to have dropped the meeting on
+  // its own (idle timeout, everyone left) without the CRM ever hearing
+  // about it (the bbbWebhook path only updates status if BBB's webhook
+  // module is configured and reachable) — session.status could still read
+  // 'live' with a now-dead meetingId. ensureProviderRoom's create call is
+  // idempotent (a no-op against an already-running meeting), so calling it
+  // here too costs nothing when everything's fine and prevents the same
+  // "already been forcibly ended" error in the one case ensureProviderRoom
+  // isn't already guaranteed to have run fresh (see startSession).
+  if (provider.name !== 'mock') {
+    await ensureProviderRoom(session);
+    await session.save();
+  }
   const opts = {
     role: t.role === 'moderator' ? 'moderator' : 'viewer',
     fullName: user ? `${user.name || ''} ${user.surname || ''}`.trim() || user.email : 'Guest',
