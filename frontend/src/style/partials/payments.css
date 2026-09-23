@@ -700,6 +700,13 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
+.pay-kyc-doc-status {
+  font-size: 11px;
+  color: var(--hub-blue, #2563eb);
+}
+.pay-kyc-doc-status.is-error {
+  color: #dc2626;
+}
 .pay-kyc-submit {
   margin-top: 6px;
   font-weight: 700;

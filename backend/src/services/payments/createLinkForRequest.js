@@ -29,6 +29,7 @@ async function createLinkForRequest(doc) {
       amount: doc.amount,
       shortUrl: link.short_url,
       qrDataUrl: qr,
+      installmentNo: doc.installmentNo,
     });
     doc.emailSent = (sent.sent || 0) > 0;
     doc.emailSentAt = doc.emailSent ? new Date() : undefined;

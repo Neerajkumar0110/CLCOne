@@ -27,13 +27,18 @@ function gstBreakdown(amount) {
   return { base, gst, total };
 }
 
-function paymentLinkEmailHtml({ name, course, amount, shortUrl }) {
+// The very first payment (installmentNo 1 — either a plan's opening
+// installment or a plain one-off payment) is billed as the "Registration
+// fee"; every installment after that keeps calling it plain "Fee", per the
+// admin's explicit distinction between the two.
+function paymentLinkEmailHtml({ name, course, amount, shortUrl, installmentNo = 1 }) {
   const { base, gst, total } = gstBreakdown(amount);
+  const feeWord = installmentNo === 1 ? 'Registration fee' : 'Fee';
   return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
-  <h2 style="margin:0 0 4px">Fee payment request</h2>
-  <p style="color:#556;margin:0 0 18px">Hi ${esc(name)}, please complete your fee payment below.</p>
+  <h2 style="margin:0 0 4px">${feeWord} payment request</h2>
+  <p style="color:#556;margin:0 0 18px">Hi ${esc(name)}, please complete your ${feeWord.toLowerCase()} payment below.</p>
   <div style="border:1px solid #e3e8ef;border-radius:12px;padding:18px 20px;margin:0 0 18px">
-    <p style="margin:0 0 6px;color:#889;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px">Amount due</p>
+    <p style="margin:0 0 6px;color:#889;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px">${feeWord} due</p>
     <p style="margin:0 0 10px;font-size:26px;font-weight:800;color:#17202c">${esc(fmtInr(total))}</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;color:#556;margin:0 0 12px">
       <tr><td style="padding:2px 0">Amount (excl. GST)</td><td style="padding:2px 0;text-align:right">${esc(fmtInr(base))}</td></tr>
@@ -49,15 +54,16 @@ function paymentLinkEmailHtml({ name, course, amount, shortUrl }) {
 </div>`;
 }
 
-async function sendPaymentLinkEmail({ email, name, course, amount, shortUrl, qrDataUrl }) {
+async function sendPaymentLinkEmail({ email, name, course, amount, shortUrl, qrDataUrl, installmentNo = 1 }) {
   const attachments = [];
   if (qrDataUrl) {
     const base64 = String(qrDataUrl).split(',')[1];
     if (base64) attachments.push({ filename: 'payment-qr.png', content: Buffer.from(base64, 'base64'), contentType: 'image/png' });
   }
+  const feeWord = installmentNo === 1 ? 'Registration fee' : 'Fee';
   return mailer.sendMail([email], {
-    subject: `Fee payment request — ${fmtInr(amount)}${course ? ` (${course})` : ''}`,
-    html: paymentLinkEmailHtml({ name, course, amount, shortUrl }),
+    subject: `${feeWord} payment request — ${fmtInr(amount)}${course ? ` (${course})` : ''}`,
+    html: paymentLinkEmailHtml({ name, course, amount, shortUrl, installmentNo }),
     attachments,
   });
 }

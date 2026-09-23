@@ -40,6 +40,8 @@ export default function PublicKycForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [previews, setPreviews] = useState({});
+  const [uploadedPaths, setUploadedPaths] = useState({});
+  const [uploading, setUploading] = useState({});
   const [selectedState, setSelectedState] = useState('');
   const files = useRef({});
   const pollTimer = useRef(null);
@@ -76,13 +78,60 @@ export default function PublicKycForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Uploads (and, for the PAN/Aadhar front scans, OCRs — see backend
+  // paymentsPublicController/upload.js) the moment a file is picked, rather
+  // than waiting for final Submit — documents come first in this form
+  // precisely so any extracted Name/Father's Name/Address can pre-fill the
+  // Personal details fields the candidate hasn't reached yet. Auto-filled
+  // values only ever land in an EMPTY field and stay fully editable —
+  // OCR from a phone-camera photo is never treated as authoritative.
   const onPickFile = (field) => (file) => {
     files.current[field] = file;
     setPreviews((p) => {
       if (p[field]) URL.revokeObjectURL(p[field]);
       return { ...p, [field]: URL.createObjectURL(file) };
     });
-    return false; // prevent antd Upload's own auto-upload — we upload on submit
+    setUploadedPaths((p) => {
+      const next = { ...p };
+      delete next[field];
+      return next;
+    });
+    setUploading((p) => ({ ...p, [field]: true }));
+
+    paymentsPublicApi
+      .uploadDoc(token, file, field)
+      .then((res) => {
+        setUploadedPaths((p) => ({ ...p, [field]: res.result.path }));
+        const extracted = res.result.extracted;
+        if (!extracted) return;
+        const current = form.getFieldsValue();
+        const patch = {};
+        if (field === 'panFront') {
+          if (extracted.name && !current.name) patch.name = extracted.name;
+          if (extracted.fatherName && !current.fatherName) patch.fatherName = extracted.fatherName;
+        } else if (field === 'aadharFront') {
+          if (extracted.address && !current.address) patch.address = extracted.address;
+          if (extracted.pincode && !current.pincode) patch.pincode = extracted.pincode;
+        }
+        if (Object.keys(patch).length) {
+          form.setFieldsValue(patch);
+          message.success('Some details were auto-filled from the scan — please double-check them.');
+        }
+      })
+      .catch(() => {
+        message.error('Could not upload — please try that file again.');
+        setPreviews((p) => {
+          const next = { ...p };
+          delete next[field];
+          return next;
+        });
+        delete files.current[field];
+      })
+      .finally(() => {
+        setUploading((p) => ({ ...p, [field]: false }));
+      });
+
+    return false; // prevent antd Upload's own auto-upload — the call above handles it
   };
 
   const clearFile = (field) => {
@@ -93,22 +142,22 @@ export default function PublicKycForm() {
       delete next[field];
       return next;
     });
+    setUploadedPaths((p) => {
+      const next = { ...p };
+      delete next[field];
+      return next;
+    });
   };
 
   const onSubmit = async (values) => {
-    const missing = DOC_FIELDS.filter(([field]) => !files.current[field]);
+    const missing = DOC_FIELDS.filter(([field]) => !uploadedPaths[field]);
     if (missing.length) {
-      message.error(`Please attach: ${missing.map(([title, sub]) => `${title} (${sub})`).join(', ')}.`);
+      message.error(`Please attach: ${missing.map(([, title, sub]) => `${title} (${sub})`).join(', ')}.`);
       return;
     }
     setSubmitting(true);
     try {
-      const uploaded = {};
-      for (const [field] of DOC_FIELDS) {
-        const res = await paymentsPublicApi.uploadDoc(token, files.current[field]);
-        uploaded[field] = res.result.path;
-      }
-      await paymentsPublicApi.submitKyc(token, { ...values, ...uploaded });
+      await paymentsPublicApi.submitKyc(token, { ...values, ...uploadedPaths });
       setDone(true);
     } catch (e) {
       message.error(e?.response?.data?.message || 'Could not submit — please try again.');
@@ -197,16 +246,24 @@ export default function PublicKycForm() {
                     <>
                       <div className="pay-kyc-doc-thumb">
                         <img src={preview} alt={title} />
-                        <button type="button" className="pay-kyc-doc-remove" onClick={() => clearFile(field)} aria-label={`Remove ${title}`}>
-                          <CloseCircleFilled />
-                        </button>
+                        {!uploading[field] && (
+                          <button type="button" className="pay-kyc-doc-remove" onClick={() => clearFile(field)} aria-label={`Remove ${title}`}>
+                            <CloseCircleFilled />
+                          </button>
+                        )}
                       </div>
                       <div className="pay-kyc-doc-caption">
                         <span className="pay-kyc-doc-title">{title}</span>
                         <span className="pay-kyc-doc-sub">{sub}</span>
-                        <span className="pay-kyc-doc-filename" title={files.current[field]?.name}>
-                          {files.current[field]?.name}
-                        </span>
+                        {uploading[field] ? (
+                          <span className="pay-kyc-doc-status">Uploading &amp; scanning…</span>
+                        ) : uploadedPaths[field] ? (
+                          <span className="pay-kyc-doc-filename" title={files.current[field]?.name}>
+                            {files.current[field]?.name}
+                          </span>
+                        ) : (
+                          <span className="pay-kyc-doc-status is-error">Upload failed — tap to retry</span>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -267,7 +324,15 @@ export default function PublicKycForm() {
             <Input.TextArea rows={3} />
           </Form.Item>
 
-          <Button type="primary" htmlType="submit" block size="large" loading={submitting} className="pay-kyc-submit">
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            size="large"
+            loading={submitting}
+            disabled={Object.values(uploading).some(Boolean)}
+            className="pay-kyc-submit"
+          >
             Submit
           </Button>
         </Form>

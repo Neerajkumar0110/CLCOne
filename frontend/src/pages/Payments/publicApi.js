@@ -9,9 +9,10 @@ const client = axios.create({ baseURL: API_BASE_URL });
 
 const paymentsPublicApi = {
   status: (token) => client.get(`payments/public/${token}`).then((r) => r.data),
-  uploadDoc: (token, file) => {
+  uploadDoc: (token, file, docType) => {
     const form = new FormData();
     form.append('file', file);
+    if (docType) form.append('docType', docType);
     return client.post(`payments/public/${token}/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
   },
   submitKyc: (token, payload) => client.post(`payments/public/${token}/kyc`, payload).then((r) => r.data),
