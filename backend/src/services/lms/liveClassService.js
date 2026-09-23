@@ -74,6 +74,23 @@ function withinScheduledWindow(session) {
   const now = Date.now();
   return now >= start - JOIN_WINDOW_GRACE_MIN * 60000 && now <= end + JOIN_WINDOW_GRACE_MIN * 60000;
 }
+
+// True once a class's scheduled end time (+ the same grace buffer) is
+// behind us — deliberately only the upper bound (unlike
+// withinScheduledWindow, this doesn't also block starting early). Used to
+// stop offering "Start class"/"Join" for a session that's still sitting in
+// 'scheduled'/'upcoming' because nobody ever started it and the
+// autoLifecycleTick's auto-start query (below) only picks up sessions whose
+// window hasn't closed yet — without this, such a session stayed startable
+// forever, however long after class time had actually passed.
+function hasScheduleEnded(session) {
+  if (!session.scheduledStart) return false;
+  const start = new Date(session.scheduledStart).getTime();
+  const end = session.scheduledEnd
+    ? new Date(session.scheduledEnd).getTime()
+    : start + (session.scheduledDurationMin || 60) * 60000;
+  return Date.now() > end + JOIN_WINDOW_GRACE_MIN * 60000;
+}
 const DISPLAY = {
   scheduled: 'SCHEDULED',
   upcoming: 'UPCOMING',
@@ -689,6 +706,11 @@ async function startSession(id, admin, { auto = false } = {}) {
   }
   if (session.status === 'ended' && !withinScheduledWindow(session)) {
     return { error: 409, message: 'This class has already ended.' };
+  }
+  // Never actually started, and its scheduled window is over — was showing
+  // as startable indefinitely otherwise (see hasScheduleEnded's comment).
+  if (['scheduled', 'upcoming'].includes(session.status) && hasScheduleEnded(session)) {
+    return { error: 409, message: "This class's scheduled time has passed." };
   }
   const s = await settingsService.get();
 
@@ -1395,7 +1417,9 @@ function safeView(session, role) {
     myRole: role === 'system' ? null : role,
     autoStartAt: !!session.autoStartAt,
     batchId: session.batch ? String(session.batch) : null,
-    canStart: role === 'teacher' && (['scheduled', 'upcoming'].includes(session.status) || resumable),
+    canStart:
+      role === 'teacher' &&
+      ((['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session)) || resumable),
     canEnd: role === 'teacher' && ['live', 'starting'].includes(session.status),
     canEditTime: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
     canAddStudent: role === 'teacher' && !!session.batch,
@@ -1404,7 +1428,10 @@ function safeView(session, role) {
     // (or the auto-lifecycle tick) doesn't permanently lock either side out
     // of a class that should still be joinable. See issueJoin/startSession.
     canJoin:
-      (role === 'teacher' && (['scheduled', 'upcoming', 'live'].includes(session.status) || resumable)) ||
+      (role === 'teacher' &&
+        (session.status === 'live' ||
+          (['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session)) ||
+          resumable)) ||
       (role === 'student' && (session.status === 'live' || resumable)),
     canWatchRecording: ['recording_available'].includes(session.status),
     // NO meetingId / passwords / raw URL

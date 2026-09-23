@@ -353,6 +353,15 @@ export default function LiveClasses() {
                       </Tooltip>
                     )}
                     {r.status === 'ENDED' && <span className="lms-live-done">Class ended</span>}
+                    {/* canStart is teacher-only and, for a still-SCHEDULED/UPCOMING session, is
+                        only ever false because its scheduled window has closed (see backend
+                        liveClassService.js's hasScheduleEnded) — for a student the equivalent
+                        false-before-it-goes-live is the normal, expected "Not started" case just
+                        above, so this message is teacher-only to avoid firing on every upcoming
+                        class a student hasn't joined yet. */}
+                    {r.myRole === 'teacher' && !r.canStart && ['SCHEDULED', 'UPCOMING'].includes(r.status) && (
+                      <span className="lms-live-done">Time passed — class wasn't started</span>
+                    )}
                   </div>
                 </Card>
               </Col>
