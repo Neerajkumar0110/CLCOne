@@ -390,60 +390,10 @@
   color: var(--hub-muted);
 }
 
-/* ── Live Classes cards ─────────────────────────────────────────────── */
-.lms-live-card.ant-card { border-radius: var(--hub-r-md); }
-.lms-live-card.ant-card {
-  border: 0;
-  border-top: 3px solid var(--lms-accent);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.lms-live-card.lms-live-live.ant-card { border-color: var(--hub-border); box-shadow: none; }
-.lms-live-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.lms-live-provider { font-size: 11px; color: var(--hub-muted); font-family: ui-monospace, monospace; }
-.lms-live-title { font-weight: 600; color: var(--hub-text); line-height: 1.3; }
-.lms-live-sub { font-size: 12px; color: var(--hub-muted); margin-top: 2px; }
-.lms-live-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 10px 0;
-  font-size: 12px;
-  color: var(--hub-text-soft);
-}
-.lms-live-meta .anticon { margin-right: 4px; color: var(--hub-muted); }
-.lms-live-rec { display: inline-block; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
-.lms-live-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--hub-border);
-}
-.lms-live-actions .ant-btn {
-  font-weight: 700;
-  border-radius: 7px;
-}
-.lms-live-done { font-size: 12px; color: var(--hub-muted); }
-.lms-live-online { color: var(--hub-red); font-weight: 600; }
-.lms-live-auto {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--hub-green, #2e7d32);
-}
+/* ── Live Classes cards — see the "session-card" system further down for
+   the actual card styling; only the "live now" list and hero header below
+   still use these. ─────────────────────────────────────────────────── */
 .lms-livenow .lms-livenow-row { display: flex; flex-direction: column; gap: 6px; }
-.lms-live-card.lms-live-live.ant-card,
-.lms-live-card.lms-live-starting.ant-card,
-.lms-live-card.lms-live-recording_available.ant-card { border-color: var(--hub-border); box-shadow: none; }
 
 /* ── Live Classes — premium redesign ──────────────────────────────────── */
 .lms-live-hero {
@@ -548,17 +498,8 @@
   border-color: color-mix(in srgb, var(--hub-red, #ef4444) 85%, black) !important;
 }
 
-/* Status badge pill (replaces the plain antd Tag) */
-.lms-live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-}
+/* The live-pulsing dot inside .recording-badge (see the session-card system
+   further down) — the badge pill itself is styled there now. */
 .lms-live-badge-dot {
   width: 6px;
   height: 6px;
@@ -570,258 +511,9 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.45; transform: scale(0.75); }
 }
-.lms-live-badge--red { color: #dc2626; background: color-mix(in srgb, #dc2626 14%, transparent); }
-.lms-live-badge--orange { color: #d97706; background: color-mix(in srgb, #d97706 14%, transparent); }
-.lms-live-badge--blue { color: #2563eb; background: color-mix(in srgb, #2563eb 14%, transparent); }
-.lms-live-badge--geekblue { color: #4338ca; background: color-mix(in srgb, #4338ca 14%, transparent); }
-.lms-live-badge--purple { color: #7c3aed; background: color-mix(in srgb, #7c3aed 14%, transparent); }
-.lms-live-badge--green { color: #059669; background: color-mix(in srgb, #059669 14%, transparent); }
-.lms-live-badge--default { color: var(--hub-muted); background: var(--hub-bg-soft); }
-:root[data-theme='dark'] .lms-live-badge--red { color: #f87171; }
-:root[data-theme='dark'] .lms-live-badge--orange { color: #fbbf24; }
-:root[data-theme='dark'] .lms-live-badge--blue { color: #93c5fd; }
-:root[data-theme='dark'] .lms-live-badge--geekblue { color: #a5b4fc; }
-:root[data-theme='dark'] .lms-live-badge--purple { color: #c4b5fd; }
-:root[data-theme='dark'] .lms-live-badge--green { color: #6ee7b7; }
 
-/* Card polish — entrance animation + hover lift, a live class keeps its
-   red-glow ring but brightens it further on hover. Each card in the grid
-   fades/slides in with a small stagger (nth-child, capped at 10 — beyond
-   that they all share the last delay, which is fine, it's imperceptible by
-   then) instead of the whole grid just snapping into place. */
-@keyframes lms-live-card-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.lms-live-card.ant-card {
-  height: 100%;
-  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
-  animation: lms-live-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-  will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .lms-live-card.ant-card { animation: none; }
-}
-/* Staggered by the Col's position in the grid (nth-child on the card itself
-   is meaningless — each Card is its Col's only child, so every one of them
-   would otherwise match :nth-child(1)). */
-.lms-live-col:nth-child(1) .lms-live-card.ant-card { animation-delay: 0ms; }
-.lms-live-col:nth-child(2) .lms-live-card.ant-card { animation-delay: 40ms; }
-.lms-live-col:nth-child(3) .lms-live-card.ant-card { animation-delay: 80ms; }
-.lms-live-col:nth-child(4) .lms-live-card.ant-card { animation-delay: 120ms; }
-.lms-live-col:nth-child(5) .lms-live-card.ant-card { animation-delay: 160ms; }
-.lms-live-col:nth-child(6) .lms-live-card.ant-card { animation-delay: 200ms; }
-.lms-live-col:nth-child(7) .lms-live-card.ant-card { animation-delay: 240ms; }
-.lms-live-col:nth-child(8) .lms-live-card.ant-card { animation-delay: 280ms; }
-.lms-live-col:nth-child(9) .lms-live-card.ant-card { animation-delay: 320ms; }
-.lms-live-col:nth-child(n + 10) .lms-live-card.ant-card { animation-delay: 360ms; }
-.lms-live-card.ant-card:hover {
-  transform: translateY(-6px) scale(1.012);
-  border-color: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 55%, var(--hub-border)) !important;
-  box-shadow: var(--hub-shadow-md, 0 10px 24px rgba(15, 23, 42, 0.08)), 0 2px 8px rgba(15, 23, 42, 0.06) !important;
-}
-.lms-live-card.is-live.ant-card {
-  border-color: color-mix(in srgb, var(--hub-red, #ef4444) 45%, var(--hub-border)) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-red, #ef4444) 10%, transparent) !important;
-}
-.lms-live-card.is-live.ant-card:hover {
-  transform: translateY(-6px) scale(1.012);
-  border-color: color-mix(in srgb, var(--hub-red, #ef4444) 65%, var(--hub-border)) !important;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--hub-red, #ef4444) 16%, transparent),
-    var(--hub-shadow-md, 0 10px 24px rgba(15, 23, 42, 0.08)) !important;
-}
-.lms-live-card .ant-card-body { display: flex; flex-direction: column; height: 100%; }
-.lms-live-card .lms-live-actions { margin-top: auto; }
-/* The Start/Join buttons get a little extra lift of their own so the
-   primary action reads as clickable, not just the whole card. */
-.lms-live-card .lms-live-actions .ant-btn {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.lms-live-card .lms-live-actions .ant-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-.lms-live-card .lms-live-actions .ant-btn-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 35%, transparent);
-}
-
-/* ── Live class card — full redesign ──────────────────────────────────
-   Rounded "app card" treatment: soft shadow at rest, a decorative blurred
-   blob tucked in the top-right corner, a status pill + provider chip up
-   top, a big title with a leading cap emoji, three info chips (teacher /
-   date / time), then one contextual status line with its own action button
-   and, below that, whatever secondary utility buttons apply (Edit time,
-   Add student, Attendance, End). */
-.lms-live-card.ant-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 20px !important;
-  box-shadow: var(--hub-shadow-sm) !important;
-}
-.lms-live-card .ant-card-body { padding: 20px !important; gap: 0; }
-.lms-live-blob {
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 16%, transparent), transparent 72%);
-  pointer-events: none;
-  z-index: 0;
-}
-/* Every other direct child sits above the blob — but NOT the blob itself:
-   this selector's 2-class specificity otherwise beats .lms-live-blob's own
-   1-class "position: absolute" declared above, silently flipping the blob
-   to position: relative (so it renders in normal flow — a big grey circle
-   shoving the whole card's content down — instead of tucked behind it in
-   the corner). That was exactly the bug in the first version of this card. */
-.lms-live-card > .ant-card-body > *:not(.lms-live-blob) { position: relative; z-index: 1; }
-
-.lms-live-badge { padding: 5px 12px 5px 10px; font-size: 10.5px; }
-.lms-live-badge .anticon { font-size: 12px; }
-
-.lms-live-provider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  font-family: inherit;
-  color: var(--hub-text-soft);
-}
-.lms-live-provider-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--hub-blue, #2563eb), var(--hub-blue-dark, #1d4ed8));
-  flex: none;
-}
-
-.lms-live-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 14px;
-}
-.lms-live-cap { font-size: 30px; line-height: 1; flex: none; margin-top: 2px; }
-.lms-live-card .lms-live-title { font-size: 19px; font-weight: 800; line-height: 1.28; }
-.lms-live-card .lms-live-sub { margin-top: 4px; }
-
-.lms-live-chips {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 16px 0;
-}
-@media (max-width: 460px) {
-  .lms-live-chips { grid-template-columns: 1fr 1fr; }
-  .lms-live-chips > :last-child { grid-column: 1 / -1; }
-}
-/* Icon+label on their own line, the actual value on the line below and
-   free to wrap — a horizontal icon-then-text layout (the first version of
-   this card) had no room left for "11:30 AM – 01:30 PM" or "Mon, Mar 22"
-   in a 1/3-width column and silently clipped them with an ellipsis. */
-.lms-live-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 11px;
-  border-radius: 12px;
-  background: var(--hub-bg-soft);
-  min-width: 0;
-}
-.lms-live-chip-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.lms-live-chip-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  flex: none;
-}
-.lms-live-chip-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--hub-muted); }
-.lms-live-chip-value {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--hub-text);
-  line-height: 1.3;
-  overflow-wrap: break-word;
-}
-.lms-live-chip--blue { background: color-mix(in srgb, var(--hub-blue) 10%, var(--hub-bg-soft)); }
-.lms-live-chip--blue .lms-live-chip-icon { color: var(--hub-blue); background: var(--hub-blue-soft); }
-.lms-live-chip--green { background: color-mix(in srgb, var(--hub-green) 10%, var(--hub-bg-soft)); }
-.lms-live-chip--green .lms-live-chip-icon { color: var(--hub-green); background: var(--hub-green-soft); }
-.lms-live-chip--indigo { background: color-mix(in srgb, var(--hub-purple) 10%, var(--hub-bg-soft)); }
-.lms-live-chip--indigo .lms-live-chip-icon { color: var(--hub-purple); background: var(--hub-purple-soft); }
-
-.lms-live-divider { height: 1px; background: var(--hub-border); margin: 4px 0 14px; }
-
-.lms-live-status-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--hub-bg-soft);
-}
-.lms-live-status-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
-  flex: none;
-}
-.lms-live-status-icon--red { color: var(--hub-red); background: var(--hub-red-soft); }
-.lms-live-status-icon--blue { color: var(--hub-blue); background: var(--hub-blue-soft); }
-.lms-live-status-icon--green { color: var(--hub-green); background: var(--hub-green-soft); }
-.lms-live-status-icon--purple { color: var(--hub-purple); background: var(--hub-purple-soft); }
-.lms-live-status-icon--orange { color: var(--hub-yellow); background: var(--hub-yellow-soft); }
-.lms-live-status-icon--default { color: var(--hub-muted); background: var(--hub-border); }
-.lms-live-status-text { flex: 1; min-width: 0; }
-.lms-live-status-title { font-size: 13.5px; font-weight: 700; color: var(--hub-text); }
-.lms-live-status-desc { font-size: 12px; color: var(--hub-muted); margin-top: 1px; }
-.lms-live-status-row .ant-btn { flex: none; }
-
-.lms-live-secondary-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-.lms-live-pill.ant-btn {
-  border-radius: 999px;
-  font-weight: 700;
-  border-color: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 35%, var(--hub-border));
-  color: var(--lms-accent, var(--hub-blue));
-  background: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 6%, transparent);
-}
-.lms-live-pill.ant-btn:hover:not(:disabled) {
-  border-color: var(--lms-accent, var(--hub-blue));
-  color: var(--lms-accent, var(--hub-blue));
-  background: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 12%, transparent);
-}
-.lms-live-pill.ant-btn[disabled] {
-  border-color: var(--hub-border);
-  color: var(--hub-muted);
-  background: var(--hub-bg-soft);
-}
-.lms-live-pill.ant-btn-dangerous,
-.ant-btn.lms-live-pill.ant-btn-dangerous {
-  border-color: color-mix(in srgb, var(--hub-red) 35%, var(--hub-border));
-  color: var(--hub-red);
-  background: var(--hub-red-soft);
-}
+/* The live-class card itself is the ".session-card" system defined near
+   the end of this file, styled after the reference mockup directly. */
 @media (max-width: 640px) {
   .lms-live-hero { padding-bottom: 14px; }
   .lms-livenow2-row { flex-direction: column; align-items: flex-start; }
@@ -947,15 +639,6 @@
   border-color: var(--hub-border) !important;
   box-shadow: none !important;
 }
-/* Same base surface/border as the group above, but its own rule with no
-   box-shadow reset — the hover/entrance treatment below needs to actually
-   paint a shadow, which a trailing "box-shadow: none !important" here would
-   otherwise beat on specificity ties for the non-:hover state. */
-.lms-live-card.ant-card {
-  background: var(--hub-surface) !important;
-  border-color: var(--hub-border) !important;
-}
-
 @media (max-width: 640px) {
   .lms-section-student,
   .lms-section-live,
@@ -1876,4 +1559,666 @@
   background: #f87171;
   box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.28);
   animation: lms-live-pulse 1.6s ease-in-out infinite;
+}
+
+/* =============================================================================
+   SESSION CARD — the live-class card, per the exact reference CSS supplied
+   for it. One .session-card per class, stacked in a vertical list (not a
+   grid — the reference is a single full-width card, max-width 1100px).
+   ========================================================================== */
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ================================
+   SESSION CARD
+================================ */
+
+.session-card {
+  width: 100%;
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 34px 38px 30px;
+
+  background: #ffffff;
+  border: 1px solid #e8ebf5;
+  border-radius: 26px;
+
+  box-shadow:
+    0 18px 45px rgba(30, 50, 100, 0.08),
+    0 4px 12px rgba(30, 50, 100, 0.04);
+
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+:root[data-theme='dark'] .session-card {
+  background: var(--hub-surface, #1a2130);
+  border-color: var(--hub-border, rgba(255, 255, 255, 0.12));
+}
+
+
+/* Decorative background circle */
+
+.session-card::after {
+  content: "";
+  position: absolute;
+
+  width: 190px;
+  height: 190px;
+
+  right: -85px;
+  top: -80px;
+
+  border-radius: 50%;
+
+  background: linear-gradient(
+    135deg,
+    rgba(106, 92, 255, 0.03),
+    rgba(106, 92, 255, 0.14)
+  );
+
+  pointer-events: none;
+}
+
+
+/* ================================
+   TOP HEADER
+================================ */
+
+.session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 2;
+}
+
+
+/* Recording Badge */
+
+.recording-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 11px 20px;
+
+  border-radius: 30px;
+
+  background: linear-gradient(
+    90deg,
+    #eeeaff,
+    #e8e6ff
+  );
+
+  color: #4b35e8;
+
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+
+  text-transform: uppercase;
+}
+
+.recording-badge svg,
+.recording-badge i {
+  font-size: 19px;
+  color: #4935e8;
+}
+
+/* Tone variants — the reference only showed the purple "recording
+   processing" case; these carry the same pill treatment across this app's
+   other class states (live/scheduled/ready/ended) instead of every status
+   reading as purple. */
+.recording-badge[data-tone="red"] { background: linear-gradient(90deg, #ffe7ea, #ffe1e4); color: #dc2626; }
+.recording-badge[data-tone="red"] svg { color: #dc2626; }
+.recording-badge[data-tone="orange"] { background: linear-gradient(90deg, #fff2e0, #ffedd4); color: #c2660a; }
+.recording-badge[data-tone="orange"] svg { color: #c2660a; }
+.recording-badge[data-tone="blue"],
+.recording-badge[data-tone="geekblue"] { background: linear-gradient(90deg, #e6f0ff, #e2ecff); color: #2454d6; }
+.recording-badge[data-tone="blue"] svg,
+.recording-badge[data-tone="geekblue"] svg { color: #2454d6; }
+.recording-badge[data-tone="green"] { background: linear-gradient(90deg, #e3faf0, #ddf8ec); color: #0f9d58; }
+.recording-badge[data-tone="green"] svg { color: #0f9d58; }
+.recording-badge[data-tone="default"] { background: #eef0f5; color: #5b6478; }
+.recording-badge[data-tone="default"] svg { color: #5b6478; }
+
+
+/* BigBlueButton */
+
+.meeting-provider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  color: #253b70;
+
+  font-size: 21px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+:root[data-theme='dark'] .meeting-provider { color: var(--hub-text, #e5eaf5); }
+
+.meeting-provider .provider-logo {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #203b83;
+  color: #ffffff;
+
+  font-weight: 800;
+  font-size: 22px;
+}
+
+
+/* ================================
+   TITLE
+================================ */
+
+.session-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+
+  margin: 0;
+
+  color: #132657;
+
+  font-size: 40px;
+  line-height: 1.18;
+  font-weight: 750;
+
+  letter-spacing: -1px;
+
+  position: relative;
+  z-index: 2;
+}
+:root[data-theme='dark'] .session-title { color: var(--hub-text, #e5eaf5); }
+
+.session-title .title-icon {
+  flex-shrink: 0;
+
+  width: 55px;
+  height: 55px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #4438df;
+  font-size: 42px;
+}
+
+
+/* Subtitle */
+
+.session-subtitle {
+  margin: 22px 0 32px;
+
+  color: #7183a6;
+
+  font-size: 19px;
+  line-height: 1.65;
+  font-weight: 500;
+
+  position: relative;
+  z-index: 2;
+}
+
+
+/* ================================
+   INFO GRID
+================================ */
+
+.session-info {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 24px;
+
+  margin-bottom: 36px;
+
+  position: relative;
+  z-index: 2;
+}
+
+
+/* Individual info box */
+
+.info-box {
+  min-height: 112px;
+
+  padding: 22px 24px;
+
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  border-radius: 18px;
+
+  box-sizing: border-box;
+}
+
+
+/* Teacher */
+
+.info-box.teacher {
+  background: linear-gradient(
+    135deg,
+    #f2f7ff,
+    #eef5ff
+  );
+}
+
+
+/* Date */
+
+.info-box.date {
+  background: linear-gradient(
+    135deg,
+    #effcf8,
+    #ecfaf5
+  );
+}
+
+
+/* Time */
+
+.info-box.time {
+  background: linear-gradient(
+    135deg,
+    #f1f4ff,
+    #eef2ff
+  );
+}
+
+
+/* Icons */
+
+.info-icon {
+  width: 46px;
+  height: 46px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  font-size: 32px;
+
+  color: #4638dd;
+}
+
+.info-box.date .info-icon {
+  color: #18a965;
+}
+
+
+/* Label */
+
+.info-label {
+  margin-bottom: 7px;
+
+  color: #7083a7;
+
+  font-size: 17px;
+  font-weight: 500;
+}
+
+
+/* Value */
+
+.info-value {
+  color: #142657;
+
+  font-size: 21px;
+  font-weight: 700;
+
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+:root[data-theme='dark'] .info-value { color: var(--hub-text, #e5eaf5); }
+
+
+/* ================================
+   DIVIDER
+================================ */
+
+.session-divider {
+  width: 100%;
+  height: 1px;
+
+  margin-bottom: 28px;
+
+  background: #dfe5f3;
+}
+
+
+/* ================================
+   RECORDING STATUS
+================================ */
+
+.recording-status {
+  min-height: 118px;
+
+  padding: 22px 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 25px;
+
+  border-radius: 20px;
+
+  background: linear-gradient(
+    110deg,
+    #f5f4ff,
+    #f4f5ff
+  );
+
+  box-sizing: border-box;
+}
+.recording-status[data-tone="red"] { background: linear-gradient(110deg, #fff3f4, #fff1f2); }
+.recording-status[data-tone="orange"] { background: linear-gradient(110deg, #fff6ec, #fff3e6); }
+.recording-status[data-tone="blue"] { background: linear-gradient(110deg, #eef4ff, #ecf2ff); }
+.recording-status[data-tone="green"] { background: linear-gradient(110deg, #eefbf5, #ecf9f2); }
+.recording-status[data-tone="default"] { background: #f1f2f6; }
+
+
+/* Status left */
+
+.recording-status-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+
+/* Status Icon */
+
+.recording-status-icon {
+  width: 52px;
+  height: 52px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  color: #4537df;
+
+  font-size: 36px;
+}
+.recording-status[data-tone="red"] .recording-status-icon { color: #dc2626; }
+.recording-status[data-tone="orange"] .recording-status-icon { color: #c2660a; }
+.recording-status[data-tone="blue"] .recording-status-icon { color: #2454d6; }
+.recording-status[data-tone="green"] .recording-status-icon { color: #0f9d58; }
+.recording-status[data-tone="default"] .recording-status-icon { color: #5b6478; }
+
+
+/* Status title */
+
+.recording-status-title {
+  margin: 0 0 7px;
+
+  color: #15285b;
+
+  font-size: 20px;
+  font-weight: 750;
+}
+:root[data-theme='dark'] .recording-status-title { color: var(--hub-text, #e5eaf5); }
+
+
+/* Status description */
+
+.recording-status-description {
+  margin: 0;
+
+  color: #6e83ab;
+
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+
+/* ================================
+   ADD STUDENT BUTTON
+================================ */
+
+.add-student-btn {
+  min-width: 255px;
+  height: 58px;
+
+  padding: 0 25px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border: 2px solid #b6b9ff;
+  border-radius: 32px;
+
+  background: #ffffff;
+
+  color: #3f35d9;
+
+  font-size: 19px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.add-student-btn:hover {
+  background: #f8f7ff;
+
+  border-color: #8988f5;
+
+  box-shadow: 0 8px 22px rgba(67, 55, 220, 0.12);
+
+  transform: translateY(-1px);
+}
+
+.add-student-btn:active {
+  transform: translateY(0);
+}
+
+.add-student-btn svg,
+.add-student-btn i {
+  font-size: 25px;
+}
+.add-student-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+
+/* ================================
+   ATTENDANCE BUTTON
+================================ */
+
+.session-secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.attendance-btn {
+  margin-top: 22px;
+
+  min-height: 52px;
+
+  padding: 0 25px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border: none;
+  border-radius: 28px;
+
+  background: linear-gradient(
+    90deg,
+    #f0efff,
+    #f2f1ff
+  );
+
+  color: #4134d7;
+
+  font-size: 19px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.attendance-btn:hover {
+  background: #e8e7ff;
+
+  transform: translateY(-1px);
+}
+
+.attendance-btn svg,
+.attendance-btn i {
+  font-size: 24px;
+}
+.attendance-btn.is-danger {
+  background: linear-gradient(90deg, #ffeaec, #ffe7e9);
+  color: #dc2626;
+}
+.attendance-btn.is-danger:hover { background: #ffdde0; }
+.attendance-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+/* ================================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 900px) {
+
+  .session-card {
+    padding: 28px;
+  }
+
+  .session-title {
+    font-size: 32px;
+  }
+
+  .session-info {
+    grid-template-columns: 1fr;
+  }
+
+  .recording-status {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .add-student-btn {
+    width: 100%;
+  }
+}
+
+
+@media (max-width: 600px) {
+
+  .session-card {
+    padding: 22px 18px;
+    border-radius: 20px;
+  }
+
+  .session-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .meeting-provider {
+    font-size: 17px;
+  }
+
+  .recording-badge {
+    font-size: 13px;
+    padding: 9px 14px;
+  }
+
+  .session-title {
+    gap: 10px;
+    font-size: 26px;
+    letter-spacing: -0.5px;
+  }
+
+  .session-title .title-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 30px;
+  }
+
+  .session-subtitle {
+    font-size: 15px;
+    margin: 16px 0 24px;
+  }
+
+  .info-box {
+    min-height: 92px;
+    padding: 18px;
+  }
+
+  .info-value {
+    font-size: 18px;
+  }
+
+  .recording-status {
+    padding: 20px;
+  }
+
+  .recording-status-content {
+    align-items: flex-start;
+  }
+
+  .recording-status-description {
+    font-size: 15px;
+  }
+
+  .add-student-btn {
+    min-width: 100%;
+  }
 }

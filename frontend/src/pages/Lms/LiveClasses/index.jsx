@@ -324,21 +324,24 @@ export default function LiveClasses() {
           />
         </Card>
       ) : (
-        <Row gutter={[16, 16]}>
+        <div className="session-list">
           {rows.map((r) => {
             const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
             const busy = busyId === r.id;
             const isLive = r.status === 'LIVE' || r.status === 'STARTING';
             const panel = getStatusPanel(r);
+            const providerLabel =
+              r.meetingProvider === 'bigbluebutton' ? 'BigBlueButton' : r.meetingProvider === 'jitsi' ? 'Jitsi' : 'Room';
+            const providerGlyph = r.meetingProvider === 'bigbluebutton' ? 'B' : r.meetingProvider === 'jitsi' ? 'J' : '•';
 
             // One primary call-to-action per card — same priority the old
             // flat button row used (Start > Join > Watch recording > Add
             // student), just picked once instead of rendered as a list of
             // independently-conditioned buttons.
             const primaryAction = r.canStart
-              ? { icon: <PlayCircleOutlined />, label: 'Start class', onClick: () => onStart(r.id), primary: true }
+              ? { icon: <PlayCircleOutlined />, label: 'Start class', onClick: () => onStart(r.id) }
               : r.canJoin
-              ? { icon: <LoginOutlined />, label: r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class', onClick: () => handleJoin(r), primary: true }
+              ? { icon: <LoginOutlined />, label: r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class', onClick: () => handleJoin(r) }
               : r.status === 'RECORDING_AVAILABLE'
               ? { icon: <PlaySquareOutlined />, label: 'Watch Recording', href: '#/lms/recordings' }
               : r.canAddStudent
@@ -348,7 +351,7 @@ export default function LiveClasses() {
               : null;
 
             const secondaryButtons = [];
-            if (r.canEnd) secondaryButtons.push({ key: 'end', icon: <StopOutlined />, label: 'End', onClick: () => onEnd(r.id), danger: true });
+            if (r.canEnd) secondaryButtons.push({ key: 'end', icon: <StopOutlined />, label: 'End', onClick: () => onEnd(r.id) });
             if (r.canEditTime) secondaryButtons.push({ key: 'edit', icon: <FieldTimeOutlined />, label: 'Edit time', onClick: () => openEdit(r) });
             if (r.canAddStudent && primaryAction?.label !== 'Add student') {
               secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add student', onClick: () => openAdd(r) });
@@ -356,111 +359,104 @@ export default function LiveClasses() {
             if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
 
             return (
-              <Col xs={24} sm={12} lg={8} key={r.id} className="lms-live-col">
-                <Card size="small" className={`lms-live-card lms-live-${r.lifecycle}${isLive ? ' is-live' : ''}`}>
-                  <span className="lms-live-blob" aria-hidden="true" />
-                  <div className="lms-live-top">
-                    <span className={`lms-live-badge lms-live-badge--${meta.color}`}>
-                      {isLive ? <i className="lms-live-badge-dot" /> : <VideoCameraOutlined />}
-                      {meta.label}
-                    </span>
-                    <span className="lms-live-provider">
-                      <span className="lms-live-provider-icon">
-                        <VideoCameraOutlined />
-                      </span>
-                      {r.meetingProvider === 'bigbluebutton' ? 'BigBlueButton' : r.meetingProvider === 'jitsi' ? 'Jitsi' : 'Room'}
-                      {r.isMock ? ' · mock' : ''}
-                    </span>
-                  </div>
+              <div className="session-card" key={r.id}>
+                <div className="session-header">
+                  <span className="recording-badge" data-tone={meta.color}>
+                    {isLive ? <i className="lms-live-badge-dot" /> : <VideoCameraOutlined />}
+                    {meta.label}
+                  </span>
+                  <span className="meeting-provider">
+                    <span className="provider-logo">{providerGlyph}</span>
+                    {providerLabel}
+                    {r.isMock ? ' · mock' : ''}
+                  </span>
+                </div>
 
-                  <div className="lms-live-heading">
-                    <span className="lms-live-cap" aria-hidden="true">🎓</span>
+                <h2 className="session-title">
+                  <span className="title-icon" aria-hidden="true">🎓</span>
+                  <span>{r.title}</span>
+                </h2>
+                <p className="session-subtitle">
+                  {r.courseTitle || '—'}{r.batchName ? ` · ${r.batchName}` : ''}
+                </p>
+
+                <div className="session-info">
+                  <div className="info-box teacher">
+                    <span className="info-icon"><TeamOutlined /></span>
                     <div>
-                      <div className="lms-live-title">{r.title}</div>
-                      <div className="lms-live-sub">
-                        {r.courseTitle || '—'}{r.batchName ? ` · ${r.batchName}` : ''}
-                      </div>
+                      <div className="info-label">Teacher</div>
+                      <div className="info-value">{r.teacherName || 'TBD'}</div>
                     </div>
                   </div>
-
-                  <div className="lms-live-chips">
-                    <div className="lms-live-chip lms-live-chip--blue">
-                      <div className="lms-live-chip-top">
-                        <span className="lms-live-chip-icon"><TeamOutlined /></span>
-                        <span className="lms-live-chip-label">Teacher</span>
-                      </div>
-                      <div className="lms-live-chip-value">{r.teacherName || 'TBD'}</div>
+                  <div className="info-box date">
+                    <span className="info-icon"><CalendarOutlined /></span>
+                    <div>
+                      <div className="info-label">Date</div>
+                      <div className="info-value">{d(r.scheduledStart)}</div>
                     </div>
-                    <div className="lms-live-chip lms-live-chip--green">
-                      <div className="lms-live-chip-top">
-                        <span className="lms-live-chip-icon"><CalendarOutlined /></span>
-                        <span className="lms-live-chip-label">Date</span>
-                      </div>
-                      <div className="lms-live-chip-value">{d(r.scheduledStart)}</div>
-                    </div>
-                    <div className="lms-live-chip lms-live-chip--indigo">
-                      <div className="lms-live-chip-top">
-                        <span className="lms-live-chip-icon"><ClockCircleOutlined /></span>
-                        <span className="lms-live-chip-label">Time</span>
-                      </div>
-                      <div className="lms-live-chip-value">
+                  </div>
+                  <div className="info-box time">
+                    <span className="info-icon"><ClockCircleOutlined /></span>
+                    <div>
+                      <div className="info-label">Time</div>
+                      <div className="info-value">
                         {t(r.scheduledStart)}{r.scheduledEnd ? ` – ${t(r.scheduledEnd)}` : ''}
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="lms-live-divider" />
+                <div className="session-divider" />
 
-                  <div className="lms-live-status-row">
-                    <span className={`lms-live-status-icon lms-live-status-icon--${panel.tone}`}>{panel.icon}</span>
-                    <div className="lms-live-status-text">
-                      <div className="lms-live-status-title">{panel.title}</div>
-                      <div className="lms-live-status-desc">{panel.desc}</div>
+                <div className="recording-status" data-tone={panel.tone}>
+                  <div className="recording-status-content">
+                    <span className="recording-status-icon">{panel.icon}</span>
+                    <div>
+                      <p className="recording-status-title">{panel.title}</p>
+                      <p className="recording-status-description">{panel.desc}</p>
                     </div>
-                    {primaryAction &&
-                      (primaryAction.href ? (
-                        <Button size="small" className="lms-live-pill" icon={primaryAction.icon} href={primaryAction.href}>
-                          {primaryAction.label}
-                        </Button>
-                      ) : (
-                        <Tooltip title={primaryAction.disabled ? 'You can join once the teacher starts the class.' : ''}>
-                          <Button
-                            size="small"
-                            type={primaryAction.primary ? 'primary' : 'default'}
-                            className={primaryAction.primary ? '' : 'lms-live-pill'}
-                            icon={primaryAction.icon}
-                            loading={busy && !primaryAction.disabled}
-                            disabled={primaryAction.disabled}
-                            onClick={primaryAction.onClick}
-                          >
-                            {primaryAction.label}
-                          </Button>
-                        </Tooltip>
-                      ))}
                   </div>
-
-                  {secondaryButtons.length > 0 && (
-                    <div className="lms-live-secondary-row">
-                      {secondaryButtons.map((btn) => (
-                        <Button
-                          key={btn.key}
-                          size="small"
-                          className="lms-live-pill"
-                          danger={btn.danger}
-                          icon={btn.icon}
-                          loading={busy && btn.key === 'end'}
-                          onClick={btn.onClick}
+                  {primaryAction &&
+                    (primaryAction.href ? (
+                      <a className="add-student-btn" href={primaryAction.href}>
+                        {primaryAction.icon}
+                        {primaryAction.label}
+                      </a>
+                    ) : (
+                      <Tooltip title={primaryAction.disabled ? 'You can join once the teacher starts the class.' : ''}>
+                        <button
+                          type="button"
+                          className="add-student-btn"
+                          disabled={primaryAction.disabled || busy}
+                          onClick={primaryAction.onClick}
                         >
-                          {btn.label}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </Col>
+                          {primaryAction.icon}
+                          {busy && !primaryAction.disabled ? 'Please wait…' : primaryAction.label}
+                        </button>
+                      </Tooltip>
+                    ))}
+                </div>
+
+                {secondaryButtons.length > 0 && (
+                  <div className="session-secondary-row">
+                    {secondaryButtons.map((btn) => (
+                      <button
+                        key={btn.key}
+                        type="button"
+                        className={`attendance-btn${btn.key === 'end' ? ' is-danger' : ''}`}
+                        disabled={busy}
+                        onClick={btn.onClick}
+                      >
+                        {btn.icon}
+                        {busy && btn.key === 'end' ? 'Ending…' : btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
-        </Row>
+        </div>
       )}
 
       <Modal
