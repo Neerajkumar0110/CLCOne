@@ -1562,159 +1562,164 @@
 }
 
 /* =============================================================================
-   SESSION CARD — the live-class card, per the exact reference CSS supplied
-   for it. One .session-card per class, stacked in a vertical list (not a
-   grid — the reference is a single full-width card, max-width 1100px).
+   LIVE CLASS CARDS — 3-per-row grid, per the exact reference CSS supplied.
    ========================================================================== */
 
-.session-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 /* ================================
-   SESSION CARD
+   3 CARDS IN ONE ROW
 ================================ */
 
-.session-card {
+.live-classes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
   width: 100%;
-  max-width: 1100px;
-  margin: 24px auto;
-  padding: 34px 38px 30px;
+}
+
+
+/* ================================
+   CLASS CARD
+================================ */
+
+.live-class-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 18px;
+
+  box-sizing: border-box;
 
   background: #ffffff;
-  border: 1px solid #e8ebf5;
-  border-radius: 26px;
+
+  border: 1px solid #e6eaf4;
+  border-radius: 18px;
 
   box-shadow:
-    0 18px 45px rgba(30, 50, 100, 0.08),
-    0 4px 12px rgba(30, 50, 100, 0.04);
+    0 8px 25px rgba(30, 55, 100, 0.07),
+    0 2px 8px rgba(30, 55, 100, 0.03);
 
-  position: relative;
   overflow: hidden;
-  box-sizing: border-box;
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
-:root[data-theme='dark'] .session-card {
+:root[data-theme='dark'] .live-class-card {
   background: var(--hub-surface, #1a2130);
   border-color: var(--hub-border, rgba(255, 255, 255, 0.12));
 }
 
 
-/* Decorative background circle */
+/* Top-right decorative circle */
 
-.session-card::after {
+.live-class-card::after {
   content: "";
+
   position: absolute;
 
-  width: 190px;
-  height: 190px;
+  width: 95px;
+  height: 95px;
 
-  right: -85px;
-  top: -80px;
+  top: -48px;
+  right: -38px;
 
   border-radius: 50%;
 
   background: linear-gradient(
     135deg,
-    rgba(106, 92, 255, 0.03),
-    rgba(106, 92, 255, 0.14)
+    rgba(104, 86, 240, 0.03),
+    rgba(104, 86, 240, 0.13)
   );
 
   pointer-events: none;
 }
 
 
+/* Hover */
+
+.live-class-card:hover {
+  transform: translateY(-3px);
+
+  border-color: #d9ddf4;
+
+  box-shadow:
+    0 14px 35px rgba(30, 55, 100, 0.11),
+    0 4px 12px rgba(30, 55, 100, 0.05);
+}
+
+
 /* ================================
-   TOP HEADER
+   CARD TOP
 ================================ */
 
-.session-header {
+.live-class-card .card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
 
-  margin-bottom: 28px;
   position: relative;
   z-index: 2;
+
+  margin-bottom: 17px;
 }
 
 
-/* Recording Badge */
+/* Recording badge */
 
-.recording-badge {
+.live-class-card .recording-badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
 
-  padding: 11px 20px;
+  padding: 7px 12px;
 
-  border-radius: 30px;
+  border-radius: 20px;
 
   background: linear-gradient(
     90deg,
     #eeeaff,
-    #e8e6ff
+    #e9e7ff
   );
 
-  color: #4b35e8;
+  color: #4b38df;
 
-  font-size: 16px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.4px;
 
-  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
-
-.recording-badge svg,
-.recording-badge i {
-  font-size: 19px;
-  color: #4935e8;
-}
-
 /* Tone variants — the reference only showed the purple "recording
    processing" case; these carry the same pill treatment across this app's
-   other class states (live/scheduled/ready/ended) instead of every status
-   reading as purple. */
-.recording-badge[data-tone="red"] { background: linear-gradient(90deg, #ffe7ea, #ffe1e4); color: #dc2626; }
-.recording-badge[data-tone="red"] svg { color: #dc2626; }
-.recording-badge[data-tone="orange"] { background: linear-gradient(90deg, #fff2e0, #ffedd4); color: #c2660a; }
-.recording-badge[data-tone="orange"] svg { color: #c2660a; }
-.recording-badge[data-tone="blue"],
-.recording-badge[data-tone="geekblue"] { background: linear-gradient(90deg, #e6f0ff, #e2ecff); color: #2454d6; }
-.recording-badge[data-tone="blue"] svg,
-.recording-badge[data-tone="geekblue"] svg { color: #2454d6; }
-.recording-badge[data-tone="green"] { background: linear-gradient(90deg, #e3faf0, #ddf8ec); color: #0f9d58; }
-.recording-badge[data-tone="green"] svg { color: #0f9d58; }
-.recording-badge[data-tone="default"] { background: #eef0f5; color: #5b6478; }
-.recording-badge[data-tone="default"] svg { color: #5b6478; }
+   other class states (live/scheduled/ready/ended). */
+.live-class-card .recording-badge[data-tone="red"] { background: linear-gradient(90deg, #ffe7ea, #ffe1e4); color: #dc2626; }
+.live-class-card .recording-badge[data-tone="orange"] { background: linear-gradient(90deg, #fff2e0, #ffedd4); color: #c2660a; }
+.live-class-card .recording-badge[data-tone="blue"],
+.live-class-card .recording-badge[data-tone="geekblue"] { background: linear-gradient(90deg, #e6f0ff, #e2ecff); color: #2454d6; }
+.live-class-card .recording-badge[data-tone="green"] { background: linear-gradient(90deg, #e3faf0, #ddf8ec); color: #0f9d58; }
+.live-class-card .recording-badge[data-tone="default"] { background: #eef0f5; color: #5b6478; }
 
 
 /* BigBlueButton */
 
-.meeting-provider {
+.live-class-card .provider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
 
-  color: #253b70;
+  color: #263f7e;
 
-  font-size: 21px;
+  font-size: 12px;
   font-weight: 700;
 
   white-space: nowrap;
 }
-:root[data-theme='dark'] .meeting-provider { color: var(--hub-text, #e5eaf5); }
+:root[data-theme='dark'] .live-class-card .provider { color: var(--hub-text, #e5eaf5); }
 
-.meeting-provider .provider-logo {
-  width: 42px;
-  height: 42px;
+.live-class-card .provider-logo {
+  width: 27px;
+  height: 27px;
 
   display: flex;
   align-items: center;
@@ -1722,100 +1727,99 @@
 
   border-radius: 50%;
 
-  background: #203b83;
+  background: #24418a;
+
   color: #ffffff;
 
+  font-size: 14px;
   font-weight: 800;
-  font-size: 22px;
 }
 
 
 /* ================================
-   TITLE
+   CARD TITLE
 ================================ */
 
-.session-title {
+.live-class-card .card-title {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
+  gap: 11px;
 
-  margin: 0;
+  margin: 0 0 10px;
 
-  color: #132657;
+  position: relative;
+  z-index: 2;
 
-  font-size: 40px;
-  line-height: 1.18;
+  color: #12275b;
+
+  font-size: 20px;
+  line-height: 1.25;
   font-weight: 750;
 
-  letter-spacing: -1px;
-
-  position: relative;
-  z-index: 2;
+  letter-spacing: -0.3px;
 }
-:root[data-theme='dark'] .session-title { color: var(--hub-text, #e5eaf5); }
+:root[data-theme='dark'] .live-class-card .card-title { color: var(--hub-text, #e5eaf5); }
 
-.session-title .title-icon {
+.live-class-card .card-title .title-icon {
   flex-shrink: 0;
 
-  width: 55px;
-  height: 55px;
+  font-size: 27px;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  color: #4438df;
-  font-size: 42px;
-}
-
-
-/* Subtitle */
-
-.session-subtitle {
-  margin: 22px 0 32px;
-
-  color: #7183a6;
-
-  font-size: 19px;
-  line-height: 1.65;
-  font-weight: 500;
-
-  position: relative;
-  z-index: 2;
+  line-height: 1;
 }
 
 
 /* ================================
-   INFO GRID
+   SUBTITLE
 ================================ */
 
-.session-info {
+.live-class-card .card-subtitle {
+  margin: 0 0 17px;
+
+  color: #7083a8;
+
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+
+
+/* ================================
+   INFO ROW
+================================ */
+
+.live-class-card .info-grid {
   display: grid;
 
   grid-template-columns:
-    repeat(3, minmax(0, 1fr));
+    1fr 1fr 1.15fr;
 
-  gap: 24px;
+  gap: 10px;
 
-  margin-bottom: 36px;
-
-  position: relative;
-  z-index: 2;
+  margin-bottom: 14px;
 }
 
 
-/* Individual info box */
+/* Individual info */
 
-.info-box {
-  min-height: 112px;
+.live-class-card .info-box {
+  min-width: 0;
 
-  padding: 22px 24px;
+  min-height: 63px;
+
+  padding: 11px 10px;
 
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 8px;
 
-  border-radius: 18px;
+  border-radius: 12px;
 
   box-sizing: border-box;
 }
@@ -1823,283 +1827,266 @@
 
 /* Teacher */
 
-.info-box.teacher {
-  background: linear-gradient(
-    135deg,
-    #f2f7ff,
-    #eef5ff
-  );
+.live-class-card .info-box.teacher {
+  background: #f1f6ff;
 }
 
 
 /* Date */
 
-.info-box.date {
-  background: linear-gradient(
-    135deg,
-    #effcf8,
-    #ecfaf5
-  );
+.live-class-card .info-box.date {
+  background: #eefaf6;
 }
 
 
 /* Time */
 
-.info-box.time {
-  background: linear-gradient(
-    135deg,
-    #f1f4ff,
-    #eef2ff
-  );
+.live-class-card .info-box.time {
+  background: #f1f3ff;
 }
 
 
-/* Icons */
+/* Info icon */
 
-.info-icon {
-  width: 46px;
-  height: 46px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+.live-class-card .info-icon {
   flex-shrink: 0;
 
-  font-size: 32px;
+  width: 25px;
 
-  color: #4638dd;
+  display: flex;
+  justify-content: center;
+
+  color: #493be0;
+
+  font-size: 22px;
 }
 
-.info-box.date .info-icon {
-  color: #18a965;
+.live-class-card .info-box.date .info-icon {
+  color: #15aa69;
+}
+
+
+/* Info content */
+
+.live-class-card .info-content {
+  min-width: 0;
 }
 
 
 /* Label */
 
-.info-label {
-  margin-bottom: 7px;
+.live-class-card .info-label {
+  margin-bottom: 3px;
 
-  color: #7083a7;
+  color: #7183a5;
 
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 
 /* Value */
 
-.info-value {
-  color: #142657;
+.live-class-card .info-value {
+  color: #142858;
 
-  font-size: 21px;
+  font-size: 13px;
   font-weight: 700;
 
   line-height: 1.25;
-  overflow-wrap: break-word;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-:root[data-theme='dark'] .info-value { color: var(--hub-text, #e5eaf5); }
+:root[data-theme='dark'] .live-class-card .info-value { color: var(--hub-text, #e5eaf5); }
 
 
 /* ================================
    DIVIDER
 ================================ */
 
-.session-divider {
+.live-class-card .card-divider {
   width: 100%;
   height: 1px;
 
-  margin-bottom: 28px;
+  margin: 4px 0 13px;
 
-  background: #dfe5f3;
+  background: #e4e8f2;
 }
 
 
 /* ================================
-   RECORDING STATUS
+   RECORDING SECTION
 ================================ */
 
-.recording-status {
-  min-height: 118px;
+.live-class-card .recording-section {
+  min-height: 61px;
 
-  padding: 22px 28px;
+  padding: 11px 12px;
 
   display: flex;
   align-items: center;
   justify-content: space-between;
 
-  gap: 25px;
-
-  border-radius: 20px;
+  gap: 10px;
 
   background: linear-gradient(
     110deg,
     #f5f4ff,
-    #f4f5ff
+    #f2f3ff
   );
+
+  border-radius: 12px;
 
   box-sizing: border-box;
 }
-.recording-status[data-tone="red"] { background: linear-gradient(110deg, #fff3f4, #fff1f2); }
-.recording-status[data-tone="orange"] { background: linear-gradient(110deg, #fff6ec, #fff3e6); }
-.recording-status[data-tone="blue"] { background: linear-gradient(110deg, #eef4ff, #ecf2ff); }
-.recording-status[data-tone="green"] { background: linear-gradient(110deg, #eefbf5, #ecf9f2); }
-.recording-status[data-tone="default"] { background: #f1f2f6; }
+.live-class-card .recording-section[data-tone="red"] { background: linear-gradient(110deg, #fff3f4, #fff1f2); }
+.live-class-card .recording-section[data-tone="orange"] { background: linear-gradient(110deg, #fff6ec, #fff3e6); }
+.live-class-card .recording-section[data-tone="blue"] { background: linear-gradient(110deg, #eef4ff, #ecf2ff); }
+.live-class-card .recording-section[data-tone="green"] { background: linear-gradient(110deg, #eefbf5, #ecf9f2); }
+.live-class-card .recording-section[data-tone="default"] { background: #f1f2f6; }
 
 
-/* Status left */
+/* Recording content */
 
-.recording-status-content {
+.live-class-card .recording-content {
   display: flex;
   align-items: center;
-  gap: 20px;
+
+  gap: 9px;
+
   min-width: 0;
 }
 
 
-/* Status Icon */
+/* Recording icon */
 
-.recording-status-icon {
-  width: 52px;
-  height: 52px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+.live-class-card .recording-icon {
   flex-shrink: 0;
 
-  color: #4537df;
+  color: #4638df;
 
-  font-size: 36px;
+  font-size: 24px;
 }
-.recording-status[data-tone="red"] .recording-status-icon { color: #dc2626; }
-.recording-status[data-tone="orange"] .recording-status-icon { color: #c2660a; }
-.recording-status[data-tone="blue"] .recording-status-icon { color: #2454d6; }
-.recording-status[data-tone="green"] .recording-status-icon { color: #0f9d58; }
-.recording-status[data-tone="default"] .recording-status-icon { color: #5b6478; }
+.live-class-card .recording-section[data-tone="red"] .recording-icon { color: #dc2626; }
+.live-class-card .recording-section[data-tone="orange"] .recording-icon { color: #c2660a; }
+.live-class-card .recording-section[data-tone="blue"] .recording-icon { color: #2454d6; }
+.live-class-card .recording-section[data-tone="green"] .recording-icon { color: #0f9d58; }
+.live-class-card .recording-section[data-tone="default"] .recording-icon { color: #5b6478; }
 
 
-/* Status title */
+/* Recording text */
 
-.recording-status-title {
-  margin: 0 0 7px;
-
-  color: #15285b;
-
-  font-size: 20px;
-  font-weight: 750;
+.live-class-card .recording-text {
+  min-width: 0;
 }
-:root[data-theme='dark'] .recording-status-title { color: var(--hub-text, #e5eaf5); }
 
+.live-class-card .recording-title {
+  margin: 0 0 2px;
 
-/* Status description */
+  color: #17295b;
 
-.recording-status-description {
+  font-size: 12px;
+  font-weight: 700;
+}
+:root[data-theme='dark'] .live-class-card .recording-title { color: var(--hub-text, #e5eaf5); }
+
+.live-class-card .recording-description {
   margin: 0;
 
-  color: #6e83ab;
+  color: #7185ad;
 
-  font-size: 17px;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.35;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 
 /* ================================
-   ADD STUDENT BUTTON
+   ADD STUDENT
 ================================ */
 
-.add-student-btn {
-  min-width: 255px;
-  height: 58px;
+.live-class-card .add-student-btn {
+  flex-shrink: 0;
 
-  padding: 0 25px;
+  height: 36px;
+
+  padding: 0 13px;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
 
-  border: 2px solid #b6b9ff;
-  border-radius: 32px;
+  border: 1.5px solid #aaa9ff;
+  border-radius: 20px;
 
   background: #ffffff;
 
-  color: #3f35d9;
+  color: #4436d9;
 
-  font-size: 19px;
+  font-size: 11px;
   font-weight: 700;
 
   cursor: pointer;
 
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  white-space: nowrap;
+
+  transition: 0.2s ease;
 }
 
-.add-student-btn:hover {
-  background: #f8f7ff;
+.live-class-card .add-student-btn:hover {
+  background: #f7f6ff;
 
-  border-color: #8988f5;
+  border-color: #7f7ce9;
 
-  box-shadow: 0 8px 22px rgba(67, 55, 220, 0.12);
-
-  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(69, 56, 220, 0.12);
 }
-
-.add-student-btn:active {
-  transform: translateY(0);
-}
-
-.add-student-btn svg,
-.add-student-btn i {
-  font-size: 25px;
-}
-.add-student-btn:disabled {
+.live-class-card .add-student-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
 
 /* ================================
-   ATTENDANCE BUTTON
+   ATTENDANCE
 ================================ */
 
-.session-secondary-row {
+.live-class-card .session-secondary-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
-.attendance-btn {
-  margin-top: 22px;
+.live-class-card .attendance-btn {
+  margin-top: 12px;
 
-  min-height: 52px;
+  height: 34px;
 
-  padding: 0 25px;
+  padding: 0 14px;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
 
   border: none;
-  border-radius: 28px;
+  border-radius: 18px;
 
   background: linear-gradient(
     90deg,
-    #f0efff,
-    #f2f1ff
+    #efeeff,
+    #f1f0ff
   );
 
-  color: #4134d7;
+  color: #4436d9;
 
-  font-size: 19px;
+  font-size: 11px;
   font-weight: 700;
 
   cursor: pointer;
@@ -2107,22 +2094,17 @@
   transition: 0.2s ease;
 }
 
-.attendance-btn:hover {
-  background: #e8e7ff;
+.live-class-card .attendance-btn:hover {
+  background: #e7e6ff;
 
   transform: translateY(-1px);
 }
-
-.attendance-btn svg,
-.attendance-btn i {
-  font-size: 24px;
-}
-.attendance-btn.is-danger {
+.live-class-card .attendance-btn.is-danger {
   background: linear-gradient(90deg, #ffeaec, #ffe7e9);
   color: #dc2626;
 }
-.attendance-btn.is-danger:hover { background: #ffdde0; }
-.attendance-btn:disabled {
+.live-class-card .attendance-btn.is-danger:hover { background: #ffdde0; }
+.live-class-card .attendance-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
@@ -2130,95 +2112,60 @@
 
 
 /* ================================
-   RESPONSIVE
+   DESKTOP
+   3 CARDS PER ROW
 ================================ */
 
-@media (max-width: 900px) {
+@media (min-width: 1200px) {
+  .live-classes-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
-  .session-card {
-    padding: 28px;
+
+/* ================================
+   TABLET
+   2 CARDS PER ROW
+================================ */
+
+@media (min-width: 700px) and (max-width: 1199px) {
+  .live-classes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* ================================
+   MOBILE
+   1 CARD PER ROW
+================================ */
+
+@media (max-width: 699px) {
+
+  .live-classes-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
-  .session-title {
-    font-size: 32px;
+  .live-class-card {
+    padding: 15px;
   }
 
-  .session-info {
+  .live-class-card .card-title {
+    font-size: 18px;
+  }
+
+  .live-class-card .info-grid {
     grid-template-columns: 1fr;
   }
 
-  .recording-status {
+  .live-class-card .recording-section {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .add-student-btn {
+  .live-class-card .add-student-btn {
     width: 100%;
   }
 }
 
-
-@media (max-width: 600px) {
-
-  .session-card {
-    padding: 22px 18px;
-    border-radius: 20px;
-  }
-
-  .session-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .meeting-provider {
-    font-size: 17px;
-  }
-
-  .recording-badge {
-    font-size: 13px;
-    padding: 9px 14px;
-  }
-
-  .session-title {
-    gap: 10px;
-    font-size: 26px;
-    letter-spacing: -0.5px;
-  }
-
-  .session-title .title-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 30px;
-  }
-
-  .session-subtitle {
-    font-size: 15px;
-    margin: 16px 0 24px;
-  }
-
-  .info-box {
-    min-height: 92px;
-    padding: 18px;
-  }
-
-  .info-value {
-    font-size: 18px;
-  }
-
-  .recording-status {
-    padding: 20px;
-  }
-
-  .recording-status-content {
-    align-items: flex-start;
-  }
-
-  .recording-status-description {
-    font-size: 15px;
-  }
-
-  .add-student-btn {
-    min-width: 100%;
-  }
-}

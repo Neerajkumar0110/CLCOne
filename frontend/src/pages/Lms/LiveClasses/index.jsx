@@ -324,7 +324,7 @@ export default function LiveClasses() {
           />
         </Card>
       ) : (
-        <div className="session-list">
+        <div className="live-classes-grid">
           {rows.map((r) => {
             const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
             const busy = busyId === r.id;
@@ -359,45 +359,45 @@ export default function LiveClasses() {
             if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
 
             return (
-              <div className="session-card" key={r.id}>
-                <div className="session-header">
+              <div className="live-class-card" key={r.id}>
+                <div className="card-top">
                   <span className="recording-badge" data-tone={meta.color}>
                     {isLive ? <i className="lms-live-badge-dot" /> : <VideoCameraOutlined />}
                     {meta.label}
                   </span>
-                  <span className="meeting-provider">
+                  <span className="provider">
                     <span className="provider-logo">{providerGlyph}</span>
                     {providerLabel}
                     {r.isMock ? ' · mock' : ''}
                   </span>
                 </div>
 
-                <h2 className="session-title">
+                <h2 className="card-title">
                   <span className="title-icon" aria-hidden="true">🎓</span>
                   <span>{r.title}</span>
                 </h2>
-                <p className="session-subtitle">
+                <p className="card-subtitle">
                   {r.courseTitle || '—'}{r.batchName ? ` · ${r.batchName}` : ''}
                 </p>
 
-                <div className="session-info">
+                <div className="info-grid">
                   <div className="info-box teacher">
                     <span className="info-icon"><TeamOutlined /></span>
-                    <div>
+                    <div className="info-content">
                       <div className="info-label">Teacher</div>
                       <div className="info-value">{r.teacherName || 'TBD'}</div>
                     </div>
                   </div>
                   <div className="info-box date">
                     <span className="info-icon"><CalendarOutlined /></span>
-                    <div>
+                    <div className="info-content">
                       <div className="info-label">Date</div>
                       <div className="info-value">{d(r.scheduledStart)}</div>
                     </div>
                   </div>
                   <div className="info-box time">
                     <span className="info-icon"><ClockCircleOutlined /></span>
-                    <div>
+                    <div className="info-content">
                       <div className="info-label">Time</div>
                       <div className="info-value">
                         {t(r.scheduledStart)}{r.scheduledEnd ? ` – ${t(r.scheduledEnd)}` : ''}
@@ -406,14 +406,14 @@ export default function LiveClasses() {
                   </div>
                 </div>
 
-                <div className="session-divider" />
+                <div className="card-divider" />
 
-                <div className="recording-status" data-tone={panel.tone}>
-                  <div className="recording-status-content">
-                    <span className="recording-status-icon">{panel.icon}</span>
-                    <div>
-                      <p className="recording-status-title">{panel.title}</p>
-                      <p className="recording-status-description">{panel.desc}</p>
+                <div className="recording-section" data-tone={panel.tone}>
+                  <div className="recording-content">
+                    <span className="recording-icon">{panel.icon}</span>
+                    <div className="recording-text">
+                      <p className="recording-title">{panel.title}</p>
+                      <p className="recording-description">{panel.desc}</p>
                     </div>
                   </div>
                   {primaryAction &&
