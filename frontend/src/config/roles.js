@@ -50,6 +50,28 @@ export const KNOWN_NON_SELECTABLE_ROLES = ["owner", "Super Admin"];
 // Shown as a second dropdown only when the selected role is "Finance".
 export const FINANCE_SUB_ROLES = ["Finance Manager", "Finance Executive", "Finance Support"];
 
+// Groups the flat ROLES list into departments, purely for the Add/Edit User
+// form's two-step Department -> Position picker (pages/UserManagement/Users.jsx).
+// The value actually saved on the account is still exactly one of ROLES —
+// this mapping is presentation-only, so every permission check elsewhere
+// that compares against ROLES/MANAGEMENT_ROLES/etc. directly is unaffected.
+// Finance additionally gets a THIRD-level picker (FINANCE_SUB_ROLES above,
+// unchanged) since "Finance" itself is only one role with several positions
+// under it, unlike Sales where each position is already its own role.
+export const DEPARTMENT_ROLES = {
+  Sales: ["Sales Manager", "Team Manager", "Team Leader", "Senior Executive", "Executive", "Sales Intern"],
+  Finance: ["Finance"],
+  Support: ["Support"],
+  Admin: ["Admin"],
+  LMS: ["Teacher", "Student"],
+};
+
+// Reverse lookup — which department a given role belongs to, so the Edit
+// User form can preselect the Department dropdown from the user's current role.
+export const ROLE_DEPARTMENT = Object.fromEntries(
+  Object.entries(DEPARTMENT_ROLES).flatMap(([dept, list]) => list.map((r) => [r, dept]))
+);
+
 // Roles that lead a team — get the "create a new team" option and, once they
 // lead one, a read-only view of it instead of a plain team picker.
 export const MANAGER_TEAM_ROLES = ["Team Leader"];

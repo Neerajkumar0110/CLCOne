@@ -14,6 +14,8 @@ import {
   ROLES,
   KNOWN_NON_SELECTABLE_ROLES,
   FINANCE_SUB_ROLES,
+  DEPARTMENT_ROLES,
+  ROLE_DEPARTMENT,
   MANAGER_TEAM_ROLES,
   NO_TEAM_FIELD_ROLES,
   NO_EDIT_ROLES,
@@ -39,6 +41,20 @@ export function colorFor(email) {
 }
 
 export const roles = ROLES;
+
+// Given whatever role list a modal is allowed to offer (HR's tab excludes
+// "Admin", most callers get the full list), groups it into
+// { Department: [roles...] } — a department only appears if at least one of
+// its roles survived the filter. Shared by AddUserModal/EditUserModal below.
+function departmentsFor(roleOptions) {
+  const allowed = new Set(roleOptions);
+  const out = {};
+  for (const [dept, list] of Object.entries(DEPARTMENT_ROLES)) {
+    const filtered = list.filter((r) => allowed.has(r));
+    if (filtered.length) out[dept] = filtered;
+  }
+  return out;
+}
 
 // Same module list the sidebar and route guards use — kept in one shared file
 // (frontend/src/config/permissionModules.js) so they can never drift apart.
@@ -142,6 +158,11 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   // default pick — unless opened from a role-filtered tab (e.g. Students),
   // which pins it to that role instead.
   const [role, setRole] = useState(initialRole || "Executive");
+  const depts = departmentsFor(roleOptions);
+  const [department, setDepartment] = useState(() => {
+    const d = ROLE_DEPARTMENT[initialRole || "Executive"];
+    return depts[d] ? d : Object.keys(depts)[0];
+  });
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [newTeamName, setNewTeamName] = useState("");
@@ -152,7 +173,12 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   const isManagerRole = MANAGER_TEAM_ROLES.includes(role);
 
   useEffect(() => {
-    if (open) setRole(initialRole || "Executive");
+    if (open) {
+      const r = initialRole || "Executive";
+      const d = ROLE_DEPARTMENT[r];
+      setRole(r);
+      setDepartment(depts[d] ? d : Object.keys(depts)[0]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialRole]);
 
@@ -162,6 +188,14 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
+
+  // Picking a Department auto-selects its first Position — for a
+  // single-role department (Support, Admin) that's the only choice anyway,
+  // so no separate Position dropdown even needs to show.
+  const onDepartmentChange = (d) => {
+    setDepartment(d);
+    setRole((depts[d] || [])[0] || role);
+  };
 
   const reset = () => {
     setName("");
@@ -254,11 +288,20 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
       </div>
 
       <div className="hub-form-row">
-        <label>Role</label>
-        <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
-          {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+        <label>Department</label>
+        <select className="hub-select" value={department} onChange={(e) => onDepartmentChange(e.target.value)}>
+          {Object.keys(depts).map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
+
+      {(depts[department] || []).length > 1 && (
+        <div className="hub-form-row">
+          <label>Position</label>
+          <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
+            {depts[department].map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+      )}
 
       {role === "Finance" && (
         <div className="hub-form-row">
@@ -302,6 +345,8 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
 // Manager to the team they now lead.
 function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignTeam, roleOptions = roles }) {
   const [role, setRole] = useState(roles[0]);
+  const depts = departmentsFor(roleOptions);
+  const [department, setDepartment] = useState(Object.keys(depts)[0]);
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [submitting, setSubmitting] = useState(false);
@@ -312,6 +357,8 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
   useEffect(() => {
     if (!user) return;
     setRole(user.role);
+    const d = ROLE_DEPARTMENT[user.role];
+    setDepartment(depts[d] ? d : Object.keys(depts)[0]);
     setSubRole(user.subRole || FINANCE_SUB_ROLES[0]);
     const currentTeam = teams.find((t) => t.members.includes(user.name));
     setTeamChoice(currentTeam ? currentTeam.name : NO_TEAM);
@@ -322,6 +369,11 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
   }, [user?.email, open]);
 
   if (!open || !user) return null;
+
+  const onDepartmentChange = (d) => {
+    setDepartment(d);
+    setRole((depts[d] || [])[0] || role);
+  };
 
   // Super Admin's account is provisioned once, outside this UI — its role
   // can't be reassigned from here.
@@ -396,7 +448,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
       )}
 
       <div className="hub-form-row">
-        <label>Role / Position</label>
+        <label>Department</label>
         {isProtectedRole ? (
           <>
             <div className="hub-input" style={{ background: "#f5f5f5", color: "#8c8c8c" }}>{user.role}</div>
@@ -405,18 +457,28 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
             </span>
           </>
         ) : (
-          <>
-            <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
-              {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-            {role !== user.role && (
-              <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
-                Their permissions will reset to the "{role}" role's default.
-              </span>
-            )}
-          </>
+          <select className="hub-select" value={department} onChange={(e) => onDepartmentChange(e.target.value)}>
+            {Object.keys(depts).map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
         )}
       </div>
+
+      {!isProtectedRole && (depts[department] || []).length > 1 && (
+        <div className="hub-form-row">
+          <label>Position</label>
+          <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
+            {depts[department].map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+      )}
+
+      {!isProtectedRole && role !== user.role && (
+        <div className="hub-form-row">
+          <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+            Their permissions will reset to the "{role}" role's default.
+          </span>
+        </div>
+      )}
 
       {role === "Finance" && (
         <div className="hub-form-row">
