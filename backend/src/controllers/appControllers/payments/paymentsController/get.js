@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { addMonths } = require('../../../../services/payments/plan');
+const { buildPlanSummary } = require('../../../../services/payments/plan');
 
 // GET /api/payments/:id — admin detail view, includes the KYC submission
 // (with document image paths) once submitted, plus — when this request is
@@ -21,67 +21,7 @@ async function get(req, res) {
     const siblings = await PaymentRequest.find({ planGroupId: doc.planGroupId, removed: false })
       .sort({ installmentNo: 1 })
       .lean();
-    const paidSiblings = siblings.filter((s) => s.status === 'paid');
-    const paidTotal = paidSiblings.reduce((sum, s) => sum + s.amount, 0);
-    const planTotal = doc.planTotal || doc.amount;
-    const remaining = Math.max(0, planTotal - paidTotal);
-    const installmentsLeft = Math.max(0, doc.installmentCount - siblings.length);
-    const latestPaid = paidSiblings.sort((a, b) => b.installmentNo - a.installmentNo)[0];
-
-    // Only installments a PaymentRequest doc already exists for show up in
-    // `siblings` — the rest of the plan hasn't been auto-created yet (see
-    // jobs/financeEmiTick.js, which only spawns the next one 10 days before
-    // it's due). Fill those gaps with a projected placeholder (evenly-split
-    // amount, due date extrapolated one month at a time from the last known
-    // due/paid date) so the schedule always shows all installmentCount rows
-    // and which calendar month each one is/was for.
-    const byNo = new Map(siblings.map((s) => [s.installmentNo, s]));
-    const amountPerInstallment = Math.round(planTotal / doc.installmentCount) || 0;
-    let cursorDue = null;
-    const installments = [];
-    for (let n = 1; n <= doc.installmentCount; n += 1) {
-      const s = byNo.get(n);
-      if (s) {
-        installments.push({
-          id: String(s._id),
-          installmentNo: n,
-          amount: s.amount,
-          status: s.status,
-          dueAt: s.dueAt,
-          paidAt: s.paidAt,
-          emailSent: s.emailSent,
-          emailSentAt: s.emailSentAt,
-          reminderCount: (s.reminderLog || []).length,
-          projected: false,
-        });
-        cursorDue = s.status === 'paid' && s.paidAt ? addMonths(s.paidAt, 1) : s.dueAt ? addMonths(s.dueAt, 1) : cursorDue;
-      } else {
-        installments.push({
-          id: null,
-          installmentNo: n,
-          amount: amountPerInstallment,
-          status: 'upcoming',
-          dueAt: cursorDue,
-          paidAt: null,
-          emailSent: false,
-          emailSentAt: null,
-          reminderCount: 0,
-          projected: true,
-        });
-        if (cursorDue) cursorDue = addMonths(cursorDue, 1);
-      }
-    }
-
-    plan = {
-      installmentCount: doc.installmentCount,
-      planTotal,
-      paidTotal,
-      remaining,
-      nextInstallmentDueAt: latestPaid ? latestPaid.nextInstallmentDueAt : undefined,
-      suggestedNextAmount: remaining > 0 ? Math.min(remaining, amountPerInstallment || remaining) : 0,
-      installmentsLeft,
-      installments,
-    };
+    plan = buildPlanSummary(doc, siblings);
   }
 
   return res.status(200).json({

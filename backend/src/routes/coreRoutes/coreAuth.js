@@ -8,6 +8,7 @@ const adminAuth = require('../../controllers/coreControllers/adminAuth');
 router.route('/login').post(catchErrors(adminAuth.login));
 router.route('/login/verify-otp').post(catchErrors(adminAuth.verifyOtp));
 router.route('/login/resend-otp').post(catchErrors(adminAuth.resendOtp));
+router.route('/login/password').post(catchErrors(adminAuth.loginWithPassword));
 
 router.route('/forgetpassword').post(catchErrors(adminAuth.forgetPassword));
 router.route('/resetpassword').post(catchErrors(adminAuth.resetPassword));

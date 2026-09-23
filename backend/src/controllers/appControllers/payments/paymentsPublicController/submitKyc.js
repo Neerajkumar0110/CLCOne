@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { notifyKycSubmitted } = require('../../../../services/payments/realtime');
+const { createOrSyncStudentFromKyc } = require('../../../../services/payments/studentProvision');
 
 // POST /api/payments/public/:token/kyc — JSON body with the text fields plus
 // the 3 file paths already returned by upload.js (Aadhar front/back, PAN
@@ -23,7 +24,7 @@ async function submitKyc(req, res) {
   const missingDoc = requiredDocs.find((f) => !String(b[f] || '').trim());
   if (missingDoc) return res.status(400).json({ success: false, message: 'Please upload all documents.' });
 
-  await PaymentKyc.create({
+  const kyc = await PaymentKyc.create({
     paymentRequest: doc._id,
     name: String(b.name).trim(),
     fatherName: String(b.fatherName).trim(),
@@ -42,6 +43,16 @@ async function submitKyc(req, res) {
   doc.kycSubmittedAt = new Date();
   await doc.save();
   notifyKycSubmitted(doc);
+
+  // Turns this KYC straight into an LMS Student roster row — real login,
+  // enrollment email, the works (see studentProvision.js) — instead of
+  // waiting on a staff member to notice and re-type it by hand. Best-effort:
+  // the KYC submission itself must still succeed even if this fails.
+  try {
+    await createOrSyncStudentFromKyc(doc, kyc);
+  } catch (e) {
+    console.error('[payments] createOrSyncStudentFromKyc failed:', e && e.message);
+  }
 
   return res.status(200).json({ success: true, result: { submitted: true } });
 }

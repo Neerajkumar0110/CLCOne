@@ -69,6 +69,10 @@ const schema = new mongoose.Schema(
     kycSubmitted: { type: Boolean, default: false },
     kycSubmittedAt: Date,
 
+    // Set once the KYC submission auto-creates (or matches) an LMS Student
+    // roster row for this candidate — see services/payments/studentProvision.js.
+    student: { type: mongoose.Schema.ObjectId, ref: 'Student' },
+
     emailSent: { type: Boolean, default: false },
     emailSentAt: Date,
     emailError: { type: String, default: '' },

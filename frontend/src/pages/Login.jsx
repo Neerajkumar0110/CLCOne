@@ -8,9 +8,10 @@ import useLanguage from '@/locale/useLanguage';
 import { Form, Button, ConfigProvider, message } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
 
-import { login, verifyOtp, resendOtp, cancelOtp } from '@/redux/auth/actions';
+import { login, loginWithPassword, verifyOtp, resendOtp, cancelOtp } from '@/redux/auth/actions';
 import { selectAuth } from '@/redux/auth/selectors';
 import LoginForm from '@/forms/LoginForm';
+import PasswordLoginForm from '@/forms/PasswordLoginForm';
 import OtpForm from '@/forms/OtpForm';
 import Loading from '@/components/Loading';
 import AuthModule from '@/modules/AuthModule';
@@ -26,11 +27,20 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(true);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  // 'otp' is the default, unchanged flow — 'password' is a shortcut most
+  // useful for Students (see backend loginWithPassword.js), who get a real
+  // password at enrollment; every other account's password is a random
+  // never-shared placeholder, so this toggle is a no-op for them either way.
+  const [mode, setMode] = useState('otp');
   const otpFormRef = useRef(null);
 
   const onFinishLogin = (values) => {
     setRemember(values.remember);
     dispatch(login({ loginData: values }));
+  };
+
+  const onFinishPassword = (values) => {
+    dispatch(loginWithPassword({ loginData: values }));
   };
 
   const onFinishOtp = (values) => {
@@ -118,6 +128,37 @@ const LoginPage = () => {
                   </div>
                 </Loading>
               </div>
+            ) : mode === 'password' ? (
+              <div className="auth-step" key="password-step">
+                <span className="auth-subtitle">{translate('Enter your email and password')}</span>
+                <Loading isLoading={isLoading}>
+                  <Form
+                    layout="vertical"
+                    name="password_login"
+                    className="login-form"
+                    initialValues={{ remember: true }}
+                    onFinish={onFinishPassword}
+                  >
+                    <PasswordLoginForm />
+                    <Form.Item style={{ marginBottom: 14 }}>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        className="login-form-button"
+                        loading={isLoading}
+                        size="large"
+                      >
+                        {translate('Login')}
+                      </Button>
+                    </Form.Item>
+                  </Form>
+                  <div className="auth-link-row">
+                    <Button type="link" onClick={() => setMode('otp')} disabled={isLoading}>
+                      {translate('Login with a code instead')}
+                    </Button>
+                  </div>
+                </Loading>
+              </div>
             ) : (
               <div className="auth-step" key="login-step">
                 <span className="auth-subtitle">
@@ -144,6 +185,11 @@ const LoginPage = () => {
                       </Button>
                     </Form.Item>
                   </Form>
+                  <div className="auth-link-row">
+                    <Button type="link" onClick={() => setMode('password')} disabled={isLoading}>
+                      {translate('Login with a password instead')}
+                    </Button>
+                  </div>
                 </Loading>
               </div>
             )

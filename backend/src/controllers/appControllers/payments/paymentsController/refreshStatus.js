@@ -3,6 +3,7 @@ const razorpayService = require('../../../../services/payments/razorpayService')
 const { notifyPaid } = require('../../../../services/payments/realtime');
 const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
 const { unblockIfClear } = require('../../../../services/payments/financeHold');
+const { syncStudentFees } = require('../../../../services/payments/studentProvision');
 
 // POST /api/payments/:id/refresh — admin safety net: re-asks Razorpay
 // directly for this Payment Link's status, in case the student paid but
@@ -35,6 +36,7 @@ async function refreshStatus(req, res) {
   if (wasUnpaid && doc.status === 'paid') {
     notifyPaid(doc);
     unblockIfClear(doc.studentEmail);
+    syncStudentFees(doc.studentEmail);
   }
 
   return res.status(200).json({ success: true, result: { status: doc.status } });

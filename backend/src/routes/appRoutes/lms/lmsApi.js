@@ -101,6 +101,7 @@ router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/teacher/live-analytics').get(catchErrors(lms.teacherLiveAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));
 router.route('/my/updates').get(catchErrors(lms.lmsMyUpdates));
+router.route('/my/fees').get(catchErrors(lms.lmsMyFees));
 
 // ── doubts (Q&A) ───────────────────────────────────────────────────
 router.route('/doubts').get(catchErrors(lms.doubtList)).post(catchErrors(lms.doubtAsk));

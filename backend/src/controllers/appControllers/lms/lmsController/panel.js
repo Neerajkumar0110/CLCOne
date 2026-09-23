@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const { istDateTime } = require('../../../../services/lms/recurrence');
+const { buildPlanSummary } = require('../../../../services/payments/plan');
 
 // Dashboards for the two dedicated LMS panels:
 //   GET /api/lms/teacher/dashboard   (role: Teacher, or a manager)
@@ -335,6 +336,56 @@ async function myUpdates(req, res) {
   });
 }
 
+// GET /api/lms/my/fees — the student's own course + fee snapshot, with the
+// full EMI schedule (all installments, including ones not auto-created yet
+// — see plan.js's buildPlanSummary) when their enrollment came with a
+// payment plan. A manager may look at any student via ?studentEmail=,
+// mirroring studentDashboard above.
+async function myFees(req, res) {
+  const admin = req.admin;
+  const Student = mongoose.model('Student');
+  const PaymentRequest = mongoose.model('PaymentRequest');
+
+  const email = (isManager(admin) && req.query.studentEmail ? req.query.studentEmail : admin.email || '').toLowerCase();
+  const student = email ? await Student.findOne({ removed: false, email: rx(email) }).lean() : null;
+  if (!student) return res.status(200).json({ success: true, result: null });
+
+  let plan = null;
+  if (student.paymentRequest) {
+    const doc = await PaymentRequest.findOne({ _id: student.paymentRequest, removed: false }).lean();
+    if (doc) {
+      const siblings = doc.planGroupId
+        ? await PaymentRequest.find({ planGroupId: doc.planGroupId, removed: false }).sort({ installmentNo: 1 }).lean()
+        : [doc];
+      plan = buildPlanSummary(doc, siblings);
+      // Only a real, already-created PaymentRequest doc has a payable link —
+      // an installment still shown as "upcoming" (projected: true) hasn't
+      // been auto-created yet (see jobs/financeEmiTick.js, 10 days before
+      // due), so there's nothing to pay against it right now.
+      const nextUnpaid = siblings.find((s) => s.status !== 'paid');
+      plan.shortUrl = nextUnpaid ? nextUnpaid.razorpayShortUrl || '' : '';
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      name: student.name,
+      email: student.email,
+      course: student.course,
+      batch: student.batch,
+      enrollmentId: student.enrollmentId,
+      enrolledOn: student.enrolledOn,
+      feeTotal: student.feeTotal,
+      feeGrandTotal: student.feeGrandTotal,
+      feePaid: student.feePaid,
+      feeDue: student.feeDue,
+      feeStatus: student.feeStatus,
+      plan,
+    },
+  });
+}
+
 // GET /api/lms/teacher/live-analytics — the spec's "LIVE CLASS ANALYTICS".
 async function teacherLiveAnalytics(req, res) {
   const admin = req.admin;
@@ -420,4 +471,4 @@ async function teacherLiveAnalytics(req, res) {
   });
 }
 
-module.exports = { teacherDashboard, studentDashboard, myUpdates, teacherLiveAnalytics };
+module.exports = { teacherDashboard, studentDashboard, myUpdates, myFees, teacherLiveAnalytics };

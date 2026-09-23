@@ -32,6 +32,12 @@ const studentSchema = featureSchema([
     { name: 'notes', type: 'String' },
   ]);
 
+// Back-link to the fee-collection request this roster row came from (see
+// services/payments/studentProvision.js) — lets the student's own "My Fees"
+// panel and the enrollment email pull the live EMI schedule instead of only
+// the fixed snapshot fields above. Blank for a roster row added by hand.
+studentSchema.add({ paymentRequest: { type: mongoose.Schema.ObjectId, ref: 'PaymentRequest' } });
+
 // Additive: remember whether this save is an insert, then (best-effort)
 // auto-provision the student a real CRM login. Never blocks the roster row.
 // Also fills in an Enrollment ID when none was typed, and keeps the GST

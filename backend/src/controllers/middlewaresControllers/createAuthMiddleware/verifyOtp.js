@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const Joi = require('joi');
+const { issueSession } = require('./issueSession');
 
 // Second step of login — checks the 6-digit code emailed by login.js and,
 // if it's correct and not expired, issues the real session token.
@@ -65,14 +65,7 @@ const verifyOtp = async (req, res, { userModel }) => {
       message: 'Incorrect code.',
     });
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: remember ? 365 * 24 + 'h' : '24h',
-  });
-
-  await UserPasswordModel.findOneAndUpdate(
-    { user: user._id },
-    { $push: { loggedSessions: token }, $unset: { otpCode: '', otpSalt: '', otpExpires: '' } }
-  ).exec();
+  const token = await issueSession({ user, UserPasswordModel, remember });
 
   return res.status(200).json({
     success: true,

@@ -35,6 +35,7 @@ import {
   SafetyCertificateOutlined,
   ProjectOutlined,
   LockOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -77,6 +78,7 @@ const Learner360 = lazy(() => import('@/pages/Lms/Learner360'));
 // I teach" for a Teacher and "just my batch" for a Student, so one component
 // serves both roles unchanged.
 const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
+const MyFees = lazy(() => import('@/pages/Lms/MyFees'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -255,6 +257,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn/fees', 'My Fees', <WalletOutlined />, <MyFees />],
   ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],

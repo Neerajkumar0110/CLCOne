@@ -43,7 +43,18 @@ function inr(n) {
   return `Rs. ${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
-function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } = {}) {
+function fmtDate(d) {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return '—';
+  }
+}
+
+const STATUS_LABEL = { paid: 'Paid', created: 'Due', upcoming: 'Upcoming' };
+
+function renderReceiptPdf(student, { crmLink, rawPassword, plan, brand = 'Career Lab Consulting' } = {}) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 0 });
@@ -142,13 +153,19 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
       }
       y += 6;
 
-      // ── Fee summary card ─────────────────────────────────────────────
+      // ── Fee summary card — pulled live off the EMI plan when this
+      // enrollment has one (see services/payments/plan.js's buildPlanSummary),
+      // falling back to the Student doc's own snapshot fields otherwise.
+      const feeGrandTotal = plan ? plan.planTotal : student.feeGrandTotal || 0;
+      const feePaidTotal = plan ? plan.paidTotal : student.feePaid || 0;
+      const feeDueTotal = plan ? plan.remaining : student.feeDue || 0;
+      const feeBase = plan ? Math.round(feeGrandTotal / 1.18) : student.feeTotal || 0;
       const feeRows = [
-        ['Course fee', inr(student.feeTotal)],
-        ['GST (18%)', inr((student.feeGrandTotal || 0) - (student.feeTotal || 0))],
-        ['Total payable', inr(student.feeGrandTotal), true],
-        ['Amount paid', inr(student.feePaid)],
-        ['Balance due', inr(student.feeDue), false, student.feeDue > 0],
+        ['Course fee', inr(feeBase)],
+        ['GST (18%)', inr(feeGrandTotal - feeBase)],
+        ['Total payable', inr(feeGrandTotal), true],
+        ['Amount paid', inr(feePaidTotal)],
+        ['Balance due', inr(feeDueTotal), false, feeDueTotal > 0],
       ];
       const cardPad = 20;
       const rowH = 24;
@@ -183,6 +200,89 @@ function renderReceiptPdf(student, { crmLink, brand = 'Career Lab Consulting' } 
         fy += rowH;
       });
       y = y + cardH + 28;
+
+      // ── Login credentials — only present the moment this account is
+      // first created (see studentAccountService.provisionLogin); a later
+      // receipt for an already-existing student never repeats a password.
+      if (rawPassword) {
+        const credH = 72;
+        if (y + credH > doc.page.height - 80) {
+          doc.addPage();
+          y = 48;
+        }
+        doc.roundedRect(marginX, y, contentW, credH, 12).lineWidth(1).strokeColor(TEAL).fillAndStroke('#f0fafb', TEAL);
+        doc
+          .fillColor(TEAL)
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .text('YOUR PORTAL LOGIN', marginX + cardPad, y + 14, { characterSpacing: 0.4 });
+        doc.fillColor(MUTED).font('Helvetica').fontSize(9.5).text('Email', marginX + cardPad, y + 36, { width: 80 });
+        doc
+          .fillColor(INK)
+          .font('Helvetica-Bold')
+          .fontSize(10.5)
+          .text(student.email || '—', marginX + cardPad + 80, y + 35, { width: contentW - cardPad * 2 - 80 });
+        doc.fillColor(MUTED).font('Helvetica').fontSize(9.5).text('Password', marginX + cardPad, y + 53, { width: 80 });
+        doc
+          .fillColor(INK)
+          .font('Helvetica-Bold')
+          .fontSize(10.5)
+          .text(rawPassword, marginX + cardPad + 80, y + 52, { width: contentW - cardPad * 2 - 80 });
+        y += credH + 24;
+      }
+
+      // ── EMI schedule — every installment 1..count, including ones not
+      // yet auto-created as their own payment request (see
+      // services/payments/plan.js's buildPlanSummary) so the receipt always
+      // shows the full picture, not just what's happened so far.
+      if (plan && plan.installments && plan.installments.length > 1) {
+        if (y + 40 > doc.page.height - 80) {
+          doc.addPage();
+          y = 48;
+        }
+        doc
+          .fillColor(TEAL)
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .text('EMI SCHEDULE', marginX, y, { characterSpacing: 0.4 });
+        y += 18;
+
+        const colNo = 34;
+        const colAmt = 100;
+        const colStatus = 90;
+        const colMonth = contentW - colNo - colAmt - colStatus;
+        let cx = marginX;
+        doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5);
+        doc.text('NO', cx, y, { width: colNo });
+        cx += colNo;
+        doc.text('MONTH', cx, y, { width: colMonth });
+        cx += colMonth;
+        doc.text('STATUS', cx, y, { width: colStatus });
+        cx += colStatus;
+        doc.text('AMOUNT', cx, y, { width: colAmt, align: 'right' });
+        y += 13;
+        doc.moveTo(marginX, y).lineTo(marginX + contentW, y).lineWidth(1).strokeColor(BORDER).stroke();
+        y += 6;
+
+        plan.installments.forEach((inst) => {
+          if (y > doc.page.height - 90) {
+            doc.addPage();
+            y = 48;
+          }
+          const statusLabel = STATUS_LABEL[inst.status] || (inst.status || '').replace(/^./, (c) => c.toUpperCase());
+          const statusColor = inst.status === 'paid' ? TEAL : inst.status === 'created' ? DUE : MUTED;
+          cx = marginX;
+          doc.fillColor(INK).font('Helvetica').fontSize(9.5).text(String(inst.installmentNo), cx, y, { width: colNo });
+          cx += colNo;
+          doc.text(inst.paidAt ? fmtDate(inst.paidAt) : fmtDate(inst.dueAt), cx, y, { width: colMonth });
+          cx += colMonth;
+          doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(9.5).text(statusLabel, cx, y, { width: colStatus });
+          cx += colStatus;
+          doc.fillColor(INK).font('Helvetica-Bold').fontSize(9.5).text(inr(inst.amount), cx, y, { width: colAmt, align: 'right' });
+          y += 19;
+        });
+        y += 14;
+      }
 
       // ── CTA ──────────────────────────────────────────────────────────
       if (crmLink) {

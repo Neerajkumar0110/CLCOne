@@ -1,0 +1,46 @@
+import React from 'react';
+import { Form, Input, Checkbox } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
+
+import useLanguage from '@/locale/useLanguage';
+
+export default function PasswordLoginForm() {
+  const translate = useLanguage();
+  return (
+    <div>
+      <Form.Item
+        label={translate('email')}
+        name="email"
+        rules={[
+          {
+            required: true,
+          },
+          {
+            type: 'email',
+          },
+        ]}
+      >
+        <Input
+          className="auth-input-underline"
+          prefix={<UserOutlined className="site-form-item-icon" />}
+          placeholder={'you@company.com'}
+          type="email"
+          size="large"
+        />
+      </Form.Item>
+
+      <Form.Item label={translate('Password')} name="password" rules={[{ required: true }]}>
+        <Input.Password
+          className="auth-input-underline"
+          prefix={<LockOutlined className="site-form-item-icon" />}
+          placeholder={translate('Password')}
+          size="large"
+        />
+      </Form.Item>
+
+      <Form.Item name="remember" valuePropName="checked" noStyle>
+        <Checkbox>{translate('Remember me')}</Checkbox>
+      </Form.Item>
+    </div>
+  );
+}

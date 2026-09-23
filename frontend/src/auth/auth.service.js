@@ -48,6 +48,28 @@ export const verifyOtp = async ({ email, otp, remember }) => {
   }
 };
 
+export const loginWithPassword = async ({ loginData }) => {
+  try {
+    const response = await axios.post(
+      API_BASE_URL + `login/password?timestamp=${new Date().getTime()}`,
+      loginData
+    );
+
+    const { status, data } = response;
+
+    successHandler(
+      { data, status },
+      {
+        notifyOnSuccess: false,
+        notifyOnFailed: true,
+      }
+    );
+    return data;
+  } catch (error) {
+    return errorHandler(error);
+  }
+};
+
 export const resendOtp = async ({ email }) => {
   try {
     const response = await axios.post(

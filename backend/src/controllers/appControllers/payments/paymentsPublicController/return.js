@@ -3,6 +3,7 @@ const razorpayService = require('../../../../services/payments/razorpayService')
 const { notifyPaid } = require('../../../../services/payments/realtime');
 const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
 const { unblockIfClear } = require('../../../../services/payments/financeHold');
+const { syncStudentFees } = require('../../../../services/payments/studentProvision');
 const { paymentsConfig } = require('../../../../config/payments');
 
 // GET /api/payments/public/return?token=...&razorpay_payment_id=...&... —
@@ -32,6 +33,7 @@ async function returnHandler(req, res) {
     await doc.save();
     notifyPaid(doc);
     unblockIfClear(doc.studentEmail);
+    syncStudentFees(doc.studentEmail);
   }
 
   return res.redirect(302, kycUrl());

@@ -193,6 +193,7 @@ const lmsApi = {
 
   // ── panel real-time poll ─────────────────────────────────────
   updates: () => request.get({ entity: 'lms/my/updates' }),
+  myFees: (f = {}) => request.get({ entity: `lms/my/fees${qs(f)}` }),
 
   // ── policy & acknowledgement centre ──────────────────────────
   listPolicies: (f = {}) => request.get({ entity: `lms/policies${qs(f)}` }),

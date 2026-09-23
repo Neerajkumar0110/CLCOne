@@ -90,6 +90,7 @@ module.exports = {
   teacherDashboard: panel.teacherDashboard,
   studentDashboard: panel.studentDashboard,
   lmsMyUpdates: panel.myUpdates,
+  lmsMyFees: panel.myFees,
   teacherLiveAnalytics: panel.teacherLiveAnalytics,
 
   // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager

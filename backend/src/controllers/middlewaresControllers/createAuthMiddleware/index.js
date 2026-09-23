@@ -5,6 +5,7 @@ const forgetPassword = require('./forgetPassword');
 const resetPassword = require('./resetPassword');
 const verifyOtp = require('./verifyOtp');
 const resendOtp = require('./resendOtp');
+const loginWithPassword = require('./loginWithPassword');
 
 const createAuthMiddleware = (userModel) => {
   let authMethods = {};
@@ -21,6 +22,11 @@ const createAuthMiddleware = (userModel) => {
 
   authMethods.verifyOtp = (req, res) =>
     verifyOtp(req, res, {
+      userModel,
+    });
+
+  authMethods.loginWithPassword = (req, res) =>
+    loginWithPassword(req, res, {
       userModel,
     });
 
