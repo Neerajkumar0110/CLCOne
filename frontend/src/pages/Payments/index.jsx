@@ -247,7 +247,7 @@ export default function Payments() {
 
   const columns = [
     {
-      title: 'Student',
+      title: 'Candidate',
       key: 'student',
       width: 220,
       render: (_, r) => (
@@ -363,20 +363,20 @@ export default function Payments() {
         <Col xs={24} lg={9}>
           <Card className="pay-form-card" title="New payment request">
             <Form form={form} layout="vertical" onFinish={onCreate} requiredMark={false}>
-              <Form.Item name="studentName" label="Student name" rules={[{ required: true, message: 'Enter the student name.' }]}>
+              <Form.Item name="studentName" label="Candidate name" rules={[{ required: true, message: 'Enter the candidate name.' }]}>
                 <Input placeholder="Full name" />
               </Form.Item>
               <Form.Item
                 name="studentEmail"
-                label="Student email"
+                label="Candidate email"
                 rules={[
-                  { required: true, message: 'Enter the student email.' },
+                  { required: true, message: 'Enter the candidate email.' },
                   { type: 'email', message: 'Enter a valid email.' },
                 ]}
               >
                 <Input placeholder="name@example.com" />
               </Form.Item>
-              <Form.Item name="studentPhone" label="Student phone (optional)">
+              <Form.Item name="studentPhone" label="Candidate phone (optional)">
                 <Input placeholder="For future WhatsApp reminders" />
               </Form.Item>
               <Form.Item name="course" label="Course">
@@ -399,7 +399,7 @@ export default function Payments() {
                 </div>
               )}
               <Form.Item name="notes" label="Notes (optional)">
-                <Input.TextArea rows={2} placeholder="Internal note — not shown to the student" />
+                <Input.TextArea rows={2} placeholder="Internal note — not shown to the candidate" />
               </Form.Item>
               <Button type="primary" htmlType="submit" block loading={creating} icon={<QrcodeOutlined />}>
                 Generate payment link + QR
@@ -428,7 +428,7 @@ export default function Payments() {
                     </Button>
                   </div>
                   <div className={`pay-result-email ${result.emailSent ? 'is-ok' : 'is-warn'}`}>
-                    <MailOutlined /> {result.emailSent ? 'Email sent to the student.' : `Email not sent${result.emailError ? ` — ${result.emailError}` : '.'}`}
+                    <MailOutlined /> {result.emailSent ? 'Email sent to the candidate.' : `Email not sent${result.emailError ? ` — ${result.emailError}` : '.'}`}
                   </div>
                 </div>
               </div>
@@ -547,7 +547,7 @@ export default function Payments() {
                           </Button>
                         </div>
                         <div className={`pay-result-email ${planResult.emailSent ? 'is-ok' : 'is-warn'}`}>
-                          <MailOutlined /> {planResult.emailSent ? 'Email sent to the student.' : 'Email not sent.'}
+                          <MailOutlined /> {planResult.emailSent ? 'Email sent to the candidate.' : 'Email not sent.'}
                         </div>
                       </div>
                     </div>

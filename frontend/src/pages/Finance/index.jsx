@@ -866,7 +866,7 @@ function FinancePaymentsTab() {
             <table className="hub-table">
               <thead>
                 <tr>
-                  <th>Student</th>
+                  <th>Candidate</th>
                   <th>Course</th>
                   <th>Month</th>
                   <th>Amount</th>

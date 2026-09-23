@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Form, Input, Button, Upload, message, Result, Spin } from 'antd';
+import { Form, Input, Select, Button, Upload, message, Result, Spin } from 'antd';
 import { UploadOutlined, CheckCircleFilled, ClockCircleOutlined, SafetyCertificateOutlined, CloseCircleFilled } from '@ant-design/icons';
 import paymentsPublicApi from './publicApi';
 import logo from '@/style/images/Horizontal-1-transparent.png';
+import { INDIA_STATES, INDIA_DISTRICTS } from '@/data/indiaStatesDistricts';
 
 const fmtInr = (n) => {
   try {
@@ -39,6 +40,7 @@ export default function PublicKycForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [previews, setPreviews] = useState({});
+  const [selectedState, setSelectedState] = useState('');
   const files = useRef({});
   const pollTimer = useRef(null);
 
@@ -184,35 +186,8 @@ export default function PublicKycForm() {
         </div>
 
         <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false}>
-          <div className="pay-kyc-section-head">Personal details</div>
-          <div className="pay-kyc-grid">
-            <Form.Item name="name" label="Full name" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="fatherName" label="Father's name" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="motherName" label="Mother's name" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="state" label="State" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="city" label="City" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="district" label="District" rules={[{ required: true, message: 'Required' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="pincode" label="Pin code" rules={[{ required: true, message: 'Required' }]}>
-              <Input maxLength={6} />
-            </Form.Item>
-          </div>
-          <Form.Item name="address" label="Full address" rules={[{ required: true, message: 'Required' }]}>
-            <Input.TextArea rows={3} />
-          </Form.Item>
-
           <div className="pay-kyc-section-head">Documents</div>
+          <p className="pay-kyc-doc-lead">Upload your Aadhar and PAN card first — we'll use them to verify your details below.</p>
           <div className="pay-kyc-doc-grid">
             {DOC_FIELDS.map(([field, title, sub]) => {
               const preview = previews[field];
@@ -248,6 +223,49 @@ export default function PublicKycForm() {
               );
             })}
           </div>
+
+          <div className="pay-kyc-section-head">Personal details</div>
+          <div className="pay-kyc-grid">
+            <Form.Item name="name" label="Full name" rules={[{ required: true, message: 'Required' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="fatherName" label="Father's name" rules={[{ required: true, message: 'Required' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="motherName" label="Mother's name" rules={[{ required: true, message: 'Required' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="state" label="State" rules={[{ required: true, message: 'Required' }]}>
+              <Select
+                showSearch
+                placeholder="Select state"
+                optionFilterProp="label"
+                options={INDIA_STATES.map((s) => ({ value: s, label: s }))}
+                onChange={(v) => {
+                  setSelectedState(v);
+                  form.setFieldsValue({ district: undefined });
+                }}
+              />
+            </Form.Item>
+            <Form.Item name="district" label="District" rules={[{ required: true, message: 'Required' }]}>
+              <Select
+                showSearch
+                placeholder={selectedState ? 'Select district' : 'Select state first'}
+                optionFilterProp="label"
+                disabled={!selectedState}
+                options={(INDIA_DISTRICTS[selectedState] || []).map((d) => ({ value: d, label: d }))}
+              />
+            </Form.Item>
+            <Form.Item name="city" label="City" rules={[{ required: true, message: 'Required' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="pincode" label="Pin code" rules={[{ required: true, message: 'Required' }]}>
+              <Input maxLength={6} />
+            </Form.Item>
+          </div>
+          <Form.Item name="address" label="Full address" rules={[{ required: true, message: 'Required' }]}>
+            <Input.TextArea rows={3} />
+          </Form.Item>
 
           <Button type="primary" htmlType="submit" block size="large" loading={submitting} className="pay-kyc-submit">
             Submit
