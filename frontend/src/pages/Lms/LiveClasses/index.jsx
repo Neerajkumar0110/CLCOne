@@ -284,7 +284,7 @@ export default function LiveClasses() {
             const busy = busyId === r.id;
             const isLive = r.status === 'LIVE' || r.status === 'STARTING';
             return (
-              <Col xs={24} sm={12} lg={8} key={r.id}>
+              <Col xs={24} sm={12} lg={8} key={r.id} className="lms-live-col">
                 <Card size="small" className={`lms-live-card lms-live-${r.lifecycle}${isLive ? ' is-live' : ''}`}>
                   <div className="lms-live-top">
                     <span className={`lms-live-badge lms-live-badge--${meta.color}`}>

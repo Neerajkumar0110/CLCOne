@@ -248,8 +248,7 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .lms-stat.ant-card:hover,
-.lms-course-card.ant-card:hover,
-.lms-live-card.ant-card:hover {
+.lms-course-card.ant-card:hover {
   transform: none;
   box-shadow: none;
 }
@@ -585,21 +584,65 @@
 :root[data-theme='dark'] .lms-live-badge--purple { color: #c4b5fd; }
 :root[data-theme='dark'] .lms-live-badge--green { color: #6ee7b7; }
 
-/* Card polish: hover lift + a live class gets a soft red-glow ring */
+/* Card polish — entrance animation + hover lift, a live class keeps its
+   red-glow ring but brightens it further on hover. Each card in the grid
+   fades/slides in with a small stagger (nth-child, capped at 10 — beyond
+   that they all share the last delay, which is fine, it's imperceptible by
+   then) instead of the whole grid just snapping into place. */
+@keyframes lms-live-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .lms-live-card.ant-card {
   height: 100%;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+  animation: lms-live-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform;
 }
+@media (prefers-reduced-motion: reduce) {
+  .lms-live-card.ant-card { animation: none; }
+}
+/* Staggered by the Col's position in the grid (nth-child on the card itself
+   is meaningless — each Card is its Col's only child, so every one of them
+   would otherwise match :nth-child(1)). */
+.lms-live-col:nth-child(1) .lms-live-card.ant-card { animation-delay: 0ms; }
+.lms-live-col:nth-child(2) .lms-live-card.ant-card { animation-delay: 40ms; }
+.lms-live-col:nth-child(3) .lms-live-card.ant-card { animation-delay: 80ms; }
+.lms-live-col:nth-child(4) .lms-live-card.ant-card { animation-delay: 120ms; }
+.lms-live-col:nth-child(5) .lms-live-card.ant-card { animation-delay: 160ms; }
+.lms-live-col:nth-child(6) .lms-live-card.ant-card { animation-delay: 200ms; }
+.lms-live-col:nth-child(7) .lms-live-card.ant-card { animation-delay: 240ms; }
+.lms-live-col:nth-child(8) .lms-live-card.ant-card { animation-delay: 280ms; }
+.lms-live-col:nth-child(9) .lms-live-card.ant-card { animation-delay: 320ms; }
+.lms-live-col:nth-child(n + 10) .lms-live-card.ant-card { animation-delay: 360ms; }
 .lms-live-card.ant-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--hub-shadow-md, 0 10px 24px rgba(15, 23, 42, 0.08)) !important;
+  transform: translateY(-6px) scale(1.012);
+  border-color: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 55%, var(--hub-border)) !important;
+  box-shadow: var(--hub-shadow-md, 0 10px 24px rgba(15, 23, 42, 0.08)), 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 .lms-live-card.is-live.ant-card {
   border-color: color-mix(in srgb, var(--hub-red, #ef4444) 45%, var(--hub-border)) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-red, #ef4444) 10%, transparent) !important;
 }
+.lms-live-card.is-live.ant-card:hover {
+  transform: translateY(-6px) scale(1.012);
+  border-color: color-mix(in srgb, var(--hub-red, #ef4444) 65%, var(--hub-border)) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--hub-red, #ef4444) 16%, transparent),
+    var(--hub-shadow-md, 0 10px 24px rgba(15, 23, 42, 0.08)) !important;
+}
 .lms-live-card .ant-card-body { display: flex; flex-direction: column; height: 100%; }
 .lms-live-card .lms-live-actions { margin-top: auto; }
+/* The Start/Join buttons get a little extra lift of their own so the
+   primary action reads as clickable, not just the whole card. */
+.lms-live-card .lms-live-actions .ant-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.lms-live-card .lms-live-actions .ant-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.lms-live-card .lms-live-actions .ant-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 35%, transparent);
+}
 @media (max-width: 640px) {
   .lms-live-hero { padding-bottom: 14px; }
   .lms-livenow2-row { flex-direction: column; align-items: flex-start; }
@@ -720,11 +763,18 @@
 .lms-section-recordings .ant-card,
 .lms-section-attendance .ant-card,
 .lms-stat.ant-card,
-.lms-course-card.ant-card,
-.lms-live-card.ant-card {
+.lms-course-card.ant-card {
   background: var(--hub-surface) !important;
   border-color: var(--hub-border) !important;
   box-shadow: none !important;
+}
+/* Same base surface/border as the group above, but its own rule with no
+   box-shadow reset — the hover/entrance treatment below needs to actually
+   paint a shadow, which a trailing "box-shadow: none !important" here would
+   otherwise beat on specificity ties for the non-:hover state. */
+.lms-live-card.ant-card {
+  background: var(--hub-surface) !important;
+  border-color: var(--hub-border) !important;
 }
 
 @media (max-width: 640px) {
