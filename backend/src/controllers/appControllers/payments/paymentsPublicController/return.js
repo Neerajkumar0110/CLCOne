@@ -30,6 +30,17 @@ async function returnHandler(req, res) {
     doc.paidAt = new Date();
     doc.razorpayPaymentId = String(req.query.razorpay_payment_id || '');
     stampNextInstallmentDue(doc);
+    // KYC (name/father's name/address, Aadhar/PAN uploads) is collected once
+    // per enrollment, against the very first installment — every later EMI
+    // installment is its own PaymentRequest doc with kycSubmitted defaulting
+    // to false, which used to send the student back through the whole KYC
+    // form again on every single payment. Skip it here instead: the public
+    // page treats kycSubmitted the same either way (see PublicKycForm.jsx),
+    // it just shows a "payment received" message rather than the form.
+    if (doc.installmentNo > 1) {
+      doc.kycSubmitted = true;
+      doc.kycSubmittedAt = new Date();
+    }
     await doc.save();
     notifyPaid(doc);
     unblockIfClear(doc.studentEmail);

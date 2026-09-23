@@ -170,14 +170,26 @@ export default function PublicKycForm() {
     );
   }
   if (done || info.kycSubmitted) {
+    // KYC (personal details + Aadhar/PAN) is only ever collected once, on
+    // the first installment — this same "kycSubmitted" flag gets set
+    // automatically on every later EMI installment once it's paid (see
+    // backend paymentsPublicController/return.js), with no form ever shown
+    // for it. The generic "your details have been received" copy only makes
+    // sense for that real first-time submission, so a later installment
+    // gets its own, accurate message instead.
+    const isLaterInstallment = !done && info.installmentNo > 1;
     return (
       <div className="pay-kyc-shell pay-kyc-center">
         <Header />
         <div className="pay-kyc-card pay-kyc-card--narrow">
           <Result
             icon={<CheckCircleFilled style={{ color: '#22c55e' }} />}
-            title="Submitted"
-            subTitle="Thanks — your details have been received. Our team will reach out if anything else is needed."
+            title={isLaterInstallment ? 'Payment received' : 'Submitted'}
+            subTitle={
+              isLaterInstallment
+                ? "Thanks — this installment is confirmed. You'll be reminded again ahead of your next one."
+                : 'Thanks — your details have been received. Our team will reach out if anything else is needed.'
+            }
           />
         </div>
       </div>

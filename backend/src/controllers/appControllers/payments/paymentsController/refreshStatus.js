@@ -29,6 +29,15 @@ async function refreshStatus(req, res) {
     const payment = (link.payments || []).find((p) => p.status === 'captured') || (link.payments || [])[0];
     if (payment) doc.razorpayPaymentId = payment.payment_id;
     stampNextInstallmentDue(doc);
+    // Same reasoning as paymentsPublicController/return.js: KYC is only
+    // collected once, against the first installment — a later one reaching
+    // 'paid' here (admin manually refreshed instead of the student's own
+    // callback redirect firing) must not leave kycSubmitted=false, or the
+    // student's payment page would still show them the KYC form again.
+    if (doc.installmentNo > 1) {
+      doc.kycSubmitted = true;
+      doc.kycSubmittedAt = new Date();
+    }
   } else if (['expired', 'cancelled'].includes(link.status) && doc.status === 'created') {
     doc.status = link.status;
   }

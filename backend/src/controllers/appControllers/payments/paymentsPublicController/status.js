@@ -18,6 +18,7 @@ async function status(req, res) {
       status: doc.status,
       shortUrl: doc.razorpayShortUrl,
       kycSubmitted: doc.kycSubmitted,
+      installmentNo: doc.installmentNo,
     },
   });
 }
