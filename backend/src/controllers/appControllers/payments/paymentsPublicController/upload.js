@@ -1,19 +1,16 @@
 const mongoose = require('mongoose');
-const path = require('path');
-const { ocrText, parsePan, parseAadhar } = require('../../../../services/payments/idOcr');
 
 // POST /api/payments/public/:token/upload — multipart field "file" (see the
-// singleStorageUpload middleware on the route), plus a plain text field
-// "docType" (aadharFront/aadharBack/panFront) the frontend sends alongside
-// it. The returned path is then included in the final POST .../kyc submit.
-// Gated the same way the KYC submit itself is: must be a real, paid,
-// not-yet-submitted request — otherwise a stray upload just sits unused on
-// disk.
+// singleStorageUpload middleware on the route). The returned path is then
+// included in the final POST .../kyc submit. Gated the same way the KYC
+// submit itself is: must be a real, paid, not-yet-submitted request —
+// otherwise a stray upload just sits unused on disk.
 //
-// For the two "front" scans (they're the ones that actually carry printed
-// text), best-effort OCRs the image and returns whatever fields could be
-// guessed (services/payments/idOcr.js) so the form can pre-fill — never
-// authoritative, the candidate still reviews/edits every field.
+// Auto-extracting Name/Father's Name/Address from the scan (tesseract.js)
+// was tried and pulled back out — the free OCR's guesses were unreliable
+// enough to do more harm than good. Left for a paid provider (Surepass/
+// Cashfree/Deepvue/etc.) to revisit later; see services/payments/idOcr.js,
+// still present but no longer called from here.
 async function upload(req, res) {
   const PaymentRequest = mongoose.model('PaymentRequest');
   const doc = await PaymentRequest.findOne({ publicToken: req.params.token, removed: false }).lean();
@@ -22,19 +19,7 @@ async function upload(req, res) {
   if (doc.kycSubmitted) return res.status(409).json({ success: false, message: 'KYC already submitted.' });
   if (!req.file) return res.status(400).json({ success: false, message: 'No file received.' });
 
-  const result = { path: req.body.file };
-
-  const docType = String(req.body.docType || '');
-  if (docType === 'panFront' || docType === 'aadharFront') {
-    try {
-      const text = await ocrText(path.resolve(req.file.path));
-      result.extracted = docType === 'panFront' ? parsePan(text) : parseAadhar(text);
-    } catch (e) {
-      result.extracted = null; // OCR failure never blocks the upload itself
-    }
-  }
-
-  return res.status(200).json({ success: true, result });
+  return res.status(200).json({ success: true, result: { path: req.body.file } });
 }
 
 module.exports = upload;

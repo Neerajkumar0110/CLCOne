@@ -78,13 +78,13 @@ export default function PublicKycForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Uploads (and, for the PAN/Aadhar front scans, OCRs — see backend
-  // paymentsPublicController/upload.js) the moment a file is picked, rather
-  // than waiting for final Submit — documents come first in this form
-  // precisely so any extracted Name/Father's Name/Address can pre-fill the
-  // Personal details fields the candidate hasn't reached yet. Auto-filled
-  // values only ever land in an EMPTY field and stay fully editable —
-  // OCR from a phone-camera photo is never treated as authoritative.
+  // Uploads the moment a file is picked, rather than waiting for final
+  // Submit — documents come first in this form, so uploading right away
+  // means a failed upload surfaces immediately instead of only at the end.
+  // (Auto-filling Name/Father's Name/Address from an OCR scan was tried and
+  // pulled back out — the free OCR's guesses were unreliable; see backend
+  // paymentsPublicController/upload.js for the note on revisiting this with
+  // a paid provider later.)
   const onPickFile = (field) => (file) => {
     files.current[field] = file;
     setPreviews((p) => {
@@ -102,21 +102,6 @@ export default function PublicKycForm() {
       .uploadDoc(token, file, field)
       .then((res) => {
         setUploadedPaths((p) => ({ ...p, [field]: res.result.path }));
-        const extracted = res.result.extracted;
-        if (!extracted) return;
-        const current = form.getFieldsValue();
-        const patch = {};
-        if (field === 'panFront') {
-          if (extracted.name && !current.name) patch.name = extracted.name;
-          if (extracted.fatherName && !current.fatherName) patch.fatherName = extracted.fatherName;
-        } else if (field === 'aadharFront') {
-          if (extracted.address && !current.address) patch.address = extracted.address;
-          if (extracted.pincode && !current.pincode) patch.pincode = extracted.pincode;
-        }
-        if (Object.keys(patch).length) {
-          form.setFieldsValue(patch);
-          message.success('Some details were auto-filled from the scan — please double-check them.');
-        }
       })
       .catch(() => {
         message.error('Could not upload — please try that file again.');
@@ -236,7 +221,7 @@ export default function PublicKycForm() {
 
         <Form form={form} layout="vertical" onFinish={onSubmit} requiredMark={false}>
           <div className="pay-kyc-section-head">Documents</div>
-          <p className="pay-kyc-doc-lead">Upload your Aadhar and PAN card first — we'll use them to verify your details below.</p>
+          <p className="pay-kyc-doc-lead">Upload your Aadhar and PAN card first, then fill in your details below.</p>
           <div className="pay-kyc-doc-grid">
             {DOC_FIELDS.map(([field, title, sub]) => {
               const preview = previews[field];
@@ -256,7 +241,7 @@ export default function PublicKycForm() {
                         <span className="pay-kyc-doc-title">{title}</span>
                         <span className="pay-kyc-doc-sub">{sub}</span>
                         {uploading[field] ? (
-                          <span className="pay-kyc-doc-status">Uploading &amp; scanning…</span>
+                          <span className="pay-kyc-doc-status">Uploading…</span>
                         ) : uploadedPaths[field] ? (
                           <span className="pay-kyc-doc-filename" title={files.current[field]?.name}>
                             {files.current[field]?.name}
