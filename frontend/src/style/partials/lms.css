@@ -660,16 +660,22 @@
 .lms-live-card .ant-card-body { padding: 20px !important; gap: 0; }
 .lms-live-blob {
   position: absolute;
-  top: -46px;
-  right: -46px;
-  width: 150px;
-  height: 150px;
+  top: -50px;
+  right: -50px;
+  width: 130px;
+  height: 130px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 22%, transparent), transparent 70%);
+  background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 16%, transparent), transparent 72%);
   pointer-events: none;
   z-index: 0;
 }
-.lms-live-card > .ant-card-body > * { position: relative; z-index: 1; }
+/* Every other direct child sits above the blob — but NOT the blob itself:
+   this selector's 2-class specificity otherwise beats .lms-live-blob's own
+   1-class "position: absolute" declared above, silently flipping the blob
+   to position: relative (so it renders in normal flow — a big grey circle
+   shoving the whole card's content down — instead of tucked behind it in
+   the corner). That was exactly the bug in the first version of this card. */
+.lms-live-card > .ant-card-body > *:not(.lms-live-blob) { position: relative; z-index: 1; }
 
 .lms-live-badge { padding: 5px 12px 5px 10px; font-size: 10.5px; }
 .lms-live-badge .anticon { font-size: 12px; }
@@ -706,29 +712,40 @@
 
 .lms-live-chips {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 16px 0;
 }
-@media (max-width: 420px) {
-  .lms-live-chips { grid-template-columns: 1fr; }
+@media (max-width: 460px) {
+  .lms-live-chips { grid-template-columns: 1fr 1fr; }
+  .lms-live-chips > :last-child { grid-column: 1 / -1; }
 }
+/* Icon+label on their own line, the actual value on the line below and
+   free to wrap — a horizontal icon-then-text layout (the first version of
+   this card) had no room left for "11:30 AM – 01:30 PM" or "Mon, Mar 22"
+   in a 1/3-width column and silently clipped them with an ellipsis. */
 .lms-live-chip {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px;
   border-radius: 12px;
   background: var(--hub-bg-soft);
   min-width: 0;
 }
+.lms-live-chip-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .lms-live-chip-icon {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 11px;
   flex: none;
 }
 .lms-live-chip-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--hub-muted); }
@@ -736,9 +753,8 @@
   font-size: 12.5px;
   font-weight: 700;
   color: var(--hub-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  overflow-wrap: break-word;
 }
 .lms-live-chip--blue { background: color-mix(in srgb, var(--hub-blue) 10%, var(--hub-bg-soft)); }
 .lms-live-chip--blue .lms-live-chip-icon { color: var(--hub-blue); background: var(--hub-blue-soft); }

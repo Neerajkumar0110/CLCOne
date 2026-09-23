@@ -385,26 +385,26 @@ export default function LiveClasses() {
 
                   <div className="lms-live-chips">
                     <div className="lms-live-chip lms-live-chip--blue">
-                      <span className="lms-live-chip-icon"><TeamOutlined /></span>
-                      <div>
-                        <div className="lms-live-chip-label">Teacher</div>
-                        <div className="lms-live-chip-value">{r.teacherName || 'TBD'}</div>
+                      <div className="lms-live-chip-top">
+                        <span className="lms-live-chip-icon"><TeamOutlined /></span>
+                        <span className="lms-live-chip-label">Teacher</span>
                       </div>
+                      <div className="lms-live-chip-value">{r.teacherName || 'TBD'}</div>
                     </div>
                     <div className="lms-live-chip lms-live-chip--green">
-                      <span className="lms-live-chip-icon"><CalendarOutlined /></span>
-                      <div>
-                        <div className="lms-live-chip-label">Date</div>
-                        <div className="lms-live-chip-value">{d(r.scheduledStart)}</div>
+                      <div className="lms-live-chip-top">
+                        <span className="lms-live-chip-icon"><CalendarOutlined /></span>
+                        <span className="lms-live-chip-label">Date</span>
                       </div>
+                      <div className="lms-live-chip-value">{d(r.scheduledStart)}</div>
                     </div>
                     <div className="lms-live-chip lms-live-chip--indigo">
-                      <span className="lms-live-chip-icon"><ClockCircleOutlined /></span>
-                      <div>
-                        <div className="lms-live-chip-label">Time</div>
-                        <div className="lms-live-chip-value">
-                          {t(r.scheduledStart)}{r.scheduledEnd ? ` – ${t(r.scheduledEnd)}` : ''}
-                        </div>
+                      <div className="lms-live-chip-top">
+                        <span className="lms-live-chip-icon"><ClockCircleOutlined /></span>
+                        <span className="lms-live-chip-label">Time</span>
+                      </div>
+                      <div className="lms-live-chip-value">
+                        {t(r.scheduledStart)}{r.scheduledEnd ? ` – ${t(r.scheduledEnd)}` : ''}
                       </div>
                     </div>
                   </div>
