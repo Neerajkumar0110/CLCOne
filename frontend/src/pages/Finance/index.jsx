@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import NewTicketModal from "@/components/NewTicketModal";
 import { useTickets } from "@/context/ticketsContext";
 import { request } from "@/request";
 import paymentsApi from "@/pages/Payments/api";
+import { getSocket } from "@/socket";
 import {
   FundOutlined,
   SolutionOutlined,
@@ -618,6 +619,19 @@ function PaymentDetailModal({ id, onClose }) {
     };
   }, [id]);
 
+  // If this exact record gets paid / KYC-submitted while its modal is open
+  // (e.g. the admin has it open right as the student pays on their phone),
+  // silently re-fetch instead of leaving a stale "created"/"Link sent" view.
+  useEffect(() => {
+    if (!id) return undefined;
+    const socket = getSocket();
+    const onUpdate = (evt) => {
+      if (evt && evt.id === id) paymentsApi.get(id).then((res) => setDetail((res && res.result) || null));
+    };
+    socket?.on("payments:updated", onUpdate);
+    return () => socket?.off("payments:updated", onUpdate);
+  }, [id]);
+
   return (
     <HubModal open={!!id} onClose={onClose} title="Payment details" width={680}>
       {loading || !detail ? (
@@ -767,15 +781,28 @@ function FinancePaymentsTab() {
   const [search, setSearch] = useState("");
   const [detailId, setDetailId] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const res = await paymentsApi.list({ limit: 500 });
     setRows((res && res.result) || []);
     setLoading(false);
-  };
+  }, []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  // Live updates — a payment can flip from "created" to "paid" (or KYC get
+  // submitted) purely server-side, whenever the student completes it on
+  // their own phone — see backend services/payments/realtime.js, which
+  // broadcasts 'payments:updated' on exactly those two edges. Without this
+  // the table would only ever show that in the "Status" column after a
+  // manual reload. Same event/pattern pages/Payments/index.jsx already uses.
+  useEffect(() => {
+    const socket = getSocket();
+    const onUpdate = () => load();
+    socket?.on("payments:updated", onUpdate);
+    return () => socket?.off("payments:updated", onUpdate);
+  }, [load]);
 
   const agents = [...new Set(rows.map((r) => r.createdByName).filter(Boolean))].sort();
 
