@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const { istDateTime } = require('../../../../services/lms/recurrence');
 const { buildPlanSummary } = require('../../../../services/payments/plan');
+const { overdueQuery } = require('../../../../services/payments/financeHold');
 
 // Dashboards for the two dedicated LMS panels:
 //   GET /api/lms/teacher/dashboard   (role: Teacher, or a manager)
@@ -311,7 +312,13 @@ async function myUpdates(req, res) {
   let finance = { hold: !!admin.financeHold };
   if (admin.financeHold) {
     const PaymentRequest = mongoose.model('PaymentRequest');
-    const overdue = await PaymentRequest.findOne({ removed: false, studentEmail: (admin.email || '').toLowerCase(), status: 'created' })
+    // Must match the exact same criteria that put the account on hold in
+    // the first place (jobs/financeEmiTick.js's enforceOverdueBlocks, via
+    // financeHold.js's overdueQuery) — not just "any unpaid request for this
+    // email" (the old query here), which could surface a different, unrelated
+    // installment that isn't actually overdue yet (e.g. one with no dueAt at
+    // all sorts first) and show the wrong amount/link on the block screen.
+    const overdue = await PaymentRequest.findOne(overdueQuery(admin.email))
       .sort({ dueAt: 1 })
       .lean();
     if (overdue) {
