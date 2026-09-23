@@ -643,6 +643,169 @@
 .lms-live-card .lms-live-actions .ant-btn-primary:hover:not(:disabled) {
   box-shadow: 0 4px 10px color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 35%, transparent);
 }
+
+/* ── Live class card — full redesign ──────────────────────────────────
+   Rounded "app card" treatment: soft shadow at rest, a decorative blurred
+   blob tucked in the top-right corner, a status pill + provider chip up
+   top, a big title with a leading cap emoji, three info chips (teacher /
+   date / time), then one contextual status line with its own action button
+   and, below that, whatever secondary utility buttons apply (Edit time,
+   Add student, Attendance, End). */
+.lms-live-card.ant-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px !important;
+  box-shadow: var(--hub-shadow-sm) !important;
+}
+.lms-live-card .ant-card-body { padding: 20px !important; gap: 0; }
+.lms-live-blob {
+  position: absolute;
+  top: -46px;
+  right: -46px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 22%, transparent), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.lms-live-card > .ant-card-body > * { position: relative; z-index: 1; }
+
+.lms-live-badge { padding: 5px 12px 5px 10px; font-size: 10.5px; }
+.lms-live-badge .anticon { font-size: 12px; }
+
+.lms-live-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--hub-text-soft);
+}
+.lms-live-provider-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--hub-blue, #2563eb), var(--hub-blue-dark, #1d4ed8));
+  flex: none;
+}
+
+.lms-live-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+}
+.lms-live-cap { font-size: 30px; line-height: 1; flex: none; margin-top: 2px; }
+.lms-live-card .lms-live-title { font-size: 19px; font-weight: 800; line-height: 1.28; }
+.lms-live-card .lms-live-sub { margin-top: 4px; }
+
+.lms-live-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+@media (max-width: 420px) {
+  .lms-live-chips { grid-template-columns: 1fr; }
+}
+.lms-live-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--hub-bg-soft);
+  min-width: 0;
+}
+.lms-live-chip-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  flex: none;
+}
+.lms-live-chip-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--hub-muted); }
+.lms-live-chip-value {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--hub-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lms-live-chip--blue { background: color-mix(in srgb, var(--hub-blue) 10%, var(--hub-bg-soft)); }
+.lms-live-chip--blue .lms-live-chip-icon { color: var(--hub-blue); background: var(--hub-blue-soft); }
+.lms-live-chip--green { background: color-mix(in srgb, var(--hub-green) 10%, var(--hub-bg-soft)); }
+.lms-live-chip--green .lms-live-chip-icon { color: var(--hub-green); background: var(--hub-green-soft); }
+.lms-live-chip--indigo { background: color-mix(in srgb, var(--hub-purple) 10%, var(--hub-bg-soft)); }
+.lms-live-chip--indigo .lms-live-chip-icon { color: var(--hub-purple); background: var(--hub-purple-soft); }
+
+.lms-live-divider { height: 1px; background: var(--hub-border); margin: 4px 0 14px; }
+
+.lms-live-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--hub-bg-soft);
+}
+.lms-live-status-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  flex: none;
+}
+.lms-live-status-icon--red { color: var(--hub-red); background: var(--hub-red-soft); }
+.lms-live-status-icon--blue { color: var(--hub-blue); background: var(--hub-blue-soft); }
+.lms-live-status-icon--green { color: var(--hub-green); background: var(--hub-green-soft); }
+.lms-live-status-icon--purple { color: var(--hub-purple); background: var(--hub-purple-soft); }
+.lms-live-status-icon--orange { color: var(--hub-yellow); background: var(--hub-yellow-soft); }
+.lms-live-status-icon--default { color: var(--hub-muted); background: var(--hub-border); }
+.lms-live-status-text { flex: 1; min-width: 0; }
+.lms-live-status-title { font-size: 13.5px; font-weight: 700; color: var(--hub-text); }
+.lms-live-status-desc { font-size: 12px; color: var(--hub-muted); margin-top: 1px; }
+.lms-live-status-row .ant-btn { flex: none; }
+
+.lms-live-secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.lms-live-pill.ant-btn {
+  border-radius: 999px;
+  font-weight: 700;
+  border-color: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 35%, var(--hub-border));
+  color: var(--lms-accent, var(--hub-blue));
+  background: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 6%, transparent);
+}
+.lms-live-pill.ant-btn:hover:not(:disabled) {
+  border-color: var(--lms-accent, var(--hub-blue));
+  color: var(--lms-accent, var(--hub-blue));
+  background: color-mix(in srgb, var(--lms-accent, var(--hub-blue)) 12%, transparent);
+}
+.lms-live-pill.ant-btn[disabled] {
+  border-color: var(--hub-border);
+  color: var(--hub-muted);
+  background: var(--hub-bg-soft);
+}
+.lms-live-pill.ant-btn-dangerous,
+.ant-btn.lms-live-pill.ant-btn-dangerous {
+  border-color: color-mix(in srgb, var(--hub-red) 35%, var(--hub-border));
+  color: var(--hub-red);
+  background: var(--hub-red-soft);
+}
 @media (max-width: 640px) {
   .lms-live-hero { padding-bottom: 14px; }
   .lms-livenow2-row { flex-direction: column; align-items: flex-start; }

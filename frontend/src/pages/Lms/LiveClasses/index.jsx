@@ -30,6 +30,7 @@ import {
   PlaySquareOutlined,
   FieldTimeOutlined,
   UserAddOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import lmsApi from '../api';
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
@@ -67,6 +68,51 @@ const t = (v) => {
     return '';
   }
 };
+
+// One contextual "what's going on with this class right now" line — icon +
+// title + description — that anchors the card's bottom panel. Everything
+// here is derived from fields the backend already sends (status, role,
+// canStart/canJoin/etc.), just organized as a single message instead of the
+// old flat row of independently-conditioned buttons.
+function getStatusPanel(r) {
+  const isLive = r.status === 'LIVE' || r.status === 'STARTING';
+  if (r.status === 'RECORDING_PROCESSING') {
+    return { icon: <TeamOutlined />, tone: 'purple', title: 'Recording processing…', desc: 'Your session is being processed for playback.' };
+  }
+  if (r.status === 'RECORDING_AVAILABLE') {
+    return { icon: <PlaySquareOutlined />, tone: 'green', title: 'Recording ready', desc: 'Watch the recorded session anytime.' };
+  }
+  if (r.status === 'ENDING') {
+    return { icon: <ClockCircleOutlined />, tone: 'orange', title: 'Wrapping up…', desc: 'This class is ending.' };
+  }
+  if (r.status === 'ENDED') {
+    return { icon: <CheckCircleOutlined />, tone: 'default', title: 'Class ended', desc: 'This class has finished.' };
+  }
+  if (r.status === 'CANCELLED') {
+    return { icon: <StopOutlined />, tone: 'default', title: 'Cancelled', desc: 'This class was cancelled.' };
+  }
+  if (isLive) {
+    return {
+      icon: <VideoCameraOutlined />,
+      tone: 'red',
+      title: 'Class is live',
+      desc: r.participantsOnline ? `${r.participantsOnline} online now` : 'Join to participate.',
+    };
+  }
+  // SCHEDULED / UPCOMING — canStart is teacher-only and, once the class is
+  // still in this status, is only ever false because its scheduled window
+  // has closed (see backend liveClassService.js's hasScheduleEnded).
+  if (r.myRole === 'teacher' && !r.canStart) {
+    return { icon: <ClockCircleOutlined />, tone: 'default', title: 'Time passed', desc: "This class wasn't started." };
+  }
+  if (r.autoStartAt) {
+    return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Auto-starts soon', desc: `Starts automatically at ${t(r.scheduledStart)}.` };
+  }
+  if (r.myRole === 'teacher') {
+    return { icon: <PlayCircleOutlined />, tone: 'blue', title: 'Ready to start', desc: 'Start the class whenever you are ready.' };
+  }
+  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the teacher to start the class.' };
+}
 
 export default function LiveClasses() {
   const [loading, setLoading] = useState(true);
@@ -283,86 +329,133 @@ export default function LiveClasses() {
             const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
             const busy = busyId === r.id;
             const isLive = r.status === 'LIVE' || r.status === 'STARTING';
+            const panel = getStatusPanel(r);
+
+            // One primary call-to-action per card — same priority the old
+            // flat button row used (Start > Join > Watch recording > Add
+            // student), just picked once instead of rendered as a list of
+            // independently-conditioned buttons.
+            const primaryAction = r.canStart
+              ? { icon: <PlayCircleOutlined />, label: 'Start class', onClick: () => onStart(r.id), primary: true }
+              : r.canJoin
+              ? { icon: <LoginOutlined />, label: r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class', onClick: () => handleJoin(r), primary: true }
+              : r.status === 'RECORDING_AVAILABLE'
+              ? { icon: <PlaySquareOutlined />, label: 'Watch Recording', href: '#/lms/recordings' }
+              : r.canAddStudent
+              ? { icon: <UserAddOutlined />, label: 'Add student', onClick: () => openAdd(r) }
+              : r.myRole === 'student' && ['SCHEDULED', 'UPCOMING'].includes(r.status)
+              ? { label: 'Not started', disabled: true }
+              : null;
+
+            const secondaryButtons = [];
+            if (r.canEnd) secondaryButtons.push({ key: 'end', icon: <StopOutlined />, label: 'End', onClick: () => onEnd(r.id), danger: true });
+            if (r.canEditTime) secondaryButtons.push({ key: 'edit', icon: <FieldTimeOutlined />, label: 'Edit time', onClick: () => openEdit(r) });
+            if (r.canAddStudent && primaryAction?.label !== 'Add student') {
+              secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add student', onClick: () => openAdd(r) });
+            }
+            if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
+
             return (
               <Col xs={24} sm={12} lg={8} key={r.id} className="lms-live-col">
                 <Card size="small" className={`lms-live-card lms-live-${r.lifecycle}${isLive ? ' is-live' : ''}`}>
+                  <span className="lms-live-blob" aria-hidden="true" />
                   <div className="lms-live-top">
                     <span className={`lms-live-badge lms-live-badge--${meta.color}`}>
-                      {isLive && <i className="lms-live-badge-dot" />}
+                      {isLive ? <i className="lms-live-badge-dot" /> : <VideoCameraOutlined />}
                       {meta.label}
                     </span>
                     <span className="lms-live-provider">
+                      <span className="lms-live-provider-icon">
+                        <VideoCameraOutlined />
+                      </span>
                       {r.meetingProvider === 'bigbluebutton' ? 'BigBlueButton' : r.meetingProvider === 'jitsi' ? 'Jitsi' : 'Room'}
                       {r.isMock ? ' · mock' : ''}
                     </span>
                   </div>
 
-                  <div className="lms-live-title">{r.title}</div>
-                  <div className="lms-live-sub">
-                    {r.courseTitle || '—'}{r.batchName ? ` · ${r.batchName}` : ''}
+                  <div className="lms-live-heading">
+                    <span className="lms-live-cap" aria-hidden="true">🎓</span>
+                    <div>
+                      <div className="lms-live-title">{r.title}</div>
+                      <div className="lms-live-sub">
+                        {r.courseTitle || '—'}{r.batchName ? ` · ${r.batchName}` : ''}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="lms-live-meta">
-                    <span><TeamOutlined /> {r.teacherName || 'Teacher TBD'}</span>
-                    <span><CalendarOutlined /> {d(r.scheduledStart)}</span>
-                    <span><ClockCircleOutlined /> {t(r.scheduledStart)}{r.scheduledEnd ? `–${t(r.scheduledEnd)}` : ''}</span>
-                    {r.status === 'LIVE' && <span className="lms-live-online">● {r.participantsOnline} online</span>}
+                  <div className="lms-live-chips">
+                    <div className="lms-live-chip lms-live-chip--blue">
+                      <span className="lms-live-chip-icon"><TeamOutlined /></span>
+                      <div>
+                        <div className="lms-live-chip-label">Teacher</div>
+                        <div className="lms-live-chip-value">{r.teacherName || 'TBD'}</div>
+                      </div>
+                    </div>
+                    <div className="lms-live-chip lms-live-chip--green">
+                      <span className="lms-live-chip-icon"><CalendarOutlined /></span>
+                      <div>
+                        <div className="lms-live-chip-label">Date</div>
+                        <div className="lms-live-chip-value">{d(r.scheduledStart)}</div>
+                      </div>
+                    </div>
+                    <div className="lms-live-chip lms-live-chip--indigo">
+                      <span className="lms-live-chip-icon"><ClockCircleOutlined /></span>
+                      <div>
+                        <div className="lms-live-chip-label">Time</div>
+                        <div className="lms-live-chip-value">
+                          {t(r.scheduledStart)}{r.scheduledEnd ? ` – ${t(r.scheduledEnd)}` : ''}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="lms-live-actions">
-                    {r.canStart && (
-                      <Button type="primary" size="small" icon={<PlayCircleOutlined />} loading={busy} onClick={() => onStart(r.id)}>
-                        Start class
-                      </Button>
-                    )}
-                    {r.canJoin && !r.canStart && (
-                      <Button type="primary" size="small" icon={<LoginOutlined />} loading={busy} onClick={() => handleJoin(r)}>
-                        {r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class'}
-                      </Button>
-                    )}
-                    {r.canEnd && (
-                      <Button danger size="small" icon={<StopOutlined />} loading={busy} onClick={() => onEnd(r.id)}>
-                        End
-                      </Button>
-                    )}
-                    {r.status === 'RECORDING_PROCESSING' && <span className="lms-live-done">Recording processing…</span>}
-                    {r.status === 'RECORDING_AVAILABLE' && (
-                      <Button size="small" icon={<PlaySquareOutlined />} href="#/lms/recordings">
-                        Watch Recording
-                      </Button>
-                    )}
-                    {r.canEditTime && (
-                      <Button size="small" icon={<FieldTimeOutlined />} onClick={() => openEdit(r)}>
-                        Edit time
-                      </Button>
-                    )}
-                    {r.canAddStudent && (
-                      <Button size="small" icon={<UserAddOutlined />} onClick={() => openAdd(r)}>
-                        Add student
-                      </Button>
-                    )}
-                    {r.autoStartAt && ['SCHEDULED', 'UPCOMING'].includes(r.status) && (
-                      <span className="lms-live-auto">
-                        <ClockCircleOutlined /> auto-starts at {t(r.scheduledStart)}
-                      </span>
-                    )}
-                    {r.myRole === 'teacher' && <Button size="small" onClick={() => showAtt(r)}>Attendance</Button>}
-                    {['SCHEDULED', 'UPCOMING'].includes(r.status) && r.myRole === 'student' && (
-                      <Tooltip title="You can join once the teacher starts the class.">
-                        <Button size="small" disabled>Not started</Button>
-                      </Tooltip>
-                    )}
-                    {r.status === 'ENDED' && <span className="lms-live-done">Class ended</span>}
-                    {/* canStart is teacher-only and, for a still-SCHEDULED/UPCOMING session, is
-                        only ever false because its scheduled window has closed (see backend
-                        liveClassService.js's hasScheduleEnded) — for a student the equivalent
-                        false-before-it-goes-live is the normal, expected "Not started" case just
-                        above, so this message is teacher-only to avoid firing on every upcoming
-                        class a student hasn't joined yet. */}
-                    {r.myRole === 'teacher' && !r.canStart && ['SCHEDULED', 'UPCOMING'].includes(r.status) && (
-                      <span className="lms-live-done">Time passed — class wasn't started</span>
-                    )}
+                  <div className="lms-live-divider" />
+
+                  <div className="lms-live-status-row">
+                    <span className={`lms-live-status-icon lms-live-status-icon--${panel.tone}`}>{panel.icon}</span>
+                    <div className="lms-live-status-text">
+                      <div className="lms-live-status-title">{panel.title}</div>
+                      <div className="lms-live-status-desc">{panel.desc}</div>
+                    </div>
+                    {primaryAction &&
+                      (primaryAction.href ? (
+                        <Button size="small" className="lms-live-pill" icon={primaryAction.icon} href={primaryAction.href}>
+                          {primaryAction.label}
+                        </Button>
+                      ) : (
+                        <Tooltip title={primaryAction.disabled ? 'You can join once the teacher starts the class.' : ''}>
+                          <Button
+                            size="small"
+                            type={primaryAction.primary ? 'primary' : 'default'}
+                            className={primaryAction.primary ? '' : 'lms-live-pill'}
+                            icon={primaryAction.icon}
+                            loading={busy && !primaryAction.disabled}
+                            disabled={primaryAction.disabled}
+                            onClick={primaryAction.onClick}
+                          >
+                            {primaryAction.label}
+                          </Button>
+                        </Tooltip>
+                      ))}
                   </div>
+
+                  {secondaryButtons.length > 0 && (
+                    <div className="lms-live-secondary-row">
+                      {secondaryButtons.map((btn) => (
+                        <Button
+                          key={btn.key}
+                          size="small"
+                          className="lms-live-pill"
+                          danger={btn.danger}
+                          icon={btn.icon}
+                          loading={busy && btn.key === 'end'}
+                          onClick={btn.onClick}
+                        >
+                          {btn.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </Col>
             );
