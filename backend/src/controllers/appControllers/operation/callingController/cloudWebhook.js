@@ -219,18 +219,28 @@ const cloudWebhook = async (req, res) => {
   if (hangupCause && !rec.disposition) rec.notes = rec.notes || String(hangupCause);
   rec.phaseAt = new Date();
 
-  if (recordingUrl) {
-    rec.recording = {
-      ...(rec.recording || {}),
-      status: 'available',
-      url: recordingUrl,
-      durationSec: Math.round(durationSec) || rec.recording?.durationSec || 0,
-      readyAt: new Date(),
-    };
-  }
-
   rec.providerRaw = b;
   await rec.save();
+
+  // Plivo delivers the Record callback and the Hangup callback as two
+  // separate near-simultaneous requests for the same call (seen ~1s apart)
+  // — a plain fetch-then-.save() on `rec` here would race the other
+  // request's save and could silently drop this update depending on
+  // interleaving. Write it as its own atomic $set instead, decoupled from
+  // the mutation above, so it can never be lost regardless of ordering.
+  if (recordingUrl) {
+    await CallRecord.updateOne(
+      { _id: rec._id },
+      {
+        $set: {
+          'recording.status': 'available',
+          'recording.url': recordingUrl,
+          'recording.durationSec': Math.round(durationSec) || rec.recording?.durationSec || 0,
+          'recording.readyAt': new Date(),
+        },
+      }
+    );
+  }
 
   // ── agent presence + lead/campaign roll-forward ─────────────────────
   const nowConnected = rec.status === 'connected' && prevStatus !== 'connected';
