@@ -50,9 +50,12 @@ const plivoAnswer = async (req, res) => {
   const dialNumber = `${cfg.plivo.countryCode}${agentNumber}`;
   const secretQs = secretExpected ? `&secret=${encodeURIComponent(secretExpected)}` : '';
   const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
+  // `record`/`recordingCallbackUrl` are NOT valid <Dial> attributes (Plivo
+  // silently ignores them) — recording a Dial-bridged call needs a separate
+  // <Record> element with startOnDialAnswer="true" ahead of <Dial>.
   return respondXml(
     res,
-    `<Response><Dial callerId="${escapeXml(callerId)}" timeout="30" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
+    `<Response><Record startOnDialAnswer="true" callbackUrl="${escapeXml(recordingCallbackUrl)}" callbackMethod="POST"/><Dial callerId="${escapeXml(callerId)}" timeout="30"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
   );
 };
 
