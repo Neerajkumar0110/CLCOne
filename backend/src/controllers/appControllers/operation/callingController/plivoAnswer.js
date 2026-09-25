@@ -48,9 +48,11 @@ const plivoAnswer = async (req, res) => {
   if (!agentNumber) return respondXml(res, HOLD_XML);
 
   const dialNumber = `${cfg.plivo.countryCode}${agentNumber}`;
+  const secretQs = secretExpected ? `&secret=${encodeURIComponent(secretExpected)}` : '';
+  const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
   return respondXml(
     res,
-    `<Response><Dial callerId="${escapeXml(callerId)}" timeout="30"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
+    `<Response><Dial callerId="${escapeXml(callerId)}" timeout="30" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
   );
 };
 
