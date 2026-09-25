@@ -14,15 +14,19 @@ export function fmtDuration(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+// Force Asia/Kolkata explicitly rather than relying on the viewer's
+// browser/OS timezone — this CRM and every caller/customer are India-based,
+// so a machine with a different (or misconfigured) local timezone should
+// still show the real IST wall-clock time here, not its own local time.
 export function fmtDateTime(v) {
   if (!v) return "—";
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
 }
 export function fmtDate(v) {
   if (!v) return "—";
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata" });
 }
 
 // ── status → badge class (reuses hub-badge-*) ───────────────────────────

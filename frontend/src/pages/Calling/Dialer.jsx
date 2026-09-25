@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { request } from "@/request";
-import { openTel } from "./shared";
+import { openTel, fmtDateTime } from "./shared";
 import "./Dialer.css";
 
 // Calling › Dialer — the round keypad + contacts + recent-calls screen from
@@ -316,7 +316,7 @@ export default function Dialer() {
                 </div>
                 <div className="recent-meta">
                   <span>{formatSeconds(c.duration)}</span>
-                  <small>{new Date(c.endedAt || c.created).toLocaleString()}</small>
+                  <small>{fmtDateTime(c.endedAt || c.created)}</small>
                 </div>
                 <button
                   className="recent-call-btn"
