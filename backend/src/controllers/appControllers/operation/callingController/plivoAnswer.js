@@ -20,6 +20,11 @@ const respondXml = (res, xml) => {
 const HOLD_XML =
   '<Response><Speak voice="WOMAN" language="en-IN">Please hold while we connect your call.</Speak><Wait length="3"/><Speak voice="WOMAN" language="en-IN">No agent is available right now. Please try again shortly.</Speak><Hangup/></Response>';
 
+// Plays once, right when the customer picks up, before the agent bridge —
+// ~7s at Plivo TTS's normal pace. Edit this string to change the wording.
+const GREETING_XML =
+  '<Speak voice="WOMAN" language="en-IN">Welcome to Career Lab Consulting, your partner in AI and technology careers. Connecting your call now.</Speak>';
+
 const plivoAnswer = async (req, res) => {
   const cfg = callingConfig.cloud;
   const secretExpected = cfg.webhookSecret;
@@ -55,7 +60,7 @@ const plivoAnswer = async (req, res) => {
   // <Record> element with startOnDialAnswer="true" ahead of <Dial>.
   return respondXml(
     res,
-    `<Response><Record startOnDialAnswer="true" callbackUrl="${escapeXml(recordingCallbackUrl)}" callbackMethod="POST"/><Dial callerId="${escapeXml(callerId)}" timeout="30"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
+    `<Response>${GREETING_XML}<Record startOnDialAnswer="true" callbackUrl="${escapeXml(recordingCallbackUrl)}" callbackMethod="POST"/><Dial callerId="${escapeXml(callerId)}" timeout="30"><Number>${escapeXml(dialNumber)}</Number></Dial></Response>`
   );
 };
 
