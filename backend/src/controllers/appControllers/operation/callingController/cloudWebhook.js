@@ -30,7 +30,15 @@ const toDate = (v) => {
   if (!v) return undefined;
   const n = Number(v);
   if (Number.isFinite(n) && n > 1e9) return new Date(n < 1e12 ? n * 1000 : n);
-  const d = new Date(v);
+  // Plivo sends "YYYY-MM-DD HH:MM:SS" with no timezone suffix — that's UTC,
+  // not local server time. A bare `new Date(str)` on that shape gets parsed
+  // using the PROCESS's local timezone (Asia/Kolkata here) instead of UTC,
+  // silently shifting every value by the server's UTC offset (confirmed:
+  // answeredAt was coming out ~5.5h BEFORE the call was even placed).
+  // Normalize to an explicit ISO-with-Z string so it's always read as UTC.
+  const s = String(v).trim();
+  const isoLike = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s);
+  const d = new Date(isoLike ? `${s.replace(' ', 'T')}Z` : s);
   return Number.isNaN(d.getTime()) ? undefined : d;
 };
 
