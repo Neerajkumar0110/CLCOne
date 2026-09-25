@@ -92,6 +92,46 @@ Pulls `main`, reinstalls deps, rebuilds the frontend, restarts PM2, reloads Ngin
 
 ---
 
+## Backups & restore (spec §17/§18)
+
+Nothing backed up this database automatically before — `deploy/vps/backup.sh`
+does a daily `mongodump` and prunes anything older than 14 days.
+
+```bash
+chmod +x /var/www/clccrm/deploy/vps/backup.sh
+crontab -e
+# add:
+0 2 * * * /var/www/clccrm/deploy/vps/backup.sh >> /var/log/clccrm-backup.log 2>&1
+```
+
+**Test the restore path periodically** (a backup nobody has ever restored is
+not a real backup) — restore into a scratch database first, never straight
+into production:
+```bash
+mongorestore --uri="mongodb://localhost:27017/clccrm_restore_test" --gzip --archive=/var/backups/clccrm/clccrm-YYYYmmdd-HHMMSS.gz
+```
+
+If the database is MongoDB Atlas rather than self-hosted, prefer Atlas's own
+built-in continuous backups (Atlas project → **Backup**) where the plan
+supports it — `backup.sh` still works as a second, independent copy either way.
+
+## Staging environment
+
+There is currently no separate staging deployment — every push to `main`
+that's deployed here goes straight to what this VPS serves. Before a risky
+change (a schema migration, a new background job, a payment-flow edit),
+either:
+- Spin up a second, smaller VPS running the same `setup.sh` against a
+  separate MongoDB database (copy `backend/.env`, point `DATABASE` at a
+  scratch cluster/db), or
+- Run `npm run dev` locally against a scratch MongoDB Atlas database (fastest
+  option, no second server needed).
+
+Vercel's per-PR preview deployments (if that path is ever used instead of
+this VPS) already give this for free — see the root `vercel.json`.
+
+---
+
 ## Known limitations on bare IP (revisit when a domain is added)
 
 - **No HTTPS.** Login works (JWT in a header, not a Secure cookie), but traffic

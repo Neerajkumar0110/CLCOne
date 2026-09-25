@@ -201,19 +201,45 @@ async function acknowledgementReport(req, res) {
     .sort({ status: 1, studentName: 1 })
     .lean();
   const acknowledged = rows.filter((r) => r.status === 'acknowledged').length;
-  return ok(res, {
-    total: rows.length,
-    acknowledged,
-    pending: rows.length - acknowledged,
-    rows: rows.map((r) => ({
-      id: String(r._id),
-      student: r.studentName,
-      email: r.studentEmail,
-      status: r.status,
-      acknowledgedAt: r.acknowledgedAt,
-      remindedCount: r.remindedCount,
-    })),
-  });
+  const outRows = rows.map((r) => ({
+    id: String(r._id),
+    student: r.studentName,
+    email: r.studentEmail,
+    status: r.status,
+    acknowledgedAt: r.acknowledgedAt,
+    remindedCount: r.remindedCount,
+  }));
+
+  // Spec §16 "Policy acknowledgement report" export — previously JSON-only,
+  // same CSV/XLSX shape as liveScope.js's attendanceExport / learner360.js's
+  // courseReportExport.
+  const format = String(req.query.format || '').toLowerCase();
+  if (format === 'csv' || format === 'xlsx') {
+    const headers = ['Student', 'Email', 'Status', 'Acknowledged At', 'Reminded Count'];
+    const line = (r) =>
+      [r.student, r.email, r.status, r.acknowledgedAt ? new Date(r.acknowledgedAt).toISOString() : '', r.remindedCount]
+        .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
+        .join(',');
+    if (format === 'xlsx') {
+      try {
+        const XLSX = require('xlsx');
+        const ws = XLSX.utils.json_to_sheet(outRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Acknowledgements');
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="policy-acknowledgements.xlsx"');
+        return res.status(200).send(buf);
+      } catch (e) {
+        // fall through to csv
+      }
+    }
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="policy-acknowledgements.csv"');
+    return res.status(200).send([headers.join(','), ...outRows.map(line)].join('\n'));
+  }
+
+  return ok(res, { total: rows.length, acknowledged, pending: rows.length - acknowledged, rows: outRows });
 }
 
 async function myPolicies(req, res) {

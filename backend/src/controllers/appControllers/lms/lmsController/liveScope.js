@@ -51,10 +51,18 @@ async function studentLiveClasses(req, res) {
 }
 
 // GET /api/lms/student/attendance?courseTitle=
+// Sessions that never actually ran must never contribute to an attendance
+// aggregate — today this only holds by an implicit invariant (a cancelled
+// session can't yet have participants because cancellation is restricted to
+// never-started sessions), but that invariant isn't guaranteed to stay true
+// (e.g. if single-session cancellation is later extended to a started
+// class), so every aggregate now defensively filters on status too.
+const ATTENDANCE_COUNTABLE_STATUSES = ['ended', 'recording_processing', 'recording_available'];
+
 async function studentAttendance(req, res) {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
   const me = String(req.admin._id);
-  const q = { removed: false, 'participants.crmUser': req.admin._id };
+  const q = { removed: false, 'participants.crmUser': req.admin._id, status: { $in: ATTENDANCE_COUNTABLE_STATUSES } };
   if (req.query.courseTitle) q.courseTitle = req.query.courseTitle;
   if (req.query.batchName) q.batchName = req.query.batchName;
   const sessions = await LmsLiveSession.find(q).sort({ scheduledStart: 1 }).lean();
@@ -64,15 +72,25 @@ async function studentAttendance(req, res) {
   let partial = 0;
   let absent = 0;
   let late = 0;
+  let excused = 0;
   let sumPct = 0;
+  let countedClasses = 0;
   for (const s of sessions) {
     const p = (s.participants || []).find((x) => String(x.crmUser) === me);
     if (!p) continue;
-    if (p.attendanceStatus === 'PRESENT') present += 1;
-    else if (p.attendanceStatus === 'LATE') { present += 1; late += 1; }
-    else if (p.attendanceStatus === 'PARTIAL') partial += 1;
-    else absent += 1;
-    sumPct += p.attendancePct || 0;
+    // EXCUSED must not fall into the "else" (absent) bucket, and — like a
+    // real attendance policy — an excused class shouldn't drag the % down,
+    // so it's kept out of both the status tally and the % average below.
+    if (p.attendanceStatus === 'EXCUSED') {
+      excused += 1;
+    } else {
+      countedClasses += 1;
+      if (p.attendanceStatus === 'PRESENT') present += 1;
+      else if (p.attendanceStatus === 'LATE') { present += 1; late += 1; }
+      else if (p.attendanceStatus === 'PARTIAL') partial += 1;
+      else absent += 1;
+      sumPct += p.attendancePct || 0;
+    }
     classes.push({
       date: s.scheduledStart,
       className: s.title,
@@ -85,7 +103,7 @@ async function studentAttendance(req, res) {
       joins: p.joinCount,
     });
   }
-  const n = classes.length || 1;
+  const attendancePct = countedClasses ? Math.round(sumPct / countedClasses) : 0;
   return res.status(200).json({
     success: true,
     result: {
@@ -95,7 +113,8 @@ async function studentAttendance(req, res) {
         partial,
         absent,
         late,
-        attendancePct: Math.round(sumPct / n),
+        excused,
+        attendancePct,
       },
       classes,
     },
@@ -117,8 +136,12 @@ async function listRecordings(req, res) {
       ...(req.query.to ? { $lte: new Date(req.query.to) } : {}),
     };
   }
+  // Free-text search across title/course/batch/teacher (spec §11 "searchable
+  // library") — the filters above are exact-match dropdowns only; this is
+  // the actual search box.
+  if (req.query.q && String(req.query.q).trim()) q.$text = { $search: String(req.query.q).trim() };
 
-  let rows = await LiveRecording.find(q).select('+playbackUrl').sort({ publishedAt: -1, created: -1 }).limit(500).lean();
+  let rows = await LiveRecording.find(q).select('+playbackUrl +backupUrl').sort({ publishedAt: -1, created: -1 }).limit(500).lean();
   const now = new Date();
   const ownTaught = (r) =>
     isManager(admin) ||
@@ -172,6 +195,9 @@ async function listRecordings(req, res) {
       // show again for it instead of treating it as already done.
       hasVideo: !!r.playbackUrl,
       canPlay: r.status === 'AVAILABLE' && !!r.playbackUrl && (ownTaught(r) || releasedToStudents(r)),
+      // Manager-only visibility into whether a manual backup link has been
+      // recorded for this recording (spec §11) — never surfaced to students.
+      hasBackup: isManager(admin) ? !!r.backupUrl : undefined,
     })),
   });
 }
@@ -300,6 +326,21 @@ async function deleteRecording(req, res) {
   return res.status(200).json({ success: true, result: { id: String(r._id), status: r.status } });
 }
 
+// POST /api/lms/admin/recordings/:id/backup   { backupUrl }  (manager only)
+// Spec §11 "backup links" — see the LiveRecording.backupUrl model comment:
+// this is a manually-recorded mirror location, not an automated one.
+async function setBackupUrl(req, res) {
+  const LiveRecording = mongoose.model('LiveRecording');
+  const backupUrl = String((req.body || {}).backupUrl || '').trim();
+  const r = await LiveRecording.findByIdAndUpdate(
+    req.params.id,
+    { $set: { backupUrl, backupUpdatedAt: backupUrl ? new Date() : undefined, updated: new Date() } },
+    { new: true }
+  ).select('+backupUrl');
+  if (!r) return res.status(404).json({ success: false, message: 'Recording not found.' });
+  return res.status(200).json({ success: true, result: { id: String(r._id), hasBackup: !!r.backupUrl } });
+}
+
 /* ─────────────── ATTENDANCE DASHBOARD (teacher scoped / admin all) ─────────────── */
 
 async function attendanceDashboard(req, res) {
@@ -307,7 +348,12 @@ async function attendanceDashboard(req, res) {
   const admin = req.admin;
   const mgr = isManager(admin);
 
-  const q = { removed: false };
+  // Excludes cancelled only (not scheduled/live/ending) — this dashboard
+  // intentionally still shows in-progress/future classes for real-time
+  // monitoring (see completedClasses below), it's specifically a cancelled
+  // class's (empty, by current invariant — see ATTENDANCE_COUNTABLE_STATUSES
+  // comment above) participants that must never count toward the KPIs.
+  const q = { removed: false, status: { $ne: 'cancelled' } };
   if (req.query.courseTitle) q.courseTitle = req.query.courseTitle;
   if (req.query.batchName) q.batchName = req.query.batchName;
   if (req.query.teacherName) q.teacherName = req.query.teacherName;
@@ -330,6 +376,7 @@ async function attendanceDashboard(req, res) {
   let partial = 0;
   let absent = 0;
   let late = 0;
+  let excused = 0;
   let durSum = 0;
   let pctSum = 0;
   let cnt = 0;
@@ -340,13 +387,20 @@ async function attendanceDashboard(req, res) {
       if (p.role !== 'student') continue;
       if (studentQ && !(`${p.name} ${p.email || ''}`.toLowerCase().includes(studentQ))) continue;
       if (req.query.status && p.attendanceStatus !== String(req.query.status).toUpperCase()) continue;
-      cnt += 1;
-      durSum += p.totalDurationMin || 0;
-      pctSum += p.attendancePct || 0;
-      if (p.attendanceStatus === 'PRESENT') present += 1;
-      else if (p.attendanceStatus === 'LATE') { present += 1; late += 1; }
-      else if (p.attendanceStatus === 'PARTIAL') partial += 1;
-      else absent += 1;
+      // EXCUSED must not fall into the "else" (absent) bucket, and — like
+      // studentAttendance() above — shouldn't drag avgAttendancePct/
+      // avgDurationMin down, so it's kept out of cnt/durSum/pctSum too.
+      if (p.attendanceStatus === 'EXCUSED') {
+        excused += 1;
+      } else {
+        cnt += 1;
+        durSum += p.totalDurationMin || 0;
+        pctSum += p.attendancePct || 0;
+        if (p.attendanceStatus === 'PRESENT') present += 1;
+        else if (p.attendanceStatus === 'LATE') { present += 1; late += 1; }
+        else if (p.attendanceStatus === 'PARTIAL') partial += 1;
+        else absent += 1;
+      }
       rows.push({
         sessionId: String(s._id),
         crmUser: p.crmUser ? String(p.crmUser) : undefined,
@@ -381,6 +435,7 @@ async function attendanceDashboard(req, res) {
         partial,
         absent,
         late,
+        excused,
         avgAttendancePct: cnt ? Math.round(pctSum / cnt) : 0,
         avgDurationMin: cnt ? Math.round(durSum / cnt) : 0,
         totalClasses: sessions.length,
@@ -579,6 +634,7 @@ async function correctAttendanceHandler(req, res) {
       entityId: req.params.id,
       admin: req.admin,
       reason: b.reason.trim(),
+      before: { student: result.email, ...result.before },
       after: { student: result.email, status: result.status },
     });
     return res.status(200).json({ success: true, result, message: `Attendance corrected to ${result.status}.` });
@@ -594,6 +650,7 @@ module.exports = {
   playRecording,
   uploadRecording,
   deleteRecording,
+  setBackupUrl,
   attendanceDashboard,
   attendanceExport,
   liveMonitor,

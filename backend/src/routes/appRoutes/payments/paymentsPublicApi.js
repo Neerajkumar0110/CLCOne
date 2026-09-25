@@ -15,6 +15,12 @@ const limiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
 // Razorpay Payment Link callback_url — a plain browser redirect, GET only.
 router.route('/return').get(limiter, catchErrors(payments.returnHandler));
 
+// Razorpay server-to-server webhook (see webhook.js) — its own HMAC check
+// stands in for auth, not the publicToken. Registered before the /:token
+// routes below so Express doesn't swallow it as a token value; higher limit
+// since Razorpay (not a browser) is the caller and can burst-retry.
+router.route('/webhook').post(rateLimit({ windowMs: 60 * 1000, max: 600 }), catchErrors(payments.webhookHandler));
+
 router.route('/:token').get(limiter, catchErrors(payments.status));
 router.route('/:token/upload').post(
   limiter,

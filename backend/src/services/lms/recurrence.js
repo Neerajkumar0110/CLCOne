@@ -48,6 +48,12 @@ function istDateTime(baseDate, h, min) {
 function istMidnight(baseDate) {
   return istDateTime(baseDate, 0, 0);
 }
+// "YYYY-MM-DD" (IST calendar day) — matches how Batch.holidays entries are
+// stored (spec §13 "Batch Management: ... holidays").
+function istDateKey(d) {
+  const p = istParts(d);
+  return `${p.year}-${String(p.month + 1).padStart(2, '0')}-${String(p.date).padStart(2, '0')}`;
+}
 
 function parseDays(batch) {
   const src = `${batch.classDays || ''} ${batch.schedule || ''}`.toLowerCase();
@@ -102,6 +108,9 @@ function occurrences(batch) {
   const days = parseDays(batch);
   const { h, min } = parseTime(batch);
   const durMin = parseDuration(batch);
+  // Spec §13 "Batch Management: ... holidays" — previously no way to exclude
+  // a calendar date from the auto-generated schedule at all.
+  const holidays = new Set((batch.holidays || []).filter(Boolean));
 
   const fromRaw = batch.startDate ? new Date(batch.startDate) : new Date();
   const from = istMidnight(fromRaw); // UTC instant of 00:00 IST on that calendar day
@@ -121,7 +130,8 @@ function occurrences(batch) {
   let guard = 0;
   while (guard++ < 1200 && out.length < MAX_AUTO_CLASSES) {
     if (to && cursor > to) break;
-    const isClassDay = days.length ? days.includes(istParts(cursor).dow) : out.length === 0; // no days -> single class
+    const isClassDay =
+      (days.length ? days.includes(istParts(cursor).dow) : out.length === 0) && !holidays.has(istDateKey(cursor));
     if (isClassDay) {
       const start = istDateTime(cursor, h, min);
       if (!to || start <= new Date(to.getTime() + 86400000)) {

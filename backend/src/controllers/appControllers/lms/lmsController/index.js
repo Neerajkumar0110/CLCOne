@@ -22,6 +22,8 @@ const eligibility = require('./eligibility');
 const projects = require('./projects');
 const health = require('./health');
 const learner360 = require('./learner360');
+const learnerOverview = require('./learnerOverview');
+const communication = require('./communication');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -68,7 +70,10 @@ module.exports = {
   liveGet: liveclass.get,
   liveCreate: liveclass.create,
   liveUpdateTime: liveclass.updateTime,
+  liveCancel: liveclass.cancel,
   liveAddStudent: liveclass.addStudent,
+  liveAddHoliday: liveclass.addHoliday,
+  liveRemoveHoliday: liveclass.removeHoliday,
   studentSearch: liveclass.studentSearch,
   batchStudents: liveclass.batchStudents,
   removeBatchStudent: liveclass.removeStudent,
@@ -109,6 +114,7 @@ module.exports = {
   // student learning surface (outline + progress)
   learnMyCourses: learning.myCourses,
   learnCourseOutline: learning.courseOutline,
+  learnSearch: learning.searchContent,
   learnLessonDetail: learning.lessonDetail,
   learnSaveProgress: learning.saveProgress,
   learnMarkComplete: learning.markComplete,
@@ -174,6 +180,7 @@ module.exports = {
   liveRecordingPlay: scope.playRecording,
   liveRecordingUpload: scope.uploadRecording,
   liveRecordingDelete: scope.deleteRecording,
+  liveRecordingSetBackup: scope.setBackupUrl,
   liveAttendanceDashboard: scope.attendanceDashboard,
   liveAttendanceExport: scope.attendanceExport,
   liveMonitor: scope.liveMonitor,
@@ -193,8 +200,13 @@ module.exports = {
   assessmentBreakdown: assessments.getAttemptBreakdown,
   assessmentProctorEvent: assessments.logProctorEvent,
   assessmentAdminAttempts: assessments.getAttempts,
+  assessmentAdminAttemptsExport: assessments.getAttemptsExport,
+  assessmentNotAttempted: assessments.notAttemptedReport,
   assessmentAdminAttemptReport: assessments.getAttemptReport,
+  assessmentCorrectAttempt: assessments.correctAttempt,
   assessmentAdminSummary: assessments.getSummary,
+  assessmentSettingsGet: assessments.getAssessmentSettings,
+  assessmentSettingsUpdate: assessments.updateAssessmentSettings,
   assessmentCurriculumSessions: assessments.getSessions,
   assessmentCurriculumUpdateDelivery: assessments.updateDelivery,
 
@@ -206,6 +218,9 @@ module.exports = {
   policyArchive: policies.archive,
   policyReport: policies.acknowledgementReport,
   myPolicies: policies.myPolicies,
+  myOverview: learnerOverview.myOverview,
+  myDataExport: learnerOverview.exportMyData,
+  myDataDeletionRequest: learnerOverview.requestDataDeletion,
   policyAcknowledge: policies.acknowledge,
 
   // eligibility / placement readiness engine
@@ -226,8 +241,17 @@ module.exports = {
 
   // system health
   systemHealth: health.systemHealth,
+  toggleIncidentMode: health.toggleIncidentMode,
+  emailDeliveryLogs: health.emailDeliveryLogs,
+  commStatus: communication.connectionStatus,
+  commTemplateList: communication.listTemplates,
+  commTemplateCreate: communication.createTemplate,
+  commTemplateUpdate: communication.updateTemplate,
+  commTemplateRemove: communication.removeTemplate,
+  commDeliverySummary: communication.deliverySummary,
 
   // learner 360 report
   learner360Report: learner360.courseReport,
   learner360Export: learner360.courseReportExport,
+  learnerTimeline: learner360.learnerTimeline,
 };

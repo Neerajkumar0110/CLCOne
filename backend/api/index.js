@@ -207,6 +207,8 @@ try {
     PolicyDocument: unwrap(require('../src/models/appModels/lms/PolicyDocument')),
     PolicyAcknowledgement: unwrap(require('../src/models/appModels/lms/PolicyAcknowledgement')),
     AuditLog: unwrap(require('../src/models/appModels/lms/AuditLog')),
+    EmailDeliveryLog: unwrap(require('../src/models/appModels/lms/EmailDeliveryLog')),
+    NotificationTemplate: unwrap(require('../src/models/appModels/lms/NotificationTemplate')),
     EligibilityRule: unwrap(require('../src/models/appModels/lms/EligibilityRule')),
     Project: unwrap(require('../src/models/appModels/lms/Project')),
     // Proctored-assessment subsystem (ported from python-test-platform) — was

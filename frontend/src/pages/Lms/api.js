@@ -100,6 +100,7 @@ const lmsApi = {
   // ── dedicated panels ─────────────────────────────────────────────
   teacherDashboard: (f = {}) => request.get({ entity: `lms/teacher/dashboard${qs(f)}` }),
   studentDashboard: (f = {}) => request.get({ entity: `lms/student/dashboard${qs(f)}` }),
+  myOverview: () => request.get({ entity: 'lms/my/overview' }),
 
   // ── curriculum builder (teacher) ─────────────────────────────────
   courseOutline: (courseId) => request.get({ entity: `lms/courses/${courseId}/outline` }),

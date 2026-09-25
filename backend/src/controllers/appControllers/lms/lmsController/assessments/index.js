@@ -15,8 +15,13 @@ module.exports = {
   getAttemptBreakdown: test.getAttemptBreakdown,
 
   getAttempts: admin.getAttempts,
+  getAttemptsExport: admin.getAttemptsExport,
+  notAttemptedReport: admin.notAttemptedReport,
   getAttemptReport: admin.getAttemptReport,
   getSummary: admin.getSummary,
+  getAssessmentSettings: admin.getAssessmentSettings,
+  updateAssessmentSettings: admin.updateAssessmentSettings,
+  correctAttempt: admin.correctAttempt,
 
   getSessions: curriculum.getSessions,
   updateDelivery: curriculum.updateDelivery,

@@ -72,6 +72,11 @@ studentSchema.pre('save', async function (next) {
     if (!this.feeDue) this.feeDue = Math.max(0, Math.round((this.feeGrandTotal - paid) * 100) / 100);
   }
 
+  // Spec §7 "Archive/suspend/withdraw states must immediately affect access
+  // rules" — a status change (Active -> On Hold/Dropped/Deferred/Completed,
+  // or back) must flip the linked Admin login's rosterHold right away.
+  this.$locals.statusTouched = this.isNew || this.isModified('status');
+
   // Batch.enrolled needs a recount whenever this student's batch changes —
   // capture the *previous* value here (before it's overwritten below) so
   // post-save can recount both the batch they left and the one they joined.
@@ -89,6 +94,11 @@ studentSchema.post('save', function (doc) {
     Promise.resolve()
       .then(() => require('../../../services/lms/studentAccountService').onStudentCreated(doc))
       .catch((e) => console.error('[lms] onStudentCreated failed:', e && e.message));
+  }
+  if (this.$locals.statusTouched && !this.$locals.wasNew) {
+    Promise.resolve()
+      .then(() => require('../../../services/lms/studentAccountService').syncRosterHold(doc))
+      .catch((e) => console.error('[lms] syncRosterHold failed:', e && e.message));
   }
   if (this.$locals.batchTouched) {
     const batches = [doc.batch, this.$locals.prevBatch].filter(Boolean);
@@ -115,20 +125,58 @@ function hasUpdateField(update, field) {
 }
 studentSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate() || {};
-  if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed')) {
-    const prev = await this.model.findOne(this.getQuery()).select('batch').lean();
+  if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed') || hasUpdateField(update, 'status')) {
+    const prev = await this.model.findOne(this.getQuery()).select('batch status').lean();
     this._prevBatch = prev && prev.batch;
+    this._prevStatus = prev && prev.status;
+  }
+  if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed')) {
     this._recountBatch = true;
   }
+  // Spec §7 — the generic CRUD Edit path (admin flipping a student's status
+  // in the Students tab) goes through findOneAndUpdate, which the document
+  // pre/post('save') hooks above never see.
+  if (hasUpdateField(update, 'status') || hasUpdateField(update, 'removed')) {
+    this._syncRosterHold = true;
+  }
+  // Spec §17 "every sensitive change records who/what/when/reason" — a
+  // student's status (Active/On Hold/Dropped/Deferred/Completed) directly
+  // gates their LMS access (see rosterHold above); this was the one previously
+  // audit-logged nowhere at all. Actor comes from the generic CRUD update
+  // controller passing `actor: req.admin` as a query option (see
+  // createCRUDController/update.js) — a harmless no-op for every other model.
+  this._actor = this.getOptions().actor;
   next();
 });
 studentSchema.post('findOneAndUpdate', function (doc) {
-  if (!this._recountBatch || !doc) return;
-  const batches = [doc.batch, this._prevBatch].filter(Boolean);
-  if (!batches.length) return;
-  Promise.resolve()
-    .then(() => require('../../../services/lms/studentAccountService').syncBatchEnrolledCounts(batches))
-    .catch((e) => console.error('[lms] syncBatchEnrolledCounts failed:', e && e.message));
+  if (!doc) return;
+  if (this._recountBatch) {
+    const batches = [doc.batch, this._prevBatch].filter(Boolean);
+    if (batches.length) {
+      Promise.resolve()
+        .then(() => require('../../../services/lms/studentAccountService').syncBatchEnrolledCounts(batches))
+        .catch((e) => console.error('[lms] syncBatchEnrolledCounts failed:', e && e.message));
+    }
+  }
+  if (this._syncRosterHold) {
+    Promise.resolve()
+      .then(() => require('../../../services/lms/studentAccountService').syncRosterHold(doc))
+      .catch((e) => console.error('[lms] syncRosterHold failed:', e && e.message));
+  }
+  if (this._actor && this._prevStatus !== undefined && this._prevStatus !== doc.status) {
+    Promise.resolve()
+      .then(() =>
+        require('../../../services/lms/auditLog').record({
+          module: 'student',
+          action: 'status.change',
+          entityType: 'Student',
+          entityId: doc._id,
+          admin: this._actor,
+          after: { student: doc.email, from: this._prevStatus, to: doc.status },
+        })
+      )
+      .catch((e) => console.error('[lms] student status audit log failed:', e && e.message));
+  }
 });
 
 module.exports = mongoose.model('Student', studentSchema);

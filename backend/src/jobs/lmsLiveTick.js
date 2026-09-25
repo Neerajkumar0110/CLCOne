@@ -17,7 +17,9 @@ async function recipients(session) {
   if (session.teacherCrmUser) out.set(String(session.teacherCrmUser), 'teacher');
   if (session.moodleCourseId) {
     const LmsEnrolment = mongoose.model('LmsEnrolment');
-    const enr = await LmsEnrolment.find({ moodleCourseId: session.moodleCourseId, status: { $ne: 'ended' } }, 'crmUser roleShortname').lean();
+    // status: 'active' only — 'pending'/'suspended'/'ended' must not still
+    // receive class notifications (spec §7).
+    const enr = await LmsEnrolment.find({ moodleCourseId: session.moodleCourseId, status: 'active' }, 'crmUser roleShortname').lean();
     enr.forEach((e) => out.set(String(e.crmUser), e.roleShortname === 'editingteacher' ? 'teacher' : 'student'));
   }
   // Falls back to the batch's Student roster, matched to its login (Admin)
@@ -40,6 +42,18 @@ async function recipients(session) {
     }
   }
   (session.participants || []).forEach((p) => p.crmUser && !out.has(String(p.crmUser)) && out.set(String(p.crmUser), p.role));
+
+  // Final catch-all (spec §7): drop anyone whose login is currently on
+  // rosterHold (Student.status moved away from Active — see
+  // services/lms/studentAccountService.js#syncRosterHold) regardless of
+  // which branch above added them — covers a stale participants[] row from
+  // before they were archived, which none of the branch-level status filters
+  // above can see.
+  if (out.size) {
+    const Admin = mongoose.model('Admin');
+    const held = await Admin.find({ _id: { $in: [...out.keys()] }, rosterHold: true }, '_id').lean();
+    held.forEach((a) => out.delete(String(a._id)));
+  }
   return out;
 }
 
@@ -104,26 +118,35 @@ async function runNotifications() {
   }
 }
 
+// One full tick's worth of work, extracted so it can run either on the
+// setInterval below (persistent process — VPS/PM2) or on-demand from a
+// serverless cron endpoint (backend/src/routes/appRoutes/cronApi.js) where
+// setInterval never fires because the process doesn't stay alive between
+// requests. Safe to call repeatedly/concurrently — every branch only acts on
+// rows that are actually due.
+async function runOnce() {
+  require('../services/lms/health').ping('lmsLiveTick');
+  try {
+    await liveClassService.autoLifecycleTick();
+  } catch (e) {
+    console.error('lmsLiveTick lifecycle:', e.message);
+  }
+  try {
+    await liveClassService.pollRecordings();
+  } catch (e) {
+    console.error('lmsLiveTick recordings:', e.message);
+  }
+  try {
+    await runNotifications();
+  } catch (e) {
+    console.error('lmsLiveTick notify:', e.message);
+  }
+}
+
 function start() {
-  setInterval(async () => {
-    require('../services/lms/health').ping('lmsLiveTick');
-    try {
-      await liveClassService.autoLifecycleTick();
-    } catch (e) {
-      console.error('lmsLiveTick lifecycle:', e.message);
-    }
-    try {
-      await liveClassService.pollRecordings();
-    } catch (e) {
-      console.error('lmsLiveTick recordings:', e.message);
-    }
-    try {
-      await runNotifications();
-    } catch (e) {
-      console.error('lmsLiveTick notify:', e.message);
-    }
-  }, TICK_MS);
+  setInterval(runOnce, TICK_MS);
   console.log(`[lms] live tick every ${Math.round(TICK_MS / 1000)}s — provider: ${lmsConfig.meeting.effectiveProvider}`);
 }
 
+start.runOnce = runOnce;
 module.exports = start;

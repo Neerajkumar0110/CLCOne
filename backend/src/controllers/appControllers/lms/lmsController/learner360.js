@@ -121,4 +121,73 @@ async function courseReportExport(req, res) {
   return res.status(200).send([headers.join(','), ...rows.map(line)].join('\n'));
 }
 
-module.exports = { courseReport, courseReportExport };
+// GET /api/lms/admin/learner-timeline/:crmUserId — manager only. Spec §13
+// "Learner Management: view complete learner timeline" — previously nothing
+// combined one learner's enrollment -> attendance -> payments -> corrections
+// -> status-change history; courseReport above is course-wide-all-students
+// metrics, not a single learner's chronological record.
+async function learnerTimeline(req, res) {
+  if (!isManager(req.admin)) return res.status(403).json({ success: false, message: 'Management role required.' });
+
+  const Admin = mongoose.model('Admin');
+  const Student = mongoose.model('Student');
+  const PaymentRequest = mongoose.model('PaymentRequest');
+  const AuditLog = mongoose.model('AuditLog');
+
+  const learner = await Admin.findOne({ _id: req.params.crmUserId, removed: false }).lean();
+  if (!learner) return res.status(404).json({ success: false, message: 'Learner not found.' });
+
+  const [rosterRows, payments, statusChanges, attendanceCorrections] = await Promise.all([
+    Student.find({ email: rxEq(learner.email) }).sort({ enrolledOn: 1 }).lean(),
+    PaymentRequest.find({ studentEmail: rxEq(learner.email) }).sort({ created: 1 }).lean(),
+    AuditLog.find({ module: 'student', action: 'status.change', entityId: learner._id }).sort({ created: 1 }).lean(),
+    AuditLog.find({ module: 'attendance', action: 'correct', 'after.student': rxEq(learner.email) }).sort({ created: 1 }).lean(),
+  ]);
+
+  const events = [];
+  rosterRows.forEach((r) =>
+    events.push({
+      at: r.enrolledOn || r.created,
+      type: 'enrollment',
+      summary: `Enrolled — ${r.course || 'course'}${r.batch ? ` (batch ${r.batch})` : ''}`,
+      detail: { course: r.course, batch: r.batch, status: r.status },
+    })
+  );
+  payments.forEach((p) =>
+    events.push({
+      at: p.created,
+      type: 'payment',
+      summary: `Payment ${p.status} — ₹${p.amount} (installment ${p.installmentNo}/${p.installmentCount})`,
+      detail: { status: p.status, amount: p.amount, razorpayPaymentId: p.razorpayPaymentId },
+    })
+  );
+  statusChanges.forEach((a) =>
+    events.push({
+      at: a.created,
+      type: 'status-change',
+      summary: `Status changed: ${a.after?.from || '?'} → ${a.after?.to || '?'}`,
+      detail: { by: a.performedByName, from: a.after?.from, to: a.after?.to },
+    })
+  );
+  attendanceCorrections.forEach((a) =>
+    events.push({
+      at: a.created,
+      type: 'attendance-correction',
+      summary: `Attendance corrected to ${a.after?.status || '?'} — ${a.reason || 'no reason given'}`,
+      detail: { by: a.performedByName, before: a.before, after: a.after, reason: a.reason },
+    })
+  );
+
+  events.sort((x, y) => new Date(x.at) - new Date(y.at));
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      learner: { id: String(learner._id), name: learner.name, email: learner.email, rosterHold: !!learner.rosterHold, financeHold: !!learner.financeHold },
+      currentStatus: rosterRows[rosterRows.length - 1]?.status || null,
+      events,
+    },
+  });
+}
+
+module.exports = { courseReport, courseReportExport, learnerTimeline };

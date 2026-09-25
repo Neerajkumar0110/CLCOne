@@ -1,12 +1,15 @@
 const mongoose = require('mongoose');
+const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 
 // Ported from python-test-platform's src/controllers/adminController.js
 // (Prisma -> Mongoose). Filtering/searching is simpler than the reference
 // version because candidate name/email/batch are denormalized directly onto
 // AssessmentAttempt (see that model's comment) instead of living on a
 // separate User table that would need a relational filter.
-
-const QUALIFY_THRESHOLD = 0.9;
+//
+// qualifyThreshold now comes from assessmentSettingsService (admin-
+// configurable) instead of a hardcoded constant independently duplicated
+// here and in testController.js.
 
 async function getAttempts(req, res) {
   try {
@@ -80,8 +83,14 @@ async function getAttempts(req, res) {
       attemptNumberMap.set(String(a._id), groupCounters[key]);
     }
 
+    const { qualifyThreshold } = await assessmentSettings.get();
     let results = attempts.map((a) => {
-      const qual = a.status === 'SUBMITTED' && a.totalCount ? a.score / a.totalCount >= QUALIFY_THRESHOLD : null;
+      const qual =
+        a.qualified !== undefined && a.qualified !== null
+          ? a.qualified
+          : a.status === 'SUBMITTED' && a.totalCount
+          ? a.score / a.totalCount >= qualifyThreshold
+          : null;
       return {
         attemptId: a._id,
         studentName: a.candidateName,
@@ -115,6 +124,95 @@ async function getAttempts(req, res) {
     console.error('Admin get assessment attempts error:', err);
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
+}
+
+// GET /api/lms/assessments/admin/attempts/export?format=csv|xlsx&testType=&batch=&status=
+// Spec §16 "Assessment attempt/result report" — getAttempts above is JSON +
+// paginated (the frontend only ever CSV-exports the current page client-
+// side); this exports every matching row server-side, same shape as the
+// attendance/learner-360/policy-ack exports.
+async function getAttemptsExport(req, res) {
+  const { testType, status, batch, qualified } = req.query;
+  const AssessmentAttempt = mongoose.model('AssessmentAttempt');
+  const where = {};
+  if (testType) where.testType = testType;
+  if (status) where.status = status;
+  if (batch) where.candidateBatch = batch;
+
+  const { qualifyThreshold } = await assessmentSettings.get();
+  const rows = await AssessmentAttempt.find(where).sort({ startedAt: -1 }).limit(5000).lean();
+  let outRows = rows.map((a) => ({
+    student: a.candidateName,
+    email: a.candidateEmail,
+    batch: a.candidateBatch,
+    testType: a.testType,
+    status: a.status,
+    score: a.score,
+    totalCount: a.totalCount,
+    qualified:
+      a.qualified !== undefined && a.qualified !== null
+        ? a.qualified
+        : a.status === 'SUBMITTED' && a.totalCount
+        ? a.score / a.totalCount >= qualifyThreshold
+        : null,
+    startedAt: a.startedAt,
+    submittedAt: a.submittedAt,
+  }));
+  if (qualified !== undefined) {
+    const want = qualified === 'true';
+    outRows = outRows.filter((r) => r.qualified === want);
+  }
+
+  const format = String(req.query.format || 'csv').toLowerCase();
+  const headers = ['Student', 'Email', 'Batch', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Started', 'Submitted'];
+  const line = (r) =>
+    [r.student, r.email, r.batch, r.testType, r.status, r.score, r.totalCount, r.qualified, r.startedAt ? new Date(r.startedAt).toISOString() : '', r.submittedAt ? new Date(r.submittedAt).toISOString() : '']
+      .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
+      .join(',');
+
+  if (format === 'xlsx') {
+    try {
+      const XLSX = require('xlsx');
+      const ws = XLSX.utils.json_to_sheet(outRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Assessment Attempts');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="assessment-attempts.xlsx"');
+      return res.status(200).send(buf);
+    } catch (e) {
+      // fall through to csv
+    }
+  }
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="assessment-attempts.csv"');
+  return res.status(200).send([headers.join(','), ...outRows.map(line)].join('\n'));
+}
+
+// GET /api/lms/assessments/admin/not-attempted?testType=&batch= — manager
+// only. Spec §16 "Disqualified/qualified/pending/NOT-ATTEMPTED report" — the
+// existing report only ever lists rows for attempts that exist; it never
+// cross-references the roster to find students who never started at all.
+async function notAttemptedReport(req, res) {
+  const { testType, batch } = req.query;
+  if (!testType) return res.status(400).json({ success: false, message: 'testType is required.' });
+
+  const Student = mongoose.model('Student');
+  const AssessmentAttempt = mongoose.model('AssessmentAttempt');
+  const rosterQuery = { removed: false, status: 'Active' };
+  if (batch) rosterQuery.batch = batch;
+  const roster = await Student.find(rosterQuery).select('name email batch').lean();
+
+  const attempted = await AssessmentAttempt.find({ testType, candidateEmail: { $in: roster.map((r) => r.email) } })
+    .select('candidateEmail')
+    .lean();
+  const attemptedEmails = new Set(attempted.map((a) => (a.candidateEmail || '').toLowerCase()));
+  const notAttempted = roster.filter((r) => r.email && !attemptedEmails.has(r.email.toLowerCase()));
+
+  return res.status(200).json({
+    success: true,
+    result: { testType, totalRoster: roster.length, notAttemptedCount: notAttempted.length, rows: notAttempted },
+  });
 }
 
 async function getAttemptReport(req, res) {
@@ -195,7 +293,7 @@ async function getSummary(req, res) {
       AssessmentAttempt.countDocuments(),
       AssessmentAttempt.countDocuments({ startedAt: { $gte: todayStart } }),
       AssessmentAttempt.countDocuments({ startedAt: { $gte: weekStart } }),
-      AssessmentAttempt.find({ status: 'SUBMITTED' }).select('score totalCount').lean(),
+      AssessmentAttempt.find({ status: 'SUBMITTED' }).select('score totalCount qualified').lean(),
     ]);
 
     const avgScorePct =
@@ -203,7 +301,10 @@ async function getSummary(req, res) {
         ? (submittedAttempts.reduce((sum, a) => sum + a.score / a.totalCount, 0) / submittedAttempts.length) * 100
         : 0;
 
-    const qualifiedCount = submittedAttempts.filter((a) => a.score / a.totalCount >= QUALIFY_THRESHOLD).length;
+    const { qualifyThreshold } = await assessmentSettings.get();
+    const qualifiedCount = submittedAttempts.filter((a) =>
+      a.qualified !== undefined && a.qualified !== null ? a.qualified : a.score / a.totalCount >= qualifyThreshold
+    ).length;
 
     const wrongAttemptQuestions = await AssessmentAttemptQuestion.find({ isCorrect: false }).select('questionId').lean();
     const wrongQuestions = await AssessmentQuestion.find({
@@ -240,4 +341,76 @@ async function getSummary(req, res) {
   }
 }
 
-module.exports = { getAttempts, getAttemptReport, getSummary };
+// POST /api/lms/assessments/admin/attempts/:attemptId/correct — manager only.
+// Spec §9 "Manual review and result correction must require authorization
+// and an audit trail" — mirrors liveScope.js#correctAttendanceHandler's
+// shape exactly (mandatory reason, before/after AuditLog entry, on-row
+// correction trace).
+async function correctAttempt(req, res) {
+  const b = req.body || {};
+  const reason = String(b.reason || '').trim();
+  if (!reason) return res.status(400).json({ success: false, message: 'A correction reason is required.' });
+  if (b.status && !['SUBMITTED', 'SUSPENDED'].includes(b.status)) {
+    return res.status(400).json({ success: false, message: 'Invalid status.' });
+  }
+
+  const AssessmentAttempt = mongoose.model('AssessmentAttempt');
+  const attempt = await AssessmentAttempt.findById(req.params.attemptId);
+  if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found.' });
+
+  const before = { score: attempt.score, totalCount: attempt.totalCount, status: attempt.status, qualified: attempt.qualified };
+
+  if (b.score !== undefined) attempt.score = Math.max(0, Number(b.score) || 0);
+  if (b.totalCount !== undefined) attempt.totalCount = Math.max(1, Number(b.totalCount) || attempt.totalCount);
+  if (b.status) attempt.status = b.status;
+  if (b.qualified !== undefined) {
+    attempt.qualified = !!b.qualified;
+  } else if (b.score !== undefined || b.totalCount !== undefined) {
+    // Re-derive from the (possibly just-edited) score/totalCount against the
+    // CURRENT threshold, unless the admin explicitly overrode `qualified`
+    // itself — same rule submitTest uses at first-submission time.
+    const { qualifyThreshold } = await assessmentSettings.get();
+    attempt.qualified = attempt.totalCount ? attempt.score / attempt.totalCount >= qualifyThreshold : false;
+  }
+  attempt.correctedBy = req.admin._id;
+  attempt.correctedByName = req.admin.name;
+  attempt.correctedAt = new Date();
+  attempt.correctedReason = reason;
+  await attempt.save();
+
+  try {
+    await require('../../../../../services/lms/auditLog').record({
+      module: 'assessment',
+      action: 'correct',
+      entityType: 'AssessmentAttempt',
+      entityId: attempt._id,
+      admin: req.admin,
+      reason,
+      before,
+      after: { score: attempt.score, totalCount: attempt.totalCount, status: attempt.status, qualified: attempt.qualified },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+
+  return res.status(200).json({
+    success: true,
+    result: { attemptId: attempt._id, score: attempt.score, totalCount: attempt.totalCount, status: attempt.status, qualified: attempt.qualified },
+    message: 'Attempt corrected.',
+  });
+}
+
+// GET/POST /api/lms/admin/assessment-settings — manager only. Spec §10
+// "not admin-configurable" — qualifyThreshold/maxAttemptsPerType/cooldownDays
+// were hardcoded constants; now a single LmsSetting('assessments') row, same
+// shape as liveScope.js's getSettings/updateSettings for live classes.
+async function getAssessmentSettings(req, res) {
+  const s = await assessmentSettings.get(true);
+  return res.status(200).json({ success: true, result: s });
+}
+async function updateAssessmentSettings(req, res) {
+  const s = await assessmentSettings.update(req.body || {});
+  return res.status(200).json({ success: true, result: s });
+}
+
+module.exports = { getAttempts, getAttemptsExport, notAttemptedReport, getAttemptReport, getSummary, getAssessmentSettings, updateAssessmentSettings, correctAttempt };

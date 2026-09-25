@@ -95,7 +95,22 @@ async function sendEmiReminders() {
     .limit(1000)
     .lean();
 
+  // Spec §7 "Archive/suspend/withdraw states must immediately affect all
+  // scheduled communications" — this tick had no student-status check at
+  // all (unlike lmsPolicyReminderTick/lmsLiveTick), so a Dropped/On Hold/
+  // Deferred student kept getting EMI reminder emails. A first-installment
+  // reminder can fire before the Student roster row even exists (KYC/roster
+  // creation happens only after that first payment — see
+  // services/payments/studentProvision.js), so "no matching Student record"
+  // must stay allowed; only an explicitly non-Active roster row blocks it.
+  const Student = mongoose.model('Student');
+  const emails = [...new Set(due.map((d) => (d.studentEmail || '').toLowerCase()).filter(Boolean))];
+  const inactiveEmails = new Set(
+    (await Student.find({ email: { $in: emails }, $or: [{ removed: true }, { status: { $ne: 'Active' } }] }).select('email').lean()).map((s) => (s.email || '').toLowerCase())
+  );
+
   for (const doc of due) {
+    if (doc.studentEmail && inactiveEmails.has(doc.studentEmail.toLowerCase())) continue;
     const daysUntil = calendarDaysUntil(now, new Date(doc.dueAt));
     const shouldRemind = [10, 7, 5].includes(daysUntil) || (daysUntil <= 4 && daysUntil >= 0);
     if (!shouldRemind) continue;
@@ -161,4 +176,8 @@ function start() {
   setInterval(tick, TICK_MS);
 }
 
+// Exposed so a serverless cron endpoint (routes/appRoutes/cronApi.js) can run
+// one tick on demand — setInterval above never fires on a deployment that
+// doesn't keep the process alive between requests.
+start.runOnce = tick;
 module.exports = start;

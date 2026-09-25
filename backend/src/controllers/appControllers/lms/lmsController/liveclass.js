@@ -59,6 +59,20 @@ async function updateTime(req, res) {
   return send(res, await liveClassService.updateSchedule(req.params.id, req.admin, req.body || {}));
 }
 
+// POST /api/lms/liveclasses/:id/cancel  { reason }
+async function cancel(req, res) {
+  return send(res, await liveClassService.cancelSession(req.params.id, req.admin, { reason: (req.body || {}).reason }));
+}
+
+// POST /api/lms/batches/:id/holidays  { date: 'YYYY-MM-DD' }
+async function addHoliday(req, res) {
+  return send(res, await liveClassService.addBatchHoliday(req.params.id, req.admin, (req.body || {}).date));
+}
+// DELETE /api/lms/batches/:id/holidays/:date
+async function removeHoliday(req, res) {
+  return send(res, await liveClassService.removeBatchHoliday(req.params.id, req.admin, req.params.date));
+}
+
 // POST /api/lms/batches/:id/students  { email, name?, crmUserId? }
 async function addStudent(req, res) {
   const b = req.body || {};
@@ -83,7 +97,8 @@ async function removeStudent(req, res) {
 
 // POST /api/lms/liveclasses/:id/start
 async function start(req, res) {
-  return send(res, await liveClassService.startSession(req.params.id, req.admin));
+  const force = !!(req.body || {}).force;
+  return send(res, await liveClassService.startSession(req.params.id, req.admin, { force }));
 }
 
 // POST /api/lms/liveclasses/:id/end
@@ -228,6 +243,7 @@ ul{margin:6px 0 0 18px}button{font:inherit;padding:9px 14px;border-radius:8px;bo
 // leaves the client.
 async function deviceCheck(req, res) {
   const b = req.body || {};
+  const passed = !!b.passed;
   try {
     const auditLog = require('../../../../services/lms/auditLog');
     await auditLog.record({
@@ -236,12 +252,25 @@ async function deviceCheck(req, res) {
       entityType: 'LmsLiveSession',
       entityId: req.params.id,
       admin: req.admin,
-      after: { camera: !!b.camera, microphone: !!b.microphone, speaker: !!b.speaker, passed: !!b.passed },
+      after: { camera: !!b.camera, microphone: !!b.microphone, speaker: !!b.speaker, passed },
     });
   } catch (e) {
     /* best-effort */
   }
-  return res.status(200).json({ success: true, result: { logged: true } });
+  // Persisted server-side (not just logged) so issueJoin can actually gate
+  // on it when cameraRequiredToJoin is on — see the model comment on
+  // LmsLiveSession.deviceChecks and liveClassService.js#issueJoin.
+  try {
+    const LmsLiveSession = mongoose.model('LmsLiveSession');
+    await LmsLiveSession.updateOne({ _id: req.params.id }, { $pull: { deviceChecks: { crmUser: req.admin._id } } });
+    await LmsLiveSession.updateOne(
+      { _id: req.params.id },
+      { $push: { deviceChecks: { crmUser: req.admin._id, passed, camera: !!b.camera, microphone: !!b.microphone, speaker: !!b.speaker, at: new Date() } } }
+    );
+  } catch (e) {
+    return res.status(200).json({ success: true, result: { logged: true, persisted: false } });
+  }
+  return res.status(200).json({ success: true, result: { logged: true, persisted: true } });
 }
 
-module.exports = { list, get, create, updateTime, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };
+module.exports = { list, get, create, updateTime, cancel, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };

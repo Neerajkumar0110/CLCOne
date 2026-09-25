@@ -33,6 +33,13 @@ const batchSchema = featureSchema([
   { name: 'notes', type: 'String' },
 ]);
 
+// Spec §13 "Batch Management: ... holidays" — dates (IST, "YYYY-MM-DD") on
+// which recurrence.js will not generate a scheduled class for this batch,
+// even on an otherwise-recurring class day. Managed via POST/DELETE
+// /api/lms/batches/:id/holidays rather than the generic CRUD form (a
+// growing date list doesn't fit that tag-input well).
+batchSchema.add({ holidays: { type: [String], default: [] } });
+
 // "HH:mm" (24h) -> minutes since midnight, or null if unparseable.
 function toMinutes(hhmm) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());

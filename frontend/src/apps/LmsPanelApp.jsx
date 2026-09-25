@@ -53,6 +53,7 @@ const { useBreakpoint } = Grid;
 
 const TeacherDashboard = lazy(() => import('@/pages/Lms/TeacherDashboard'));
 const StudentDashboard = lazy(() => import('@/pages/Lms/StudentDashboard'));
+const LearnerOverview = lazy(() => import('@/pages/Lms/Overview'));
 const LiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
 const Attendance = lazy(() => import('@/pages/Lms/Attendance'));
@@ -257,6 +258,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn/overview', 'My Overview', <TrophyOutlined />, <LearnerOverview />],
   ['/learn/fees', 'My Fees', <WalletOutlined />, <MyFees />],
   ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],

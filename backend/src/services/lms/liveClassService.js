@@ -148,8 +148,17 @@ function recompute(p, session, s) {
   if (curB !== null) total += curB - curA;
   p.totalDurationMin = Math.round(total / 60000);
 
-  const scheduled = session.scheduledDurationMin || 60;
-  p.attendancePct = scheduled > 0 ? Math.min(100, Math.round((p.totalDurationMin / scheduled) * 100)) : 0;
+  // Denominator is the class's ACTUAL duration once it has really started —
+  // a teacher starting late or running over the scheduled slot must not cap
+  // a fully-present student below 100% (or inflate it) against a baseline
+  // that never matched what actually happened. Only falls back to the
+  // scheduled duration before actualStart exists (shouldn't normally happen
+  // once a participant has joined at all).
+  const actualDurationMin = session.actualStart
+    ? Math.round(((session.actualEnd ? +new Date(session.actualEnd) : Date.now()) - new Date(session.actualStart)) / 60000)
+    : 0;
+  const denom = actualDurationMin > 0 ? actualDurationMin : session.scheduledDurationMin || 60;
+  p.attendancePct = denom > 0 ? Math.min(100, Math.round((p.totalDurationMin / denom) * 100)) : 0;
 
   // late = first join later than lateThreshold after actual/scheduled start
   const start = session.actualStart || session.scheduledStart;
@@ -167,6 +176,52 @@ function recompute(p, session, s) {
   } else {
     p.attendanceStatus = 'ABSENT';
     p.present = false;
+  }
+}
+
+// Spec §6 "Attendance percentage appearing incorrect" — eligibilityEngine.js
+// and certificateEngine.js gate course completion / certificates off
+// Student.attendancePct directly, but until now nothing in this whole
+// join/leave-tracking engine ever wrote that field — those decisions ran off
+// a stale/manually-typed number, completely disconnected from real
+// attendance. Recomputes it as the average %, across every ENDED session of
+// the student's batch, excluding EXCUSED (same rule as the student-facing
+// summary in liveScope.js#studentAttendance). Best-effort, fire-and-forget —
+// never blocks endSession/correctAttendance.
+async function syncStudentAttendancePct(session) {
+  try {
+    if (!session.batchName) return;
+    const students = (session.participants || []).filter((p) => p.role === 'student' && p.crmUser && p.email);
+    if (!students.length) return;
+
+    const LmsLiveSession = mongoose.model('LmsLiveSession');
+    const Student = mongoose.model('Student');
+    const sessions = await LmsLiveSession.find({
+      removed: false,
+      batchName: session.batchName,
+      status: { $in: ['ended', 'recording_processing', 'recording_available'] },
+    })
+      .select('participants')
+      .lean();
+
+    for (const stu of students) {
+      const uid = String(stu.crmUser);
+      let sumPct = 0;
+      let counted = 0;
+      for (const sn of sessions) {
+        const p = (sn.participants || []).find((x) => x.crmUser && String(x.crmUser) === uid);
+        if (!p || p.attendanceStatus === 'EXCUSED') continue;
+        sumPct += p.attendancePct || 0;
+        counted += 1;
+      }
+      if (!counted) continue;
+      const pct = Math.round(sumPct / counted);
+      const emailRx = new RegExp(`^${String(stu.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      // eslint-disable-next-line no-await-in-loop
+      await Student.updateOne({ removed: false, batch: session.batchName, email: emailRx }, { $set: { attendancePct: pct } });
+    }
+  } catch (e) {
+    console.error('[lms] syncStudentAttendancePct failed:', e.message);
   }
 }
 
@@ -261,6 +316,34 @@ async function regenerateForBatch(batchId) {
   return { result: { created: created.length } };
 }
 
+// Spec §13 "Batch Management: ... holidays" — add/remove one IST calendar
+// date the auto-schedule must skip, then regenerate (reusing
+// regenerateForBatch, which already safely leaves past/started sessions
+// alone and only wipes+recreates future scheduled/upcoming ones).
+async function addBatchHoliday(batchId, admin, dateStr) {
+  const Batch = mongoose.model('Batch');
+  const d = String(dateStr || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { error: 400, message: 'Date must be in YYYY-MM-DD format.' };
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+  if (!batch.holidays.includes(d)) {
+    batch.holidays.push(d);
+    await batch.save();
+  }
+  const regen = await regenerateForBatch(batchId);
+  return { result: { holidays: batch.holidays, regenerated: regen.result } };
+}
+
+async function removeBatchHoliday(batchId, admin, dateStr) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch) return { error: 404, message: 'Batch not found.' };
+  batch.holidays = (batch.holidays || []).filter((h) => h !== String(dateStr || '').trim());
+  await batch.save();
+  const regen = await regenerateForBatch(batchId);
+  return { result: { holidays: batch.holidays, regenerated: regen.result } };
+}
+
 // Reschedule / edit a class time. Teacher or manager, only before it starts.
 async function updateSchedule(id, admin, patch = {}) {
   const session = await loadFull(id);
@@ -301,6 +384,70 @@ async function updateSchedule(id, admin, patch = {}) {
     { $set: { topic: session.title, scheduledAt: session.scheduledStart, durationMin: session.scheduledDurationMin, agenda: session.description, updated: new Date() } }
   );
   await mongoose.model('LiveRecording').updateOne({ liveSession: session._id }, { $set: { className: session.title } });
+  return { result: safeView(session, 'teacher') };
+}
+
+// Single-session cancel — teacher or manager, reason required, only before a
+// class has actually started (a live/ended class must be ended normally, not
+// cancelled — cancelling only ever applied to never-started sessions, see
+// the model comment). Notifies the batch roster and writes an audit entry.
+async function cancelSession(id, admin, { reason } = {}) {
+  const session = await loadFull(id);
+  if (!session) return { error: 404, message: 'Live class not found.' };
+  const role = await resolveRole(session, admin);
+  if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can cancel it.' };
+  if (!String(reason || '').trim()) return { error: 400, message: 'A cancellation reason is required.' };
+  if (!['scheduled', 'upcoming'].includes(session.status)) {
+    return { error: 409, message: `Cannot cancel a class that is ${DISPLAY[session.status] || session.status}.` };
+  }
+
+  session.status = 'cancelled';
+  session.cancelReason = String(reason).trim().slice(0, 500);
+  session.cancelledBy = admin._id;
+  session.cancelledByName = admin.name;
+  session.cancelledAt = new Date();
+  session.updated = new Date();
+  await session.save();
+
+  await mongoose.model('LiveClass').updateOne({ _id: session.liveClass }, { $set: { status: 'Cancelled', updated: new Date() } });
+
+  try {
+    await require('./auditLog').record({
+      module: 'liveclass',
+      action: 'cancel',
+      entityType: 'LmsLiveSession',
+      entityId: session._id,
+      admin,
+      reason: session.cancelReason,
+      after: { title: session.title, scheduledStart: session.scheduledStart },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+
+  // Notify the batch roster — a scheduled/upcoming class has no participants
+  // yet (join hasn't opened), so the roster is the only affected audience.
+  if (session.batchName) {
+    try {
+      const Student = mongoose.model('Student');
+      const Admin = mongoose.model('Admin');
+      const roster = await Student.find({ removed: false, batch: session.batchName, status: 'Active' }, 'email').lean();
+      const emails = roster.map((r) => r.email).filter(Boolean);
+      if (emails.length) {
+        const emailRxs = emails.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+        const admins = await Admin.find({ removed: false, email: { $in: emailRxs }, rosterHold: { $ne: true } }, '_id email').lean();
+        const realtime = require('./realtime');
+        const mailer = require('./mailer');
+        const title = `Class cancelled: ${session.title}`;
+        const body = `${session.courseTitle || session.batchName} · was scheduled ${new Date(session.scheduledStart).toLocaleString('en-IN')}. Reason: ${session.cancelReason}`;
+        await realtime.notify(admins.map((a) => a._id), { type: 'live.cancelled', title, body, link: '/lms/classes' });
+        await mailer.sendMail(admins.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+      }
+    } catch (e) {
+      /* best-effort */
+    }
+  }
+
   return { result: safeView(session, 'teacher') };
 }
 
@@ -690,12 +837,50 @@ function emitLiveState(session) {
   }
 }
 
-async function startSession(id, admin, { auto = false } = {}) {
+async function startSession(id, admin, { auto = false, force = false } = {}) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   if (!auto) {
     const role = await resolveRole(session, admin);
     if (role !== 'teacher') return { error: 403, message: 'Only the class teacher can start it.' };
+  }
+  // Spec §4 (the Zoom "no license"/capacity analogue) — every session of a
+  // batch shares one persistent meeting room (batchRoom/meetingId, see
+  // LmsBatchRoom.js), and nothing previously checked whether another
+  // occurrence of that same room was already live before starting a new one
+  // (e.g. a manually-created one-off overlapping a recurrence-generated
+  // slot). Two sessions racing to start the same underlying BBB meeting can
+  // corrupt attendance tracking for both. A manager can override with
+  // `force: true` — the admin escalation path the audit found missing —
+  // logged to the audit trail since it's a deliberate override of a safety
+  // check, not routine.
+  if (session.batch && !force) {
+    const LmsLiveSession = mongoose.model('LmsLiveSession');
+    const other = await LmsLiveSession.findOne({
+      _id: { $ne: session._id },
+      batch: session.batch,
+      status: 'live',
+    }).select('_id title scheduledStart').lean();
+    if (other) {
+      return {
+        error: 409,
+        message: `Another session of this batch ("${other.title}") is already live and shares the same meeting room. End it first, or pass force to override.`,
+        conflictSessionId: String(other._id),
+      };
+    }
+  } else if (session.batch && force) {
+    try {
+      await require('./auditLog').record({
+        module: 'liveclass',
+        action: 'start.force',
+        entityType: 'LmsLiveSession',
+        entityId: session._id,
+        admin,
+        reason: 'Started despite another live session sharing the same batch room.',
+      });
+    } catch (e) {
+      /* best-effort */
+    }
   }
   // The background lifecycle tick (autoLifecycleTick) can flip a session to
   // 'live' purely on schedule, with no admin at all (admin is literally
@@ -789,6 +974,43 @@ async function endSession(id, admin, { auto = false } = {}) {
   await session.save();
 
   const provider = getMeetingProvider();
+
+  // Reconciliation snapshot — MUST happen before endRoom(), since BBB's
+  // getMeetingInfo (the only attendee-list API) only answers while the
+  // meeting is still running. Best-effort/read-only: flags a discrepancy for
+  // admin review, never auto-corrects attendanceStatus/pct itself.
+  if (provider.name === 'bigbluebutton') {
+    try {
+      const liveAttendees = await provider.getParticipants(session);
+      if (liveAttendees) {
+        const knownProviderIds = new Set(
+          session.participants.flatMap((p) => (p.sessions || []).map((s) => s.providerUserId).filter(Boolean))
+        );
+        const missingFromLms = liveAttendees.filter((a) => a.userId && !knownProviderIds.has(a.userId));
+        session.attendanceReconciliation = {
+          checkedAt: new Date(),
+          providerAttendeeCount: liveAttendees.length,
+          lmsParticipantCount: session.participants.length,
+          missingFromLms: missingFromLms.map((a) => ({ userId: a.userId, name: a.name })),
+        };
+        if (missingFromLms.length) {
+          require('../../notify')
+            .notify({
+              audience: 'management',
+              module: 'LMS',
+              type: 'attendance.reconciliation',
+              title: `Attendance mismatch: ${session.title}`,
+              body: `BBB reports ${missingFromLms.length} attendee(s) not tracked in the LMS's own attendance record.`,
+              link: '/lms/attendance',
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (e) {
+      /* best-effort */
+    }
+  }
+
   try {
     await provider.endRoom(session);
   } catch (e) {
@@ -797,6 +1019,56 @@ async function endSession(id, admin, { auto = false } = {}) {
 
   const now = new Date();
   session.actualEnd = now;
+
+  // Spec §5 "the system then marks non-joiners absent automatically" — a
+  // student who never joined at all previously got NO participant row at
+  // all (recompute() only ever runs on an existing row), so they were simply
+  // missing from every attendance aggregate — not counted as absent, just
+  // absent from the data set entirely. Backfill one ABSENT row per Active
+  // roster student who never generated a participant entry.
+  if (session.batchName) {
+    try {
+      const Student = mongoose.model('Student');
+      const Admin = mongoose.model('Admin');
+      const roster = await Student.find({ removed: false, batch: session.batchName, status: 'Active' }, 'name email').lean();
+      const existingEmails = new Set(session.participants.map((p) => (p.email || '').toLowerCase()).filter(Boolean));
+      const noShows = roster.filter((r) => r.email && !existingEmails.has(r.email.toLowerCase()));
+      if (noShows.length) {
+        const emailRxs = noShows.map((r) => new RegExp(`^${String(r.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+        const admins = await Admin.find({ removed: false, email: { $in: emailRxs } }, '_id name email rosterHold').lean();
+        const adminByEmail = new Map(admins.map((a) => [String(a.email).toLowerCase(), a]));
+        for (const r of noShows) {
+          const a = adminByEmail.get(String(r.email).toLowerCase());
+          session.participants.push({
+            crmUser: a ? a._id : undefined,
+            name: r.name || (a && a.name) || r.email,
+            email: r.email,
+            role: 'student',
+            attendanceStatus: 'ABSENT',
+            attendancePct: 0,
+            present: false,
+            totalDurationMin: 0,
+            sessions: [],
+          });
+        }
+        // Spec §8 event trigger "Absent learner — automatically after
+        // absence is confirmed" — previously no notification of any kind
+        // fired when a student was marked absent; best-effort, never blocks
+        // ending the class.
+        const notifiable = admins.filter((a) => !a.rosterHold);
+        if (notifiable.length) {
+          const realtime = require('./realtime');
+          const mailer = require('./mailer');
+          const title = `Marked absent: ${session.title}`;
+          const body = `${session.courseTitle || session.batchName} · ${new Date(session.scheduledStart || now).toLocaleString('en-IN')}. Contact your coordinator if this is incorrect.`;
+          await realtime.notify(notifiable.map((a) => a._id), { type: 'attendance.absent', title, body, link: '/learn/attendance' }).catch(() => {});
+          await mailer.sendMail(notifiable.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error('[lms] no-show backfill failed:', e.message);
+    }
+  }
 
   // finalise attendance
   let present = 0;
@@ -857,6 +1129,7 @@ async function endSession(id, admin, { auto = false } = {}) {
   session.updated = now;
   await session.save();
   await mirrorLiveClass(session, 'Completed', { attendedCount: present, registeredCount: session.participants.length });
+  syncStudentAttendancePct(session).catch(() => {});
 
   return {
     result: {
@@ -931,6 +1204,20 @@ async function issueJoin(id, admin) {
   }
   if (session.status !== 'live') {
     return { error: 409, message: role === 'student' ? 'The class has not started yet.' : 'Class is not live.' };
+  }
+  // Spec §6 "If camera permission is required, block/hold the Join action
+  // until the configured requirement is satisfied" — previously this was
+  // enforced UI-only (DevicePreflightModal disabled the button), and was
+  // fully bypassable by calling this endpoint directly. Teachers skip the
+  // preflight modal client-side too, so they're exempt here as well.
+  if (role !== 'teacher') {
+    const joinSettings = await settingsService.get();
+    if (joinSettings.cameraRequiredToJoin) {
+      const dc = (session.deviceChecks || []).find((d) => String(d.crmUser) === String(admin._id));
+      if (!dc || !dc.passed) {
+        return { error: 403, message: 'Camera check required before joining — please complete the device check first.', deviceCheckRequired: true };
+      }
+    }
   }
   // Re-sync against the batch room whenever the session's stored provider
   // is stale relative to the currently configured one (e.g. a session was
@@ -1322,6 +1609,27 @@ async function resolveRole(session, admin, cache) {
     if (trainer && trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
   }
   if (isManager(admin)) return 'teacher';
+  // Every remaining branch below only resolves 'student' access. Spec §2
+  // "Archive/suspend/withdraw states must immediately affect access rules" —
+  // without this guard, a student who had ever joined once (so already has a
+  // participants[] row on this exact session) kept access forever through the
+  // very next line regardless of being set Dropped/On Hold/Deferred later,
+  // bypassing the status filters just added to the enrolment/roster checks
+  // below.
+  if (admin.email) {
+    const emailKey = String(admin.email).toLowerCase();
+    let studentStatus;
+    if (cache && cache.studentStatus.has(emailKey)) {
+      studentStatus = cache.studentStatus.get(emailKey);
+    } else {
+      const Student = mongoose.model('Student');
+      const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      const rec = await Student.findOne({ removed: false, email: emailRx }).select('status').lean();
+      studentStatus = rec ? rec.status : undefined; // undefined = no linked Student record found at all
+      if (cache) cache.studentStatus.set(emailKey, studentStatus);
+    }
+    if (studentStatus && studentStatus !== 'Active') return null;
+  }
   if (session.participants.some((p) => String(p.crmUser) === String(admin._id))) return 'student';
   if (session.moodleCourseId) {
     const mcKey = String(session.moodleCourseId);
@@ -1329,7 +1637,11 @@ async function resolveRole(session, admin, cache) {
     if (cache && cache.enrolment.has(mcKey)) {
       enr = cache.enrolment.get(mcKey);
     } else {
-      enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId }).lean();
+      // status: 'active' only — a 'suspended' or 'ended' enrolment (set by
+      // removeStudentFromBatch, or a withdrawn/failed payment) must not still
+      // grant join access. Without this filter the query matched on
+      // crmUser+course alone and ignored status entirely.
+      enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId, status: 'active' }).lean();
       if (cache) cache.enrolment.set(mcKey, enr || null);
     }
     if (enr) return enr.roleShortname === 'editingteacher' ? 'teacher' : 'student';
@@ -1348,7 +1660,11 @@ async function resolveRole(session, admin, cache) {
     } else {
       const Student = mongoose.model('Student');
       const emailRx = new RegExp(`^${String(admin.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-      onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName });
+      // status: 'Active' only — spec §2 "Archive/suspend/withdraw states must
+      // immediately affect access rules": a student marked On Hold/Dropped/
+      // Deferred/Completed but still listed against the batch must not keep
+      // live-class join access through this fallback.
+      onRoster = await Student.exists({ removed: false, email: emailRx, batch: session.batchName, status: 'Active' });
       if (cache) cache.roster.set(rosterKey, onRoster);
     }
     if (onRoster) return 'student';
@@ -1394,6 +1710,8 @@ async function correctAttendance(sessionId, { crmUserId, status, reason, admin }
     session.participants.push({ crmUser: crmUserId, name: user.name, email: user.email, role: 'student' });
     p = session.participants[session.participants.length - 1];
   }
+  const before = { attendanceStatus: p.attendanceStatus, attendancePct: p.attendancePct, present: p.present };
+
   p.attendanceStatus = status;
   p.present = status === 'PRESENT' || status === 'LATE';
   if (status === 'EXCUSED') p.excusedReason = reason;
@@ -1402,8 +1720,24 @@ async function correctAttendance(sessionId, { crmUserId, status, reason, admin }
   p.correctedAt = new Date();
   p.correctedReason = reason;
 
+  // A manual correction only ever changed attendanceStatus — attendancePct
+  // was left exactly as it was (e.g. an ABSENT student corrected to PRESENT
+  // kept a 0% figure), so every aggregate that averages attendancePct
+  // (liveScope.js studentAttendance/attendanceDashboard,
+  // syncStudentAttendancePct above) silently ignored the correction. Bring
+  // the % in line with the corrected status so those averages reflect it.
+  const s = await settingsService.get();
+  if (status === 'PRESENT' || status === 'LATE') {
+    p.attendancePct = Math.max(p.attendancePct || 0, s.presentThresholdPct);
+  } else if (status === 'ABSENT') {
+    p.attendancePct = Math.min(p.attendancePct || 0, Math.max(0, (s.partialThresholdPct || 1) - 1));
+  } else if (status === 'PARTIAL') {
+    p.attendancePct = Math.max(p.attendancePct || 0, s.partialThresholdPct);
+  }
+
   await session.save();
-  return { name: p.name, email: p.email, status: p.attendanceStatus };
+  syncStudentAttendancePct(session).catch(() => {});
+  return { name: p.name, email: p.email, status: p.attendanceStatus, before };
 }
 
 function safeView(session, role) {
@@ -1457,6 +1791,9 @@ function safeView(session, role) {
           resumable)) ||
       (role === 'student' && (session.status === 'live' || resumable)),
     canWatchRecording: ['recording_available'].includes(session.status),
+    // Manager/teacher-only visibility into the endSession-time BBB
+    // reconciliation snapshot (see model comment) — never shown to students.
+    attendanceReconciliation: role === 'teacher' ? session.attendanceReconciliation : undefined,
     // NO meetingId / passwords / raw URL
   };
 }
@@ -1495,7 +1832,7 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   }
 
   const all = await LmsLiveSession.find(q).sort({ scheduledStart: 1, created: -1 }).limit(500);
-  const cache = { batchTrainer: new Map(), enrolment: new Map(), roster: new Map() };
+  const cache = { batchTrainer: new Map(), enrolment: new Map(), roster: new Map(), studentStatus: new Map() };
   const out = [];
   for (const sn of all) {
     const role = await resolveRole(sn, admin, cache);
@@ -1553,8 +1890,11 @@ module.exports = {
   createSession,
   onBatchCreated,
   regenerateForBatch,
+  addBatchHoliday,
+  removeBatchHoliday,
   ensureBatchRoom,
   updateSchedule,
+  cancelSession,
   addStudentToBatch,
   searchStudents,
   listBatchStudents,

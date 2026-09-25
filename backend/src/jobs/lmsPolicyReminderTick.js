@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const realtime = require('../services/lms/realtime');
 const mailer = require('../services/lms/mailer');
+const { escHtml: esc } = require('../utils/emailFormat');
 
 // Automatic reminders for a learner with a pending policy acknowledgement
 // (spec §8 "Policy acknowledgement pending" trigger, email + in-app leg —
@@ -51,10 +52,14 @@ async function tick() {
         link: '/learn/policies',
       });
       if (row.studentEmail) {
+        // Policy title/version come from an admin-editable PolicyDocument —
+        // previously interpolated into this email's HTML with no escaping at
+        // all (spec §8), so a title containing HTML would render as markup
+        // in the sent email instead of literal text.
         mailer
           .sendMail([row.studentEmail], {
             subject: `Reminder: acknowledge "${row.policyTitle}"`,
-            html: `<p>You still have a pending acknowledgement for <b>${row.policyTitle}</b> (v${row.policyVersion}). Please sign in to the portal to complete it.</p>`,
+            html: `<p>You still have a pending acknowledgement for <b>${esc(row.policyTitle)}</b> (v${esc(row.policyVersion)}). Please sign in to the portal to complete it.</p>`,
           })
           .catch(() => {});
       }
@@ -71,4 +76,8 @@ function start() {
   setInterval(tick, TICK_MS);
 }
 
+// Exposed so a serverless cron endpoint (routes/appRoutes/cronApi.js) can run
+// one tick on demand — setInterval above never fires on a deployment that
+// doesn't keep the process alive between requests.
+start.runOnce = tick;
 module.exports = start;

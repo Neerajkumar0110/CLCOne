@@ -2,19 +2,8 @@
 // email already goes through (services/lms/mailer.js), just with its own
 // template. Best-effort: a send failure never blocks creating the payment.
 const mailer = require('../lms/mailer');
-
-function esc(s) {
-  return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-function fmtInr(n) {
-  try {
-    return Number(n).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-  } catch (e) {
-    return `₹${n}`;
-  }
-}
-
-const GST_RATE = 0.18;
+const { escHtml: esc, fmtInr, fmtDateShort: fmtDate } = require('../../utils/emailFormat');
+const { GST_RATE } = require('./courseCatalog');
 // The entered "Amount" is what's actually charged (GST-inclusive) — this
 // just splits it back out for the email's benefit, it never changes what
 // Razorpay collects. base + gst reconstruct to the original amount (gst is
@@ -66,14 +55,6 @@ async function sendPaymentLinkEmail({ email, name, course, amount, shortUrl, qrD
     html: paymentLinkEmailHtml({ name, course, amount, shortUrl, installmentNo }),
     attachments,
   });
-}
-
-function fmtDate(d) {
-  try {
-    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return '';
-  }
 }
 
 // daysUntilDue: positive = still ahead of the due date, 0 = due today.

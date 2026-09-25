@@ -1,24 +1,26 @@
 const mongoose = require('mongoose');
 const { assignQuestions } = require('../../../../../services/lms/assessments/roundRobinService');
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
+const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 
 // Ported from python-test-platform's src/controllers/testController.js
 // (Prisma -> Mongoose). Auth is the CRM's own bearer auth (req.admin), not the
 // reference project's separate User/JWT — there is no role check here either,
 // matching the reference (any authenticated user may start/submit/run-code).
 
-const COOLDOWN_DAYS = 7;
-const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-const MAX_ATTEMPTS_PER_TYPE = 3;
-const QUALIFY_THRESHOLD = 0.9;
+// qualifyThreshold/maxAttemptsPerType/cooldownDays now come from
+// assessmentSettingsService (LmsSetting('assessments')), admin-configurable —
+// see routes/appRoutes/lms/lmsApi.js's /admin/assessment-settings. These were
+// previously hardcoded constants independently duplicated in
+// adminController.js too (spec §10 "not admin-configurable").
 const TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'];
 
-// Cooldown lifts at midnight UTC on the 7th calendar day after submission, not
-// at the exact submission time — so a 3pm submission doesn't require waiting
-// until 3pm exactly 7 days later.
-function getCooldownEnd(submittedAt) {
+// Cooldown lifts at midnight UTC on the Nth calendar day after submission,
+// not at the exact submission time — so a 3pm submission doesn't require
+// waiting until 3pm exactly N days later.
+function getCooldownEnd(submittedAt, cooldownDays) {
   return new Date(
-    Date.UTC(submittedAt.getUTCFullYear(), submittedAt.getUTCMonth(), submittedAt.getUTCDate() + COOLDOWN_DAYS)
+    Date.UTC(submittedAt.getUTCFullYear(), submittedAt.getUTCMonth(), submittedAt.getUTCDate() + cooldownDays)
   );
 }
 
@@ -35,6 +37,9 @@ async function startTest(req, res) {
     const AssessmentAttemptQuestion = mongoose.model('AssessmentAttemptQuestion');
     const AssessmentQuestion = mongoose.model('AssessmentQuestion');
     const Student = mongoose.model('Student');
+
+    const { maxAttemptsPerType, cooldownDays } = await assessmentSettings.get();
+    const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
 
     const existing = await AssessmentAttempt.findOne({
       candidate: admin._id,
@@ -53,16 +58,16 @@ async function startTest(req, res) {
       testType,
       status: { $in: ['SUBMITTED', 'SUSPENDED'] },
     });
-    if (totalAttempts >= MAX_ATTEMPTS_PER_TYPE) {
+    if (totalAttempts >= maxAttemptsPerType) {
       return res.status(403).json({
         success: false,
-        message: `You have used all ${MAX_ATTEMPTS_PER_TYPE} attempts for this test.`,
+        message: `You have used all ${maxAttemptsPerType} attempts for this test.`,
         attemptsUsed: totalAttempts,
-        maxAttempts: MAX_ATTEMPTS_PER_TYPE,
+        maxAttempts: maxAttemptsPerType,
       });
     }
 
-    const cooldownWindowStart = new Date(Date.now() - COOLDOWN_MS);
+    const cooldownWindowStart = new Date(Date.now() - cooldownMs);
     const recentClosedAttempt = await AssessmentAttempt.findOne({
       candidate: admin._id,
       testType,
@@ -71,7 +76,7 @@ async function startTest(req, res) {
     }).sort({ submittedAt: -1 });
 
     if (recentClosedAttempt && recentClosedAttempt.submittedAt) {
-      const nextEligible = getCooldownEnd(recentClosedAttempt.submittedAt);
+      const nextEligible = getCooldownEnd(recentClosedAttempt.submittedAt, cooldownDays);
       if (nextEligible.getTime() > Date.now()) {
         return res.status(403).json({
           success: false,
@@ -85,14 +90,29 @@ async function startTest(req, res) {
 
     const student = await Student.findOne({ email: admin.email }).select('batch').lean();
 
-    const attempt = await AssessmentAttempt.create({
-      testType,
-      totalCount: questions.length,
-      candidate: admin._id,
-      candidateName: `${admin.name || ''} ${admin.surname || ''}`.trim(),
-      candidateEmail: admin.email,
-      candidateBatch: (student && student.batch) || null,
-    });
+    let attempt;
+    try {
+      attempt = await AssessmentAttempt.create({
+        testType,
+        totalCount: questions.length,
+        candidate: admin._id,
+        candidateName: `${admin.name || ''} ${admin.surname || ''}`.trim(),
+        candidateEmail: admin.email,
+        candidateBatch: (student && student.batch) || null,
+      });
+    } catch (e) {
+      // Lost the race against another concurrent startTest for the same
+      // candidate+testType (see the partial unique index on the model) —
+      // same response the upfront "no existing IN_PROGRESS attempt" check
+      // above already returns for the non-racing case.
+      if (e.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'You already have an in-progress attempt for this test.',
+        });
+      }
+      throw e;
+    }
 
     const attemptQuestions = await AssessmentAttemptQuestion.insertMany(
       questions.map((q, i) => ({ attemptId: attempt._id, questionId: q.id ?? q._id, order: i }))
@@ -189,10 +209,36 @@ async function submitTest(req, res) {
       await aq.save();
     }
 
+    const { qualifyThreshold } = await assessmentSettings.get();
+
     attempt.status = 'SUBMITTED';
     attempt.score = correctCount;
     attempt.submittedAt = new Date();
+    attempt.qualified = attempt.totalCount ? correctCount / attempt.totalCount >= qualifyThreshold : false;
     await attempt.save();
+
+    // Spec §9 "Assessment result email/message can be generated automatically
+    // from the final result" — previously this whole controller never sent
+    // one; a learner only ever found out their result by separately polling
+    // getMyResults. Best-effort, same shape as projects.js#review's email.
+    try {
+      const pct = attempt.totalCount ? Math.round((correctCount / attempt.totalCount) * 100) : 0;
+      await require('../../../../../services/lms/realtime').notify([admin._id], {
+        type: 'assessment.result',
+        title: `${attempt.testType} result: ${attempt.qualified ? 'Qualified' : 'Not qualified'}`,
+        body: `Score: ${correctCount}/${attempt.totalCount} (${pct}%)`,
+        link: '/learn/results',
+      });
+      if (attempt.candidateEmail) {
+        const mailer = require('../../../../../services/lms/mailer');
+        await mailer.sendMail([attempt.candidateEmail], {
+          subject: `${attempt.testType} result: ${attempt.qualified ? 'Qualified' : 'Not qualified'}`,
+          html: `<p>Hi ${attempt.candidateName || ''},</p><p>Your <b>${attempt.testType}</b> assessment has been evaluated.</p><p>Score: <b>${correctCount}/${attempt.totalCount}</b> (${pct}%)<br>Status: <b>${attempt.qualified ? 'Qualified' : 'Not qualified'}</b></p><p>Sign in to the portal to see the full topic-wise breakdown.</p>`,
+        });
+      }
+    } catch (e) {
+      console.error('[lms] assessment result notification failed:', e && e.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -202,6 +248,7 @@ async function submitTest(req, res) {
         score: correctCount,
         gradableTotal: gradableCount,
         totalCount: attempt.totalCount,
+        qualified: attempt.qualified,
       },
     });
   } catch (err) {
@@ -228,6 +275,7 @@ async function getMyResults(req, res) {
   try {
     const admin = req.admin;
     const AssessmentAttempt = mongoose.model('AssessmentAttempt');
+    const { qualifyThreshold, maxAttemptsPerType, cooldownDays } = await assessmentSettings.get();
 
     const attempts = await AssessmentAttempt.find({
       $or: [{ candidate: admin._id }, { candidateEmail: admin.email }],
@@ -236,7 +284,14 @@ async function getMyResults(req, res) {
       .lean();
 
     const results = attempts.map((a) => {
-      const qualified = a.status === 'SUBMITTED' && a.totalCount ? a.score / a.totalCount >= QUALIFY_THRESHOLD : null;
+      // Prefer the persisted field (set at submission time); fall back to
+      // recomputing only for attempts submitted before this field existed.
+      const qualified =
+        a.qualified !== undefined && a.qualified !== null
+          ? a.qualified
+          : a.status === 'SUBMITTED' && a.totalCount
+          ? a.score / a.totalCount >= qualifyThreshold
+          : null;
       return {
         attemptId: a._id,
         testType: a.testType,
@@ -259,15 +314,15 @@ async function getMyResults(req, res) {
       const mostRecent = closedAttempts[0];
       let nextEligibleAt = null;
 
-      if (mostRecent && mostRecent.submittedAt && used < MAX_ATTEMPTS_PER_TYPE) {
-        const cooldownEnd = getCooldownEnd(mostRecent.submittedAt);
+      if (mostRecent && mostRecent.submittedAt && used < maxAttemptsPerType) {
+        const cooldownEnd = getCooldownEnd(mostRecent.submittedAt, cooldownDays);
         if (cooldownEnd > new Date()) nextEligibleAt = cooldownEnd;
       }
 
       attemptsByType[testType] = {
         used,
-        max: MAX_ATTEMPTS_PER_TYPE,
-        remaining: Math.max(0, MAX_ATTEMPTS_PER_TYPE - used),
+        max: maxAttemptsPerType,
+        remaining: Math.max(0, maxAttemptsPerType - used),
         nextEligibleAt,
       };
     }

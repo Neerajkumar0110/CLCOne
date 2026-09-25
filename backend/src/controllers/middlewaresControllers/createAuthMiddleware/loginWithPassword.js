@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
 const { issueSession } = require('./issueSession');
+const { recordFailure } = require('../../../services/security/loginFailureTracker');
 
 // Direct email+password login — a shortcut alongside the normal OTP flow
 // (login.js + verifyOtp.js), not a replacement for it. Every account can
@@ -49,6 +50,7 @@ const loginWithPassword = async (req, res, { userModel }) => {
 
   const dbPassword = await UserPasswordModel.findOne({ user: user._id, removed: false });
   if (!dbPassword || !dbPassword.validPassword(dbPassword.salt, value.password)) {
+    recordFailure({ email: user.email, role: user.role });
     return res.status(403).json({
       success: false,
       result: null,

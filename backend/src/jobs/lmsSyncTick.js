@@ -117,22 +117,28 @@ function safe(v) {
   }
 }
 
+// Extracted so a serverless cron endpoint (routes/appRoutes/cronApi.js) can
+// run one tick on demand — setInterval below never fires on a deployment
+// that doesn't keep the process alive between requests.
+async function runOnce() {
+  try {
+    require('../services/lms/health').ping('lmsSyncTick');
+    // queue + webhook retries run even while unconfigured so jobs park
+    // cleanly; syncService functions no-op until Moodle is reachable.
+    await drainQueue();
+    await retryWebhooks();
+    await maybeReconcile();
+  } catch (err) {
+    console.error('lmsSyncTick error:', err.message);
+  }
+}
+
 function startLmsSyncTick() {
   if (!lmsConfig.isConfigured) {
     console.log('[lms] sync tick idle — set MOODLE_WS_URL / MOODLE_WS_TOKEN to activate.');
   }
-  setInterval(async () => {
-    try {
-      require('../services/lms/health').ping('lmsSyncTick');
-      // queue + webhook retries run even while unconfigured so jobs park
-      // cleanly; syncService functions no-op until Moodle is reachable.
-      await drainQueue();
-      await retryWebhooks();
-      await maybeReconcile();
-    } catch (err) {
-      console.error('lmsSyncTick error:', err.message);
-    }
-  }, TICK_MS);
+  setInterval(runOnce, TICK_MS);
 }
 
+startLmsSyncTick.runOnce = runOnce;
 module.exports = startLmsSyncTick;

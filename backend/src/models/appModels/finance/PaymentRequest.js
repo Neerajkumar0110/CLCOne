@@ -72,6 +72,18 @@ const schema = new mongoose.Schema(
     // Set once the KYC submission auto-creates (or matches) an LMS Student
     // roster row for this candidate — see services/payments/studentProvision.js.
     student: { type: mongoose.Schema.ObjectId, ref: 'Student' },
+    // Set when createOrSyncStudentFromKyc throws (submitKyc.js) — previously
+    // this failure was only console.error'd, so a paid+KYC'd candidate could
+    // silently never get a Student roster row / CRM login with zero trace
+    // anywhere queryable. Cleared the moment provisioning succeeds.
+    studentProvisionError: { type: String, default: '' },
+
+    // Set when Razorpay's confirmed paid amount doesn't match `amount` —
+    // return.js/refreshStatus.js/webhook.js all check this before marking
+    // status 'paid', so a manipulated/mismatched amount is flagged for
+    // manual review instead of silently accepted.
+    amountMismatch: { type: Boolean, default: false },
+    razorpayAmountPaid: { type: Number },
 
     emailSent: { type: Boolean, default: false },
     emailSentAt: Date,
@@ -79,6 +91,13 @@ const schema = new mongoose.Schema(
 
     createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
     createdByName: { type: String, default: '' },
+
+    // Razorpay webhook event ids already processed (routes/appRoutes/payments/
+    // paymentsPublicApi.js -> webhookHandler) — Razorpay retries webhook
+    // delivery on a non-2xx/timeout, and can otherwise send the same event
+    // twice; this makes handling idempotent without relying on the
+    // status !== 'paid' check alone (which itself isn't unique-per-event).
+    handledWebhookEventIds: { type: [String], default: [] },
   },
   { timestamps: { createdAt: 'created', updatedAt: 'updated' } }
 );

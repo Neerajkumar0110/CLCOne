@@ -51,6 +51,19 @@ const schema = new mongoose.Schema({
   allowDownload: { type: Boolean, default: false },
   published: { type: Boolean, default: true },
 
+  // Spec §11 "scheduled content release and prerequisite locking" — both
+  // opt-in per lesson (default off, so existing content is unaffected).
+  // Enforced server-side in learning.js#lessonDetail (not just cosmetic in
+  // courseOutline) — previously nothing blocked fetching any lesson's
+  // content directly regardless of prior-lesson completion or a future date.
+  releaseAt: { type: Date },
+  lockUntilPrevious: { type: Boolean, default: false },
+
+  // Spec §11 "content access can be batch/plan/role based" — empty/unset
+  // means visible to every enrolled student (backward compatible); when set,
+  // only students on one of these batches can see/open this lesson.
+  restrictToBatches: { type: [String], default: [] },
+
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
 });

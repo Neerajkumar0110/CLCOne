@@ -8,20 +8,10 @@ const { lmsConfig } = require('../../config/lms');
 const mailer = require('./mailer');
 const { renderReceiptPdf } = require('./studentReceiptPdf');
 const { planForRequest } = require('../payments/studentProvision');
+const { escHtml: esc, fmtInr } = require('../../utils/emailFormat');
 
 function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
-}
-
-function esc(s) {
-  return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-function fmtInr(n) {
-  try {
-    return Number(n).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-  } catch (e) {
-    return `Rs. ${n}`;
-  }
 }
 
 // A real, memorable-but-not-guessable-by-strangers login password — the
@@ -223,4 +213,42 @@ async function syncBatchEnrolledCounts(batchNames) {
   }
 }
 
-module.exports = { provisionLogin, sendEnrollmentEmail, onStudentCreated, syncBatchEnrolledCounts };
+// Spec §7 "Archive/suspend/withdraw states must immediately affect access
+// rules" — flips Admin.rosterHold the instant a roster row's status leaves
+// "Active" (or is soft-removed), and clears it the instant it's back. Mirrors
+// services/payments/financeHold.js's blockStudent/unblockIfClear shape.
+// Best-effort: never throws into the Student save/update that triggered it.
+async function syncRosterHold(studentDoc) {
+  const email = String((studentDoc && studentDoc.email) || '').trim().toLowerCase();
+  if (!email) return;
+
+  const Admin = mongoose.model('Admin');
+  const admin = await Admin.findOne({ email, removed: false, role: 'Student' });
+  if (!admin) return;
+
+  const shouldHold = !!studentDoc.removed || (studentDoc.status && studentDoc.status !== 'Active');
+  if (!!admin.rosterHold === shouldHold) return; // already in sync
+
+  admin.rosterHold = shouldHold;
+  admin.rosterHoldReason = shouldHold
+    ? studentDoc.removed
+      ? 'Your enrollment record has been archived.'
+      : `Your enrollment status is currently "${studentDoc.status}".`
+    : undefined;
+  await admin.save();
+
+  try {
+    await notify({
+      audience: 'management',
+      module: 'LMS',
+      type: shouldHold ? 'student.access.held' : 'student.access.restored',
+      title: shouldHold ? `${admin.name}'s LMS access put on hold` : `${admin.name}'s LMS access restored`,
+      body: shouldHold ? admin.rosterHoldReason : 'Roster status is Active again.',
+      link: '/lms/students',
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+}
+
+module.exports = { provisionLogin, sendEnrollmentEmail, onStudentCreated, syncBatchEnrolledCounts, syncRosterHold };

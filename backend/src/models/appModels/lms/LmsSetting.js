@@ -47,6 +47,23 @@ const schema = new mongoose.Schema({
   notifyOnStart: { type: Boolean, default: true },
   notifyOnRecording: { type: Boolean, default: true },
 
+  // incident mode (spec §5) — a manually-toggled flag (key = 'incident', a
+  // third row alongside 'live'/'assessments') surfaced in the admin system-
+  // health response so management has one visible place to flag "we're mid-
+  // incident" instead of finding out informally.
+  incidentMode: { type: Boolean, default: false },
+  incidentMessage: { type: String, default: '' },
+  incidentSetAt: { type: Date },
+  incidentSetByName: { type: String, default: '' },
+
+  // proctored-assessment policy (spec §10) — read through
+  // services/lms/assessmentSettingsService.js against a second row,
+  // key = 'assessments'. Previously hardcoded and independently duplicated
+  // across testController.js/adminController.js with no admin control at all.
+  qualifyThreshold: { type: Number, default: 0.9 }, // score/totalCount >= this => qualified
+  maxAttemptsPerType: { type: Number, default: 3 },
+  cooldownDays: { type: Number, default: 7 },
+
   updated: { type: Date, default: Date.now },
 });
 

@@ -75,14 +75,20 @@ async function metricFor(key, { crmUserId, courseId, roster }) {
       return { achievedPercent: Math.round((done / rows.length) * 100), applicable: true, detail: `${done}/${rows.length} acknowledged` };
     }
 
-    // Forward-compatible: soft-disables until the Project Management module
-    // (spec §10, not built yet) registers a `Project` model.
+    // The Project Management module (spec §10) now exists — projects.js /
+    // Project.js. Falls back to "not applicable" only if the model somehow
+    // isn't registered at all.
     case 'project': {
       try {
         const Project = mongoose.model('Project');
         const p = await Project.findOne({ course: courseId, student: crmUserId, removed: { $ne: true } }).select('status').lean();
         if (!p) return { achievedPercent: 0, applicable: true, detail: 'No project assigned' };
-        return { achievedPercent: p.status === 'Approved' ? 100 : 0, applicable: true, detail: p.status };
+        // Bug fix: Project.status is lowercase ('approved', set by
+        // projects.js#review on decision==='approved' — see Project.js's
+        // status enum), but this compared against 'Approved' (capital A) —
+        // the criterion could never register a project as approved even
+        // once an admin enabled it.
+        return { achievedPercent: p.status === 'approved' ? 100 : 0, applicable: true, detail: p.status };
       } catch (e) {
         return { achievedPercent: 100, applicable: false, detail: 'Project module not enabled yet' };
       }

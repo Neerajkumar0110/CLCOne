@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const { issueSession } = require('./issueSession');
+const { recordFailure } = require('../../../services/security/loginFailureTracker');
 
 // Second step of login — checks the 6-digit code emailed by login.js and,
 // if it's correct and not expired, issues the real session token.
@@ -58,12 +59,14 @@ const verifyOtp = async (req, res, { userModel }) => {
   }
 
   const isMatch = bcrypt.compareSync(databasePassword.otpSalt + otp, databasePassword.otpCode);
-  if (!isMatch)
+  if (!isMatch) {
+    recordFailure({ email: user.email, role: user.role });
     return res.status(403).json({
       success: false,
       result: null,
       message: 'Incorrect code.',
     });
+  }
 
   const token = await issueSession({ user, UserPasswordModel, remember });
 

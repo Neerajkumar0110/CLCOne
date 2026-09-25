@@ -140,6 +140,25 @@ const schema = new mongoose.Schema({
   participants: { type: [participantSchema], default: [] },
   joinTickets: { type: [ticketSchema], default: [], select: false },
 
+  // Server-side record of the pre-join device-check result per student
+  // (spec §6) — liveClassService.js#issueJoin actually gates on this now
+  // when cameraRequiredToJoin is on, instead of the check being UI-only and
+  // trivially bypassable via a direct API call.
+  deviceChecks: {
+    type: [
+      {
+        _id: false,
+        crmUser: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+        passed: Boolean,
+        camera: Boolean,
+        microphone: Boolean,
+        speaker: Boolean,
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
+
   // idempotency + bookkeeping
   handledWebhookEvents: { type: [String], default: [], select: false },
   progressApplied: { type: Boolean, default: false },
@@ -148,6 +167,29 @@ const schema = new mongoose.Schema({
   notifiedRecording: { type: Boolean, default: false },
   autoCreated: { type: Boolean, default: false },
   autoEnded: { type: Boolean, default: false },
+
+  // Single-session cancel (spec §13 "Session Management: create/edit/cancel/
+  // reschedule") — previously the only way `status:'cancelled'` was ever set
+  // was a bulk batch-regenerate wipe of never-started sessions; there was no
+  // standalone "cancel this one class" action for a teacher/admin.
+  cancelReason: { type: String },
+  cancelledBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  cancelledByName: { type: String },
+  cancelledAt: { type: Date },
+
+  // Spec §5 "Attendance reconciliation job should compare LMS records with
+  // meeting-provider attendance where supported" — BBB's getMeetingInfo (the
+  // only API that returns a live attendee list) only works WHILE the meeting
+  // is still running; there is no provider API that returns attendee history
+  // after a meeting has ended. So the one real reconciliation opportunity is
+  // a final snapshot taken right before endSession tells BBB to end the
+  // room — see liveClassService.js#endSession.
+  attendanceReconciliation: {
+    checkedAt: Date,
+    providerAttendeeCount: Number,
+    lmsParticipantCount: Number,
+    missingFromLms: [{ _id: false, userId: String, name: String }],
+  },
 
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },

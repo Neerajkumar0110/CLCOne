@@ -21,6 +21,7 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(base).post(requireManager, catchErrors(lms.liveCreate));
   router.route(`${base}/:id`).get(catchErrors(lms.liveGet));
   router.route(`${base}/:id`).patch(catchErrors(lms.liveUpdateTime));
+  router.route(`${base}/:id/cancel`).post(catchErrors(lms.liveCancel));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
   router.route(`${base}/:id/end`).post(catchErrors(lms.liveEnd));
   router.route(`${base}/:id/join`).post(catchErrors(lms.liveJoin));
@@ -37,6 +38,8 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
 // ── add a student to a running batch (manager, or the batch's teacher) ──
 router.route('/batches/:id/students').get(catchErrors(lms.batchStudents)).post(catchErrors(lms.liveAddStudent));
 router.route('/batches/:id/students/remove').post(catchErrors(lms.removeBatchStudent));
+router.route('/batches/:id/holidays').post(requireManager, catchErrors(lms.liveAddHoliday));
+router.route('/batches/:id/holidays/:date').delete(requireManager, catchErrors(lms.liveRemoveHoliday));
 // ── combined student search: LMS roster + User Management accounts ──────
 router.route('/students/search').get(catchErrors(lms.studentSearch));
 
@@ -53,6 +56,7 @@ router.route('/lessons/:id').patch(catchErrors(lms.curriculumUpdateLesson)).dele
 // ── student learning surface ────────────────────────────────────────
 router.route('/learn').get(catchErrors(lms.learnMyCourses));
 router.route('/learn/:courseId').get(catchErrors(lms.learnCourseOutline));
+router.route('/learn/:courseId/search').get(catchErrors(lms.learnSearch));
 router.route('/lessons/:id/view').get(catchErrors(lms.learnLessonDetail));
 router.route('/lessons/:id/progress').post(catchErrors(lms.learnSaveProgress));
 router.route('/lessons/:id/complete').post(catchErrors(lms.learnMarkComplete));
@@ -101,6 +105,9 @@ router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/teacher/live-analytics').get(catchErrors(lms.teacherLiveAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));
 router.route('/my/updates').get(catchErrors(lms.lmsMyUpdates));
+router.route('/my/overview').get(catchErrors(lms.myOverview));
+router.route('/my/data-export').get(catchErrors(lms.myDataExport));
+router.route('/my/data-deletion-request').post(catchErrors(lms.myDataDeletionRequest));
 router.route('/my/fees').get(catchErrors(lms.lmsMyFees));
 
 // ── doubts (Q&A) ───────────────────────────────────────────────────
@@ -154,16 +161,26 @@ router.route('/admin/attendance').get(requireManager, catchErrors(lms.liveAttend
 router.route('/admin/attendance/export').get(requireManager, catchErrors(lms.liveAttendanceExport));
 router.route('/admin/recordings').get(requireManager, catchErrors(lms.liveRecordings));
 router.route('/admin/recordings/:id/delete').post(requireManager, catchErrors(lms.liveRecordingDelete));
+router.route('/admin/recordings/:id/backup').post(requireManager, catchErrors(lms.liveRecordingSetBackup));
 router.route('/admin/live-monitor').get(requireManager, catchErrors(lms.liveMonitor));
 router.route('/admin/live-analytics').get(requireManager, catchErrors(lms.liveAnalytics));
 router.route('/admin/live-settings').get(requireManager, catchErrors(lms.liveSettingsGet));
 router.route('/admin/live-settings').post(requireManager, catchErrors(lms.liveSettingsUpdate));
 router.route('/live-settings/join-policy').get(catchErrors(lms.liveJoinPolicy));
 router.route('/admin/system-health').get(requireManager, catchErrors(lms.systemHealth));
+router.route('/admin/incident-mode').post(requireManager, catchErrors(lms.toggleIncidentMode));
+router.route('/admin/email-logs').get(requireManager, catchErrors(lms.emailDeliveryLogs));
+router.route('/admin/communication/status').get(requireManager, catchErrors(lms.commStatus));
+router.route('/admin/communication/templates').get(requireManager, catchErrors(lms.commTemplateList));
+router.route('/admin/communication/templates').post(requireManager, catchErrors(lms.commTemplateCreate));
+router.route('/admin/communication/templates/:id').patch(requireManager, catchErrors(lms.commTemplateUpdate));
+router.route('/admin/communication/templates/:id/delete').post(requireManager, catchErrors(lms.commTemplateRemove));
+router.route('/admin/communication/delivery-summary').get(requireManager, catchErrors(lms.commDeliverySummary));
 
 // ── learner 360 report ───────────────────────────────────────────────
 router.route('/admin/learner-360/:courseId').get(catchErrors(lms.learner360Report));
 router.route('/admin/learner-360/:courseId/export').get(catchErrors(lms.learner360Export));
+router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTimeline));
 
 // ── assessments (ported from the python-test-platform reference project) ──
 // Self-service, self-scoped by req.admin (no role check, matching that
@@ -175,11 +192,18 @@ router.route('/assessments/:attemptId/submit').post(catchErrors(lms.assessmentSu
 router.route('/assessments/:attemptId/breakdown').get(catchErrors(lms.assessmentBreakdown));
 router.route('/assessments/:attemptId/proctor-event').post(catchErrors(lms.assessmentProctorEvent));
 
+router.route('/assessments/admin/settings').get(requireManager, catchErrors(lms.assessmentSettingsGet));
+router.route('/assessments/admin/settings').post(requireManager, catchErrors(lms.assessmentSettingsUpdate));
 router.route('/assessments/admin/summary').get(requireManager, catchErrors(lms.assessmentAdminSummary));
 router.route('/assessments/admin/attempts').get(requireManager, catchErrors(lms.assessmentAdminAttempts));
+router.route('/assessments/admin/attempts/export').get(requireManager, catchErrors(lms.assessmentAdminAttemptsExport));
+router.route('/assessments/admin/not-attempted').get(requireManager, catchErrors(lms.assessmentNotAttempted));
 router
   .route('/assessments/admin/attempts/:attemptId/report')
   .get(requireManager, catchErrors(lms.assessmentAdminAttemptReport));
+router
+  .route('/assessments/admin/attempts/:attemptId/correct')
+  .post(requireManager, catchErrors(lms.assessmentCorrectAttempt));
 router.route('/assessments/admin/curriculum/sessions').get(requireManager, catchErrors(lms.assessmentCurriculumSessions));
 router
   .route('/assessments/admin/curriculum/sessions/:sessionId/delivery')

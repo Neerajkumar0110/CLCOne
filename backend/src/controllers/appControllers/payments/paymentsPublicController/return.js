@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 const razorpayService = require('../../../../services/payments/razorpayService');
-const { notifyPaid } = require('../../../../services/payments/realtime');
-const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
-const { unblockIfClear } = require('../../../../services/payments/financeHold');
-const { syncStudentFees } = require('../../../../services/payments/studentProvision');
+const { markPaid } = require('../../../../services/payments/markPaid');
 const { paymentsConfig } = require('../../../../config/payments');
 
 // GET /api/payments/public/return?token=...&razorpay_payment_id=...&... —
@@ -25,26 +22,23 @@ async function returnHandler(req, res) {
   if (!doc) return res.status(404).send('Payment link not found.');
 
   const verified = razorpayService.verifyCallback(req.query);
-  if (verified && req.query.razorpay_payment_link_status === 'paid' && doc.status !== 'paid') {
-    doc.status = 'paid';
-    doc.paidAt = new Date();
-    doc.razorpayPaymentId = String(req.query.razorpay_payment_id || '');
-    stampNextInstallmentDue(doc);
-    // KYC (name/father's name/address, Aadhar/PAN uploads) is collected once
-    // per enrollment, against the very first installment — every later EMI
-    // installment is its own PaymentRequest doc with kycSubmitted defaulting
-    // to false, which used to send the student back through the whole KYC
-    // form again on every single payment. Skip it here instead: the public
-    // page treats kycSubmitted the same either way (see PublicKycForm.jsx),
-    // it just shows a "payment received" message rather than the form.
-    if (doc.installmentNo > 1) {
-      doc.kycSubmitted = true;
-      doc.kycSubmittedAt = new Date();
+  if (verified && req.query.razorpay_payment_link_status === 'paid') {
+    const paymentId = String(req.query.razorpay_payment_id || '');
+    // The callback_url redirect only proves a payment_id exists and belongs
+    // to this link (verifyCallback's HMAC) — it never carries the amount, so
+    // independently fetch the payment to confirm what was actually captured
+    // matches what this PaymentRequest expected to charge before trusting
+    // the redirect as "paid".
+    let amountPaidPaise = null;
+    try {
+      const payment = await razorpayService.fetchPayment(paymentId);
+      amountPaidPaise = payment.status === 'captured' ? payment.amount : null;
+    } catch (e) {
+      // Razorpay unreachable — fall through without an amount check rather
+      // than failing the redirect outright; refreshStatus/webhook still
+      // re-verify amount later via the Payment Link's amount_paid.
     }
-    await doc.save();
-    notifyPaid(doc);
-    unblockIfClear(doc.studentEmail);
-    syncStudentFees(doc.studentEmail);
+    await markPaid({ query: { _id: doc._id }, razorpayPaymentId: paymentId, amountPaidPaise });
   }
 
   return res.redirect(302, kycUrl());

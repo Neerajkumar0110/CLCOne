@@ -36,6 +36,29 @@ async function fetchPaymentLink(razorpayPaymentLinkId) {
   return client().paymentLink.fetch(razorpayPaymentLinkId);
 }
 
+// Used to independently re-verify the amount actually captured — the Payment
+// Link callback_url redirect (verifyCallback below) only proves a payment_id
+// exists and belongs to this link, never how much it was for, so a client
+// that survived the redirect couldn't have paid a different amount, but
+// nothing previously checked that this same amount matches what the CRM
+// expected to charge.
+async function fetchPayment(paymentId) {
+  return client().payments.fetch(paymentId);
+}
+
+// Verifies a Razorpay webhook's raw-body HMAC signature (X-Razorpay-Signature
+// header), per Razorpay's webhook docs — a separate secret from the API key,
+// configured once in the Razorpay Dashboard's Webhooks section.
+function verifyWebhookSignature(rawBody, signature) {
+  if (!paymentsConfig.webhookSecret || !signature) return false;
+  const expected = crypto.createHmac('sha256', paymentsConfig.webhookSecret).update(rawBody).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(signature)));
+  } catch (e) {
+    return false;
+  }
+}
+
 // Verifies a Payment Link's callback_url query params, per Razorpay's docs:
 // signature = HMAC_SHA256(link_id|reference_id|link_status|payment_id, key_secret)
 function verifyCallback(query = {}) {
@@ -50,4 +73,18 @@ function verifyCallback(query = {}) {
   }
 }
 
-module.exports = { createPaymentLink, fetchPaymentLink, verifyCallback };
+// Spec §18 "health checks for ... payment gateway" — the admin system-health
+// endpoint previously covered database/mailer/meetingProvider only, with
+// nothing checking Razorpay reachability at all. A cheap, real API call
+// (list at most 1 payment link) rather than just echoing "keys are set".
+async function checkHealth() {
+  if (!paymentsConfig.isConfigured) return { configured: false, reachable: false };
+  try {
+    await client().paymentLink.all({ count: 1 });
+    return { configured: true, reachable: true };
+  } catch (e) {
+    return { configured: true, reachable: false, error: e.message };
+  }
+}
+
+module.exports = { createPaymentLink, fetchPaymentLink, fetchPayment, verifyCallback, verifyWebhookSignature, checkHealth };

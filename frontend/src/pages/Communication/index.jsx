@@ -480,30 +480,38 @@ export function TeamChat() {
   );
 }
 
-function NewTemplateModal({ open, onClose, onAdd }) {
+// WhatsApp isn't offered here — no approved WhatsApp Business/API provider is
+// configured for this deployment (see communication.js's connectionStatus),
+// so a "WhatsApp template" option would silently never be sendable.
+function NewTemplateModal({ open, onClose, onSave, saving }) {
   const [name, setName] = useState("");
-  const [channel, setChannel] = useState("Email");
+  const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
   const submit = () => {
     if (!name.trim()) return;
-    onAdd({ name: name.trim(), channel, usage: 0 });
-    setName("");
-    setBody("");
-    onClose();
+    onSave({ name: name.trim(), subject, html: body });
   };
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setSubject("");
+      setBody("");
+    }
+  }, [open]);
 
   return (
     <HubModal
       open={open}
       onClose={onClose}
-      title="New Message Template"
-      width={420}
+      title="New Email Template"
+      width={460}
       footer={
         <>
           <button type="button" className="hub-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="hub-btn hub-btn-primary" onClick={submit}>
-            Save Template
+          <button type="button" className="hub-btn hub-btn-primary" disabled={saving} onClick={submit}>
+            {saving ? "Saving…" : "Save Template"}
           </button>
         </>
       }
@@ -514,37 +522,71 @@ function NewTemplateModal({ open, onClose, onAdd }) {
       </div>
 
       <div className="hub-form-row">
-        <label>Channel</label>
-        <select className="hub-select" value={channel} onChange={(e) => setChannel(e.target.value)}>
-          <option value="Email">Email</option>
-          <option value="WhatsApp">WhatsApp</option>
-        </select>
+        <label>Subject</label>
+        <input className="hub-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Hi {{name}}, your..." />
       </div>
 
       <div className="hub-form-row">
-        <label>Message Body</label>
+        <label>Message Body (HTML)</label>
         <textarea
           className="hub-input"
-          rows={4}
+          rows={6}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Hi {{name}}, ..."
+          placeholder="<p>Hi {{name}}, ...</p>"
           style={{ resize: "vertical", fontFamily: "inherit" }}
         />
+        <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 4 }}>
+          Use {"{{variable}}"} placeholders — they're detected automatically when you save.
+        </div>
       </div>
     </HubModal>
   );
 }
 
+// Real backend behind this now (communication.js) — previously "Connect/
+// Disconnect" just flipped local component state and the template list was
+// a hardcoded array, with zero server calls of any kind.
 function EmailWhatsapp() {
-  const [connected, setConnected] = useState({ email: true, whatsapp: false });
-  const [templates, setTemplates] = useState([
-    { name: "Welcome Email", channel: "Email", usage: 412 },
-    { name: "Follow-up Reminder", channel: "Email", usage: 268 },
-    { name: "Quote Sent", channel: "WhatsApp", usage: 190 },
-    { name: "Payment Reminder", channel: "WhatsApp", usage: 134 },
-  ]);
+  const [status, setStatus] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [delivery, setDelivery] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [s, t, d] = await Promise.all([
+        request.get({ entity: "lms/admin/communication/status" }),
+        request.get({ entity: "lms/admin/communication/templates" }),
+        request.get({ entity: "lms/admin/communication/delivery-summary?days=7" }),
+      ]);
+      setStatus(s?.result || null);
+      setTemplates(t?.result || []);
+      setDelivery(d?.result || null);
+    } catch (e) {
+      /* best-effort — cards below handle null state */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const saveTemplate = async (t) => {
+    setSaving(true);
+    try {
+      await request.post({ entity: "lms/admin/communication/templates", jsonData: t });
+      setTemplateModalOpen(false);
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="hub-stack">
@@ -552,45 +594,37 @@ function EmailWhatsapp() {
         <div className="hub-card">
           <div className="hub-card-header">
             <h3>📧 Email</h3>
-            <span className={`hub-badge ${connected.email ? "hub-badge-green" : "hub-badge-gray"}`}>
-              {connected.email ? "Connected" : "Not Connected"}
+            <span className={`hub-badge ${status?.email?.connected ? "hub-badge-green" : "hub-badge-gray"}`}>
+              {loading ? "Checking…" : status?.email?.connected ? "Connected" : "Not Connected"}
             </span>
           </div>
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-            Send and receive email directly from leads and customers.
+            {status?.email?.connected
+              ? `Sending via ${status.email.provider}. Configured in backend/.env (GMAIL_USER / GMAIL_APP_PASSWORD).`
+              : "Not configured — set GMAIL_USER / GMAIL_APP_PASSWORD in the backend environment."}
           </div>
-          <button
-            className={`hub-btn ${connected.email ? "" : "hub-btn-primary"}`}
-            type="button"
-            onClick={() => setConnected((p) => ({ ...p, email: !p.email }))}
-          >
-            {connected.email ? "Disconnect" : "Connect Email"}
-          </button>
+          {delivery && (
+            <div style={{ fontSize: 12.5 }}>
+              Last {delivery.days}d: <b>{delivery.totalSent}</b> sent, <b>{delivery.totalFailed}</b> failed
+              {delivery.totalSent + delivery.totalFailed > 0 ? ` (${delivery.failureRate}% failure rate)` : ""}
+            </div>
+          )}
         </div>
 
         <div className="hub-card">
           <div className="hub-card-header">
             <h3>💬 WhatsApp</h3>
-            <span className={`hub-badge ${connected.whatsapp ? "hub-badge-green" : "hub-badge-gray"}`}>
-              {connected.whatsapp ? "Connected" : "Not Connected"}
-            </span>
+            <span className="hub-badge hub-badge-gray">Not Connected</span>
           </div>
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-            Message leads on WhatsApp using approved templates.
+            {status?.whatsapp?.note || "No WhatsApp Business/API provider is configured for this deployment."}
           </div>
-          <button
-            className={`hub-btn ${connected.whatsapp ? "" : "hub-btn-primary"}`}
-            type="button"
-            onClick={() => setConnected((p) => ({ ...p, whatsapp: !p.whatsapp }))}
-          >
-            {connected.whatsapp ? "Disconnect" : "Connect WhatsApp"}
-          </button>
         </div>
       </div>
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>Message Templates</h3>
+          <h3>Email Templates</h3>
           <button
             className="hub-btn hub-btn-primary"
             type="button"
@@ -604,20 +638,19 @@ function EmailWhatsapp() {
             <thead>
               <tr>
                 <th>Template</th>
-                <th>Channel</th>
-                <th>Times Used</th>
+                <th>Subject</th>
+                <th>Variables</th>
               </tr>
             </thead>
             <tbody>
+              {templates.length === 0 && !loading && (
+                <tr><td colSpan={3} style={{ color: "var(--hub-muted)" }}>No templates yet — create one above.</td></tr>
+              )}
               {templates.map((t) => (
-                <tr key={t.name}>
+                <tr key={t._id}>
                   <td>{t.name}</td>
-                  <td>
-                    <span className={`hub-badge ${t.channel === "Email" ? "hub-badge-blue" : "hub-badge-green"}`}>
-                      {t.channel}
-                    </span>
-                  </td>
-                  <td>{t.usage}</td>
+                  <td>{t.subject}</td>
+                  <td>{(t.variables || []).map((v) => `{{${v}}}`).join(", ") || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -628,7 +661,8 @@ function EmailWhatsapp() {
       <NewTemplateModal
         open={templateModalOpen}
         onClose={() => setTemplateModalOpen(false)}
-        onAdd={(t) => setTemplates((prev) => [...prev, t])}
+        onSave={saveTemplate}
+        saving={saving}
       />
     </div>
   );

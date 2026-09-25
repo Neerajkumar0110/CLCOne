@@ -80,6 +80,11 @@ const update = async (userModel, req, res) => {
     ? { $set: updateFields, $unset: unsetFields }
     : updateFields;
 
+  // Spec §17 "every sensitive change records who/what/when" — a role change
+  // (including Super Admin/Admin promotion, gated above) previously left no
+  // audit trail at all.
+  const prevForAudit = role !== undefined ? await User.findById(req.params.id).select('role').lean() : null;
+
   let result;
   try {
     // No removed:false filter here — this also has to work for restoring a
@@ -103,6 +108,19 @@ const update = async (userModel, req, res) => {
       result: null,
       message: 'No user found.',
     });
+  }
+
+  if (prevForAudit && prevForAudit.role !== result.role) {
+    require('../../../services/lms/auditLog')
+      .record({
+        module: 'user-management',
+        action: 'role.change',
+        entityType: userModel,
+        entityId: result._id,
+        admin: req.admin,
+        after: { user: result.email, from: prevForAudit.role, to: result.role },
+      })
+      .catch(() => {});
   }
 
   // Push name / role / active-state changes to Moodle (no-op until the LMS

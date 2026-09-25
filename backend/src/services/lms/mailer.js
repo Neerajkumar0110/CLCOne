@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { lmsConfig } = require('../../config/lms');
+const { escHtml: esc, fmtDateTime: fmtDate } = require('../../utils/emailFormat');
 
 // Reuses the same Gmail transport as the OTP mailer. All LMS emails are
 // best-effort — a send failure never blocks the action that triggered it.
@@ -17,14 +18,17 @@ function tx() {
 }
 const ready = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
 
-function esc(s) {
-  return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-function fmtDate(d) {
+// Best-effort per-recipient delivery log (spec §8) — never lets a logging
+// failure affect the actual send outcome.
+function logDelivery(recipient, subject, status, error) {
   try {
-    return new Date(d).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const mongoose = require('mongoose');
+    mongoose
+      .model('EmailDeliveryLog')
+      .create({ recipient, subject: subject || '', status, error: error || '' })
+      .catch(() => {});
   } catch (e) {
-    return String(d);
+    /* model not registered yet at boot — ignore */
   }
 }
 
@@ -61,17 +65,20 @@ async function sendBatchClassEmail(recipients, payload) {
   if (!list.length) return { sent: 0 };
   const html = batchClassEmailHtml(payload);
   let sent = 0;
+  const subject = `Your live classes — ${payload.batchName}`;
   for (const to of list) {
     try {
       await tx().sendMail({
         from: `"${BRAND}" <${process.env.GMAIL_USER}>`,
         to,
-        subject: `Your live classes — ${payload.batchName}`,
+        subject,
         html,
       });
       sent += 1;
+      logDelivery(to, subject, 'sent');
     } catch (e) {
       console.error('[lms] batch class email failed for', to, ':', e.message);
+      logDelivery(to, subject, 'failed', e.message);
     }
   }
   return { sent };
@@ -89,8 +96,10 @@ async function sendMail(recipients, { subject, html, text, attachments }) {
     try {
       await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments });
       sent += 1;
+      logDelivery(to, subject, 'sent');
     } catch (e) {
       console.error('[lms] sendMail failed for', to, ':', e.message);
+      logDelivery(to, subject, 'failed', e.message);
     }
   }
   return { sent };

@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 const razorpayService = require('../../../../services/payments/razorpayService');
-const { notifyPaid } = require('../../../../services/payments/realtime');
-const { stampNextInstallmentDue } = require('../../../../services/payments/plan');
-const { unblockIfClear } = require('../../../../services/payments/financeHold');
-const { syncStudentFees } = require('../../../../services/payments/studentProvision');
+const { markPaid } = require('../../../../services/payments/markPaid');
 
 // POST /api/payments/:id/refresh — admin safety net: re-asks Razorpay
 // directly for this Payment Link's status, in case the student paid but
@@ -22,30 +19,30 @@ async function refreshStatus(req, res) {
     return res.status(502).json({ success: false, message: `Could not reach Razorpay: ${e.message}` });
   }
 
-  const wasUnpaid = doc.status !== 'paid';
-  if (link.status === 'paid' && wasUnpaid) {
-    doc.status = 'paid';
-    doc.paidAt = new Date();
+  if (link.status === 'paid') {
     const payment = (link.payments || []).find((p) => p.status === 'captured') || (link.payments || [])[0];
-    if (payment) doc.razorpayPaymentId = payment.payment_id;
-    stampNextInstallmentDue(doc);
-    // Same reasoning as paymentsPublicController/return.js: KYC is only
-    // collected once, against the first installment — a later one reaching
-    // 'paid' here (admin manually refreshed instead of the student's own
-    // callback redirect firing) must not leave kycSubmitted=false, or the
-    // student's payment page would still show them the KYC form again.
-    if (doc.installmentNo > 1) {
-      doc.kycSubmitted = true;
-      doc.kycSubmittedAt = new Date();
+    // amount_paid is in paise, straight off the Payment Link object — no
+    // extra API call needed (unlike return.js, which only has a payment_id).
+    const result = await markPaid({
+      query: { _id: doc._id },
+      razorpayPaymentId: payment ? payment.payment_id : undefined,
+      amountPaidPaise: typeof link.amount_paid === 'number' ? link.amount_paid : null,
+      admin: req.admin,
+      source: 'admin-refresh',
+    });
+    if (!result.ok && result.mismatch) {
+      return res.status(409).json({
+        success: false,
+        message: `Razorpay shows ₹${(result.doc.razorpayAmountPaid || 0).toLocaleString('en-IN')} paid, but this request expects ₹${doc.amount.toLocaleString('en-IN')}. Flagged for manual review — not marked paid.`,
+      });
     }
-  } else if (['expired', 'cancelled'].includes(link.status) && doc.status === 'created') {
-    doc.status = link.status;
+    const finalDoc = result.doc || doc;
+    return res.status(200).json({ success: true, result: { status: finalDoc.status } });
   }
-  await doc.save();
-  if (wasUnpaid && doc.status === 'paid') {
-    notifyPaid(doc);
-    unblockIfClear(doc.studentEmail);
-    syncStudentFees(doc.studentEmail);
+
+  if (['expired', 'cancelled'].includes(link.status) && doc.status === 'created') {
+    doc.status = link.status;
+    await doc.save();
   }
 
   return res.status(200).json({ success: true, result: { status: doc.status } });

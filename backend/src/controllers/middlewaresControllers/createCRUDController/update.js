@@ -10,6 +10,11 @@ const update = async (Model, req, res) => {
     {
       new: true, // return the new result instead of the old one
       runValidators: true,
+      // Not a real Mongo/Mongoose option — ignored everywhere except by a
+      // model's own findOneAndUpdate hook that specifically reads it via
+      // this.getOptions().actor (e.g. Student.js's status-change audit log).
+      // Harmless no-op for every other model.
+      actor: req.admin,
     }
   ).exec();
   if (!result) {

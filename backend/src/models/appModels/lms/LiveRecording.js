@@ -47,6 +47,15 @@ const schema = new mongoose.Schema({
   downloadUrl: { type: String, select: false },
   thumbnails: { type: [String], default: [] },
 
+  // Secondary/mirror location — spec §11 "backup links". Nothing in this app
+  // automatically mirrors a recording to a second storage location (that
+  // would need cloud-storage credentials this deployment doesn't have
+  // configured); this is a manually-set admin field so a recording backed up
+  // by hand (e.g. downloaded off BBB and re-uploaded to Drive/S3) has a
+  // recorded fallback if the primary playbackUrl/BBB server is ever lost.
+  backupUrl: { type: String, select: false },
+  backupUpdatedAt: { type: Date },
+
   views: { type: Number, default: 0 },
   lastViewedAt: { type: Date },
 
@@ -56,5 +65,9 @@ const schema = new mongoose.Schema({
 
 schema.index({ status: 1, updated: -1 });
 schema.index({ crmCourse: 1, batch: 1 });
+// Spec §11 "searchable library" — listRecordings previously only supported
+// exact-match dropdown filters (status/courseTitle/batchName), no free-text
+// search on title/teacher.
+schema.index({ className: 'text', courseTitle: 'text', batchName: 'text', teacherName: 'text' });
 
 module.exports = mongoose.model('LiveRecording', schema);
