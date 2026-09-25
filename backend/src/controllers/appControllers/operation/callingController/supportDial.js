@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 const { getProvider } = require('../../../../services/calling');
 
-// Tata Business Click-to-Call SUPPORT API — dials the customer directly (no
-// agent leg) and connects to whatever destination is configured on the Tata
-// side (agent queue or voice bot). Multi-DID: pass `callerId` to use a
-// non-default DID; omit it to use the account default.
+// Support dial — dials the customer directly (no agent leg); once they
+// answer, Plivo hits our answer_url which decides what happens next.
+// Multi-DID: pass `callerId` to use a non-default DID; omit it to use the
+// account default.
 
 const digits = (s) => String(s || '').replace(/[^\d+]/g, '');
 const validPhone = (s) => {

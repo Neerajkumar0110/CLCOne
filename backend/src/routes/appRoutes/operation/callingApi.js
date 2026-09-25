@@ -59,7 +59,7 @@ router.route('/agent/call/:id/callback').post(catchErrors(c.agentScheduleCallbac
 router.route('/manual/dial').post(catchErrors(c.manualDial));
 router.route('/manual/end/:id').post(catchErrors(c.manualEnd));
 
-// ── Tata Business Click-to-Call SUPPORT API (direct-to-customer / voicebot) ──
+// ── support dial (direct-to-customer, no agent leg) ─────────────────────
 router.route('/support/dial').post(catchErrors(c.supportDial));
 
 // ── history / callbacks / recordings / reports ─────────────────────────

@@ -56,12 +56,6 @@ const schema = new mongoose.Schema({
   crmLead: { type: mongoose.Schema.ObjectId, ref: 'Lead' },
   importBatch: String,
 
-  // Correlation with VICIdial's own lead/list rows (populated by the
-  // Telephony Integration Service when a lead is pushed into a campaign).
-  vicidialLeadId: { type: String, index: true },
-  vicidialListId: String,
-  syncedToVicidialAt: Date,
-
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
 });

@@ -1,9 +1,8 @@
-// Abstract calling provider. Every concrete provider (Mock, VICIdial)
+// Abstract calling provider. Every concrete provider (Mock, Cloud/Plivo)
 // implements this surface, so the calling controllers never care which one
 // is active — they just call `getProvider()` from ./index.
 //
-//   CRM  ──►  CallingProvider  ──►  { MockCallingProvider | VICIdialProvider }
-//                                        VICIdial ──► Asterisk ──► SIP ──► Customer
+//   CRM  ──►  CallingProvider  ──►  { MockCallingProvider | CloudCallProvider }
 //
 // All methods are async and return plain data (never throw for expected
 // "not connected" states — return a shape the API can pass through).

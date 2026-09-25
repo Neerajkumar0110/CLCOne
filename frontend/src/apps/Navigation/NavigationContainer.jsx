@@ -166,7 +166,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     // section below, not a Sales sub-tab.)
     ...featureItems,
 
-    // ---- Call center (VICIdial-ready, mock by default) ---- its 10 tabs are
+    // ---- Call center (Plivo, mock by default) ---- its 10 tabs are
     // in-page (?tab=…, see pages/Calling/index.jsx) rather than real routes,
     // so each child navigates to /calling with that query param — see
     // routeByKey and CALLING_TABS above.

@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const { getProvider, callingConfig } = require('../../../../services/calling');
-const { buildHeaders } = require('../../../../services/calling/httpSign');
 const { callingTier, campaignScope } = require('./permissions');
 
 // Authorise the current user to touch a given recording.
@@ -86,9 +85,9 @@ const read = async (req, res) => {
 };
 
 // GET /api/calling/recordings/:id/stream — the ONLY way to hear a
-// recording. Authorises the caller, then (telephony mode) proxies the
-// audio from the VPS with a signed request — the raw file directory is
-// never public. Mock mode has no audio.
+// recording. Authorises the caller, then redirects to Plivo's own
+// provider-hosted recording URL (from the call-status webhook). Mock
+// mode has no audio.
 const stream = async (req, res) => {
   const CallRecord = mongoose.model('CallRecord');
   const rec = await CallRecord.findOne({ _id: req.params.id, removed: false });
@@ -96,47 +95,13 @@ const stream = async (req, res) => {
   if (!(await authorize(req, rec))) {
     return res.status(403).json({ success: false, message: 'Not authorised for this recording.' });
   }
-  // Cloud provider (Tata Smartflo / …): recording.url is already an
-  // external, provider-hosted, pre-signed/expiring link (see
-  // CloudCallProvider.syncCdr) — redirect rather than relay the audio
-  // bytes ourselves. Only telephony mode owns/streams the raw file.
-  if (callingConfig.provider === 'cloud') {
-    if (!rec.recording || rec.recording.status !== 'available' || !rec.recording.url) {
-      return res.status(409).json({ success: false, message: 'Recording not ready.' });
-    }
-    return res.redirect(302, rec.recording.url);
-  }
-  if (callingConfig.provider !== 'telephony') {
+  if (callingConfig.provider !== 'cloud') {
     return res.status(404).json({ success: false, message: 'No audio in this mode.' });
   }
-  const ref = rec.recording && rec.recording.reference;
-  if (!ref || (rec.recording && rec.recording.status !== 'available')) {
+  if (!rec.recording || rec.recording.status !== 'available' || !rec.recording.url) {
     return res.status(409).json({ success: false, message: 'Recording not ready.' });
   }
-
-  const t = callingConfig.telephony;
-  const url = `${t.apiUrl.replace(/\/+$/, '')}/recordings/${encodeURIComponent(ref)}`;
-  const { headers } = buildHeaders({ apiKey: t.apiKey, secret: t.hmacSecret, body: '' });
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
-  try {
-    const upstream = await fetch(url, { headers, signal: ctrl.signal });
-    if (!upstream.ok) {
-      return res.status(502).json({ success: false, message: `Recording service returned ${upstream.status}` });
-    }
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/wav');
-    res.setHeader('Content-Disposition', `inline; filename="call-${rec._id}.wav"`);
-    res.setHeader('Cache-Control', 'private, max-age=60');
-    const len = upstream.headers.get('content-length');
-    if (len) res.setHeader('Content-Length', len);
-    // Node 18+ fetch body is a web ReadableStream.
-    const { Readable } = require('stream');
-    Readable.fromWeb(upstream.body).pipe(res);
-  } catch (err) {
-    if (!res.headersSent) res.status(504).json({ success: false, message: `Recording proxy failed: ${err.message}` });
-  } finally {
-    clearTimeout(timer);
-  }
+  return res.redirect(302, rec.recording.url);
 };
 
 module.exports = { list, read, stream };

@@ -20,9 +20,9 @@ const adminSchema = new Schema({
   },
   name: { type: String, required: true },
   surname: { type: String },
-  // Agent's own phone number. Used by CALLING_PROVIDER=cloud (Tata Smartflo
-  // etc.) — the provider rings this number first, then bridges the customer.
-  // Digits (E.164 or local); the provider adapter normalises it.
+  // Agent's own phone number. Used by CALLING_PROVIDER=cloud (Plivo) to
+  // bridge the customer to this agent once they answer. Digits (E.164 or
+  // local); the provider adapter normalises it.
   phone: { type: String, trim: true },
   photo: {
     type: String,
@@ -59,6 +59,21 @@ const adminSchema = new Schema({
   // course content. Never set/cleared for a manual admin-disabled account.
   financeHold: { type: Boolean, default: false },
   financeHoldAt: Date,
+  // Set by models/appModels/lms/Student.js whenever the linked roster row's
+  // `status` moves away from "Active" (On Hold/Completed/Dropped/Deferred),
+  // cleared the instant it's set back to Active. Same shape as financeHold —
+  // does NOT touch `enabled`/login, rosterHoldGuard.js instead gates
+  // /api/lms access. Spec §7 "Archive/suspend/withdraw states must
+  // immediately affect access rules".
+  rosterHold: { type: Boolean, default: false },
+  rosterHoldReason: String,
+
+  // Spec §17 "data export/deletion/retention workflows" — a learner-
+  // initiated request, not an automatic delete: actual deletion of academic/
+  // financial records may carry legal retention obligations this app can't
+  // decide on its own, so this only flags the account for admin review (see
+  // learnerOverview.js#requestDataDeletion + the system-health/notify path).
+  dataDeletionRequestedAt: { type: Date },
 });
 
 module.exports = mongoose.model('Admin', adminSchema);

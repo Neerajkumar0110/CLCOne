@@ -4,10 +4,7 @@ const { callingConfig } = require('../../../../config/calling');
 const { setAgent, wrapupAgent, resolveLead, recountCampaign } = require('../../../../services/calling/callingShared');
 
 // POST /api/cloud-call/webhook — call-status + IVR callbacks from the cloud
-// calling provider (Tata Tele Business Services). Handles both Tata
-// products on one endpoint:
-//   • Smartflo click_to_call    — agent-bridge status + recording
-//   • Click-to-Call Support API — direct-to-customer / voice-bot call status
+// calling provider (Plivo).
 //
 // Unauthenticated (the provider has no CRM session); protected by a shared
 // secret in ?secret= / x-webhook-secret, OR an HMAC-SHA256 signature header,
@@ -121,10 +118,7 @@ const cloudWebhook = async (req, res) => {
 
   if (secretExpected) {
     const rawBody = req.rawBody || JSON.stringify(req.body || {});
-    const sigHeader =
-      req.get('x-webhook-signature') ||
-      req.get('x-signature') ||
-      req.get('x-smartflo-signature');
+    const sigHeader = req.get('x-webhook-signature') || req.get('x-signature');
     let ok = secretGot && timingSafeEq(secretGot, secretExpected);
     if (!ok && sigHeader) {
       const digest = crypto.createHmac('sha256', secretExpected).update(rawBody).digest('hex');
@@ -139,7 +133,7 @@ const cloudWebhook = async (req, res) => {
   const b = { ...body, ...nested, ...(req.query || {}) };
 
   const crmId = pick(b, 'custom_identifier', 'customField', 'CustomField', 'custom_field', 'crmCallId');
-  const providerCallId = pick(b, 'call_sid', 'call_id', 'callId', 'CallSid', 'uuid', 'Sid', 'call_uuid');
+  const providerCallId = pick(b, 'call_sid', 'call_id', 'callId', 'CallSid', 'uuid', 'Sid', 'call_uuid', 'CallUUID');
   const eventType = String(pick(b, 'event', 'event_type', 'type', 'Event') || '').toLowerCase();
   const fromNumber = pick(b, 'from', 'caller', 'caller_id', 'From', 'party_b', 'customer_number', 'ani');
   const toNumber = pick(b, 'to', 'called', 'To', 'did', 'destination', 'dnis');
@@ -200,13 +194,9 @@ const cloudWebhook = async (req, res) => {
   const endedAt = toDate(pick(b, 'end_stamp', 'ended_at', 'end_time', 'EndTime', 'hangup_time'));
   const durationSec =
     Number(
-      pick(b, 'billsec', 'duration_sec', 'bill_duration_sec', 'duration', 'call_duration', 'CallDuration', 'conversation_duration')
+      pick(b, 'billsec', 'duration_sec', 'bill_duration_sec', 'duration', 'Duration', 'call_duration', 'CallDuration', 'conversation_duration')
     ) || 0;
-  let recordingUrl = pick(b, 'recording_url', 'recordingUrl', 'RecordingUrl', 'recording', 'record_url');
-  if (recordingUrl && !/^https?:\/\//i.test(recordingUrl)) {
-    const origin = String(callingConfig.cloud.apiBase || '').replace(/\/v\d+$/, '');
-    if (origin) recordingUrl = `${origin}/${String(recordingUrl).replace(/^\/+/, '')}`;
-  }
+  const recordingUrl = pick(b, 'recording_url', 'recordingUrl', 'RecordingUrl', 'RecordUrl', 'recording', 'record_url');
   const hangupCause = pick(b, 'hangup_cause', 'HangupCause', 'reason', 'disconnected_by');
 
   // ── transfer event ─────────────────────────────────────────────────

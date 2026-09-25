@@ -101,7 +101,7 @@ export default function Calling() {
           }}
         >
           Calling is running with the <strong>mock provider</strong>. No real calls are placed. Set{" "}
-          <code>CALLING_PROVIDER=cloud</code> + the <code>CLOUD_CALL_*</code> keys (Tata Business) to go live —
+          <code>CALLING_PROVIDER=cloud</code> + the <code>PLIVO_*</code> keys (Plivo) to go live —
           the rest of the CRM is unaffected.
         </div>
       )}

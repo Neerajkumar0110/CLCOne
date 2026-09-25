@@ -1,8 +1,6 @@
 const crypto = require('crypto');
 
 // Shared request-signing scheme for Moodle (local_crmbridge) ⇄ CRM webhooks.
-// Identical contract to services/calling/httpSign.js, kept as its own file so
-// the two integrations can rotate secrets and evolve independently.
 //
 //   signature = HMAC_SHA256( `${timestamp}.${nonce}.${rawBody}`, secret )  (hex)
 //

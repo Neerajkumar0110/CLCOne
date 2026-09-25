@@ -4,11 +4,9 @@ const { getProvider } = require('../../../../services/calling');
 
 // "Call this lead" from a lead row / the agent screen.
 //
-//  • CALLING_PROVIDER=cloud  → the provider (Tata Smartflo Support API)
-//    rings the customer first; once they answer, Tata connects the second
-//    leg to whatever destination is configured for that API key on the
-//    Tata portal — a real, recorded, server-placed call. Returns
-//    { record, bridged:true }.
+//  • CALLING_PROVIDER=cloud  → Plivo rings the customer first; once they
+//    answer, Plivo hits our answer_url which bridges to the owning agent —
+//    a real, recorded, server-placed call. Returns { record, bridged:true }.
 //  • otherwise                → device tel: link: the call runs on the
 //    agent's own phone / softphone; the CRM just tracks it (contact, timing,
 //    disposition, notes, callback). Returns { record, tel:'tel:…' }.
@@ -42,8 +40,8 @@ const dial = async (req, res) => {
     }
   }
 
-  // Cloud provider (Tata Smartflo Support API): place a real call — the
-  // provider rings the customer first, then connects the second leg.
+  // Cloud provider (Plivo): place a real call — the provider rings the
+  // customer first, then bridges to the owning agent once they answer.
   const provider = getProvider();
   if (provider.name === 'cloud' && typeof provider.placeCall === 'function') {
     const r = await provider.placeCall({

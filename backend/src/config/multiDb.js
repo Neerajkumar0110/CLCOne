@@ -76,6 +76,7 @@ const DB_MAP = {
   CourseModule: 'lmsDb',
   CourseProgress: 'lmsDb',
   Doubt: 'lmsDb',
+  EmailDeliveryLog: 'lmsDb',
   Lesson: 'lmsDb',
   LessonProgress: 'lmsDb',
   LiveClass: 'lmsDb',
@@ -89,6 +90,7 @@ const DB_MAP = {
   LmsWebhookEvent: 'lmsDb',
   MoodleObjectMap: 'lmsDb',
   MoodleUserMap: 'lmsDb',
+  NotificationTemplate: 'lmsDb',
   Question: 'lmsDb',
   Quiz: 'lmsDb',
   QuizAttempt: 'lmsDb',
@@ -142,7 +144,6 @@ const DB_MAP = {
   OpsDelivery: 'operationDb',
   OpsDocument: 'operationDb',
   OpsProject: 'operationDb',
-  TelephonyEvent: 'operationDb',
   Vendor: 'operationDb',
   VercelConnection: 'operationDb',
 

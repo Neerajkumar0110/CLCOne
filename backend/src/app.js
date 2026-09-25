@@ -14,8 +14,6 @@ const adminAuth = require('./controllers/coreControllers/adminAuth');
 const errorHandlers = require('./handlers/errorHandlers');
 const erpApiRouter = require('./routes/appRoutes/appApi');
 const callingApiRouter = require('./routes/appRoutes/operation/callingApi');
-const telephonyWebhookRouter = require('./routes/appRoutes/operation/telephonyWebhookApi');
-const telephonyHmacAuth = require('./middlewares/telephonyHmacAuth');
 const cloudCallWebhookRouter = require('./routes/appRoutes/operation/cloudCallWebhookApi');
 const lmsWebhookRouter = require('./routes/appRoutes/lms/lmsWebhookApi');
 const lmsLivePublicRouter = require('./routes/appRoutes/lms/lmsLivePublicApi');
@@ -23,6 +21,7 @@ const lmsBbbWebhookRouter = require('./routes/appRoutes/lms/lmsBbbWebhookApi');
 const lmsApiRouter = require('./routes/appRoutes/lms/lmsApi');
 const lmsBrowserGuard = require('./middlewares/lmsBrowserGuard');
 const financeHoldGuard = require('./middlewares/financeHoldGuard');
+const rosterHoldGuard = require('./middlewares/rosterHoldGuard');
 const paymentsPublicRouter = require('./routes/appRoutes/payments/paymentsPublicApi');
 const paymentsApiRouter = require('./routes/appRoutes/payments/paymentsApi');
 const facebookApiRouter = require('./routes/appRoutes/marketing/facebookApi');
@@ -30,6 +29,7 @@ const googleApiRouter = require('./routes/appRoutes/marketing/googleApi');
 const linkedinApiRouter = require('./routes/appRoutes/marketing/linkedinApi');
 const gitApiRouter = require('./routes/appRoutes/operation/gitApi');
 const vercelApiRouter = require('./routes/appRoutes/operation/vercelApi');
+const cronApiRouter = require('./routes/appRoutes/cronApi');
 
 const fileUpload = require('express-fileupload');
 // create our Express app
@@ -48,7 +48,7 @@ app.use(
 );
 
 app.use(cookieParser());
-// verify: stash the exact bytes so the telephony webhook can HMAC-check
+// verify: stash the exact bytes so the cloud-call webhook can HMAC-check
 // the raw body. Harmless for every other route.
 app.use(
   express.json({
@@ -67,13 +67,8 @@ app.use(compression());
 
 // Here our API Routes
 
-// VPS → CRM telephony webhooks. Mounted BEFORE the bearer-gated /api
-// routers and protected by an HMAC signature instead of a CRM login
-// (the telephony server has no CRM session). See spec §12–14.
-app.use('/api/telephony', telephonyHmacAuth, telephonyWebhookRouter);
-
-// Cloud calling provider (Tata Smartflo / Exotel / …) status callbacks —
-// also before the bearer gate; the router checks its own shared secret.
+// Cloud calling provider (Plivo) status callbacks — before the bearer
+// gate; the router checks its own shared secret.
 app.use('/api/cloud-call', cloudCallWebhookRouter);
 
 // Moodle (local_crmbridge) → CRM event webhooks. Before the bearer gate;
@@ -93,13 +88,17 @@ app.use('/api/lms/webhooks', lmsBbbWebhookRouter);
 // /return, Razorpay's own HMAC signature) stands in for a CRM login.
 app.use('/api/payments/public', paymentsPublicRouter);
 
+// Serverless-cron safety net (see routes/appRoutes/cronApi.js) — before the
+// bearer gate; its own CRON_SECRET check stands in for a CRM login.
+app.use('/api/cron', cronApiRouter);
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token
 // (old links, bookmarks) — before the bearer gate; XHR + tokened calls pass through
-app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, financeHoldGuard, lmsApiRouter);
+app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, financeHoldGuard, rosterHoldGuard, lmsApiRouter);
 app.use('/api/payments', adminAuth.isValidAuthToken, paymentsApiRouter);
 app.use('/api/facebook', adminAuth.isValidAuthToken, facebookApiRouter);
 app.use('/api/google', adminAuth.isValidAuthToken, googleApiRouter);

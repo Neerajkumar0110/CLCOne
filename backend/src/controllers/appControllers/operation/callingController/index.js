@@ -1,4 +1,4 @@
-// Calling / call-center controller — mock-first, VICIdial-ready. All
+// Calling / call-center controller — mock-first, Plivo for real calls. All
 // telephony goes through services/calling (getProvider()), never inline.
 const meta = require('./meta');
 const dashboard = require('./dashboard');

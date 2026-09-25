@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
-// One row per dial attempt handled by the calling module (mock or, later,
-// VICIdial). Separate from the legacy `Call` model so the existing
-// dashboard/report aggregates over `Call` keep working untouched.
+// One row per dial attempt handled by the calling module (mock or Plivo).
+// Separate from the legacy `Call` model so the existing dashboard/report
+// aggregates over `Call` keep working untouched.
 const recordingSchema = new mongoose.Schema(
   {
     status: {
@@ -11,12 +11,8 @@ const recordingSchema = new mongoose.Schema(
       default: 'unavailable',
     },
     // In mock mode this stays null — no fake production audio is served.
-    // With CALLING_PROVIDER=telephony it also stays null: the file lives on
-    // the VPS and is streamed ONLY through the authorised CRM proxy
-    // (/api/calling/recordings/:id/stream). `reference` is the opaque
-    // VPS-side handle used by that proxy.
     url: { type: String, default: null },
-    reference: { type: String, default: null }, // VPS recording id / relative path
+    reference: { type: String, default: null },
     durationSec: { type: Number, default: 0 },
     sizeBytes: { type: Number, default: 0 },
     readyAt: Date,
@@ -96,24 +92,14 @@ const schema = new mongoose.Schema({
 
   recording: { type: recordingSchema, default: () => ({}) },
 
-  provider: { type: String, default: 'mock' }, // mock | telephony | vicidial | cloud | manual
+  provider: { type: String, default: 'mock' }, // mock | cloud | manual
   providerCallId: String,
   isMock: { type: Boolean, default: true },
-  // Last raw payload from a cloud calling provider webhook (Tata Smartflo /
-  // Exotel / …) — shape varies by provider, kept verbatim for tracing.
+  // Last raw payload from the cloud calling provider webhook (Plivo) —
+  // kept verbatim for tracing.
   providerRaw: { type: mongoose.Schema.Types.Mixed },
 
-  // ── Correlation (spec §14) — CRM ↔ VICIdial ↔ Asterisk ──────────────
-  // `_id` IS the CRM call id (crm_call_id). These link it to the other
-  // systems so every event can be matched to exactly one record.
   callerId: String,
-  asteriskUniqueId: { type: String, index: true, unique: true, sparse: true },
-  asteriskLinkedId: { type: String, index: true },
-  vicidialLeadId: { type: String, index: true },
-  vicidialCallId: String,
-  vicidialListId: String,
-  vicidialCampaignId: String,
-
   team: String,
 
   created: { type: Date, default: Date.now },

@@ -40,7 +40,7 @@ class MockCallingProvider extends CallingProvider {
       testMode: true,
       online: true,
       label: 'Mock / Test Provider',
-      detail: 'Simulated calls only — connect a VICIdial server to go live.',
+      detail: 'Simulated calls only — set CALLING_PROVIDER=cloud (Plivo) to go live.',
     };
   }
 
@@ -216,7 +216,7 @@ class MockCallingProvider extends CallingProvider {
       durationSec: r.durationSec || 0,
       readyAt: r.readyAt || null,
       url: null, // mock never serves audio
-      testNote: 'Test mode — no audio file. A real recording URL appears here once VICIdial is connected.',
+      testNote: 'Test mode — no audio file. A real recording URL appears here once Plivo is connected.',
     };
   }
 
