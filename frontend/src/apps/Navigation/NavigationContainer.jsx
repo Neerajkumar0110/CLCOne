@@ -48,7 +48,7 @@ const NAV_KEY_MODULE = Object.fromEntries(
 // pages/Calling/index.jsx), not separate routes — so the sidebar's synthetic
 // "current path" for /calling folds the query param in, the same way
 // "sales/leads" folds a real route segment in for feature sections.
-const CALLING_TABS = ['dashboard', 'team', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports'];
+const CALLING_TABS = ['dashboard', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports'];
 function pathKeyFor(loc) {
   if (loc.pathname === '/') return 'dashboard';
   const base = loc.pathname.slice(1);
@@ -104,7 +104,6 @@ function Sidebar({ collapsible, isMobile = false }) {
     customer: '/customer',
     calling: '/calling',
     'calling-dashboard': '/calling?tab=dashboard',
-    'calling-team': '/calling?tab=team',
     'calling-dial': '/calling?tab=dial',
     'calling-campaigns': '/calling?tab=campaigns',
     'calling-dialer': '/calling?tab=dialer',
@@ -176,7 +175,6 @@ function Sidebar({ collapsible, isMobile = false }) {
       icon: <PhoneOutlined />,
       children: [
         { key: 'calling-dashboard', label: 'Dashboard', icon: <DashboardOutlined /> },
-        { key: 'calling-team', label: 'Team Overview', icon: <TeamOutlined /> },
         { key: 'calling-dial', label: 'Dialer', icon: <PhoneOutlined /> },
         { key: 'calling-campaigns', label: 'Campaigns', icon: <RocketOutlined /> },
         { key: 'calling-dialer', label: 'Auto Dialer', icon: <ThunderboltOutlined /> },

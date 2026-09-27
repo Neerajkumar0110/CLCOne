@@ -12,12 +12,10 @@ import CallHistory from "./CallHistory";
 import Callbacks from "./Callbacks";
 import Recordings from "./Recordings";
 import Reports from "./Reports";
-import TeamOverview from "./TeamOverview";
 import { useCallingMeta } from "./shared";
 
 const BASE_TABS = [
   { key: "dashboard", label: "Dashboard", C: CallingDashboard },
-  { key: "team", label: "Team Overview", C: TeamOverview, managerOnly: true },
   { key: "dial", label: "Dialer", C: Dialer },
   { key: "campaigns", label: "Campaigns", C: Campaigns },
   { key: "dialer", label: "Auto Dialer", C: AutoDialer },
@@ -40,11 +38,6 @@ export default function Calling() {
   useEffect(() => {
     request.get({ entity: "calling/status" }).then((r) => r?.success && setProvider(r.result));
   }, []);
-
-  useEffect(() => {
-    if (!isManager && tab === "team") setTab("dashboard");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager]);
 
   // Sidebar links to /calling?tab=<key> without remounting this page (same
   // route, just a new query param) — pick that up whenever it changes, not
