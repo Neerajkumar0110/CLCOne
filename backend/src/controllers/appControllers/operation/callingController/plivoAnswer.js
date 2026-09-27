@@ -57,8 +57,17 @@ const plivoAuthHeaders = (p) => ({
 const connectingXml = (label) =>
   `<Speak voice="WOMAN" language="en-IN">Connecting you to ${escapeXml(label)}, please hold.</Speak>`;
 
-const conferenceXml = (crmCallId, recordingCallbackUrl) =>
-  `<Conference startConferenceOnEnter="true" endConferenceOnExit="true" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST">${escapeXml(roomName(crmCallId))}</Conference>`;
+// Both legs join the SAME conference room, and each one's own <Conference>
+// tag is a fresh, independent XML declaration — whichever leg's request
+// reaches Plivo first is the one that actually creates the room, using ITS
+// own attributes. Since the agent leg now rings in PARALLEL with the
+// customer's greeting (see the "ring in parallel" comment above), the agent
+// leg can easily win that race — so both declarations must always carry the
+// identical record="true"/recordingCallbackUrl attributes, or a race means
+// recording silently never gets enabled depending on who joins first. Only
+// `startConferenceOnEnter` is meant to differ between the two.
+const conferenceXml = (crmCallId, recordingCallbackUrl, startConferenceOnEnter = true) =>
+  `<Conference startConferenceOnEnter="${startConferenceOnEnter}" endConferenceOnExit="true" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST">${escapeXml(roomName(crmCallId))}</Conference>`;
 
 // Places the far end's own leg — a separate outbound Plivo call, fired the
 // instant the first party is live, so it rings in parallel instead of after
@@ -273,10 +282,8 @@ const plivoAnswer = async (req, res) => {
         console.error('[plivoAnswer] failed to interrupt greeting:', err.message)
       );
     }
-    return respondXml(
-      res,
-      `<Response><Conference startConferenceOnEnter="false" endConferenceOnExit="true">${escapeXml(roomName(crmCallId))}</Conference></Response>`
-    );
+    const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
+    return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl, false)}</Response>`);
   }
 
   // ── inbound IVR digit resolution ───────────────────────────────────────
