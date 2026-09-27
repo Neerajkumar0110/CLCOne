@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { request } from "@/request";
-import { openTel, fmtDateTime } from "./shared";
+import { openTel, fmtDateTime, usePoll } from "./shared";
 import "./Dialer.css";
 
 // Calling › Dialer — the round keypad + contacts + recent-calls screen from
@@ -92,8 +92,14 @@ export default function Dialer() {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("All");
   const [dialNumber, setDialNumber] = useState("");
-  const [callSeconds, setCallSeconds] = useState(0);
-  const timerRef = useRef(null);
+  // Real elapsed talk time — only ever computed from `callAnsweredAt`, a
+  // timestamp the backend sets (see manualDial.js / cloudWebhook.js), never
+  // from a client-side counter started the instant dial() was called. A
+  // cloud (Tata) call rings the customer first; the timer must stay at 0:00
+  // through that ringing phase and only start once they actually pick up.
+  const [callStatus, setCallStatus] = useState(null); // 'dialing' | 'ringing' | 'connected' | 'onhold' | null
+  const [callAnsweredAt, setCallAnsweredAt] = useState(null);
+  const [now, setNow] = useState(Date.now());
 
   const [prov, setProv] = useState(null);
   useEffect(() => {
@@ -140,16 +146,42 @@ export default function Dialer() {
     loadRecentCalls();
   }, []);
 
-  // Live elapsed-time timer for the active call, in seconds.
+  // Ticks `now` every second so the elapsed-time display below stays live
+  // once the call is actually answered — the display itself is always
+  // `now - callAnsweredAt`, never a counter that started at dial time.
   useEffect(() => {
-    if (isCalling) {
-      setCallSeconds(0);
-      timerRef.current = setInterval(() => setCallSeconds((s) => s + 1), 1000);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
+    if (!isCalling) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, [isCalling]);
+
+  // Poll the real call state (same endpoint Agent Screen uses) while a call
+  // is active, so "Ringing the customer…" flips to "Connected" — and the
+  // timer starts — the instant the provider's webhook reports the customer
+  // actually picked up, not the instant we asked the provider to dial.
+  usePoll(
+    async () => {
+      if (!isCalling || !activeCallId) return;
+      const r = await request.get({ entity: "calling/agent/active" });
+      const call = r?.success ? r.result?.call : null;
+      if (call && String(call._id) === String(activeCallId)) {
+        setCallStatus(call.status);
+        setCallAnsweredAt(call.answeredAt || null);
+      } else if (!call) {
+        // Provider/webhook already ended it (no-answer, busy, hangup from
+        // the other side) — reflect that instead of leaving a dead "active"
+        // screen up with a timer that can never start.
+        setIsCalling(false);
+        setCallMsg("");
+        loadRecentCalls();
+      }
+    },
+    2000,
+    [isCalling, activeCallId]
+  );
+
+  const callSeconds = callAnsweredAt ? (now - new Date(callAnsweredAt).getTime()) / 1000 : 0;
+  const isRinging = isCalling && !callAnsweredAt;
 
   const filteredContacts = contacts.filter(
     (contact) =>
@@ -185,6 +217,12 @@ export default function Dialer() {
 
     if (r?.success) {
       setActiveCallId(r.result?.record?._id || null);
+      setCallStatus(r.result?.record?.status || null);
+      // A device/manual call is answeredAt=now from the backend the instant
+      // it's created (the CRM can't observe a phone's native dialer ringing)
+      // — a cloud call starts with answeredAt unset and the poll below picks
+      // up the real value once the provider's webhook reports it answered.
+      setCallAnsweredAt(r.result?.record?.answeredAt || null);
       setIsCalling(true);
       setIsMuted(false);
       setIsSpeaker(false);
@@ -199,6 +237,8 @@ export default function Dialer() {
   const endCall = async () => {
     setIsCalling(false);
     setCallMsg("");
+    setCallStatus(null);
+    setCallAnsweredAt(null);
     if (activeCallId) {
       await request.post({
         entity: `calling/manual/end/${activeCallId}`,
@@ -388,9 +428,9 @@ export default function Dialer() {
           <div className="active-call">
             <div className="active-call-status">
               <span className="pulse" />
-              {callMsg ? "Ringing the customer…" : "Connected"}
+              {isRinging ? "Ringing the customer…" : callStatus === "onhold" ? "On Hold" : "Connected"}
             </div>
-            {callMsg && (
+            {isRinging && callMsg && (
               <p style={{ fontSize: 12, color: "var(--hub-muted)", textAlign: "center", margin: "0 16px 8px", maxWidth: 300 }}>
                 {callMsg}
               </p>
