@@ -24,7 +24,7 @@ const hrRoleOptions = roles.filter((r) => r !== "Admin");
 // Admin/Admin get the "Add User" button.
 export default function HrUsersTab() {
   const current = useSelector(selectCurrentAdmin);
-  const { teams, assignUserToTeam } = useTeams();
+  const { teams, assignUserToTeam, loadTeams } = useTeams();
   const [roleFilter, setRoleFilter] = useState("");
 
   const canCreate = !!current && CAN_CREATE_ROLES.includes(current.role);
@@ -46,6 +46,7 @@ export default function HrUsersTab() {
       <Users
         teams={teams}
         onAssignTeam={assignUserToTeam}
+        onTeamsChanged={loadTeams}
         roleFilter={roleFilter || undefined}
         canCreate={canCreate}
         excludeRoles={HR_EXCLUDED_ROLES}

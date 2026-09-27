@@ -8,6 +8,10 @@ const {
   chart,
   groupBy,
   teamNamesForBiz,
+  resolveDashboardScope,
+  scopeFacets,
+  teamFieldScopeFilter,
+  mergeScope,
 } = require('../shared');
 const { applyDrawer, drillToMongo, paginate } = require('./_util');
 
@@ -37,13 +41,20 @@ function everStages(l) {
   ]);
 }
 
-async function baseFilter(query) {
+async function baseFilter(query, req) {
   const dateField = DATE_FIELDS[query.dateBasis] || 'created';
   const filter = { removed: false };
   const teamNames = await teamNamesForBiz(query.businessType);
   if (teamNames) filter.team = { $in: teamNames };
   applyDrawer(filter, query, DRAWER_SPEC);
-  return { filter, dateField };
+  // Row-level visibility — same rule as every other Sales dashboard (see
+  // shared.js). Merged via $and (not a flat overwrite) because DRAWER_SPEC
+  // above already has its own unrelated "team" multi-select filter on this
+  // same field — a non-full-access caller's forced scope must never be
+  // widened by whatever that filter (or the raw query string) also sets.
+  const scope = await resolveDashboardScope(req);
+  mergeScope(filter, teamFieldScopeFilter(scope, 'team', 'assignedUserName'));
+  return { filter, dateField, scope };
 }
 
 function classify(leads) {
@@ -77,11 +88,11 @@ function classify(leads) {
   return { qualified, contacted, meetings, enrolled, noResponse, invalid, interested, opportunity, newLeads };
 }
 
-async function summary({ from, to, prevFrom, prevTo, query }) {
+async function summary({ from, to, prevFrom, prevTo, query, req }) {
   const Lead = mongoose.model('Lead');
   const Call = mongoose.model('Call');
   const CallRecord = mongoose.model('CallRecord');
-  const { filter, dateField } = await baseFilter(query);
+  const { filter, dateField, scope } = await baseFilter(query, req);
 
   const [leads, prevLeads] = await Promise.all([
     Lead.find({ ...filter, [dateField]: { $gte: from, $lte: to } })
@@ -166,6 +177,8 @@ async function summary({ from, to, prevFrom, prevTo, query }) {
     { key: 'enrolled', label: 'Enrolled', value: cur.enrolled },
   ];
 
+  const scopeOpts = await scopeFacets(scope);
+
   return {
     range: { from, to, prevFrom, prevTo, bucket: bkt.unit },
     businessType: query.businessType || 'all',
@@ -177,15 +190,18 @@ async function summary({ from, to, prevFrom, prevTo, query }) {
     table: { mode: 'server', meta: { total } },
     facets: {
       sources: [...new Set(leads.map((l) => l.source).filter(Boolean))].sort(),
-      teams: [...new Set(leads.map((l) => l.team).filter(Boolean))].sort(),
-      owners: [...new Set(leads.map((l) => l.assignedUserName).filter(Boolean))].sort(),
+      // Union of scope-derived (real team roster, never empty for a valid
+      // caller) and data-derived (covers historical names no longer on a
+      // team) — see scopeFacets() in shared.js.
+      teams: [...new Set([...scopeOpts.teams, ...leads.map((l) => l.team).filter(Boolean)])].sort(),
+      owners: [...new Set([...scopeOpts.names, ...leads.map((l) => l.assignedUserName).filter(Boolean)])].sort(),
     },
   };
 }
 
-async function rows({ from, to, query }) {
+async function rows({ from, to, query, req }) {
   const Lead = mongoose.model('Lead');
-  const { filter, dateField } = await baseFilter(query);
+  const { filter, dateField } = await baseFilter(query, req);
   const full = {
     ...filter,
     [dateField]: { $gte: from, $lte: to },

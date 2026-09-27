@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const { buildPlanSummary } = require('../../../../services/payments/plan');
+const { qrDataUrl } = require('../../../../services/payments/qr');
+const { paymentScopeFilter } = require('./scope');
 
 // GET /api/payments/:id — admin detail view, includes the KYC submission
 // (with document image paths) once submitted, plus — when this request is
@@ -11,7 +13,12 @@ async function get(req, res) {
   const PaymentRequest = mongoose.model('PaymentRequest');
   const PaymentKyc = mongoose.model('PaymentKyc');
 
-  const doc = await PaymentRequest.findOne({ _id: req.params.id, removed: false }).lean();
+  // Row-level visibility — same rule as list.js (see scope.js). A
+  // non-full-access caller can't fetch another admin's payment request
+  // directly by id even knowing/guessing it (unless it's a teammate's and
+  // they're currently in "My Team" view — same ?teamView=1 the list uses).
+  const scopeFilter = await paymentScopeFilter(req.admin, req);
+  const doc = await PaymentRequest.findOne({ _id: req.params.id, removed: false, ...scopeFilter }).lean();
   if (!doc) return res.status(404).json({ success: false, message: 'Payment request not found.' });
 
   const kyc = doc.kycSubmitted ? await PaymentKyc.findOne({ paymentRequest: doc._id, removed: false }).lean() : null;
@@ -23,6 +30,14 @@ async function get(req, res) {
       .lean();
     plan = buildPlanSummary(doc, siblings);
   }
+
+  // The QR create.js returns is a one-time thing — nothing persists the
+  // image itself, only the Razorpay short URL it encodes. Regenerating it
+  // here (same qr.js encoder, purely local/no Razorpay call) means the QR
+  // is viewable again any time after creation, not just in the moment right
+  // after — e.g. an admin opening a payment request a sales person raised
+  // earlier previously had no way to see its QR at all.
+  const qr = doc.razorpayShortUrl ? await qrDataUrl(doc.razorpayShortUrl) : null;
 
   return res.status(200).json({
     success: true,
@@ -36,6 +51,7 @@ async function get(req, res) {
       notes: doc.notes,
       status: doc.status,
       shortUrl: doc.razorpayShortUrl,
+      qrDataUrl: qr,
       razorpayPaymentId: doc.razorpayPaymentId,
       emailSent: doc.emailSent,
       emailSentAt: doc.emailSentAt,

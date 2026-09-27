@@ -1,6 +1,17 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('../../../../../config/roles');
-const { bucketConfig, bucketCounts, R, kpi, ratio, chart, groupBy } = require('../shared');
+const {
+  bucketConfig,
+  bucketCounts,
+  R,
+  kpi,
+  ratio,
+  chart,
+  groupBy,
+  resolveDashboardScope,
+  scopeFacets,
+  ownerScopeFilter,
+  teamFieldScopeFilter,
+} = require('../shared');
 
 const DEAL_OPEN = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation'];
 const QUALIFIED = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
@@ -9,17 +20,6 @@ const MEETING = ['Sales Meeting', 'Opportunity', 'Enrolled'];
 function everStages(l) {
   const hist = Array.isArray(l.stageHistory) ? l.stageHistory : [];
   return new Set([l.stage || 'New Lead', ...hist.flatMap((h) => [h.fromStage, h.toStage].filter(Boolean))]);
-}
-
-// Resolve the data scope for this request (mirrors dashboardController).
-async function resolveScope(req) {
-  const isManagement = MANAGEMENT_ROLES.includes(req.admin && req.admin.role);
-  if (isManagement) return { isManagement, team: null, agent: null };
-  const Team = mongoose.model('Team');
-  const myTeam = await Team.findOne({ removed: false, members: req.admin.name }).lean();
-  return myTeam
-    ? { isManagement, team: myTeam.name, agent: null }
-    : { isManagement, team: null, agent: req.admin.name };
 }
 
 async function summary({ from, to, prevFrom, prevTo, query, req }) {
@@ -31,14 +31,14 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
   const SalesQuote = mongoose.model('SalesQuote');
   const Student = mongoose.model('Student');
 
-  const scope = await resolveScope(req);
-  const leadMatch = { removed: false };
-  const callMatch = { removed: false };
-  if (scope.team) {
-    leadMatch.team = scope.team;
-    callMatch.team = scope.team;
-  }
-  if (scope.agent) callMatch.calledBy = scope.agent;
+  const scope = await resolveDashboardScope(req);
+  const leadMatch = { removed: false, ...teamFieldScopeFilter(scope, 'team', 'assignedUserName') };
+  const callMatch = { removed: false, ...teamFieldScopeFilter(scope, 'team', 'calledBy') };
+  const callRecMatch = { removed: false, ...teamFieldScopeFilter(scope, 'team', 'agentName') };
+  const dealMatch = { removed: false, ...ownerScopeFilter(scope, 'owner') };
+  const orderMatch = { removed: false, ...ownerScopeFilter(scope, 'owner') };
+  const quoteMatch = { removed: false, ...ownerScopeFilter(scope, 'owner') };
+  const studentMatch = { removed: false, ...ownerScopeFilter(scope, 'counselor') };
 
   const win = (f) => ({ $gte: f === 'prev' ? prevFrom : from, $lte: f === 'prev' ? prevTo : to });
 
@@ -50,15 +50,12 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
         .lean(),
       Lead.countDocuments({ ...leadMatch, created: win('prev') }),
       Call.find({ ...callMatch, created: win() }).select('status created').limit(100000).lean(),
-      CallRecord.find({ ...(scope.team ? { team: scope.team } : {}), removed: false, created: win() })
-        .select('status answeredAt created')
-        .limit(100000)
-        .lean(),
-      SalesDeal.find({ removed: false, created: win() }).select('stage amount created').limit(60000).lean(),
-      SalesOrder.find({ removed: false, created: win() }).select('status total paymentStatus created').limit(60000).lean(),
-      SalesQuote.find({ removed: false, created: win() }).select('status created').limit(60000).lean(),
-      Student.find({ removed: false, created: win() }).select('status created').limit(60000).lean(),
-      Student.countDocuments({ removed: false, created: win('prev') }),
+      CallRecord.find({ ...callRecMatch, created: win() }).select('status answeredAt created').limit(100000).lean(),
+      SalesDeal.find({ ...dealMatch, created: win() }).select('stage amount created').limit(60000).lean(),
+      SalesOrder.find({ ...orderMatch, created: win() }).select('status total paymentStatus created').limit(60000).lean(),
+      SalesQuote.find({ ...quoteMatch, created: win() }).select('status created').limit(60000).lean(),
+      Student.find({ ...studentMatch, created: win() }).select('status created').limit(60000).lean(),
+      Student.countDocuments({ ...studentMatch, created: win('prev') }),
     ]);
 
   const bkt = bucketConfig(from, to);
@@ -84,11 +81,12 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
   const revSeries = bucketCounts(orders, 'created', bkt, (o) => (o.paymentStatus === 'Paid' ? o.total || 0 : 0));
 
   const dealsByStage = groupBy(deals, (d) => d.stage || 'Qualification', { sort: false });
+  const { teams: teamOptions, names: agentOptions } = await scopeFacets(scope);
 
   return {
     range: { from, to, prevFrom, prevTo, bucket: bkt.unit },
     businessType: 'all',
-    scope: scope.isManagement ? 'company' : scope.team ? `team:${scope.team}` : 'self',
+    scope: scope.isFullAccess ? 'company' : scope.team ? `team:${scope.team}` : 'self',
     totals: { leads: leads.length, connected, enrolled, wonDeals: wonDeals.length, revenue, orders: orders.length },
     kpis: [
       kpi('leads', 'Total Leads', leads.length, prevLeadCount, leadSeries),
@@ -147,7 +145,11 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     },
     facets: {
       sources: [...new Set(leads.map((l) => l.source).filter(Boolean))].sort(),
-      teams: [...new Set(leads.map((l) => l.team).filter(Boolean))].sort(),
+      // Scope-derived (real team roster), not data-derived — an empty
+      // result window would otherwise leave these filter dropdowns with no
+      // options at all, even though scoping itself is working correctly.
+      teams: teamOptions,
+      agents: agentOptions,
     },
   };
 }

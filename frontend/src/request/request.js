@@ -68,12 +68,16 @@ const request = {
       return errorHandler(error);
     }
   },
-  update: async ({ entity, id, jsonData }) => {
+  // `notify` defaults to true (unchanged behavior for every existing call
+  // site) — pass `notify: false` for a bulk loop of updates (e.g. assigning
+  // 30 leads at once) so it doesn't pop 30 separate success toasts; show one
+  // summary toast yourself once the whole batch settles instead.
+  update: async ({ entity, id, jsonData, notify = true }) => {
     try {
       includeToken();
       const response = await axios.patch(entity + '/update/' + id, jsonData);
       successHandler(response, {
-        notifyOnSuccess: true,
+        notifyOnSuccess: notify,
         notifyOnFailed: true,
       });
       return response.data;

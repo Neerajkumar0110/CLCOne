@@ -3,6 +3,7 @@ const { notifyPaid } = require('./realtime');
 const { stampNextInstallmentDue } = require('./plan');
 const { unblockIfClear } = require('./financeHold');
 const { syncStudentFees } = require('./studentProvision');
+const { syncSalesDealFromPayment } = require('./syncSalesDeal');
 
 // Single choke point for "mark this PaymentRequest paid" — shared by the
 // browser callback (paymentsPublicController/return.js), the admin manual
@@ -75,6 +76,7 @@ async function markPaid({ query, razorpayPaymentId, amountPaidPaise, webhookEven
   notifyPaid(claimed);
   unblockIfClear(claimed.studentEmail);
   syncStudentFees(claimed.studentEmail);
+  syncSalesDealFromPayment(claimed).catch(() => {});
 
   // Spec §17 "every sensitive change records who/what/when" — an admin
   // manually confirming a payment (as opposed to the automatic webhook/

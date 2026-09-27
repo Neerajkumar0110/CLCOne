@@ -63,5 +63,6 @@ export default {
     { key: "status", label: "Status", kind: "multiselect", options: STATUSES },
     { key: "course", label: "Course", kind: "multiselect", options: "@courses" },
     { key: "batch", label: "Batch", kind: "multiselect", options: "@batches" },
+    { key: "counselor", label: "Counsellor", kind: "multiselect", options: "@counsellors" },
   ],
 };

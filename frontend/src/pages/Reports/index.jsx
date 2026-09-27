@@ -398,7 +398,7 @@ const REPORT_MODULES = [
   { key: "about", label: "About", icon: ReconciliationOutlined, teamWide: true },
 ];
 
-function getModuleValue(mod, { mode, agent, kpiSource, agentCount }) {
+function getModuleValue(mod, { mode, agent, kpiSource, agentCount, totals }) {
   switch (mod.key) {
     case "dashboard":
       return `${(kpiSource.calls + kpiSource.deals).toLocaleString()} activities`;
@@ -409,7 +409,13 @@ function getModuleValue(mod, { mode, agent, kpiSource, agentCount }) {
     case "performance":
       return `${kpiSource.connectRatePct}%`;
     case "leads":
-      return kpiSource.leads.toLocaleString();
+      // Leads have no individual owner (see reportController/summary.js) —
+      // an agent row never carries a `leads` field at all, only `totals`
+      // does. Individual mode already shows a "Team-wide" badge alongside
+      // this for exactly that reason; the number itself has to come from
+      // `totals` regardless of mode, or this crashes reading .leads off
+      // whatever per-agent object kpiSource is in individual mode.
+      return (totals?.leads ?? 0).toLocaleString();
     case "invoice":
       return `${kpiSource.invoices.toLocaleString()} raised`;
     case "payment":
@@ -469,7 +475,7 @@ function Overview360() {
 
   const kpiSource = mode === "team" ? totals : (agent || totals);
   const rows = mode === "team" ? filteredAgents : (agent ? [agent] : []);
-  const moduleCtx = { mode, agent, kpiSource, agentCount: filteredAgents.length };
+  const moduleCtx = { mode, agent, kpiSource, agentCount: filteredAgents.length, totals };
   const showAllTeamsReport = mode === "team" && teamFilter === "all";
   const scopeLabel = mode === "team" ? (teamFilter === "all" ? "All Teams" : teamFilter) : agent?.name;
 

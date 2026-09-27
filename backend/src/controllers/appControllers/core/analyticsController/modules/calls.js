@@ -1,5 +1,18 @@
 const mongoose = require('mongoose');
-const { bucketConfig, bucketCounts, R, kpi, ratio, chart, groupBy, teamNamesForBiz } = require('../shared');
+const {
+  bucketConfig,
+  bucketCounts,
+  R,
+  kpi,
+  ratio,
+  chart,
+  groupBy,
+  teamNamesForBiz,
+  resolveDashboardScope,
+  scopeFacets,
+  teamFieldScopeFilter,
+  mergeScope,
+} = require('../shared');
 const { applyDrawer, drillToMongo, paginate } = require('./_util');
 
 const CONNECTED_CR = ['connected', 'completed', 'onhold', 'transferred'];
@@ -59,7 +72,7 @@ function normLegacy(r) {
   };
 }
 
-async function loadWindow(from, to, query) {
+async function loadWindow(from, to, query, req) {
   const CallRecord = mongoose.model('CallRecord');
   const Call = mongoose.model('Call');
   const teamNames = await teamNamesForBiz(query.businessType);
@@ -71,6 +84,14 @@ async function loadWindow(from, to, query) {
     legacyFilter.team = { $in: teamNames };
   }
   applyDrawer(crFilter, query, DRAWER);
+  // Row-level visibility — same rule as every other Sales dashboard (see
+  // shared.js). Merged via $and (not a flat overwrite) because DRAWER above
+  // already has its own unrelated "agent" multi-select filter on the same
+  // `agentName` field — a non-full-access caller's forced scope must never
+  // be widened by whatever that filter (or the raw query string) also sets.
+  const scope = await resolveDashboardScope(req);
+  mergeScope(crFilter, teamFieldScopeFilter(scope, 'team', 'agentName'));
+  mergeScope(legacyFilter, teamFieldScopeFilter(scope, 'team', 'calledBy'));
 
   const [crs, legacy] = await Promise.all([
     CallRecord.find(crFilter)
@@ -104,8 +125,12 @@ function stats(rows) {
   };
 }
 
-async function summary({ from, to, prevFrom, prevTo, query }) {
-  const [cur, prev] = await Promise.all([loadWindow(from, to, query), loadWindow(prevFrom, prevTo, query)]);
+async function summary({ from, to, prevFrom, prevTo, query, req }) {
+  const [cur, prev, scope] = await Promise.all([
+    loadWindow(from, to, query, req),
+    loadWindow(prevFrom, prevTo, query, req),
+    resolveDashboardScope(req),
+  ]);
   const c = stats(cur);
   const p = stats(prev);
   const bkt = bucketConfig(from, to);
@@ -159,7 +184,9 @@ async function summary({ from, to, prevFrom, prevTo, query }) {
     ],
     table: { mode: 'server', meta: { total: c.total } },
     facets: {
-      agents: [...new Set(cur.map((r) => r.agentName).filter(Boolean))].sort(),
+      // Union of scope-derived (real team roster, never empty for a valid
+      // caller) and data-derived — see scopeFacets() in shared.js.
+      agents: [...new Set([...(await scopeFacets(scope)).names, ...cur.map((r) => r.agentName).filter(Boolean)])].sort(),
       statuses: [...new Set(cur.map((r) => r.status).filter(Boolean))].sort(),
       dispositions: [...new Set(cur.map((r) => r.disposition).filter(Boolean))].sort(),
     },
@@ -168,13 +195,16 @@ async function summary({ from, to, prevFrom, prevTo, query }) {
 
 // Server-mode table — CallRecord only (the modern collection). Legacy Call
 // rows are folded into the aggregates above but not the paginated table.
-async function rows({ from, to, query }) {
+async function rows({ from, to, query, req }) {
   const CallRecord = mongoose.model('CallRecord');
   const teamNames = await teamNamesForBiz(query.businessType);
   const filter = { removed: false, created: { $gte: from, $lte: to } };
   if (teamNames) filter.team = { $in: teamNames };
   applyDrawer(filter, query, DRAWER);
   Object.assign(filter, drillToMongo(query));
+  // Row-level visibility (see the summary() comment above for why $and).
+  const scope = await resolveDashboardScope(req);
+  mergeScope(filter, teamFieldScopeFilter(scope, 'team', 'agentName'));
   if (query.q) {
     filter.$or = [
       { contactName: { $regex: query.q, $options: 'i' } },

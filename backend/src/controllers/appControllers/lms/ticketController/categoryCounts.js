@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isTicketFullAccess } = require('./scope');
 
 // GET /api/ticket/category-counts — open-ticket count per module category,
 // for the badge shown on each Support page tab (see pages/Support/index.jsx).
@@ -6,8 +7,13 @@ const mongoose = require('mongoose');
 const categoryCounts = async (req, res) => {
   const Model = mongoose.model('Ticket');
 
+  const match = { removed: false, status: 'Open' };
+  // Same row-level visibility as list.js — a non-full-access caller's tab
+  // badges should only ever count their own tickets.
+  if (!isTicketFullAccess(req.admin)) match.createdBy = req.admin._id;
+
   const rows = await Model.aggregate([
-    { $match: { removed: false, status: 'Open' } },
+    { $match: match },
     { $group: { _id: '$category', count: { $sum: 1 } } },
   ]);
 

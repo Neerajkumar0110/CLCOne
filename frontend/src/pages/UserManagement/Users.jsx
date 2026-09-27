@@ -7,6 +7,7 @@ import {
   UserAddOutlined,
   EditOutlined,
   DeleteOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { PERMISSION_MODULES } from "@/config/permissionModules";
 import { buildDefaultMatrix, fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
@@ -150,9 +151,154 @@ export function useTeams() {
   return { teams, teamsLoading, loadTeams, assignUserToTeam };
 }
 
+// "Create Team" sits right next to "Add User" (rather than only inside the
+// separate Team Management tab) so an admin can spin up a team and place
+// everyone currently without one straight from the Users list. Shared by
+// UserManagement and the HRMS Users tab, same as the rest of this file.
+function TeamsModal({ open, onClose, teams, allUsers, onAssignTeam, onTeamsChanged }) {
+  const [newTeamName, setNewTeamName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [picks, setPicks] = useState({}); // email -> team name
+  const [assigningEmail, setAssigningEmail] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setNewTeamName("");
+      setCreateError("");
+      setPicks({});
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const createTeam = async () => {
+    if (!newTeamName.trim()) return;
+    setCreating(true);
+    setCreateError("");
+    const res = await request.create({
+      entity: "team",
+      jsonData: {
+        name: newTeamName.trim(),
+        members: [],
+        color: NEW_TEAM_COLORS[teams.length % NEW_TEAM_COLORS.length],
+      },
+    });
+    setCreating(false);
+    if (!res?.success) {
+      setCreateError(res?.message || "Could not create team.");
+      return;
+    }
+    setNewTeamName("");
+    await onTeamsChanged?.();
+  };
+
+  const assign = async (user) => {
+    const teamName = picks[user.email];
+    if (!teamName) return;
+    setAssigningEmail(user.email);
+    await onAssignTeam(user.name, teamName, "");
+    setAssigningEmail("");
+    setPicks((p) => ({ ...p, [user.email]: "" }));
+  };
+
+  // Same eligibility rule as the per-user "Assign a team member" picker in
+  // EditUserModal below — anyone above Team Leader has no team concept at all.
+  const unassigned = (allUsers ?? []).filter(
+    (u) => BELOW_TEAM_MANAGER_ROLES.includes(u.role) && !teams.some((t) => t.members.includes(u.name))
+  );
+
+  return (
+    <HubModal open={open} onClose={onClose} title="Teams" width={520}>
+      <div className="hub-stack" style={{ gap: 20 }}>
+        <div>
+          <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--hub-text-soft)" }}>Create a new team</label>
+          <div style={{ display: "flex", gap: 8, marginTop: 7 }}>
+            <input
+              className="hub-input"
+              style={{ flex: 1 }}
+              placeholder="Team name"
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createTeam()}
+            />
+            <button
+              type="button"
+              className="hub-btn hub-btn-primary"
+              disabled={!newTeamName.trim() || creating}
+              onClick={createTeam}
+            >
+              {creating ? "Creating…" : "Create"}
+            </button>
+          </div>
+          {createError && <div style={{ color: "#d92d20", fontSize: 12.5, marginTop: 6 }}>{createError}</div>}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--hub-text-soft)" }}>
+            All teams ({teams.length})
+          </label>
+          {teams.length === 0 ? (
+            <div className="hub-empty" style={{ marginTop: 8 }}>No teams yet — create one above.</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              {teams.map((t) => (
+                <span key={t._id} className="hub-badge hub-badge-blue">
+                  {t.name} · {t.members.length}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--hub-text-soft)" }}>
+            Users without a team ({unassigned.length})
+          </label>
+          {unassigned.length === 0 ? (
+            <div className="hub-empty" style={{ marginTop: 8 }}>Everyone eligible is already on a team.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              {unassigned.map((u) => (
+                <div key={u.email} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="hub-avatar" style={{ background: u.color }}>{u.init}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--hub-text)" }}>{u.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{u.role}</div>
+                  </div>
+                  <select
+                    className="hub-select"
+                    style={{ width: 160 }}
+                    value={picks[u.email] || ""}
+                    onChange={(e) => setPicks((p) => ({ ...p, [u.email]: e.target.value }))}
+                  >
+                    <option value="">Choose team…</option>
+                    {teams.map((t) => (
+                      <option key={t._id} value={t.name}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="hub-btn"
+                    disabled={!picks[u.email] || assigningEmail === u.email}
+                    onClick={() => assign(u)}
+                  >
+                    {assigningEmail === u.email ? "Assigning…" : "Assign"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </HubModal>
+  );
+}
+
 function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = roles }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   // Defaults to the lowest-privilege role — Super Admin/Admin creation is
   // gated server-side to Super Admin requesters, so it shouldn't be the
   // default pick — unless opened from a role-filtered tab (e.g. Students),
@@ -200,6 +346,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   const reset = () => {
     setName("");
     setEmail("");
+    setPhone("");
     setTeamChoice(NO_TEAM);
     setNewTeamName("");
     setFormError("");
@@ -207,7 +354,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   };
 
   const submit = async () => {
-    if (!name.trim() || !email.trim()) return;
+    if (!name.trim() || !email.trim() || !phone.trim()) return;
     if (teamChoice === NEW_TEAM && !newTeamName.trim()) return;
 
     setSubmitting(true);
@@ -223,6 +370,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
       jsonData: {
         name: name.trim(),
         email: email.trim(),
+        phone: phone.trim(),
         role,
         ...(role === "Finance" ? { subRole } : {}),
       },
@@ -285,6 +433,11 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
       <div className="hub-form-row">
         <label>Email</label>
         <input className="hub-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@careerlabconsulting.com" />
+      </div>
+
+      <div className="hub-form-row">
+        <label>Phone Number</label>
+        <input className="hub-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
       </div>
 
       <div className="hub-form-row">
@@ -657,10 +810,19 @@ function UserPermissionsModal({ open, user, onClose, onToggle, onReset }) {
 // create a user of a given role is enforced server-side regardless of this
 // flag (see AddUserModal's comment above); this just keeps the button from
 // being offered to people the backend would reject anyway.
-export default function Users({ teams, onAssignTeam, roleFilter, canCreate = true, excludeRoles, roleOptions }) {
+export default function Users({
+  teams,
+  onAssignTeam,
+  onTeamsChanged,
+  roleFilter,
+  canCreate = true,
+  excludeRoles,
+  roleOptions,
+}) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [teamsOpen, setTeamsOpen] = useState(false);
   const [permUserEmail, setPermUserEmail] = useState(null);
   const [editUserEmail, setEditUserEmail] = useState(null);
 
@@ -812,13 +974,22 @@ export default function Users({ teams, onAssignTeam, roleFilter, canCreate = tru
         <div className="hub-card-header">
           <h3>{roleFilter ? `${roleFilter}s` : "All Users"}</h3>
           {canCreate && (
-            <button
-              className="hub-btn hub-btn-primary"
-              type="button"
-              onClick={() => setAddOpen(true)}
-            >
-              <UserAddOutlined /> Add {roleFilter || "User"}
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="hub-btn"
+                type="button"
+                onClick={() => setTeamsOpen(true)}
+              >
+                <TeamOutlined /> Create Team
+              </button>
+              <button
+                className="hub-btn hub-btn-primary"
+                type="button"
+                onClick={() => setAddOpen(true)}
+              >
+                <UserAddOutlined /> Add {roleFilter || "User"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -896,17 +1067,27 @@ export default function Users({ teams, onAssignTeam, roleFilter, canCreate = tru
       </div>
 
       {canCreate && (
-        <AddUserModal
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          teams={teams}
-          initialRole={roleFilter}
-          roleOptions={roleOptions}
-          onAdd={async (u, teamInfo) => {
-            await loadUsers();
-            onAssignTeam(u.name, teamInfo.teamChoice, teamInfo.newTeamName);
-          }}
-        />
+        <>
+          <AddUserModal
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            teams={teams}
+            initialRole={roleFilter}
+            roleOptions={roleOptions}
+            onAdd={async (u, teamInfo) => {
+              await loadUsers();
+              onAssignTeam(u.name, teamInfo.teamChoice, teamInfo.newTeamName);
+            }}
+          />
+          <TeamsModal
+            open={teamsOpen}
+            onClose={() => setTeamsOpen(false)}
+            teams={teams}
+            allUsers={users}
+            onAssignTeam={onAssignTeam}
+            onTeamsChanged={onTeamsChanged}
+          />
+        </>
       )}
 
       <EditUserModal

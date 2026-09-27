@@ -1,15 +1,15 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('../../../../config/roles');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 // GET /api/report/number-lookup?phone=<digits> — every call ever logged
 // against that exact number, newest first. Management-only, same as
 // report/summary.
 const numberLookup = async (req, res) => {
-  if (!MANAGEMENT_ROLES.includes(req.admin.role)) {
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
     return res.status(403).json({
       success: false,
       result: null,
-      message: 'Reports are only available to Super Admin, Admin and Sales Manager.',
+      message: 'Reports are only available to Super Admin, Admin, Sales Manager and Team Manager.',
     });
   }
 

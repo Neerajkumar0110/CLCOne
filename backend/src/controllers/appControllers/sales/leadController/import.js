@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { normalizeImported } = require('../../../../config/leadStages');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 const AVATAR_COLORS = ['#2563EB', '#722ED1', '#13C2C2', '#FA8C16', '#EB2F96', '#52C41A'];
 
@@ -97,6 +98,16 @@ const last10 = (s) => {
 // etc.); any rows beyond the allocated total are imported unassigned rather
 // than rejected, so a slightly-off manual split never fails the whole import.
 const importLeads = async (req, res) => {
+  // Import/Export is management tooling, not just a scoped read — same tier
+  // as the "Import / Export" tab's frontend gate (pages/Leads/index.jsx).
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({
+      success: false,
+      result: null,
+      message: 'Import is only available to Owner, Super Admin, Admin, Sales Manager and Team Manager.',
+    });
+  }
+
   const Lead = mongoose.model('Lead');
   const LeadImportBatch = mongoose.model('LeadImportBatch');
 

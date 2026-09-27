@@ -1010,9 +1010,13 @@ export default function UserManagement() {
         onChange={setTab}
       />
 
-      {tab === "users" && <Users teams={teams} onAssignTeam={assignUserToTeam} />}
-      {tab === "teachers" && <Users teams={teams} onAssignTeam={assignUserToTeam} roleFilter="Teacher" />}
-      {tab === "students" && <Users teams={teams} onAssignTeam={assignUserToTeam} roleFilter="Student" />}
+      {tab === "users" && <Users teams={teams} onAssignTeam={assignUserToTeam} onTeamsChanged={loadTeams} />}
+      {tab === "teachers" && (
+        <Users teams={teams} onAssignTeam={assignUserToTeam} onTeamsChanged={loadTeams} roleFilter="Teacher" />
+      )}
+      {tab === "students" && (
+        <Users teams={teams} onAssignTeam={assignUserToTeam} onTeamsChanged={loadTeams} roleFilter="Student" />
+      )}
       {tab === "deleted" && <DeletedUsers />}
       {tab === "roles" && <RolesPermissions />}
       {tab === "teams" &&

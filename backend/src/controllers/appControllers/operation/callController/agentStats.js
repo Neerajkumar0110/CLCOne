@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
-
-// Roles allowed to see everyone's call performance across every team.
-const MANAGEMENT_ROLES = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 // GET /api/call/agent-stats — per-team, per-salesperson call breakdown:
 // how many distinct numbers they've called, and how many connected vs not.
 // Restricted to management roles since it spans every team, not just the
 // requesting admin's own.
 const agentStats = async (req, res) => {
-  if (!MANAGEMENT_ROLES.includes(req.admin.role)) {
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
     return res.status(403).json({
       success: false,
       result: null,

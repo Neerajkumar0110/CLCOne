@@ -22,6 +22,7 @@ const controllerModules = {
   paymentController: require('./finance/paymentController'),
   performanceController: require('./sales/performanceController'),
   reportController: require('./core/reportController'),
+  salesDealController: require('./sales/salesDealController'),
   teamController: require('./core/teamController'),
   ticketController: require('./lms/ticketController'),
   vercelConnectionController: require('./operation/vercelConnectionController'),

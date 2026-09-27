@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
+const { leadScopeFilter } = require('./scope');
 
 // GET /api/lead/by-stage — the filtered lead list behind every dashboard
 // drill-down and the Lead List filters. All params optional:
@@ -68,14 +69,24 @@ const byStage = async (req, res) => {
   const sortBy = q.sortBy || 'stageUpdatedAt';
   const sortDir = Number(q.sortValue) === 1 ? 1 : -1;
 
+  // Row-level visibility — same rule as every other Lead read path (see
+  // scope.js). This endpoint backs the main "Lead Stages" board, so without
+  // this it was the one place a non-management caller could still see every
+  // lead company-wide regardless of the scoping on list/filter/search/etc.
+  // Combined via $and (not a flat merge) because `filter` may already carry
+  // its own top-level $or for the free-text search box, which a second $or
+  // key here would silently clobber.
+  const scopeFilter = await leadScopeFilter(req.admin, req);
+  const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
+
   const [result, count] = await Promise.all([
-    Lead.find(filter)
+    Lead.find(query)
       .sort({ [sortBy]: sortDir })
       .skip(skip)
       .limit(limit)
       .populate('assignedUser', 'name surname email')
       .lean(),
-    Lead.countDocuments(filter),
+    Lead.countDocuments(query),
   ]);
 
   return res.status(200).json({

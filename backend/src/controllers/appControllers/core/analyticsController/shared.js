@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { resolveScope: resolveIdentityScope } = require('../../../../services/access/salesScope');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helpers for every analytics module. Deliberately dependency-free
@@ -159,6 +160,97 @@ function sumBy(rows, keyFn, valFn) {
     .sort((a, b) => b.value - a.value);
 }
 
+// ── Row-level identity scoping for every analytics dashboard ────────────────
+// Same rule as every Sales module list endpoint (services/access/
+// salesScope.js): FULL_ACCESS_ROLES (owner/Super Admin/Admin/Sales Manager/
+// Team Manager) see company-wide figures and may optionally narrow to one
+// team or one person via ?team=/?agent=; everyone else is force-scoped
+// server-side to their own team (or just themselves, if not on one) — their
+// own query string can never widen that.
+async function resolveDashboardScope(req) {
+  const admin = req && req.admin;
+  const base = await resolveIdentityScope(admin);
+  if (base.isFullAccess) {
+    return {
+      isFullAccess: true,
+      team: (req.query && req.query.team) || null,
+      agent: (req.query && req.query.agent) || null,
+      teamMemberNames: null,
+    };
+  }
+  return {
+    isFullAccess: false,
+    team: base.teamName,
+    agent: base.teamName ? null : admin.name,
+    teamMemberNames: base.teamMemberNames,
+  };
+}
+
+// Team/agent option lists for a dashboard's "Team"/"Person" filter, derived
+// from the real Team roster rather than from whatever rows happen to be in
+// the current result window — a scoped-and-windowed fetch can easily come
+// back empty (no data in range), which would otherwise make the filter
+// dropdown render with zero options and look broken/missing even though
+// scoping itself is working correctly.
+async function scopeFacets(scope) {
+  const Team = mongoose.model('Team');
+  const allTeams = await Team.find({ removed: false }).select('name members').lean();
+  if (scope.isFullAccess) {
+    return {
+      teams: allTeams.map((t) => t.name).sort(),
+      names: [...new Set(allTeams.flatMap((t) => t.members || []))].filter(Boolean).sort(),
+    };
+  }
+  const names = scope.teamMemberNames && scope.teamMemberNames.length
+    ? scope.teamMemberNames
+    : scope.agent
+    ? [scope.agent]
+    : [];
+  return {
+    teams: scope.team ? [scope.team] : [],
+    names: [...new Set(names)].filter(Boolean).sort(),
+  };
+}
+
+// For a model whose individual-owner field is a plain name string matched
+// against Admin.name (SalesDeal/SalesOrder/SalesQuote/Student's owner /
+// counselor fields) — no `team` field of its own to filter on directly.
+function ownerScopeFilter(scope, field) {
+  if (scope.isFullAccess) return scope.agent ? { [field]: scope.agent } : {};
+  if (scope.team && scope.teamMemberNames) return { [field]: { $in: scope.teamMemberNames } };
+  return { [field]: scope.agent };
+}
+
+// For a model that carries its own denormalized `team` string (Lead/Call/
+// CallRecord) plus, optionally, an individual-owner field.
+function teamFieldScopeFilter(scope, teamField, ownerField) {
+  if (scope.isFullAccess) {
+    const f = {};
+    if (scope.team) f[teamField] = scope.team;
+    if (scope.agent && ownerField) f[ownerField] = scope.agent;
+    return f;
+  }
+  if (scope.team) return { [teamField]: scope.team };
+  return ownerField ? { [ownerField]: scope.agent } : { [teamField]: '__none__' };
+}
+
+// Merges an identity-scope fragment (from ownerScopeFilter/teamFieldScopeFilter)
+// into an existing Mongo filter via $and rather than a flat Object.assign.
+// Several of these modules already have their own unrelated "team"/"owner"/
+// "agent" drawer filters (a management-only multi-select browse filter, an
+// entirely different feature from the ?team=/?agent= narrowing above) that
+// write to the exact same filter keys — a flat merge would let one silently
+// clobber the other depending on call order. $and keeps both conditions
+// intact and, critically, means a non-full-access caller's forced scope can
+// never be widened by anything the drawer/query string also sets on the
+// same key.
+function mergeScope(filter, scopeFragment) {
+  if (!scopeFragment || Object.keys(scopeFragment).length === 0) return filter;
+  if (!filter.$and) filter.$and = [];
+  filter.$and.push(scopeFragment);
+  return filter;
+}
+
 // ── Team ⇄ business-type resolution ──────────────────────────────────────────
 const BIZ_MAP = { b2b: 'B2B', b2c: 'B2C', B2B: 'B2B', B2C: 'B2C' };
 function normBiz(v) {
@@ -217,4 +309,9 @@ module.exports = {
   teamContext,
   teamNamesForBiz,
   ownerBizFilter,
+  resolveDashboardScope,
+  scopeFacets,
+  ownerScopeFilter,
+  teamFieldScopeFilter,
+  mergeScope,
 };

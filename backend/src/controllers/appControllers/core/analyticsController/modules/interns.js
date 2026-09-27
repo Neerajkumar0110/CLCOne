@@ -58,8 +58,10 @@ function summary(ctx) {
     dateFields: { created: 'created', enrolledOn: 'enrolledOn' },
     select: SELECT,
     tableColumns: TABLE_COLUMNS,
+    ownerField: 'counselor',
+    ownerFacetKey: 'counsellors',
     drawerSpec: DRAWER,
-    facetFields: { courses: 'course', batches: 'batch', statuses: 'status' },
+    facetFields: { courses: 'course', batches: 'batch', statuses: 'status', counsellors: 'counselor' },
     compute: ({ cur, prev, bkt, dateField }) => {
       const c = stats(cur);
       const p = stats(prev);

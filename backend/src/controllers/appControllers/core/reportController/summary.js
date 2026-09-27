@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('../../../../config/roles');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { stageForStatus } = require('../../../../config/leadStages');
 const { hydrateClientAndAdmin } = require('../../../../services/finance/hydrateClientAndAdmin');
 
@@ -15,18 +15,12 @@ function secondsToLabel(totalSeconds) {
 
 // GET /api/report/summary?range=1W|1M|3M|6M|1Y&team=<name>&agent=<name>
 //
-// Unlike dashboard/summary and performance/summary, this is not scoped down
-// for non-management callers — it's blocked outright, full stop. Only
-// MANAGEMENT_ROLES (owner, Super Admin, Admin, Sales Manager) can call it.
+// Same scoping rule as dashboard/summary and performance/summary now:
+// FULL_ACCESS_ROLES (owner, Super Admin, Admin, Sales Manager, Team Manager)
+// see company-wide figures and may narrow by team/agent; everyone else is
+// force-scoped server-side to their own team (or just themselves, if not on
+// one) — previously this endpoint blocked everyone else outright instead.
 const summary = async (req, res) => {
-  if (!MANAGEMENT_ROLES.includes(req.admin.role)) {
-    return res.status(403).json({
-      success: false,
-      result: null,
-      message: 'Reports are only available to Super Admin, Admin and Sales Manager.',
-    });
-  }
-
   const Team = mongoose.model('Team');
   const Call = mongoose.model('Call');
   const Lead = mongoose.model('Lead');
@@ -41,8 +35,24 @@ const summary = async (req, res) => {
 
   const allTeams = await Team.find({ removed: false }).select('name members color').lean();
 
-  const scopeTeam = req.query.team || null;
-  const scopeAgent = req.query.agent || null;
+  const isManagement = FULL_ACCESS_ROLES.includes(req.admin.role);
+  let myTeam = null;
+  if (!isManagement) {
+    myTeam = allTeams.find((t) => t.members.includes(req.admin.name)) || null;
+  }
+
+  // Resolve the actual scope for this request — the only place authorization
+  // for team/agent filtering happens, same as dashboard/summary.
+  let scopeTeam = null;
+  let scopeAgent = null;
+  if (isManagement) {
+    scopeTeam = req.query.team || null;
+    scopeAgent = req.query.agent || null;
+  } else if (myTeam) {
+    scopeTeam = myTeam.name; // team-wide — naturally includes their own rows
+  } else {
+    scopeAgent = req.admin.name; // no team — just their own data
+  }
 
   // ---- Calls — real per-agent data. ----
   const callMatch = { removed: false, created: { $gte: since } };
@@ -178,9 +188,9 @@ const summary = async (req, res) => {
     success: true,
     result: {
       range,
-      scope: { team: scopeTeam, agent: scopeAgent },
+      scope: { isManagement, role: req.admin.role, team: scopeTeam, agent: scopeAgent },
       filters: {
-        teams: allTeams.map((t) => t.name),
+        teams: isManagement ? allTeams.map((t) => t.name) : myTeam ? [myTeam.name] : [],
         agents: agentNames,
       },
       totals: {

@@ -51,6 +51,14 @@ export default {
   },
   filterDrawer: [
     { key: "source", label: "Lead source", kind: "multiselect", options: "@sources" },
-    { key: "team", label: "Team", kind: "multiselect", options: "@teams" },
+    // Single-select, not multiselect: these two map straight onto the
+    // backend's ?team=/?agent= narrowing (services/access/salesScope.js),
+    // which only ever accepts one team / one person at a time. Only
+    // Owner/Super Admin/Admin/Sales Manager/Team Manager actually get to use
+    // them to narrow their company-wide view — everyone else is already
+    // force-scoped server-side to their own team (or themselves), so picking
+    // a value here is a no-op for them, not a way to see someone else's data.
+    { key: "team", label: "Team", kind: "select", options: "@teams" },
+    { key: "agent", label: "Person", kind: "select", options: "@agents" },
   ],
 };

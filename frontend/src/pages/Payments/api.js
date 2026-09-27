@@ -11,7 +11,8 @@ const qs = (o = {}) => {
 const paymentsApi = {
   create: (payload) => request.post({ entity: 'payments', jsonData: payload }),
   list: (params) => request.get({ entity: `payments${qs(params)}` }),
-  get: (id) => request.get({ entity: `payments/${id}` }),
+  get: (id, params) => request.get({ entity: `payments/${id}${qs(params)}` }),
+  stats: (params) => request.get({ entity: `payments/stats${qs(params)}` }),
   resend: (id) => request.post({ entity: `payments/${id}/resend`, jsonData: {} }),
   refresh: (id) => request.post({ entity: `payments/${id}/refresh`, jsonData: {} }),
   courseFee: (course) => request.get({ entity: `payments/course-fee${qs({ course })}` }),

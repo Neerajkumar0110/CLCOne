@@ -82,20 +82,34 @@ export default function Payments() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  // "Me" (default, self-only) vs "My Team" — mirrors the same self-or-team
+  // rule as Lead Stages/Callbacks (backend/.../paymentsController/scope.js).
+  // Never automatic just from being on a team.
+  const [teamView, setTeamView] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await paymentsApi.list({ limit: 50 });
+      const res = await paymentsApi.list({ limit: 50, teamView: teamView ? 1 : undefined });
       setRows((res && res.result) || []);
     } catch (e) {
       /* toast already shown by request layer on hard failure */
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [teamView]);
   useEffect(() => {
     load();
   }, [load]);
+
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  useEffect(() => {
+    setStatsLoading(true);
+    paymentsApi
+      .stats()
+      .then((res) => setStats((res && res.result) || null))
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   // Live updates — a payment can go from "Awaiting payment" to "Paid" purely
   // server-side (the student pays on their phone, Razorpay's callback marks
@@ -169,6 +183,25 @@ export default function Payments() {
   const copyLink = (url) => {
     navigator.clipboard?.writeText(url);
     message.success('Link copied.');
+  };
+
+  // The QR shown right after creating a request is one-time only — nothing
+  // persisted the image, just the short URL it encodes. This re-fetches it
+  // (backend regenerates from the same short URL, no Razorpay call) so the
+  // QR is viewable again any time later — e.g. an admin opening a request a
+  // sales person raised earlier previously had no way to see its QR at all.
+  const [qrFor, setQrFor] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const showQr = async (row) => {
+    setQrFor({ ...row, qrDataUrl: null });
+    setQrLoading(true);
+    try {
+      const res = await paymentsApi.get(row.id);
+      if (res?.result?.qrDataUrl) setQrFor((f) => (f && f.id === row.id ? { ...f, qrDataUrl: res.result.qrDataUrl } : f));
+      else message.error('Could not load the QR for this request.');
+    } finally {
+      setQrLoading(false);
+    }
   };
 
   const [busyId, setBusyId] = useState(null);
@@ -328,6 +361,11 @@ export default function Payments() {
               <Button className="pay-row-action" type="text" icon={<CopyOutlined />} onClick={() => copyLink(r.shortUrl)} />
             </Tooltip>
           )}
+          {r.shortUrl && (
+            <Tooltip title="Show QR">
+              <Button className="pay-row-action" type="text" icon={<QrcodeOutlined />} onClick={() => showQr(r)} />
+            </Tooltip>
+          )}
           {r.status !== 'paid' && (
             <Tooltip title="Re-send email">
               <Button className="pay-row-action" type="text" icon={<MailOutlined />} loading={busyId === r.id} onClick={() => doResend(r.id)} />
@@ -437,6 +475,49 @@ export default function Payments() {
         </Col>
 
         <Col xs={24} lg={15}>
+          {!statsLoading && stats && (
+            <Card className="pay-list-card" style={{ marginBottom: 16 }}>
+              {stats.team && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                  <Button
+                    size="small"
+                    type={!teamView ? 'primary' : 'default'}
+                    onClick={() => setTeamView(false)}
+                  >
+                    Me
+                  </Button>
+                  <Button
+                    size="small"
+                    type={teamView ? 'primary' : 'default'}
+                    onClick={() => setTeamView(true)}
+                  >
+                    My Team{stats.team.name ? ` (${stats.team.name})` : ''}
+                  </Button>
+                </div>
+              )}
+              <Row gutter={[12, 12]}>
+                {[
+                  ['today', 'Today'],
+                  ['week', 'This Week'],
+                  ['month', 'This Month'],
+                  ['threeMonth', '3 Months'],
+                  ['sixMonth', '6 Months'],
+                ].map(([key, label]) => {
+                  const w = (teamView ? stats.team : stats.self)?.[key] || { count: 0, amount: 0 };
+                  return (
+                    <Col xs={12} sm={8} md={24 / 5} key={key}>
+                      <div style={{ background: 'var(--hub-bg-soft, #f8fafc)', borderRadius: 10, padding: '10px 12px' }}>
+                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{label}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>{fmtInr(w.amount)}</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{w.count} paid</div>
+                      </div>
+                    </Col>
+                  );
+                })}
+              </Row>
+            </Card>
+          )}
+
           <Card
             className="pay-list-card"
             title="Payment requests"
@@ -640,6 +721,19 @@ export default function Payments() {
             </Image.PreviewGroup>
               </>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!qrFor} title={qrFor?.studentName ? `QR — ${qrFor.studentName}` : 'QR'} footer={null} onCancel={() => setQrFor(null)} width={360}>
+        {qrLoading || !qrFor?.qrDataUrl ? (
+          <Skeleton.Image active style={{ width: 280, height: 280 }} />
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <img src={qrFor.qrDataUrl} alt="Payment QR" style={{ width: 280, height: 280 }} />
+            <div style={{ marginTop: 12 }}>
+              <Input readOnly value={qrFor.shortUrl} />
+            </div>
           </div>
         )}
       </Modal>

@@ -26,5 +26,11 @@ module.exports = mongoose.model(
     { name: 'lastActivityDate', type: 'Date' },
     { name: 'tags', type: 'String' },
     { name: 'description', type: 'String' },
+    // Set only on a deal auto-created/updated from a paid PaymentRequest
+    // (services/payments/syncSalesDeal.js) — the correlation key (its
+    // planGroupId, or its own _id for a one-off payment) so a later
+    // installment on the SAME enrollment tops up this same deal instead of
+    // creating a duplicate. Not shown in the Deals form — internal only.
+    { name: 'paymentRequestPlanGroupId', type: 'String' },
   ])
 );

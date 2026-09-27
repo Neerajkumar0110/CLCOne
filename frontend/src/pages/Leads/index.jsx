@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import axios from "axios";
 import { Tooltip, Collapse, ConfigProvider, message } from "antd";
 import HubTabs from "@/components/HubTabs";
@@ -6,6 +7,8 @@ import HubModal from "@/components/HubModal";
 import { request } from "@/request";
 import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import { FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import {
   STAGE_NAMES,
   QUICK_FILTERS,
@@ -54,6 +57,12 @@ import {
 // Local token override so antd's Collapse/Tooltip pick up this page's blue
 // accent instead of the app-wide teal primary color.
 const HUB_ANTD_TOKENS = { colorPrimary: "var(--hub-blue)", borderRadius: 10 };
+
+// Import/Export and Capture Form are management tooling (bulk-import,
+// bulk-assign, ad-platform integrations) — mirrors backend/services/access/
+// salesScope.js's FULL_ACCESS_ROLES (Team Manager added on top of the
+// shared FULL_ACCESS_ROLES constant, same as Support's own tier).
+const LEAD_ADMIN_TAB_ROLES = [...FULL_ACCESS_ROLES, "Team Manager"];
 
 // Brand-colored icon badge per lead source, used on the "Where does this
 // form run?" toggle and anywhere else a platform needs a quick visual tag.
@@ -1204,6 +1213,8 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
 }
 
 function AllLeads() {
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
   const { teamNames } = useTeams();
   const [teamStats, setTeamStats] = useState([]);
   const [teamStatsLoading, setTeamStatsLoading] = useState(true);
@@ -1231,6 +1242,8 @@ function AllLeads() {
     quick: "",
     subStatus: "",
     assignedUser: "",
+    team: "",
+    teamView: "",
     source: "",
     q: "",
     callbackFrom: "",
@@ -1244,15 +1257,22 @@ function AllLeads() {
   const [showFilters, setShowFilters] = useState(false);
   const [drill, setDrill] = useState({ leads: [], page: 1, pages: 1, count: 0, loading: false });
 
+  // teamView toggles the SAME stage-board view between self/team scope — it
+  // shouldn't, on its own, switch the page into the flat drilled-down list
+  // (same reason "quick" is excluded here).
   const listActive =
-    !!drillStage || !!filters.quick || Object.entries(filters).some(([k, v]) => k !== "quick" && v);
+    !!drillStage ||
+    !!filters.quick ||
+    Object.entries(filters).some(([k, v]) => k !== "quick" && k !== "teamView" && v);
 
   const normalizePhone = (p) => (p || "").replace(/\D/g, "");
 
-  const loadStageStats = async () => {
+  const loadStageStats = async (teamViewOverride) => {
     setStageLoading(true);
     setStageError(false);
-    const res = await request.get({ entity: "lead/stage-stats" });
+    const teamView = teamViewOverride !== undefined ? teamViewOverride : filters.teamView;
+    const qs = teamView ? "?teamView=1" : "";
+    const res = await request.get({ entity: `lead/stage-stats${qs}` });
     if (res?.success) setStageData(res.result);
     else setStageError(true);
     setStageLoading(false);
@@ -1317,6 +1337,9 @@ function AllLeads() {
     const next = { ...filters, ...patch };
     setFilters(next);
     loadLeadList(1, { filters: next });
+    // teamView also affects the top-level stage cards (not just the
+    // drilled-down list), which loadLeadList alone doesn't refresh.
+    if ("teamView" in patch) loadStageStats(patch.teamView);
   };
 
   const clearList = () => {
@@ -1529,21 +1552,60 @@ function AllLeads() {
                 ))}
               </select>
             </div>
-            <div className="hub-form-row">
-              <label>Assigned User</label>
-              <select
-                className="hub-select"
-                value={filters.assignedUser}
-                onChange={(e) => updateFilter({ assignedUser: e.target.value })}
-              >
-                <option value="">Anyone</option>
-                {admins.map((a) => (
-                  <option key={a._id} value={a._id}>
-                    {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Company-wide narrowing — only actually has any effect for
+                Owner/Super Admin/Admin/Sales Manager/Team Manager (see
+                leadController/scope.js); everyone else is force-scoped
+                server-side regardless of these, so the fields are hidden
+                for them to avoid implying a control that does nothing. */}
+            {isFullAccess && (
+              <div className="hub-form-row">
+                <label>Assigned User</label>
+                <select
+                  className="hub-select"
+                  value={filters.assignedUser}
+                  onChange={(e) => updateFilter({ assignedUser: e.target.value })}
+                >
+                  <option value="">Anyone</option>
+                  {admins.map((a) => (
+                    <option key={a._id} value={a._id}>
+                      {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {isFullAccess && (
+              <div className="hub-form-row">
+                <label>Team</label>
+                <select
+                  className="hub-select"
+                  value={filters.team}
+                  onChange={(e) => updateFilter({ team: e.target.value })}
+                >
+                  <option value="">Any team</option>
+                  {teamNames.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Non-full-access: the only choice they get is their own rows
+                vs their whole team's — never one named teammate's, and
+                never automatic just from being on a team (server default is
+                self-only; see leadController/scope.js). */}
+            {!isFullAccess && (
+              <div className="hub-form-row">
+                <label>Showing</label>
+                <select
+                  className="hub-select"
+                  value={filters.teamView ? "team" : "mine"}
+                  onChange={(e) => updateFilter({ teamView: e.target.value === "team" ? "1" : "" })}
+                >
+                  <option value="mine">My leads only</option>
+                  <option value="team">My whole team</option>
+                </select>
+              </div>
+            )}
             <div className="hub-form-row">
               <label>Source</label>
               <select
@@ -2043,24 +2105,57 @@ function ImportExport() {
     setAssignTeams((prev) => (prev.includes(team) ? prev.filter((t) => t !== team) : [...prev, team]));
   };
 
-  // Round-robins the selected leads across the checked teams so each team
-  // gets as close to an equal share as possible.
+  // Same display-name formula used everywhere else in this file
+  // (assignSelectedDirect's person branch, teamStats' t.admin row) — Team.
+  // members[] stores this exact string, not an _id, so matching one back to
+  // an admin has to rebuild it the same way.
+  const displayName = (a) => `${a.name || ""} ${a.surname || ""}`.trim() || a.email;
+
+  // Next member of `teamName`, round-robin, advancing `cursors` (a plain
+  // { teamName: nextIndex } object mutated in place across one bulk-assign
+  // call) — so "assign to a team" actually splits the leads equally across
+  // that team's real members instead of just tagging every lead with the
+  // team name and leaving them all unassigned-within-the-team.
+  const nextTeamMember = (teamName, cursors) => {
+    const team = teams.find((t) => t.name === teamName);
+    const members = team?.members?.length ? team.members : [];
+    if (members.length === 0) return null;
+    const idx = (cursors[teamName] || 0) % members.length;
+    cursors[teamName] = idx + 1;
+    const memberName = members[idx];
+    const admin = assignablePeople.find((a) => displayName(a) === memberName);
+    return { assignedUser: admin?._id, assignedUserName: memberName };
+  };
+
+  // Round-robins the selected leads across the checked teams, AND across
+  // each team's actual members, so a team's share is itself split evenly
+  // across its people rather than left as one shared team-wide pool.
   const assignSelectedEqually = async () => {
     if (selectedLeadIds.length === 0 || assignTeams.length === 0) return;
     setAssigning(true);
+    const cursors = {};
     await Promise.all(
-      selectedLeadIds.map((id, i) =>
-        request.update({ entity: "lead", id, jsonData: { team: assignTeams[i % assignTeams.length] } })
-      )
+      selectedLeadIds.map((id, i) => {
+        const team = assignTeams[i % assignTeams.length];
+        const member = nextTeamMember(team, cursors);
+        return request.update({
+          entity: "lead",
+          id,
+          jsonData: { team, ...(member || {}) },
+          notify: false,
+        });
+      })
     );
     setAssigning(false);
     setAssignTeams([]);
     setSelectedLeadIds([]);
+    message.success(`${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? "" : "s"} assigned equally.`);
     loadUnassigned(1);
   };
 
   // One-click version of the same round-robin: every unassigned lead across
-  // every page, split across every team — no manual selection needed.
+  // every page, split across every team (and, within each team, across its
+  // members) — no manual selection needed.
   const distributeAllToAllTeams = async () => {
     if (teamNames.length === 0 || unassignedCount === 0) return;
     setSelectAllLoading(true);
@@ -2073,20 +2168,33 @@ function ImportExport() {
     if (ids.length === 0) return;
 
     setAssigning(true);
+    const cursors = {};
     await Promise.all(
-      ids.map((id, i) => request.update({ entity: "lead", id, jsonData: { team: teamNames[i % teamNames.length] } }))
+      ids.map((id, i) => {
+        const team = teamNames[i % teamNames.length];
+        const member = nextTeamMember(team, cursors);
+        return request.update({
+          entity: "lead",
+          id,
+          jsonData: { team, ...(member || {}) },
+          notify: false,
+        });
+      })
     );
     setAssigning(false);
     setAssignTeams([]);
     setSelectedLeadIds([]);
+    message.success(`${ids.length} lead${ids.length === 1 ? "" : "s"} distributed equally.`);
     loadUnassigned(1);
   };
 
   // Assign every selected lead to one single team (no round-robin).
   // Round-robins the selected leads across every checked team AND every
-  // checked individual together — a team target just sets `team`; a person
-  // target sets `assignedUser` plus their team (looked up from Team.members,
-  // since "unassigned" here is defined purely by an empty team field).
+  // checked individual together — a team target splits equally across that
+  // team's real members (same as assignSelectedEqually above); a person
+  // target sets `assignedUser` directly plus their team (looked up from
+  // Team.members, since "unassigned" here is defined purely by an empty
+  // team field).
   const assignSelectedDirect = async () => {
     const targets = [
       ...assignTeamsDirect.map((t) => ({ type: "team", team: t })),
@@ -2100,11 +2208,18 @@ function ImportExport() {
 
     setAssigning(true);
     let missingTeam = 0;
+    const cursors = {};
     await Promise.all(
       selectedLeadIds.map((id, i) => {
         const t = targets[i % targets.length];
         if (t.type === "team") {
-          return request.update({ entity: "lead", id, jsonData: { team: t.team } });
+          const member = nextTeamMember(t.team, cursors);
+          return request.update({
+            entity: "lead",
+            id,
+            jsonData: { team: t.team, ...(member || {}) },
+            notify: false,
+          });
         }
         if (!t.team) missingTeam += 1;
         const assignedUserName = `${t.admin.name || ""} ${t.admin.surname || ""}`.trim() || t.admin.email;
@@ -2112,6 +2227,7 @@ function ImportExport() {
           entity: "lead",
           id,
           jsonData: { assignedUser: t.admin._id, assignedUserName, ...(t.team ? { team: t.team } : {}) },
+          notify: false,
         });
       })
     );
@@ -2119,6 +2235,7 @@ function ImportExport() {
     setAssignTeamsDirect([]);
     setAssignPersonIds([]);
     setSelectedLeadIds([]);
+    message.success(`${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? "" : "s"} assigned.`);
     loadUnassigned(1);
     if (missingTeam > 0) {
       message.warning(`${missingTeam} lead${missingTeam === 1 ? "" : "s"} went to a person without a team — they'll keep showing here until that person is on a team.`);
@@ -5155,17 +5272,23 @@ function LinkedInCampaignSetup({ connection }) {
 // rows are highlighted. Click a row to open the lead and reschedule /
 // advance its stage.
 function CallbacksBoard() {
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
   const { teamNames } = useTeams();
   const [data, setData] = useState({ overdue: [], today: [], upcoming: [], counts: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [admins, setAdmins] = useState([]);
   const [editLead, setEditLead] = useState(null);
+  // Non-full-access default is self-only; "My whole team" opts into the
+  // team-wide view (see leadController/scope.js's ?teamView= handling).
+  const [teamView, setTeamView] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(false);
-    const res = await request.get({ entity: "lead/callbacks?days=45" });
+    const qs = teamView && !isFullAccess ? "&teamView=1" : "";
+    const res = await request.get({ entity: `lead/callbacks?days=45${qs}` });
     if (res?.success) setData(res.result);
     else setError(true);
     setLoading(false);
@@ -5174,7 +5297,8 @@ function CallbacksBoard() {
   useEffect(() => {
     load();
     request.list({ entity: "admin", options: { items: 500 } }).then((r) => setAdmins(r?.success ? r.result : []));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamView]);
 
   const saveLeadEdit = async (leadId, updates) => {
     const res = await request.update({ entity: "lead", id: leadId, jsonData: updates });
@@ -5245,7 +5369,19 @@ function CallbacksBoard() {
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><InboxOutlined /> Callbacks</h3>
-          <button type="button" className="hub-btn" onClick={load}>Refresh</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isFullAccess && (
+              <select
+                className="hub-select"
+                value={teamView ? "team" : "mine"}
+                onChange={(e) => setTeamView(e.target.value === "team")}
+              >
+                <option value="mine">My callbacks only</option>
+                <option value="team">My whole team</option>
+              </select>
+            )}
+            <button type="button" className="hub-btn" onClick={load}>Refresh</button>
+          </div>
         </div>
         <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
           Leads in the “Call Back” stage. Overdue callbacks are highlighted so nothing slips.
@@ -5284,7 +5420,28 @@ function CallbacksBoard() {
 }
 
 export default function Leads() {
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const isLeadAdmin = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
   const [tab, setTab] = useState("all");
+
+  // Import/Export and Capture Form only ever show for owner/Super Admin/
+  // Admin/Sales Manager/Team Manager — everyone else never sees the tab,
+  // and can't land on it via stale state either (see the guard below).
+  const tabs = [
+    { key: "all", label: "Lead Stages" },
+    { key: "callbacks", label: "Callbacks" },
+    ...(isLeadAdmin
+      ? [
+          { key: "io", label: "Import / Export" },
+          { key: "form", label: "Capture Form" },
+        ]
+      : []),
+  ];
+
+  useEffect(() => {
+    if (!isLeadAdmin && (tab === "io" || tab === "form")) setTab("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLeadAdmin]);
 
   return (
     <div className="hub-page">
@@ -5295,21 +5452,12 @@ export default function Leads() {
         </div>
       </div>
 
-      <HubTabs
-        tabs={[
-          { key: "all", label: "Lead Stages" },
-          { key: "callbacks", label: "Callbacks" },
-          { key: "io", label: "Import / Export" },
-          { key: "form", label: "Capture Form" },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
+      <HubTabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === "all" && <AllLeads />}
       {tab === "callbacks" && <CallbacksBoard />}
-      {tab === "io" && <ImportExport />}
-      {tab === "form" && <CaptureForm />}
+      {isLeadAdmin && tab === "io" && <ImportExport />}
+      {isLeadAdmin && tab === "form" && <CaptureForm />}
     </div>
   );
 }

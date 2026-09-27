@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
 import { BorderTrail } from "@/components/ui/border-trail";
-import { TICKET_CATEGORY_MODULES } from "@/config/permissionModules";
+import { TICKET_CATEGORY_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModules";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
+
+// Who gets the admin view (every module's tickets, every raiser, editable
+// status) — mirrors backend/.../ticketController/scope.js. Everyone else
+// only ever sees tickets they personally raised, with status shown read-only.
+const TICKET_FULL_ACCESS_ROLES = [...FULL_ACCESS_ROLES, "Support"];
 import {
   AppstoreOutlined,
   DashboardOutlined,
@@ -93,7 +100,7 @@ const TICKET_PRIORITY_META = {
 // time, and this page needs category + status together) instead of the
 // shared ticketsContext's full unpaginated fetch, so this stays fast no
 // matter how many tickets pile up over time.
-function ModuleTicketsPanel({ category, onStatusChange }) {
+function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
   const isAll = category === ALL_TAB;
   const [statusFilter, setStatusFilter] = useState("All");
   const [viewTicket, setViewTicket] = useState(null);
@@ -219,15 +226,19 @@ function ModuleTicketsPanel({ category, onStatusChange }) {
                       <td>{t.raisedBy}</td>
                       <td>{t.date}</td>
                       <td>
-                        <select
-                          className="hub-select"
-                          value={t.status}
-                          onChange={(e) => updateStatus(t.id, e.target.value)}
-                        >
-                          {Object.keys(TICKET_STATUS_META).map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
+                        {canManage ? (
+                          <select
+                            className="hub-select"
+                            value={t.status}
+                            onChange={(e) => updateStatus(t.id, e.target.value)}
+                          >
+                            {Object.keys(TICKET_STATUS_META).map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={`hub-badge ${TICKET_STATUS_META[t.status]}`}>{t.status}</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -295,6 +306,8 @@ function ModuleTicketsPanel({ category, onStatusChange }) {
 }
 
 export default function Support() {
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const canManage = TICKET_FULL_ACCESS_ROLES.includes(currentAdmin?.role);
   const [tab, setTab] = useState(ALL_TAB);
   const [categoryCounts, setCategoryCounts] = useState({});
 
@@ -568,7 +581,7 @@ export default function Support() {
           onChange={setTab}
         />
 
-        <ModuleTicketsPanel category={tab} onStatusChange={loadCategoryCounts} />
+        <ModuleTicketsPanel category={tab} onStatusChange={loadCategoryCounts} canManage={canManage} />
       </div>
     </>
   );

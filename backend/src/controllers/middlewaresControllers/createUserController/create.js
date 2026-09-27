@@ -21,7 +21,7 @@ const create = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
   const UserPassword = mongoose.model(userModel + 'Password');
 
-  const { name, surname, email, role, subRole } = req.body;
+  const { name, surname, email, phone, role, subRole } = req.body;
 
   const objectSchema = Joi.object({
     name: Joi.string().required(),
@@ -29,6 +29,7 @@ const create = async (userModel, req, res) => {
     email: Joi.string()
       .email({ tlds: { allow: true } })
       .required(),
+    phone: Joi.string().min(7).required(),
     role: Joi.string()
       .valid(...ROLES.filter((r) => r !== 'owner'))
       .required(),
@@ -37,7 +38,7 @@ const create = async (userModel, req, res) => {
       .when('role', { is: 'Finance', then: Joi.optional(), otherwise: Joi.forbidden() }),
   });
 
-  const { error } = objectSchema.validate({ name, surname, email, role, subRole });
+  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -97,6 +98,7 @@ const create = async (userModel, req, res) => {
       name,
       surname,
       email,
+      phone,
       role,
       subRole: role === 'Finance' ? subRole : undefined,
       enabled: true,
@@ -153,6 +155,7 @@ const create = async (userModel, req, res) => {
       name: newUser.name,
       surname: newUser.surname,
       email: newUser.email,
+      phone: newUser.phone,
       role: newUser.role,
       subRole: newUser.subRole,
       enabled: newUser.enabled,

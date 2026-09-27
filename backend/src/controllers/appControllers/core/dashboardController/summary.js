@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('../../../../config/roles');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { stageForStatus } = require('../../../../config/leadStages');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
@@ -31,7 +31,7 @@ const summary = async (req, res) => {
   const range = RANGE_DAYS[req.query.range] ? req.query.range : '1M';
   const since = new Date(Date.now() - RANGE_DAYS[range] * 24 * 60 * 60 * 1000);
 
-  const isManagement = MANAGEMENT_ROLES.includes(req.admin.role);
+  const isManagement = FULL_ACCESS_ROLES.includes(req.admin.role);
 
   let myTeam = null;
   if (!isManagement) {

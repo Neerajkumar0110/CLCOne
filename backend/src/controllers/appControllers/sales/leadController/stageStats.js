@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { LEAD_STAGES, STAGE_NAMES, stageForStatus } = require('../../../../config/leadStages');
+const { leadScopeFilter } = require('./scope');
 
 // GET /api/lead/stage-stats?team=<optional>
 // Powers the Lead Stages dashboard card. Returns every stage in pipeline
@@ -12,8 +13,14 @@ const stageStats = async (req, res) => {
   const match = { removed: false };
   if (req.query.team) match.team = req.query.team;
 
+  // Row-level visibility — same rule as every other Lead read path (see
+  // scope.js), so a non-management caller's dashboard totals only ever
+  // reflect their own (or their team's) pipeline, not the whole company's.
+  const scopeFilter = await leadScopeFilter(req.admin, req);
+  const finalMatch = Object.keys(scopeFilter).length ? { $and: [match, scopeFilter] } : match;
+
   const rows = await Lead.aggregate([
-    { $match: match },
+    { $match: finalMatch },
     { $group: { _id: { stage: '$stage', subStatus: '$subStatus', status: '$status' }, count: { $sum: 1 } } },
   ]);
 

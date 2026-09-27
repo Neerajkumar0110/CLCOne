@@ -648,6 +648,71 @@ h1, h2, h3, h4, h5, h6,
   gap: 14px;
 }
 
+/* The drawer's fields are plain antd controls with no className of their
+   own (Select/Input/InputNumber/Switch) — reskin them to match the app's
+   hub-input/hub-select look (border/radius/focus ring/font) instead of
+   antd's bare default theme, which reads as "unstyled" next to the rest of
+   the app. */
+.dash-drawer-fields .hub-form-row {
+  margin-bottom: 0;
+}
+
+.dash-drawer-fields .ant-select:not(.ant-select-customize-input) .ant-select-selector,
+.dash-drawer-fields .ant-input,
+.dash-drawer-fields .ant-input-number {
+  border: 1.5px solid var(--hub-border);
+  border-radius: var(--hub-r-sm);
+  background: #fff;
+  font-size: 13px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dash-drawer-fields .ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  min-height: 38px;
+  padding: 3px 11px;
+  display: flex;
+  align-items: center;
+}
+
+.dash-drawer-fields .ant-input,
+.dash-drawer-fields .ant-input-number-input {
+  padding: 9px 13px;
+}
+
+.dash-drawer-fields .ant-input-number {
+  width: 100%;
+  padding: 0;
+}
+
+.dash-drawer-fields .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
+.dash-drawer-fields .ant-input:focus,
+.dash-drawer-fields .ant-input-number-focused {
+  border-color: var(--hub-blue) !important;
+  box-shadow: var(--hub-focus-ring) !important;
+}
+
+.dash-drawer-fields .ant-select-selection-placeholder,
+.dash-drawer-fields .ant-input::placeholder {
+  color: #98a2b3;
+}
+
+.dash-drawer-fields .ant-switch.ant-switch-checked {
+  background: var(--hub-blue);
+}
+
+:root[data-theme='dark'] .dash-drawer-fields .ant-select:not(.ant-select-customize-input) .ant-select-selector,
+:root[data-theme='dark'] .dash-drawer-fields .ant-input,
+:root[data-theme='dark'] .dash-drawer-fields .ant-input-number {
+  background: var(--hub-surface-2);
+  border-color: var(--hub-border);
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .dash-drawer-fields .ant-select-selection-item,
+:root[data-theme='dark'] .dash-drawer-fields .ant-input-number-input {
+  color: var(--hub-text);
+}
+
 /* Stagger the fade-up a touch by index (set via --d inline). */
 .dash-kpi.hub-fade-up {
   animation-delay: var(--d, 0ms);

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { leadScopeFilter } = require('./scope');
 
 // GET /api/lead/callbacks?team=&assignedUser=&days=7
 // The dedicated Callback / task section. Returns every lead currently in
@@ -24,7 +25,14 @@ const callbacks = async (req, res) => {
   if (req.query.team) filter.team = req.query.team;
   if (req.query.assignedUser) filter.assignedUser = req.query.assignedUser;
 
-  const leads = await Lead.find(filter)
+  // Row-level visibility — same rule as every other Lead read path (see
+  // scope.js). This was previously the one un-scoped raw-record endpoint
+  // behind the "Callbacks" tab: any authenticated user could see every
+  // team's callbacks company-wide.
+  const scopeFilter = await leadScopeFilter(req.admin, req);
+  const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
+
+  const leads = await Lead.find(query)
     .sort({ callBackAt: 1 })
     .limit(500)
     .populate('assignedUser', 'name surname')

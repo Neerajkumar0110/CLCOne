@@ -90,12 +90,26 @@ export default function SalesPipeline() {
       };
     });
 
+    // Who actually brought in real money — every Closed Won deal, grouped by
+    // owner. Deals created automatically from a paid PaymentRequest (see
+    // backend/services/payments/syncSalesDeal.js) are attributed to whoever
+    // raised that payment link, so this is a live "who brought how much" view.
+    const byOwnerMap = new Map();
+    won.forEach((d) => {
+      const name = d.owner || "Unassigned";
+      const row = byOwnerMap.get(name) || { owner: name, count: 0, value: 0 };
+      row.count += 1;
+      row.value += Number(d.amount) || 0;
+      byOwnerMap.set(name, row);
+    });
+    const byOwner = [...byOwnerMap.values()].sort((a, b) => b.value - a.value);
+
     // Dominant currency for the KPI headline figures.
     const cc = {};
     open.forEach((d) => (cc[d.currency || "INR"] = (cc[d.currency || "INR"] || 0) + 1));
     const currency = Object.entries(cc).sort((a, b) => b[1] - a[1])[0]?.[0] || "INR";
 
-    return { open, won, lost, pipelineValue, weighted, avgAge, wonValue, winRate, byStage, currency };
+    return { open, won, lost, pipelineValue, weighted, avgAge, wonValue, winRate, byStage, byOwner, currency };
   }, [deals]);
 
   const tableRows = useMemo(() => {
@@ -192,6 +206,34 @@ export default function SalesPipeline() {
           </>
         )}
       </div>
+
+      {!loading && !error && stats.byOwner.length > 0 && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3>By Salesperson · Won</h3>
+          </div>
+          <div className="hub-table-wrapper">
+            <table className="hub-table">
+              <thead>
+                <tr>
+                  <th>Salesperson</th>
+                  <th>Deals Won</th>
+                  <th>Total Brought In</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.byOwner.map((o) => (
+                  <tr key={o.owner}>
+                    <td style={{ fontWeight: 600 }}>{o.owner}</td>
+                    <td>{o.count}</td>
+                    <td style={{ fontWeight: 700 }}>{money(o.value, stats.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {!loading && !error && deals.length > 0 && (
         <div className="hub-card">

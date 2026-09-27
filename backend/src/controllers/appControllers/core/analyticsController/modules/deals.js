@@ -74,6 +74,7 @@ function summary(ctx) {
     select: SELECT,
     tableColumns: TABLE_COLUMNS,
     ownerField: 'owner',
+    ownerFacetKey: 'owners',
     drawerSpec: DRAWER,
     facetFields: { sources: 'source', owners: 'owner', stages: 'stage' },
     compute: ({ cur, prev, bkt, dateField }) => {

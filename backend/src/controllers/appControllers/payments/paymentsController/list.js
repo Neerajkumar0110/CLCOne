@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
+const { paymentScopeFilter } = require('./scope');
 
-// GET /api/payments?page=&limit=&q= — admin list, newest first. `q` matches
-// student name/email/course/agent (simple case-insensitive contains). Capped
-// well above the CRM's usual page sizes so the Finance "Payments" tab (which
-// fetches the whole set once and filters client-side) can pull everything
-// in one call.
+// GET /api/payments?page=&limit=&q=&teamView= — admin list, newest first.
+// `q` matches student name/email/course/agent (simple case-insensitive
+// contains). Capped well above the CRM's usual page sizes so the Finance
+// "Payments" tab (which fetches the whole set once and filters client-side)
+// can pull everything in one call.
 async function list(req, res) {
   const PaymentRequest = mongoose.model('PaymentRequest');
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -16,6 +17,10 @@ async function list(req, res) {
     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ studentName: rx }, { studentEmail: rx }, { course: rx }, { createdByName: rx }];
   }
+  // Row-level visibility — same rule as every other Sales read path (see
+  // scope.js). A non-full-access caller only ever sees their own (or, with
+  // ?teamView=1, their whole team's) payment requests.
+  Object.assign(filter, await paymentScopeFilter(req.admin, req));
 
   const [items, count] = await Promise.all([
     PaymentRequest.find(filter)

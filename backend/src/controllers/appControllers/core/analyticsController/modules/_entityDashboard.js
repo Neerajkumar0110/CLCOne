@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
-const { bucketConfig, bucketCounts, ownerBizFilter } = require('../shared');
+const {
+  bucketConfig,
+  bucketCounts,
+  ownerBizFilter,
+  resolveDashboardScope,
+  scopeFacets,
+  ownerScopeFilter,
+  mergeScope,
+} = require('../shared');
 const { applyDrawer } = require('./_util');
 
 // Scaffolding shared by the "small collection, load-and-reduce" dashboards
@@ -14,6 +22,11 @@ async function runEntity(opts) {
     select,
     tableColumns,
     ownerField, // set for 'derived' businessType modules
+    // Which facetFields key holds the individual-owner facet (e.g. 'owners',
+    // 'counsellors') — scope-derived names get merged into it below so the
+    // filter dropdown is never empty just because the current window has no
+    // rows. Only meaningful when ownerField is also set.
+    ownerFacetKey,
     drawerSpec = {},
     facetFields = {},
     from,
@@ -21,6 +34,7 @@ async function runEntity(opts) {
     prevFrom,
     prevTo,
     query,
+    req,
     compute,
   } = opts;
 
@@ -29,6 +43,18 @@ async function runEntity(opts) {
 
   const filter = { removed: false };
   applyDrawer(filter, query, drawerSpec);
+  // Row-level visibility — same rule as every other Sales dashboard (see
+  // shared.js). Only applies when this entity actually has an individual-
+  // owner field to scope on (Product's shared catalog has none, so it's
+  // left company-wide for everyone). Merged via $and (not a flat overwrite)
+  // because drawerSpec above may already have its own unrelated "owner"
+  // multi-select filter on this same field — a non-full-access caller's
+  // forced scope must never be widened by whatever that filter (or the raw
+  // query string) also sets.
+  const scope = ownerField ? await resolveDashboardScope(req) : null;
+  if (scope) {
+    mergeScope(filter, ownerScopeFilter(scope, ownerField));
+  }
 
   let [cur, prev] = await Promise.all([
     Model.find({ ...filter, [dateField]: { $gte: from, $lte: to } })
@@ -60,6 +86,14 @@ async function runEntity(opts) {
   const facets = {};
   for (const [name, field] of Object.entries(facetFields)) {
     facets[name] = [...new Set(cur.map((r) => r[field]).filter(Boolean))].sort();
+  }
+  // Union in the scope-derived roster (real team members, never empty for a
+  // valid caller) — an empty result window would otherwise leave this
+  // filter dropdown with no options at all, even though scoping itself is
+  // working correctly. See scopeFacets() in shared.js.
+  if (scope && ownerFacetKey) {
+    const { names } = await scopeFacets(scope);
+    facets[ownerFacetKey] = [...new Set([...names, ...(facets[ownerFacetKey] || [])])].sort();
   }
 
   const rows = cur

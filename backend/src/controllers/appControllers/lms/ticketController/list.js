@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isTicketFullAccess } = require('./scope');
 
 // GET /api/ticket/list?page=&items=&category=&status= — overrides the
 // generic createCRUDController list (which only supports one filter field
@@ -15,6 +16,10 @@ const list = async (req, res) => {
   const match = { removed: false };
   if (req.query.category) match.category = req.query.category;
   if (req.query.status && req.query.status !== 'All') match.status = req.query.status;
+  // Row-level visibility — only the Support role (plus management) sees
+  // every module's tickets from every raiser; everyone else only ever sees
+  // tickets they personally raised (see scope.js).
+  if (!isTicketFullAccess(req.admin)) match.createdBy = req.admin._id;
 
   const [result, count] = await Promise.all([
     Model.find(match).sort({ created: -1 }).skip(skip).limit(limit).exec(),
