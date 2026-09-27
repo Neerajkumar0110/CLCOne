@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { request } from "@/request";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { openTel, fmtDateTime, usePoll } from "./shared";
 import "./Dialer.css";
 
@@ -107,10 +109,22 @@ export default function Dialer() {
   }, []);
   const isCloud = prov?.provider === "cloud";
 
-  // Real calling: the provider rings THIS number first, then the customer.
-  const [agentPhone, setAgentPhone] = useState(() => {
-    try { return localStorage.getItem("calling.agentPhone") || ""; } catch { return ""; }
-  });
+  // Real calling: the provider bridges to this number once the customer
+  // answers. It's read-only here and always pulled from the phone every
+  // admin already has on file since account creation (Admin.phone — see
+  // createUserController/create.js, required for every role/department) —
+  // CloudCallProvider.placeCall no longer accepts a per-call override, it
+  // always rings whatever's on the agent's own profile (plivoAnswer.js
+  // looks it up fresh from Admin.phone when bridging), so a manual-entry
+  // box here would just be misleading. Update it from Settings/HRMS instead.
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const [agentPhone, setAgentPhone] = useState("");
+  useEffect(() => {
+    if (!currentAdmin?._id) return;
+    request.read({ entity: "admin", id: currentAdmin._id }).then((r) => {
+      if (r?.success) setAgentPhone(r.result?.phone || "");
+    });
+  }, [currentAdmin?._id]);
   const [activeCallId, setActiveCallId] = useState(null);
   const [callMsg, setCallMsg] = useState("");
   const [dialing, setDialing] = useState(false);
@@ -197,11 +211,8 @@ export default function Dialer() {
       return;
     }
     if (isCloud && agentPhone.replace(/\D/g, "").length < 8) {
-      window.alert('Enter "Your number" first — the provider rings you before the customer.');
+      window.alert("Your account has no phone number on file — add one in Settings before calling.");
       return;
-    }
-    if (isCloud) {
-      try { localStorage.setItem("calling.agentPhone", agentPhone); } catch { /* ignore */ }
     }
 
     const initials = contact.initials || contact.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -398,8 +409,14 @@ export default function Dialer() {
 
             {isCloud && (
               <div className="hub-form-row" style={{ padding: "0 16px", marginBottom: 8 }}>
-                <label style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Your number (provider rings you first)</label>
-                <input className="hub-input" value={agentPhone} onChange={(e) => setAgentPhone(e.target.value)} placeholder="+91 90000 00000" />
+                <label style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Your number (the provider rings you here)</label>
+                <input
+                  className="hub-input"
+                  value={agentPhone}
+                  readOnly
+                  placeholder="No phone number on file — add one in Settings"
+                  title="Pulled from your account — update it in Settings, not here."
+                />
               </div>
             )}
 
