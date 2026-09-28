@@ -92,7 +92,13 @@ function InstantLeadPool() {
   const toggle = async () => {
     if (busy) return;
     setBusy(true);
-    const r = await request.post({ entity: "calling/lead-pool/toggle", jsonData: { on: !data?.on } });
+    // Polling pauses while the tab is backgrounded, so `data.on` on screen
+    // can be stale by the time the button is actually clicked — re-check
+    // the server's own current state right before deciding which way to
+    // flip, instead of trusting whatever was last polled.
+    const fresh = await request.get({ entity: "calling/lead-pool/status" });
+    const currentlyOn = fresh?.success ? !!fresh.result.on : !!data?.on;
+    const r = await request.post({ entity: "calling/lead-pool/toggle", jsonData: { on: !currentlyOn } });
     if (!r?.success) window.alert(r?.message || "Could not change your Instant Lead Pool status.");
     await load();
     setBusy(false);
