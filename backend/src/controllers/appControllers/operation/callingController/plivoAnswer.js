@@ -234,9 +234,26 @@ async function handleIvrDigits(req, res, cfg, crmCallId, secretQs) {
     label = 'our team';
   }
 
+  // Genuinely nobody to take it — rather than just dropping the caller,
+  // log it as a real callback so the target team sees a missed call to
+  // work, instead of it vanishing with nothing but a CallRecord no one
+  // watches.
   if (!dialNumber) {
     await rec.save();
-    return respondXml(res, HOLD_XML);
+    const CallCallback = mongoose.model('CallCallback');
+    await new CallCallback({
+      callRecord: rec._id,
+      contactName: rec.phone,
+      phone: rec.phone,
+      team: (opt && opt.targetTeam) || undefined,
+      scheduledAt: new Date(),
+      notes: `Missed inbound call — no agent was available${opt && opt.targetTeam ? ` in ${opt.targetTeam}` : ''} to take it.`,
+      createdByName: 'IVR (auto)',
+    }).save();
+    return respondXml(
+      res,
+      '<Response><Speak voice="WOMAN" language="en-IN">Sorry, no one is available to take your call right now. We have noted your number and our team will call you back shortly.</Speak><Hangup/></Response>'
+    );
   }
 
   await rec.save();

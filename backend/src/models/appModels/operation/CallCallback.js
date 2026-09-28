@@ -20,6 +20,11 @@ const schema = new mongoose.Schema({
   assignedAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   assignedAgentName: String,
 
+  // Set only for an auto-created inbound-missed-call callback (no agent was
+  // Available to take the IVR-routed call) — which team should work it,
+  // since there's no assignedAgent yet to imply that.
+  team: String,
+
   status: { type: String, enum: ['Pending', 'Done', 'Missed', 'Cancelled'], default: 'Pending', index: true },
   completedAt: Date,
 

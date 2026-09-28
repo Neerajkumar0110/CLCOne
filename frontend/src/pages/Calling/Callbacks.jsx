@@ -68,7 +68,7 @@ export default function Callbacks() {
           <h3><CalendarOutlined /> Callbacks</h3>
           <button type="button" className="hub-btn" onClick={load}>Refresh</button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#8c8c8c" }}>Callbacks agents scheduled from the calling screen. Overdue ones are highlighted.</div>
+        <div style={{ fontSize: 12.5, color: "#8c8c8c" }}>Callbacks agents scheduled, plus missed inbound calls logged automatically when no one was available. Overdue ones are highlighted.</div>
       </div>
 
       {!data && <div className="hub-card"><div className="hub-empty">Loading…</div></div>}

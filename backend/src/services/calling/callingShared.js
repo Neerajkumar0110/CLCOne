@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('./dispositions');
+const { notify } = require('../../notify');
 
 // Lifecycle helpers shared by CloudCallProvider (outbound auto-dialer) and
 // cloudWebhook.js (inbound IVR + provider call-status callbacks). Kept
@@ -42,9 +43,84 @@ async function wrapupAgent(callRecord, actorName) {
   );
 }
 
-// Roll the linked CallLead forward from a disposition code or a raw outcome.
+// Dispositions that mean the contact showed real interest — these are the
+// ones worth surfacing in the actual Sales pipeline, not just left sitting
+// in the calling module's own CallLead list where a sales rep never sees
+// them. ('sale' = SALE, 'callback' = INTERESTED/CALLBACK — see dispositions.js)
+const CRM_BRIDGE_CATEGORIES = ['sale', 'callback'];
+
+// Link (or create) the CRM `Lead` a genuinely-interested CallLead deserves.
+// CallLead.crmLead is a one-way, set-once link — once a contact has a real
+// Lead, later calls in the same or another campaign just keep dispositioning
+// the same Lead's history rather than spawning duplicates.
+async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
+  if (!callLead || callLead.crmLead) return;
+  const Lead = mongoose.model('Lead');
+  const Team = mongoose.model('Team');
+
+  const phoneNormalized = last10(callLead.phone);
+  let lead = phoneNormalized
+    ? await Lead.findOne({ removed: false, phoneNormalized }).select('_id')
+    : null;
+
+  if (!lead) {
+    const d = dispositionCode && BY_CODE[dispositionCode];
+    const team = callRecord.agentName
+      ? await Team.findOne({ removed: false, members: callRecord.agentName }).select('name').lean()
+      : null;
+    const outcomeLabel = d ? d.label : dispositionCode || 'Call outcome';
+
+    lead = await new Lead({
+      name: callLead.name,
+      phone: callLead.phone,
+      email: callLead.email || undefined,
+      source: 'Auto-Dialer',
+      stage: 'Interested',
+      subStatus: 'Workshop Prospect',
+      assignedUser: callRecord.agent || undefined,
+      assignedUserName: callRecord.agentName || undefined,
+      team: team ? team.name : undefined,
+      stageHistory: [
+        {
+          toStage: 'Interested',
+          toSubStatus: 'Workshop Prospect',
+          changedByName: callRecord.agentName || undefined,
+          remarks: `Auto-created from a calling-campaign call (${outcomeLabel})`,
+          at: new Date(),
+        },
+      ],
+      callHistory: [
+        {
+          outcome: outcomeLabel,
+          notes: callRecord.notes || undefined,
+          byName: callRecord.agentName || undefined,
+          at: new Date(),
+        },
+      ],
+    }).save();
+
+    notify({
+      audience: 'team',
+      teamName: lead.team,
+      module: 'Leads',
+      type: 'lead.created',
+      title: `New lead: ${lead.name}`,
+      body: `via Auto-Dialer (${outcomeLabel})`,
+      link: '/leads',
+    }).catch(() => {});
+  }
+
+  callLead.crmLead = lead._id;
+}
+
+// Roll the linked CallLead forward from a disposition code or a raw outcome,
+// bridging it into the Sales pipeline when the outcome shows real interest.
 async function resolveLead(callRecord, dispositionCode, rawOutcome) {
   if (!callRecord || !callRecord.callLead) return;
+  const CallLead = mongoose.model('CallLead');
+  const callLead = await CallLead.findById(callRecord.callLead);
+  if (!callLead) return;
+
   let status = 'Completed';
   const d = dispositionCode && BY_CODE[dispositionCode];
   if (d) {
@@ -57,9 +133,14 @@ async function resolveLead(callRecord, dispositionCode, rawOutcome) {
         rawOutcome
       ] || 'Completed';
   }
-  const set = { status, lastDisposition: dispositionCode || undefined };
-  if (status === 'DNC') set.dncAt = new Date();
-  await mongoose.model('CallLead').updateOne({ _id: callRecord.callLead }, { $set: set });
+  callLead.status = status;
+  callLead.lastDisposition = dispositionCode || callLead.lastDisposition;
+  if (status === 'DNC') callLead.dncAt = new Date();
+
+  if (d && CRM_BRIDGE_CATEGORIES.includes(d.category)) {
+    await bridgeToCrmLead(callLead, callRecord, dispositionCode);
+  }
+  await callLead.save();
 }
 
 // Recompute a campaign's denormalised counters from its leads + call records.

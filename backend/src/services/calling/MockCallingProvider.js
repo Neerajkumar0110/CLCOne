@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const CallingProvider = require('./CallingProvider');
-const { BY_CODE } = require('./dispositions');
+const { resolveLead } = require('./callingShared');
 
 // Deterministic, time-driven call simulation. NO real calls, NO timers /
 // background loops (serverless-safe): every call's state is a pure function
@@ -372,18 +372,7 @@ class MockCallingProvider extends CallingProvider {
   }
 
   async _resolveLead(rec, dispositionCode) {
-    const d = dispositionCode && BY_CODE[dispositionCode];
-    let status = 'Completed';
-    if (d) {
-      if (d.category === 'callback') status = 'Callback';
-      else if (d.category === 'dnc') status = 'DNC';
-      else if (d.category === 'sale') status = 'Completed';
-      else status = 'Completed';
-    }
-    await mongoose.model('CallLead').updateOne(
-      { _id: rec.callLead },
-      { $set: { status, lastDisposition: dispositionCode || undefined } }
-    );
+    await resolveLead(rec, dispositionCode);
   }
 
   async _recountCampaign(campaignId) {

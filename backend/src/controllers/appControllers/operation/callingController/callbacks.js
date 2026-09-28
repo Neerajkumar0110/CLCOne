@@ -14,7 +14,21 @@ const list = async (req, res) => {
   todayEnd.setHours(23, 59, 59, 999);
 
   const filter = { removed: false };
-  if (callingTier(req) === 'agent') filter.assignedAgent = req.admin._id;
+  const tier = callingTier(req);
+  if (tier === 'agent') {
+    filter.assignedAgent = req.admin._id;
+  } else if (tier === 'manager') {
+    // Own callbacks + anything logged (e.g. an auto missed-inbound-call
+    // entry) against a team they belong to — never every team's queue.
+    const Team = mongoose.model('Team');
+    const first = String(req.admin.name || '').trim();
+    const full = `${req.admin.name || ''} ${req.admin.surname || ''}`.trim();
+    const myTeams = await Team.find({ removed: false, members: { $in: [first, full] } }).select('name').lean();
+    const teamNames = myTeams.map((t) => t.name);
+    filter.$or = teamNames.length
+      ? [{ assignedAgent: req.admin._id }, { team: { $in: teamNames } }]
+      : [{ assignedAgent: req.admin._id }];
+  }
   if (req.query.agent) filter.assignedAgent = req.query.agent;
   if (req.query.campaign) filter.campaign = req.query.campaign;
 
