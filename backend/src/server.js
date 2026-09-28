@@ -88,6 +88,13 @@ startLinkedInLeadPoller();
 const startCallingDialerTick = require('./jobs/callingDialerTick');
 startCallingDialerTick();
 
+// Pulls call-recording links from the provider's Recording API for any
+// recently completed call that isn't marked available yet — the provider's
+// own push callback isn't reliably reaching this server (see the job file
+// for what was actually verified). No-op unless CALLING_PROVIDER=cloud.
+const startCallingRecordingSync = require('./jobs/callingRecordingSync');
+startCallingRecordingSync();
+
 // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
 // failed inbound webhook events, runs the nightly reconcile. No-op until
 // MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).

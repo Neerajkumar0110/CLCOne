@@ -359,6 +359,9 @@ class CloudCallProvider extends CallingProvider {
   }
 
   async getRecording(callRecord) {
+    if (callRecord.status === 'completed' && (!callRecord.recording || callRecord.recording.status !== 'available')) {
+      await this.syncRecording(callRecord);
+    }
     const rec = callRecord.recording || {};
     return {
       status: rec.status || 'unavailable',
@@ -367,6 +370,48 @@ class CloudCallProvider extends CallingProvider {
       url: rec.url || null,
       streamUrl: null,
     };
+  }
+
+  // Pull-based fallback/primary path for linking a Conference recording —
+  // Plivo's own `recordingCallbackUrl` push callback (see plivoAnswer.js's
+  // conferenceXml) never actually reached this server for any real call
+  // tested (confirmed directly against Plivo's Recording API: the
+  // recordings exist there, correct duration and all, our CallRecord just
+  // never heard about it). Plivo's Recording API supports an exact
+  // `conference_name` filter, and every conference is named `call-<id>`
+  // (see plivoAnswer.js's roomName()), so one targeted lookup per call is
+  // enough — no need to guess at call_uuid, which for a conference
+  // recording is Plivo's own conference_uuid, not either leg's call_uuid.
+  async syncRecording(callRecord) {
+    if (!this._ready) return false;
+    const p = this._cfg.plivo;
+    const conferenceName = `call-${callRecord._id}`;
+    const r = await this._fetchJson(
+      `${p.apiBase}/v1/Account/${p.authId}/Recording/?conference_name=${encodeURIComponent(conferenceName)}`,
+      { method: 'GET', headers: { Authorization: `Basic ${Buffer.from(`${p.authId}:${p.authToken}`).toString('base64')}`, Accept: 'application/json' } }
+    );
+    const found = r.ok && Array.isArray(r.json?.objects) ? r.json.objects[0] : null;
+    if (!found || !found.recording_url) return false;
+
+    const CallRecord = mongoose.model('CallRecord');
+    await CallRecord.updateOne(
+      { _id: callRecord._id },
+      {
+        $set: {
+          'recording.status': 'available',
+          'recording.url': found.recording_url,
+          'recording.durationSec': Math.round(Number(found.recording_duration_ms) / 1000) || 0,
+          'recording.readyAt': new Date(),
+        },
+      }
+    );
+    callRecord.recording = {
+      status: 'available',
+      url: found.recording_url,
+      durationSec: Math.round(Number(found.recording_duration_ms) / 1000) || 0,
+      readyAt: new Date(),
+    };
+    return true;
   }
 
   // ── auto-dialer engine ───────────────────────────────────────────────
