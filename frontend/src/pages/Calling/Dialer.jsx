@@ -2,8 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import { FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import { openTel, fmtDateTime, usePoll } from "./shared";
 import "./Dialer.css";
+
+// Same management tier used everywhere else in the app (see salesScope.js's
+// FULL_ACCESS_ROLES + 'Team Manager') — everyone else never even sees the
+// "Your number" box below, since it's fully automatic for them now (pulled
+// from Admin.phone) and showing it just added confusing, non-actionable UI.
+const CAN_SEE_AGENT_NUMBER_ROLES = [...FULL_ACCESS_ROLES, "Team Manager"];
 
 // Calling › Dialer — the round keypad + contacts + recent-calls screen from
 // the old Sales "Live Dialer" tab, restored as its own tab here (so it's
@@ -118,6 +125,7 @@ export default function Dialer() {
   // looks it up fresh from Admin.phone when bridging), so a manual-entry
   // box here would just be misleading. Update it from Settings/HRMS instead.
   const currentAdmin = useSelector(selectCurrentAdmin);
+  const canSeeAgentNumber = CAN_SEE_AGENT_NUMBER_ROLES.includes(currentAdmin?.role);
   const [agentPhone, setAgentPhone] = useState("");
   useEffect(() => {
     if (!currentAdmin?._id) return;
@@ -407,16 +415,10 @@ export default function Dialer() {
               </div>
             </div>
 
-            {isCloud && (
-              <div className="hub-form-row" style={{ padding: "0 16px", marginBottom: 8 }}>
-                <label style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Your number (the provider rings you here)</label>
-                <input
-                  className="hub-input"
-                  value={agentPhone}
-                  readOnly
-                  placeholder="No phone number on file — add one in Settings"
-                  title="Pulled from your account — update it in Settings, not here."
-                />
+            {isCloud && canSeeAgentNumber && (
+              <div style={{ padding: "0 16px", marginBottom: 8, fontSize: 12.5 }}>
+                <span style={{ color: "var(--hub-muted)" }}>Rings this agent at: </span>
+                <strong>{agentPhone || "No phone number on file — add one in Settings"}</strong>
               </div>
             )}
 
