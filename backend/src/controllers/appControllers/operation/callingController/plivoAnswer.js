@@ -155,6 +155,23 @@ async function findAvailableAgentById(agentId) {
   return Admin.findById(agentId).select('name surname phone mobile contactNumber').lean();
 }
 
+// Instant Lead Pool predictive dial (CloudCallProvider.dialLeadPoolNext):
+// the customer was dialled with NO agent picked yet, so the instant they
+// answer, claim whichever agent has been free the longest — atomically
+// (Available -> Ringing in one findOneAndUpdate), so two customers who
+// happen to answer within the same second can never grab the same agent.
+async function claimLeadPoolAgent(campaignId) {
+  const AgentCallState = mongoose.model('AgentCallState');
+  const state = await AgentCallState.findOneAndUpdate(
+    { campaign: campaignId, status: 'Available' },
+    { $set: { status: 'Ringing', since: new Date() } },
+    { sort: { since: 1 }, new: true }
+  );
+  if (!state) return null;
+  const Admin = mongoose.model('Admin');
+  return Admin.findById(state.agent).select('name surname phone mobile contactNumber').lean();
+}
+
 // ── inbound: a stranger calling OUR number ──────────────────────────────
 async function handleInboundCall(req, res, cfg, secretQs) {
   const b = { ...req.query, ...(req.body || {}) };
@@ -317,21 +334,59 @@ const plivoAnswer = async (req, res) => {
   // ── customer leg of an outbound (CRM-initiated) call ───────────────────
   let agentNumber = null;
   let callerId = cfg.callerId;
+  let rec = null;
 
   if (mongoose.isValidObjectId(crmCallId)) {
     const CallRecord = mongoose.model('CallRecord');
-    const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
+    rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
     if (rec) {
       callerId = rec.callerId || callerId;
       if (rec.agent) {
         const Admin = mongoose.model('Admin');
         const admin = await Admin.findById(rec.agent).select('phone mobile contactNumber').lean();
         agentNumber = admin && last10(admin.phone || admin.mobile || admin.contactNumber);
+      } else if (rec.campaign) {
+        // Instant Lead Pool: this customer was dialled with no agent
+        // picked up front (see CloudCallProvider.dialLeadPoolNext) — they
+        // just answered, so claim one right now.
+        const CallCampaign = mongoose.model('CallCampaign');
+        const camp = await CallCampaign.findOne({ _id: rec.campaign, isLeadPool: true, removed: false })
+          .select('_id')
+          .lean();
+        if (camp) {
+          const claimed = await claimLeadPoolAgent(camp._id);
+          if (claimed) {
+            rec.agent = claimed._id;
+            rec.agentName = `${claimed.name} ${claimed.surname || ''}`.trim();
+            await rec.save();
+            agentNumber = last10(claimed.phone || claimed.mobile || claimed.contactNumber);
+          }
+        }
       }
     }
   }
 
-  if (!agentNumber) return respondXml(res, HOLD_XML);
+  if (!agentNumber) {
+    // No agent free the instant this customer answered — every agent in
+    // the pool is mid-call for at most a few seconds longer, so hold
+    // briefly and retry claiming one instead of dropping them immediately.
+    const holdTry = parseInt(req.query.holdTry || '0', 10);
+    if (rec && rec.campaign && holdTry < 4) {
+      const retryUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${crmCallId}&holdTry=${holdTry + 1}${secretQs}`;
+      return respondXml(
+        res,
+        `<Response><Speak voice="WOMAN" language="en-IN">${holdTry === 0 ? 'Please hold, connecting you to our team.' : 'Still connecting you, thank you for your patience.'}</Speak><Wait length="4"/><Redirect method="POST">${escapeXml(retryUrl)}</Redirect></Response>`
+      );
+    }
+    if (rec && rec.callLead) {
+      // Nobody free after several tries — park the lead for a normal
+      // retry pass rather than losing it outright.
+      await mongoose
+        .model('CallLead')
+        .updateOne({ _id: rec.callLead, status: 'Dialing' }, { $set: { status: 'Queued' } });
+    }
+    return respondXml(res, HOLD_XML);
+  }
 
   const dialNumber = `${cfg.plivo.countryCode}${agentNumber}`;
   return bridgeToNumber({ cfg, res, crmCallId, dialNumber, callerId, secretQs, speakXml: GREETING_XML });

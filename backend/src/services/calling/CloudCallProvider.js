@@ -310,6 +310,80 @@ class CloudCallProvider extends CallingProvider {
     return r;
   }
 
+  // ── Instant Lead Pool predictive dial ──────────────────────────────────
+  // Unlike dialNext, this dials the CUSTOMER ONLY — no agent leg, no
+  // CallRecord.agent set. Whichever agent has been free the longest gets
+  // claimed the instant the customer actually answers (plivoAnswer.js's
+  // customer-leg handler, via claimLeadPoolAgent) instead of being picked
+  // up front and left ringing in parallel — the whole point of the pool
+  // being "dial up to 10 lines at once" independent of exactly how many
+  // agents happen to be free right now.
+  async dialLeadPoolNext(campaign) {
+    const CallLead = mongoose.model('CallLead');
+    const CallRecord = mongoose.model('CallRecord');
+
+    const maxAttempts = Math.max(1, campaign.maxAttempts || 3);
+    const retryBefore = new Date(Date.now() - (campaign.retryDelayMin || 30) * 60 * 1000);
+
+    const lead = await CallLead.findOneAndUpdate(
+      {
+        campaign: campaign._id,
+        removed: false,
+        dncAt: { $exists: false },
+        $or: [
+          { status: { $in: ['New', 'Queued'] } },
+          {
+            status: { $in: ['No Answer', 'Busy', 'Voicemail', 'Failed'] },
+            attempts: { $lt: maxAttempts },
+            lastAttemptAt: { $lt: retryBefore },
+          },
+        ],
+      },
+      { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
+      { sort: { attempts: 1, created: 1 }, new: true }
+    );
+    if (!lead) return { ok: false, error: 'No leads waiting in this campaign.' };
+
+    const now = new Date();
+    const rec = await new CallRecord({
+      campaign: campaign._id,
+      callLead: lead._id,
+      contactName: lead.name,
+      phone: lead.phone,
+      direction: 'Outbound',
+      status: 'dialing',
+      phaseAt: now,
+      queuedAt: now,
+      provider: 'cloud',
+      isMock: false,
+      callerId: campaign.callerId || this._cfg.callerId || undefined,
+      team: campaign.team,
+      notes: 'Instant Lead Pool — agent assigned on answer',
+    }).save();
+
+    const r = await this._placeProviderCall({
+      customerNumber: last10(lead.phone),
+      callerId: rec.callerId,
+      crmCallId: String(rec._id),
+    });
+
+    if (!r.ok) {
+      rec.status = 'failed';
+      rec.endedAt = new Date();
+      rec.notes = failureNote(r);
+      await rec.save();
+      await CallLead.updateOne(
+        { _id: lead._id },
+        { $set: { status: lead.attempts >= maxAttempts ? 'Failed' : 'Queued' } }
+      );
+      return { ok: false, error: r.error };
+    }
+
+    rec.providerCallId = r.providerCallId || `cloud-${rec._id}`;
+    await rec.save();
+    return { ok: true, callRecord: rec };
+  }
+
   async answer(callRecord) {
     // The provider bridges automatically; nothing to POST. Reflect state.
     if (['dialing', 'ringing'].includes(callRecord.status)) {
@@ -471,8 +545,33 @@ class CloudCallProvider extends CallingProvider {
       .exec();
 
     for (const camp of campaigns) {
-      if (!camp.agents || !camp.agents.length) continue;
       if (!withinCallingHours(camp)) continue;
+
+      if (camp.isLeadPool) {
+        // Predictive dialing: up to 10 concurrent customer-only lines,
+        // independent of exactly how many agents are free right now — the
+        // agent gets picked only once someone actually answers (see
+        // dialLeadPoolNext / plivoAnswer.js's claimLeadPoolAgent). Only
+        // worth dialing at all while at least one agent is in the pool.
+        const availableAgents = await AgentCallState.countDocuments({ campaign: camp._id, status: 'Available' });
+        if (availableAgents === 0) continue;
+        const inFlight = await CallRecord.countDocuments({
+          campaign: camp._id,
+          removed: false,
+          status: { $in: ['dialing', 'ringing'] },
+        });
+        let budget = 10 - inFlight;
+        while (budget > 0) {
+          const r = await this.dialLeadPoolNext(camp);
+          if (!r.ok) break;
+          advanced++;
+          budget--;
+          touched.add(String(camp._id));
+        }
+        continue;
+      }
+
+      if (!camp.agents || !camp.agents.length) continue;
 
       const ratio = Math.max(1, camp.dialRatio || 1);
       const [freeStates, inFlight] = await Promise.all([
@@ -486,10 +585,6 @@ class CloudCallProvider extends CallingProvider {
 
       // lines allowed right now = (available agents × ratio) − already ringing
       let budget = freeStates.length * ratio - inFlight;
-      // The Instant Lead Pool is opt-in and can pull in a lot of agents at
-      // once — hard-cap it regardless of headcount so it never floods the
-      // provider with concurrent dials.
-      if (camp.isLeadPool) budget = Math.min(budget, 10 - inFlight);
       if (budget <= 0) continue;
 
       for (const st of freeStates) {
