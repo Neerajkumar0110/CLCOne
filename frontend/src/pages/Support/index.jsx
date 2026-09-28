@@ -6,6 +6,7 @@ import { request } from "@/request";
 import { BorderTrail } from "@/components/ui/border-trail";
 import { TICKET_CATEGORY_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import { usePermission } from "@/context/permissionContext";
 
 // Who gets the admin view (every module's tickets, every raiser, editable
 // status) — mirrors backend/.../ticketController/scope.js. Everyone else
@@ -308,6 +309,15 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
 export default function Support() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const canManage = TICKET_FULL_ACCESS_ROLES.includes(currentAdmin?.role);
+  const { canView } = usePermission();
+  // A regular user can only ever have raised a ticket about a module they
+  // themselves can open — showing every module in the app (HRMS, Git
+  // Management, Vercel Management, ...) as a filter tab here is just
+  // clutter for them. Support/management (canManage) still see every
+  // category, since triaging tickets from ANY module is their whole job.
+  const visibleCategoryModules = canManage
+    ? TICKET_CATEGORY_MODULES
+    : TICKET_CATEGORY_MODULES.filter((mod) => canView(mod));
   const [tab, setTab] = useState(ALL_TAB);
   const [categoryCounts, setCategoryCounts] = useState({});
 
@@ -570,7 +580,7 @@ export default function Support() {
         <HubTabs
           tabs={[
             { key: ALL_TAB, label: ALL_TAB, icon: <AppstoreOutlined />, count: allOpenCount },
-            ...TICKET_CATEGORY_MODULES.map((mod) => ({
+            ...visibleCategoryModules.map((mod) => ({
               key: mod,
               label: mod,
               icon: MODULE_ICONS[mod],
