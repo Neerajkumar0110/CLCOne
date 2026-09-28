@@ -33,11 +33,14 @@ export function defaultMatrixForRole(role) {
     const canView =
       fullAccess ||
       isSupportRole ||
-      // Reports is restricted to full-access roles only (owner, Super Admin,
-      // Admin, Sales Manager) — the backend /api/report/* endpoints enforce
-      // this too (403 for anyone else), this just keeps the nav item honest.
-      (LEAD_TIER_ROLES.includes(role) && mod !== "User Management" && mod !== "Payments" && mod !== "Reports") ||
-      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales"].includes(mod)) ||
+      // Reports/Performance/Payments/Calling all self-or-team-scope down on
+      // the backend for anyone who isn't full-access (see reportController/
+      // summary.js, paymentsController/scope.js, salesDealController/scope.js,
+      // dashboardController/summary.js) rather than blocking outright — a
+      // lead-tier or frontline role sees only their own or their team's rows,
+      // never company-wide, so there's no reason to hide the nav item itself.
+      (LEAD_TIER_ROLES.includes(role) && mod !== "User Management") ||
+      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance"].includes(mod)) ||
       (isFinance && ["Dashboard", "Invoices", "Payments", "Finance"].includes(mod));
 
     const canEdit =
