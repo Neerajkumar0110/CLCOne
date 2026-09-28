@@ -218,11 +218,6 @@ export default function Dialer() {
       window.alert("Enter a valid phone number.");
       return;
     }
-    if (isCloud && agentPhone.replace(/\D/g, "").length < 8) {
-      window.alert("Your account has no phone number on file — add one in Settings before calling.");
-      return;
-    }
-
     const initials = contact.initials || contact.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
     setSelectedContact({ ...contact, initials });
     setDialing(true);
