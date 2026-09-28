@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { getProvider } = require('../../../../services/calling');
+const { last10 } = require('../../../../services/calling/callingShared');
 
 // "Call this lead" from a lead row / the agent screen.
 //
@@ -124,6 +125,24 @@ const end = async (req, res) => {
       { _id: rec.callLead },
       { $set: { status, lastDisposition: req.body.disposition || undefined } }
     );
+  } else {
+    // No CallLead behind this one — it's a raw "call this lead" dial from
+    // the Dialer screen's Contacts queue (frontend/src/pages/Calling/
+    // Dialer.jsx), which passes only phone/contactName. That flow already
+    // moves the Lead's own stage (Contacted/No Response) straight from the
+    // frontend, but never records that a real call actually happened —
+    // stamp that here so "Used Leads" (leadController/usedLeads.js) can
+    // tell a genuinely-dialled lead apart from one whose stage just
+    // happened to be set some other way.
+    const phoneNorm = last10(rec.phone);
+    if (phoneNorm) {
+      const d = req.body.disposition && BY_CODE[req.body.disposition];
+      const outcome = d ? d.label : rec.duration > 0 ? 'Connected' : 'No Answer';
+      await mongoose.model('Lead').updateOne(
+        { phoneNormalized: phoneNorm, removed: false },
+        { $push: { callHistory: { outcome, byName: rec.agentName || undefined, at: new Date() } } }
+      );
+    }
   }
 
   return res.status(200).json({ success: true, result: rec, message: 'Call logged' });

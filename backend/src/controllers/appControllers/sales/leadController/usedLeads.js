@@ -2,15 +2,21 @@ const mongoose = require('mongoose');
 const { leadScopeFilter } = require('./scope');
 
 // GET /api/lead/used?team=&agent=&teamView=1
-// Every lead that's already been contacted at least once — anything that's
-// moved past the "New Lead" stage, whether by a rep working it by hand or
-// the Instant Lead Pool auto-dialer — in one flat list instead of having to
-// add up several rows of the stage funnel by hand. `response` is always
-// populated: the calling side (services/calling/callingShared.js) never
-// leaves a dialled lead's outcome blank.
+// Every lead that's genuinely been DIALLED through this CRM's own calling
+// system — the Instant Lead Pool or the manual Dialer screen — in one flat
+// list instead of having to add up several rows of the stage funnel by
+// hand. Deliberately NOT "any lead whose stage isn't New Lead": a lead can
+// land on a later stage without ever being called here (bulk-imported
+// already-Interested, a stage set by hand in the edit modal, an ad-platform
+// webhook, ...), and those don't belong in a "who did we actually call"
+// list. `callHistory` is the one field only a real CRM-placed call ever
+// pushes to (see services/calling/callingShared.js's advanceCrmLead and
+// manualDial.js's end handler), so it's the source of truth here — paired
+// with stage != "New Lead" so a lead that's been called always also drops
+// out of the New Lead count the moment it lands in this list.
 const usedLeads = async (req, res) => {
   const Lead = mongoose.model('Lead');
-  const filter = { removed: false, stage: { $ne: 'New Lead' } };
+  const filter = { removed: false, stage: { $ne: 'New Lead' }, 'callHistory.0': { $exists: true } };
 
   // Same row-level visibility as every other Lead read path.
   const scopeFilter = await leadScopeFilter(req.admin, req);
