@@ -31,6 +31,9 @@ const toggle = async (req, res) => {
         campaign: on ? camp._id : null,
         since: new Date(),
         lastSeenAt: new Date(),
+        // Leaving mid-call would otherwise leave a stale reference behind —
+        // clear it so the next join starts clean.
+        ...(on ? {} : { currentCall: null }),
       },
     },
     { upsert: true }
