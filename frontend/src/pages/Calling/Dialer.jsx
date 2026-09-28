@@ -249,6 +249,8 @@ export default function Dialer() {
   };
 
   const endCall = async () => {
+    const wasAnswered = !!callAnsweredAt;
+    const contact = selectedContact;
     setIsCalling(false);
     setCallMsg("");
     setCallStatus(null);
@@ -259,6 +261,23 @@ export default function Dialer() {
         jsonData: { talkSeconds: callSeconds },
       });
       setActiveCallId(null);
+    }
+    // Auto-classify the lead's stage from this call's outcome — connected =
+    // "Contacted", nobody picked up = "No Response" — so an agent working
+    // down this list doesn't have to also manually flip the stage after
+    // every single call. Only touches a lead still in "New Lead"/"No
+    // Response" (i.e. not yet meaningfully engaged): a lead the rep has
+    // already qualified further (Interested, Sales Meeting, ...) keeps its
+    // real stage instead of being silently reset by a routine follow-up call.
+    if (contact?._id) {
+      const stage = contact.stage || "New Lead";
+      if (stage === "New Lead" || stage === "No Response") {
+        const next = wasAnswered
+          ? { stage: "Contacted", subStatus: "First Contact Done" }
+          : { stage: "No Response", subStatus: "No Response" };
+        await request.update({ entity: "lead", id: contact._id, jsonData: next, notify: false }).catch(() => {});
+        loadContacts(contactsPage);
+      }
     }
     loadRecentCalls();
   };
