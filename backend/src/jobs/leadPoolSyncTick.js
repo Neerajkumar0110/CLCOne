@@ -10,8 +10,19 @@ const { notifyUser } = require('../notify');
 // resolveLead/advanceCrmLead). Only unassigned leads are swept in — once a
 // rep has a lead assigned to them, it's theirs to work by hand, not fair
 // game for whichever agent happens to be free in the shared pool.
+//
+// New Lead always comes first. Only once there isn't a single unassigned
+// New Lead left anywhere does it fall back to Contacted / No Response
+// leads that have never been through the pool at all (dialled once by
+// hand via the old manual Dialer screen, which never created a CallLead,
+// or landed there some other way) — the same two stages
+// callingShared.js's advanceCrmLead already treats as "still workable by
+// the auto-dialer", everything past that (Interested, Sales Meeting,
+// Enrolled, Not Interested, ...) is a rep's real pipeline progress and is
+// never swept in here.
 const TICK_MS = 30 * 1000;
 const BATCH_LIMIT = 200;
+const FALLBACK_STAGES = ['Contacted', 'No Response'];
 
 function startLeadPoolSyncTick() {
   let running = false;
@@ -57,6 +68,49 @@ function startLeadPoolSyncTick() {
         );
       }
 
+      // Fall back to Contacted / No Response only once there is truly no
+      // unassigned New Lead left anywhere — not just none currently queued
+      // (a lead could exist but not be synced yet this tick).
+      const freshLeadsRemaining = await Lead.countDocuments({
+        removed: false,
+        stage: 'New Lead',
+        $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }],
+      });
+
+      if (freshLeadsRemaining === 0) {
+        const fallback = await Lead.find({
+          removed: false,
+          stage: { $in: FALLBACK_STAGES },
+          autoDialerQueuedAt: null,
+          $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }],
+        })
+          .select('_id name phone email')
+          .limit(BATCH_LIMIT)
+          .lean();
+
+        if (fallback.length) {
+          const docs = fallback
+            .filter((l) => last10(l.phone).length >= 8)
+            .map((l) => ({
+              campaign: camp._id,
+              crmLead: l._id,
+              name: l.name,
+              phone: l.phone,
+              phoneNormalized: last10(l.phone),
+              email: l.email || undefined,
+              source: 'CRM Lead Pool (fallback)',
+              status: 'New',
+            }));
+          if (docs.length) {
+            await CallLead.insertMany(docs, { ordered: false }).catch(() => {});
+          }
+          await Lead.updateMany(
+            { _id: { $in: fallback.map((l) => l._id) } },
+            { $set: { autoDialerQueuedAt: new Date() } }
+          );
+        }
+      }
+
       const pending = await CallLead.countDocuments({
         campaign: camp._id,
         removed: false,
@@ -75,7 +129,7 @@ function startLeadPoolSyncTick() {
               module: 'Calling',
               type: 'leadpool.exhausted',
               title: 'Instant Lead Pool is empty',
-              body: 'No New leads left to dial right now — it will pick up automatically as fresh leads come in.',
+              body: 'No leads left to dial right now — it will pick up automatically as fresh or re-workable leads come in.',
               link: '/calling?tab=dialer',
             });
           }
