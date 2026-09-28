@@ -10,6 +10,7 @@ const teamStats = require('./teamStats');
 const stageStats = require('./stageStats');
 const byStage = require('./byStage');
 const callbacks = require('./callbacks');
+const usedLeads = require('./usedLeads');
 const myContacts = require('./myContacts');
 const { leadScopeFilter } = require('./scope');
 const {
@@ -30,6 +31,7 @@ methods.teamStats = teamStats;
 methods.stageStats = stageStats;
 methods.byStage = byStage;
 methods.callbacks = callbacks;
+methods.usedLeads = usedLeads;
 methods.myContacts = myContacts;
 
 // Row-level visibility — a Sales Executive/Intern only ever sees their own

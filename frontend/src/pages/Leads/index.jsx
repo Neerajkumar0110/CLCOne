@@ -32,6 +32,7 @@ import {
   TeamOutlined,
   UserOutlined,
   InboxOutlined,
+  PhoneOutlined,
   FileTextOutlined,
   FileExcelOutlined,
   SwapOutlined,
@@ -5419,6 +5420,101 @@ function CallbacksBoard() {
   );
 }
 
+// Every lead that's already been used (dialled at least once, by hand or by
+// the Instant Lead Pool auto-dialer) — one flat list instead of adding up
+// several rows of the Lead Stages funnel by hand. Kept deliberately simple:
+// just who it was, what happened, who called them.
+function UsedLeadsBoard() {
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [teamView, setTeamView] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(false);
+    const qs = teamView && !isFullAccess ? "?teamView=1" : "";
+    const res = await request.get({ entity: `lead/used${qs}` });
+    if (res?.success) setLeads(res.result);
+    else setError(true);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamView]);
+
+  return (
+    <div className="hub-stack">
+      <div className="hub-card">
+        <div className="hub-card-header">
+          <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{leads.length}</span>}</h3>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isFullAccess && (
+              <select className="hub-select" value={teamView ? "team" : "mine"} onChange={(e) => setTeamView(e.target.value === "team")}>
+                <option value="mine">My leads only</option>
+                <option value="team">My whole team</option>
+              </select>
+            )}
+            <button type="button" className="hub-btn" onClick={load}>Refresh</button>
+          </div>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
+          Every lead whose number has already been called, and the response recorded for it.
+        </div>
+      </div>
+
+      {loading && <div className="hub-card"><div className="hub-empty">Loading used leads…</div></div>}
+      {error && !loading && (
+        <div className="hub-card">
+          <div className="hub-empty">
+            Couldn&rsquo;t load used leads.
+            <button type="button" className="hub-btn" style={{ marginLeft: 8 }} onClick={load}>Retry</button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="hub-card">
+          {leads.length === 0 ? (
+            <div className="hub-empty">No leads have been called yet.</div>
+          ) : (
+            <div className="hub-table-wrapper">
+              <table className="hub-table">
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Phone</th>
+                    <th>Response</th>
+                    <th>Assigned</th>
+                    <th>Team</th>
+                    <th>Last Contact</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map((l) => (
+                    <tr key={l._id}>
+                      <td>{l.name}</td>
+                      <td>{l.phone || "—"}</td>
+                      <td><span className={`hub-badge ${STATUS_META[l.stage]}`}>{l.response}</span></td>
+                      <td>{l.assignedUserName || "—"}</td>
+                      <td>{l.team || "Unassigned"}</td>
+                      <td>{l.lastContactAt ? new Date(l.lastContactAt).toLocaleString() : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Leads() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const isLeadAdmin = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
@@ -5430,6 +5526,7 @@ export default function Leads() {
   const tabs = [
     { key: "all", label: "Lead Stages" },
     { key: "callbacks", label: "Callbacks" },
+    { key: "used", label: "Used Leads" },
     ...(isLeadAdmin
       ? [
           { key: "io", label: "Import / Export" },
@@ -5456,6 +5553,7 @@ export default function Leads() {
 
       {tab === "all" && <AllLeads />}
       {tab === "callbacks" && <CallbacksBoard />}
+      {tab === "used" && <UsedLeadsBoard />}
       {isLeadAdmin && tab === "io" && <ImportExport />}
       {isLeadAdmin && tab === "form" && <CaptureForm />}
     </div>
