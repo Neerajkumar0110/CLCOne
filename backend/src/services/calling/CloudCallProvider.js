@@ -527,6 +527,38 @@ class CloudCallProvider extends CallingProvider {
       advanced++;
     }
 
+    // 1b. Orphaned "connected" calls: the provider's hangup webhook can
+    // fail to arrive (network blip, delivery failure) — without this, one
+    // missed webhook leaves that agent's live-call slot permanently
+    // occupied, so GET /calling/agent/active keeps showing that same old
+    // call forever and masks every real call after it. A genuine call
+    // lasting this long is vanishingly rare, so treat anything still
+    // "connected"/"onhold" this stale as orphaned, not still in progress.
+    const staleConnectedBefore = new Date(now - 3 * 60 * 60 * 1000); // 3h
+    const staleConnected = await CallRecord.find({
+      provider: 'cloud',
+      status: { $in: ['connected', 'onhold'] },
+      phaseAt: { $lte: staleConnectedBefore },
+    })
+      .limit(50)
+      .exec();
+    for (const rec of staleConnected) {
+      rec.status = 'completed';
+      rec.endedAt = rec.endedAt || new Date();
+      rec.phaseAt = new Date();
+      rec.notes = rec.notes ? `${rec.notes} — auto-closed: no hangup webhook received.` : 'Auto-closed: no hangup webhook received.';
+      await rec.save();
+      if (rec.callLead) {
+        await CallLead.updateOne(
+          { _id: rec.callLead, status: { $nin: ['Completed', 'Callback', 'DNC'] } },
+          { $set: { status: 'Completed' } }
+        );
+      }
+      await setAgent(rec.agent, { status: 'Wrapup', currentCall: null, since: new Date() });
+      if (rec.campaign) touched.add(String(rec.campaign));
+      advanced++;
+    }
+
     // 2. Wrapup → Available after 8s (short; agents pause manually to hold).
     const wrapupBefore = new Date(now - 8 * 1000);
     const wr = await AgentCallState.updateMany(
