@@ -198,7 +198,7 @@ export default function Dialer() {
         loadRecentCalls();
       }
     },
-    2000,
+    1000,
     [isCalling, activeCallId]
   );
 
