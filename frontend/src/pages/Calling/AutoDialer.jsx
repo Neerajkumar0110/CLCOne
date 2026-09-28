@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
 import { ThunderboltOutlined, PoweroffOutlined } from "@ant-design/icons";
@@ -57,6 +57,9 @@ function InstantLeadPool() {
   const isSales = !NON_SALES_ROLES.includes(currentAdmin?.role);
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [activeCall, setActiveCall] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const on = !!data?.on;
 
   const load = async () => {
     if (!isSales) return;
@@ -64,6 +67,25 @@ function InstantLeadPool() {
     if (r?.success) setData(r.result);
   };
   usePoll(load, 4000, [isSales]);
+
+  // Live "is a call actually going out right now" indicator — same endpoint
+  // the manual Dialer screen polls, so a call this agent gets fed by the
+  // pool shows up here exactly like a manually-dialled one would: Ringing
+  // while Plivo is calling the customer, then Connected with a live timer.
+  usePoll(async () => {
+    if (!isSales || !on) {
+      setActiveCall(null);
+      return;
+    }
+    const r = await request.get({ entity: "calling/agent/active" });
+    setActiveCall(r?.success ? r.result : null);
+  }, 2000, [isSales, on]);
+
+  useEffect(() => {
+    if (!activeCall?.call) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [activeCall?.call?._id, activeCall?.call?.status]);
 
   if (!isSales) return null;
 
@@ -76,7 +98,11 @@ function InstantLeadPool() {
     setBusy(false);
   };
 
-  const on = !!data?.on;
+  const call = activeCall?.call;
+  const lead = activeCall?.lead;
+  const isRinging = !!call && !call.answeredAt;
+  const isConnected = !!call && !!call.answeredAt;
+  const callSeconds = isConnected ? Math.max(0, Math.floor((now - new Date(call.answeredAt).getTime()) / 1000)) : 0;
 
   return (
     <div className="hub-stack">
@@ -111,6 +137,48 @@ function InstantLeadPool() {
         <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
           Join and it dials straight from unassigned New Leads, sending you the next customer the moment you're free — no campaign setup needed.
         </div>
+
+        {on && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              background: call ? (isRinging ? "#fff7ed" : "#f0fdf4") : "#f8fafc",
+              border: `1px solid ${call ? (isRinging ? "#fed7aa" : "#bbf7d0") : "#eef0f4"}`,
+              borderRadius: 10,
+              padding: "10px 14px",
+              marginBottom: 14,
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: call ? (isRinging ? "#f59e0b" : "#16a34a") : "#94a3b8",
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ flex: 1, fontSize: 13 }}>
+              {call ? (
+                <>
+                  <strong>{isRinging ? "Ringing the customer…" : "Connected"}</strong>
+                  {" — "}
+                  {lead?.name || call.contactName || "Customer"}{" "}
+                  <span style={{ color: "#94a3b8" }}>{lead?.phone || call.phone}</span>
+                  {isConnected && (
+                    <span style={{ marginLeft: 10, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                      {fmtDuration(callSeconds)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ color: "#64748b" }}>No active call right now — waiting for the next lead.</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {data && data.poolExhausted && (
           <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, marginBottom: 12 }}>
