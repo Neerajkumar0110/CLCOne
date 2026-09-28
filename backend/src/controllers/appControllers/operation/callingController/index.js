@@ -4,7 +4,6 @@ const meta = require('./meta');
 const dashboard = require('./dashboard');
 const campaigns = require('./campaigns');
 const importLeads = require('./importLeads');
-const dialer = require('./dialer');
 const agentActions = require('./agentActions');
 const history = require('./history');
 const callbacks = require('./callbacks');
@@ -30,10 +29,6 @@ module.exports = {
   leadImport: importLeads.importLeads,
   leadCreate: importLeads.createLead,
   leadList: importLeads.listLeads,
-
-  dialerState: dialer.state,
-  dialerPresence: dialer.presence,
-  dialerDialNext: dialer.dialNext,
 
   agentActive: agentActions.active,
   agentAnswer: agentActions.answer,
@@ -69,4 +64,5 @@ module.exports = {
 
   leadPoolToggle: leadPool.toggle,
   leadPoolStatus: leadPool.status,
+  leadPoolUsedLeads: leadPool.usedLeads,
 };

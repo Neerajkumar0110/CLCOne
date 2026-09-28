@@ -99,4 +99,60 @@ const status = async (req, res) => {
   });
 };
 
-module.exports = { toggle, status };
+// GET /api/calling/lead-pool/used-leads?page=&items= — every lead the pool
+// has already attempted (pool-wide, every agent, not just me), with the
+// response the system recorded for it. `status` is always populated by
+// resolveLead the moment a call ends (Connected/No Answer/Busy/Voicemail/
+// Completed/Callback/DNC), whether or not the agent picked an explicit
+// disposition — so this list never shows a blank response.
+const usedLeads = async (req, res) => {
+  const CallCampaign = mongoose.model('CallCampaign');
+  const CallLead = mongoose.model('CallLead');
+
+  const camp = await CallCampaign.findOne({ isLeadPool: true, removed: false }).select('_id').lean();
+  if (!camp) {
+    return res.status(200).json({ success: true, result: [], pagination: { page: 1, pages: 0, count: 0 }, message: 'ok' });
+  }
+
+  const page = parseInt(req.query.page) || 1;
+  const items = Math.min(parseInt(req.query.items) || 30, 100);
+  const filter = { campaign: camp._id, removed: false, status: { $nin: ['New', 'Queued'] } };
+
+  const [rows, count] = await Promise.all([
+    CallLead.find(filter)
+      .sort({ updated: -1 })
+      .skip((page - 1) * items)
+      .limit(items)
+      .lean(),
+    CallLead.countDocuments(filter),
+  ]);
+
+  // CallLead (operationDb) and Admin (coreDb) live on different
+  // connections under this app's multi-database routing, and Mongoose's
+  // own .populate() can't cross that boundary — so resolve agent names
+  // with a plain second lookup instead.
+  const Admin = mongoose.model('Admin');
+  const agentIds = [...new Set(rows.filter((l) => l.assignedAgent).map((l) => String(l.assignedAgent)))];
+  const agents = agentIds.length
+    ? await Admin.find({ _id: { $in: agentIds } }).select('name surname').lean()
+    : [];
+  const agentNameById = new Map(agents.map((a) => [String(a._id), `${a.name} ${a.surname || ''}`.trim()]));
+
+  return res.status(200).json({
+    success: true,
+    result: rows.map((l) => ({
+      _id: l._id,
+      name: l.name,
+      phone: l.phone,
+      response: l.status,
+      disposition: l.lastDisposition || null,
+      agentName: l.assignedAgent ? agentNameById.get(String(l.assignedAgent)) || null : null,
+      attempts: l.attempts,
+      lastAttemptAt: l.lastAttemptAt,
+    })),
+    pagination: { page, pages: Math.ceil(count / items) || 0, count },
+    message: 'ok',
+  });
+};
+
+module.exports = { toggle, status, usedLeads };
