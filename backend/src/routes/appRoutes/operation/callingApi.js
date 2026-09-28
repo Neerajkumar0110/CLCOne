@@ -44,6 +44,10 @@ router.route('/dialer/:campaignId').get(catchErrors(c.dialerState));
 router.route('/dialer/:campaignId/presence').post(catchErrors(c.dialerPresence));
 router.route('/dialer/:campaignId/dial-next').post(catchErrors(c.dialerDialNext));
 
+// ── instant lead pool (per-agent toggle, fed straight from Sales leads) ──
+router.route('/lead-pool/toggle').post(catchErrors(c.leadPoolToggle));
+router.route('/lead-pool/status').get(catchErrors(c.leadPoolStatus));
+
 // ── agent calling screen ───────────────────────────────────────────────
 router.route('/agent/active').get(catchErrors(c.agentActive));
 router.route('/agent/call/:id/answer').post(catchErrors(c.agentAnswer));

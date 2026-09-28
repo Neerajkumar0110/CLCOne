@@ -13,6 +13,7 @@ const reports = require('./reports');
 const manualDial = require('./manualDial');
 const supportDial = require('./supportDial');
 const ivrFlows = require('./ivrFlows');
+const leadPool = require('./leadPool');
 
 module.exports = {
   status: meta.status,
@@ -65,4 +66,7 @@ module.exports = {
   ivrFlowCreate: ivrFlows.create,
   ivrFlowUpdate: ivrFlows.update,
   ivrFlowRemove: ivrFlows.remove,
+
+  leadPoolToggle: leadPool.toggle,
+  leadPoolStatus: leadPool.status,
 };

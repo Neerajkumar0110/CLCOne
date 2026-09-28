@@ -326,11 +326,14 @@ class MockCallingProvider extends CallingProvider {
     for (const camp of activeCampaigns) {
       const agentIds = (camp.agents || []).map((a) => String(a));
       if (agentIds.length === 0) continue;
+      // Same hard cap as CloudCallProvider — the Instant Lead Pool is
+      // opt-in and shouldn't scale unbounded with headcount.
+      const rawLimit = Math.max(1, camp.dialRatio || 1) * agentIds.length;
       const freeAgents = await AgentCallState.find({
         agent: { $in: camp.agents },
         status: 'Available',
       })
-        .limit(Math.max(1, camp.dialRatio || 1) * agentIds.length)
+        .limit(camp.isLeadPool ? Math.min(rawLimit, 10) : rawLimit)
         .populate('agent', 'name surname role')
         .exec();
       for (const st of freeAgents) {

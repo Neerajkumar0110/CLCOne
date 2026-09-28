@@ -57,6 +57,16 @@ const schema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   createdByName: String,
 
+  // The one system-managed campaign behind the per-agent "Instant Lead
+  // Pool" toggle (see services/calling/callingShared.js's
+  // getOrCreateLeadPoolCampaign). Always exactly one such document exists;
+  // it's excluded from the ordinary campaign list/picker and can't be
+  // removed through the normal campaign endpoints.
+  isLeadPool: { type: Boolean, default: false },
+  // Set the moment the pool runs dry (so participating agents get notified
+  // once, not every tick); cleared as soon as new leads are queued again.
+  leadsExhaustedNotifiedAt: Date,
+
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
 });

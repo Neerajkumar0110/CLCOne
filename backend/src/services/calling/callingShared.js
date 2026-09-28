@@ -127,6 +127,60 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
   callLead.crmLead = lead._id;
 }
 
+// A lead the Instant Lead Pool queued (see leadPoolSyncTick.js) already
+// points `crmLead` at the real Lead it came FROM — bridgeToCrmLead's own
+// job is done before it's even called (it no-ops on an already-linked
+// callLead). What's still missing for that case is rolling the outcome
+// back onto the ORIGINAL Lead's own stage, exactly the way a manually
+// dialled Lead advances from the Dialer screen — otherwise it would just
+// sit at "New Lead" forever and get re-queued next sync.
+async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
+  const Lead = mongoose.model('Lead');
+  const lead = await Lead.findOne({ _id: leadId, removed: false });
+  // Only ever move it forward from wherever the auto-dialer itself left it
+  // last time — never overwrite progress a human has since made (e.g. it's
+  // already in Sales Meeting because someone worked it by hand).
+  if (!lead || !['New Lead', 'Contacted', 'No Response'].includes(lead.stage)) return;
+
+  const d = dispositionCode && BY_CODE[dispositionCode];
+  let stage, subStatus;
+  if (d) {
+    if (d.category === 'sale' || d.category === 'callback') {
+      stage = 'Interested';
+      subStatus = 'Workshop Prospect';
+    } else if (d.code === 'WRONG_NUMBER') {
+      stage = 'Invalid';
+      subStatus = 'Wrong Number';
+    } else {
+      // not-interested / no-contact (other than wrong number) / dnc — none
+      // of these have a dedicated Lead stage, "Not Interested" is closest.
+      stage = 'Not Interested';
+      subStatus = 'Price Too High';
+    }
+  } else if (rawOutcome === 'connected') {
+    stage = 'Contacted';
+    subStatus = 'First Contact Done';
+  } else {
+    stage = 'No Response';
+    subStatus = 'No Response';
+  }
+
+  const outcomeLabel = d ? d.label : rawOutcome || 'No Answer';
+  const fromStage = lead.stage;
+  lead.stage = stage;
+  lead.subStatus = subStatus;
+  lead.callHistory.push({ outcome: outcomeLabel, byName: callRecord.agentName || undefined, at: new Date() });
+  lead.stageHistory.push({
+    fromStage,
+    toStage: stage,
+    toSubStatus: subStatus,
+    changedByName: callRecord.agentName || undefined,
+    remarks: `Instant Lead Pool call outcome: ${outcomeLabel}`,
+    at: new Date(),
+  });
+  await lead.save();
+}
+
 // Roll the linked CallLead forward from a disposition code or a raw outcome,
 // bridging it into the Sales pipeline when the outcome shows real interest.
 async function resolveLead(callRecord, dispositionCode, rawOutcome) {
@@ -134,6 +188,7 @@ async function resolveLead(callRecord, dispositionCode, rawOutcome) {
   const CallLead = mongoose.model('CallLead');
   const callLead = await CallLead.findById(callRecord.callLead);
   if (!callLead) return;
+  const preLinkedLeadId = callLead.crmLead || null;
 
   let status = 'Completed';
   const d = dispositionCode && BY_CODE[dispositionCode];
@@ -155,6 +210,34 @@ async function resolveLead(callRecord, dispositionCode, rawOutcome) {
     await bridgeToCrmLead(callLead, callRecord, dispositionCode);
   }
   await callLead.save();
+
+  if (preLinkedLeadId) {
+    await advanceCrmLead(preLinkedLeadId, dispositionCode, rawOutcome, callRecord);
+  }
+}
+
+// Lazily finds (or creates, once) the single system campaign behind the
+// per-agent "Instant Lead Pool" toggle — see leadPool.js (toggle/status
+// endpoints) and leadPoolSyncTick.js (feeds it from Lead, notifies on
+// exhaustion). Always Active: participation is controlled per-agent via
+// AgentCallState, exactly like joining/leaving any other campaign, not by
+// pausing the campaign itself.
+async function getOrCreateLeadPoolCampaign() {
+  const CallCampaign = mongoose.model('CallCampaign');
+  let camp = await CallCampaign.findOne({ isLeadPool: true, removed: false });
+  if (!camp) {
+    camp = await new CallCampaign({
+      name: 'Instant Lead Pool',
+      description: 'System-managed — fed automatically from New Lead stage Sales leads. Join/leave from the Calls page toggle.',
+      campaignType: 'Outbound',
+      isLeadPool: true,
+      autoDial: true,
+      dialRatio: 2,
+      status: 'Active',
+      agents: [],
+    }).save();
+  }
+  return camp;
 }
 
 // Recompute a campaign's denormalised counters from its leads + call records.
@@ -220,4 +303,5 @@ module.exports = {
   resolveLead,
   recountCampaign,
   withinCallingHours,
+  getOrCreateLeadPoolCampaign,
 };

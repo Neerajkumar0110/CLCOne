@@ -486,6 +486,10 @@ class CloudCallProvider extends CallingProvider {
 
       // lines allowed right now = (available agents × ratio) − already ringing
       let budget = freeStates.length * ratio - inFlight;
+      // The Instant Lead Pool is opt-in and can pull in a lot of agents at
+      // once — hard-cap it regardless of headcount so it never floods the
+      // provider with concurrent dials.
+      if (camp.isLeadPool) budget = Math.min(budget, 10 - inFlight);
       if (budget <= 0) continue;
 
       for (const st of freeStates) {

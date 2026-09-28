@@ -95,6 +95,12 @@ startCallingDialerTick();
 const startCallingRecordingSync = require('./jobs/callingRecordingSync');
 startCallingRecordingSync();
 
+// Feeds the per-agent "Instant Lead Pool" auto-dialer toggle straight from
+// unassigned New Lead stage Sales leads, and tells participating agents
+// when it runs dry. See jobs/leadPoolSyncTick.js.
+const startLeadPoolSyncTick = require('./jobs/leadPoolSyncTick');
+startLeadPoolSyncTick();
+
 // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
 // failed inbound webhook events, runs the nightly reconcile. No-op until
 // MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).

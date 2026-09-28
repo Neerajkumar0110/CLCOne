@@ -28,7 +28,10 @@ const list = async (req, res) => {
   const scope = await campaignScope(req);
   const page = parseInt(req.query.page) || 1;
   const items = Math.min(parseInt(req.query.items) || 20, 100);
-  const filter = { removed: false, ...scope };
+  // The system-managed Instant Lead Pool campaign (see leadPool.js) isn't a
+  // real, manager-curated campaign — it's driven entirely by the per-agent
+  // toggle, so it's excluded from this picker/management list.
+  const filter = { removed: false, isLeadPool: { $ne: true }, ...scope };
   if (req.query.status && req.query.status !== 'All') filter.status = req.query.status;
   if (req.query.q) filter.name = new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
@@ -176,7 +179,7 @@ const remove = async (req, res) => {
   }
   const CallCampaign = mongoose.model('CallCampaign');
   const doc = await CallCampaign.findOneAndUpdate(
-    { _id: req.params.id, removed: false },
+    { _id: req.params.id, removed: false, isLeadPool: { $ne: true } },
     { $set: { removed: true } },
     { new: true }
   );

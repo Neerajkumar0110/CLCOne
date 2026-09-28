@@ -109,6 +109,11 @@ const schema = new mongoose.Schema({
 
   importBatch: { type: mongoose.Schema.ObjectId, ref: 'LeadImportBatch' },
 
+  // Set once this lead has been queued into the Instant Lead Pool auto-
+  // dialer (services/calling — see leadPoolSyncTick.js), so the sync job
+  // never queues the same lead twice.
+  autoDialerQueuedAt: Date,
+
   // Capture-form custom questions (Website + Facebook Lead Ads).
   budgetRange: String,
   howSoonToStart: String,
