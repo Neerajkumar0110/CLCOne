@@ -230,6 +230,19 @@ function teamFieldScopeFilter(scope, teamField, ownerField) {
     if (scope.agent && ownerField) f[ownerField] = scope.agent;
     return f;
   }
+  // Prefer matching the individual-owner field against the real team
+  // roster (teamMemberNames) over the model's own `team` string. CallRecord
+  // (and the legacy Call model) never actually get `team` written at call
+  // time — no controller in services/calling/ or callingController/ sets
+  // it — so a non-full-access caller on a team fell through to `{team:
+  // scope.team}` and matched zero documents, showing an all-zero Calls
+  // Analytics dashboard despite real calls existing. Matching on the owner
+  // field is also strictly more correct even where `team` IS reliably
+  // populated (Lead), since a lead assigned directly to a teammate without
+  // going through the team pool never gets `team` set either.
+  if (scope.team && ownerField && scope.teamMemberNames && scope.teamMemberNames.length) {
+    return { [ownerField]: { $in: scope.teamMemberNames } };
+  }
   if (scope.team) return { [teamField]: scope.team };
   return ownerField ? { [ownerField]: scope.agent } : { [teamField]: '__none__' };
 }
