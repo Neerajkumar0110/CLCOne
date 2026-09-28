@@ -71,7 +71,9 @@ export default function FilterBar({
         />
       )}
 
-      <BusinessTypeToggle mode={businessTypeMode} value={businessType} onChange={onBusinessType} />
+      {businessTypeMode !== "disabled" && (
+        <BusinessTypeToggle mode={businessTypeMode} value={businessType} onChange={onBusinessType} />
+      )}
 
       <div className="dash-filterbar-spacer" />
 

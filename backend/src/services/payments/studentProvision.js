@@ -58,11 +58,24 @@ async function createOrSyncStudentFromKyc(paymentRequestDoc, kycDoc) {
   let student;
   if (existing) {
     Object.assign(existing, fields);
+    // Attribution for the "Customers Analytics" dashboard's row-level
+    // scoping (ownerField: 'counselor' — see analyticsController/modules/
+    // customers.js) — never set anywhere else in this flow, which silently
+    // zeroed out that whole dashboard for any non-full-access caller (their
+    // scope filter matches counselor against their team roster, and an
+    // unset counselor matches nothing). Only fills a blank one — an admin's
+    // later manual reassignment must survive a repeat/installment payment.
+    if (!existing.counselor) existing.counselor = paymentRequestDoc.createdByName || '';
     if (!existing.status) existing.status = 'Active';
     if (!existing.enrolledOn) existing.enrolledOn = new Date();
     student = await existing.save();
   } else {
-    student = await new Student({ ...fields, status: 'Active', enrolledOn: new Date() }).save();
+    student = await new Student({
+      ...fields,
+      counselor: paymentRequestDoc.createdByName || '',
+      status: 'Active',
+      enrolledOn: new Date(),
+    }).save();
   }
 
   const PaymentRequest = mongoose.model('PaymentRequest');
