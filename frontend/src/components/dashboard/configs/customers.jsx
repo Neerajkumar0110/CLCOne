@@ -48,6 +48,7 @@ export default {
       { key: "status", label: "Status", type: "badge" },
       { key: "feePaid", label: "Fee paid", type: "number" },
       { key: "feeTotal", label: "Fee total", type: "number" },
+      { key: "feeDue", label: "Fee due", type: "number" },
       { key: "feeStatus", label: "Fee status", type: "badge" },
       { key: "counselor", label: "Counsellor", type: "text" },
       { key: "enrolledOn", label: "Enrolled", type: "date" },
