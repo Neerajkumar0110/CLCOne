@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { getProvider } = require('../../../../services/calling');
 const { campaignScope, callingTier } = require('./permissions');
+const { NON_SALES_ROLES } = require('../../../../config/roles');
 
 const CAMPAIGN_FIELDS = [
   'name',
@@ -58,6 +59,19 @@ const read = async (req, res) => {
   return res.status(200).json({ success: true, result: doc, message: 'ok' });
 };
 
+// The Auto-Dialer is Sales-only — strip any Support/Finance/LMS admin out of
+// an incoming `agents` list before it ever reaches CallCampaign.agents, so
+// the dialer tick (which trusts that array as-is) never feeds a call to the
+// wrong department. Returns the cleaned id list + how many were dropped.
+async function salesOnlyAgents(ids) {
+  if (!Array.isArray(ids) || !ids.length) return { ids: ids || [], dropped: 0 };
+  const Admin = mongoose.model('Admin');
+  const admins = await Admin.find({ _id: { $in: ids } }).select('role').lean();
+  const roleById = new Map(admins.map((a) => [String(a._id), a.role]));
+  const kept = ids.filter((id) => !NON_SALES_ROLES.includes(roleById.get(String(id))));
+  return { ids: kept, dropped: ids.length - kept.length };
+}
+
 // POST /api/calling/campaigns
 const create = async (req, res) => {
   const CallCampaign = mongoose.model('CallCampaign');
@@ -69,11 +83,19 @@ const create = async (req, res) => {
   CAMPAIGN_FIELDS.forEach((k) => {
     if (b[k] !== undefined) doc[k] = b[k];
   });
+  let dropped = 0;
+  if (doc.agents) ({ ids: doc.agents, dropped } = await salesOnlyAgents(doc.agents));
   doc.status = 'Draft';
   doc.createdBy = req.admin._id;
   doc.createdByName = `${req.admin.name} ${req.admin.surname || ''}`.trim();
   const saved = await new CallCampaign(doc).save();
-  return res.status(200).json({ success: true, result: saved, message: 'Campaign created' });
+  return res.status(200).json({
+    success: true,
+    result: saved,
+    message: dropped
+      ? `Campaign created. ${dropped} non-Sales agent(s) were not added — the Auto-Dialer is Sales-only.`
+      : 'Campaign created',
+  });
 };
 
 // PATCH /api/calling/campaigns/:id
@@ -82,12 +104,20 @@ const update = async (req, res) => {
   const camp = await CallCampaign.findOne({ _id: req.params.id, removed: false });
   if (!camp) return res.status(404).json({ success: false, result: null, message: 'Campaign not found' });
   const b = req.body || {};
+  let dropped = 0;
+  if (b.agents) ({ ids: b.agents, dropped } = await salesOnlyAgents(b.agents));
   CAMPAIGN_FIELDS.forEach((k) => {
     if (b[k] !== undefined) camp[k] = b[k];
   });
   camp.updated = new Date();
   await camp.save();
-  return res.status(200).json({ success: true, result: camp, message: 'Campaign updated' });
+  return res.status(200).json({
+    success: true,
+    result: camp,
+    message: dropped
+      ? `Campaign updated. ${dropped} non-Sales agent(s) were not added — the Auto-Dialer is Sales-only.`
+      : 'Campaign updated',
+  });
 };
 
 // POST /api/calling/campaigns/:id/action  { action: start|pause|complete|cancel|schedule }

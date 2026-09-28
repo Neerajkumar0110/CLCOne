@@ -43,6 +43,13 @@ const STAFF_CREATOR_ROLES = [...SUPER_ADMIN_ROLES, 'Admin'];
 // — the two can't share a literal import across packages, keep in sync by hand.
 const MANAGEMENT_ROLES = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
 
+// Roles outside the core Sales/CRM pipeline. The Auto-Dialer is a Sales-only
+// tool — a campaign may never dial out through, or be worked by, one of
+// these roles (see callingController/campaigns.js). Inbound IVR routing is
+// unaffected: it already sends a caller straight to whichever department's
+// Team the menu option names, independent of this list.
+const NON_SALES_ROLES = ['Support', 'Finance', ...LMS_PANEL_ROLES];
+
 module.exports = {
   ROLES,
   FINANCE_SUB_ROLES,
@@ -50,6 +57,7 @@ module.exports = {
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
   MANAGEMENT_ROLES,
+  NON_SALES_ROLES,
   LMS_TEACHER_ROLES,
   LMS_STUDENT_ROLES,
   LMS_PANEL_ROLES,

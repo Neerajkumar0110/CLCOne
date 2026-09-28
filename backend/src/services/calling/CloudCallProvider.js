@@ -9,6 +9,7 @@ const {
   recountCampaign,
   withinCallingHours,
 } = require('./callingShared');
+const { NON_SALES_ROLES } = require('../../config/roles');
 
 // CRM-side provider for CALLING_PROVIDER=cloud. Plivo is the sole target.
 //
@@ -489,8 +490,11 @@ class CloudCallProvider extends CallingProvider {
 
       for (const st of freeStates) {
         if (budget <= 0) break;
-        const admin = await Admin.findById(st.agent).select('name surname phone mobile contactNumber').lean();
-        if (!admin) continue;
+        const admin = await Admin.findById(st.agent).select('name surname phone mobile contactNumber role').lean();
+        // Auto-Dialer is Sales-only — campaigns.js already keeps non-Sales
+        // agents out of camp.agents, this is just a belt-and-braces check
+        // against anything saved before that guard existed.
+        if (!admin || NON_SALES_ROLES.includes(admin.role)) continue;
         const r = await this.dialNext({ campaign: camp, agent: admin });
         if (r.ok) {
           advanced++;

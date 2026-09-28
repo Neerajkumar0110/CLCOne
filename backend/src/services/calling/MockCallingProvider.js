@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const CallingProvider = require('./CallingProvider');
 const { resolveLead } = require('./callingShared');
+const { NON_SALES_ROLES } = require('../../config/roles');
 
 // Deterministic, time-driven call simulation. NO real calls, NO timers /
 // background loops (serverless-safe): every call's state is a pure function
@@ -330,10 +331,12 @@ class MockCallingProvider extends CallingProvider {
         status: 'Available',
       })
         .limit(Math.max(1, camp.dialRatio || 1) * agentIds.length)
-        .populate('agent', 'name surname')
+        .populate('agent', 'name surname role')
         .exec();
       for (const st of freeAgents) {
-        if (!st.agent) continue;
+        // Auto-Dialer is Sales-only — see campaigns.js's write-time guard;
+        // this just protects against anything saved before it existed.
+        if (!st.agent || NON_SALES_ROLES.includes(st.agent.role)) continue;
         const r = await this.dialNext({ campaign: camp, agent: st.agent });
         if (r.ok) {
           advanced++;

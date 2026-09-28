@@ -21,6 +21,11 @@ import {
 } from "./shared";
 import { PhoneOutlined } from "@ant-design/icons";
 
+// The Auto-Dialer is Sales-only — mirrors backend/src/config/roles.js's
+// NON_SALES_ROLES, since a campaign's `agents` list is Sales-department
+// agents by design and the backend rejects anyone else anyway.
+const NON_SALES_ROLES = ["Support", "Finance", "Teacher", "Student"];
+
 const BLANK = {
   name: "",
   description: "",
@@ -318,8 +323,9 @@ function CampaignForm({ campaign, meta, onClose, onSave }) {
       </div>
       <div className="hub-form-row">
         <label>Assigned Agents</label>
+        <div style={{ fontSize: 11.5, color: "#8c8c8c", marginBottom: 4 }}>Sales-department agents only — the Auto-Dialer never dials through Support/Finance.</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 150, overflowY: "auto", border: "1px solid #eef0f4", borderRadius: 8, padding: 8 }}>
-          {(meta.agents || []).map((a) => (
+          {(meta.agents || []).filter((a) => !NON_SALES_ROLES.includes(a.role)).map((a) => (
             <label
               key={a._id}
               style={{
