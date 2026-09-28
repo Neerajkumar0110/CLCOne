@@ -56,7 +56,6 @@ const CRM_BRIDGE_CATEGORIES = ['sale', 'callback'];
 async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
   if (!callLead || callLead.crmLead) return;
   const Lead = mongoose.model('Lead');
-  const Team = mongoose.model('Team');
 
   const phoneNormalized = last10(callLead.phone);
   let lead = phoneNormalized
@@ -65,10 +64,25 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
 
   if (!lead) {
     const d = dispositionCode && BY_CODE[dispositionCode];
-    const team = callRecord.agentName
-      ? await Team.findOne({ removed: false, members: callRecord.agentName }).select('name').lean()
-      : null;
     const outcomeLabel = d ? d.label : dispositionCode || 'Call outcome';
+
+    // A campaign belongs to exactly one department (CallCampaign.team is
+    // set once, at campaign creation — the auto-dialer only ever works a
+    // single department's leads through a given campaign). That's the
+    // authoritative source for which team this lead belongs to; the
+    // calling agent's own Team membership is only a fallback for the rare
+    // campaign that was never tagged with one.
+    let teamName;
+    if (callRecord.campaign) {
+      const CallCampaign = mongoose.model('CallCampaign');
+      const camp = await CallCampaign.findById(callRecord.campaign).select('team').lean();
+      teamName = camp && camp.team;
+    }
+    if (!teamName && callRecord.agentName) {
+      const Team = mongoose.model('Team');
+      const t = await Team.findOne({ removed: false, members: callRecord.agentName }).select('name').lean();
+      teamName = t && t.name;
+    }
 
     lead = await new Lead({
       name: callLead.name,
@@ -79,7 +93,7 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
       subStatus: 'Workshop Prospect',
       assignedUser: callRecord.agent || undefined,
       assignedUserName: callRecord.agentName || undefined,
-      team: team ? team.name : undefined,
+      team: teamName || undefined,
       stageHistory: [
         {
           toStage: 'Interested',
