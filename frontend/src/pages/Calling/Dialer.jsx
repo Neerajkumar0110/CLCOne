@@ -262,21 +262,27 @@ export default function Dialer() {
       });
       setActiveCallId(null);
     }
-    // Auto-classify the lead's stage from this call's outcome — connected =
-    // "Contacted", nobody picked up = "No Response" — so an agent working
-    // down this list doesn't have to also manually flip the stage after
-    // every single call. Only touches a lead still in "New Lead"/"No
-    // Response" (i.e. not yet meaningfully engaged): a lead the rep has
-    // already qualified further (Interested, Sales Meeting, ...) keeps its
-    // real stage instead of being silently reset by a routine follow-up call.
     if (contact?._id) {
+      // Real-time: drop this contact out of the working queue the instant
+      // the call ends — no waiting on the lead-update/reload round trip
+      // below — so a just-called number never sits there looking callable
+      // again. It's still reachable via "Filter by stage" / Recent Calls.
+      setContacts((prev) => prev.filter((c) => c._id !== contact._id));
+      setContactsCount((prev) => Math.max(0, prev - 1));
+
+      // Auto-classify the lead's stage from this call's outcome — connected
+      // = "Contacted", nobody picked up = "No Response" — so the rep isn't
+      // also manually flipping the stage after every single call. Only
+      // touches a lead still in "New Lead"/"No Response" (not yet
+      // meaningfully engaged): one already qualified further (Interested,
+      // Sales Meeting, ...) keeps its real stage instead of being silently
+      // reset by a routine follow-up call.
       const stage = contact.stage || "New Lead";
       if (stage === "New Lead" || stage === "No Response") {
         const next = wasAnswered
           ? { stage: "Contacted", subStatus: "First Contact Done" }
           : { stage: "No Response", subStatus: "No Response" };
-        await request.update({ entity: "lead", id: contact._id, jsonData: next, notify: false }).catch(() => {});
-        loadContacts(contactsPage);
+        request.update({ entity: "lead", id: contact._id, jsonData: next, notify: false }).catch(() => {});
       }
     }
     loadRecentCalls();
