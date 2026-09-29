@@ -43,6 +43,14 @@ async function orderedChaptersForCourse(courseId) {
 // plus a sessionId -> [{chapterId,title,sessionLabel}] map for the classes
 // that were (re)walked this call, so callers don't need a second query.
 //
+// Walks EVERY non-cancelled session for the batch, completed or still
+// upcoming — a batch's whole schedule is generated up front (recurrence.js),
+// so an upcoming class's own planned length already tells you which topic it
+// WILL cover once it happens, exactly like a syllabus timetable. Only
+// completed classes actually persist a DELIVERED row (and count toward unit
+// completion); upcoming ones just get a projected label to show in Calendar,
+// carried forward from wherever the real, completed progress left off.
+//
 // A chapter longer than one class (e.g. a 3hr "S2-3" spanning two 1.5hr
 // classes) shows up in sessionTopics for EVERY class whose hour-window
 // overlaps its cumulative range, not just the one that finally completes it
@@ -71,15 +79,15 @@ async function autoAdvance(batchId) {
   }
 
   const LmsLiveSession = mongoose.model('LmsLiveSession');
-  const completed = await LmsLiveSession.find({
+  const allSessions = await LmsLiveSession.find({
     removed: false,
     batch: batchId,
-    status: { $in: COMPLETED_STATUSES },
+    status: { $ne: 'cancelled' },
   })
-    .select('scheduledStart actualStart scheduledDurationMin')
+    .select('scheduledStart actualStart scheduledDurationMin status')
     .sort({ scheduledStart: 1 })
     .lean();
-  if (!completed.length) return { chapters, sessionTopics: {} };
+  if (!allSessions.length) return { chapters, sessionTopics: {} };
 
   const BatchChapterProgress = mongoose.model('BatchChapterProgress');
   const defaultDurationMin = batchDoc.classDurationMin || 90;
@@ -87,7 +95,8 @@ async function autoAdvance(batchId) {
   let deliveredHours = 0;
   const sessionTopics = {};
 
-  for (const cls of completed) {
+  for (const cls of allSessions) {
+    const isCompleted = COMPLETED_STATUSES.includes(cls.status);
     const classStart = deliveredHours;
     deliveredHours += (cls.scheduledDurationMin || defaultDurationMin) / 60;
     const classEnd = deliveredHours;
@@ -103,10 +112,11 @@ async function autoAdvance(batchId) {
       const ch = chapters[i];
       covered.push({ chapterId: String(ch._id), title: ch.title, sessionLabel: ch.sessionLabel });
 
-      // Only tick DELIVERED once this class's own contribution reaches the
-      // chapter's full cumulative end — a chapter spanning two classes shows
-      // on both days but only completes on the second.
-      if (classEnd >= end - 1e-6) {
+      // Only tick DELIVERED once an actually-completed class's own
+      // contribution reaches the chapter's full cumulative end — a chapter
+      // spanning two classes shows on both days but only completes on the
+      // second, and an upcoming class never writes anything, only labels.
+      if (isCompleted && classEnd >= end - 1e-6) {
         // eslint-disable-next-line no-await-in-loop
         await BatchChapterProgress.findOneAndUpdate(
           { batch: batchId, chapter: ch._id },
