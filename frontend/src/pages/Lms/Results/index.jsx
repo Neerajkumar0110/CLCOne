@@ -63,13 +63,22 @@ export default function Results() {
             <Col key={type} xs={24} sm={8}>
               <Card size="small">
                 <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{TEST_TYPE_LABELS[type]}</Text>
-                <div style={{ fontWeight: 600, marginTop: 4 }}>{info.used} of {info.max} attempts used</div>
-                {info.remaining === 0 ? (
-                  <Text type="danger" style={{ fontSize: 12 }}>No attempts remaining</Text>
-                ) : info.nextEligibleAt ? (
-                  <Text type="secondary" style={{ fontSize: 12 }}>Next attempt available {new Date(info.nextEligibleAt).toDateString()}</Text>
+                {info.unlocked === false ? (
+                  <>
+                    <div style={{ fontWeight: 600, marginTop: 4 }}><Tag color="default">🔒 Locked</Tag></div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Unlocks at {info.requiredPercent}% curriculum delivered</Text>
+                  </>
                 ) : (
-                  <Text type="secondary" style={{ fontSize: 12 }}>{info.remaining} attempt{info.remaining > 1 ? 's' : ''} available now</Text>
+                  <>
+                    <div style={{ fontWeight: 600, marginTop: 4 }}>{info.used} of {info.max} attempts used</div>
+                    {info.remaining === 0 ? (
+                      <Text type="danger" style={{ fontSize: 12 }}>No attempts remaining</Text>
+                    ) : info.nextEligibleAt ? (
+                      <Text type="secondary" style={{ fontSize: 12 }}>Next attempt available {new Date(info.nextEligibleAt).toDateString()}</Text>
+                    ) : (
+                      <Text type="secondary" style={{ fontSize: 12 }}>{info.remaining} attempt{info.remaining > 1 ? 's' : ''} available now</Text>
+                    )}
+                  </>
                 )}
               </Card>
             </Col>

@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const { assignQuestions } = require('../../../../../services/lms/assessments/roundRobinService');
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
+const { curriculumTracker } = require('../../../../../services/lms');
+const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 
 // Ported from python-test-platform's src/controllers/testController.js
 // (Prisma -> Mongoose). Auth is the CRM's own bearer auth (req.admin), not the
@@ -86,9 +88,26 @@ async function startTest(req, res) {
       }
     }
 
-    const questions = await assignQuestions(testType);
-
     const student = await Student.findOne({ email: admin.email }).select('batch').lean();
+
+    // Sequential unlock (spec: assessments unlock progressively as the
+    // student's own batch curriculum gets delivered) — see
+    // services/lms/curriculumTracker.js for the % source and the threshold
+    // per test type.
+    const requiredPct = UNLOCK_THRESHOLD_PCT[testType] || 0;
+    if (requiredPct > 0) {
+      const curriculumPercent = await curriculumTracker.completionPercentForBatchName(student && student.batch);
+      if (curriculumPercent < requiredPct) {
+        return res.status(403).json({
+          success: false,
+          message: `This test unlocks once ${requiredPct}% of your batch's curriculum has been delivered (currently ${curriculumPercent}%).`,
+          curriculumPercent,
+          requiredPercent: requiredPct,
+        });
+      }
+    }
+
+    const questions = await assignQuestions(testType);
 
     let attempt;
     try {
@@ -275,7 +294,10 @@ async function getMyResults(req, res) {
   try {
     const admin = req.admin;
     const AssessmentAttempt = mongoose.model('AssessmentAttempt');
+    const Student = mongoose.model('Student');
     const { qualifyThreshold, maxAttemptsPerType, cooldownDays } = await assessmentSettings.get();
+    const student = await Student.findOne({ email: admin.email }).select('batch').lean();
+    const curriculumPercent = await curriculumTracker.completionPercentForBatchName(student && student.batch);
 
     const attempts = await AssessmentAttempt.find({
       $or: [{ candidate: admin._id }, { candidateEmail: admin.email }],
@@ -319,15 +341,18 @@ async function getMyResults(req, res) {
         if (cooldownEnd > new Date()) nextEligibleAt = cooldownEnd;
       }
 
+      const requiredPercent = UNLOCK_THRESHOLD_PCT[testType] || 0;
       attemptsByType[testType] = {
         used,
         max: maxAttemptsPerType,
         remaining: Math.max(0, maxAttemptsPerType - used),
         nextEligibleAt,
+        unlocked: curriculumPercent >= requiredPercent,
+        requiredPercent,
       };
     }
 
-    return res.status(200).json({ success: true, result: { results, attemptsByType } });
+    return res.status(200).json({ success: true, result: { results, attemptsByType, curriculumPercent } });
   } catch (err) {
     console.error('Get assessment results error:', err);
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });

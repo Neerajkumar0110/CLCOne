@@ -69,4 +69,36 @@ async function autoAdvance(batchId) {
   }
 }
 
-module.exports = { trackForBatch, autoAdvance };
+// % of this batch's own curriculum (its resolved track) currently DELIVERED
+// — used to progressively unlock the proctored assessments below.
+async function completionPercentForBatchName(batchName) {
+  if (!batchName) return 0;
+  const Batch = mongoose.model('Batch');
+  const batchDoc = await Batch.findOne({ name: batchName, removed: false }).select('name course').lean();
+  if (!batchDoc) return 0;
+  const track = await trackForBatch(batchDoc);
+  const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
+  const AssessmentDeliveryRecord = mongoose.model('AssessmentDeliveryRecord');
+  const units = await AssessmentCurriculumSession.find({ track }).select('_id').lean();
+  if (!units.length) return 0;
+  const delivered = await AssessmentDeliveryRecord.countDocuments({
+    batch: batchName,
+    sessionId: { $in: units.map((u) => u._id) },
+    status: 'DELIVERED',
+  });
+  return Math.round((delivered / units.length) * 100);
+}
+
+// Sequential unlock — Basic is the entry test and always open; the other
+// four unlock in this order as the batch's own curriculum delivery reaches
+// each %, so a student can't attempt a topic's test before it's actually
+// been taught in their batch.
+const UNLOCK_THRESHOLD_PCT = {
+  BASIC: 0,
+  MAJOR: 40,
+  MICRO: 50,
+  NLP_MAJOR: 70,
+  NLP_MICRO: 80,
+};
+
+module.exports = { trackForBatch, autoAdvance, completionPercentForBatchName, UNLOCK_THRESHOLD_PCT };
