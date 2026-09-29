@@ -44,22 +44,44 @@ async function assertOwnsAssignmentCourse(admin, assignment) {
 }
 
 /* ───────────── teacher ───────────── */
+// A teacher's real assignment is Batch.trainer (see services/lms/liveClassService.js,
+// teacherDashboard in panel.js — the whole rest of the LMS scopes teachers to
+// their batches, not to Course.instructor, which is a separate, often-unset
+// field). Picking a batch here — instead of a raw course — means the
+// permission check matches what the teacher actually sees everywhere else,
+// and the course is derived from the batch instead of asking them to know
+// which Course document backs it.
 async function create(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  const Batch = mongoose.model('Batch');
   const Course = mongoose.model('Course');
   const b = req.body || {};
-  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A valid course is required.');
-  const course = await Course.findOne({ _id: b.course, removed: false });
-  if (!course) return bad(res, 404, 'Course not found.');
-  if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
-    return bad(res, 403, 'You can only add assignments to your own courses.');
+
+  let course;
+  let batchDoc = null;
+  if (mongoose.isValidObjectId(b.batch)) {
+    batchDoc = await Batch.findOne({ _id: b.batch, removed: false });
+    if (!batchDoc) return bad(res, 404, 'Batch not found.');
+    if (!isManager(req.admin) && !rxEq(batchDoc.trainer || '').test(req.admin.name || ''))
+      return bad(res, 403, 'You can only add assignments to your own batches.');
+    course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
+    if (!course) return bad(res, 404, 'This batch has no matching course set up yet.');
+  } else if (mongoose.isValidObjectId(b.course)) {
+    // manager / legacy direct-course path (no batch involved)
+    course = await Course.findOne({ _id: b.course, removed: false });
+    if (!course) return bad(res, 404, 'Course not found.');
+    if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
+      return bad(res, 403, 'You can only add assignments to your own courses.');
+  } else {
+    return bad(res, 400, 'A valid batch is required.');
+  }
 
   const Assignment = mongoose.model('Assignment');
   const doc = await Assignment.create({
     course: course._id,
     module: mongoose.isValidObjectId(b.module) ? b.module : undefined,
     lesson: mongoose.isValidObjectId(b.lesson) ? b.lesson : undefined,
-    batch: b.batch || undefined,
+    batch: batchDoc ? batchDoc.name : undefined,
     teacherCrmUser: req.admin._id,
     teacherName: req.admin.name,
     title: (b.title || 'Untitled assignment').trim(),
@@ -70,7 +92,7 @@ async function create(req, res) {
     maxMarks: Number(b.maxMarks) || 100,
     passingMarks: Number(b.passingMarks) || 40,
     attachments: Array.isArray(b.attachments) ? b.attachments : [],
-    submissionType: ['pdf', 'doc', 'image', 'text', 'file'].includes(b.submissionType) ? b.submissionType : 'file',
+    submissionType: ['pdf', 'doc', 'image', 'text', 'file', 'link'].includes(b.submissionType) ? b.submissionType : 'file',
     allowResubmission: b.allowResubmission !== false,
     published: b.published !== false,
   });

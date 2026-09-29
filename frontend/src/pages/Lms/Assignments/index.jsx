@@ -5,8 +5,8 @@ import {
 } from 'antd';
 import {
   PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CheckOutlined,
-  ReadOutlined, CalendarOutlined, NumberOutlined, FormOutlined, CheckSquareOutlined,
-  TrophyOutlined, MessageOutlined, LinkOutlined,
+  CalendarOutlined, NumberOutlined, FormOutlined, CheckSquareOutlined,
+  TrophyOutlined, MessageOutlined, LinkOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -28,7 +28,12 @@ const Lbl = ({ icon, children }) => (
 /* ───────────────────────── teacher ───────────────────────── */
 function TeacherAssignments() {
   const [rows, setRows] = useState([]);
-  const [courses, setCourses] = useState([]);
+  // The batches actually assigned to this teacher (Batch.trainer) — not the
+  // Course list, which the backend permission check no longer keys off of
+  // (a teacher can train a batch without being listed as that Course's
+  // `instructor`, which is what used to throw "You can only add assignments
+  // to your own courses").
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form] = Form.useForm();
   const [editing, setEditing] = useState(null); // null | {} (new) | row
@@ -42,7 +47,7 @@ function TeacherAssignments() {
     try {
       const [a, d] = await Promise.all([lmsApi.assignments(), lmsApi.teacherDashboard()]);
       setRows((a && a.result) || []);
-      setCourses(((d && d.result && d.result.courses) || []).map((c) => ({ value: c.id, label: c.title })));
+      setBatches(((d && d.result && d.result.batches) || []).map((b) => ({ value: b.id, label: b.name })));
     } catch (e) {
       message.error('Could not load assignments.');
     } finally {
@@ -105,13 +110,13 @@ function TeacherAssignments() {
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div><h2><FileTextOutlined /> Assignments</h2><p>Create, collect and evaluate.</p></div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)} disabled={!courses.length}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)} disabled={!batches.length}>
           Create assignment
         </Button>
       </div>
 
       {rows.length === 0 ? (
-        <Card><Empty description={courses.length ? 'No assignments yet.' : 'You have no courses assigned.'} /></Card>
+        <Card><Empty description={batches.length ? 'No assignments yet.' : 'You have no batches assigned.'} /></Card>
       ) : (
         <Table
           rowKey="id"
@@ -170,8 +175,8 @@ function TeacherAssignments() {
       >
         <Form form={form} layout="vertical" preserve={false} className="crud-form">
           <div className="crud-form-grid">
-            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
-              <Select options={courses} disabled={!!editing?.id} showSearch optionFilterProp="label" placeholder="Select a course…" />
+            <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch</Lbl>} rules={[{ required: true, message: 'Batch is required' }]} className="crud-form-full">
+              <Select options={batches} disabled={!!editing?.id} showSearch optionFilterProp="label" placeholder="Select a batch…" />
             </Form.Item>
             <Form.Item name="title" label={<Lbl icon={<FileTextOutlined />}>Title</Lbl>} rules={[{ required: true, message: 'Title is required' }]} className="crud-form-full">
               <Input placeholder="e.g. Week 3 — Data cleaning project" />
@@ -186,7 +191,7 @@ function TeacherAssignments() {
               <DatePicker showTime format="D MMM YYYY HH:mm" style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="submissionType" label={<Lbl icon={<UploadOutlined />}>Submission type</Lbl>}>
-              <Select options={['pdf', 'doc', 'image', 'text', 'file'].map((v) => ({ value: v, label: v.toUpperCase() }))} />
+              <Select options={['pdf', 'doc', 'image', 'text', 'file', 'link'].map((v) => ({ value: v, label: v.toUpperCase() }))} />
             </Form.Item>
             <Form.Item name="maxMarks" label={<Lbl icon={<NumberOutlined />}>Max marks</Lbl>}>
               <InputNumber min={1} style={{ width: '100%' }} />

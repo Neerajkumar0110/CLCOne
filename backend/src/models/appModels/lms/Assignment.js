@@ -25,7 +25,7 @@ const schema = new mongoose.Schema({
   passingMarks: { type: Number, default: 40 },
 
   attachments: { type: [attachmentSchema], default: [] },
-  submissionType: { type: String, enum: ['pdf', 'doc', 'image', 'text', 'file'], default: 'file' },
+  submissionType: { type: String, enum: ['pdf', 'doc', 'image', 'text', 'file', 'link'], default: 'file' },
   allowResubmission: { type: Boolean, default: true },
   published: { type: Boolean, default: true },
 
