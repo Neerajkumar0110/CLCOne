@@ -25,7 +25,7 @@ const lmsApi = {
   // Every session (any status) whose scheduledStart falls in [from, to] —
   // uncollapsed (unlike the default/scope view, which shows one card per
   // batch) — e.g. a calendar month grid, or a batch's own upcoming list.
-  liveClassesRange: (from, to) => request.get({ entity: `lms/live-classes${qs({ scope: 'all', from, to })}` }),
+  liveClassesRange: (from, to) => request.get({ entity: `lms/live-classes${qs({ scope: 'all', from, to, topics: 1 })}` }),
   liveClass: (id) => request.get({ entity: `lms/live-classes/${id}` }),
   // teacher / manager: set or edit a class's scheduled start + duration
   // ({ scheduledStart, scheduledDurationMin, autoStartAt, title }).
@@ -104,7 +104,7 @@ const lmsApi = {
   myOverview: () => request.get({ entity: 'lms/my/overview' }),
 
   // ── curriculum builder (teacher) ─────────────────────────────────
-  courseOutline: (courseId) => request.get({ entity: `lms/courses/${courseId}/outline` }),
+  courseOutline: (courseId, batch) => request.get({ entity: `lms/courses/${courseId}/outline${qs({ batch })}` }),
   addModule: (courseId, body) => request.post({ entity: `lms/courses/${courseId}/modules`, jsonData: body }),
   updateModule: (id, body) => request.patch({ entity: `lms/modules/${id}`, jsonData: body }),
   deleteModule: (id) => request.del({ entity: `lms/modules/${id}` }),

@@ -14,6 +14,7 @@ const mailer = require('./mailer');
 const { getMeetingProvider } = require('./meeting');
 const { isTeacherOfCourse } = require('./teacherCourseAccess');
 const curriculumTracker = require('./curriculumTracker');
+const chapterProgress = require('./chapterProgress');
 
 module.exports = {
   lmsConfig,
@@ -32,4 +33,5 @@ module.exports = {
   getMeetingProvider,
   isTeacherOfCourse,
   curriculumTracker,
+  chapterProgress,
 };

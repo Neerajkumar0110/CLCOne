@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Skeleton, Empty, Tag, Space, Typography, Collapse, message } from 'antd';
-import { ReadOutlined, ClockCircleOutlined, BookOutlined } from '@ant-design/icons';
+import { ReadOutlined, ClockCircleOutlined, BookOutlined, CheckCircleFilled } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
@@ -22,11 +23,16 @@ function splitMeta(description) {
 function SessionCard({ chapter }) {
   const lesson = (chapter.lessons || [])[0];
   return (
-    <div className="curriculum-session">
+    <div className={`curriculum-session${chapter.completed ? ' is-delivered' : ''}`}>
       <div className="curriculum-session-head">
         {chapter.sessionLabel && <span className="curriculum-session-badge">{chapter.sessionLabel}</span>}
         <span className="curriculum-session-title">{chapter.title}</span>
         {chapter.hours ? <Tag icon={<ClockCircleOutlined />} className="curriculum-session-hours">{chapter.hours} hr</Tag> : null}
+        {chapter.completed ? (
+          <Tag color="success" icon={<CheckCircleFilled />}>
+            Completed{chapter.completedAt ? ` · ${dayjs(chapter.completedAt).format('D MMM')}` : ''}
+          </Tag>
+        ) : null}
       </div>
       {lesson && lesson.content && (
         <div className="curriculum-session-body" dangerouslySetInnerHTML={{ __html: lesson.content }} />
@@ -35,7 +41,7 @@ function SessionCard({ chapter }) {
   );
 }
 
-export default function CurriculumViewer({ open, onClose, courseId, courseTitle }) {
+export default function CurriculumViewer({ open, onClose, courseId, courseTitle, batchName }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
@@ -43,14 +49,14 @@ export default function CurriculumViewer({ open, onClose, courseId, courseTitle 
     if (!courseId) return;
     setLoading(true);
     try {
-      const res = await lmsApi.courseOutline(courseId);
+      const res = await lmsApi.courseOutline(courseId, batchName);
       setData((res && res.result) || null);
     } catch (e) {
       message.error('Could not load the curriculum.');
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, batchName]);
 
   useEffect(() => {
     if (open) load();
@@ -58,6 +64,10 @@ export default function CurriculumViewer({ open, onClose, courseId, courseTitle 
 
   const modules = (data && data.modules) || [];
   const counts = data && data.counts;
+  const batch = data && data.batch;
+  const deliveredCount = batch
+    ? modules.reduce((n, m) => n + (m.chapters || []).filter((c) => c.completed).length, 0)
+    : 0;
 
   return (
     <Modal
@@ -87,6 +97,11 @@ export default function CurriculumViewer({ open, onClose, courseId, courseTitle 
             <Space wrap style={{ marginBottom: 14 }}>
               <Tag icon={<BookOutlined />}>{counts.modules} units</Tag>
               <Tag>{counts.chapters} sessions</Tag>
+              {batch && (
+                <Tag color="success" icon={<CheckCircleFilled />}>
+                  {deliveredCount}/{counts.chapters} delivered — {batch.name}
+                </Tag>
+              )}
             </Space>
           )}
           <Collapse

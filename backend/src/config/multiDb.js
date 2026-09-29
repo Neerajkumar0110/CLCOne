@@ -69,6 +69,7 @@ const DB_MAP = {
   AssessmentRoundRobinCursor: 'lmsDb',
   AttendanceRecord: 'lmsDb',
   Batch: 'lmsDb',
+  BatchChapterProgress: 'lmsDb',
   Certificate: 'lmsDb',
   CertificateRule: 'lmsDb',
   Chapter: 'lmsDb',

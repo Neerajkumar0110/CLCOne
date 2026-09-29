@@ -15,8 +15,11 @@ function send(res, out) {
 // calendar month), instead of scope's default "one card per batch" collapse
 // — see liveClassService.listFor.
 async function list(req, res) {
-  const { scope, from, to, batchId, courseTitle, teacherName } = req.query;
-  const rows = await liveClassService.listFor(req.admin, { scope, from, to, batchId, courseTitle, teacherName });
+  const { scope, from, to, batchId, courseTitle, teacherName, topics } = req.query;
+  const rows = await liveClassService.listFor(req.admin, {
+    scope, from, to, batchId, courseTitle, teacherName,
+    includeTopics: topics === '1',
+  });
   return res.status(200).json({ success: true, result: rows });
 }
 

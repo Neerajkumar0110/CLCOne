@@ -1134,6 +1134,11 @@ async function endSession(id, admin, { auto = false } = {}) {
   // by one more unit (see services/lms/curriculumTracker.js) — best-effort,
   // never blocks ending the class.
   if (session.batch) require('./curriculumTracker').autoAdvance(session.batch).catch(() => {});
+  // Same idea for the CRM's own Course/Module/Chapter curriculum — marks
+  // whichever chapters this class's real hours covered as delivered (see
+  // services/lms/chapterProgress.js), so Course Builder / Calendar reflect
+  // it immediately, not just on next self-heal.
+  if (session.batch) require('./chapterProgress').autoAdvance(session.batch).catch(() => {});
 
   return {
     result: {
@@ -1744,7 +1749,7 @@ async function correctAttendance(sessionId, { crmUserId, status, reason, admin }
   return { name: p.name, email: p.email, status: p.attendanceStatus, before };
 }
 
-function safeView(session, role) {
+function safeView(session, role, topic) {
   const online = session.participants.filter((p) => p.online).length;
   // Must match issueJoin/startSession's resumableStatuses — a class with
   // recording on (the default) goes through 'recording_processing' /
@@ -1778,6 +1783,11 @@ function safeView(session, role) {
     myRole: role === 'system' ? null : role,
     autoStartAt: !!session.autoStartAt,
     batchId: session.batch ? String(session.batch) : null,
+    // Which Course/Module/Chapter topic(s) this class's own scheduled hours
+    // covered — see services/lms/chapterProgress.js. Only populated when the
+    // caller asks for it (listFor's includeTopics) since it's an extra
+    // per-batch lookup most live-class views don't need.
+    topic: topic || null,
     canStart:
       role === 'teacher' &&
       ((['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session)) || resumable),
@@ -1802,7 +1812,7 @@ function safeView(session, role) {
   };
 }
 
-async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, to } = {}) {
+async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, to, includeTopics } = {}) {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
   const q = { removed: false };
   if (batchId) q.batch = batchId;
@@ -1837,11 +1847,28 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
 
   const all = await LmsLiveSession.find(q).sort({ scheduledStart: 1, created: -1 }).limit(500);
   const cache = { batchTrainer: new Map(), enrolment: new Map(), roster: new Map(), studentStatus: new Map() };
+  // batchId -> sessionId -> [{chapterId,title,sessionLabel}], filled lazily
+  // (once per distinct batch actually present in this result set) so a
+  // Calendar month view with a handful of batches costs a handful of extra
+  // lookups, not one per session row.
+  const topicsByBatch = new Map();
+  const chapterProgress = includeTopics ? require('./chapterProgress') : null;
   const out = [];
   for (const sn of all) {
     const role = await resolveRole(sn, admin, cache);
     if (!role) continue;
-    const v = safeView(sn, role);
+    let topic = null;
+    if (chapterProgress && sn.batch) {
+      const key = String(sn.batch);
+      if (!topicsByBatch.has(key)) {
+        // eslint-disable-next-line no-await-in-loop
+        const advanced = await chapterProgress.autoAdvance(sn.batch).catch(() => null);
+        topicsByBatch.set(key, (advanced && advanced.sessionTopics) || {});
+      }
+      const covered = topicsByBatch.get(key)[String(sn._id)];
+      if (covered && covered.length) topic = covered.map((c) => c.title).join(' + ');
+    }
+    const v = safeView(sn, role, topic);
     if (scope === 'live' && sn.status !== 'live') continue;
     if (scope === 'upcoming' && !['scheduled', 'upcoming', 'starting'].includes(sn.status)) continue;
     if (scope === 'ended' && !['ended', 'recording_processing', 'recording_available'].includes(sn.status)) continue;

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../config/roles');
-const { isTeacherOfCourse } = require('../../../../services/lms');
+const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { isTeacherOfCourse, chapterProgress } = require('../../../../services/lms');
 
 // Teacher / manager curriculum builder for a course:
 //   Course → CourseModule → Chapter → Lesson
@@ -51,6 +51,25 @@ async function nextOrder(Model, filter) {
   return (last && last.order != null ? last.order : 0) + 10;
 }
 
+// Resolves which batch's delivery progress to stamp onto this course's
+// chapters: an explicit ?batch= name (Course Builder, once a teacher has
+// clicked a specific batch card) wins; otherwise, for a Student, fall back
+// to their own enrolled batch for this course so the "Full Curriculum" modal
+// they open from My Courses needs no extra plumbing on the caller's side.
+async function resolveBatchForOutline(req, course) {
+  const Batch = mongoose.model('Batch');
+  const rxEq2 = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+  if (req.query.batch) {
+    return Batch.findOne({ name: req.query.batch, removed: false }).select('_id name').lean();
+  }
+  if (req.admin && LMS_STUDENT_ROLES.includes(req.admin.role)) {
+    const Student = mongoose.model('Student');
+    const stu = await Student.findOne({ removed: false, email: rxEq2(req.admin.email || ''), course: course.title }).select('batch').lean();
+    if (stu && stu.batch) return Batch.findOne({ name: stu.batch, removed: false }).select('_id name').lean();
+  }
+  return null;
+}
+
 async function outline(req, res) {
   const { course, err } = await loadCourseForRead(req.params.courseId);
   if (err) return bad(res, err[0], err[1]);
@@ -59,27 +78,46 @@ async function outline(req, res) {
   const Chapter = mongoose.model('Chapter');
   const Lesson = mongoose.model('Lesson');
 
-  const [modules, chapters, lessons] = await Promise.all([
+  const [modules, chapters, lessons, batch] = await Promise.all([
     CourseModule.find({ course: course._id, removed: false }).sort({ order: 1 }).lean(),
     Chapter.find({ course: course._id, removed: false }).sort({ order: 1 }).lean(),
     Lesson.find({ course: course._id, removed: false }).sort({ order: 1 }).lean(),
+    resolveBatchForOutline(req, course).catch(() => null),
   ]);
+
+  // Self-healing, like curriculumController.js's getSessions — best-effort,
+  // a lookup failure here must never break the read.
+  let completion = new Map();
+  if (batch) {
+    try {
+      await chapterProgress.autoAdvance(batch._id);
+      completion = await chapterProgress.completionForBatch(batch._id);
+    } catch (e) {
+      /* best-effort */
+    }
+  }
 
   const tree = modules.map((m) => ({
     ...m,
     id: String(m._id),
     chapters: chapters
       .filter((c) => String(c.module) === String(m._id))
-      .map((c) => ({
-        ...c,
-        id: String(c._id),
-        lessons: lessons
-          .filter((l) => String(l.chapter) === String(c._id))
-          .map((l) => ({ ...l, id: String(l._id) })),
-      })),
+      .map((c) => {
+        const progress = completion.get(String(c._id));
+        return {
+          ...c,
+          id: String(c._id),
+          completed: !!progress,
+          completedAt: progress ? progress.completedAt : null,
+          lessons: lessons
+            .filter((l) => String(l.chapter) === String(c._id))
+            .map((l) => ({ ...l, id: String(l._id) })),
+        };
+      }),
   }));
 
   return ok(res, {
+    batch: batch ? { id: String(batch._id), name: batch.name } : null,
     course: {
       id: String(course._id),
       title: course.title,

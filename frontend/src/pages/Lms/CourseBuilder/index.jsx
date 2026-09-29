@@ -40,6 +40,7 @@ export default function CourseBuilder() {
   const [courseId, setCourseId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [curriculumOpen, setCurriculumOpen] = useState(false);
+  const [activeBatchName, setActiveBatchName] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -67,6 +68,7 @@ export default function CourseBuilder() {
     const match = courses.find((c) => c.title === batch.course);
     if (match) {
       setCourseId(match.id);
+      setActiveBatchName(batch.name);
       setCurriculumOpen(true);
     } else {
       message.warning(`"${batch.course}" isn't set up in Course Builder yet — ask an admin to publish it as a course.`);
@@ -88,7 +90,7 @@ export default function CourseBuilder() {
         <Select
           style={{ minWidth: 260 }}
           value={courseId}
-          onChange={setCourseId}
+          onChange={(v) => { setCourseId(v); setActiveBatchName(null); }}
           placeholder="Select a course"
           options={courses.map((c) => ({ value: c.id, label: `${c.title} · ${c.status}` }))}
           notFoundContent="No courses assigned to you"
@@ -125,7 +127,7 @@ export default function CourseBuilder() {
                       style={{ minWidth: 220, marginBottom: 10 }}
                       value={courseId}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={setCourseId}
+                      onChange={(v) => { setCourseId(v); setActiveBatchName(null); }}
                       options={courses.map((c) => ({ value: c.id, label: `${c.title} · ${c.status}` }))}
                     />
                   )}
@@ -206,6 +208,7 @@ export default function CourseBuilder() {
         onClose={() => setCurriculumOpen(false)}
         courseId={activeCourse && activeCourse.id}
         courseTitle={activeCourse && activeCourse.title}
+        batchName={activeBatchName}
       />
     </div>
   );

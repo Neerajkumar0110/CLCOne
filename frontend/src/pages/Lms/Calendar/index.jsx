@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Modal, Empty, Tag, Skeleton, Tooltip } from 'antd';
-import { LeftOutlined, RightOutlined, CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { LeftOutlined, RightOutlined, CalendarOutlined, ClockCircleOutlined, ReadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import lmsApi from '../api';
 
@@ -130,6 +130,7 @@ export default function LmsCalendar() {
                           <div className="lms-cal-tooltip-body">
                             <div className="lms-cal-tooltip-time">{t(s.scheduledStart)}–{t(s.scheduledEnd)}</div>
                             <div className="lms-cal-tooltip-name">{s.batchName || s.courseTitle || s.title}</div>
+                            {s.topic && <div className="lms-cal-tooltip-topic"><ReadOutlined /> {s.topic}</div>}
                           </div>
                         }
                       >
@@ -186,6 +187,7 @@ export default function LmsCalendar() {
                       {t(s.scheduledStart)}–{t(s.scheduledEnd)}
                       {s.teacherName ? ` · ${s.teacherName}` : ''}
                     </div>
+                    {s.topic && <div className="lms-cal-daylist-topic"><ReadOutlined /> {s.topic}</div>}
                   </div>
                   <Tag color={meta.color} className="lms-cal-daylist-tag">{meta.label}</Tag>
                 </div>

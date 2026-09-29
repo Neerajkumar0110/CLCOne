@@ -1120,6 +1120,10 @@
   margin-bottom: 10px;
   background: var(--hub-surface, #fff);
 }
+.curriculum-session.is-delivered {
+  border-left-color: #16a34a;
+  background: color-mix(in srgb, #16a34a 5%, var(--hub-surface, #fff));
+}
 .curriculum-session-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .curriculum-session-badge {
   font-family: monospace; font-size: 11px; font-weight: 700;
@@ -1248,6 +1252,7 @@
 .lms-cal-tooltip-body { min-width: 140px; }
 .lms-cal-tooltip-time { font-size: 11px; font-weight: 700; opacity: 0.75; margin-bottom: 2px; }
 .lms-cal-tooltip-name { font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+.lms-cal-tooltip-topic { font-size: 11px; opacity: 0.85; margin-top: 3px; display: flex; align-items: center; gap: 4px; }
 
 .lms-cal-daylist { display: flex; flex-direction: column; gap: 10px; }
 .lms-cal-daylist-row {
@@ -1269,6 +1274,10 @@
 .lms-cal-daylist-main { flex: 1 1 auto; min-width: 0; }
 .lms-cal-daylist-name { font-weight: 600; font-size: 13.5px; color: var(--hub-text, #17202c); line-height: 1.4; }
 .lms-cal-daylist-sub { font-size: 11.5px; color: var(--hub-text-soft, #6b7280); margin-top: 2px; }
+.lms-cal-daylist-topic {
+  font-size: 11.5px; color: var(--hub-primary, #2563eb); margin-top: 4px;
+  display: flex; align-items: center; gap: 5px; font-weight: 600;
+}
 .lms-cal-daylist-tag { flex-shrink: 0; margin-right: 0 !important; margin-top: 1px; }
 
 @media (max-width: 640px) {
