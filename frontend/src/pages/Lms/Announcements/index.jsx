@@ -25,6 +25,10 @@ const Lbl = ({ icon, children }) => (
 function TeacherAnnouncements() {
   const [rows, setRows] = useState([]);
   const [courses, setCourses] = useState([]);
+  // Real batch NAMES this teacher trains (Batch.trainer) — Student.batch
+  // (what recipients are actually matched against) stores the same name
+  // string, so the option value is the name itself, not an id.
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
@@ -35,6 +39,7 @@ function TeacherAnnouncements() {
       const [a, d] = await Promise.all([lmsApi.announcements(), lmsApi.teacherDashboard()]);
       setRows((a && a.result) || []);
       setCourses(((d && d.result && d.result.courses) || []).map((c) => ({ value: c.id, label: c.title })));
+      setBatches(((d && d.result && d.result.batches) || []).map((b) => ({ value: b.name, label: b.name })));
     } catch (e) { message.error('Could not load.'); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -119,8 +124,8 @@ function TeacherAnnouncements() {
                 }
                 if (a === 'batch') {
                   return (
-                    <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch name</Lbl>} rules={[{ required: true, message: 'Batch name is required' }]} className="crud-form-full">
-                      <Input placeholder="Exact batch name" />
+                    <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch</Lbl>} rules={[{ required: true, message: 'Batch is required' }]} className="crud-form-full">
+                      <Select options={batches} showSearch optionFilterProp="label" placeholder="Select a batch…" />
                     </Form.Item>
                   );
                 }

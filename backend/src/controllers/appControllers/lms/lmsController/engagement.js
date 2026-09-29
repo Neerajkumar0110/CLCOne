@@ -226,15 +226,20 @@ async function createAnnouncement(req, res) {
       if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course)))
         return bad(res, 403, 'Not your course.');
     }
+    if (audience === 'batch') {
+      if (!b.batch) return bad(res, 400, 'Pick a batch.');
+      if (!isManager(req.admin)) {
+        const Batch = mongoose.model('Batch');
+        const owns = await Batch.exists({ removed: false, name: b.batch, trainer: rxEq(req.admin.name || '') });
+        if (!owns) return bad(res, 403, 'Not your batch.');
+      }
+    }
   }
 
   // resolve recipient roster rows -> emails
   const rq = { removed: false };
   if (audience === 'course' && course) rq.course = rxEq(course.title);
-  if (audience === 'batch') {
-    if (!b.batch) return bad(res, 400, 'Pick a batch.');
-    rq.batch = b.batch;
-  }
+  if (audience === 'batch') rq.batch = b.batch;
   const roster = await Student.find(rq).select('email name').lean();
   const emails = [...new Set(roster.map((r) => (r.email || '').toLowerCase()).filter(Boolean))];
 
