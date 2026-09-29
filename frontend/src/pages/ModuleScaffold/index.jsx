@@ -281,7 +281,7 @@ function TabBody({ section, tab }) {
               className="hub-btn"
               style={unassignedOnly ? { background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' } : undefined}
               onClick={() => setUnassignedOnly((v) => !v)}
-              title="Students with no batch assigned yet"
+              title="Candidates with no batch assigned yet"
             >
               <WarningOutlined /> {unassignedOnly ? 'Showing unassigned only' : 'Show unassigned only'}
               {unassignedCount > 0 && <Badge count={unassignedCount} size="small" style={{ marginInlineStart: 6 }} />}
@@ -299,7 +299,7 @@ function TabBody({ section, tab }) {
             loading={unassignedLoading}
             dataSource={unassignedRows}
             pagination={unassignedRows.length > 20 ? { pageSize: 20 } : false}
-            locale={{ emptyText: 'No unassigned students right now.' }}
+            locale={{ emptyText: 'No unassigned candidates right now.' }}
             columns={[
               { title: 'Name', dataIndex: 'name' },
               { title: 'Email', dataIndex: 'email' },
@@ -342,7 +342,7 @@ function TabBody({ section, tab }) {
                     <button
                       type="button"
                       className="hub-icon-btn"
-                      title="Manage students"
+                      title="Manage candidates"
                       onClick={() => setBatchPanel({ id: row._id, name: row.name })}
                     >
                       <UsergroupAddOutlined />

@@ -57,7 +57,7 @@ function serialize(r) {
 }
 
 async function upload(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
   const batch = String(b.batch || '').trim();
   if (!batch) return bad(res, 400, 'Pick a batch.');
@@ -95,7 +95,7 @@ async function upload(req, res) {
 }
 
 async function addLink(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
   const batch = String(b.batch || '').trim();
   const url = String(b.url || '').trim();

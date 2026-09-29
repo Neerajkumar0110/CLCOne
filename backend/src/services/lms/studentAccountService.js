@@ -78,8 +78,8 @@ async function provisionLogin(studentDoc) {
     audience: 'management',
     module: 'User Management',
     type: 'user.created',
-    title: `${newUser.name} can now log in as a Student`,
-    body: `${newUser.email} — auto-provisioned from the LMS Students roster.`,
+    title: `${newUser.name} can now log in as a Candidate`,
+    body: `${newUser.email} — auto-provisioned from the LMS Candidates roster.`,
     link: '/user-management',
   });
 
@@ -141,7 +141,7 @@ function enrollmentEmailHtml(studentDoc, { crmLink, rawPassword, plan, brand = '
     }
 
     <p style="text-align:center;margin:0 0 8px">
-      <a href="${esc(crmLink)}" style="display:inline-block;background:#0b5b70;color:#fff;text-decoration:none;padding:13px 28px;border-radius:9px;font-weight:700;font-size:14.5px">Open your student portal</a>
+      <a href="${esc(crmLink)}" style="display:inline-block;background:#0b5b70;color:#fff;text-decoration:none;padding:13px 28px;border-radius:9px;font-weight:700;font-size:14.5px">Open your candidate portal</a>
     </p>
     <p style="text-align:center;color:#94a3b8;font-size:12px;margin:0 0 22px">${esc(crmLink)}</p>
 

@@ -52,7 +52,7 @@ async function assertOwnsAssignmentCourse(admin, assignment) {
 // and the course is derived from the batch instead of asking them to know
 // which Course document backs it.
 async function create(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const Batch = mongoose.model('Batch');
   const Course = mongoose.model('Course');
   const b = req.body || {};
@@ -296,7 +296,7 @@ async function myList(req, res) {
 }
 
 async function submit(req, res) {
-  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Students only.');
+  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Candidates only.');
   const Assignment = mongoose.model('Assignment');
   const a = await Assignment.findOne({ _id: req.params.id, removed: false, published: true });
   if (!a) return bad(res, 404, 'Assignment not found.');

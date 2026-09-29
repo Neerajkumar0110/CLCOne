@@ -22,8 +22,8 @@ async function create(req, res) {
   const course = String(b.course || '').trim();
   const notes = String(b.notes || '').trim();
 
-  if (!studentName) return res.status(400).json({ success: false, message: 'Student name is required.' });
-  if (!/.+@.+\..+/.test(studentEmail)) return res.status(400).json({ success: false, message: 'A valid student email is required.' });
+  if (!studentName) return res.status(400).json({ success: false, message: 'Candidate name is required.' });
+  if (!/.+@.+\..+/.test(studentEmail)) return res.status(400).json({ success: false, message: 'A valid candidate email is required.' });
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Enter a valid amount.' });
 
   const fee = lookupCourseFee(course);

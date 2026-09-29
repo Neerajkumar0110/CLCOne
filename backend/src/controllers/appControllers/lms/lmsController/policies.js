@@ -184,7 +184,7 @@ async function publish(req, res) {
     admin: req.admin,
     after: { recipients: admins.length, version: doc.version },
   });
-  return ok(res, { id: String(doc._id), recipients: admins.length, created }, `Published to ${admins.length} student(s).`);
+  return ok(res, { id: String(doc._id), recipients: admins.length, created }, `Published to ${admins.length} candidate(s).`);
 }
 
 async function archive(req, res) {
@@ -221,7 +221,7 @@ async function acknowledgementReport(req, res) {
   // courseReportExport.
   const format = String(req.query.format || '').toLowerCase();
   if (format === 'csv' || format === 'xlsx') {
-    const headers = ['Student', 'Email', 'Status', 'Acknowledged At', 'Reminded Count'];
+    const headers = ['Candidate', 'Email', 'Status', 'Acknowledged At', 'Reminded Count'];
     const line = (r) =>
       [r.student, r.email, r.status, r.acknowledgedAt ? new Date(r.acknowledgedAt).toISOString() : '', r.remindedCount]
         .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
@@ -281,7 +281,7 @@ async function myPolicies(req, res) {
 }
 
 async function acknowledge(req, res) {
-  if (!isStudent(req.admin)) return bad(res, 403, 'Students only.');
+  if (!isStudent(req.admin)) return bad(res, 403, 'Candidates only.');
   const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
   const PolicyDocument = mongoose.model('PolicyDocument');
   const row = await PolicyAcknowledgement.findOne({ policy: req.params.id, student: req.admin._id, removed: { $ne: true } });

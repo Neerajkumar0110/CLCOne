@@ -220,7 +220,7 @@ async function playRecording(req, res) {
     // watchable yet, full stop (still compressing, or inside the 2-hour
     // post-class delay).
     if (rec.publishedAt && new Date(rec.publishedAt) > new Date()) {
-      return res.status(409).json({ success: false, message: 'This recording isn\'t available to students yet.' });
+      return res.status(409).json({ success: false, message: 'This recording isn\'t available to candidates yet.' });
     }
     const s = await settingsService.get();
     if (s.recordingAccess !== 'admin-only') {
@@ -260,7 +260,7 @@ async function uploadRecording(req, res) {
     isManager(admin) ||
     String(rec.teacherCrmUser) === String(admin._id) ||
     (rec.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
-  if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s teacher or a manager can upload its recording.' });
+  if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s instructor or a manager can upload its recording.' });
 
   if (!req.body.video) return res.status(400).json({ success: false, message: 'No video file received.' });
 
@@ -284,7 +284,7 @@ async function uploadRecording(req, res) {
   );
   res.status(200).json({
     success: true,
-    result: { id: String(rec._id), status: 'PROCESSING', message: 'Uploaded — compressing now. Students see it once ready, 2 hours after the class ended.' },
+    result: { id: String(rec._id), status: 'PROCESSING', message: 'Uploaded — compressing now. Candidates see it once ready, 2 hours after the class ended.' },
   });
 
   // Compress in the background; the HTTP response above already went out.
@@ -464,7 +464,7 @@ async function attendanceExport(req, res) {
   const format = (req.query.format || 'csv').toLowerCase();
 
   const headers = [
-    'Student',
+    'Candidate',
     'Email',
     'Batch',
     'Course',

@@ -44,13 +44,13 @@ export default function TeacherStudents() {
     <div className="lms-portal lms-section-students">
       <div className="lms-portal-head">
         <div>
-          <h2><TeamOutlined /> Students</h2>
-          <p>Every student across the batches you teach, batch-wise.</p>
+          <h2><TeamOutlined /> Candidates</h2>
+          <p>Every candidate across the batches you teach, batch-wise.</p>
         </div>
       </div>
 
       <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
-        <KPI label="Total students" value={k.totalStudents || 0} tone="blue" />
+        <KPI label="Total candidates" value={k.totalStudents || 0} tone="blue" />
         <KPI label="My batches" value={k.totalBatches || 0} tone="cyan" />
         <KPI label="Active" value={k.activeStudents || 0} tone="green" />
         <KPI label="In view" value={students.length} tone="slate" />
@@ -89,9 +89,9 @@ export default function TeacherStudents() {
         dataSource={students}
         pagination={{ pageSize: 25, showSizeChanger: true }}
         scroll={{ x: 1000 }}
-        locale={{ emptyText: <Empty description="No students in your batches yet." /> }}
+        locale={{ emptyText: <Empty description="No candidates in your batches yet." /> }}
         columns={[
-          { title: 'Student', dataIndex: 'name', fixed: 'left', width: 160 },
+          { title: 'Candidate', dataIndex: 'name', fixed: 'left', width: 160 },
           { title: 'Email', dataIndex: 'email', width: 210 },
           { title: 'Enrollment ID', dataIndex: 'enrollmentId', width: 120 },
           { title: 'Batch', dataIndex: 'batch', width: 160 },

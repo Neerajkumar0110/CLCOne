@@ -164,7 +164,7 @@ async function getAttemptsExport(req, res) {
   }
 
   const format = String(req.query.format || 'csv').toLowerCase();
-  const headers = ['Student', 'Email', 'Batch', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Started', 'Submitted'];
+  const headers = ['Candidate', 'Email', 'Batch', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Started', 'Submitted'];
   const line = (r) =>
     [r.student, r.email, r.batch, r.testType, r.status, r.score, r.totalCount, r.qualified, r.startedAt ? new Date(r.startedAt).toISOString() : '', r.submittedAt ? new Date(r.submittedAt).toISOString() : '']
       .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)

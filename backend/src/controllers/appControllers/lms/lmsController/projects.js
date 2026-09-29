@@ -91,7 +91,7 @@ async function assign(req, res) {
   let mentor = null;
   if (b.mentorEmail) {
     mentor = await Admin.findOne({ email: rxEq(b.mentorEmail), role: 'Teacher', removed: false }).select('_id name email').lean();
-    if (!mentor) return bad(res, 404, 'Mentor not found (must be a Teacher account).');
+    if (!mentor) return bad(res, 404, 'Mentor not found (must be an Instructor account).');
   } else if (batchDoc.trainer) {
     mentor = await Admin.findOne({ name: rxEq(batchDoc.trainer), role: 'Teacher', removed: false }).select('_id name email').lean();
   }
@@ -100,16 +100,16 @@ async function assign(req, res) {
   let targets;
   if (b.studentEmail) {
     const roster = await Student.findOne({ email: rxEq(b.studentEmail), batch: batchDoc.name, removed: false }).lean();
-    if (!roster) return bad(res, 404, 'That student is not on this batch\'s roster.');
+    if (!roster) return bad(res, 404, 'That candidate is not on this batch\'s roster.');
     const student = await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id name email').lean();
-    if (!student) return bad(res, 404, 'Student has no login account yet.');
+    if (!student) return bad(res, 404, 'Candidate has no login account yet.');
     targets = [student];
   } else {
     const roster = await Student.find({ batch: batchDoc.name, status: 'Active', removed: false }).select('email').lean();
     const emails = roster.map((r) => r.email).filter(Boolean);
-    if (!emails.length) return bad(res, 400, 'This batch has no active students yet.');
+    if (!emails.length) return bad(res, 400, 'This batch has no active candidates yet.');
     targets = await Admin.find({ email: { $in: emails.map((e) => rxEq(e)) }, removed: false }).select('_id name email').lean();
-    if (!targets.length) return bad(res, 404, "None of this batch's students have a login account yet.");
+    if (!targets.length) return bad(res, 404, "None of this batch's candidates have a login account yet.");
   }
 
   const milestones = Array.isArray(b.milestones)
@@ -150,7 +150,7 @@ async function assign(req, res) {
       throw e;
     }
   }
-  if (!created.length) return bad(res, 409, 'Every selected student already has a project for this course.');
+  if (!created.length) return bad(res, 409, 'Every selected candidate already has a project for this course.');
 
   for (const project of created) {
     // eslint-disable-next-line no-await-in-loop
@@ -174,7 +174,7 @@ async function assign(req, res) {
   return ok(
     res,
     { count: created.length, codes: created.map((p) => p.code), ids: created.map((p) => String(p._id)), skipped },
-    `Project assigned to ${created.length} student${created.length > 1 ? 's' : ''}.${skippedNote}`
+    `Project assigned to ${created.length} candidate${created.length > 1 ? 's' : ''}.${skippedNote}`
   );
 }
 

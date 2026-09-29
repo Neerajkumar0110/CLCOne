@@ -5,7 +5,7 @@ export default {
   businessTypeMode: "team",
   kpis: [
     { key: "leads", label: "Total Leads", fmt: "int" },
-    { key: "students", label: "New Students", fmt: "int" },
+    { key: "students", label: "New Candidates", fmt: "int" },
     { key: "connected", label: "Calls Connected", fmt: "int" },
     { key: "wonDeals", label: "Deals Won", fmt: "int" },
     { key: "revenue", label: "Revenue (paid)", fmt: "money" },

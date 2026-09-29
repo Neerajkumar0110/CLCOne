@@ -91,13 +91,13 @@ function summary(ctx) {
       return {
         totals: c,
         kpis: [
-          kpi('total', 'Students', c.total, p.total, enrolSeries),
+          kpi('total', 'Candidates', c.total, p.total, enrolSeries),
           kpi('active', 'Active', c.active, p.active, []),
           kpi('completed', 'Completed', c.completed, p.completed, []),
           kpi('dropped', 'Dropped', c.dropped, p.dropped, [], { positiveWhenDown: true }),
           kpi('feePaid', 'Fee Collected', c.feePaid, p.feePaid, paidSeries, { fmt: 'money' }),
           kpi('feeOutstanding', 'Fee Outstanding', c.feeOutstanding, p.feeOutstanding, outSeries, { fmt: 'money', positiveWhenDown: true }),
-          kpi('avgFee', 'Avg Fee / Student', c.avgFee, p.avgFee, [], { fmt: 'money' }),
+          kpi('avgFee', 'Avg Fee / Candidate', c.avgFee, p.avgFee, [], { fmt: 'money' }),
           kpi('feeRealisationPct', 'Fee Realisation', c.feeRealisation.value * 100, p.feeRealisation.value * 100, [], { fmt: 'pct' }),
         ],
         ratios: [
@@ -111,9 +111,9 @@ function summary(ctx) {
             { label: 'Collected', data: paidSeries },
             { label: 'Outstanding', data: outSeries },
           ]),
-          byCourse: chart(byCourse.map((x) => x.label), [{ label: 'Students', data: byCourse.map((x) => x.value) }]),
-          byStatus: chart(byStatus.map((x) => x.label), [{ label: 'Students', data: byStatus.map((x) => x.value) }]),
-          byCounsellor: chart(byCounsellor.map((x) => x.label), [{ label: 'Students', data: byCounsellor.map((x) => x.value) }]),
+          byCourse: chart(byCourse.map((x) => x.label), [{ label: 'Candidates', data: byCourse.map((x) => x.value) }]),
+          byStatus: chart(byStatus.map((x) => x.label), [{ label: 'Candidates', data: byStatus.map((x) => x.value) }]),
+          byCounsellor: chart(byCounsellor.map((x) => x.label), [{ label: 'Candidates', data: byCounsellor.map((x) => x.value) }]),
         },
         funnel: FEE_STATUSES.map((s) => ({
           key: s,

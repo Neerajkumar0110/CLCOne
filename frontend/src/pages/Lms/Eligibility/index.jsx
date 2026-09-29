@@ -94,7 +94,7 @@ function ManageEligibility({ canEdit }) {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><SafetyCertificateOutlined /> Eligibility / Placement Readiness</h2><p>Configure the criteria, weights and threshold — every student's status is computed live, never hand-tracked.</p></div>
+        <div><h2><SafetyCertificateOutlined /> Eligibility / Placement Readiness</h2><p>Configure the criteria, weights and threshold — every candidate's status is computed live, never hand-tracked.</p></div>
         <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
       </div>
 
@@ -121,12 +121,12 @@ function ManageEligibility({ canEdit }) {
             </Card>
           </Col>
           <Col xs={24} lg={10}>
-            <Card size="small" title="Live student report" extra={<Button size="small" icon={<ReloadOutlined />} loading={running} onClick={loadReport}>Refresh</Button>}>
+            <Card size="small" title="Live candidate report" extra={<Button size="small" icon={<ReloadOutlined />} loading={running} onClick={loadReport}>Refresh</Button>}>
               <Table
                 rowKey="email" size="small" pagination={{ pageSize: 10 }} dataSource={report}
-                locale={{ emptyText: 'No enrolled students yet' }}
+                locale={{ emptyText: 'No enrolled candidates yet' }}
                 columns={[
-                  { title: 'Student', dataIndex: 'student' },
+                  { title: 'Candidate', dataIndex: 'student' },
                   { title: 'Score', render: (_, r) => `${r.score}% / ${r.threshold}%` },
                   { title: 'Status', dataIndex: 'state', render: (v) => <Tag color={STATE_COLOR[v]}>{v}</Tag> },
                 ]}

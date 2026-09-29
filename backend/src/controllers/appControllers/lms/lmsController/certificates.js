@@ -80,7 +80,7 @@ async function issue(req, res) {
     : mongoose.isValidObjectId(b.studentId)
       ? await Admin.findById(b.studentId).select('_id').lean()
       : null;
-  if (!user) return bad(res, 404, 'Student account not found for that email.');
+  if (!user) return bad(res, 404, 'Candidate account not found for that email.');
   const r = await certEngine.evaluate(user._id, course._id, { force: !!b.force, byName: req.admin.name });
   return ok(res, r, r.issued ? 'Certificate issued.' : r.already ? 'Already issued.' : `Not eligible: ${JSON.stringify(r.checks)}`);
 }
@@ -100,7 +100,7 @@ async function runForCourse(req, res) {
     const r = await certEngine.evaluate(a._id, course._id, {}).catch(() => ({}));
     if (r.issued) issued += 1;
   }
-  return ok(res, { checked, issued }, `Checked ${checked} students, issued ${issued}.`);
+  return ok(res, { checked, issued }, `Checked ${checked} candidates, issued ${issued}.`);
 }
 
 async function history(req, res) {

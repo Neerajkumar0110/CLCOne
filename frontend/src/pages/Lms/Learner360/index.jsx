@@ -45,7 +45,7 @@ export default function Learner360() {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><ProfileOutlined /> Learner 360 Report</h2><p>Attendance, curriculum, assessments, project, policies and eligibility — one row per student.</p></div>
+        <div><h2><ProfileOutlined /> Learner 360 Report</h2><p>Attendance, curriculum, assessments, project, policies and eligibility — one row per candidate.</p></div>
         <Space>
           <Select style={{ minWidth: 220 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
           <Button icon={<ReloadOutlined />} loading={refreshing} onClick={load}>Refresh</Button>
@@ -54,11 +54,11 @@ export default function Learner360() {
         </Space>
       </div>
 
-      {rows.length === 0 ? <Card><Empty description="No enrolled students yet." /></Card> : (
+      {rows.length === 0 ? <Card><Empty description="No enrolled candidates yet." /></Card> : (
         <Table
           rowKey="email" size="small" dataSource={rows} pagination={{ pageSize: 15 }} scroll={{ x: 1400 }}
           columns={[
-            { title: 'Student', dataIndex: 'student', fixed: 'left', width: 150 },
+            { title: 'Candidate', dataIndex: 'student', fixed: 'left', width: 150 },
             { title: 'Email', dataIndex: 'email', width: 190 },
             { title: 'Batch', dataIndex: 'batch', width: 110 },
             { title: 'Enrollment', dataIndex: 'enrollmentStatus', width: 100 },

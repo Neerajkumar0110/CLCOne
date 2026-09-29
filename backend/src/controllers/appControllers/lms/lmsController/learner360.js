@@ -88,7 +88,7 @@ async function courseReportExport(req, res) {
   const format = (req.query.format || 'csv').toLowerCase();
 
   const headers = [
-    'Student', 'Email', 'Batch', 'Enrollment Status',
+    'Candidate', 'Email', 'Batch', 'Enrollment Status',
     'Attendance %', 'Curriculum %', 'Assignments %', 'Quiz %', 'Surprise Test %', 'Acknowledgements %',
     'Project Status', 'Eligibility Score', 'Eligibility Threshold', 'Eligibility State', 'Missing',
     'Certificate ID', 'Certificate Issued',

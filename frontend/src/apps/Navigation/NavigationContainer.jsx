@@ -186,7 +186,7 @@ function Sidebar({ collapsible, isMobile = false }) {
               label: (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   {t.label}
-                  <Badge count={unassignedCount} size="small" className="hub-nav-badge" title={`${unassignedCount} student(s) with no batch assigned`} />
+                  <Badge count={unassignedCount} size="small" className="hub-nav-badge" title={`${unassignedCount} candidate(s) with no batch assigned`} />
                 </span>
               ),
             }

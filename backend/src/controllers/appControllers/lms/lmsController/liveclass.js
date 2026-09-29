@@ -125,7 +125,7 @@ async function attendance(req, res) {
   const s = await LmsLiveSession.findById(req.params.id);
   if (!s || s.removed) return res.status(404).json({ success: false, message: 'Live class not found.' });
   const role = await liveClassService.resolveRole(s, req.admin);
-  if (role !== 'teacher') return res.status(403).json({ success: false, message: 'Teachers only.' });
+  if (role !== 'teacher') return res.status(403).json({ success: false, message: 'Instructors only.' });
   return res.status(200).json({ success: true, result: liveClassService.attendanceRows(s) });
 }
 
@@ -185,7 +185,7 @@ async function openPublic(req, res) {
   if (out.error) {
     return page(
       out.error === 409 ? 'Class not started' : 'Cannot join',
-      out.error === 409 ? 'The class has not started yet. Try again once the teacher starts it.' : out.message
+      out.error === 409 ? 'The class has not started yet. Try again once the instructor starts it.' : out.message
     );
   }
   return res.redirect(302, out.result.url);
@@ -224,7 +224,7 @@ async function mockRoom(req, res) {
   const uid = esc(req.query.u || '');
   const controls =
     role === 'teacher'
-      ? ['Video / audio', 'Screen sharing', 'Participants', 'Chat', 'Mic / camera controls', 'Participant management', 'Attendance', 'Start / End class', 'Recording controls', 'Teacher controls']
+      ? ['Video / audio', 'Screen sharing', 'Participants', 'Chat', 'Mic / camera controls', 'Participant management', 'Attendance', 'Start / End class', 'Recording controls', 'Instructor controls']
       : ['Live class video', 'Audio / video (as permitted)', 'Chat / messages', 'Participant view', 'Leave class'];
   return res.status(200).type('html').send(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>${esc(s.title)} — mock room</title>
@@ -234,7 +234,7 @@ async function mockRoom(req, res) {
 ul{margin:6px 0 0 18px}button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid #c9d2dc;background:#fff;cursor:pointer}</style>
 <p><span class=tag>MOCK MEETING · provider = mock</span></p>
 <h2>${esc(s.title)}</h2><p>${esc(s.description)}</p>
-<div class=card><strong>${role === 'teacher' ? 'Teacher' : 'Student'} view</strong> — a real BigBlueButton room replaces this once BBB is configured.<ul>${controls.map((c) => `<li>${c}</li>`).join('')}</ul></div>
+<div class=card><strong>${role === 'teacher' ? 'Instructor' : 'Candidate'} view</strong> — a real BigBlueButton room replaces this once BBB is configured.<ul>${controls.map((c) => `<li>${c}</li>`).join('')}</ul></div>
 <div class=card>You are in the room. Attendance is being recorded.<br><br>
 <button onclick="fetch('/api/lms/live/left?s=${s._id}&u=${uid}',{method:'POST'}).then(()=>document.body.innerHTML='<p style=\\'font:16px system-ui;margin:40px\\'>You left the class.</p>')">Leave class</button></div>`);
 }

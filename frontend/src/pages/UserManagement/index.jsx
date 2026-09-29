@@ -23,6 +23,7 @@ import Users, {
   initialsOf,
   colorFor,
   roles,
+  roleDisplay,
   modules,
   defaultMatrix,
   fetchPermissionRecords,
@@ -107,7 +108,7 @@ function DeletedUsers() {
                 </td>
                 <td>{u.email}</td>
                 <td>
-                  <span className="hub-badge hub-badge-blue">{u.role}</span>
+                  <span className="hub-badge hub-badge-blue">{roleDisplay(u.role)}</span>
                 </td>
                 <td>
                   <button type="button" className="hub-btn" onClick={() => restoreUser(u)}>
@@ -221,7 +222,7 @@ function RolesPermissions() {
               style={{ "--role-color": ROLE_COLORS[role] || "#475569" }}
               onClick={() => setSelectedRole(role)}
             >
-              {role}
+              {roleDisplay(role)}
             </button>
           ))}
         </div>
@@ -229,7 +230,7 @@ function RolesPermissions() {
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>Permissions — {selectedRole}</h3>
+          <h3>Permissions — {roleDisplay(selectedRole)}</h3>
           <span className="hub-badge hub-badge-purple">
             {enabledCount}/{modules.length} modules enabled
           </span>
@@ -999,8 +1000,8 @@ export default function UserManagement() {
       <HubTabs
         tabs={[
           { key: "users", label: "Users", icon: <UserAddOutlined /> },
-          { key: "teachers", label: "Teachers", icon: <SolutionOutlined /> },
-          { key: "students", label: "Students", icon: <ReadOutlined /> },
+          { key: "teachers", label: "Instructors", icon: <SolutionOutlined /> },
+          { key: "students", label: "Candidates", icon: <ReadOutlined /> },
           { key: "deleted", label: "Deleted Users", icon: <UsergroupDeleteOutlined /> },
           { key: "roles", label: "Roles & Permissions", icon: <SafetyCertificateOutlined /> },
           { key: "teams", label: "Team Management", icon: <TeamOutlined /> },

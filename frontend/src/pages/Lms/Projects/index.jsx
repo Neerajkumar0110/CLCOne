@@ -128,7 +128,7 @@ function ManageProjects() {
           rowKey="id" dataSource={rows} pagination={{ pageSize: 12 }} onRow={(r) => ({ onClick: () => openDetail(r), style: { cursor: 'pointer' } })}
           columns={[
             { title: 'Project ID', dataIndex: 'code', render: (v) => v || '—' },
-            { title: 'Student', dataIndex: 'student' },
+            { title: 'Candidate', dataIndex: 'student' },
             { title: 'Batch', dataIndex: 'batch', render: (v) => v || '—' },
             { title: 'Course', dataIndex: 'course' },
             { title: 'Title', dataIndex: 'title' },
@@ -173,8 +173,8 @@ function ManageProjects() {
             </Form.Item>
             <Form.Item name="assignTo" label={<Lbl icon={<UserOutlined />}>Assign to</Lbl>}>
               <Radio.Group optionType="button" buttonStyle="solid">
-                <Radio.Button value="all">All students in batch</Radio.Button>
-                <Radio.Button value="one">One student</Radio.Button>
+                <Radio.Button value="all">All candidates in batch</Radio.Button>
+                <Radio.Button value="one">One candidate</Radio.Button>
               </Radio.Group>
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(prev, cur) => prev.assignTo !== cur.assignTo}>
@@ -182,11 +182,11 @@ function ManageProjects() {
                 form.getFieldValue('assignTo') === 'one' && (
                   <Form.Item
                     name="studentEmail"
-                    label={<Lbl icon={<MailOutlined />}>Student email</Lbl>}
+                    label={<Lbl icon={<MailOutlined />}>Candidate email</Lbl>}
                     rules={[{ required: true, type: 'email', message: 'A valid email is required' }]}
                     className="crud-form-full"
                   >
-                    <Input placeholder="student@example.com" />
+                    <Input placeholder="candidate@example.com" />
                   </Form.Item>
                 )
               }
@@ -372,7 +372,7 @@ function ManageProjects() {
                           className="feedback"
                           value={reviewState.feedback}
                           onChange={(e) => setReviewState((s) => ({ ...s, feedback: e.target.value }))}
-                          placeholder="Notes for the student…"
+                          placeholder="Notes for the candidate…"
                         />
                         <div className="review-actions">
                           <button type="button" className="cancel-btn" onClick={() => setDetail(null)}>Cancel</button>

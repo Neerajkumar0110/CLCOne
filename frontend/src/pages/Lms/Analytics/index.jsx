@@ -14,11 +14,11 @@ const KPI = ({ title, value, suffix, tone }) => (
 
 const histogramChart = (data) => ({
   labels: (data || []).map((d) => d.range),
-  datasets: [{ label: 'Students', data: (data || []).map((d) => d.count) }],
+  datasets: [{ label: 'Candidates', data: (data || []).map((d) => d.count) }],
 });
 
 const cohortCols = [
-  { title: 'Student', dataIndex: 'name' },
+  { title: 'Candidate', dataIndex: 'name' },
   { title: 'Course', dataIndex: 'course' },
   { title: 'Batch', dataIndex: 'batch' },
   { title: 'Progress', dataIndex: 'progress', render: (v) => <Progress percent={v} size="small" style={{ width: 90 }} /> },
@@ -55,14 +55,14 @@ export default function Analytics() {
   return (
     <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><BarChartOutlined /> Analytics</h2><p>{d.scope?.students || 0} students · {d.scope?.courses || 0} courses · {d.scope?.batches || 0} batches</p></div>
+        <div><h2><BarChartOutlined /> Analytics</h2><p>{d.scope?.students || 0} candidates · {d.scope?.courses || 0} courses · {d.scope?.batches || 0} batches</p></div>
       </div>
 
       <Row gutter={[14, 14]}>
         <KPI title="Avg completion" value={k.avgCourseCompletion} suffix="%" tone="blue" />
         <KPI title="Avg attendance" value={k.avgAttendance} suffix="%" tone="cyan" />
         <KPI title="Avg quiz score" value={k.avgQuizScore} suffix="%" tone="purple" />
-        <KPI title="Active students" value={k.activeStudents} tone="green" />
+        <KPI title="Active candidates" value={k.activeStudents} tone="green" />
         <KPI title="Completed" value={k.completedStudents} tone="green" />
         <KPI title="Live hours" value={k.totalLiveHours} tone="cyan" />
         <KPI title="Classes done" value={k.completedClasses} tone="slate" />
@@ -101,7 +101,7 @@ export default function Analytics() {
             pagination={{ pageSize: 10 }}
             locale={{ emptyText: 'No attendance data yet' }}
             columns={[
-              { title: 'Student', dataIndex: 'name' },
+              { title: 'Candidate', dataIndex: 'name' },
               { title: 'Attended', dataIndex: 'classesAttended', width: 90 },
               { title: 'Missed', dataIndex: 'classesMissed', width: 80 },
               { title: 'Attendance', dataIndex: 'attendancePct', render: (v) => `${v}%` },
@@ -112,7 +112,7 @@ export default function Analytics() {
         </Card>
       )}
 
-      <Card size="small" style={{ marginTop: 12 }} title="Student cohorts">
+      <Card size="small" style={{ marginTop: 12 }} title="Candidate cohorts">
         <Tabs
           items={[
             { key: 'atRisk', label: `At risk (${(co.atRiskStudents || []).length})`, children: <Table rowKey={(r) => r.email || r.name} size="small" dataSource={co.atRiskStudents} columns={cohortCols} pagination={false} locale={{ emptyText: 'None' }} /> },

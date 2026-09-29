@@ -4,7 +4,7 @@ const FEE_STATUSES = ["Paid", "Partial", "Unpaid", "Waived"];
 export default {
   module: "customers",
   title: "Customers Analytics",
-  subtitle: "Enrolled students as customers — fee realisation, retention and course value",
+  subtitle: "Enrolled candidates as customers — fee realisation, retention and course value",
   businessTypeMode: "disabled",
   dateBasis: {
     default: "created",
@@ -14,13 +14,13 @@ export default {
     ],
   },
   kpis: [
-    { key: "total", label: "Students", fmt: "int" },
+    { key: "total", label: "Candidates", fmt: "int" },
     { key: "active", label: "Active", fmt: "int", drill: { field: "status", op: "eq", value: "Active", label: "Active" } },
     { key: "completed", label: "Completed", fmt: "int", drill: { field: "status", op: "eq", value: "Completed", label: "Completed" } },
     { key: "dropped", label: "Dropped", fmt: "int", positiveWhenDown: true, drill: { field: "status", op: "eq", value: "Dropped", label: "Dropped" } },
     { key: "feePaid", label: "Fee Collected", fmt: "money" },
     { key: "feeOutstanding", label: "Fee Outstanding", fmt: "money", positiveWhenDown: true },
-    { key: "avgFee", label: "Avg Fee / Student", fmt: "money" },
+    { key: "avgFee", label: "Avg Fee / Candidate", fmt: "money" },
     { key: "feeRealisationPct", label: "Fee Realisation", fmt: "pct" },
   ],
   ratios: [
@@ -31,9 +31,9 @@ export default {
   charts: [
     { key: "trend", title: "Enrolments Trend", kind: "area", span: 2 },
     { key: "feeByMonth", title: "Fee Collected vs Outstanding", kind: "stackedBar" },
-    { key: "byCourse", title: "Students by Course", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Course: ${label}` }) },
-    { key: "byStatus", title: "Students by Status", kind: "donut", onSegmentDrill: (i, label) => ({ field: "status", op: "eq", value: label, label: `Status: ${label}` }) },
-    { key: "byCounsellor", title: "Students by Counsellor", kind: "bar", onSegmentDrill: (i, label) => ({ field: "counselor", op: "eq", value: label, label: `Counsellor: ${label}` }) },
+    { key: "byCourse", title: "Candidates by Course", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Course: ${label}` }) },
+    { key: "byStatus", title: "Candidates by Status", kind: "donut", onSegmentDrill: (i, label) => ({ field: "status", op: "eq", value: label, label: `Status: ${label}` }) },
+    { key: "byCounsellor", title: "Candidates by Counsellor", kind: "bar", onSegmentDrill: (i, label) => ({ field: "counselor", op: "eq", value: label, label: `Counsellor: ${label}` }) },
   ],
   funnel: {
     title: "Fee Status",

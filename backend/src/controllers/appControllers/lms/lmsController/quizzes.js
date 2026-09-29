@@ -66,7 +66,7 @@ const QUIZ_FIELDS = [
 ];
 
 async function createQuiz(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
   if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A valid course is required.');
   const course = await mongoose.model('Course').findOne({ _id: b.course, removed: false });
@@ -290,7 +290,7 @@ async function myQuizzes(req, res) {
 }
 
 async function startAttempt(req, res) {
-  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Students only.');
+  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Candidates only.');
   const Quiz = mongoose.model('Quiz');
   const quiz = await Quiz.findOne({ _id: req.params.id, removed: false, published: true });
   if (!quiz) return bad(res, 404, 'Quiz not found.');
@@ -401,7 +401,7 @@ async function submitAttempt(req, res) {
       ? { percent: attempt.percent, passed: attempt.passed, totalScore: attempt.totalScore, maxScore: attempt.maxScore }
       : null,
     pendingManual: attempt.status === 'submitted',
-  }, attempt.status === 'submitted' ? 'Submitted — awaiting teacher evaluation.' : 'Submitted.');
+  }, attempt.status === 'submitted' ? 'Submitted — awaiting instructor evaluation.' : 'Submitted.');
 }
 
 async function attemptResult(req, res) {

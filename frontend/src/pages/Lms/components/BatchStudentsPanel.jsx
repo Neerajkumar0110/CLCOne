@@ -61,7 +61,7 @@ export default function BatchStudentsPanel({ open, onClose, batchId, batchName }
         }));
         const emailLike = /.+@.+\..+/.test(term);
         if (emailLike && !found.some((s) => s.email === term.toLowerCase())) {
-          opts.push({ value: term, data: { email: term, name: '' }, label: `Add "${term}" as a new student` });
+          opts.push({ value: term, data: { email: term, name: '' }, label: `Add "${term}" as a new candidate` });
         }
         setOptions(opts);
       } finally {
@@ -76,14 +76,14 @@ export default function BatchStudentsPanel({ open, onClose, batchId, batchName }
     try {
       const res = await lmsApi.addBatchStudent(batchId, { email: s.email, name: s.name, crmUserId: s.crmUserId });
       if (res && res.success === false) {
-        message.warning(res.message || 'Could not add the student.');
+        message.warning(res.message || 'Could not add the candidate.');
       } else {
-        message.success(res && res.result && res.result.emailed ? 'Student added — class link emailed.' : 'Student added to the batch.');
+        message.success(res && res.result && res.result.emailed ? 'Candidate added — class link emailed.' : 'Candidate added to the batch.');
         setOptions([]);
         loadRoster();
       }
     } catch (e) {
-      message.error('Could not add the student.');
+      message.error('Could not add the candidate.');
     } finally {
       setAdding(false);
     }
@@ -92,20 +92,20 @@ export default function BatchStudentsPanel({ open, onClose, batchId, batchName }
   const onRemove = async (row) => {
     try {
       const res = await lmsApi.removeBatchStudent(batchId, { studentId: row.id, crmUserId: row.crmUserId, email: row.email });
-      if (res && res.success === false) message.warning(res.message || 'Could not remove the student.');
+      if (res && res.success === false) message.warning(res.message || 'Could not remove the candidate.');
       else {
-        message.success('Student removed from this batch.');
+        message.success('Candidate removed from this batch.');
         loadRoster();
       }
     } catch (e) {
-      message.error('Could not remove the student.');
+      message.error('Could not remove the candidate.');
     }
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title={batchName ? `Manage students — ${batchName}` : 'Manage students'} width={440} destroyOnClose>
+    <Drawer open={open} onClose={onClose} title={batchName ? `Manage candidates — ${batchName}` : 'Manage candidates'} width={440} destroyOnClose>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--hub-muted)' }}>Add a student</div>
+        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--hub-muted)' }}>Add a candidate</div>
         <Select
           showSearch
           value={null}
@@ -119,7 +119,7 @@ export default function BatchStudentsPanel({ open, onClose, batchId, batchName }
           style={{ width: '100%' }}
         />
         <p style={{ fontSize: 11.5, color: 'var(--hub-muted)', marginTop: 6, marginBottom: 0 }}>
-          Searches both the LMS student roster and User Management accounts. The student is emailed this batch's
+          Searches both the LMS candidate roster and User Management accounts. The candidate is emailed this batch's
           class link + schedule.
         </p>
       </div>
@@ -130,7 +130,7 @@ export default function BatchStudentsPanel({ open, onClose, batchId, batchName }
       <List
         loading={loading}
         dataSource={roster}
-        locale={{ emptyText: <Empty description="No students yet" /> }}
+        locale={{ emptyText: <Empty description="No candidates yet" /> }}
         renderItem={(row) => (
           <List.Item
             actions={[

@@ -241,7 +241,7 @@ const TEACHER_NAV = [
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
-  ['/teacher/students', 'Students', <TeamOutlined />, <TeacherStudents />],
+  ['/teacher/students', 'Candidates', <TeamOutlined />, <TeacherStudents />],
   ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
@@ -544,7 +544,7 @@ export default function LmsPanelApp() {
         <Header className="app-header" style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {isMobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} style={{ color: 'var(--nav-text)' }} />}
-            <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Teacher' : 'Student'} · {admin.name} {admin.surname || ''}</span>
+            <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Instructor' : 'Candidate'} · {admin.name} {admin.surname || ''}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Dropdown menu={{ items: notifItems.length ? notifItems : [{ key: 'none', label: 'No notifications', disabled: true }] }} trigger={['click']} placement="bottomRight">

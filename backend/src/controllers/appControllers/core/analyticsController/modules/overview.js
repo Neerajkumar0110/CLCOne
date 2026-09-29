@@ -90,7 +90,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     totals: { leads: leads.length, connected, enrolled, wonDeals: wonDeals.length, revenue, orders: orders.length },
     kpis: [
       kpi('leads', 'Total Leads', leads.length, prevLeadCount, leadSeries),
-      kpi('students', 'New Students', students.length, prevStudents, enrolSeries),
+      kpi('students', 'New Candidates', students.length, prevStudents, enrolSeries),
       kpi('connected', 'Calls Connected', connected, 0, callSeries),
       kpi('wonDeals', 'Deals Won', wonDeals.length, 0, []),
       kpi('revenue', 'Revenue (paid orders)', revenue, 0, revSeries, { fmt: 'money' }),

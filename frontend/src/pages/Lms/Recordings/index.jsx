@@ -107,7 +107,7 @@ export default function Recordings() {
 
   const columns = [
     { title: 'Class', dataIndex: 'className', render: (v, r) => <><b>{v}</b><div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.courseTitle} · {r.batchName}</div></> },
-    { title: 'Teacher', dataIndex: 'teacherName', width: 140 },
+    { title: 'Instructor', dataIndex: 'teacherName', width: 140 },
     { title: 'Date', dataIndex: 'date', width: 120, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
     { title: 'Duration', dataIndex: 'durationMin', width: 90, render: (v) => (v ? `${v} min` : '—') },
     { title: 'Status', dataIndex: 'status', width: 140, render: (v) => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },

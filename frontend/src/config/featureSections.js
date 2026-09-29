@@ -720,7 +720,7 @@ export const FEATURE_SECTIONS = [
     module: 'LMS',
     route: '/lms',
     Icon: ReadOutlined,
-    blurb: 'Courses, batches, students, live classes, attendance and certificates.',
+    blurb: 'Courses, batches, candidates, live classes, attendance and certificates.',
     tabs: [
       {
         key: 'overview',
@@ -803,7 +803,7 @@ export const FEATURE_SECTIONS = [
               refLabel: 'name',
               refFilter: (a) => a.role === 'Teacher',
               refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
-              hint: 'Pick the teacher account this batch belongs to — their dashboard shows exactly this batch.',
+              hint: 'Pick the instructor account this batch belongs to — their dashboard shows exactly this batch.',
             }),
             T('coordinator', 'Account Manager', { table: false }),
             // Every new batch opens straight for enrollment; it then
@@ -877,11 +877,11 @@ export const FEATURE_SECTIONS = [
       },
       {
         key: 'students',
-        label: 'Students',
+        label: 'Candidates',
         Icon: UserOutlined,
         entity: 'student',
         fields: [
-          ...grp('Student', [
+          ...grp('Candidate', [
             T('name', 'Name', { required: true }),
             // Required — this is also the email a real login account gets
             // auto-provisioned to (OTP-based, no password) on create.
@@ -1099,7 +1099,7 @@ export const FEATURE_SECTIONS = [
         entity: 'certificate',
         fields: [
           ...grp('Certificate', [
-            T('student', 'Student', { required: true }),
+            T('student', 'Candidate', { required: true }),
             T('course', 'Course'),
             T('batch', 'Batch', { table: false }),
             T('certificateId', 'Certificate ID'),

@@ -85,14 +85,14 @@ export default function AssignStudentModal({ open, onClose, onAssigned, presetSt
         crmUserId: student.crmUserId,
       });
       if (res && res.success === false) {
-        message.warning(res.message || 'Could not assign the student.');
+        message.warning(res.message || 'Could not assign the candidate.');
       } else {
-        message.success(res && res.result && res.result.emailed ? 'Assigned — class link emailed.' : 'Student assigned to the batch.');
+        message.success(res && res.result && res.result.emailed ? 'Assigned — class link emailed.' : 'Candidate assigned to the batch.');
         onAssigned?.();
         onClose();
       }
     } catch (e) {
-      message.error('Could not assign the student.');
+      message.error('Could not assign the candidate.');
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +114,7 @@ export default function AssignStudentModal({ open, onClose, onAssigned, presetSt
           <span className="crud-modal-title-icon"><UsergroupAddOutlined /></span>
           <span>
             <span className="crud-modal-title-kicker">Batch assignment</span>
-            <span className="crud-modal-title-main">{presetStudent ? `Assign ${presetStudent.name}` : 'Assign a student to a batch'}</span>
+            <span className="crud-modal-title-main">{presetStudent ? `Assign ${presetStudent.name}` : 'Assign a candidate to a batch'}</span>
           </span>
         </span>
       }
@@ -122,7 +122,7 @@ export default function AssignStudentModal({ open, onClose, onAssigned, presetSt
       <div className="crud-form-grid" style={{ gridTemplateColumns: '1fr' }}>
         {!presetStudent && (
           <div className="hub-form-row">
-            <label>Student</label>
+            <label>Candidate</label>
             <Select
               showSearch
               value={student ? student.email : undefined}
@@ -135,7 +135,7 @@ export default function AssignStudentModal({ open, onClose, onAssigned, presetSt
               style={{ width: '100%' }}
             />
             <span style={{ fontSize: 11.5, color: 'var(--hub-muted)' }}>
-              Searches both the LMS student roster and User Management accounts.
+              Searches both the LMS candidate roster and User Management accounts.
             </span>
           </div>
         )}
