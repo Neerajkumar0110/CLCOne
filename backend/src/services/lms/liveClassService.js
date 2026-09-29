@@ -1866,7 +1866,9 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
         topicsByBatch.set(key, (advanced && advanced.sessionTopics) || {});
       }
       const covered = topicsByBatch.get(key)[String(sn._id)];
-      if (covered && covered.length) topic = covered.map((c) => c.title).join(' + ');
+      if (covered && covered.length) {
+        topic = covered.map((c) => (c.sessionLabel ? `${c.sessionLabel} — ${c.title}` : c.title)).join(' + ');
+      }
     }
     const v = safeView(sn, role, topic);
     if (scope === 'live' && sn.status !== 'live') continue;

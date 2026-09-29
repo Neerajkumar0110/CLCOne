@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Button, message } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Button, Select, Skeleton, message } from 'antd';
 import {
   LockOutlined,
+  CheckCircleFilled,
   ArrowLeftOutlined,
   ArrowRightOutlined,
   ClockCircleOutlined,
@@ -18,7 +19,16 @@ import {
 import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { LMS_TEACHER_ROLES } from '@/config/roles';
+import lmsApi from '@/pages/Lms/api';
 import { BasicTest, MajorTestPythonSql, MajorTestNlp, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
+
+const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
+// Which of the 5 real tests apply to each track — a 6-month (Foundation)
+// batch's curriculum only covers Basic/Major/Micro; the NLP pair is Elite
+// (12-month) content, so they simply don't exist yet for a Foundation batch
+// instead of showing as perpetually "locked".
+const TRACK_TEST_TYPES = { FOUNDATION: ['BASIC', 'MAJOR', 'MICRO'], ELITE: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'] };
 
 // Colorful card-grid redesign of the candidate assessment landing page
 // ("Welcome, {name}"), matching the requested reference mockup 1:1 in style
@@ -43,48 +53,11 @@ const PALETTE = [
 const ICONS = [FileTextOutlined, CodeOutlined, DatabaseOutlined, ExperimentOutlined, ApiOutlined, ThunderboltOutlined, ClusterOutlined, RocketOutlined];
 
 const TESTS = [
-  { key: 'basic', path: 'tests/basic', Component: BasicTest, eyebrow: 'Foundational Assessment', title: 'Basic Test', description: 'Multiple-choice, output-based, and short programming questions covering core fundamentals.', duration: '~60 mins' },
-  { key: 'major-python-sql', path: 'tests/major/python-sql', Component: MajorTestPythonSql, eyebrow: 'Comprehensive Assessment', title: 'Python Programming Foundations & SQL Basics', description: 'In-depth, advanced-level questions administered under full proctoring.', duration: '~90 mins' },
-  { key: 'micro-sql-db', path: 'tests/micro/sql-db', Component: MicroTestSqlDb, eyebrow: 'Applied Project', title: 'Micro Test — SQL-Backed Keyword Database', description: 'Design and query a SQL-backed keyword database.', duration: '~45 mins' },
-  { key: 'micro-nlp-serp', path: 'tests/micro/nlp-serp', Component: MicroTestNlpSerp, eyebrow: 'Applied Project', title: 'Micro Test — NLP on a SERP Dataset', description: 'Given 20 scraped article titles: extract keywords, classify intent, output ranked report.', duration: '~60 mins' },
-  { key: 'major-nlp', path: 'tests/major/nlp', Component: MajorTestNlp, eyebrow: 'Comprehensive Assessment', title: 'NLP Fundamentals & Introduction to LLMs', description: 'Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals.', duration: '~90 mins' },
-];
-
-const RAW_LOCKED_TITLES = [
-  'LLM APIs & Prompt Engineering assessment',
-  'Micro Test — Prompt Engineering',
-  'ML & Probability Basics for Agent Builders assessment',
-  'Train/Test Split & Cross-Validation',
-  'Micro Test + Unit Review',
-  'AI Agent Architecture & Design Patterns assessment',
-  'Micro Test — Tool Builder',
-  'SEO Domain Knowledge & Agent Feature Engineering',
-  'Micro Test — SEO Content Audit',
-  'Agent Productionisation & Capstone Project assessment',
-];
-
-const LOCKED_MODULES = [
-  ...RAW_LOCKED_TITLES.map((title) => ({ title, eyebrow: title.startsWith('Micro Test') ? 'Micro Test' : 'Assessment' })),
-  {
-    title: 'Micro Test — ML Pipeline',
-    eyebrow: 'Micro Test',
-    bullets: [
-      'Build and evaluate a keyword ranking probability model',
-      'Output: ranked list of 50 keywords by estimated difficulty with SHAP explanation',
-    ],
-  },
-  { title: 'Unit 8: Machine Learning Engineering (Advanced) Assessment', eyebrow: 'Major Assessment' },
-  {
-    title: 'Micro Test — Deploy to Cloud',
-    eyebrow: 'Micro Test',
-    bullets: [
-      'Deploy the SEO agent on AWS ECS with load balancer; environment secrets from AWS Secrets Manager',
-      'Grafana dashboard showing request latency and LLM token usage',
-    ],
-  },
-  { title: 'Unit 10: Cloud Deployment, MLOps & DevOps Assessment', eyebrow: 'Major Assessment' },
-  { title: 'Unit 11: AI Research Skills & Staying Current Assessment', eyebrow: 'Major Assessment' },
-  { title: 'Unit 12: Product Development & Business of AI Agents Assessment', eyebrow: 'Major Assessment' },
+  { key: 'basic', testType: 'BASIC', path: 'tests/basic', Component: BasicTest, eyebrow: 'Foundational Assessment', title: 'Basic Test', description: 'Multiple-choice, output-based, and short programming questions covering core fundamentals.', duration: '~60 mins' },
+  { key: 'major-python-sql', testType: 'MAJOR', path: 'tests/major/python-sql', Component: MajorTestPythonSql, eyebrow: 'Comprehensive Assessment', title: 'Python Programming Foundations & SQL Basics', description: 'In-depth, advanced-level questions administered under full proctoring.', duration: '~90 mins' },
+  { key: 'micro-sql-db', testType: 'MICRO', path: 'tests/micro/sql-db', Component: MicroTestSqlDb, eyebrow: 'Applied Project', title: 'Micro Test — SQL-Backed Keyword Database', description: 'Design and query a SQL-backed keyword database.', duration: '~45 mins' },
+  { key: 'micro-nlp-serp', testType: 'NLP_MICRO', path: 'tests/micro/nlp-serp', Component: MicroTestNlpSerp, eyebrow: 'Applied Project', title: 'Micro Test — NLP on a SERP Dataset', description: 'Given 20 scraped article titles: extract keywords, classify intent, output ranked report.', duration: '~60 mins' },
+  { key: 'major-nlp', testType: 'NLP_MAJOR', path: 'tests/major/nlp', Component: MajorTestNlp, eyebrow: 'Comprehensive Assessment', title: 'NLP Fundamentals & Introduction to LLMs', description: 'Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals.', duration: '~90 mins' },
 ];
 
 function hexToRgb(hex) {
@@ -98,10 +71,45 @@ function tint(hex, alpha) {
 
 export default function AssessmentDashboard() {
   const admin = useSelector(selectCurrentAdmin) || {};
+  const isTeacher = LMS_TEACHER_ROLES.includes(admin.role);
   const [msgApi, contextHolder] = message.useMessage();
   const [activeKey, setActiveKey] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Teacher: pick from their own batches (they may teach several). Student:
+  // auto-resolved to their own enrolled batch, same pattern as
+  // Curriculum/index.jsx's StudentCurriculum — no picker needed.
+  const [batches, setBatches] = useState([]);
+  const [batch, setBatch] = useState(null);
+  const [batchesLoading, setBatchesLoading] = useState(true);
+  const [progress, setProgress] = useState(null); // { resolvedTrack, curriculumPercent, unlockedByType }
+  const [progressLoading, setProgressLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (isTeacher) {
+        const res = await lmsApi.teacherDashboard().catch(() => null);
+        const rows = (res && res.result && res.result.batches) || [];
+        setBatches(rows);
+        if (rows.length) setBatch(rows[0].name);
+      } else {
+        const res = await lmsApi.studentDashboard().catch(() => null);
+        const enrolment = ((res && res.result && res.result.courses) || []).find((c) => c.batch);
+        if (enrolment) setBatch(enrolment.batch);
+      }
+      setBatchesLoading(false);
+    })();
+  }, [isTeacher]);
+
+  useEffect(() => {
+    if (!batch) { setProgress(null); setProgressLoading(false); return; }
+    setProgressLoading(true);
+    lmsApi.assessmentBatchProgress(batch)
+      .then((res) => setProgress((res && res.result) || null))
+      .catch(() => setProgress(null))
+      .finally(() => setProgressLoading(false));
+  }, [batch]);
 
   // On the Teacher/Student sidebar (LmsPanelApp), each test already has its
   // own real route under the sidebar's "Quizzes & Exams" group — navigate
@@ -111,7 +119,6 @@ export default function AssessmentDashboard() {
   const base = location.pathname.startsWith('/teacher') ? '/teacher' : location.pathname.startsWith('/learn') ? '/learn' : null;
 
   const firstName = (admin.name || '').trim().split(' ')[0];
-  const clickLocked = (title) => msgApi.info(`"${title}" unlocks after completing prior modules.`, 3.5);
   const openTest = (test) => (base ? navigate(`${base}/${test.path}`) : setActiveKey(test.key));
 
   if (activeKey) {
@@ -127,10 +134,27 @@ export default function AssessmentDashboard() {
     );
   }
 
-  const cards = [
-    ...TESTS.map((t, i) => ({ ...t, locked: false, color: PALETTE[i % 8], Icon: ICONS[i % 8] })),
-    ...LOCKED_MODULES.map((m, i) => ({ ...m, key: m.title, locked: true, color: PALETTE[(TESTS.length + i) % 8], Icon: ICONS[(TESTS.length + i) % 8] })),
-  ];
+  // A 6-month (Foundation) batch's curriculum simply doesn't have NLP
+  // content yet, so those two tests are hidden rather than shown "locked
+  // forever". Until the batch/progress resolves, show every test rather
+  // than flash-hiding cards.
+  const applicableTypes = progress && progress.resolvedTrack ? TRACK_TEST_TYPES[progress.resolvedTrack] : null;
+  const visibleTests = applicableTypes ? TESTS.filter((t) => applicableTypes.includes(t.testType)) : TESTS;
+
+  const unlockedByType = (progress && progress.unlockedByType) || {};
+  const thresholds = (progress && progress.thresholds) || {};
+  const clickLocked = (test) => {
+    const req = thresholds[test.testType] || 0;
+    const cur = (progress && progress.curriculumPercent) || 0;
+    msgApi.info(`"${test.title}" unlocks once ${req}% of your batch's curriculum has been delivered (currently ${cur}%).`, 4);
+  };
+
+  const cards = visibleTests.map((t, i) => ({
+    ...t,
+    locked: progress ? unlockedByType[t.testType] === false : false,
+    color: PALETTE[i % 8],
+    Icon: ICONS[i % 8],
+  }));
 
   return (
     <div className="assessment-dashboard-v2">
@@ -169,6 +193,16 @@ export default function AssessmentDashboard() {
         }
         .adv2-keepgoing strong { display: block; color: #0b0b0b; font-size: 13px; }
         .adv2-keepgoing span { display: block; color: #898781; font-size: 12px; }
+        .adv2-batchbar {
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+          margin-bottom: 16px;
+        }
+        .adv2-batchbar-label { font-size: 12px; font-weight: 700; color: #52514e; text-transform: uppercase; letter-spacing: .3px; }
+        .adv2-batchbar-meta { font-size: 12.5px; color: #52514e; }
+        :root[data-theme="dark"] .adv2-batchbar-label,
+        :root[data-theme="dark"] .adv2-batchbar-meta,
+        :root:not([data-theme="light"]) .adv2-batchbar-label,
+        :root:not([data-theme="light"]) .adv2-batchbar-meta { color: #c3c2b7; }
         .adv2-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -259,42 +293,69 @@ export default function AssessmentDashboard() {
         </div>
       </div>
 
-      <div className="adv2-grid">
-        {cards.map((c) => (
-          <div
-            key={c.key}
-            className={`adv2-card${c.locked ? ' locked' : ''}`}
-            style={{ background: tint(c.color, 0.08), border: `1px solid ${tint(c.color, 0.28)}` }}
-            onClick={() => (c.locked ? clickLocked(c.title) : openTest(c))}
-          >
-            {c.locked && <LockOutlined className="adv2-lock" />}
-            <div className="adv2-icon" style={{ background: c.color }}>
-              <c.Icon />
-            </div>
-            <span className="adv2-eyebrow" style={{ background: tint(c.color, 0.15), color: c.color }}>{c.eyebrow}</span>
-            <h3 className={`adv2-title${c.locked ? ' muted' : ''}`}>{c.title}</h3>
-            {c.locked ? (
-              c.bullets ? (
-                <ul className="adv2-bullets">
-                  {c.bullets.map((b) => <li key={b}>{b}</li>)}
-                </ul>
-              ) : (
-                <p className="adv2-desc muted">Coming soon</p>
-              )
-            ) : (
-              <p className="adv2-desc">{c.description}</p>
-            )}
-            <div className="adv2-footer">
-              <span className="adv2-duration">
-                <ClockCircleOutlined /> {c.locked ? 'Coming soon' : c.duration}
-              </span>
-              <div className={`adv2-arrow${c.locked ? ' locked' : ''}`} style={c.locked ? undefined : { background: c.color }}>
-                <ArrowRightOutlined />
+      {isTeacher && !batchesLoading && batches.length > 0 && (
+        <div className="adv2-batchbar">
+          <span className="adv2-batchbar-label">Batch</span>
+          <Select
+            value={batch}
+            onChange={setBatch}
+            style={{ minWidth: 260 }}
+            options={batches.map((b) => ({ value: b.name, label: b.name }))}
+            showSearch
+            optionFilterProp="label"
+          />
+          {progress && (
+            <span className="adv2-batchbar-meta">
+              {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
+            </span>
+          )}
+        </div>
+      )}
+      {!isTeacher && !batchesLoading && progress && (
+        <div className="adv2-batchbar">
+          <span className="adv2-batchbar-meta">
+            <b>{batch}</b> · {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
+          </span>
+        </div>
+      )}
+
+      {progressLoading || batchesLoading ? (
+        <Skeleton active paragraph={{ rows: 4 }} />
+      ) : (
+        <div className="adv2-grid">
+          {cards.map((c) => (
+            <div
+              key={c.key}
+              className={`adv2-card${c.locked ? ' locked' : ''}`}
+              style={{ background: tint(c.color, 0.08), border: `1px solid ${tint(c.color, 0.28)}` }}
+              onClick={() => (c.locked ? clickLocked(c) : openTest(c))}
+            >
+              {c.locked && <LockOutlined className="adv2-lock" />}
+              <div className="adv2-icon" style={{ background: c.color }}>
+                <c.Icon />
+              </div>
+              <span className="adv2-eyebrow" style={{ background: tint(c.color, 0.15), color: c.color }}>{c.eyebrow}</span>
+              <h3 className={`adv2-title${c.locked ? ' muted' : ''}`}>{c.title}</h3>
+              <p className={`adv2-desc${c.locked ? ' muted' : ''}`}>{c.description}</p>
+              <div className="adv2-footer">
+                <span className="adv2-duration">
+                  {c.locked ? (
+                    <>
+                      <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
+                      {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
+                    </>
+                  ) : (
+                    <><ClockCircleOutlined /> {c.duration}</>
+                  )}
+                </span>
+                <div className={`adv2-arrow${c.locked ? ' locked' : ''}`} style={c.locked ? undefined : { background: c.color }}>
+                  {c.locked ? <LockOutlined /> : <ArrowRightOutlined />}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

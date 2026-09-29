@@ -200,6 +200,7 @@ module.exports = {
   assessmentRunCode: assessments.runCode,
   assessmentMyResults: assessments.getMyResults,
   assessmentBreakdown: assessments.getAttemptBreakdown,
+  assessmentBatchProgress: assessments.getBatchProgress,
   assessmentProctorEvent: assessments.logProctorEvent,
   assessmentAdminAttempts: assessments.getAttempts,
   assessmentAdminAttemptsExport: assessments.getAttemptsExport,

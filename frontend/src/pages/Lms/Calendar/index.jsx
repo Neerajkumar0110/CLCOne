@@ -25,6 +25,12 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const t = (v) => (v ? dayjs(v).format('h:mm A') : '—');
 
+// The class's own topic (e.g. "S1 — Python Setup & Environment", see
+// services/lms/chapterProgress.js) is what actually matters on a calendar —
+// which batch it belongs to is secondary context, not the headline.
+const primaryLabel = (s) => s.topic || s.batchName || s.courseTitle || s.title;
+const secondaryLabel = (s) => (s.topic ? s.batchName || s.courseTitle : null);
+
 export default function LmsCalendar() {
   const [cursor, setCursor] = useState(() => dayjs().startOf('month'));
   const [sessions, setSessions] = useState([]);
@@ -129,8 +135,8 @@ export default function LmsCalendar() {
                         title={
                           <div className="lms-cal-tooltip-body">
                             <div className="lms-cal-tooltip-time">{t(s.scheduledStart)}–{t(s.scheduledEnd)}</div>
-                            <div className="lms-cal-tooltip-name">{s.batchName || s.courseTitle || s.title}</div>
-                            {s.topic && <div className="lms-cal-tooltip-topic"><ReadOutlined /> {s.topic}</div>}
+                            <div className="lms-cal-tooltip-name">{primaryLabel(s)}</div>
+                            {secondaryLabel(s) && <div className="lms-cal-tooltip-topic"><ReadOutlined /> {secondaryLabel(s)}</div>}
                           </div>
                         }
                       >
@@ -140,7 +146,7 @@ export default function LmsCalendar() {
                         >
                           <span className="lms-cal-chip-dot" />
                           <span className="lms-cal-chip-time">{t(s.scheduledStart)}</span>
-                          <span className="lms-cal-chip-name">{s.batchName || s.courseTitle || s.title}</span>
+                          <span className="lms-cal-chip-name">{primaryLabel(s)}</span>
                         </div>
                       </Tooltip>
                     ))}
@@ -182,12 +188,12 @@ export default function LmsCalendar() {
                     <ClockCircleOutlined />
                   </div>
                   <div className="lms-cal-daylist-main">
-                    <div className="lms-cal-daylist-name">{s.batchName || s.courseTitle || s.title}</div>
+                    <div className="lms-cal-daylist-name">{primaryLabel(s)}</div>
                     <div className="lms-cal-daylist-sub">
                       {t(s.scheduledStart)}–{t(s.scheduledEnd)}
                       {s.teacherName ? ` · ${s.teacherName}` : ''}
                     </div>
-                    {s.topic && <div className="lms-cal-daylist-topic"><ReadOutlined /> {s.topic}</div>}
+                    {secondaryLabel(s) && <div className="lms-cal-daylist-topic"><ReadOutlined /> {secondaryLabel(s)}</div>}
                   </div>
                   <Tag color={meta.color} className="lms-cal-daylist-tag">{meta.label}</Tag>
                 </div>

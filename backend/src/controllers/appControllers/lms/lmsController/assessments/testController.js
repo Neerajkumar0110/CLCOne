@@ -3,6 +3,7 @@ const { assignQuestions } = require('../../../../../services/lms/assessments/rou
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 const { curriculumTracker } = require('../../../../../services/lms');
+const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../../config/roles');
 const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 
 // Ported from python-test-platform's src/controllers/testController.js
@@ -401,4 +402,47 @@ async function getAttemptBreakdown(req, res) {
   }
 }
 
-module.exports = { startTest, submitTest, runCode, getMyResults, getAttemptBreakdown };
+// Teacher/manager preview of a specific batch's real unlock state — powers
+// the batch picker on the Assessment dashboard so a teacher can check what a
+// batch's students currently see, without needing to be a candidate
+// themselves (getMyResults above is self-scoped only).
+//   GET /api/lms/assessments/batch-progress?batch=<name>
+async function getBatchProgress(req, res) {
+  try {
+    const { batch } = req.query;
+    if (!batch) return res.status(400).json({ success: false, message: 'batch is required.' });
+
+    const Batch = mongoose.model('Batch');
+    const batchDoc = await Batch.findOne({ name: batch, removed: false }).lean();
+    if (!batchDoc) return res.status(404).json({ success: false, message: 'Batch not found.' });
+
+    const admin = req.admin;
+    const isManager = !!(admin && (MANAGEMENT_ROLES.includes(admin.role) || SUPER_ADMIN_ROLES.includes(admin.role)));
+    if (!isManager) {
+      const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      const isOwnTeacherBatch = batchDoc.trainer && rxEq(admin.name || '').test(batchDoc.trainer);
+      const Student = mongoose.model('Student');
+      const isOwnStudentBatch = await Student.exists({ removed: false, email: rxEq(admin.email || ''), batch });
+      if (!isOwnTeacherBatch && !isOwnStudentBatch) {
+        return res.status(403).json({ success: false, message: 'Not your batch.' });
+      }
+    }
+
+    const resolvedTrack = await curriculumTracker.trackForBatch(batchDoc);
+    const curriculumPercent = await curriculumTracker.completionPercentForBatchName(batch);
+    const unlockedByType = {};
+    for (const t of TEST_TYPES) {
+      unlockedByType[t] = curriculumPercent >= (UNLOCK_THRESHOLD_PCT[t] || 0);
+    }
+
+    return res.status(200).json({
+      success: true,
+      result: { batch, resolvedTrack, curriculumPercent, unlockedByType, thresholds: UNLOCK_THRESHOLD_PCT },
+    });
+  } catch (err) {
+    console.error('Get batch assessment progress error:', err);
+    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
+  }
+}
+
+module.exports = { startTest, submitTest, runCode, getMyResults, getAttemptBreakdown, getBatchProgress };

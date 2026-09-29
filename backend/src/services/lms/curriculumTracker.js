@@ -69,13 +69,39 @@ async function autoAdvance(batchId) {
   }
 }
 
-// % of this batch's own curriculum (its resolved track) currently DELIVERED
-// — used to progressively unlock the proctored assessments below.
+// % of this batch's own curriculum currently DELIVERED — used to
+// progressively unlock the proctored assessments below.
+//
+// Prefers the NATIVE Course/Module/Chapter curriculum ("S1", "S2-3"... —
+// see services/lms/chapterProgress.js) when this batch's course actually has
+// one built: it's the more accurate, hour-weighted tracker, and the same one
+// a student/teacher already sees as checkmarks in the "Full Curriculum"
+// modal, so "curriculum complete" means the same thing everywhere instead of
+// two different %s. Falls back to the ported assessment-syllabus tracker
+// (AssessmentCurriculumSession/AssessmentDeliveryRecord) for any course that
+// doesn't have native chapters built yet.
 async function completionPercentForBatchName(batchName) {
   if (!batchName) return 0;
   const Batch = mongoose.model('Batch');
-  const batchDoc = await Batch.findOne({ name: batchName, removed: false }).select('name course').lean();
+  const batchDoc = await Batch.findOne({ name: batchName, removed: false }).select('_id name course').lean();
   if (!batchDoc) return 0;
+
+  try {
+    const chapterProgress = require('./chapterProgress');
+    const course = await chapterProgress.resolveCourseForBatch(batchDoc);
+    if (course) {
+      const chapters = await chapterProgress.orderedChaptersForCourse(course._id);
+      if (chapters.length) {
+        await chapterProgress.autoAdvance(batchDoc._id);
+        const completion = await chapterProgress.completionForBatch(batchDoc._id);
+        const delivered = chapters.filter((c) => completion.has(String(c._id))).length;
+        return Math.round((delivered / chapters.length) * 100);
+      }
+    }
+  } catch (e) {
+    /* fall through to the legacy tracker below — best-effort */
+  }
+
   const track = await trackForBatch(batchDoc);
   const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
   const AssessmentDeliveryRecord = mongoose.model('AssessmentDeliveryRecord');

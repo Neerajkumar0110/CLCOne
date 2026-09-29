@@ -198,6 +198,7 @@ router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTi
 router.route('/assessments/start/:testType').post(catchErrors(lms.assessmentStart));
 router.route('/assessments/run-code').post(catchErrors(lms.assessmentRunCode));
 router.route('/assessments/my-results').get(catchErrors(lms.assessmentMyResults));
+router.route('/assessments/batch-progress').get(catchErrors(lms.assessmentBatchProgress));
 router.route('/assessments/:attemptId/submit').post(catchErrors(lms.assessmentSubmit));
 router.route('/assessments/:attemptId/breakdown').get(catchErrors(lms.assessmentBreakdown));
 router.route('/assessments/:attemptId/proctor-event').post(catchErrors(lms.assessmentProctorEvent));

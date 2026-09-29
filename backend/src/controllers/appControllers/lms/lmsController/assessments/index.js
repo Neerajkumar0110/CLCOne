@@ -13,6 +13,7 @@ module.exports = {
   runCode: test.runCode,
   getMyResults: test.getMyResults,
   getAttemptBreakdown: test.getAttemptBreakdown,
+  getBatchProgress: test.getBatchProgress,
 
   getAttempts: admin.getAttempts,
   getAttemptsExport: admin.getAttemptsExport,

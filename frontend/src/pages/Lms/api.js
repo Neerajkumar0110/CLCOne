@@ -158,6 +158,7 @@ const lmsApi = {
   reportAssessmentProctorEvent: (attemptId, type) =>
     request.post({ entity: `lms/assessments/${attemptId}/proctor-event`, jsonData: { type } }),
   myAssessmentResults: () => request.get({ entity: 'lms/assessments/my-results' }),
+  assessmentBatchProgress: (batch) => request.get({ entity: `lms/assessments/batch-progress${qs({ batch })}` }),
   assessmentBreakdown: (attemptId) => request.get({ entity: `lms/assessments/${attemptId}/breakdown` }),
   adminAssessmentSummary: () => request.get({ entity: 'lms/assessments/admin/summary' }),
   adminAssessmentAttempts: (f = {}) => request.get({ entity: `lms/assessments/admin/attempts${qs(f)}` }),
