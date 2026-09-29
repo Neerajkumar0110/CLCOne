@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, DatePicker, Drawer,
-  Space, Empty, Skeleton, message, Typography, Descriptions,
+  Card, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, DatePicker, Drawer, Dropdown,
+  Space, Empty, Skeleton, message, Typography,
 } from 'antd';
 import {
   PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CheckOutlined,
   CalendarOutlined, NumberOutlined, FormOutlined, CheckSquareOutlined,
-  LinkOutlined, TeamOutlined,
+  LinkOutlined, TeamOutlined, SearchOutlined, MoreOutlined, ArrowLeftOutlined, UserOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -20,6 +20,19 @@ const fmt = (v) => (v ? dayjs(v).format('D MMM YYYY, HH:mm') : '—');
 // evaluated = done (green), submitted = awaiting grading (amber),
 // resubmit_requested = needs the student's attention (red).
 const SUB_STATUS_CLASS = { evaluated: 'submitted', submitted: 'pending', resubmit_requested: 'overdue' };
+
+// An assignment row's own aggregate status (.assignments-page .status.*):
+// unpublished = closed; nothing submitted past its due date = overdue;
+// nothing submitted yet but still open = pending; anything submitted
+// (awaiting grading, graded, or resubmit-requested) = submitted.
+const ASG_STATUS_LABEL = { submitted: 'Submitted', pending: 'Pending', overdue: 'Overdue', closed: 'Closed' };
+function assignmentStatus(r) {
+  if (!r.published) return 'closed';
+  const total = (r.submissions.submitted || 0) + (r.submissions.evaluated || 0) + (r.submissions.resubmit_requested || 0);
+  if (total > 0) return 'submitted';
+  return r.dueDate && new Date(r.dueDate) < new Date() ? 'overdue' : 'pending';
+}
+const PAGE_SIZE = 8;
 
 // Same label-with-icon treatment as the CRM's generic Add/Edit modal
 // (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
@@ -51,6 +64,13 @@ function TeacherAssignments() {
   const [evalGrade, setEvalGrade] = useState('');
   const [evalFeedback, setEvalFeedback] = useState('');
   const [evalResubmit, setEvalResubmit] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(true);
+
+  // list filters + pagination (.assignments-page filter-card / table-footer)
+  const [q, setQ] = useState('');
+  const [batchFilter, setBatchFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,6 +85,19 @@ function TeacherAssignments() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [q, batchFilter, statusFilter]);
+
+  const filteredRows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (batchFilter && r.batch !== batchFilter) return false;
+      if (statusFilter && assignmentStatus(r) !== statusFilter) return false;
+      if (needle && !`${r.title} ${r.batch} ${r.code}`.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [rows, q, batchFilter, statusFilter]);
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openEditor = (row) => {
     setEditing(row || {});
@@ -106,6 +139,7 @@ function TeacherAssignments() {
     setEvalGrade(r.grade || '');
     setEvalFeedback(r.feedback || '');
     setEvalResubmit(false);
+    setReviewOpen(true);
   };
   const doEvaluate = async () => {
     try {
@@ -126,54 +160,113 @@ function TeacherAssignments() {
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div><h2><FileTextOutlined /> Assignments</h2><p>Create, collect and evaluate.</p></div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)} disabled={!batches.length}>
-          Create assignment
-        </Button>
-      </div>
+    <div className="assignments-page">
+      <div className="page">
+        <div className="page-header">
+          <div className="title">
+            <div className="title-icon"><FileTextOutlined /></div>
+            <div>
+              <h1>Assignments</h1>
+              <div className="subtitle">Create, collect and evaluate.</div>
+            </div>
+          </div>
+          <button type="button" className="create-btn" onClick={() => openEditor(null)} disabled={!batches.length}>
+            <PlusOutlined /> Create Assignment
+          </button>
+        </div>
 
-      {rows.length === 0 ? (
-        <Card><Empty description={batches.length ? 'No assignments yet.' : 'You have no batches assigned.'} /></Card>
-      ) : (
-        <Table
-          rowKey="id"
-          dataSource={rows}
-          pagination={false}
-          columns={[
-            { title: 'Assignment ID', dataIndex: 'code', render: (v) => v || '—' },
-            { title: 'Title', dataIndex: 'title' },
-            { title: 'Batch', dataIndex: 'batch', render: (v) => v || '—' },
-            { title: 'Due', dataIndex: 'dueDate', render: fmt },
-            { title: 'Max', dataIndex: 'maxMarks', width: 70 },
-            {
-              title: 'Submissions',
-              render: (_, r) => (
-                <Space>
-                  <Tag color="blue">{r.submissions.submitted} to grade</Tag>
-                  <Tag color="green">{r.submissions.evaluated} done</Tag>
-                  {r.submissions.resubmit_requested > 0 && <Tag color="orange">{r.submissions.resubmit_requested} resubmit</Tag>}
-                </Space>
-              ),
-            },
-            { title: 'Status', dataIndex: 'published', render: (p) => <Tag color={p ? 'green' : 'default'}>{p ? 'Published' : 'Draft'}</Tag> },
-            {
-              title: '',
-              width: 200,
-              render: (_, r) => (
-                <Space>
-                  <Button size="small" onClick={() => openSubs(r)}>Submissions</Button>
-                  <Button size="small" icon={<EditOutlined />} onClick={() => openEditor(r)} />
-                  <Button size="small" danger icon={<DeleteOutlined />} onClick={() =>
-                    Modal.confirm({ title: 'Delete assignment?', onOk: async () => { await lmsApi.deleteAssignment(r.id); load(); } })
-                  } />
-                </Space>
-              ),
-            },
-          ]}
-        />
-      )}
+        {rows.length === 0 ? (
+          <Card><Empty description={batches.length ? 'No assignments yet.' : 'You have no batches assigned.'} /></Card>
+        ) : (
+          <>
+        <div className="filter-card">
+          <div className="search-box">
+            <SearchOutlined style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#9aa8bb', fontSize: 14 }} />
+            <input placeholder="Search by title, batch or assignment id…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          <select className="filter-select" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+            <option value="">All Batches</option>
+            {batches.map((b) => <option key={b.value} value={b.label}>{b.label}</option>)}
+          </select>
+          <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All Status</option>
+            {Object.entries(ASG_STATUS_LABEL).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </div>
+
+        {filteredRows.length === 0 ? (
+          <Card><Empty description="No assignments match these filters." /></Card>
+        ) : (
+          <div className="table-card">
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Assignment ID</th>
+                    <th>Title</th>
+                    <th>Batch</th>
+                    <th>Due date</th>
+                    <th>Marks</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r) => {
+                    const st = assignmentStatus(r);
+                    return (
+                      <tr key={r.id}>
+                        <td className="assignment-id">{r.code || '—'}</td>
+                        <td className="assignment-title">{r.title}</td>
+                        <td className="batch">{r.batch || '—'}</td>
+                        <td>{fmt(r.dueDate)}</td>
+                        <td className="marks">{r.maxMarks}</td>
+                        <td><span className={`status ${st}`}>{ASG_STATUS_LABEL[st]}</span></td>
+                        <td>
+                          <div className="action-group">
+                            <button type="button" className="view-btn" onClick={() => openSubs(r)}>View</button>
+                            <Dropdown
+                              trigger={['click']}
+                              placement="bottomRight"
+                              menu={{
+                                items: [
+                                  { key: 'edit', label: 'Edit', icon: <EditOutlined /> },
+                                  { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true },
+                                ],
+                                onClick: ({ key }) => {
+                                  if (key === 'edit') openEditor(r);
+                                  else if (key === 'delete') {
+                                    Modal.confirm({ title: 'Delete assignment?', onOk: async () => { await lmsApi.deleteAssignment(r.id); load(); } });
+                                  }
+                                },
+                              }}
+                            >
+                              <button type="button" className="more-btn"><MoreOutlined /></button>
+                            </Dropdown>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="table-footer">
+              <span>
+                Showing {(page - 1) * PAGE_SIZE + 1} to {(page - 1) * PAGE_SIZE + pageRows.length} of {filteredRows.length} assignments
+              </span>
+              <div className="pagination">
+                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
+                {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                  <button type="button" key={n} className={n === page ? 'active' : ''} onClick={() => setPage(n)}>{n}</button>
+                ))}
+                <button type="button" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={page === pageCount}>›</button>
+              </div>
+            </div>
+          </div>
+        )}
+          </>
+        )}
 
       <Modal
         className="crud-modal"
@@ -269,51 +362,93 @@ function TeacherAssignments() {
         </div>
       </Drawer>
 
-      <Modal
-        className="crud-modal"
-        open={!!evalRow}
-        title={
-          <span className="crud-modal-title">
-            <span className="crud-modal-title-icon"><CheckSquareOutlined /></span>
-            <span>
-              <span className="crud-modal-title-kicker">Evaluate submission</span>
-              <span className="crud-modal-title-main">{evalRow ? evalRow.studentName : ''}</span>
-            </span>
-          </span>
-        }
-        onCancel={() => setEvalRow(null)}
-        footer={null}
-        destroyOnClose
-        maskClosable={false}
-      >
+      <Drawer open={!!evalRow} onClose={() => setEvalRow(null)} width={640} closable={false}>
         {evalRow && (
-          <div className="submission-page" style={{ minHeight: 'auto', background: 'transparent' }}>
-            {evalRow.text && <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 10, borderRadius: 8 }}>{evalRow.text}</Paragraph>}
-            {(evalRow.files || []).map((f, i) => <div key={i}><a href={f.url} target="_blank" rel="noopener">{f.name || f.url}</a></div>)}
-            <div className="evaluation" style={{ padding: 0 }}>
-              <div className="marks-grid">
-                <div className="mark-field">
-                  <label>Marks</label>
-                  <input className="mark-input" type="number" min={0} value={evalMarks} onChange={(e) => setEvalMarks(e.target.value)} placeholder="0" />
+          <div className="submission-page" style={{ margin: '-24px' }}>
+            <div className="page" style={{ maxWidth: 'none' }}>
+              <div className="submission-header">
+                <button type="button" className="back-btn" onClick={() => setEvalRow(null)}><ArrowLeftOutlined /></button>
+                <h1>Submissions — {subFor ? (subFor.code || subFor.title) : ''}</h1>
+              </div>
+
+              <div className="top-info">
+                <div className="meta">
+                  {subFor?.code && <span className="badge project">{subFor.code}</span>}
+                  <span className={`badge${evalRow.status === 'evaluated' ? ' submitted' : ''}`}>{evalRow.status}</span>
+                  {subFor?.dueDate && <span className="badge due">Due {dayjs(subFor.dueDate).format('D MMM YYYY')}</span>}
                 </div>
-                <div className="mark-field">
-                  <label>Grade</label>
-                  <input className="mark-input" type="text" value={evalGrade} onChange={(e) => setEvalGrade(e.target.value)} placeholder="A / B / C…" />
+                <div className="score-card">
+                  <div>
+                    <span className="score-label">Status</span>
+                    <span className="score-value" style={{ fontSize: 15 }}>{evalRow.status}</span>
+                  </div>
+                  <div>
+                    <span className="score-label">Marks</span>
+                    <span className="score-value">{evalRow.marks != null ? `${evalRow.marks}${evalRow.grade ? ` (${evalRow.grade})` : ''}` : '—'}</span>
+                  </div>
                 </div>
               </div>
-              <label className="feedback-label">Feedback</label>
-              <textarea className="feedback" value={evalFeedback} onChange={(e) => setEvalFeedback(e.target.value)} placeholder="Notes for the student…" />
-              <label className="form-label" style={{ marginTop: 14, cursor: 'pointer' }}>
-                <input type="checkbox" checked={evalResubmit} onChange={(e) => setEvalResubmit(e.target.checked)} /> Request resubmission instead
-              </label>
-              <div className="review-actions">
-                <button type="button" className="cancel-btn" onClick={() => setEvalRow(null)}>Cancel</button>
-                <button type="button" className="save-btn" onClick={doEvaluate}>Save</button>
+
+              <div className="detail-card">
+                <div style={{ padding: '16px 20px 8px', display: 'flex', alignItems: 'center', gap: 8, color: '#233752', fontWeight: 700 }}>
+                  <UserOutlined /> {evalRow.studentName}
+                </div>
+                {evalRow.text && <div style={{ padding: '0 20px 16px', color: '#425873', fontSize: 13, lineHeight: 1.6 }}>{evalRow.text}</div>}
+
+                <div className="section-title">Submission Details</div>
+                <div className="details-grid">
+                  <div className="detail-item"><label>Submission date</label><strong>{fmt(evalRow.submittedAt)}</strong></div>
+                  <div className="detail-item"><label>Batch</label><strong>{subFor?.batch || '—'}</strong></div>
+                  <div className="detail-item"><label>Attempt</label><strong>#{evalRow.attempt || 1}</strong></div>
+                  <div className="detail-item">
+                    <label>Type</label>
+                    <strong>
+                      {(evalRow.files || []).length ? (
+                        evalRow.files.map((f, i) => (
+                          <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+                            <LinkOutlined /> {f.name || f.url}
+                          </a>
+                        ))
+                      ) : (
+                        (subFor?.submissionType || '—').toUpperCase()
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <button type="button" className="review-latest" onClick={() => setReviewOpen((o) => !o)}>
+                  <span><CheckSquareOutlined /> &nbsp;REVIEW SUBMISSION</span>
+                  <span>{reviewOpen ? '▲' : '▼'}</span>
+                </button>
+                {reviewOpen && (
+                  <div className="evaluation">
+                    <div className="marks-grid">
+                      <div className="mark-field">
+                        <label>Marks</label>
+                        <input className="mark-input" type="number" min={0} value={evalMarks} onChange={(e) => setEvalMarks(e.target.value)} placeholder="0" />
+                      </div>
+                      <div className="mark-field">
+                        <label>Grade</label>
+                        <input className="mark-input" type="text" value={evalGrade} onChange={(e) => setEvalGrade(e.target.value)} placeholder="A / B / C…" />
+                      </div>
+                    </div>
+                    <label className="feedback-label">Feedback</label>
+                    <textarea className="feedback" value={evalFeedback} onChange={(e) => setEvalFeedback(e.target.value)} placeholder="Notes for the student…" />
+                    <label className="form-label" style={{ marginTop: 14, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={evalResubmit} onChange={(e) => setEvalResubmit(e.target.checked)} /> Request resubmission instead
+                    </label>
+                    <div className="review-actions">
+                      <button type="button" className="cancel-btn" onClick={() => setEvalRow(null)}>Cancel</button>
+                      <button type="button" className="save-btn" onClick={doEvaluate}>Save</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
+      </div>
     </div>
   );
 }
