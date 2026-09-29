@@ -124,6 +124,11 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
   // { [groupName]: true } — which form sections are folded shut.
   const [collapsed, setCollapsed] = useState({});
   const [refOptions, setRefOptions] = useState({});
+  // Raw (filtered) rows behind each ref field's dropdown — e.g. a Batch's
+  // `course` field only stores the course TITLE, but a `compute` (like the
+  // auto end-date below) may need other fields off that same course row
+  // (duration, etc.), which the {value,label} pairs in `refOptions` don't carry.
+  const [refRows, setRefRows] = useState({});
   const [form] = Form.useForm();
 
   // Fields whose Select options come from another entity's live list (e.g.
@@ -148,10 +153,11 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
           seen.add(value);
           opts.push({ value, label: f.refDisplay ? f.refDisplay(r) : value });
         });
-        return [f.name, opts];
+        return [f.name, { opts, rows: filtered, labelKey }];
       })
     );
-    setRefOptions(Object.fromEntries(entries));
+    setRefOptions(Object.fromEntries(entries.map(([name, v]) => [name, v.opts])));
+    setRefRows(Object.fromEntries(entries.map(([name, v]) => [name, v])));
   }, [refFields]);
 
   const HeadIcon = icon || null;
@@ -226,6 +232,16 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
   const openAdd = () => {
     setEditing(null);
     form.resetFields();
+    // Visually pre-fill fields that declare a static `default` (e.g. Batch's
+    // Status / Class duration) so what the backend schema defaults to on an
+    // empty field is also what the admin sees before touching anything —
+    // still a plain editable value, not enforced.
+    const defaults = {};
+    fields.forEach((f) => {
+      if (f.default === undefined) return;
+      defaults[f.name] = f.type === 'date' && typeof f.default === 'string' ? dayjs(f.default) : f.default;
+    });
+    if (Object.keys(defaults).length) form.setFieldsValue(defaults);
     setCollapsed(buildCollapsed(false));
     setModalOpen(true);
     loadRefOptions();
@@ -436,7 +452,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
           preserve={false}
           scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
           className="crud-form"
-          onValuesChange={() => {
+          onValuesChange={(changedValues) => {
             // Derived fields (e.g. Batch's Class duration from Start/End
             // time, Students' Total-incl-GST / Balance due) — recompute from
             // the live form values and write in whichever ones a field's
@@ -445,12 +461,16 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
             // from another computed field (Balance due <- Total incl. GST)
             // sees the fresh value in the same pass instead of lagging a
             // tick behind (setFieldsValue doesn't re-fire onValuesChange).
+            // `changedValues` (which field the user just touched) and
+            // `refRows` (raw rows behind a REF field, e.g. course duration)
+            // are passed through so a compute can be selective about when it
+            // fires instead of fighting a manual edit on every keystroke.
             const computable = fields.filter((f) => typeof f.compute === 'function');
             if (!computable.length) return;
             const all = { ...form.getFieldsValue() };
             const patch = {};
             computable.forEach((f) => {
-              const next = f.compute(all);
+              const next = f.compute(all, refRows, changedValues);
               if (next !== undefined && next !== all[f.name]) {
                 patch[f.name] = next;
                 all[f.name] = next;

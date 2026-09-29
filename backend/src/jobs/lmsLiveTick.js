@@ -141,6 +141,11 @@ async function runOnce() {
   } catch (e) {
     console.error('lmsLiveTick notify:', e.message);
   }
+  try {
+    await require('../services/lms/batchLifecycle').autoUpdateStatuses();
+  } catch (e) {
+    console.error('lmsLiveTick batchStatus:', e.message);
+  }
 }
 
 function start() {

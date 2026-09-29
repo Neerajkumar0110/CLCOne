@@ -93,6 +93,7 @@ module.exports = {
 
   // dedicated LMS panels (Teacher / Student)
   teacherDashboard: panel.teacherDashboard,
+  teacherStudents: panel.teacherStudents,
   studentDashboard: panel.studentDashboard,
   lmsMyUpdates: panel.myUpdates,
   lmsMyFees: panel.myFees,

@@ -101,6 +101,7 @@ router.route('/student/attendance').get(catchErrors(lms.studentAttendance));
 
 // ── teacher ────────────────────────────────────────────────────────
 router.route('/teacher/dashboard').get(catchErrors(lms.teacherDashboard));
+router.route('/teacher/students').get(catchErrors(lms.teacherStudents));
 router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/teacher/live-analytics').get(catchErrors(lms.teacherLiveAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));

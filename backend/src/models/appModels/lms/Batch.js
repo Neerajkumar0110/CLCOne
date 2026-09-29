@@ -22,11 +22,11 @@ const batchSchema = featureSchema([
   { name: 'classDays', type: 'String' },        // "Mon,Wed,Fri"
   { name: 'classTime', type: 'String' },        // "10:00" (24h) — shown as "Start time"
   { name: 'endTime', type: 'String' },          // "11:00" (24h) — used to derive classDurationMin
-  { name: 'classDurationMin', type: 'Number', default: 60 },
+  { name: 'classDurationMin', type: 'Number', default: 90 },
   { name: 'seats', type: 'Number', default: 0 },
   { name: 'enrolled', type: 'Number', default: 0 },
   { name: 'waitlist', type: 'Number', default: 0 },
-  { name: 'status', type: 'String', enum: ["Planned","Open for Enrollment","Running","Completed","Cancelled"], default: "Planned" },
+  { name: 'status', type: 'String', enum: ["Planned","Open for Enrollment","Running","Completed","Cancelled"], default: "Open for Enrollment" },
   { name: 'completionRate', type: 'Number', default: 0 },
   { name: 'venue', type: 'String' },
   { name: 'meetingLink', type: 'String' }, // optional / legacy — auto room replaces it
@@ -50,17 +50,29 @@ function toMinutes(hhmm) {
   return h * 60 + min;
 }
 
-// `name` self-generates from Course + Trainer (e.g. "Artificial Intelligence
-// — Rohit Kushwaha") and is never shown as an input (see the `hidden` flag
-// on its featureSections.js field spec) — this runs in pre('validate'),
-// not pre('save'), because `name` is `required: true` and Mongoose runs
-// validation *before* pre('save') hooks; filling it in any later would
-// fail validation first. Uniqueness-checked with a "(2)", "(3)"… suffix
-// since `name` is the string every other model matches a batch by
-// (Student.batch, LmsBatchRoom.batchName, recurrence.js, …).
+// "22 Mar" for the IST calendar day `d` falls on — same fixed +5:30 offset
+// approach as recurrence.js (istParts), kept local here since this model
+// doesn't otherwise depend on that file.
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function dateStamp(d) {
+  const dt = d ? new Date(d) : null;
+  if (!dt || Number.isNaN(dt.getTime())) return '';
+  const ist = new Date(dt.getTime() + 5.5 * 60 * 60 * 1000);
+  return `${ist.getUTCDate()} ${MONTH_ABBR[ist.getUTCMonth()]}`;
+}
+
+// `name` self-generates from Course + Trainer + the batch's Start date (e.g.
+// "Artificial Intelligence — Rohit Kushwaha — 22 Mar") and is never shown as
+// an input (see the `hidden` flag on its featureSections.js field spec) —
+// this runs in pre('validate'), not pre('save'), because `name` is
+// `required: true` and Mongoose runs validation *before* pre('save') hooks;
+// filling it in any later would fail validation first. Uniqueness-checked
+// with a "(2)", "(3)"… suffix since `name` is the string every other model
+// matches a batch by (Student.batch, LmsBatchRoom.batchName, recurrence.js, …).
 batchSchema.pre('validate', async function (next) {
   if (this.isNew && !this.name) {
-    const base = [this.course, this.trainer].filter(Boolean).join(' — ') || 'New Batch';
+    const stamp = dateStamp(this.startDate || new Date());
+    const base = [this.course, this.trainer, stamp].filter(Boolean).join(' — ') || 'New Batch';
     const Batch = mongoose.model('Batch');
     let candidate = base;
     let n = 1;

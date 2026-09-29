@@ -778,12 +778,13 @@ export const FEATURE_SECTIONS = [
         entity: 'batch',
         fields: [
           ...grp('Batch', [
-            // Self-generated from Course + Trainer (e.g. "Artificial
-            // Intelligence — Rohit Kushwaha") — never shown as an input.
+            // Self-generated from Program + Project Manager (e.g.
+            // "Artificial Intelligence — Rohit Kushwaha") — never shown as
+            // an input.
             T('name', 'Name', { hidden: true }),
             // Self-generated from the course (e.g. AI101) — never shown as an input.
             T('code', 'Code', { table: false, hidden: true }),
-            REF('course', 'Course', 'course', {
+            REF('course', 'Program', 'course', {
               refLabel: 'title',
               refFilter: (c) => c.status !== 'Archived',
               refDisplay: (c) => `${c.code ? c.code + ' — ' : ''}${c.title}`,
@@ -798,23 +799,58 @@ export const FEATURE_SECTIONS = [
             // still reads the same) silently means that teacher never sees
             // the batch. A dropdown of real Teacher accounts removes that
             // whole class of mismatch.
-            REF('trainer', 'Trainer', 'admin', {
+            REF('trainer', 'Project Manager', 'admin', {
               refLabel: 'name',
               refFilter: (a) => a.role === 'Teacher',
               refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
               hint: 'Pick the teacher account this batch belongs to — their dashboard shows exactly this batch.',
             }),
-            T('coordinator', 'Coordinator', { table: false }),
-            SEL('status', 'Status', ['Planned', 'Open for Enrollment', 'Running', 'Completed', 'Cancelled']),
+            T('coordinator', 'Account Manager', { table: false }),
+            // Every new batch opens straight for enrollment; it then
+            // auto-advances to Running/Completed on its own as Start/End
+            // date arrive (backend services/lms/batchLifecycle.js) — this is
+            // just the visible starting point, still editable/overridable.
+            SEL('status', 'Status', ['Planned', 'Open for Enrollment', 'Running', 'Completed', 'Cancelled'], { default: 'Open for Enrollment' }),
           ]),
           ...grp('Schedule', [
             DT('startDate', 'Start'),
-            DT('endDate', 'End', { table: false }),
+            DT('endDate', 'End', {
+              table: false,
+              // Suggests Start + the selected Program's duration (in months)
+              // the moment either one changes — a plain suggestion, not
+              // read-only: only fires on a Program/Start edit, so typing an
+              // End date by hand afterward isn't immediately overwritten by
+              // some unrelated field change elsewhere in the form.
+              compute: (values, refRows, changed) => {
+                if (!changed || (!('startDate' in changed) && !('course' in changed))) return undefined;
+                if (!dayjs.isDayjs(values.startDate) || !values.startDate.isValid()) return undefined;
+                const courseRef = refRows && refRows.course;
+                const rows = (courseRef && courseRef.rows) || [];
+                const course = rows.find((c) => c[courseRef.labelKey] === values.course);
+                const months = course && Number(course.durationHours) > 0 ? Number(course.durationHours) : null;
+                if (!months) return undefined;
+                return values.startDate.add(months, 'month');
+              },
+            }),
             T('classDays', 'Class days', { table: false }),      // e.g. Mon,Wed,Fri
             TIME('classTime', 'Start time', { table: false }),   // e.g. 10:00 (field key unchanged)
-            TIME('endTime', 'End time', { table: false }),       // e.g. 11:00
+            TIME('endTime', 'End time', {
+              table: false, // e.g. 11:00
+              // Auto-fills the moment Start time is set, as Start + whatever's
+              // currently in Class duration (min) (90 by default) — a
+              // suggestion, not read-only: only fires on a Start-time edit, so
+              // typing an End time by hand afterward isn't fought by some
+              // unrelated field change elsewhere in the form.
+              compute: (values, refRows, changed) => {
+                if (!changed || !('classTime' in changed)) return undefined;
+                if (!dayjs.isDayjs(values.classTime) || !values.classTime.isValid()) return undefined;
+                const durMin = Number(values.classDurationMin) > 0 ? Number(values.classDurationMin) : 90;
+                return values.classTime.add(durMin, 'minute');
+              },
+            }),
             NUM('classDurationMin', 'Class duration (min)', {
               table: false,
+              default: 90,
               // Read-only once both times are set — Start/End time decide it.
               compute: (values) => {
                 const start = dayjs.isDayjs(values.classTime) && values.classTime.isValid() ? values.classTime.hour() * 60 + values.classTime.minute() : null;

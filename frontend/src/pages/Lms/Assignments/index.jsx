@@ -3,7 +3,11 @@ import {
   Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, DatePicker, Drawer,
   Space, Empty, Skeleton, message, Typography, Descriptions,
 } from 'antd';
-import { PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CheckOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CheckOutlined,
+  ReadOutlined, CalendarOutlined, NumberOutlined, FormOutlined, CheckSquareOutlined,
+  TrophyOutlined, MessageOutlined, LinkOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -12,6 +16,14 @@ import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
 const fmt = (v) => (v ? dayjs(v).format('D MMM YYYY, HH:mm') : '—');
+
+// Same label-with-icon treatment as the CRM's generic Add/Edit modal
+// (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
+// matching how Lms/Projects builds its own modals, so every form in the LMS
+// reads as one consistent product regardless of which page built it.
+const Lbl = ({ icon, children }) => (
+  <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
+);
 
 /* ───────────────────────── teacher ───────────────────────── */
 function TeacherAssignments() {
@@ -137,26 +149,58 @@ function TeacherAssignments() {
         />
       )}
 
-      <Modal open={!!editing} title={editing?.id ? 'Edit assignment' : 'Create assignment'} onCancel={() => setEditing(null)} onOk={save} okText="Save" destroyOnClose width={560}>
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="course" label="Course" rules={[{ required: true }]}>
-            <Select options={courses} disabled={!!editing?.id} />
-          </Form.Item>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="description" label="Description"><Input.TextArea rows={2} /></Form.Item>
-          <Form.Item name="instructions" label="Instructions"><Input.TextArea rows={3} /></Form.Item>
-          <Space size="large" wrap>
-            <Form.Item name="dueDate" label="Due date"><DatePicker showTime format="D MMM YYYY HH:mm" /></Form.Item>
-            <Form.Item name="maxMarks" label="Max marks"><InputNumber min={1} /></Form.Item>
-            <Form.Item name="passingMarks" label="Passing marks"><InputNumber min={0} /></Form.Item>
-          </Space>
-          <Form.Item name="submissionType" label="Submission type">
-            <Select options={['pdf', 'doc', 'image', 'text', 'file'].map((v) => ({ value: v, label: v.toUpperCase() }))} />
-          </Form.Item>
-          <Space size="large">
-            <Form.Item name="allowResubmission" valuePropName="checked" noStyle><Checkbox>Allow resubmission</Checkbox></Form.Item>
-            <Form.Item name="published" valuePropName="checked" noStyle><Checkbox>Published</Checkbox></Form.Item>
-          </Space>
+      <Modal
+        className="crud-modal"
+        open={!!editing}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><FileTextOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">{editing?.id ? 'Edit record' : 'New record'}</span>
+              <span className="crud-modal-title-main">{editing?.id ? 'Edit assignment' : 'Create assignment'}</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setEditing(null)}
+        onOk={save}
+        okText="Save"
+        destroyOnClose
+        maskClosable={false}
+        width={640}
+      >
+        <Form form={form} layout="vertical" preserve={false} className="crud-form">
+          <div className="crud-form-grid">
+            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
+              <Select options={courses} disabled={!!editing?.id} showSearch optionFilterProp="label" placeholder="Select a course…" />
+            </Form.Item>
+            <Form.Item name="title" label={<Lbl icon={<FileTextOutlined />}>Title</Lbl>} rules={[{ required: true, message: 'Title is required' }]} className="crud-form-full">
+              <Input placeholder="e.g. Week 3 — Data cleaning project" />
+            </Form.Item>
+            <Form.Item name="description" label={<Lbl icon={<FileTextOutlined />}>Description</Lbl>} className="crud-form-full">
+              <Input.TextArea rows={2} />
+            </Form.Item>
+            <Form.Item name="instructions" label={<Lbl icon={<FormOutlined />}>Instructions</Lbl>} className="crud-form-full">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item name="dueDate" label={<Lbl icon={<CalendarOutlined />}>Due date</Lbl>}>
+              <DatePicker showTime format="D MMM YYYY HH:mm" style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="submissionType" label={<Lbl icon={<UploadOutlined />}>Submission type</Lbl>}>
+              <Select options={['pdf', 'doc', 'image', 'text', 'file'].map((v) => ({ value: v, label: v.toUpperCase() }))} />
+            </Form.Item>
+            <Form.Item name="maxMarks" label={<Lbl icon={<NumberOutlined />}>Max marks</Lbl>}>
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="passingMarks" label={<Lbl icon={<NumberOutlined />}>Passing marks</Lbl>}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="allowResubmission" valuePropName="checked" className="crud-form-full">
+              <Checkbox><Lbl icon={<CheckSquareOutlined />}>Allow resubmission</Lbl></Checkbox>
+            </Form.Item>
+            <Form.Item name="published" valuePropName="checked" className="crud-form-full">
+              <Checkbox><Lbl icon={<CheckOutlined />}>Published</Lbl></Checkbox>
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
 
@@ -177,18 +221,43 @@ function TeacherAssignments() {
         />
       </Drawer>
 
-      <Modal open={!!evalRow} title={evalRow ? `Evaluate — ${evalRow.studentName}` : ''} onCancel={() => setEvalRow(null)} onOk={doEvaluate} okText="Save" destroyOnClose>
+      <Modal
+        className="crud-modal"
+        open={!!evalRow}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><CheckSquareOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">Evaluate submission</span>
+              <span className="crud-modal-title-main">{evalRow ? evalRow.studentName : ''}</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setEvalRow(null)}
+        onOk={doEvaluate}
+        okText="Save"
+        destroyOnClose
+        maskClosable={false}
+      >
         {evalRow && (
           <>
             {evalRow.text && <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 10, borderRadius: 8 }}>{evalRow.text}</Paragraph>}
             {(evalRow.files || []).map((f, i) => <div key={i}><a href={f.url} target="_blank" rel="noopener">{f.name || f.url}</a></div>)}
-            <Form form={evalForm} layout="vertical" style={{ marginTop: 12 }} preserve={false}>
-              <Space size="large">
-                <Form.Item name="marks" label="Marks"><InputNumber min={0} /></Form.Item>
-                <Form.Item name="grade" label="Grade"><Input style={{ width: 100 }} /></Form.Item>
-              </Space>
-              <Form.Item name="feedback" label="Feedback"><Input.TextArea rows={3} /></Form.Item>
-              <Form.Item name="requestResubmission" valuePropName="checked" noStyle><Checkbox>Request resubmission instead</Checkbox></Form.Item>
+            <Form form={evalForm} layout="vertical" className="crud-form" preserve={false}>
+              <div className="crud-form-grid">
+                <Form.Item name="marks" label={<Lbl icon={<NumberOutlined />}>Marks</Lbl>}>
+                  <InputNumber min={0} style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item name="grade" label={<Lbl icon={<TrophyOutlined />}>Grade</Lbl>}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="feedback" label={<Lbl icon={<MessageOutlined />}>Feedback</Lbl>} className="crud-form-full">
+                  <Input.TextArea rows={3} />
+                </Form.Item>
+                <Form.Item name="requestResubmission" valuePropName="checked" className="crud-form-full">
+                  <Checkbox><Lbl icon={<UploadOutlined />}>Request resubmission instead</Lbl></Checkbox>
+                </Form.Item>
+              </div>
             </Form>
           </>
         )}
@@ -268,12 +337,38 @@ function StudentAssignments() {
         })
       )}
 
-      <Modal open={!!subFor} title={subFor ? `Submit — ${subFor.title}` : ''} onCancel={() => setSubFor(null)} onOk={submit} okText="Submit" destroyOnClose>
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="text" label="Your answer / notes"><Input.TextArea rows={4} /></Form.Item>
-          <Form.Item name="fileUrl" label="File link(s)" tooltip="Paste one or more URLs (Drive / Dropbox / etc.), space-separated">
-            <Input.TextArea rows={2} placeholder="https://drive.google.com/…" />
-          </Form.Item>
+      <Modal
+        className="crud-modal"
+        open={!!subFor}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><UploadOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">Submit for review</span>
+              <span className="crud-modal-title-main">{subFor ? subFor.title : ''}</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setSubFor(null)}
+        onOk={submit}
+        okText="Submit"
+        destroyOnClose
+        maskClosable={false}
+      >
+        <Form form={form} layout="vertical" className="crud-form" preserve={false}>
+          <div className="crud-form-grid">
+            <Form.Item name="text" label={<Lbl icon={<FileTextOutlined />}>Your answer / notes</Lbl>} className="crud-form-full">
+              <Input.TextArea rows={4} />
+            </Form.Item>
+            <Form.Item
+              name="fileUrl"
+              label={<Lbl icon={<LinkOutlined />}>File link(s)</Lbl>}
+              tooltip="Paste one or more URLs (Drive / Dropbox / etc.), space-separated"
+              className="crud-form-full"
+            >
+              <Input.TextArea rows={2} placeholder="https://drive.google.com/…" />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
     </div>

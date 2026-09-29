@@ -174,6 +174,87 @@ async function teacherDashboard(req, res) {
   });
 }
 
+// GET /api/lms/teacher/students — every student across every batch this
+// teacher trains, batch-wise counts for the filter UI, and optional
+// batch/status/search filters on the listing itself. Same roster source
+// (Student, matched by batch name) teacherDashboard's KPIs already use.
+async function teacherStudents(req, res) {
+  const admin = req.admin;
+  const Batch = mongoose.model('Batch');
+  const Student = mongoose.model('Student');
+
+  const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
+  const batches = await Batch.find({ removed: false, trainer: rx(teacherName) })
+    .select('name code course status')
+    .lean();
+  const batchNames = batches.map((b) => b.name);
+
+  if (!batchNames.length) {
+    return res.status(200).json({
+      success: true,
+      result: { teacher: { name: teacherName, id: String(admin._id) }, batches: [], students: [], kpis: { totalStudents: 0, totalBatches: 0, activeStudents: 0 } },
+    });
+  }
+
+  // Batch-wise counts always come off the FULL roster (ignoring the
+  // batch/status/search filters below) so the filter dropdown's counts
+  // describe "how many students in each of my batches" regardless of what's
+  // currently being viewed.
+  const allMine = await Student.find({ removed: false, batch: { $in: batchNames } }).select('batch status').lean();
+  const countsByBatch = new Map();
+  allMine.forEach((s) => countsByBatch.set(s.batch, (countsByBatch.get(s.batch) || 0) + 1));
+
+  const filter = { removed: false, batch: { $in: batchNames } };
+  const batchFilter = String(req.query.batch || '').trim();
+  if (batchFilter) filter.batch = batchFilter;
+  const statusFilter = String(req.query.status || '').trim();
+  if (statusFilter) filter.status = statusFilter;
+  const q = String(req.query.q || '').trim();
+  if (q) {
+    const needle = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ name: needle }, { email: needle }, { enrollmentId: needle }];
+  }
+
+  const students = await Student.find(filter)
+    .select('name email phone city batch course status progress attendancePct enrolledOn enrollmentId')
+    .sort({ name: 1 })
+    .lean();
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      teacher: { name: teacherName, id: String(admin._id) },
+      batches: batches.map((b) => ({
+        id: String(b._id),
+        name: b.name,
+        code: b.code || '',
+        course: b.course || '',
+        status: b.status || 'Planned',
+        studentCount: countsByBatch.get(b.name) || 0,
+      })),
+      students: students.map((s) => ({
+        id: String(s._id),
+        name: s.name,
+        email: s.email,
+        phone: s.phone || '',
+        city: s.city || '',
+        batch: s.batch || '',
+        course: s.course || '',
+        status: s.status || 'Active',
+        progress: s.progress || 0,
+        attendancePct: s.attendancePct || 0,
+        enrolledOn: s.enrolledOn,
+        enrollmentId: s.enrollmentId || '',
+      })),
+      kpis: {
+        totalStudents: allMine.length,
+        totalBatches: batches.length,
+        activeStudents: allMine.filter((s) => s.status === 'Active').length,
+      },
+    },
+  });
+}
+
 function view(s) {
   return {
     id: String(s._id),
@@ -478,4 +559,4 @@ async function teacherLiveAnalytics(req, res) {
   });
 }
 
-module.exports = { teacherDashboard, studentDashboard, myUpdates, myFees, teacherLiveAnalytics };
+module.exports = { teacherDashboard, teacherStudents, studentDashboard, myUpdates, myFees, teacherLiveAnalytics };

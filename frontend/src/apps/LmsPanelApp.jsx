@@ -57,6 +57,7 @@ const LearnerOverview = lazy(() => import('@/pages/Lms/Overview'));
 const LiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
 const Attendance = lazy(() => import('@/pages/Lms/Attendance'));
+const TeacherStudents = lazy(() => import('@/pages/Lms/TeacherStudents'));
 const CourseBuilder = lazy(() => import('@/pages/Lms/CourseBuilder'));
 const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
 const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
@@ -239,7 +240,7 @@ const TEACHER_NAV = [
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
-  ['/teacher/students', 'Students', <TeamOutlined />, <ComingSoon title="Students" />],
+  ['/teacher/students', 'Students', <TeamOutlined />, <TeacherStudents />],
   ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
