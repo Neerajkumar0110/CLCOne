@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { message, Select } from 'antd';
-import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined } from '@ant-design/icons';
+import { message, Select, Table, Tag, Badge } from 'antd';
+import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
@@ -173,13 +173,44 @@ function TabBody({ section, tab }) {
   const [filterBatches, setFilterBatches] = useState([]);
   const [studentCourseFilter, setStudentCourseFilter] = useState(null);
   const [studentBatchFilter, setStudentBatchFilter] = useState(null);
+  // Students only — "Show unassigned only" toggle. CrudTab's fixedFilter is a
+  // single field=value equality match, which can't express "batch is empty
+  // or missing" (Mongoose never stores an empty string for an unset field),
+  // so this swaps CrudTab out entirely for a small dedicated list backed by
+  // GET /api/lms/students/unassigned-list — see services/lms/
+  // unassignedBatchAlert.js for the one shared definition of "unassigned"
+  // (also used by the Students-tab sidebar badge and the daily Support email).
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [unassignedRows, setUnassignedRows] = useState([]);
+  const [unassignedLoading, setUnassignedLoading] = useState(false);
+  const [unassignedCount, setUnassignedCount] = useState(0);
 
   useEffect(() => {
     if (tab.entity !== 'student') return;
     request.listAll({ entity: 'course' }).then((res) => setFilterCourses(res?.success ? res.result : []));
     request.listAll({ entity: 'batch' }).then((res) => setFilterBatches(res?.success ? res.result : []));
+    request.get({ entity: 'lms/students/unassigned-count' }).then((res) => {
+      if (res && res.success) setUnassignedCount(res.result.count || 0);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab.entity]);
+  }, [tab.entity, studentsRefreshTick]);
+
+  const loadUnassigned = () => {
+    setUnassignedLoading(true);
+    request
+      .get({ entity: 'lms/students/unassigned-list' })
+      .then((res) => {
+        const rows = res && res.success ? res.result : [];
+        setUnassignedRows(rows);
+        setUnassignedCount(rows.length);
+      })
+      .finally(() => setUnassignedLoading(false));
+  };
+
+  useEffect(() => {
+    if (tab.entity === 'student' && unassignedOnly) loadUnassigned();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.entity, unassignedOnly, studentsRefreshTick]);
 
   const batchOptionsForCourse = useMemo(
     () => filterBatches.filter((b) => !studentCourseFilter || b.course === studentCourseFilter),
@@ -241,71 +272,118 @@ function TabBody({ section, tab }) {
               placeholder={studentCourseFilter ? 'Filter by batch…' : 'Select a course first'}
               style={{ minWidth: 220 }}
               value={studentBatchFilter}
-              disabled={!studentCourseFilter}
+              disabled={!studentCourseFilter || unassignedOnly}
               onChange={(v) => setStudentBatchFilter(v || null)}
               options={batchOptionsForCourse.map((b) => ({ value: b.name, label: b.name }))}
             />
+            <button
+              type="button"
+              className="hub-btn"
+              style={unassignedOnly ? { background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' } : undefined}
+              onClick={() => setUnassignedOnly((v) => !v)}
+              title="Students with no batch assigned yet"
+            >
+              <WarningOutlined /> {unassignedOnly ? 'Showing unassigned only' : 'Show unassigned only'}
+              {unassignedCount > 0 && <Badge count={unassignedCount} size="small" style={{ marginInlineStart: 6 }} />}
+            </button>
           </div>
           <button type="button" className="hub-btn hub-btn-primary" onClick={() => setAssignStudent(true)}>
             <UsergroupAddOutlined /> Assign to Batch
           </button>
         </div>
       )}
-      <CrudTab
-        key={tab.entity === 'student' ? `${section.key}/${tab.key}/${studentsRefreshTick}` : `${section.key}/${tab.key}`}
-        entity={tab.entity}
-        fields={tab.fields}
-        fixedFilter={tab.entity === 'student' ? studentFixedFilter : tab.fixedFilter}
-        title={tab.label}
-        icon={tab.Icon}
-        renderRowExtra={
-          tab.entity === 'batch'
-            ? (row) => (
-                <>
+      {tab.entity === 'student' && unassignedOnly ? (
+        <div className="hub-card" style={{ padding: 0 }}>
+          <Table
+            rowKey="id"
+            loading={unassignedLoading}
+            dataSource={unassignedRows}
+            pagination={unassignedRows.length > 20 ? { pageSize: 20 } : false}
+            locale={{ emptyText: 'No unassigned students right now.' }}
+            columns={[
+              { title: 'Name', dataIndex: 'name' },
+              { title: 'Email', dataIndex: 'email' },
+              { title: 'Phone', dataIndex: 'phone', render: (v) => v || '—' },
+              { title: 'Course', dataIndex: 'course', render: (v) => v || <Tag color="warning">Not set</Tag> },
+              {
+                title: 'Enrolled on',
+                dataIndex: 'enrolledOn',
+                render: (v, r) => (v || r.created ? new Date(v || r.created).toLocaleDateString() : '—'),
+              },
+              {
+                title: '',
+                width: 90,
+                render: (_, row) => (
                   <button
                     type="button"
                     className="hub-icon-btn"
-                    title="Manage students"
-                    onClick={() => setBatchPanel({ id: row._id, name: row.name })}
+                    title="Assign to a batch"
+                    onClick={() => setAssignStudent({ name: row.name, email: row.email })}
                   >
                     <UsergroupAddOutlined />
                   </button>
+                ),
+              },
+            ]}
+          />
+        </div>
+      ) : (
+        <CrudTab
+          key={tab.entity === 'student' ? `${section.key}/${tab.key}/${studentsRefreshTick}` : `${section.key}/${tab.key}`}
+          entity={tab.entity}
+          fields={tab.fields}
+          fixedFilter={tab.entity === 'student' ? studentFixedFilter : tab.fixedFilter}
+          title={tab.label}
+          icon={tab.Icon}
+          renderRowExtra={
+            tab.entity === 'batch'
+              ? (row) => (
+                  <>
+                    <button
+                      type="button"
+                      className="hub-icon-btn"
+                      title="Manage students"
+                      onClick={() => setBatchPanel({ id: row._id, name: row.name })}
+                    >
+                      <UsergroupAddOutlined />
+                    </button>
+                    <button
+                      type="button"
+                      className="hub-icon-btn"
+                      title="Regenerate live classes — use this if a batch's classes aren't showing up"
+                      disabled={regenBusyId === row._id}
+                      onClick={() => regenerateBatch(row)}
+                    >
+                      <SyncOutlined spin={regenBusyId === row._id} />
+                    </button>
+                  </>
+                )
+              : tab.entity === 'course'
+              ? (row) => (
                   <button
                     type="button"
                     className="hub-icon-btn"
-                    title="Regenerate live classes — use this if a batch's classes aren't showing up"
-                    disabled={regenBusyId === row._id}
-                    onClick={() => regenerateBatch(row)}
+                    title="View full curriculum"
+                    onClick={() => setCurriculumPanel({ id: row._id, title: row.title })}
                   >
-                    <SyncOutlined spin={regenBusyId === row._id} />
+                    <ReadOutlined />
                   </button>
-                </>
-              )
-            : tab.entity === 'course'
-            ? (row) => (
-                <button
-                  type="button"
-                  className="hub-icon-btn"
-                  title="View full curriculum"
-                  onClick={() => setCurriculumPanel({ id: row._id, title: row.title })}
-                >
-                  <ReadOutlined />
-                </button>
-              )
-            : tab.entity === 'student'
-            ? (row) => (
-                <button
-                  type="button"
-                  className="hub-icon-btn"
-                  title="Assign to another batch"
-                  onClick={() => setAssignStudent({ name: row.name, email: row.email })}
-                >
-                  <UsergroupAddOutlined />
-                </button>
-              )
-            : undefined
-        }
-      />
+                )
+              : tab.entity === 'student'
+              ? (row) => (
+                  <button
+                    type="button"
+                    className="hub-icon-btn"
+                    title="Assign to another batch"
+                    onClick={() => setAssignStudent({ name: row.name, email: row.email })}
+                  >
+                    <UsergroupAddOutlined />
+                  </button>
+                )
+              : undefined
+          }
+        />
+      )}
       {tab.entity === 'batch' && (
         <BatchStudentsPanel
           open={!!batchPanel}

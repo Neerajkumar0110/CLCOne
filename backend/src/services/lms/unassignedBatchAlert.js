@@ -15,7 +15,7 @@ async function countUnassigned() {
 async function listUnassigned(limit = 200) {
   const Student = mongoose.model('Student');
   return Student.find(UNASSIGNED_QUERY)
-    .select('name email course enrolledOn created')
+    .select('name email phone course enrolledOn created')
     .sort({ created: -1 })
     .limit(limit)
     .lean();

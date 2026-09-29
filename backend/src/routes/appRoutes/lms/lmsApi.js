@@ -134,6 +134,7 @@ router.route('/my/materials').get(catchErrors(lms.materialMine));
 
 // ── students-tab alerts ──────────────────────────────────────────────
 router.route('/students/unassigned-count').get(catchErrors(lms.studentsUnassignedCount));
+router.route('/students/unassigned-list').get(catchErrors(lms.studentsUnassignedList));
 
 // ── certificates ───────────────────────────────────────────────────
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));

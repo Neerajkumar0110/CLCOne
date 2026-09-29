@@ -268,4 +268,5 @@ module.exports = {
 
   // students-tab alerts
   studentsUnassignedCount: studentAlerts.unassignedCount,
+  studentsUnassignedList: studentAlerts.unassignedList,
 };
