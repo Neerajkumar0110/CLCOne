@@ -25,6 +25,7 @@ const learner360 = require('./learner360');
 const learnerOverview = require('./learnerOverview');
 const communication = require('./communication');
 const studyMaterial = require('./studyMaterial');
+const studentAlerts = require('./studentAlerts');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -264,4 +265,7 @@ module.exports = {
   materialList: studyMaterial.list,
   materialDelete: studyMaterial.remove,
   materialMine: studyMaterial.mine,
+
+  // students-tab alerts
+  studentsUnassignedCount: studentAlerts.unassignedCount,
 };

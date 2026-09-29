@@ -15,6 +15,7 @@ const { getMeetingProvider } = require('./meeting');
 const { isTeacherOfCourse } = require('./teacherCourseAccess');
 const curriculumTracker = require('./curriculumTracker');
 const chapterProgress = require('./chapterProgress');
+const unassignedBatchAlert = require('./unassignedBatchAlert');
 
 module.exports = {
   lmsConfig,
@@ -34,4 +35,5 @@ module.exports = {
   isTeacherOfCourse,
   curriculumTracker,
   chapterProgress,
+  unassignedBatchAlert,
 };

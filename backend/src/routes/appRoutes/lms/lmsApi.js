@@ -132,6 +132,9 @@ router.route('/materials/link').post(catchErrors(lms.materialAddLink));
 router.route('/materials/:id').delete(catchErrors(lms.materialDelete));
 router.route('/my/materials').get(catchErrors(lms.materialMine));
 
+// ── students-tab alerts ──────────────────────────────────────────────
+router.route('/students/unassigned-count').get(catchErrors(lms.studentsUnassignedCount));
+
 // ── certificates ───────────────────────────────────────────────────
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));
 router.route('/certificates').get(catchErrors(lms.certHistory));

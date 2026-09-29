@@ -6,6 +6,7 @@ import { useAppContext } from '@/context/appContext';
 import { usePermission } from '@/context/permissionContext';
 import { useTickets } from '@/context/ticketsContext';
 import { useMessages } from '@/context/messagesContext';
+import { request } from '@/request';
 import { MODULE_NAV_KEY } from '@/config/permissionModules';
 import { FEATURE_SECTIONS } from '@/config/featureSections';
 
@@ -93,6 +94,29 @@ function Sidebar({ collapsible, isMobile = false }) {
   const [showLogoApp, setLogoApp] = useState(isNavMenuClose);
   const [currentPath, setCurrentPath] = useState(pathKeyFor(location));
 
+  // Badge on LMS ▸ Students — same "how many need attention right now"
+  // treatment as the Support ticket count above. Polled rather than pushed
+  // (no socket event exists for a roster edit); a 3-min interval matches the
+  // LMS panel's own safety-net poll cadence (LmsPanelApp.jsx).
+  const [unassignedCount, setUnassignedCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      request
+        .get({ entity: 'lms/students/unassigned-count' })
+        .then((res) => {
+          if (!cancelled && res && res.success) setUnassignedCount(res.result.count || 0);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const iv = setInterval(poll, 180000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, []);
+
   const translate = useLanguage();
   const navigate = useNavigate();
 
@@ -148,10 +172,27 @@ function Sidebar({ collapsible, isMobile = false }) {
     // Dashboard (see Dashboard.jsx — it stacks the Support + LMS/interns
     // analytics on one combined page for that role), so the separate tab
     // here would just be a duplicate.
-    const tabs =
+    let tabs =
       role === 'Support' && section.key === 'lms'
         ? section.tabs.filter((t) => t.key !== 'overview')
         : section.tabs;
+    // Students needing a batch assigned — same badge treatment as Support's
+    // open-ticket count and Messenger's unread count above.
+    if (section.key === 'lms' && unassignedCount > 0) {
+      tabs = tabs.map((t) =>
+        t.key === 'students'
+          ? {
+              ...t,
+              label: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {t.label}
+                  <Badge count={unassignedCount} size="small" className="hub-nav-badge" title={`${unassignedCount} student(s) with no batch assigned`} />
+                </span>
+              ),
+            }
+          : t
+      );
+    }
     return {
       key: section.key,
       icon: SectionIcon ? <SectionIcon /> : undefined,

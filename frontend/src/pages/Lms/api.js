@@ -185,6 +185,7 @@ const lmsApi = {
   materials: () => request.get({ entity: 'lms/materials' }),
   myMaterials: () => request.get({ entity: 'lms/my/materials' }),
   deleteMaterial: (id) => request.del({ entity: `lms/materials/${id}` }),
+  studentsUnassignedCount: () => request.get({ entity: 'lms/students/unassigned-count' }),
   addMaterialLink: (b) => request.post({ entity: 'lms/materials/link', jsonData: b }),
   // Raw axios (not request.post) so we can report real upload % via
   // onUploadProgress — axios.defaults already carries the auth token/baseURL
