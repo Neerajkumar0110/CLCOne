@@ -172,6 +172,50 @@ async function unitProgressForBatch(batchId) {
   return { totalUnits, completedUnits, percent: totalUnits ? Math.round((completedUnits / totalUnits) * 100) : 0 };
 }
 
+// Per-unit (CourseModule) breakdown, in course order — id/title/order plus
+// whether every one of its own chapters is DELIVERED. Powers the Assessment
+// dashboard's one-card-per-unit view for a Foundation batch (see
+// testController.js#getBatchProgress) — distinct from unitProgressForBatch's
+// single aggregate %.
+async function unitsForBatch(batchId) {
+  if (!batchId) return null;
+  const Batch = mongoose.model('Batch');
+  const batchDoc = await Batch.findById(batchId).select('name course').lean();
+  if (!batchDoc) return null;
+  const course = await resolveCourseForBatch(batchDoc);
+  if (!course) return null;
+
+  const CourseModule = mongoose.model('CourseModule');
+  const modules = await CourseModule.find({ course: course._id, removed: false }).sort({ order: 1 }).select('_id title order').lean();
+  if (!modules.length) return null;
+
+  const chapters = await orderedChaptersForCourse(course._id);
+  if (!chapters.length) return null;
+
+  await autoAdvance(batchId);
+  const completion = await completionForBatch(batchId);
+
+  const byModule = new Map();
+  for (const ch of chapters) {
+    const key = String(ch.module);
+    if (!byModule.has(key)) byModule.set(key, []);
+    byModule.get(key).push(ch);
+  }
+
+  return modules.map((m, i) => {
+    const chs = byModule.get(String(m._id)) || [];
+    const completedChapters = chs.filter((c) => completion.has(String(c._id))).length;
+    return {
+      id: String(m._id),
+      title: m.title,
+      order: m.order != null ? m.order : i,
+      totalChapters: chs.length,
+      completedChapters,
+      completed: chs.length > 0 && completedChapters === chs.length,
+    };
+  });
+}
+
 // Read-only — chapterId (string) -> BatchChapterProgress row.
 async function completionForBatch(batchId) {
   const BatchChapterProgress = mongoose.model('BatchChapterProgress');
@@ -179,4 +223,11 @@ async function completionForBatch(batchId) {
   return new Map(rows.map((r) => [String(r.chapter), r]));
 }
 
-module.exports = { resolveCourseForBatch, orderedChaptersForCourse, autoAdvance, completionForBatch, unitProgressForBatch };
+module.exports = {
+  resolveCourseForBatch,
+  orderedChaptersForCourse,
+  autoAdvance,
+  completionForBatch,
+  unitProgressForBatch,
+  unitsForBatch,
+};

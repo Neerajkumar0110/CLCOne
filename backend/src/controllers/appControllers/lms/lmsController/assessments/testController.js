@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { assignQuestions } = require('../../../../../services/lms/assessments/roundRobinService');
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
-const { curriculumTracker } = require('../../../../../services/lms');
+const { curriculumTracker, chapterProgress } = require('../../../../../services/lms');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../../config/roles');
 const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 
@@ -435,9 +435,27 @@ async function getBatchProgress(req, res) {
       unlockedByType[t] = curriculumPercent >= (UNLOCK_THRESHOLD_PCT[t] || 0);
     }
 
+    // Foundation (6-month): one card per real curriculum unit instead of the
+    // 3 broad test types — each unit maps to whichever of Basic/Major/Micro
+    // it falls under (first third/middle third/last third, in course order)
+    // and unlocks only once THAT unit's own curriculum is fully delivered.
+    // Elite (12-month) keeps the flat 5-test view (unlockedByType above) —
+    // null here tells the frontend to use that instead.
+    let units = null;
+    if (resolvedTrack === 'FOUNDATION') {
+      const rawUnits = await chapterProgress.unitsForBatch(batchDoc._id).catch(() => null);
+      if (rawUnits && rawUnits.length) {
+        const CORE_TYPES = ['BASIC', 'MAJOR', 'MICRO'];
+        units = rawUnits.map((u, i) => ({
+          ...u,
+          testType: CORE_TYPES[Math.min(CORE_TYPES.length - 1, Math.floor((i / rawUnits.length) * CORE_TYPES.length))],
+        }));
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      result: { batch, resolvedTrack, curriculumPercent, unlockedByType, thresholds: UNLOCK_THRESHOLD_PCT },
+      result: { batch, resolvedTrack, curriculumPercent, unlockedByType, thresholds: UNLOCK_THRESHOLD_PCT, units },
     });
   } catch (err) {
     console.error('Get batch assessment progress error:', err);
