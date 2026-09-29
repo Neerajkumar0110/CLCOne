@@ -77,7 +77,10 @@ async function autoAdvance(batchId) {
 // one built: it's the more accurate, hour-weighted tracker, and the same one
 // a student/teacher already sees as checkmarks in the "Full Curriculum"
 // modal, so "curriculum complete" means the same thing everywhere instead of
-// two different %s. Falls back to the ported assessment-syllabus tracker
+// two different %s. Measured in whole UNITS (CourseModule), not raw chapter
+// count, so a test only ever unlocks once an entire unit has actually been
+// finished — never off partial progress into a unit that's still mid-way.
+// Falls back to the ported assessment-syllabus tracker
 // (AssessmentCurriculumSession/AssessmentDeliveryRecord) for any course that
 // doesn't have native chapters built yet.
 async function completionPercentForBatchName(batchName) {
@@ -92,10 +95,8 @@ async function completionPercentForBatchName(batchName) {
     if (course) {
       const chapters = await chapterProgress.orderedChaptersForCourse(course._id);
       if (chapters.length) {
-        await chapterProgress.autoAdvance(batchDoc._id);
-        const completion = await chapterProgress.completionForBatch(batchDoc._id);
-        const delivered = chapters.filter((c) => completion.has(String(c._id))).length;
-        return Math.round((delivered / chapters.length) * 100);
+        const unitProgress = await chapterProgress.unitProgressForBatch(batchDoc._id);
+        if (unitProgress) return unitProgress.percent;
       }
     }
   } catch (e) {
