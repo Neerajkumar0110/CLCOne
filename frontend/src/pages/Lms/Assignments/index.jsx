@@ -6,7 +6,7 @@ import {
 import {
   PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CheckOutlined,
   CalendarOutlined, NumberOutlined, FormOutlined, CheckSquareOutlined,
-  TrophyOutlined, MessageOutlined, LinkOutlined, TeamOutlined,
+  LinkOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -16,6 +16,10 @@ import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
 const fmt = (v) => (v ? dayjs(v).format('D MMM YYYY, HH:mm') : '—');
+// Submission status -> the .assignments-page .status.* colour it reads as:
+// evaluated = done (green), submitted = awaiting grading (amber),
+// resubmit_requested = needs the student's attention (red).
+const SUB_STATUS_CLASS = { evaluated: 'submitted', submitted: 'pending', resubmit_requested: 'overdue' };
 
 // Same label-with-icon treatment as the CRM's generic Add/Edit modal
 // (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
@@ -39,8 +43,14 @@ function TeacherAssignments() {
   const [editing, setEditing] = useState(null); // null | {} (new) | row
   const [subFor, setSubFor] = useState(null);
   const [subs, setSubs] = useState([]);
-  const [evalForm] = Form.useForm();
   const [evalRow, setEvalRow] = useState(null);
+  // Plain state (not an antd Form) — the evaluate panel is styled with the
+  // raw .submission-page CSS, which targets bare <input>/<textarea>
+  // elements, not antd's wrapped markup.
+  const [evalMarks, setEvalMarks] = useState('');
+  const [evalGrade, setEvalGrade] = useState('');
+  const [evalFeedback, setEvalFeedback] = useState('');
+  const [evalResubmit, setEvalResubmit] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,13 +100,22 @@ function TeacherAssignments() {
       message.error('Could not load submissions.');
     }
   };
+  const openEval = (r) => {
+    setEvalRow(r);
+    setEvalMarks(r.marks != null ? String(r.marks) : '');
+    setEvalGrade(r.grade || '');
+    setEvalFeedback(r.feedback || '');
+    setEvalResubmit(false);
+  };
   const doEvaluate = async () => {
-    let v;
-    try { v = await evalForm.validateFields(); } catch (e) { return; }
     try {
-      await lmsApi.evaluateSubmission(evalRow.id, v);
+      await lmsApi.evaluateSubmission(evalRow.id, {
+        marks: evalMarks === '' ? undefined : Number(evalMarks),
+        grade: evalGrade,
+        feedback: evalFeedback,
+        requestResubmission: evalResubmit,
+      });
       setEvalRow(null);
-      evalForm.resetFields();
       openSubs(subFor);
       load();
     } catch (e) {
@@ -212,20 +231,42 @@ function TeacherAssignments() {
       </Modal>
 
       <Drawer open={!!subFor} title={subFor ? `Submissions — ${subFor.title}` : ''} width={640} onClose={() => setSubFor(null)}>
-        <Table
-          rowKey="id"
-          size="small"
-          dataSource={subs}
-          pagination={false}
-          locale={{ emptyText: 'No submissions yet' }}
-          columns={[
-            { title: 'Student', dataIndex: 'studentName' },
-            { title: 'Submitted', dataIndex: 'submittedAt', render: fmt },
-            { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={s === 'evaluated' ? 'green' : s === 'resubmit_requested' ? 'orange' : 'blue'}>{s}</Tag> },
-            { title: 'Marks', render: (_, r) => (r.marks != null ? `${r.marks}${r.grade ? ` (${r.grade})` : ''}` : '—') },
-            { title: '', render: (_, r) => <Button size="small" onClick={() => { setEvalRow(r); setTimeout(() => evalForm.setFieldsValue({ marks: r.marks, grade: r.grade, feedback: r.feedback }), 0); }}>Open</Button> },
-          ]}
-        />
+        <div className="assignments-page">
+          <div className="table-card">
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Marks</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {subs.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#9aa8bb' }}>No submissions yet</td></tr>
+                  ) : (
+                    subs.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.studentName}</td>
+                        <td>{fmt(r.submittedAt)}</td>
+                        <td><span className={`status ${SUB_STATUS_CLASS[r.status] || 'pending'}`}>{r.status}</span></td>
+                        <td className="marks">{r.marks != null ? `${r.marks}${r.grade ? ` (${r.grade})` : ''}` : '—'}</td>
+                        <td>
+                          <div className="action-group">
+                            <button type="button" className="view-btn" onClick={() => openEval(r)}>Open</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </Drawer>
 
       <Modal
@@ -241,32 +282,36 @@ function TeacherAssignments() {
           </span>
         }
         onCancel={() => setEvalRow(null)}
-        onOk={doEvaluate}
-        okText="Save"
+        footer={null}
         destroyOnClose
         maskClosable={false}
       >
         {evalRow && (
-          <>
+          <div className="submission-page" style={{ minHeight: 'auto', background: 'transparent' }}>
             {evalRow.text && <Paragraph style={{ background: 'var(--hub-surface-2)', padding: 10, borderRadius: 8 }}>{evalRow.text}</Paragraph>}
             {(evalRow.files || []).map((f, i) => <div key={i}><a href={f.url} target="_blank" rel="noopener">{f.name || f.url}</a></div>)}
-            <Form form={evalForm} layout="vertical" className="crud-form" preserve={false}>
-              <div className="crud-form-grid">
-                <Form.Item name="marks" label={<Lbl icon={<NumberOutlined />}>Marks</Lbl>}>
-                  <InputNumber min={0} style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item name="grade" label={<Lbl icon={<TrophyOutlined />}>Grade</Lbl>}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="feedback" label={<Lbl icon={<MessageOutlined />}>Feedback</Lbl>} className="crud-form-full">
-                  <Input.TextArea rows={3} />
-                </Form.Item>
-                <Form.Item name="requestResubmission" valuePropName="checked" className="crud-form-full">
-                  <Checkbox><Lbl icon={<UploadOutlined />}>Request resubmission instead</Lbl></Checkbox>
-                </Form.Item>
+            <div className="evaluation" style={{ padding: 0 }}>
+              <div className="marks-grid">
+                <div className="mark-field">
+                  <label>Marks</label>
+                  <input className="mark-input" type="number" min={0} value={evalMarks} onChange={(e) => setEvalMarks(e.target.value)} placeholder="0" />
+                </div>
+                <div className="mark-field">
+                  <label>Grade</label>
+                  <input className="mark-input" type="text" value={evalGrade} onChange={(e) => setEvalGrade(e.target.value)} placeholder="A / B / C…" />
+                </div>
               </div>
-            </Form>
-          </>
+              <label className="feedback-label">Feedback</label>
+              <textarea className="feedback" value={evalFeedback} onChange={(e) => setEvalFeedback(e.target.value)} placeholder="Notes for the student…" />
+              <label className="form-label" style={{ marginTop: 14, cursor: 'pointer' }}>
+                <input type="checkbox" checked={evalResubmit} onChange={(e) => setEvalResubmit(e.target.checked)} /> Request resubmission instead
+              </label>
+              <div className="review-actions">
+                <button type="button" className="cancel-btn" onClick={() => setEvalRow(null)}>Cancel</button>
+                <button type="button" className="save-btn" onClick={doEvaluate}>Save</button>
+              </div>
+            </div>
+          </div>
         )}
       </Modal>
     </div>

@@ -5,6 +5,7 @@ import {
 import {
   ProjectOutlined, PlusOutlined, GithubOutlined, LinkOutlined, SendOutlined, CheckCircleOutlined,
   MailOutlined, UserOutlined, TagOutlined, FileTextOutlined, CalendarOutlined, NumberOutlined, FlagOutlined, TeamOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -54,7 +55,11 @@ function ManageProjects() {
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
   const [detail, setDetail] = useState(null); // full project doc
-  const [reviewForm] = Form.useForm();
+  // Plain state (not an antd Form) — the review panel is styled with the raw
+  // .submission-page CSS, which targets bare <select>/<input>/<textarea>
+  // elements, not antd's wrapped markup.
+  const [reviewState, setReviewState] = useState({ decision: '', feedback: '', rubricMarks: {} });
+  const [reviewOpen, setReviewOpen] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -91,18 +96,21 @@ function ManageProjects() {
   const openDetail = async (row) => {
     try {
       const res = await lmsApi.getProject(row.id);
-      setDetail(res?.result || null);
+      const d = res?.result || null;
+      setDetail(d);
+      setReviewOpen(true);
+      setReviewState({ decision: '', feedback: '', rubricMarks: Object.fromEntries((d?.rubric || []).map((r) => [r.criterion, ''])) });
     } catch (e) { message.error('Load failed'); }
   };
 
   const submitReview = async () => {
-    let v; try { v = await reviewForm.validateFields(); } catch (e) { return; }
+    if (!reviewState.decision) { message.error('Pick a decision.'); return; }
     setSaving(true);
     try {
-      const rubricScores = (detail.rubric || []).map((r) => ({ criterion: r.criterion, marks: v[`rubric_${r.criterion}`] || 0 }));
-      const res = await lmsApi.reviewProject(detail.id || detail._id, { decision: v.decision, feedback: v.feedback, rubricScores });
+      const rubricScores = (detail.rubric || []).map((r) => ({ criterion: r.criterion, marks: Number(reviewState.rubricMarks[r.criterion]) || 0 }));
+      const res = await lmsApi.reviewProject(detail.id || detail._id, { decision: reviewState.decision, feedback: reviewState.feedback, rubricScores });
       message.success(res?.message || 'Saved.');
-      setDetail(null); reviewForm.resetFields(); load();
+      setDetail(null); load();
     } catch (e) { message.error('Review failed.'); } finally { setSaving(false); }
   };
 
@@ -256,70 +264,127 @@ function ManageProjects() {
         </Form>
       </Modal>
 
-      <Drawer open={!!detail} onClose={() => setDetail(null)} width={560} title={detail ? `${detail.title} — ${detail.studentName}` : ''}>
+      <Drawer open={!!detail} onClose={() => setDetail(null)} width={640} closable={false}>
         {detail && (
-          <>
-            <Space wrap style={{ marginBottom: 12 }}>
-              {detail.code && <Tag color="purple">{detail.code}</Tag>}
-              <Tag color={STATUS_COLOR[detail.status]}>{STATUS_LABEL[detail.status] || detail.status}</Tag>
-              {detail.dueDate && <Tag>Due {dayjs(detail.dueDate).format('D MMM YYYY')}</Tag>}
-              {detail.finalScore != null && <Tag color="green">{detail.finalScore}% · {detail.finalGrade}</Tag>}
-            </Space>
-            <Paragraph type="secondary">{detail.problemStatement}</Paragraph>
+          <div className="submission-page" style={{ margin: '-24px' }}>
+            <div className="page" style={{ maxWidth: 'none' }}>
+              <div className="submission-header">
+                <button type="button" className="back-btn" onClick={() => setDetail(null)}><CloseOutlined /></button>
+                <h1>{detail.title} — {detail.studentName}</h1>
+              </div>
 
-            <Divider orientation="left" plain>Milestones</Divider>
-            <List size="small" dataSource={detail.milestones} renderItem={(m) => (
-              <List.Item>
-                <Space>
-                  {m.status === 'done' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <Tag>{m.status}</Tag>}
-                  <span>{m.title}</span>
-                  {m.dueDate && <Text type="secondary">({dayjs(m.dueDate).format('D MMM')})</Text>}
-                </Space>
-              </List.Item>
-            )} />
-
-            <Divider orientation="left" plain>Submissions</Divider>
-            {(!detail.submissions || detail.submissions.length === 0) ? <Text type="secondary">No submission yet.</Text> : (
-              <Timeline items={detail.submissions.slice().reverse().map((s) => ({
-                children: (
-                  <div key={s.version}>
-                    <b>v{s.version}</b> — {dayjs(s.submittedAt).format('D MMM, HH:mm')}
-                    <br />{s.note}
-                    <br />
-                    {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> repo</a>}{' '}
-                    {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8 }}><LinkOutlined /> live</a>}
-                    {s.review && <Alert style={{ marginTop: 6 }} type={s.review.decision === 'approved' ? 'success' : s.review.decision === 'rejected' ? 'error' : 'warning'} message={`${s.review.decision.replace('_', ' ')} by ${s.review.byName}`} description={s.review.feedback} />}
-                  </div>
-                ),
-              }))} />
-            )}
-
-            {detail.status !== 'approved' && detail.status !== 'rejected' && detail.submissions && detail.submissions.length > 0 && (
-              <>
-                <div className="crud-section" style={{ marginTop: 6 }}>
-                  <SectionHead><CheckCircleOutlined /> Review latest submission</SectionHead>
-                  <div className="crud-section-body">
-                    <Form form={reviewForm} layout="vertical" className="crud-form">
-                      <div className="crud-form-grid">
-                        <Form.Item name="decision" label={<Lbl icon={<FlagOutlined />}>Decision</Lbl>} rules={[{ required: true }]} className="crud-form-full">
-                          <Select options={[{ value: 'approved', label: 'Approve' }, { value: 'revision_requested', label: 'Request revision' }, { value: 'rejected', label: 'Reject' }]} />
-                        </Form.Item>
-                        {(detail.rubric || []).map((r) => (
-                          <Form.Item key={r.criterion} name={`rubric_${r.criterion}`} label={<Lbl icon={<NumberOutlined />}>{r.criterion} (max {r.maxMarks})</Lbl>}>
-                            <InputNumber min={0} max={r.maxMarks} style={{ width: '100%' }} />
-                          </Form.Item>
-                        ))}
-                        <Form.Item name="feedback" label={<Lbl icon={<FileTextOutlined />}>Feedback</Lbl>} className="crud-form-full">
-                          <Input.TextArea rows={3} />
-                        </Form.Item>
-                      </div>
-                      <Button type="primary" loading={saving} onClick={submitReview}>Save review</Button>
-                    </Form>
-                  </div>
+              <div className="top-info">
+                <div className="meta">
+                  {detail.code && <span className="badge project">{detail.code}</span>}
+                  <span className={`badge${['submitted', 'in_review'].includes(detail.status) ? ' submitted' : ''}`}>
+                    {STATUS_LABEL[detail.status] || detail.status}
+                  </span>
+                  {detail.dueDate && <span className="badge due">Due {dayjs(detail.dueDate).format('D MMM YYYY')}</span>}
                 </div>
-              </>
-            )}
-          </>
+                {detail.finalScore != null && (
+                  <div className="score-card">
+                    <div>
+                      <span className="score-label">Final score</span>
+                      <span className="score-value">{detail.finalScore}%</span>
+                    </div>
+                    <div>
+                      <span className="score-label">Grade</span>
+                      <span className="score-value">{detail.finalGrade}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="detail-card">
+                <div className="section-title">Problem statement</div>
+                <div style={{ padding: '16px 20px', color: '#425873', fontSize: 13, lineHeight: 1.6 }}>{detail.problemStatement || '—'}</div>
+
+                <div className="section-title">Milestones</div>
+                <div style={{ padding: '6px 20px 16px' }}>
+                  <List size="small" dataSource={detail.milestones} renderItem={(m) => (
+                    <List.Item style={{ border: 'none', padding: '8px 0' }}>
+                      <Space>
+                        {m.status === 'done' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <Tag>{m.status}</Tag>}
+                        <span>{m.title}</span>
+                        {m.dueDate && <Text type="secondary">({dayjs(m.dueDate).format('D MMM')})</Text>}
+                      </Space>
+                    </List.Item>
+                  )} />
+                </div>
+
+                <div className="section-title">Submissions</div>
+                <div style={{ padding: '16px 20px' }}>
+                  {(!detail.submissions || detail.submissions.length === 0) ? <Text type="secondary">No submission yet.</Text> : (
+                    <Timeline items={detail.submissions.slice().reverse().map((s) => ({
+                      children: (
+                        <div key={s.version}>
+                          <b>v{s.version}</b> — {dayjs(s.submittedAt).format('D MMM, HH:mm')}
+                          <br />{s.note}
+                          <br />
+                          {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> repo</a>}{' '}
+                          {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8 }}><LinkOutlined /> live</a>}
+                          {s.review && <Alert style={{ marginTop: 6 }} type={s.review.decision === 'approved' ? 'success' : s.review.decision === 'rejected' ? 'error' : 'warning'} message={`${s.review.decision.replace('_', ' ')} by ${s.review.byName}`} description={s.review.feedback} />}
+                        </div>
+                      ),
+                    }))} />
+                  )}
+                </div>
+
+                {detail.status !== 'approved' && detail.status !== 'rejected' && detail.submissions && detail.submissions.length > 0 && (
+                  <>
+                    <button type="button" className="review-latest" onClick={() => setReviewOpen((o) => !o)}>
+                      <span><CheckCircleOutlined /> &nbsp;REVIEW LATEST SUBMISSION</span>
+                      <span>{reviewOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {reviewOpen && (
+                      <div className="evaluation">
+                        <div className="form-group">
+                          <label className="form-label"><FlagOutlined /> Decision</label>
+                          <select
+                            className="decision-select"
+                            value={reviewState.decision}
+                            onChange={(e) => setReviewState((s) => ({ ...s, decision: e.target.value }))}
+                          >
+                            <option value="" disabled>Select a decision…</option>
+                            <option value="approved">Approve</option>
+                            <option value="revision_requested">Request revision</option>
+                            <option value="rejected">Reject</option>
+                          </select>
+                        </div>
+                        <div className="marks-grid" style={{ marginTop: 18 }}>
+                          {(detail.rubric || []).map((r) => (
+                            <div className="mark-field" key={r.criterion}>
+                              <label>{r.criterion} (max {r.maxMarks})</label>
+                              <input
+                                className="mark-input"
+                                type="number"
+                                min={0}
+                                max={r.maxMarks}
+                                value={reviewState.rubricMarks[r.criterion] ?? ''}
+                                onChange={(e) => setReviewState((s) => ({ ...s, rubricMarks: { ...s.rubricMarks, [r.criterion]: e.target.value } }))}
+                                placeholder="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <label className="feedback-label">Feedback</label>
+                        <textarea
+                          className="feedback"
+                          value={reviewState.feedback}
+                          onChange={(e) => setReviewState((s) => ({ ...s, feedback: e.target.value }))}
+                          placeholder="Notes for the student…"
+                        />
+                        <div className="review-actions">
+                          <button type="button" className="cancel-btn" onClick={() => setDetail(null)}>Cancel</button>
+                          <button type="button" className="save-btn" disabled={saving} onClick={submitReview}>{saving ? 'Saving…' : 'Save review'}</button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </Drawer>
     </div>
