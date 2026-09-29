@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox, Space, Empty, Skeleton, message, Typography,
 } from 'antd';
-import { SoundOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  SoundOutlined, PlusOutlined, DeleteOutlined, TagOutlined, FileTextOutlined,
+  TeamOutlined, ReadOutlined, BellOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -10,6 +13,14 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
+
+// Same label-with-icon treatment as the CRM's generic Add/Edit modal
+// (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
+// matching how Lms/Projects and Lms/Assignments build their own modals, so
+// every form in the LMS reads as one consistent product.
+const Lbl = ({ icon, children }) => (
+  <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
+);
 
 function TeacherAnnouncements() {
   const [rows, setRows] = useState([]);
@@ -66,22 +77,60 @@ function TeacherAnnouncements() {
         />
       )}
 
-      <Modal open={open} title="New announcement" onCancel={() => setOpen(false)} onOk={send} okText="Send" destroyOnClose width={560}>
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="body" label="Message" rules={[{ required: true }]}><Input.TextArea rows={5} /></Form.Item>
-          <Form.Item name="audience" label="Audience"><Select options={[{ value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All students' }]} /></Form.Item>
-          <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
-            {({ getFieldValue }) => {
-              const a = getFieldValue('audience');
-              if (a === 'course') return <Form.Item name="course" label="Course" rules={[{ required: true }]}><Select options={courses} /></Form.Item>;
-              if (a === 'batch') return <Form.Item name="batch" label="Batch name" rules={[{ required: true }]}><Input placeholder="Exact batch name" /></Form.Item>;
-              return null;
-            }}
-          </Form.Item>
-          <Form.Item name="channels" label="Send via">
-            <Checkbox.Group options={[{ label: 'In-app notification', value: 'in_app' }, { label: 'Email', value: 'email' }]} />
-          </Form.Item>
+      <Modal
+        className="crud-modal"
+        open={open}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><SoundOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">New record</span>
+              <span className="crud-modal-title-main">New announcement</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setOpen(false)}
+        onOk={send}
+        okText="Send"
+        destroyOnClose
+        maskClosable={false}
+        width={640}
+      >
+        <Form form={form} layout="vertical" preserve={false} className="crud-form">
+          <div className="crud-form-grid">
+            <Form.Item name="title" label={<Lbl icon={<TagOutlined />}>Title</Lbl>} rules={[{ required: true, message: 'Title is required' }]} className="crud-form-full">
+              <Input placeholder="e.g. Class rescheduled to 5 PM" />
+            </Form.Item>
+            <Form.Item name="body" label={<Lbl icon={<FileTextOutlined />}>Message</Lbl>} rules={[{ required: true, message: 'Message is required' }]} className="crud-form-full">
+              <Input.TextArea rows={5} />
+            </Form.Item>
+            <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Audience</Lbl>} className="crud-form-full">
+              <Select options={[{ value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All students' }]} />
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
+              {({ getFieldValue }) => {
+                const a = getFieldValue('audience');
+                if (a === 'course') {
+                  return (
+                    <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
+                      <Select options={courses} showSearch optionFilterProp="label" placeholder="Select a course…" />
+                    </Form.Item>
+                  );
+                }
+                if (a === 'batch') {
+                  return (
+                    <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch name</Lbl>} rules={[{ required: true, message: 'Batch name is required' }]} className="crud-form-full">
+                      <Input placeholder="Exact batch name" />
+                    </Form.Item>
+                  );
+                }
+                return null;
+              }}
+            </Form.Item>
+            <Form.Item name="channels" label={<Lbl icon={<BellOutlined />}>Send via</Lbl>} className="crud-form-full">
+              <Checkbox.Group options={[{ label: 'In-app notification', value: 'in_app' }, { label: 'Email', value: 'email' }]} />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
     </div>
