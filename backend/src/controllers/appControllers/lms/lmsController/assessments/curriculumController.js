@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { curriculumTracker } = require('../../../../services/lms');
+const { curriculumTracker } = require('../../../../../services/lms');
 
 // Ported from python-test-platform's src/controllers/curriculumController.js
 // (Prisma -> Mongoose). Distinct from this codebase's existing (unrelated)
