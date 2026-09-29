@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Collapse, Segmented, Progress, Table, DatePicker, Space, Typography, Empty, Button } from 'antd';
-import { ScheduleOutlined } from '@ant-design/icons';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, Collapse, Segmented, Select, Progress, Table, DatePicker, Space, Typography, Empty, Button, Skeleton } from 'antd';
+import { ScheduleOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import lmsApi from '@/pages/Lms/api';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
@@ -9,13 +9,20 @@ const { Text } = Typography;
 
 // Wired to GET /api/lms/assessments/admin/curriculum/sessions?batch&track and
 // PATCH .../admin/curriculum/sessions/:id/delivery (ported from the
-// python-test-platform reference project).
+// python-test-platform reference project). `batch` is matched against this
+// CRM's real Batch.name (via teacherDashboard's own batch list, same source
+// Assignments/Projects/Announcements use) — it used to be 3 hardcoded fake
+// time-slot strings with no relation to any real batch at all.
 const TRACKS = [
   { value: 'FOUNDATION', label: 'Foundation (6-Month)' },
   { value: 'ELITE', label: 'Elite (12-Month)' },
 ];
-const BATCHES = ['4:00 PM - 5:30 PM', '6:00 PM - 7:30 PM', '8:00 PM - 9:30 PM'];
 const STATUS_TONE = { DELIVERED: 'success', SKIPPED: 'warning', PENDING: 'neutral' };
+const fmtSchedule = (b) => {
+  const days = (b?.classDays || '').trim();
+  const time = b?.classTime && b?.endTime ? `${b.classTime}–${b.endTime}` : b?.classTime || '';
+  return [days, time].filter(Boolean).join(' · ') || 'No schedule set';
+};
 
 function isBehindSchedule(s) {
   if (s.status !== 'PENDING' || !s.plannedDate) return false;
@@ -32,22 +39,32 @@ function groupByUnit(sessions) {
 
 export default function Curriculum() {
   const [track, setTrack] = useState('FOUNDATION');
-  const [batch, setBatch] = useState(BATCHES[0]);
+  const [batches, setBatches] = useState([]); // real Batch rows: { name, classDays, classTime, endTime, ... }
+  const [batch, setBatch] = useState('');
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [batchesLoading, setBatchesLoading] = useState(true);
 
-  const load = async () => {
+  useEffect(() => {
+    lmsApi.teacherDashboard().then((d) => {
+      const rows = (d && d.result && d.result.batches) || [];
+      setBatches(rows);
+      if (rows.length) setBatch(rows[0].name);
+    }).finally(() => setBatchesLoading(false));
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!batch) { setSessions([]); setLoading(false); return; }
     setLoading(true);
     const res = await lmsApi.assessmentCurriculumSessions({ batch, track });
     const data = (res && res.result) || {};
     setSessions(data.sessions || []);
     setLoading(false);
-  };
+  }, [batch, track]);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track, batch]);
+  useEffect(() => { load(); }, [load]);
+
+  const activeBatch = batches.find((b) => b.name === batch);
 
   const progress = useMemo(() => {
     const delivered = sessions.filter((s) => s.status === 'DELIVERED').length;
@@ -62,6 +79,8 @@ export default function Curriculum() {
 
   const grouped = groupByUnit(sessions);
 
+  if (batchesLoading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
+
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <PageHeading
@@ -70,24 +89,42 @@ export default function Curriculum() {
         description="Track which sessions have actually been delivered against the planned schedule, per batch."
       />
 
-      <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
-        <Segmented value={track} onChange={setTrack} options={TRACKS.map((t) => ({ value: t.value, label: t.label }))} />
-        <Segmented value={batch} onChange={setBatch} options={BATCHES} />
-      </Space>
-
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Text type="secondary" style={{ textTransform: 'uppercase', fontSize: 11, fontWeight: 600 }}>
-            Progress — {TRACKS.find((t) => t.value === track)?.label}
-          </Text>
-          <Text strong>{progress.delivered} / {progress.total} sessions ({progress.percent}%)</Text>
-        </Space>
-        <Progress percent={progress.percent} showInfo={false} style={{ marginTop: 8 }} />
-      </Card>
-
-      {!loading && sessions.length === 0 ? (
-        <Card><Empty description="No sessions for this batch yet." /></Card>
+      {batches.length === 0 ? (
+        <Card><Empty description="You have no batches assigned yet." /></Card>
       ) : (
+        <>
+          <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 12 }}>
+            <Segmented value={track} onChange={setTrack} options={TRACKS.map((t) => ({ value: t.value, label: t.label }))} />
+            <Select
+              value={batch}
+              onChange={setBatch}
+              style={{ minWidth: 280 }}
+              options={batches.map((b) => ({ value: b.name, label: b.name }))}
+              placeholder="Select a batch…"
+            />
+          </Space>
+
+          {activeBatch && (
+            <Space size={16} style={{ marginBottom: 12, color: 'var(--hub-text-soft, #64748b)', fontSize: 13 }} wrap>
+              <span><CalendarOutlined /> {activeBatch.classDays || 'Days not set'}</span>
+              <span><ClockCircleOutlined /> {activeBatch.classTime && activeBatch.endTime ? `${activeBatch.classTime} – ${activeBatch.endTime}` : 'Time not set'}</span>
+              {activeBatch.course && <span>· {activeBatch.course}</span>}
+            </Space>
+          )}
+
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+              <Text type="secondary" style={{ textTransform: 'uppercase', fontSize: 11, fontWeight: 600 }}>
+                {batch} — {TRACKS.find((t) => t.value === track)?.label}
+              </Text>
+              <Text strong>{progress.delivered} / {progress.total} sessions ({progress.percent}%)</Text>
+            </Space>
+            <Progress percent={progress.percent} showInfo={false} style={{ marginTop: 8 }} />
+          </Card>
+
+          {!loading && sessions.length === 0 ? (
+            <Card><Empty description="No sessions for this batch yet." /></Card>
+          ) : (
         <Collapse
           defaultActiveKey={Object.keys(grouped)}
           items={Object.entries(grouped).map(([unit, unitSessions]) => ({
@@ -179,6 +216,8 @@ export default function Curriculum() {
             ),
           }))}
         />
+          )}
+        </>
       )}
     </div>
   );
