@@ -118,7 +118,7 @@ async function autoAdvance(batchId) {
       // second, and an upcoming class never writes anything, only labels.
       if (isCompleted && classEnd >= end - 1e-6) {
         // eslint-disable-next-line no-await-in-loop
-        await BatchChapterProgress.findOneAndUpdate(
+        const prev = await BatchChapterProgress.findOneAndUpdate(
           { batch: batchId, chapter: ch._id },
           {
             $set: {
@@ -132,13 +132,102 @@ async function autoAdvance(batchId) {
             },
           },
           { upsert: true }
-        ).catch(() => {});
+        ).catch(() => null);
+        // Newly delivered this call (not just a self-heal re-confirming an
+        // already-delivered chapter) — a student shouldn't have to click
+        // "Mark Complete" on My Courses for a lesson whose class already
+        // happened; do it for them the moment the chapter itself ticks.
+        if (!prev || prev.status !== 'DELIVERED') {
+          // eslint-disable-next-line no-await-in-loop
+          await autoCompleteLessonsForChapter(ch._id, course._id, batchDoc.name, cls.actualStart || cls.scheduledStart).catch(() => {});
+        }
       }
     }
     if (covered.length) sessionTopics[String(cls._id)] = covered;
   }
 
   return { chapters, sessionTopics };
+}
+
+// Rolls up (crmUser, course) LessonProgress rows into the CourseProgress
+// aggregate — same shape as learning.js's own (unexported) rollUpCourse, but
+// kept here rather than imported from a controller so this service has no
+// dependency on the controller layer.
+async function rollUpCourseProgress(crmUser, courseId) {
+  const Lesson = mongoose.model('Lesson');
+  const LessonProgress = mongoose.model('LessonProgress');
+  const CourseProgress = mongoose.model('CourseProgress');
+
+  const [total, progs] = await Promise.all([
+    Lesson.countDocuments({ course: courseId, removed: false, published: true }),
+    LessonProgress.find({ crmUser, course: courseId }).select('status').lean(),
+  ]);
+  const completed = progs.filter((p) => p.status === 'completed').length;
+  const started = progs.filter((p) => p.status !== 'not_started').length;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+
+  const now = new Date();
+  await CourseProgress.updateOne(
+    { crmUser, course: courseId },
+    {
+      $set: {
+        totalLessons: total,
+        completedLessons: completed,
+        startedLessons: started,
+        percent,
+        lastActivityAt: now,
+        updated: now,
+        ...(percent >= 100 ? { completedAt: now } : {}),
+      },
+      $setOnInsert: { created: now },
+    },
+    { upsert: true }
+  ).catch(() => {});
+}
+
+// A chapter just ticked DELIVERED (its class actually happened) — every
+// lesson under it auto-completes for every student currently on that batch,
+// same as if each of them had clicked "Mark Complete" on My Courses
+// themselves. Best-effort; a failure here must never break autoAdvance.
+async function autoCompleteLessonsForChapter(chapterId, courseId, batchName, completedAt) {
+  const Lesson = mongoose.model('Lesson');
+  const lessons = await Lesson.find({ chapter: chapterId, removed: false }).select('_id module').lean();
+  if (!lessons.length) return;
+
+  const Student = mongoose.model('Student');
+  const students = await Student.find({ removed: false, batch: batchName }).select('email').lean();
+  const emails = [...new Set(students.map((s) => (s.email || '').toLowerCase()).filter(Boolean))];
+  if (!emails.length) return;
+
+  const Admin = mongoose.model('Admin');
+  const admins = await Admin.find({ removed: false, email: { $in: emails } }).select('_id').lean();
+  if (!admins.length) return;
+
+  const LessonProgress = mongoose.model('LessonProgress');
+  const now = new Date();
+  const when = completedAt || now;
+
+  for (const admin of admins) {
+    for (const lesson of lessons) {
+      // eslint-disable-next-line no-await-in-loop
+      await LessonProgress.findOneAndUpdate(
+        { crmUser: admin._id, lesson: lesson._id },
+        {
+          $set: {
+            status: 'completed',
+            percent: 100,
+            completedAt: when,
+            milestones: { started: true, p25: true, p50: true, p75: true, p100: true },
+            updated: now,
+          },
+          $setOnInsert: { crmUser: admin._id, lesson: lesson._id, course: courseId, module: lesson.module },
+        },
+        { upsert: true }
+      ).catch(() => {});
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await rollUpCourseProgress(admin._id, courseId);
+  }
 }
 
 // Whole-UNIT (CourseModule) completion — a unit only counts once every one

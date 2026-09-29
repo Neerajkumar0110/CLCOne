@@ -23,11 +23,6 @@ import lmsApi from '@/pages/Lms/api';
 import { BasicTest, MajorTestPythonSql, MajorTestNlp, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
 
 const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
-// Fallback only — used when a Foundation batch's course has no native
-// Chapters built yet (backend then returns units: null) so there's nothing
-// to build per-unit cards from; falls back to the 3 core test types instead
-// of showing NLP cards that don't apply to a 6-month curriculum at all.
-const TRACK_TEST_TYPES = { FOUNDATION: ['BASIC', 'MAJOR', 'MICRO'], ELITE: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'] };
 
 // Colorful card-grid redesign of the candidate assessment landing page
 // ("Welcome, {name}"), matching the requested reference mockup 1:1 in style
@@ -120,57 +115,27 @@ export default function AssessmentDashboard() {
   const firstName = (admin.name || '').trim().split(' ')[0];
   const openTest = (test) => (base ? navigate(`${base}/${test.path}`) : setActiveKey(test.key));
 
-  // Foundation (6-month): one card per real curriculum unit — see
-  // testController.js#getBatchProgress, which already maps each unit to
-  // whichever of the 3 core tests it falls under and only reports `units`
-  // for a track that actually has native Chapters built. Elite (12-month)
-  // keeps the flat 5-test view unchanged. If a Foundation batch's course has
-  // no native chapters yet, `units` is null and it falls back to the same
-  // flat view scoped to the 3 core types.
-  const units = progress && progress.units;
-  const isUnitMode = Array.isArray(units) && units.length > 0;
-
+  // Always the same 5 real tests, for every batch/track — only their lock
+  // state differs, driven by the batch's real curriculum completion %
+  // (services/lms/curriculumTracker.js) against each test's own threshold.
   const unlockedByType = (progress && progress.unlockedByType) || {};
   const thresholds = (progress && progress.thresholds) || {};
-  const applicableTypes = progress && progress.resolvedTrack ? TRACK_TEST_TYPES[progress.resolvedTrack] : null;
-  const visibleTests = applicableTypes ? TESTS.filter((t) => applicableTypes.includes(t.testType)) : TESTS;
 
-  const cards = isUnitMode
-    ? units.map((u, i) => {
-        const mapped = TESTS.find((t) => t.testType === u.testType) || TESTS[0];
-        return {
-          key: `unit-${u.id}`,
-          testType: u.testType,
-          path: mapped.path,
-          Component: mapped.Component,
-          eyebrow: `Unit ${i + 1}`,
-          title: u.title,
-          description: `${u.completedChapters}/${u.totalChapters} sessions delivered · opens the ${mapped.title}.`,
-          duration: mapped.duration,
-          locked: !u.completed,
-          color: PALETTE[i % 8],
-          Icon: ICONS[i % 8],
-        };
-      })
-    : visibleTests.map((t, i) => ({
-        ...t,
-        locked: progress ? unlockedByType[t.testType] === false : false,
-        color: PALETTE[i % 8],
-        Icon: ICONS[i % 8],
-      }));
+  const cards = TESTS.map((t, i) => ({
+    ...t,
+    locked: progress ? unlockedByType[t.testType] === false : false,
+    color: PALETTE[i % 8],
+    Icon: ICONS[i % 8],
+  }));
 
   const clickLocked = (card) => {
-    if (isUnitMode) {
-      msgApi.info(`"${card.title}" unlocks once this unit's curriculum has been fully delivered.`, 4);
-      return;
-    }
     const req = thresholds[card.testType] || 0;
     const cur = (progress && progress.curriculumPercent) || 0;
     msgApi.info(`"${card.title}" unlocks once ${req}% of your batch's curriculum has been delivered (currently ${cur}%).`, 4);
   };
 
   if (activeKey) {
-    const active = cards.find((c) => c.key === activeKey) || TESTS.find((t) => t.key === activeKey);
+    const active = TESTS.find((t) => t.key === activeKey);
     const ActiveComponent = active.Component;
     return (
       <div className="lms-portal" style={{ padding: 4 }}>
@@ -366,14 +331,10 @@ export default function AssessmentDashboard() {
               <div className="adv2-footer">
                 <span className="adv2-duration">
                   {c.locked ? (
-                    isUnitMode ? (
-                      <><LockOutlined /> Complete this unit to unlock</>
-                    ) : (
-                      <>
-                        <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
-                        {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
-                      </>
-                    )
+                    <>
+                      <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
+                      {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
+                    </>
                   ) : (
                     <><ClockCircleOutlined /> {c.duration}</>
                   )}
