@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Select, Input, Button, message, Popconfirm, Empty, Skeleton, Modal, Form } from 'antd';
+import { Input, message, Popconfirm, Empty, Skeleton, Modal, Form } from 'antd';
 import {
   FolderOpenOutlined, CloudUploadOutlined, LinkOutlined, FilePdfOutlined, FileImageOutlined,
   PlayCircleOutlined, FileOutlined, EyeOutlined, DownloadOutlined, DeleteOutlined, TagOutlined,
-  TeamOutlined, BookOutlined,
+  TeamOutlined, BookOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -194,19 +194,16 @@ function TeacherStudyMaterial() {
       </div>
 
       <div className="study-material-card">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-          <Select
-            placeholder="Upload to batch…"
-            style={{ minWidth: 220 }}
-            options={batches}
-            value={uploadBatch}
-            onChange={setUploadBatch}
-            showSearch
-            optionFilterProp="label"
-          />
-          <Input
+        <div className="material-toolbar" style={{ marginBottom: 16 }}>
+          <select className="material-select" value={uploadBatch || ''} onChange={(e) => setUploadBatch(e.target.value || undefined)}>
+            <option value="" disabled>Upload to batch…</option>
+            {batches.map((b) => (
+              <option key={b.value} value={b.value} title={b.label}>{b.label}</option>
+            ))}
+          </select>
+          <input
+            className="material-input"
             placeholder="Subject (optional) — e.g. React Native"
-            style={{ minWidth: 240, flex: '1 1 240px' }}
             value={uploadSubject}
             onChange={(e) => setUploadSubject(e.target.value)}
           />
@@ -255,33 +252,28 @@ function TeacherStudyMaterial() {
         <div className="uploaded-material-section">
           <div className="uploaded-material-heading">
             <h3>Uploaded Files</h3>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <Input.Search
-                placeholder="Search files by name or subject…"
-                style={{ width: 240 }}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                allowClear
-              />
-              <Select
-                value={typeFilter}
-                onChange={setTypeFilter}
-                style={{ width: 130 }}
-                options={[
-                  { value: 'all', label: 'All Types' },
-                  { value: 'pdf', label: 'PDF' },
-                  { value: 'video', label: 'Video' },
-                  { value: 'image', label: 'Image' },
-                  { value: 'other', label: 'Other' },
-                ]}
-              />
-              {batches.length > 1 && (
-                <Select
-                  value={batchFilter}
-                  onChange={setBatchFilter}
-                  style={{ width: 160 }}
-                  options={[{ value: 'all', label: 'All Batches' }, ...batches]}
+            <div className="material-toolbar">
+              <div className="material-search-box">
+                <SearchOutlined />
+                <input
+                  className="material-input"
+                  placeholder="Search files by name or subject…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
+              </div>
+              <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">All Types</option>
+                <option value="pdf">PDF</option>
+                <option value="video">Video</option>
+                <option value="image">Image</option>
+                <option value="other">Other</option>
+              </select>
+              {batches.length > 1 && (
+                <select className="material-select-sm" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+                  <option value="all">All Batches</option>
+                  {batches.map((b) => <option key={b.value} value={b.value} title={b.label}>{b.label}</option>)}
+                </select>
               )}
               <span className="uploaded-count">{filtered.length} file{filtered.length === 1 ? '' : 's'}</span>
             </div>
@@ -377,26 +369,23 @@ function StudentStudyMaterial() {
         <div className="uploaded-material-section" style={{ marginTop: 0 }}>
           <div className="uploaded-material-heading">
             <h3>Files</h3>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <Input.Search
-                placeholder="Search files by name or subject…"
-                style={{ width: 240 }}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                allowClear
-              />
-              <Select
-                value={typeFilter}
-                onChange={setTypeFilter}
-                style={{ width: 130 }}
-                options={[
-                  { value: 'all', label: 'All Types' },
-                  { value: 'pdf', label: 'PDF' },
-                  { value: 'video', label: 'Video' },
-                  { value: 'image', label: 'Image' },
-                  { value: 'other', label: 'Other' },
-                ]}
-              />
+            <div className="material-toolbar">
+              <div className="material-search-box">
+                <SearchOutlined />
+                <input
+                  className="material-input"
+                  placeholder="Search files by name or subject…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">All Types</option>
+                <option value="pdf">PDF</option>
+                <option value="video">Video</option>
+                <option value="image">Image</option>
+                <option value="other">Other</option>
+              </select>
               <span className="uploaded-count">{filtered.length} file{filtered.length === 1 ? '' : 's'}</span>
             </div>
           </div>

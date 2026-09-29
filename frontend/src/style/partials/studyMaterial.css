@@ -1,4 +1,96 @@
 /* ================================
+   TOOLBAR (upload-target batch/subject picker, search + filters)
+   — not part of the original mockup CSS; added to match its padding /
+   border-radius / focus language so these controls don't look bare.
+================================ */
+
+.material-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.material-select,
+.material-input {
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.material-select {
+  min-width: 220px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.material-input {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.material-select:hover,
+.material-input:hover {
+  border-color: #bfdbfe;
+}
+
+.material-select:focus,
+.material-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.material-input::placeholder {
+  color: #9ca3af;
+}
+
+.material-search-box {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.material-search-box .material-input {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.material-search-box .anticon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.material-select-sm {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.material-select-sm:hover {
+  border-color: #bfdbfe;
+}
+
+
+/* ================================
    STUDY MATERIAL CONTAINER
 ================================ */
 

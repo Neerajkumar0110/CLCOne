@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const { lmsConfig } = require('../../../../services/lms');
 
@@ -61,6 +63,16 @@ async function upload(req, res) {
   if (!batch) return bad(res, 400, 'Pick a batch.');
   if (!(await assertOwnsBatch(req.admin, batch))) return bad(res, 403, 'Not your batch.');
   if (!req.file) return bad(res, 400, 'No file uploaded.');
+
+  // req.file.path is relative to process.cwd() (multer's diskStorage
+  // destination, see middlewares/uploadMiddleware/singleStorageUpload.js) —
+  // confirm the write actually landed before we tell the student it's
+  // available, instead of persisting a record that 404s on every view.
+  const writtenAt = path.resolve(process.cwd(), req.file.path);
+  if (!fs.existsSync(writtenAt)) {
+    console.error(`[studyMaterial.upload] multer reported a write but the file is missing: ${writtenAt} (req.file=${JSON.stringify(req.file)})`);
+    return bad(res, 500, 'Upload did not save correctly. Please try again.');
+  }
 
   const StudyMaterial = mongoose.model('StudyMaterial');
   const originalName = req.file.originalname;
