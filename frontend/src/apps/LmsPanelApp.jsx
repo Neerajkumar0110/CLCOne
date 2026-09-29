@@ -267,6 +267,7 @@ const STUDENT_NAV = [
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
+  ['/learn/curriculum', 'Curriculum Progress', <ScheduleOutlined />, <Curriculum />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/learn/projects', 'My Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/learn', 'Quizzes & Exams'),

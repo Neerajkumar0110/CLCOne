@@ -13,6 +13,7 @@ const recurrence = require('./recurrence');
 const mailer = require('./mailer');
 const { getMeetingProvider } = require('./meeting');
 const { isTeacherOfCourse } = require('./teacherCourseAccess');
+const curriculumTracker = require('./curriculumTracker');
 
 module.exports = {
   lmsConfig,
@@ -30,4 +31,5 @@ module.exports = {
   mailer,
   getMeetingProvider,
   isTeacherOfCourse,
+  curriculumTracker,
 };

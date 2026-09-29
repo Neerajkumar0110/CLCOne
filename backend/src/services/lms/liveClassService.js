@@ -1130,6 +1130,10 @@ async function endSession(id, admin, { auto = false } = {}) {
   await session.save();
   await mirrorLiveClass(session, 'Completed', { attendedCount: present, registeredCount: session.participants.length });
   syncStudentAttendancePct(session).catch(() => {});
+  // Every completed class advances its batch's Curriculum Delivery Tracker
+  // by one more unit (see services/lms/curriculumTracker.js) — best-effort,
+  // never blocks ending the class.
+  if (session.batch) require('./curriculumTracker').autoAdvance(session.batch).catch(() => {});
 
   return {
     result: {

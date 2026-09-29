@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { curriculumTracker } = require('../../../../services/lms');
 
 // Ported from python-test-platform's src/controllers/curriculumController.js
 // (Prisma -> Mongoose). Distinct from this codebase's existing (unrelated)
@@ -10,6 +11,27 @@ async function getSessions(req, res) {
     const { batch, track } = req.query;
     if (!batch) {
       return res.status(400).json({ success: false, message: 'batch query param is required.' });
+    }
+
+    // Self-heals on every view: catches up any class that finished before
+    // this auto-tracking existed, or while this batch's own live-class tick
+    // was down, instead of only advancing from here on (see
+    // services/lms/curriculumTracker.js — normally triggered right when a
+    // class ends). Also resolves which track (FOUNDATION/ELITE) actually
+    // matches this batch's own course length, so the frontend doesn't have
+    // to guess — a mismatched manual track pick would show 0 progress even
+    // though the right one is fully auto-tracked. Best-effort — a lookup
+    // failure here must never break the read.
+    let resolvedTrack = null;
+    try {
+      const Batch = mongoose.model('Batch');
+      const batchDoc = await Batch.findOne({ name: batch, removed: false }).select('_id course').lean();
+      if (batchDoc) {
+        resolvedTrack = await curriculumTracker.trackForBatch(batchDoc);
+        await curriculumTracker.autoAdvance(batchDoc._id);
+      }
+    } catch (e) {
+      /* best-effort */
     }
 
     const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
@@ -49,6 +71,7 @@ async function getSessions(req, res) {
       success: true,
       result: {
         batch,
+        resolvedTrack,
         sessions: result,
         progress: { delivered, total, percent: total > 0 ? Math.round((delivered / total) * 100) : 0 },
       },

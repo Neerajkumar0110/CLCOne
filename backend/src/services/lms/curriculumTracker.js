@@ -1,0 +1,72 @@
+const mongoose = require('mongoose');
+
+// Auto-progresses a batch's Curriculum Delivery Tracker (AssessmentCurriculumSession
+// / AssessmentDeliveryRecord — see lmsController/assessments/curriculumController.js)
+// off its ACTUAL completed live classes, instead of requiring a teacher to
+// click "Mark Delivered" by hand for every session. One curriculum unit is
+// assumed per class (the batch's own default class length, ~90 min — see
+// Batch.classDurationMin), so "N classes have happened" -> "the first N
+// units (in order) are DELIVERED", dated to when that class actually ran.
+// Never touches a unit a teacher already resolved by hand (SKIPPED, or
+// DELIVERED with its own note/date) — only fills PENDING ones forward.
+
+// FOUNDATION/ELITE are the only two curriculum tracks that exist (seeded
+// content) — a batch's own Course duration (months) decides which one
+// actually matches it, instead of a teacher having to pick by hand and
+// risk the wrong track's units/hours for that batch's real program length.
+async function trackForBatch(batchDoc) {
+  if (!batchDoc || !batchDoc.course) return 'FOUNDATION';
+  const Course = mongoose.model('Course');
+  const course = await Course.findOne({ title: batchDoc.course, removed: false }).select('durationHours').lean();
+  return course && Number(course.durationHours) > 6 ? 'ELITE' : 'FOUNDATION';
+}
+
+async function autoAdvance(batchId) {
+  if (!batchId) return;
+  const Batch = mongoose.model('Batch');
+  const batchDoc = await Batch.findById(batchId).select('name course').lean();
+  if (!batchDoc) return;
+
+  const track = await trackForBatch(batchDoc);
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
+  const AssessmentDeliveryRecord = mongoose.model('AssessmentDeliveryRecord');
+
+  const completedClasses = await LmsLiveSession.find({
+    removed: false,
+    batch: batchId,
+    status: { $in: ['ended', 'recording_processing', 'recording_available'] },
+  })
+    .select('scheduledStart actualStart')
+    .sort({ scheduledStart: 1 })
+    .lean();
+  if (!completedClasses.length) return;
+
+  const units = await AssessmentCurriculumSession.find({ track }).sort({ order: 1 }).select('_id').lean();
+  const n = Math.min(completedClasses.length, units.length);
+  if (!n) return;
+
+  const unitIds = units.slice(0, n).map((u) => u._id);
+  const existing = await AssessmentDeliveryRecord.find({ batch: batchDoc.name, sessionId: { $in: unitIds } })
+    .select('sessionId status')
+    .lean();
+  const statusBySession = new Map(existing.map((r) => [r.sessionId, r.status]));
+
+  for (let i = 0; i < n; i++) {
+    const unitId = units[i]._id;
+    const currentStatus = statusBySession.get(unitId);
+    if (currentStatus && currentStatus !== 'PENDING') continue; // teacher already resolved this one by hand
+    const cls = completedClasses[i];
+    // eslint-disable-next-line no-await-in-loop
+    await AssessmentDeliveryRecord.findOneAndUpdate(
+      { sessionId: unitId, batch: batchDoc.name },
+      {
+        $set: { status: 'DELIVERED', actualDate: cls.actualStart || cls.scheduledStart, updatedAt: new Date() },
+        $setOnInsert: { sessionId: unitId, batch: batchDoc.name },
+      },
+      { upsert: true }
+    ).catch(() => {});
+  }
+}
+
+module.exports = { trackForBatch, autoAdvance };
