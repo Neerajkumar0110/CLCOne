@@ -86,7 +86,7 @@ function Sidebar({ collapsible, isMobile = false }) {
   const { state: stateApp, appContextAction } = useAppContext();
   const { isNavMenuClose } = stateApp;
   const { navMenu } = appContextAction;
-  const { canView } = usePermission();
+  const { canView, role } = usePermission();
   const { tickets } = useTickets();
   const openTicketsCount = tickets.filter((t) => t.status === 'Open').length;
   const { totalUnread } = useMessages();
@@ -144,11 +144,19 @@ function Sidebar({ collapsible, isMobile = false }) {
       ) : (
         section.label
       );
+    // A Support user's LMS "Overview" tab is now folded into the main "/"
+    // Dashboard (see Dashboard.jsx — it stacks the Support + LMS/interns
+    // analytics on one combined page for that role), so the separate tab
+    // here would just be a duplicate.
+    const tabs =
+      role === 'Support' && section.key === 'lms'
+        ? section.tabs.filter((t) => t.key !== 'overview')
+        : section.tabs;
     return {
       key: section.key,
       icon: SectionIcon ? <SectionIcon /> : undefined,
       label,
-      children: buildTabItems(section.key, section.tabs),
+      children: buildTabItems(section.key, tabs),
     };
   });
 
