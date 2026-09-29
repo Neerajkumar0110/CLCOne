@@ -13,6 +13,7 @@ const MODULES = {
   quotes: require('./modules/quotes'),
   orders: require('./modules/orders'),
   products: require('./modules/products'),
+  support: require('./modules/support'),
 };
 
 const summary = async (req, res) => {

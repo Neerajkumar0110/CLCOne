@@ -7,6 +7,7 @@ import deals from "./deals";
 import quotes from "./quotes";
 import orders from "./orders";
 import products from "./products";
+import support from "./support";
 
 export const DASH_CONFIGS = {
   overview,
@@ -18,6 +19,7 @@ export const DASH_CONFIGS = {
   quotes,
   orders,
   products,
+  support,
 };
 
 export default DASH_CONFIGS;
