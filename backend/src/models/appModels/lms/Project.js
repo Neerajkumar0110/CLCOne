@@ -49,8 +49,17 @@ const submissionSchema = new mongoose.Schema(
 const schema = new mongoose.Schema({
   removed: { type: Boolean, default: false },
 
+  // Self-generated, human-readable ID (e.g. "PRJ-AI101") — same
+  // initials+counter pattern as Course.code/Batch.code/Assignment.code, with
+  // a "PRJ-" prefix so it's never confused with those.
+  code: { type: String },
+
   course: { type: mongoose.Schema.ObjectId, ref: 'Course', required: true, index: true },
   courseTitle: String,
+  // The batch this project was assigned through — projects are now assigned
+  // batch-wise (see lmsController/projects.js#assign), not by picking a
+  // course directly, so this is what actually scopes "my batch's projects".
+  batch: { type: String, index: true },
 
   student: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true, index: true },
   studentName: String,
@@ -91,5 +100,21 @@ const schema = new mongoose.Schema({
 });
 
 schema.index({ course: 1, student: 1 }, { unique: true });
+
+schema.pre('save', async function (next) {
+  if (this.isNew && !this.code) {
+    const initials = String(this.courseTitle || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 4);
+    const prefix = initials || 'PRJ';
+    const count = await mongoose.model('Project').countDocuments({});
+    this.code = `PRJ-${prefix}${100 + count}`;
+  }
+  next();
+});
 
 module.exports = mongoose.model('Project', schema);

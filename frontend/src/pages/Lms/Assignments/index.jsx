@@ -123,7 +123,9 @@ function TeacherAssignments() {
           dataSource={rows}
           pagination={false}
           columns={[
+            { title: 'Assignment ID', dataIndex: 'code', render: (v) => v || '—' },
             { title: 'Title', dataIndex: 'title' },
+            { title: 'Batch', dataIndex: 'batch', render: (v) => v || '—' },
             { title: 'Due', dataIndex: 'dueDate', render: fmt },
             { title: 'Max', dataIndex: 'maxMarks', width: 70 },
             {
@@ -318,7 +320,7 @@ function StudentAssignments() {
           const s = r.mySubmission;
           const canSubmit = !s || s.status === 'resubmit_requested' || (s.status === 'submitted' && r.allowResubmission);
           return (
-            <Card key={r.id} size="small" style={{ marginBottom: 12 }} title={<Space><b>{r.title}</b><Tag>{r.course}</Tag></Space>}
+            <Card key={r.id} size="small" style={{ marginBottom: 12 }} title={<Space>{r.code && <Tag color="purple">{r.code}</Tag>}<b>{r.title}</b><Tag>{r.course}</Tag></Space>}
               extra={<Text type="secondary">Due {fmt(r.dueDate)}</Text>}>
               {r.description && <Paragraph type="secondary" style={{ marginBottom: 8 }}>{r.description}</Paragraph>}
               {r.instructions && <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{r.instructions}</Paragraph>}

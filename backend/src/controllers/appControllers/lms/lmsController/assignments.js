@@ -96,7 +96,7 @@ async function create(req, res) {
     allowResubmission: b.allowResubmission !== false,
     published: b.published !== false,
   });
-  return ok(res, { id: String(doc._id) }, 'Assignment created.');
+  return ok(res, { id: String(doc._id), code: doc.code }, 'Assignment created.');
 }
 
 async function list(req, res) {
@@ -123,8 +123,10 @@ async function list(req, res) {
     res,
     rows.map((r) => ({
       id: String(r._id),
+      code: r.code || '',
       title: r.title,
       course: String(r.course),
+      batch: r.batch || '',
       dueDate: r.dueDate,
       maxMarks: r.maxMarks,
       passingMarks: r.passingMarks,
@@ -274,6 +276,7 @@ async function myList(req, res) {
       const s = subByA[String(r._id)];
       return {
         id: String(r._id),
+        code: r.code || '',
         title: r.title,
         course: cName[String(r.course)] || '',
         description: r.description,

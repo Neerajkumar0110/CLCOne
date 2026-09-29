@@ -41,8 +41,10 @@ function canManage(admin, project) {
 function summarize(p) {
   return {
     id: String(p._id),
+    code: p.code || '',
     course: p.courseTitle,
     courseId: String(p.course),
+    batch: p.batch || '',
     student: p.studentName,
     studentEmail: p.studentEmail,
     mentor: p.mentorName,
@@ -58,35 +60,56 @@ function summarize(p) {
   };
 }
 
+// A teacher's real assignment is Batch.trainer (see services/lms/
+// liveClassService.js, teacherDashboard in panel.js — Course.instructor is a
+// separate, often-unset field the rest of the LMS doesn't key permission
+// off of). Picking a batch here — instead of a raw course — matches that,
+// and the course + enrolled roster are both derived from the chosen batch.
+// `studentEmail` omitted means "every Active student currently on this
+// batch's roster" instead of one at a time.
 async function assign(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Not allowed.');
   const b = req.body || {};
-  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A course is required.');
+  if (!mongoose.isValidObjectId(b.batch)) return bad(res, 400, 'A batch is required.');
   const title = String(b.title || '').trim();
   if (!title) return bad(res, 400, 'Title is required.');
 
+  const Batch = mongoose.model('Batch');
   const Course = mongoose.model('Course');
   const Student = mongoose.model('Student');
   const Admin = mongoose.model('Admin');
   const Project = mongoose.model('Project');
 
-  const course = await Course.findOne({ _id: b.course, removed: false }).lean();
-  if (!course) return bad(res, 404, 'Course not found.');
-  if (isTeacher(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
-    return bad(res, 403, 'Not your course.');
+  const batchDoc = await Batch.findOne({ _id: b.batch, removed: false }).lean();
+  if (!batchDoc) return bad(res, 404, 'Batch not found.');
+  if (isTeacher(req.admin) && !rxEq(batchDoc.trainer || '').test(req.admin.name || ''))
+    return bad(res, 403, 'You can only assign projects to your own batches.');
 
-  if (!b.studentEmail) return bad(res, 400, 'Student email is required.');
-  const roster = await Student.findOne({ email: rxEq(b.studentEmail), course: rxEq(course.title), removed: false }).lean();
-  if (!roster) return bad(res, 404, 'That student is not enrolled in this course.');
-  const student = await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id name email').lean();
-  if (!student) return bad(res, 404, 'Student has no login account yet.');
+  const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }).lean() : null;
+  if (!course) return bad(res, 404, 'This batch has no matching course set up yet.');
 
   let mentor = null;
   if (b.mentorEmail) {
     mentor = await Admin.findOne({ email: rxEq(b.mentorEmail), role: 'Teacher', removed: false }).select('_id name email').lean();
     if (!mentor) return bad(res, 404, 'Mentor not found (must be a Teacher account).');
-  } else if (course.instructor) {
-    mentor = await Admin.findOne({ name: rxEq(course.instructor), role: 'Teacher', removed: false }).select('_id name email').lean();
+  } else if (batchDoc.trainer) {
+    mentor = await Admin.findOne({ name: rxEq(batchDoc.trainer), role: 'Teacher', removed: false }).select('_id name email').lean();
+  }
+
+  // one specific student, or the whole batch roster
+  let targets;
+  if (b.studentEmail) {
+    const roster = await Student.findOne({ email: rxEq(b.studentEmail), batch: batchDoc.name, removed: false }).lean();
+    if (!roster) return bad(res, 404, 'That student is not on this batch\'s roster.');
+    const student = await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id name email').lean();
+    if (!student) return bad(res, 404, 'Student has no login account yet.');
+    targets = [student];
+  } else {
+    const roster = await Student.find({ batch: batchDoc.name, status: 'Active', removed: false }).select('email').lean();
+    const emails = roster.map((r) => r.email).filter(Boolean);
+    if (!emails.length) return bad(res, 400, 'This batch has no active students yet.');
+    targets = await Admin.find({ email: { $in: emails.map((e) => rxEq(e)) }, removed: false }).select('_id name email').lean();
+    if (!targets.length) return bad(res, 404, "None of this batch's students have a login account yet.");
   }
 
   const milestones = Array.isArray(b.milestones)
@@ -96,39 +119,63 @@ async function assign(req, res) {
     ? b.rubric.map((r) => ({ criterion: r.criterion, maxMarks: Number(r.maxMarks) || 10 }))
     : [{ criterion: 'Functionality', maxMarks: 40 }, { criterion: 'Code quality', maxMarks: 20 }, { criterion: 'Documentation', maxMarks: 20 }, { criterion: 'Presentation', maxMarks: 20 }];
 
-  let project;
-  try {
-    project = await Project.create({
-      course: course._id,
-      courseTitle: course.title,
-      student: student._id,
-      studentName: student.name,
-      studentEmail: student.email,
-      mentor: mentor ? mentor._id : undefined,
-      mentorName: mentor ? mentor.name : undefined,
-      title,
-      problemStatement: b.problemStatement || '',
-      scope: b.scope || '',
-      dueDate: b.dueDate ? new Date(b.dueDate) : undefined,
-      milestones,
-      rubric,
-      status: 'assigned',
-      createdBy: req.admin._id,
-    });
-  } catch (e) {
-    if (e.code === 11000) return bad(res, 409, 'This student already has a project for this course.');
-    throw e;
+  // Sequential (not Promise.all) so Project's pre-save code-gen counter
+  // never races itself within this one bulk-assign burst.
+  const created = [];
+  const skipped = [];
+  for (const student of targets) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const project = await Project.create({
+        course: course._id,
+        courseTitle: course.title,
+        batch: batchDoc.name,
+        student: student._id,
+        studentName: student.name,
+        studentEmail: student.email,
+        mentor: mentor ? mentor._id : undefined,
+        mentorName: mentor ? mentor.name : undefined,
+        title,
+        problemStatement: b.problemStatement || '',
+        scope: b.scope || '',
+        dueDate: b.dueDate ? new Date(b.dueDate) : undefined,
+        milestones,
+        rubric,
+        status: 'assigned',
+        createdBy: req.admin._id,
+      });
+      created.push(project);
+    } catch (e) {
+      if (e.code === 11000) { skipped.push(student.email); continue; }
+      throw e;
+    }
   }
+  if (!created.length) return bad(res, 409, 'Every selected student already has a project for this course.');
 
-  await realtime.notify([student._id], {
-    type: 'lms.project.assigned',
-    title: `📁 New project assigned: ${title}`,
-    body: `Course: ${course.title}${mentor ? ` · Mentor: ${mentor.name}` : ''}`,
-    link: '/learn/projects',
-    actorName: req.admin.name,
+  for (const project of created) {
+    // eslint-disable-next-line no-await-in-loop
+    await realtime.notify([project.student], {
+      type: 'lms.project.assigned',
+      title: `📁 New project assigned: ${title}`,
+      body: `Course: ${course.title}${mentor ? ` · Mentor: ${mentor.name}` : ''}`,
+      link: '/learn/projects',
+      actorName: req.admin.name,
+    });
+  }
+  await auditLog.record({
+    module: 'project',
+    action: 'assign',
+    entityType: 'Project',
+    entityId: created[0]._id,
+    admin: req.admin,
+    after: { batch: batchDoc.name, count: created.length, skipped },
   });
-  await auditLog.record({ module: 'project', action: 'assign', entityType: 'Project', entityId: project._id, admin: req.admin, after: { student: student.email, mentor: mentor && mentor.email } });
-  return ok(res, { id: String(project._id) }, 'Project assigned.');
+  const skippedNote = skipped.length ? ` (${skipped.length} already had one)` : '';
+  return ok(
+    res,
+    { count: created.length, codes: created.map((p) => p.code), ids: created.map((p) => String(p._id)), skipped },
+    `Project assigned to ${created.length} student${created.length > 1 ? 's' : ''}.${skippedNote}`
+  );
 }
 
 async function list(req, res) {

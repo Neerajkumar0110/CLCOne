@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Space, Empty, Skeleton, message, Typography, DatePicker, Drawer, Steps, Checkbox, List, Divider, Timeline, Alert,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Radio, Space, Empty, Skeleton, message, Typography, DatePicker, Drawer, Steps, Checkbox, List, Divider, Timeline, Alert,
 } from 'antd';
 import {
   ProjectOutlined, PlusOutlined, GithubOutlined, LinkOutlined, SendOutlined, CheckCircleOutlined,
-  ReadOutlined, MailOutlined, UserOutlined, TagOutlined, FileTextOutlined, CalendarOutlined, NumberOutlined, FlagOutlined,
+  MailOutlined, UserOutlined, TagOutlined, FileTextOutlined, CalendarOutlined, NumberOutlined, FlagOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -44,7 +44,12 @@ function ManageProjects() {
   const admin = useSelector(selectCurrentAdmin) || {};
   const isMgr = MGR.includes(admin.role);
   const [rows, setRows] = useState([]);
-  const [courses, setCourses] = useState([]);
+  // The batches this teacher actually trains (Batch.trainer) — a manager
+  // sees every batch. Same reasoning as Assignments.jsx: Course.instructor
+  // is a separate, often-unset field the rest of the LMS doesn't scope
+  // teachers by, so picking a batch (and deriving the course from it) is
+  // what actually matches what a teacher is allowed to assign into.
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
@@ -55,14 +60,18 @@ function ManageProjects() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, c] = await Promise.all([
+      const [p, bt] = await Promise.all([
         isMgr ? lmsApi.projects() : lmsApi.teacherProjects(),
-        request.list({ entity: 'course', options: { items: 300 } }),
+        request.list({ entity: 'batch', options: { items: 500 } }),
       ]);
       setRows((p && p.result) || []);
-      setCourses(((c && c.result) || []).map((x) => ({ value: x._id || x.id, label: x.title })));
+      const allBatches = (bt && bt.result) || [];
+      const mine = isMgr
+        ? allBatches
+        : allBatches.filter((x) => x.trainer && String(x.trainer).toLowerCase() === String(admin.name || '').toLowerCase());
+      setBatches(mine.map((x) => ({ value: x._id || x.id, label: x.name })));
     } catch (e) { message.error('Load failed'); } finally { setLoading(false); }
-  }, [isMgr]);
+  }, [isMgr, admin.name]);
   useEffect(() => { load(); }, [load]);
 
   const assign = async () => {
@@ -70,6 +79,7 @@ function ManageProjects() {
     try {
       const res = await lmsApi.assignProject({
         ...v,
+        studentEmail: v.assignTo === 'all' ? undefined : v.studentEmail,
         dueDate: v.dueDate ? v.dueDate.toISOString() : undefined,
         milestones: (v.milestones || []).map((m) => ({ ...m, dueDate: m.dueDate ? m.dueDate.toISOString() : undefined })),
       });
@@ -109,7 +119,9 @@ function ManageProjects() {
         <Table
           rowKey="id" dataSource={rows} pagination={{ pageSize: 12 }} onRow={(r) => ({ onClick: () => openDetail(r), style: { cursor: 'pointer' } })}
           columns={[
+            { title: 'Project ID', dataIndex: 'code', render: (v) => v || '—' },
             { title: 'Student', dataIndex: 'student' },
+            { title: 'Batch', dataIndex: 'batch', render: (v) => v || '—' },
             { title: 'Course', dataIndex: 'course' },
             { title: 'Title', dataIndex: 'title' },
             { title: 'Mentor', dataIndex: 'mentor' },
@@ -145,17 +157,34 @@ function ManageProjects() {
           className="crud-form"
           preserve={false}
           scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
-          initialValues={{ milestones: [{}], rubric: [{ criterion: 'Functionality', maxMarks: 40 }, { criterion: 'Code quality', maxMarks: 20 }, { criterion: 'Documentation', maxMarks: 20 }, { criterion: 'Presentation', maxMarks: 20 }] }}
+          initialValues={{ assignTo: 'all', milestones: [{}], rubric: [{ criterion: 'Functionality', maxMarks: 40 }, { criterion: 'Code quality', maxMarks: 20 }, { criterion: 'Documentation', maxMarks: 20 }, { criterion: 'Presentation', maxMarks: 20 }] }}
         >
           <div className="crud-form-grid">
-            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]}>
-              <Select options={courses} showSearch optionFilterProp="label" placeholder="Select a course…" />
+            <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch</Lbl>} rules={[{ required: true, message: 'Batch is required' }]}>
+              <Select options={batches} showSearch optionFilterProp="label" placeholder="Select a batch…" />
             </Form.Item>
-            <Form.Item name="studentEmail" label={<Lbl icon={<MailOutlined />}>Student email</Lbl>} rules={[{ required: true, type: 'email', message: 'A valid email is required' }]}>
-              <Input placeholder="student@example.com" />
+            <Form.Item name="assignTo" label={<Lbl icon={<UserOutlined />}>Assign to</Lbl>}>
+              <Radio.Group optionType="button" buttonStyle="solid">
+                <Radio.Button value="all">All students in batch</Radio.Button>
+                <Radio.Button value="one">One student</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.assignTo !== cur.assignTo}>
+              {() =>
+                form.getFieldValue('assignTo') === 'one' && (
+                  <Form.Item
+                    name="studentEmail"
+                    label={<Lbl icon={<MailOutlined />}>Student email</Lbl>}
+                    rules={[{ required: true, type: 'email', message: 'A valid email is required' }]}
+                    className="crud-form-full"
+                  >
+                    <Input placeholder="student@example.com" />
+                  </Form.Item>
+                )
+              }
             </Form.Item>
             {isMgr && (
-              <Form.Item name="mentorEmail" label={<Lbl icon={<UserOutlined />}>Mentor email</Lbl>} extra="Optional — defaults to the course instructor" className="crud-form-full">
+              <Form.Item name="mentorEmail" label={<Lbl icon={<UserOutlined />}>Mentor email</Lbl>} extra="Optional — defaults to the batch's trainer" className="crud-form-full">
                 <Input placeholder="mentor@example.com" />
               </Form.Item>
             )}
@@ -231,6 +260,7 @@ function ManageProjects() {
         {detail && (
           <>
             <Space wrap style={{ marginBottom: 12 }}>
+              {detail.code && <Tag color="purple">{detail.code}</Tag>}
               <Tag color={STATUS_COLOR[detail.status]}>{STATUS_LABEL[detail.status] || detail.status}</Tag>
               {detail.dueDate && <Tag>Due {dayjs(detail.dueDate).format('D MMM YYYY')}</Tag>}
               {detail.finalScore != null && <Tag color="green">{detail.finalScore}% · {detail.finalGrade}</Tag>}
@@ -334,7 +364,7 @@ function MyProjects() {
       <div className="lms-portal-head"><div><h2><ProjectOutlined /> My Projects</h2><p>Only you, your mentor and admin can see your project.</p></div></div>
       {rows.length === 0 ? <Card><Empty description="No project assigned yet." /></Card> : rows.map((p) => (
         <Card key={p.id} style={{ marginBottom: 16 }}
-          title={<Space><b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
+          title={<Space>{p.code && <Tag color="purple">{p.code}</Tag>}<b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
           extra={p.status !== 'approved' && <Button type="primary" icon={<SendOutlined />} onClick={() => { setSubmitOpen(p); setTimeout(() => form.setFieldsValue({ githubUrl: p.githubUrl, deploymentUrl: p.deploymentUrl }), 0); }}>Submit</Button>}>
           <Paragraph type="secondary">{p.problemStatement}</Paragraph>
           {p.mentor && <Text type="secondary">Mentor: {p.mentor}</Text>}
