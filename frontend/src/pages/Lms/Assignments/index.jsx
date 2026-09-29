@@ -324,10 +324,10 @@ function TeacherAssignments() {
       </Modal>
 
       <Drawer open={!!subFor} title={subFor ? `Submissions — ${subFor.title}` : ''} width={640} onClose={() => setSubFor(null)}>
-        <div className="assignments-page">
+        <div className="assignments-page" style={{ minHeight: 'auto', background: 'transparent' }}>
           <div className="table-card">
             <div className="table-wrapper">
-              <table>
+              <table style={{ minWidth: 0 }}>
                 <thead>
                   <tr>
                     <th>Student</th>
