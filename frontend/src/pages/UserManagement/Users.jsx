@@ -43,6 +43,13 @@ export function colorFor(email) {
 
 export const roles = ROLES;
 
+// Display-only relabelling for the LMS roles — the account is still created
+// and stored with the real role value ('Teacher'/'Student'; ROLES/role
+// comparisons elsewhere are untouched), this just changes what a human sees
+// on the role picker, headings and empty-state copy in this file.
+const ROLE_DISPLAY_LABEL = { Teacher: "Instructor", Student: "Candidate" };
+export const roleDisplay = (r) => (r && ROLE_DISPLAY_LABEL[r]) || r;
+
 // Given whatever role list a modal is allowed to offer (HR's tab excludes
 // "Admin", most callers get the full list), groups it into
 // { Department: [roles...] } — a department only appears if at least one of
@@ -264,7 +271,7 @@ function TeamsModal({ open, onClose, teams, allUsers, onAssignTeam, onTeamsChang
                   <div className="hub-avatar" style={{ background: u.color }}>{u.init}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--hub-text)" }}>{u.name}</div>
-                    <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{u.role}</div>
+                    <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{roleDisplay(u.role)}</div>
                   </div>
                   <select
                     className="hub-select"
@@ -451,7 +458,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         <div className="hub-form-row">
           <label>Position</label>
           <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
-            {depts[department].map((r) => <option key={r} value={r}>{r}</option>)}
+            {depts[department].map((r) => <option key={r} value={r}>{roleDisplay(r)}</option>)}
           </select>
         </div>
       )}
@@ -604,7 +611,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
         <label>Department</label>
         {isProtectedRole ? (
           <>
-            <div className="hub-input" style={{ background: "#f5f5f5", color: "#8c8c8c" }}>{user.role}</div>
+            <div className="hub-input" style={{ background: "#f5f5f5", color: "#8c8c8c" }}>{roleDisplay(user.role)}</div>
             <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
               Super Admin's role can't be changed here.
             </span>
@@ -620,7 +627,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
         <div className="hub-form-row">
           <label>Position</label>
           <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
-            {depts[department].map((r) => <option key={r} value={r}>{r}</option>)}
+            {depts[department].map((r) => <option key={r} value={r}>{roleDisplay(r)}</option>)}
           </select>
         </div>
       )}
@@ -628,7 +635,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
       {!isProtectedRole && role !== user.role && (
         <div className="hub-form-row">
           <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
-            Their permissions will reset to the "{role}" role's default.
+            Their permissions will reset to the "{roleDisplay(role)}" role's default.
           </span>
         </div>
       )}
@@ -705,7 +712,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
             >
               <option value="">Select a team member by email…</option>
               {assignablePeople.map((sp) => (
-                <option key={sp.email} value={sp.email}>{sp.name} · {sp.email} ({sp.role})</option>
+                <option key={sp.email} value={sp.email}>{sp.name} · {sp.email} ({roleDisplay(sp.role)})</option>
               ))}
             </select>
             <button type="button" className="hub-btn" disabled={!assignEmail} onClick={assignTeamMember}>
@@ -737,7 +744,7 @@ function UserPermissionsModal({ open, user, onClose, onToggle, onReset }) {
       open={open}
       onClose={onClose}
       title={`Permissions — ${user.name}`}
-      subtitle={`Role: ${user.role} · toggle View, Edit and Delete to add or remove access per module`}
+      subtitle={`Role: ${roleDisplay(user.role)} · toggle View, Edit and Delete to add or remove access per module`}
       width={520}
       footer={
         <>
@@ -972,7 +979,7 @@ export default function Users({
     <>
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>{roleFilter ? `${roleFilter}s` : "All Users"}</h3>
+          <h3>{roleFilter ? `${roleDisplay(roleFilter)}s` : "All Users"}</h3>
           {canCreate && (
             <div style={{ display: "flex", gap: 8 }}>
               <button
@@ -987,7 +994,7 @@ export default function Users({
                 type="button"
                 onClick={() => setAddOpen(true)}
               >
-                <UserAddOutlined /> Add {roleFilter || "User"}
+                <UserAddOutlined /> Add {roleDisplay(roleFilter) || "User"}
               </button>
             </div>
           )}
@@ -1010,9 +1017,9 @@ export default function Users({
                   <td colSpan={5}>
                     <div className="hub-empty">
                       {roleFilter === "Student"
-                        ? "No students yet — students added from the LMS Students tab show up here automatically, or add one directly."
+                        ? "No candidates yet — candidates added from the LMS Candidates tab show up here automatically, or add one directly."
                         : roleFilter
-                        ? `No ${roleFilter.toLowerCase()}s yet — add one to get started.`
+                        ? `No ${roleDisplay(roleFilter).toLowerCase()}s yet — add one to get started.`
                         : "No users yet — add one to get started."}
                     </div>
                   </td>
@@ -1031,7 +1038,7 @@ export default function Users({
                   <td>{u.email}</td>
                   <td>
                     <span className="hub-badge hub-badge-blue">
-                      {u.role}{u.role === "Finance" && u.subRole ? ` · ${u.subRole}` : ""}
+                      {roleDisplay(u.role)}{u.role === "Finance" && u.subRole ? ` · ${u.subRole}` : ""}
                     </span>
                   </td>
                   <td>

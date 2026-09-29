@@ -48,7 +48,7 @@ function TeacherAnnouncements() {
     let v; try { v = await form.validateFields(); } catch (e) { return; }
     try {
       const res = await lmsApi.createAnnouncement({ ...v, channels: v.channels || ['in_app'] });
-      message.success(`Sent to ${res?.result?.recipients ?? 0} students (${res?.result?.emailed ?? 0} emailed)`);
+      message.success(`Sent to ${res?.result?.recipients ?? 0} candidates (${res?.result?.emailed ?? 0} emailed)`);
       setOpen(false); form.resetFields(); load();
     } catch (e) { message.error('Send failed.'); }
   };
@@ -110,7 +110,7 @@ function TeacherAnnouncements() {
               <Input.TextArea rows={5} />
             </Form.Item>
             <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Audience</Lbl>} className="crud-form-full">
-              <Select options={[{ value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All students' }]} />
+              <Select options={[{ value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All candidates' }]} />
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
               {({ getFieldValue }) => {
@@ -151,7 +151,7 @@ function StudentAnnouncements() {
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><SoundOutlined /> Announcements</h2><p>Updates from your teachers.</p></div></div>
+      <div className="lms-portal-head"><div><h2><SoundOutlined /> Announcements</h2><p>Updates from your instructors.</p></div></div>
       {rows.length === 0 ? <Card><Empty description="No announcements." /></Card> : rows.map((r) => (
         <Card key={r.id} size="small" style={{ marginBottom: 12 }} title={<Space><b>{r.title}</b><Tag>{r.scope}</Tag></Space>}
           extra={<Text type="secondary">{dayjs(r.sentAt).format('D MMM, HH:mm')}</Text>}>

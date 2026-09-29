@@ -11,6 +11,10 @@ import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
 const ago = (v) => (v ? dayjs(v).fromNow?.() || dayjs(v).format('D MMM HH:mm') : '');
+// Display-only relabelling of the reply's stored byRole ('teacher'/'student'/
+// 'manager', see models/appModels/lms/Doubt.js) — the value itself is never
+// touched, just what's shown next to a reply.
+const BY_ROLE_LABEL = { teacher: 'Instructor', student: 'Candidate', manager: 'Manager' };
 
 function Thread({ id, onChange }) {
   const [d, setD] = useState(null);
@@ -28,7 +32,7 @@ function Thread({ id, onChange }) {
       <div style={{ margin: '14px 0', borderTop: '1px solid #eee' }} />
       {(d.replies || []).map((r, i) => (
         <Card key={i} size="small" style={{ marginBottom: 8, background: r.byRole === 'student' ? '#fff' : '#f0f9ff' }}>
-          <Space><Text strong>{r.byName}</Text><Tag>{r.byRole}</Tag><Text type="secondary" style={{ fontSize: 12 }}>{dayjs(r.at).format('D MMM, HH:mm')}</Text></Space>
+          <Space><Text strong>{r.byName}</Text><Tag>{BY_ROLE_LABEL[r.byRole] || r.byRole}</Tag><Text type="secondary" style={{ fontSize: 12 }}>{dayjs(r.at).format('D MMM, HH:mm')}</Text></Space>
           <Paragraph style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</Paragraph>
         </Card>
       ))}
@@ -89,7 +93,7 @@ export default function Doubts() {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><QuestionCircleOutlined /> Doubts / Questions</h2><p>{isTeacher ? 'Answer your students.' : 'Ask and track your questions.'}</p></div>
+        <div><h2><QuestionCircleOutlined /> Doubts / Questions</h2><p>{isTeacher ? 'Answer your candidates.' : 'Ask and track your questions.'}</p></div>
         <Space>
           <Segmented value={status} onChange={setStatus} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Answered', value: 'answered' }, { label: 'Resolved', value: 'resolved' }]} />
           {!isTeacher && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAsking(true)} disabled={!courses.length}>Ask a question</Button>}
@@ -108,7 +112,7 @@ export default function Doubts() {
             { title: '', width: 30, render: (_, r) => (r.pinned ? <PushpinFilled style={{ color: '#faad14' }} /> : null) },
             { title: 'Question', dataIndex: 'title' },
             { title: 'Course', dataIndex: 'course' },
-            ...(isTeacher ? [{ title: 'Student', dataIndex: 'studentName' }] : []),
+            ...(isTeacher ? [{ title: 'Candidate', dataIndex: 'studentName' }] : []),
             { title: 'Replies', dataIndex: 'replyCount', width: 70 },
             { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={s === 'resolved' ? 'green' : s === 'answered' ? 'blue' : 'orange'}>{s}</Tag> },
             { title: 'Updated', dataIndex: 'lastReplyAt', render: (v, r) => dayjs(v || r.created).format('D MMM, HH:mm') },

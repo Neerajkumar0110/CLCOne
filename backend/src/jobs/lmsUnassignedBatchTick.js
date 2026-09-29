@@ -22,16 +22,16 @@ function summaryHtml(count, rows) {
       <td style="padding:5px 10px;border-bottom:1px solid #eef1f5">${esc(s.course || '—')}</td>
     </tr>`;
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto">
-    <h2 style="font-size:16px;color:#b45309">⚠️ ${count} student${count === 1 ? '' : 's'} with no batch assigned</h2>
-    <p style="color:#667;font-size:13px">These students can't attend live classes, see curriculum, or unlock assessments until a batch is set on their roster row.</p>
+    <h2 style="font-size:16px;color:#b45309">⚠️ ${count} candidate${count === 1 ? '' : 's'} with no batch assigned</h2>
+    <p style="color:#667;font-size:13px">These candidates can't attend live classes, see curriculum, or unlock assessments until a batch is set on their roster row.</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid #e3e8ef;border-radius:8px;overflow:hidden">
       <thead><tr style="background:#f8fafc;text-align:left">
         <th style="padding:6px 10px">Name</th><th style="padding:6px 10px">Email</th><th style="padding:6px 10px">Course</th>
       </tr></thead>
       <tbody>${shown.map(row).join('')}</tbody>
     </table>
-    ${rows.length > shown.length ? `<p style="color:#94a3b8;font-size:11.5px;margin-top:8px">+ ${rows.length - shown.length} more — open Students in the CRM and filter for an empty Batch.</p>` : ''}
-    <p style="color:#94a3b8;font-size:11.5px;margin-top:10px">Automated daily reminder — sent every morning until every student above has a batch.</p>
+    ${rows.length > shown.length ? `<p style="color:#94a3b8;font-size:11.5px;margin-top:8px">+ ${rows.length - shown.length} more — open Candidates in the CRM and filter for an empty Batch.</p>` : ''}
+    <p style="color:#94a3b8;font-size:11.5px;margin-top:10px">Automated daily reminder — sent every morning until every candidate above has a batch.</p>
   </div>`;
 }
 
@@ -47,7 +47,7 @@ async function sendReminder() {
 
   const rows = await unassignedBatchAlert.listUnassigned(200);
   await mailer.sendMail(emails, {
-    subject: `${count} student${count === 1 ? '' : 's'} need a batch assigned`,
+    subject: `${count} candidate${count === 1 ? '' : 's'} need a batch assigned`,
     html: summaryHtml(count, rows),
   });
 }

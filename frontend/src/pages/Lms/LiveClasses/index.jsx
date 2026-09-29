@@ -60,6 +60,10 @@ const d = (v) => {
     return '—';
   }
 };
+// Display-only relabelling of the attendance roll's stored participant role
+// ('teacher'/'student'/'manager', see liveClassService.js#attendanceRows) —
+// the value itself is untouched, just what's shown in the table.
+const ROLE_LABEL = { teacher: 'Instructor', student: 'Candidate', manager: 'Manager' };
 const t = (v) => {
   if (!v) return '';
   try {
@@ -111,7 +115,7 @@ function getStatusPanel(r) {
   if (r.myRole === 'teacher') {
     return { icon: <PlayCircleOutlined />, tone: 'blue', title: 'Ready to start', desc: 'Start the class whenever you are ready.' };
   }
-  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the teacher to start the class.' };
+  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the instructor to start the class.' };
 }
 
 export default function LiveClasses() {
@@ -197,7 +201,7 @@ export default function LiveClasses() {
   const onEnd = (id) =>
     Modal.confirm({
       title: 'End this class?',
-      content: 'Students are disconnected, recording stops and attendance is finalised.',
+      content: 'Candidates are disconnected, recording stops and attendance is finalised.',
       okText: 'End class',
       okButtonProps: { danger: true },
       onOk: async () => {
@@ -320,7 +324,7 @@ export default function LiveClasses() {
         <Card>
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="No live classes yet. Create a batch (course + teacher + start date + class days) and the schedule appears here automatically."
+            description="No live classes yet. Create a batch (course + instructor + start date + class days) and the schedule appears here automatically."
           />
         </Card>
       ) : (
@@ -345,7 +349,7 @@ export default function LiveClasses() {
               : r.status === 'RECORDING_AVAILABLE'
               ? { icon: <PlaySquareOutlined />, label: 'Watch Recording', href: '#/lms/recordings' }
               : r.canAddStudent
-              ? { icon: <UserAddOutlined />, label: 'Add student', onClick: () => openAdd(r) }
+              ? { icon: <UserAddOutlined />, label: 'Add candidate', onClick: () => openAdd(r) }
               : r.myRole === 'student' && ['SCHEDULED', 'UPCOMING'].includes(r.status)
               ? { label: 'Not started', disabled: true }
               : null;
@@ -353,8 +357,8 @@ export default function LiveClasses() {
             const secondaryButtons = [];
             if (r.canEnd) secondaryButtons.push({ key: 'end', icon: <StopOutlined />, label: 'End', onClick: () => onEnd(r.id) });
             if (r.canEditTime) secondaryButtons.push({ key: 'edit', icon: <FieldTimeOutlined />, label: 'Edit time', onClick: () => openEdit(r) });
-            if (r.canAddStudent && primaryAction?.label !== 'Add student') {
-              secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add student', onClick: () => openAdd(r) });
+            if (r.canAddStudent && primaryAction?.label !== 'Add candidate') {
+              secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add candidate', onClick: () => openAdd(r) });
             }
             if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
 
@@ -384,7 +388,7 @@ export default function LiveClasses() {
                   <div className="info-box teacher">
                     <span className="info-icon"><TeamOutlined /></span>
                     <div className="info-content">
-                      <div className="info-label">Teacher</div>
+                      <div className="info-label">Instructor</div>
                       <div className="info-value">{r.teacherName || 'TBD'}</div>
                     </div>
                   </div>
@@ -423,7 +427,7 @@ export default function LiveClasses() {
                         {primaryAction.label}
                       </a>
                     ) : (
-                      <Tooltip title={primaryAction.disabled ? 'You can join once the teacher starts the class.' : ''}>
+                      <Tooltip title={primaryAction.disabled ? 'You can join once the instructor starts the class.' : ''}>
                         <button
                           type="button"
                           className="add-student-btn"
@@ -511,7 +515,7 @@ export default function LiveClasses() {
           locale={{ emptyText: 'No joins recorded yet.' }}
           columns={[
             { title: 'Name', dataIndex: 'name' },
-            { title: 'Role', dataIndex: 'role', width: 80 },
+            { title: 'Role', dataIndex: 'role', width: 80, render: (v) => ROLE_LABEL[v] || v },
             { title: 'First join', dataIndex: 'firstJoinAt', render: (v) => (v ? t(v) : '—'), width: 90 },
             { title: 'Last left', dataIndex: 'lastLeftAt', render: (v) => (v ? t(v) : '—'), width: 90 },
             { title: 'Min', dataIndex: 'totalDurationMin', width: 60 },

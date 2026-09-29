@@ -95,7 +95,7 @@ function TeacherCertificates() {
                 <Divider style={{ margin: '12px 0' }} />
                 <Space>
                   <Button type="primary" onClick={saveRule}>Save rule</Button>
-                  <Button icon={<ReloadOutlined />} loading={running} onClick={runNow}>Re-check all students</Button>
+                  <Button icon={<ReloadOutlined />} loading={running} onClick={runNow}>Re-check all candidates</Button>
                   <Button onClick={() => setIssueOpen(true)}>Issue manually</Button>
                 </Space>
               </Form>
@@ -110,7 +110,7 @@ function TeacherCertificates() {
                 pagination={{ pageSize: 10 }}
                 locale={{ emptyText: 'None yet' }}
                 columns={[
-                  { title: 'Student', dataIndex: 'student' },
+                  { title: 'Candidate', dataIndex: 'student' },
                   { title: 'Course', dataIndex: 'course' },
                   { title: 'ID', dataIndex: 'certificateId' },
                   { title: 'Grade', dataIndex: 'grade', width: 70 },
@@ -125,7 +125,7 @@ function TeacherCertificates() {
 
       <Modal open={issueOpen} title="Issue certificate manually" onCancel={() => setIssueOpen(false)} onOk={issue} okText="Check & issue" destroyOnClose>
         <Form form={issueForm} layout="vertical" preserve={false}>
-          <Form.Item name="studentEmail" label="Student email" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
+          <Form.Item name="studentEmail" label="Candidate email" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
           <Form.Item name="force" valuePropName="checked" noStyle><Checkbox>Force (ignore criteria)</Checkbox></Form.Item>
         </Form>
       </Modal>

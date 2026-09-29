@@ -66,7 +66,7 @@ function Dashboard({ role }) {
   return (
     <div>
       <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
-        <KPI label="Students" value={k.totalStudents || 0} tone="blue" />
+        <KPI label="Candidates" value={k.totalStudents || 0} tone="blue" />
         <KPI label="Present" value={k.present || 0} tone="green" />
         <KPI label="Partial" value={k.partial || 0} tone="amber" />
         <KPI label="Absent" value={k.absent || 0} tone="red" />
@@ -80,10 +80,10 @@ function Dashboard({ role }) {
         <Select allowClear placeholder="Batch" style={{ width: 170 }} value={f.batchName || undefined}
           onChange={(v) => setF((x) => ({ ...x, batchName: v || '' }))} options={batches.map((c) => ({ value: c, label: c }))} />
         {role === 'admin' && (
-          <Input placeholder="Teacher" style={{ width: 150 }} value={f.teacherName}
+          <Input placeholder="Instructor" style={{ width: 150 }} value={f.teacherName}
             onChange={(e) => setF((x) => ({ ...x, teacherName: e.target.value }))} onPressEnter={load} />
         )}
-        <Input placeholder="Student name / email" style={{ width: 190 }} value={f.student}
+        <Input placeholder="Candidate name / email" style={{ width: 190 }} value={f.student}
           onChange={(e) => setF((x) => ({ ...x, student: e.target.value }))} onPressEnter={load} />
         <Select allowClear placeholder="Status" style={{ width: 130 }} value={f.status}
           onChange={(v) => setF((x) => ({ ...x, status: v }))}
@@ -102,7 +102,7 @@ function Dashboard({ role }) {
         pagination={{ pageSize: 25, showSizeChanger: true }}
         scroll={{ x: 1100 }}
         columns={[
-          { title: 'Student', dataIndex: 'studentName', fixed: 'left', width: 150 },
+          { title: 'Candidate', dataIndex: 'studentName', fixed: 'left', width: 150 },
           { title: 'Email', dataIndex: 'email', width: 190 },
           { title: 'Batch', dataIndex: 'batch', width: 130 },
           { title: 'Course', dataIndex: 'course', width: 150 },

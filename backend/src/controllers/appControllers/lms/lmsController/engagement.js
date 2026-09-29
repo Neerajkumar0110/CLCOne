@@ -64,7 +64,7 @@ async function canTeachCourse(admin, courseId) {
 
 /* ═══════════ DOUBTS ═══════════ */
 async function askDoubt(req, res) {
-  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Students only.');
+  if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Candidates only.');
   const b = req.body || {};
   if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A course is required.');
   if (!isManager(req.admin)) {
@@ -195,7 +195,7 @@ async function pinDoubt(req, res) {
   const Doubt = mongoose.model('Doubt');
   const d = await Doubt.findOne({ _id: req.params.id, removed: false });
   if (!d) return bad(res, 404, 'Not found.');
-  if (!(await canTeachCourse(req.admin, d.course))) return bad(res, 403, 'Teachers only.');
+  if (!(await canTeachCourse(req.admin, d.course))) return bad(res, 403, 'Instructors only.');
   d.pinned = !d.pinned;
   d.updated = new Date();
   await d.save();
@@ -204,7 +204,7 @@ async function pinDoubt(req, res) {
 
 /* ═══════════ ANNOUNCEMENTS ═══════════ */
 async function createAnnouncement(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Teachers only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
   const title = String(b.title || '').trim();
   if (!title) return bad(res, 400, 'Title is required.');
@@ -330,7 +330,7 @@ async function myAnnouncements(req, res) {
       title: r.title,
       body: r.body,
       from: r.teacherName,
-      scope: r.audience === 'all' ? 'All students' : r.audience === 'batch' ? r.batch : r.courseTitle,
+      scope: r.audience === 'all' ? 'All candidates' : r.audience === 'batch' ? r.batch : r.courseTitle,
       sentAt: r.sentAt,
     }))
   );

@@ -294,7 +294,7 @@ function renderReceiptPdf(student, { crmLink, rawPassword, plan, brand = 'Career
           .fillColor('#ffffff')
           .font('Helvetica-Bold')
           .fontSize(10.5)
-          .text('Open your student portal', btnX, y + 11, { width: btnW, align: 'center' });
+          .text('Open your candidate portal', btnX, y + 11, { width: btnW, align: 'center' });
         doc.link(btnX, y, btnW, btnH, crmLink);
         y += btnH + 24;
       }

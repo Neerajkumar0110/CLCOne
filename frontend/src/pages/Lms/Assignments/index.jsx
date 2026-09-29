@@ -330,7 +330,7 @@ function TeacherAssignments() {
               <table style={{ minWidth: 0 }}>
                 <thead>
                   <tr>
-                    <th>Student</th>
+                    <th>Candidate</th>
                     <th>Submitted</th>
                     <th>Status</th>
                     <th>Marks</th>
@@ -433,7 +433,7 @@ function TeacherAssignments() {
                       </div>
                     </div>
                     <label className="feedback-label">Feedback</label>
-                    <textarea className="feedback" value={evalFeedback} onChange={(e) => setEvalFeedback(e.target.value)} placeholder="Notes for the student…" />
+                    <textarea className="feedback" value={evalFeedback} onChange={(e) => setEvalFeedback(e.target.value)} placeholder="Notes for the candidate…" />
                     <label className="form-label" style={{ marginTop: 14, cursor: 'pointer' }}>
                       <input type="checkbox" checked={evalResubmit} onChange={(e) => setEvalResubmit(e.target.checked)} /> Request resubmission instead
                     </label>

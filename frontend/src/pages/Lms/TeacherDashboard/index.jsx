@@ -98,7 +98,7 @@ export default function TeacherDashboard() {
     <div className="lms-portal lms-dashboard-shell">
       <div className="lms-portal-head">
         <div>
-          <h2><ReadOutlined /> Teacher Dashboard</h2>
+          <h2><ReadOutlined /> Instructor Dashboard</h2>
           <p>Welcome back, {d.teacher?.name}. Here's your teaching at a glance.</p>
         </div>
         <Button type="primary" icon={<VideoCameraOutlined />} onClick={() => navigate('/teacher/classes')}>
@@ -110,8 +110,8 @@ export default function TeacherDashboard() {
         <KPI index={0} title="Courses" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
         <KPI index={1} title="Published" value={k.publishedCourses} tone="green" icon={<CheckCircleOutlined />} />
         <KPI index={2} title="Drafts" value={k.draftCourses} tone="amber" icon={<EditOutlined />} />
-        <KPI index={3} title="Students" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
-        <KPI index={4} title="Active students" value={k.activeStudents} tone="green" icon={<UserOutlined />} />
+        <KPI index={3} title="Candidates" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
+        <KPI index={4} title="Active candidates" value={k.activeStudents} tone="green" icon={<UserOutlined />} />
         <KPI index={5} title="Today's classes" value={k.todaysClasses} tone="cyan" icon={<ClockCircleOutlined />} />
         <KPI index={6} title="Live now" value={k.liveClasses} tone="red" icon={<VideoCameraOutlined />} />
         <KPI index={7} title="Upcoming" value={k.upcomingClasses} tone="purple" icon={<CalendarOutlined />} />
@@ -132,10 +132,10 @@ export default function TeacherDashboard() {
           <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Course status' }} raw={courseStatusChart} />
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
-          <ChartCard def={{ key: 'studentProgress', kind: 'bar', title: 'Student progress' }} raw={progressChart} />
+          <ChartCard def={{ key: 'studentProgress', kind: 'bar', title: 'Candidate progress' }} raw={progressChart} />
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
-          <ChartCard def={{ key: 'studentStatus', kind: 'donut', title: 'Students · active vs inactive' }} raw={studentStatusChart} />
+          <ChartCard def={{ key: 'studentStatus', kind: 'donut', title: 'Candidates · active vs inactive' }} raw={studentStatusChart} />
         </Col>
       </Row>
 
@@ -174,15 +174,15 @@ export default function TeacherDashboard() {
           </Card>
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
-          <Card size="small" title="At-risk students" bordered className="lms-table-card">
+          <Card size="small" title="At-risk candidates" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey={(r) => r.email || r.name}
               dataSource={d.atRiskStudents || []}
               pagination={false}
-              locale={{ emptyText: 'No at-risk students 🎉' }}
+              locale={{ emptyText: 'No at-risk candidates 🎉' }}
               columns={[
-                { title: 'Student', dataIndex: 'name' },
+                { title: 'Candidate', dataIndex: 'name' },
                 { title: 'Batch', dataIndex: 'batch' },
                 { title: 'Attendance', dataIndex: 'attendancePct', render: (v) => <Progress percent={v} size="small" style={{ width: 90 }} /> },
                 { title: 'Progress', dataIndex: 'progress', render: (v) => `${v}%` },

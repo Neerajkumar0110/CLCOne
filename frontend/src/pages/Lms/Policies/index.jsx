@@ -101,7 +101,7 @@ function ManagePolicies() {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><FileProtectOutlined /> Policy & Acknowledgement Centre</h2><p>Upload, version and publish learner-facing policies — publishing auto-creates the acknowledgement requirement and reminds pending students automatically.</p></div>
+        <div><h2><FileProtectOutlined /> Policy & Acknowledgement Centre</h2><p>Upload, version and publish learner-facing policies — publishing auto-creates the acknowledgement requirement and reminds pending candidates automatically.</p></div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setOpen(true); setTimeout(() => form.setFieldsValue({ category: 'Other', audience: 'all', mandatory: true }), 0); }}>
           New policy
         </Button>
@@ -115,7 +115,7 @@ function ManagePolicies() {
           columns={[
             { title: 'Title', dataIndex: 'title', render: (v, r) => <span><b>{v}</b> <Text type="secondary">v{r.version}</Text></span> },
             { title: 'Category', dataIndex: 'category', width: 200, render: (v) => <Tag>{v}</Tag> },
-            { title: 'Scope', width: 140, render: (_, r) => (r.audience === 'all' ? 'All students' : r.audience === 'batch' ? r.batch : r.courseTitle) },
+            { title: 'Scope', width: 140, render: (_, r) => (r.audience === 'all' ? 'All candidates' : r.audience === 'batch' ? r.batch : r.courseTitle) },
             { title: 'Mandatory', dataIndex: 'mandatory', width: 100, render: (v) => (v ? <Tag color="volcano">Mandatory</Tag> : <Tag>Optional</Tag>) },
             { title: 'Status', dataIndex: 'status', width: 100, render: (v) => <Tag color={STATUS_COLOR[v]}>{v}</Tag> },
             {
@@ -174,7 +174,7 @@ function ManagePolicies() {
               <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
             </Form.Item>
             <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Applies to</Lbl>}>
-              <Select options={[{ value: 'all', label: 'All students' }, { value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }]} />
+              <Select options={[{ value: 'all', label: 'All candidates' }, { value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }]} />
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
               {({ getFieldValue }) => {
@@ -202,7 +202,7 @@ function ManagePolicies() {
             <Table
               rowKey="id" size="small" pagination={{ pageSize: 20 }} dataSource={report.data.rows}
               columns={[
-                { title: 'Student', dataIndex: 'student' },
+                { title: 'Candidate', dataIndex: 'student' },
                 { title: 'Status', dataIndex: 'status', render: (v) => <Tag color={v === 'acknowledged' ? 'green' : 'default'}>{v}</Tag> },
                 { title: 'When', dataIndex: 'acknowledgedAt', render: (v) => (v ? dayjs(v).format('D MMM, HH:mm') : '—') },
               ]}

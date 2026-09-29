@@ -181,7 +181,7 @@ function TeacherStudyMaterial() {
       <div className="study-material-header">
         <div>
           <h2 className="study-material-title"><FolderOpenOutlined /> Study Material</h2>
-          <p className="study-material-subtitle">Upload and manage your study resources for students.</p>
+          <p className="study-material-subtitle">Upload and manage your study resources for candidates.</p>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ function StudentStudyMaterial() {
       <div className="study-material-header">
         <div>
           <h2 className="study-material-title"><FolderOpenOutlined /> Study Material</h2>
-          <p className="study-material-subtitle">Resources shared by your teacher.</p>
+          <p className="study-material-subtitle">Resources shared by your instructor.</p>
         </div>
       </div>
 

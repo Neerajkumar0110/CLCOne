@@ -272,7 +272,7 @@ function TeacherQuizzes() {
             pagination={results.attempts.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
             locale={{ emptyText: 'No attempts yet' }}
             columns={[
-              { title: 'Student', dataIndex: 'studentName' },
+              { title: 'Candidate', dataIndex: 'studentName' },
               { title: 'Score', render: (_, r) => `${r.totalScore}/${r.maxScore}` },
               { title: '%', dataIndex: 'percent', width: 60 },
               { title: 'Result', render: (_, r) => <StatusPill tone={r.passed ? 'success' : 'danger'}>{r.passed ? 'PASS' : 'FAIL'}</StatusPill> },
@@ -393,7 +393,7 @@ function StudentQuizzes() {
       const r = (res && res.result) || {};
       setRunner(null);
       if (r.result) setResult({ ...r.result, instant: true });
-      else message.success('Submitted — awaiting teacher evaluation.');
+      else message.success('Submitted — awaiting instructor evaluation.');
       load();
     } catch (e) {
       message.error('Submit failed.');
@@ -421,7 +421,7 @@ function StudentQuizzes() {
             showIcon
             icon={<WarningOutlined />}
             style={{ marginBottom: 10 }}
-            message={`Tab switch detected (${violations}) — this is flagged for the teacher.`}
+            message={`Tab switch detected (${violations}) — this is flagged for the instructor.`}
           />
         )}
         {runner.questions.map((q, i) => (
