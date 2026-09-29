@@ -24,6 +24,7 @@ const health = require('./health');
 const learner360 = require('./learner360');
 const learnerOverview = require('./learnerOverview');
 const communication = require('./communication');
+const studyMaterial = require('./studyMaterial');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -255,4 +256,11 @@ module.exports = {
   learner360Report: learner360.courseReport,
   learner360Export: learner360.courseReportExport,
   learnerTimeline: learner360.learnerTimeline,
+
+  // study material
+  materialUpload: studyMaterial.upload,
+  materialAddLink: studyMaterial.addLink,
+  materialList: studyMaterial.list,
+  materialDelete: studyMaterial.remove,
+  materialMine: studyMaterial.mine,
 };

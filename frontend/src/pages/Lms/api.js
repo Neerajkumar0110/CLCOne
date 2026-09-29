@@ -180,6 +180,28 @@ const lmsApi = {
   deleteAnnouncement: (id) => request.del({ entity: `lms/announcements/${id}` }),
   myAnnouncements: () => request.get({ entity: 'lms/my/announcements' }),
 
+  // ── study material ───────────────────────────────────────────────
+  materials: () => request.get({ entity: 'lms/materials' }),
+  myMaterials: () => request.get({ entity: 'lms/my/materials' }),
+  deleteMaterial: (id) => request.del({ entity: `lms/materials/${id}` }),
+  addMaterialLink: (b) => request.post({ entity: 'lms/materials/link', jsonData: b }),
+  // Raw axios (not request.post) so we can report real upload % via
+  // onUploadProgress — axios.defaults already carries the auth token/baseURL
+  // set by any earlier request.* call this session (see request/request.js).
+  uploadMaterial: (fields, file, onProgress) => {
+    const fd = new FormData();
+    Object.entries(fields || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') fd.append(k, v);
+    });
+    fd.append('file', file);
+    return axios
+      .post(`${API_BASE_URL}lms/materials`, fd, {
+        onUploadProgress: (e) => onProgress && onProgress(Math.round((e.loaded * 100) / (e.total || 1))),
+      })
+      .then((r) => r.data)
+      .catch((e) => (e.response ? e.response.data : { success: false, message: 'Upload failed.' }));
+  },
+
   // ── certificates ──────────────────────────────────────────────
   certRule: (courseId) => request.get({ entity: `lms/courses/${courseId}/certificate-rule` }),
   saveCertRule: (courseId, b) => request.post({ entity: `lms/courses/${courseId}/certificate-rule`, jsonData: b }),

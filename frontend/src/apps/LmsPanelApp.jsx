@@ -75,6 +75,7 @@ const Policies = lazy(() => import('@/pages/Lms/Policies'));
 const Eligibility = lazy(() => import('@/pages/Lms/Eligibility'));
 const Projects = lazy(() => import('@/pages/Lms/Projects'));
 const Learner360 = lazy(() => import('@/pages/Lms/Learner360'));
+const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 // Same month-grid calendar the CRM's LMS → Calendar tab uses — the backend's
 // listFor()/resolveRole() already scope GET /lms/live-classes to "every batch
 // I teach" for a Teacher and "just my batch" for a Student, so one component
@@ -246,7 +247,7 @@ const TEACHER_NAV = [
   quizzesGroup('/teacher', 'Quizzes & Exams'),
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
   ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
-  ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
+  ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
   ['/teacher/policies', 'Policies', <FileProtectOutlined />, <Policies />],
   ['/teacher/eligibility', 'Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
@@ -272,7 +273,7 @@ const STUDENT_NAV = [
   ['/learn/projects', 'My Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/learn', 'Quizzes & Exams'),
   ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
-  ['/learn/material', 'Study Material', <FolderOpenOutlined />, <ComingSoon title="Study Material" />],
+  ['/learn/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
   ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
   ['/learn/policies', 'Policies', <FileProtectOutlined />, <Policies />],

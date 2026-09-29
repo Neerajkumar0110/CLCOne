@@ -95,6 +95,7 @@ const DB_MAP = {
   Quiz: 'lmsDb',
   QuizAttempt: 'lmsDb',
   Student: 'lmsDb',
+  StudyMaterial: 'lmsDb',
   Ticket: 'lmsDb',
 
   // ---- financeDb ----

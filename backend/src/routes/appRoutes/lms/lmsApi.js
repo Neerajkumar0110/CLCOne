@@ -123,6 +123,15 @@ router.route('/announcements').get(catchErrors(lms.announcementList)).post(catch
 router.route('/announcements/:id').delete(catchErrors(lms.announcementDelete));
 router.route('/my/announcements').get(catchErrors(lms.announcementMine));
 
+// ── study material ────────────────────────────────────────────────
+router
+  .route('/materials')
+  .get(catchErrors(lms.materialList))
+  .post(singleStorageUpload({ entity: 'material', fieldName: 'file', fileType: 'default' }), catchErrors(lms.materialUpload));
+router.route('/materials/link').post(catchErrors(lms.materialAddLink));
+router.route('/materials/:id').delete(catchErrors(lms.materialDelete));
+router.route('/my/materials').get(catchErrors(lms.materialMine));
+
 // ── certificates ───────────────────────────────────────────────────
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));
 router.route('/certificates').get(catchErrors(lms.certHistory));

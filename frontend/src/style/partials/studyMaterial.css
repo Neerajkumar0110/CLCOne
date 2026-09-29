@@ -1,0 +1,509 @@
+/* ================================
+   STUDY MATERIAL CONTAINER
+================================ */
+
+.study-material-container {
+  width: 100%;
+  padding: 24px;
+  background: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+
+/* ================================
+   HEADER
+================================ */
+
+.study-material-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.study-material-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.study-material-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+
+/* ================================
+   MAIN CARD
+================================ */
+
+.study-material-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+}
+
+
+/* ================================
+   UPLOAD AREA
+================================ */
+
+.material-upload-area {
+  width: 100%;
+  min-height: 210px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+  cursor: pointer;
+
+  transition: all 0.25s ease;
+  box-sizing: border-box;
+}
+
+.material-upload-area:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.material-upload-area.drag-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+
+/* ================================
+   UPLOAD ICON
+================================ */
+
+.material-upload-icon {
+  width: 56px;
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+  background: #e0edff;
+  color: #2563eb;
+
+  font-size: 26px;
+  margin-bottom: 14px;
+}
+
+
+/* ================================
+   UPLOAD TEXT
+================================ */
+
+.material-upload-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.material-upload-description {
+  margin: 7px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.material-upload-description span {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+
+/* ================================
+   FILE TYPE INFO
+================================ */
+
+.material-file-info {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+
+/* ================================
+   HIDDEN INPUT
+================================ */
+
+.material-file-input {
+  display: none;
+}
+
+
+/* ================================
+   UPLOADED FILE SECTION
+================================ */
+
+.uploaded-material-section {
+  margin-top: 28px;
+}
+
+.uploaded-material-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 14px;
+}
+
+.uploaded-material-heading h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.uploaded-count {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+
+/* ================================
+   FILE CARD
+================================ */
+
+.material-file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 15px 16px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  transition: all 0.2s ease;
+}
+
+.material-file-card + .material-file-card {
+  margin-top: 10px;
+}
+
+.material-file-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+
+/* ================================
+   FILE LEFT SIDE
+================================ */
+
+.material-file-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+
+/* ================================
+   PDF ICON
+================================ */
+
+.material-pdf-icon {
+  width: 44px;
+  height: 44px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #fef2f2;
+  color: #dc2626;
+
+  font-size: 21px;
+}
+
+
+/* ================================
+   FILE DETAILS
+================================ */
+
+.material-file-details {
+  min-width: 0;
+}
+
+.material-file-name {
+  margin: 0;
+
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.material-file-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-top: 5px;
+
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.material-file-meta span {
+  display: flex;
+  align-items: center;
+}
+
+
+/* ================================
+   FILE ACTIONS
+================================ */
+
+.material-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  flex-shrink: 0;
+}
+
+
+/* ================================
+   VIEW BUTTON
+================================ */
+
+.material-view-btn,
+.material-download-btn,
+.material-delete-btn {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.material-view-btn {
+  color: #2563eb;
+}
+
+.material-view-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.material-download-btn {
+  color: #4b5563;
+}
+
+.material-download-btn:hover {
+  background: #f3f4f6;
+}
+
+.material-delete-btn {
+  color: #dc2626;
+}
+
+.material-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+
+/* ================================
+   UPLOAD BUTTON
+================================ */
+
+.material-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 11px 18px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.material-upload-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.material-upload-btn:active {
+  transform: translateY(0);
+}
+
+
+/* ================================
+   EMPTY STATE
+================================ */
+
+.material-empty-state {
+  padding: 35px 20px;
+
+  text-align: center;
+
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+
+  background: #fafafa;
+}
+
+.material-empty-state p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+
+/* ================================
+   UPLOAD PROGRESS
+================================ */
+
+.material-upload-progress {
+  margin-top: 16px;
+}
+
+.material-progress-header {
+  display: flex;
+  justify-content: space-between;
+
+  margin-bottom: 7px;
+
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.material-progress-bar {
+  width: 100%;
+  height: 7px;
+
+  overflow: hidden;
+
+  border-radius: 20px;
+  background: #e5e7eb;
+}
+
+.material-progress-fill {
+  height: 100%;
+
+  border-radius: 20px;
+  background: #2563eb;
+
+  transition: width 0.3s ease;
+}
+
+
+/* ================================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 768px) {
+
+  .study-material-container {
+    padding: 16px;
+  }
+
+  .study-material-card {
+    padding: 18px;
+  }
+
+  .study-material-header {
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .study-material-title {
+    font-size: 20px;
+  }
+
+  .material-upload-area {
+    min-height: 180px;
+  }
+
+  .material-file-card {
+    align-items: flex-start;
+  }
+
+  .material-file-actions {
+    flex-wrap: wrap;
+  }
+}
+
+
+@media (max-width: 520px) {
+
+  .study-material-header {
+    flex-direction: column;
+  }
+
+  .material-upload-btn {
+    width: 100%;
+  }
+
+  .material-file-card {
+    flex-direction: column;
+  }
+
+  .material-file-left {
+    width: 100%;
+  }
+
+  .material-file-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .material-upload-area {
+    padding: 25px 15px;
+  }
+
+  .material-upload-title {
+    font-size: 15px;
+  }
+}
