@@ -22,13 +22,24 @@ async function teacherAnalytics(req, res) {
 
   const teacherName = isManager(admin) && req.query.teacher ? String(req.query.teacher) : admin.name;
 
-  const [courses, batches] = await Promise.all([
+  const [instructorCourses, batches] = await Promise.all([
     Course.find({ removed: false, instructor: rxEq(teacherName) }).lean(),
     Batch.find({ removed: false, trainer: rxEq(teacherName) }).lean(),
   ]);
+  const batchNames = batches.map((b) => b.name);
+  // Assignment/quiz stats below are course-scoped, so the course list must
+  // include every course reached via a batch this teacher trains — not just
+  // Course.instructor, which a batch-only teacher never has set (see
+  // services/lms/teacherCourseAccess.js).
+  const batchCourseTitles = [...new Set(batches.map((b) => b.course).filter(Boolean))];
+  const batchCourses = batchCourseTitles.length
+    ? await Course.find({ removed: false, title: { $in: batchCourseTitles.map((t) => rxEq(t)) } }).lean()
+    : [];
+  const courseById = new Map();
+  [...instructorCourses, ...batchCourses].forEach((c) => courseById.set(String(c._id), c));
+  const courses = [...courseById.values()];
   const courseTitles = courses.map((c) => c.title);
   const courseIds = courses.map((c) => c._id);
-  const batchNames = batches.map((b) => b.name);
 
   const students = batchNames.length
     ? await Student.find({ removed: false, batch: { $in: batchNames } }).select('name email status progress attendancePct avgScore course batch updated').lean()

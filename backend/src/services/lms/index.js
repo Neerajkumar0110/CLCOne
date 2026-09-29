@@ -12,6 +12,7 @@ const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
 const mailer = require('./mailer');
 const { getMeetingProvider } = require('./meeting');
+const { isTeacherOfCourse } = require('./teacherCourseAccess');
 
 module.exports = {
   lmsConfig,
@@ -28,4 +29,5 @@ module.exports = {
   recurrence,
   mailer,
   getMeetingProvider,
+  isTeacherOfCourse,
 };

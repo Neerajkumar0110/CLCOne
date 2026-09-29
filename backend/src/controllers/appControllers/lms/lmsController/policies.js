@@ -88,11 +88,17 @@ async function create(req, res) {
   return ok(res, { id: String(doc._id), version }, `Draft created (v${version}).`);
 }
 
+// Teachers get a read-only "Policies" tab (ViewPolicies in the frontend) —
+// they only ever see published policies, never drafts/archived; a manager
+// can filter by any status via ?status=.
 async function list(req, res) {
-  if (!isManager(req.admin)) return bad(res, 403, 'Management role required.');
   const PolicyDocument = mongoose.model('PolicyDocument');
   const q = { removed: false };
-  if (req.query.status) q.status = req.query.status;
+  if (!isManager(req.admin)) {
+    q.status = 'published';
+  } else if (req.query.status) {
+    q.status = req.query.status;
+  }
   if (req.query.category) q.category = req.query.category;
   const rows = await PolicyDocument.find(q).sort({ slug: 1, version: -1 }).limit(500).lean();
   return ok(res, rows.map((r) => ({ ...r, id: String(r._id) })));

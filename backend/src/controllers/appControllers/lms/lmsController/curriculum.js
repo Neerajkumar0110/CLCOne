@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../config/roles');
+const { isTeacherOfCourse } = require('../../../../services/lms');
 
 // Teacher / manager curriculum builder for a course:
 //   Course → CourseModule → Chapter → Lesson
@@ -26,7 +27,7 @@ async function loadOwnedCourse(req, courseId) {
   if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
   const course = await Course.findOne({ _id: courseId, removed: false });
   if (!course) return { err: [404, 'Course not found.'] };
-  if (!isManager(req.admin) && course.instructor && !rxEq(course.instructor).test(req.admin.name || '')) {
+  if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course))) {
     return { err: [403, 'You can only edit your own courses.'] };
   }
   return { course };

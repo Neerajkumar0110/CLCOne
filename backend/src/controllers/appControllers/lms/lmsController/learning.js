@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
+const { isTeacherOfCourse } = require('../../../../services/lms');
 
 // Student learning surface:
 //   GET  /api/lms/learn                       -> my courses + progress
@@ -38,7 +39,7 @@ async function canAccessCourse(admin, courseId) {
   const Course = mongoose.model('Course');
   const course = await Course.findOne({ _id: courseId, removed: false });
   if (!course) return false;
-  if (isTeacher(admin) && course.instructor && rxEq(course.instructor).test(admin.name || '')) return true;
+  if (isTeacher(admin) && (await isTeacherOfCourse(admin, course))) return true;
   const ids = await learnerCourseIds(admin);
   return ids.includes(String(courseId));
 }

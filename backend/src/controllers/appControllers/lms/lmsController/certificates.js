@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const certEngine = require('../../../../services/lms/certificateEngine');
+const { isTeacherOfCourse } = require('../../../../services/lms');
 
 //  teacher/manager:
 //   GET   /api/lms/courses/:courseId/certificate-rule
@@ -25,7 +26,7 @@ async function assertOwnsCourse(admin, courseId) {
   const course = await Course.findOne({ _id: courseId, removed: false });
   if (!course) return null;
   if (isManager(admin)) return course;
-  if (isTeacher(admin) && course.instructor && rxEq(course.instructor).test(admin.name || '')) return course;
+  if (isTeacher(admin) && (await isTeacherOfCourse(admin, course))) return course;
   return null;
 }
 

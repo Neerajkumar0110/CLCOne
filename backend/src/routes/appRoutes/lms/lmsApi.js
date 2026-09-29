@@ -193,25 +193,33 @@ router.route('/assessments/:attemptId/submit').post(catchErrors(lms.assessmentSu
 router.route('/assessments/:attemptId/breakdown').get(catchErrors(lms.assessmentBreakdown));
 router.route('/assessments/:attemptId/proctor-event').post(catchErrors(lms.assessmentProctorEvent));
 
+// Settings (global policy) and score correction stay manager-only. The rest
+// of this "admin" surface (Test Attempts, Curriculum Tracker) is a shared,
+// global proctored-test platform ported wholesale from python-test-platform
+// — candidateBatch/track are plain strings with no per-teacher ownership
+// concept, unlike this CRM's own Course/Batch — and both pages are wired
+// into the Teacher nav (LmsPanelApp.jsx), so gating their reads (and the
+// Curriculum Tracker's own delivery-status writes) to management-only broke
+// them for every teacher with "LMS admin actions require a management role."
 router.route('/assessments/admin/settings').get(requireManager, catchErrors(lms.assessmentSettingsGet));
 router.route('/assessments/admin/settings').post(requireManager, catchErrors(lms.assessmentSettingsUpdate));
-router.route('/assessments/admin/summary').get(requireManager, catchErrors(lms.assessmentAdminSummary));
-router.route('/assessments/admin/attempts').get(requireManager, catchErrors(lms.assessmentAdminAttempts));
-router.route('/assessments/admin/attempts/export').get(requireManager, catchErrors(lms.assessmentAdminAttemptsExport));
-router.route('/assessments/admin/not-attempted').get(requireManager, catchErrors(lms.assessmentNotAttempted));
+router.route('/assessments/admin/summary').get(catchErrors(lms.assessmentAdminSummary));
+router.route('/assessments/admin/attempts').get(catchErrors(lms.assessmentAdminAttempts));
+router.route('/assessments/admin/attempts/export').get(catchErrors(lms.assessmentAdminAttemptsExport));
+router.route('/assessments/admin/not-attempted').get(catchErrors(lms.assessmentNotAttempted));
 router
   .route('/assessments/admin/attempts/:attemptId/report')
-  .get(requireManager, catchErrors(lms.assessmentAdminAttemptReport));
+  .get(catchErrors(lms.assessmentAdminAttemptReport));
 router
   .route('/assessments/admin/attempts/:attemptId/correct')
   .post(requireManager, catchErrors(lms.assessmentCorrectAttempt));
-router.route('/assessments/admin/curriculum/sessions').get(requireManager, catchErrors(lms.assessmentCurriculumSessions));
+router.route('/assessments/admin/curriculum/sessions').get(catchErrors(lms.assessmentCurriculumSessions));
 router
   .route('/assessments/admin/curriculum/sessions/:sessionId/delivery')
-  .patch(requireManager, catchErrors(lms.assessmentCurriculumUpdateDelivery));
+  .patch(catchErrors(lms.assessmentCurriculumUpdateDelivery));
 
 // ── policy & acknowledgement centre ─────────────────────────────────
-router.route('/policies').get(requireManager, catchErrors(lms.policyList)).post(requireManager, catchErrors(lms.policyCreate));
+router.route('/policies').get(catchErrors(lms.policyList)).post(requireManager, catchErrors(lms.policyCreate));
 router.route('/policies/:id').get(catchErrors(lms.policyGet));
 router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.policyPublish));
 router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));

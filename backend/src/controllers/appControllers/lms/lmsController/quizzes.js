@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { isTeacherOfCourse } = require('../../../../services/lms');
 
 // Quizzes / Exams + Question Bank.
 //
@@ -31,8 +32,16 @@ const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0;
 
 async function ownedCourseIds(admin) {
   const Course = mongoose.model('Course');
-  const rows = await Course.find({ removed: false, instructor: rxEq(admin.name || '') }).select('_id').lean();
-  return rows.map((c) => String(c._id));
+  const Batch = mongoose.model('Batch');
+  const [instructorRows, batches] = await Promise.all([
+    Course.find({ removed: false, instructor: rxEq(admin.name || '') }).select('_id').lean(),
+    Batch.find({ removed: false, trainer: rxEq(admin.name || '') }).select('course').lean(),
+  ]);
+  const batchTitles = [...new Set(batches.map((b) => b.course).filter(Boolean))];
+  const batchCourseRows = batchTitles.length
+    ? await Course.find({ removed: false, title: { $in: batchTitles.map((t) => rxEq(t)) } }).select('_id').lean()
+    : [];
+  return [...new Set([...instructorRows, ...batchCourseRows].map((c) => String(c._id)))];
 }
 async function enrolledCourseIds(admin) {
   const Student = mongoose.model('Student');
@@ -62,7 +71,7 @@ async function createQuiz(req, res) {
   if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A valid course is required.');
   const course = await mongoose.model('Course').findOne({ _id: b.course, removed: false });
   if (!course) return bad(res, 404, 'Course not found.');
-  if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
+  if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course)))
     return bad(res, 403, 'You can only add quizzes to your own courses.');
 
   const Quiz = mongoose.model('Quiz');

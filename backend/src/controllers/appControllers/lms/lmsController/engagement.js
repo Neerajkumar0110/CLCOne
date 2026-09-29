@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
 const realtime = require('../../../../services/lms/realtime');
+const { isTeacherOfCourse } = require('../../../../services/lms');
 
 // Doubts (course Q&A threads) + Announcements (targeted broadcasts).
 //
@@ -24,10 +25,24 @@ const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
 const bad = (res, code, message) => res.status(code).json({ success: false, result: null, message });
 
+// A teacher's courses = Course.instructor match (legacy field) UNION every
+// course backing a batch they train (Batch.trainer) — see
+// services/lms/teacherCourseAccess.js for why the instructor field alone
+// isn't enough.
 async function teacherCourseIds(admin) {
   const Course = mongoose.model('Course');
-  const rows = await Course.find({ removed: false, instructor: rxEq(admin.name || '') }).select('_id title').lean();
-  return { ids: rows.map((c) => String(c._id)), byId: Object.fromEntries(rows.map((c) => [String(c._id), c.title])) };
+  const Batch = mongoose.model('Batch');
+  const [instructorRows, batches] = await Promise.all([
+    Course.find({ removed: false, instructor: rxEq(admin.name || '') }).select('_id title').lean(),
+    Batch.find({ removed: false, trainer: rxEq(admin.name || '') }).select('course').lean(),
+  ]);
+  const batchTitles = [...new Set(batches.map((b) => b.course).filter(Boolean))];
+  const batchCourseRows = batchTitles.length
+    ? await Course.find({ removed: false, title: { $in: batchTitles.map((t) => rxEq(t)) } }).select('_id title').lean()
+    : [];
+  const byId = new Map();
+  [...instructorRows, ...batchCourseRows].forEach((c) => byId.set(String(c._id), c.title));
+  return { ids: [...byId.keys()], byId: Object.fromEntries(byId) };
 }
 async function studentCourseTitles(admin) {
   const Student = mongoose.model('Student');
@@ -208,7 +223,7 @@ async function createAnnouncement(req, res) {
       if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'Pick a course.');
       course = await Course.findById(b.course).lean();
       if (!course) return bad(res, 404, 'Course not found.');
-      if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
+      if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course)))
         return bad(res, 403, 'Not your course.');
     }
   }
