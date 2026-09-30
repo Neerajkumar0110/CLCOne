@@ -21,8 +21,14 @@ function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 
+// status: 'active' only — a 'suspended'/'ended' enrolment (set by
+// removeStudentFromBatch, or a withdrawn/failed payment) must not still
+// grant recording access. Mirrors the same filter resolveRole() already
+// applies for live-class join access (services/lms/liveClassService.js) —
+// without it, a student removed from a batch/course kept seeing its
+// recordings forever through this fallback.
 async function myEnrolments(admin) {
-  return mongoose.model('LmsEnrolment').find({ crmUser: admin._id }).lean();
+  return mongoose.model('LmsEnrolment').find({ crmUser: admin._id, status: 'active' }).lean();
 }
 async function myMoodleCourseIds(admin) {
   const e = await myEnrolments(admin);
@@ -33,12 +39,16 @@ async function myMoodleCourseIds(admin) {
 // stays empty until Moodle sync is configured. Same fallback resolveRole()
 // (services/lms/liveClassService.js) and the student dashboard (panel.js)
 // already use for live classes, ported here so recordings are scoped the
-// same way.
+// same way. status: 'Active' only — spec §2 "Archive/suspend/withdraw states
+// must immediately affect access rules": a student marked On Hold/Dropped/
+// Deferred/Completed but still listed against the batch must not keep
+// recording access through this fallback (mirrors resolveRole()'s roster
+// check).
 async function myRosterBatchNames(admin) {
   const email = String(admin.email || '').trim().toLowerCase();
   if (!email) return new Set();
   const emailRx = new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-  const rows = await mongoose.model('Student').find({ removed: false, email: emailRx }, 'batch').lean();
+  const rows = await mongoose.model('Student').find({ removed: false, email: emailRx, status: 'Active' }, 'batch').lean();
   return new Set(rows.map((r) => r.batch).filter(Boolean));
 }
 
@@ -228,7 +238,9 @@ async function playRecording(req, res) {
       if (session) {
         const myBatchNames = await myRosterBatchNames(admin);
         const myCourseIds = await myMoodleCourseIds(admin);
-        const enr = await mongoose.model('LmsEnrolment').findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId });
+        const enr = await mongoose
+          .model('LmsEnrolment')
+          .findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId, status: 'active' });
         allowed =
           myBatchNames.has(session.batchName) ||
           !!enr ||
