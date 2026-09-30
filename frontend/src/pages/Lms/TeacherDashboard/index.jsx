@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
+import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, Button, Tooltip } from 'antd';
 import {
   ReadOutlined,
   TeamOutlined,
@@ -15,6 +15,7 @@ import {
   TrophyOutlined,
   FileTextOutlined,
   QuestionCircleOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
@@ -69,14 +70,28 @@ export default function TeacherDashboard() {
   const k = d.kpis || {};
   const c = d.charts || {};
 
+  // A single "attendance %" bar per class reads at a glance; the earlier
+  // side-by-side Present/Total count bars looked like a ratio but had no
+  // labelled value, so nobody could tell what was actually being compared.
   const attendanceByClass = c.attendanceByClass || [];
   const attendanceChart = {
     labels: attendanceByClass.map((r) => r.name),
     datasets: [
-      { label: 'Present', data: attendanceByClass.map((r) => r.present) },
-      { label: 'Total', data: attendanceByClass.map((r) => r.total) },
+      {
+        label: 'Attendance %',
+        data: attendanceByClass.map((r) => (r.total ? Math.round((r.present / r.total) * 100) : 0)),
+      },
     ],
   };
+
+  const CardTitle = ({ children, hint }) => (
+    <span>
+      {children}
+      <Tooltip title={hint}>
+        <InfoCircleOutlined style={{ marginLeft: 6, fontSize: 12, opacity: 0.55, cursor: 'help' }} />
+      </Tooltip>
+    </span>
+  );
 
   const courseStatusChart = {
     labels: ['Published', 'Draft', 'Archived'],
@@ -126,7 +141,15 @@ export default function TeacherDashboard() {
 
       <Row gutter={[16, 16]} className="lms-charts-row" key={isDark ? 'charts-d' : 'charts-l'}>
         <Col xs={24} lg={12} className="lms-card-col">
-          <ChartCard def={{ key: 'attendanceByClass', kind: 'bar', title: 'Attendance by class' }} raw={attendanceChart} />
+          <ChartCard
+            def={{
+              key: 'attendanceByClass',
+              kind: 'bar',
+              title: 'Attendance by class',
+              hint: 'Percent of expected candidates marked present, per class you held recently — students present ÷ students expected, for that one class.',
+            }}
+            raw={attendanceChart}
+          />
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Course status' }} raw={courseStatusChart} />
@@ -141,7 +164,12 @@ export default function TeacherDashboard() {
 
       <Row gutter={[16, 16]} className="lms-tables-row">
         <Col xs={24} lg={12} className="lms-card-col">
-          <Card size="small" title="Today's classes" bordered className="lms-table-card">
+          <Card
+            size="small"
+            title={<CardTitle hint="Every class scheduled for today across all batches you teach, with its live status — SCHEDULED, LIVE, ENDED, etc.">Today's classes</CardTitle>}
+            bordered
+            className="lms-table-card"
+          >
             <Table
               size="small"
               rowKey="id"

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Select, Skeleton, message } from 'antd';
+import { Button, Select, Skeleton, message, Tooltip } from 'antd';
 import {
   LockOutlined,
   ArrowLeftOutlined,
@@ -14,6 +14,7 @@ import {
   ThunderboltOutlined,
   ClusterOutlined,
   RocketOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -298,6 +299,9 @@ export default function AssessmentDashboard() {
           {progress && (
             <span className="adv2-batchbar-meta">
               {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
+              <Tooltip title="How much of this batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
+                <InfoCircleOutlined style={{ marginLeft: 6, opacity: 0.6, cursor: 'help' }} />
+              </Tooltip>
             </span>
           )}
         </div>
@@ -306,6 +310,9 @@ export default function AssessmentDashboard() {
         <div className="adv2-batchbar">
           <span className="adv2-batchbar-meta">
             <b>{batch}</b> · {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
+            <Tooltip title="How much of your batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
+              <InfoCircleOutlined style={{ marginLeft: 6, opacity: 0.6, cursor: 'help' }} />
+            </Tooltip>
           </span>
         </div>
       )}

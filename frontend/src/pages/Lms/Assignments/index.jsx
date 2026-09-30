@@ -108,19 +108,21 @@ function TeacherAssignments() {
           : { maxMarks: 100, passingMarks: 40, submissionType: 'file', allowResubmission: true, published: true }
       ), 0);
   };
+  // lmsApi calls never reject on a backend error (request.post/patch resolve
+  // with { success: false, message } and let the global errorHandler pop its
+  // own toast — see request/errorHandler.js) — a try/catch here never fires,
+  // so a rejected save (e.g. "not your batch") used to close the modal and
+  // reload the list anyway, looking exactly like the Create button silently
+  // doing nothing. Checking res.success is the only way to know it failed.
   const save = async () => {
     let v;
     try { v = await form.validateFields(); } catch (e) { return; }
     const body = { ...v, dueDate: v.dueDate ? v.dueDate.toISOString() : undefined };
-    try {
-      if (editing && editing.id) await lmsApi.updateAssignment(editing.id, body);
-      else await lmsApi.createAssignment(body);
-      setEditing(null);
-      form.resetFields();
-      load();
-    } catch (e) {
-      message.error('Save failed.');
-    }
+    const res = editing && editing.id ? await lmsApi.updateAssignment(editing.id, body) : await lmsApi.createAssignment(body);
+    if (!res || res.success === false) return; // errorHandler already showed the real reason
+    setEditing(null);
+    form.resetFields();
+    load();
   };
 
   const openSubs = async (row) => {
@@ -142,19 +144,16 @@ function TeacherAssignments() {
     setReviewOpen(true);
   };
   const doEvaluate = async () => {
-    try {
-      await lmsApi.evaluateSubmission(evalRow.id, {
-        marks: evalMarks === '' ? undefined : Number(evalMarks),
-        grade: evalGrade,
-        feedback: evalFeedback,
-        requestResubmission: evalResubmit,
-      });
-      setEvalRow(null);
-      openSubs(subFor);
-      load();
-    } catch (e) {
-      message.error('Save failed.');
-    }
+    const res = await lmsApi.evaluateSubmission(evalRow.id, {
+      marks: evalMarks === '' ? undefined : Number(evalMarks),
+      grade: evalGrade,
+      feedback: evalFeedback,
+      requestResubmission: evalResubmit,
+    });
+    if (!res || res.success === false) return; // errorHandler already showed the real reason
+    setEvalRow(null);
+    openSubs(subFor);
+    load();
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
@@ -170,7 +169,13 @@ function TeacherAssignments() {
               <div className="subtitle">Create, collect and evaluate.</div>
             </div>
           </div>
-          <button type="button" className="create-btn" onClick={() => openEditor(null)} disabled={!batches.length}>
+          <button
+            type="button"
+            className="create-btn"
+            onClick={() => openEditor(null)}
+            disabled={!batches.length}
+            title={batches.length ? undefined : "You're not the trainer on any batch yet — ask an admin to assign you one."}
+          >
             <PlusOutlined /> Create Assignment
           </button>
         </div>
@@ -477,15 +482,12 @@ function StudentAssignments() {
     let v;
     try { v = await form.validateFields(); } catch (e) { return; }
     const files = (v.fileUrl || '').split(/\s+/).filter(Boolean).map((u) => ({ name: u.split('/').pop(), url: u }));
-    try {
-      await lmsApi.submitAssignment(subFor.id, { text: v.text || '', files });
-      setSubFor(null);
-      form.resetFields();
-      load();
-      message.success('Submitted');
-    } catch (e) {
-      message.error('Submit failed.');
-    }
+    const res = await lmsApi.submitAssignment(subFor.id, { text: v.text || '', files });
+    if (!res || res.success === false) return; // errorHandler already showed the real reason
+    setSubFor(null);
+    form.resetFields();
+    load();
+    message.success('Submitted');
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress, Modal, Form, message } from 'antd';
+import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress, Modal, Form, message, Tooltip } from 'antd';
 import { ReloadOutlined, DownloadOutlined, CheckSquareOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
@@ -108,7 +108,12 @@ function Dashboard({ role }) {
           { title: 'Course', dataIndex: 'course', width: 150 },
           { title: 'Class', dataIndex: 'className', width: 150 },
           { title: 'Date', dataIndex: 'date', width: 110, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
-          { title: 'Sched', dataIndex: 'scheduledDurationMin', width: 70, render: (v) => `${v}m` },
+          {
+            title: <Tooltip title="How long this class was scheduled to run"><span>Scheduled</span></Tooltip>,
+            dataIndex: 'scheduledDurationMin',
+            width: 90,
+            render: (v) => `${v} min`,
+          },
           { title: 'Join', dataIndex: 'joinTime', width: 80, render: (v) => (v ? new Date(v).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '—') },
           { title: 'Leave', dataIndex: 'leaveTime', width: 80, render: (v) => (v ? new Date(v).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '—') },
           { title: 'Attended', dataIndex: 'totalDurationMin', width: 90, render: (v) => `${v} min` },

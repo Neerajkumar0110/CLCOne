@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, Select, Drawer, Space, Empty, Skeleton, message, Typography, Segmented,
+  Card, Table, Tag, Button, Modal, Form, Input, Select, Drawer, Space, Empty, Skeleton, message, Typography, Segmented, Tooltip,
 } from 'antd';
-import { QuestionCircleOutlined, PushpinFilled, PushpinOutlined, CheckOutlined, PlusOutlined } from '@ant-design/icons';
+import { QuestionCircleOutlined, PushpinFilled, PushpinOutlined, CheckOutlined, PlusOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -96,6 +96,9 @@ export default function Doubts() {
         <div><h2><QuestionCircleOutlined /> Doubts / Questions</h2><p>{isTeacher ? 'Answer your candidates.' : 'Ask and track your questions.'}</p></div>
         <Space>
           <Segmented value={status} onChange={setStatus} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Answered', value: 'answered' }, { label: 'Resolved', value: 'resolved' }]} />
+          <Tooltip title={<span>Open — nobody has replied yet. Answered — an instructor replied, but the person who asked hasn't marked it resolved. Resolved — closed out via "Mark resolved" below the thread.</span>}>
+            <InfoCircleOutlined style={{ fontSize: 13, opacity: 0.55, cursor: 'help' }} />
+          </Tooltip>
           {!isTeacher && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAsking(true)} disabled={!courses.length}>Ask a question</Button>}
         </Space>
       </div>

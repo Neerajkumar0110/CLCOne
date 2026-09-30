@@ -1,7 +1,18 @@
 import React from 'react';
-import { Col, Statistic } from 'antd';
+import { Col, Statistic, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
-export default function KpiTile({ title, value, suffix, icon, tone = 'blue', span, index = 0, style }) {
+export default function KpiTile({ title, value, suffix, icon, tone = 'blue', span, index = 0, style, hint }) {
+  const titleNode = hint ? (
+    <span>
+      {title}
+      <Tooltip title={hint}>
+        <InfoCircleOutlined style={{ marginLeft: 5, fontSize: 11, opacity: 0.55, cursor: 'help' }} />
+      </Tooltip>
+    </span>
+  ) : (
+    title
+  );
   return (
     <Col
       xs={span?.xs ?? 12}
@@ -17,7 +28,7 @@ export default function KpiTile({ title, value, suffix, icon, tone = 'blue', spa
       >
         {icon && <div className="lms-kpi-icon">{icon}</div>}
         <div className="lms-kpi-content">
-          <Statistic title={title} value={value || 0} suffix={suffix} />
+          <Statistic title={titleNode} value={value || 0} suffix={suffix} />
         </div>
       </div>
     </Col>

@@ -2187,3 +2187,45 @@
   }
 }
 
+/* ==========================================
+   RECORDING PLAYER MODAL (Lms/Recordings) — a near-fullscreen, edge-to-edge
+   dark player shell around either a BigBlueButton recording iframe or a
+   plain <video>. AntD's default Modal chrome (rounded corners, centered
+   card with visible page behind it, small close X buried top-right) reads
+   fine for a form, but made the recording itself feel cramped and hard to
+   watch — this strips it down to a full-viewport dark surface with one
+   slim header bar (title + Fullscreen + Open in new tab + Close) and lets
+   the video/iframe fill the rest of the screen.
+========================================== */
+.lms-recording-player-modal .ant-modal {
+  top: 0;
+  padding-bottom: 0;
+  max-width: 100vw;
+}
+
+.lms-recording-player-modal .ant-modal-content {
+  border-radius: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #111;
+}
+
+.lms-recording-player-modal .ant-modal-header {
+  margin: 0;
+  padding: 12px 16px;
+  background: #1a1a1a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.lms-recording-player-modal .ant-modal-title {
+  color: #f5f5f5;
+}
+
+.lms-recording-player-modal .ant-modal-body {
+  flex: 1;
+  min-height: 0;
+}
+

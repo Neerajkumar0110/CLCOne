@@ -1000,3 +1000,158 @@
     width: 100%;
   }
 }
+
+/* ==========================================
+   DARK MODE — this whole file was written light-only
+   (hardcoded #ffffff cards on hardcoded light shadows), so
+   switching the app to dark mode left every one of these
+   cards a bright white rectangle with its light drop-shadow
+   still showing against the dark surroundings — reported as
+   "a shadow is appearing" on the Projects detail view (same
+   markup also backs the Assignments evaluate-submission
+   drawer). Re-themed onto the app's existing --hub-* tokens
+   (see featureHub.css's dark block) instead of inventing new
+   colours, so it tracks the rest of the app automatically.
+========================================== */
+:root[data-theme='dark'] .assignments-page,
+:root[data-theme='dark'] .submission-page {
+  background: var(--hub-page-bg, #0f1115);
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .assignments-page .title-icon {
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue);
+}
+
+:root[data-theme='dark'] .assignments-page h1,
+:root[data-theme='dark'] .submission-page .submission-header h1 {
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .assignments-page .subtitle {
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .assignments-page .create-btn {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme='dark'] .assignments-page .create-btn:hover {
+  box-shadow: 0 11px 25px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'] .assignments-page .filter-card,
+:root[data-theme='dark'] .assignments-page .table-card,
+:root[data-theme='dark'] .submission-page .detail-card {
+  background: var(--hub-surface);
+  border-color: var(--hub-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='dark'] .assignments-page .search-box input,
+:root[data-theme='dark'] .assignments-page .filter-select,
+:root[data-theme='dark'] .assignments-page .view-btn,
+:root[data-theme='dark'] .assignments-page .more-btn,
+:root[data-theme='dark'] .assignments-page .pagination button,
+:root[data-theme='dark'] .submission-page .back-btn,
+:root[data-theme='dark'] .submission-page .badge,
+:root[data-theme='dark'] .submission-page .decision-select,
+:root[data-theme='dark'] .submission-page .mark-input,
+:root[data-theme='dark'] .submission-page .feedback,
+:root[data-theme='dark'] .submission-page .cancel-btn {
+  background: var(--hub-surface-2);
+  border-color: var(--hub-border);
+  color: var(--hub-text-soft);
+}
+
+:root[data-theme='dark'] .assignments-page .search-box input::placeholder,
+:root[data-theme='dark'] .submission-page .mark-input::placeholder,
+:root[data-theme='dark'] .submission-page .feedback::placeholder {
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .assignments-page thead th {
+  background: var(--hub-surface-2);
+  border-bottom-color: var(--hub-border);
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .assignments-page tbody td {
+  border-bottom-color: var(--hub-border);
+  color: var(--hub-text-soft);
+}
+
+:root[data-theme='dark'] .assignments-page tbody tr:hover {
+  background: var(--hub-surface-2);
+}
+
+:root[data-theme='dark'] .assignments-page .assignment-title,
+:root[data-theme='dark'] .assignments-page .marks {
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .assignments-page .batch,
+:root[data-theme='dark'] .assignments-page .table-footer {
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .assignments-page .pagination button.active {
+  border-color: var(--hub-blue);
+  background: var(--hub-blue-soft);
+  color: var(--hub-blue);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .submission-page .score-card {
+  background: linear-gradient(135deg, var(--hub-surface), var(--hub-blue-soft));
+  border-color: var(--hub-border);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='dark'] .submission-page .score-label,
+:root[data-theme='dark'] .submission-page .detail-item label,
+:root[data-theme='dark'] .submission-page .mark-field label {
+  color: var(--hub-muted);
+}
+
+:root[data-theme='dark'] .submission-page .score-value,
+:root[data-theme='dark'] .submission-page .detail-item strong,
+:root[data-theme='dark'] .submission-page .form-label,
+:root[data-theme='dark'] .submission-page .feedback-label {
+  color: var(--hub-text);
+}
+
+:root[data-theme='dark'] .submission-page .section-title {
+  background: var(--hub-surface-2);
+  border-bottom-color: var(--hub-border);
+  color: var(--hub-text-soft);
+}
+
+:root[data-theme='dark'] .submission-page .badge.project {
+  color: var(--hub-purple);
+  border-color: var(--hub-border);
+  background: var(--hub-purple-soft);
+}
+
+:root[data-theme='dark'] .submission-page .badge.submitted {
+  color: var(--hub-yellow);
+  border-color: var(--hub-border);
+  background: var(--hub-yellow-soft);
+}
+
+:root[data-theme='dark'] .submission-page .review-latest {
+  background: var(--hub-blue-soft);
+  border-color: var(--hub-border);
+  color: var(--hub-blue);
+}
+:root[data-theme='dark'] .submission-page .review-latest:hover {
+  background: var(--hub-surface-2);
+  border-color: var(--hub-border-strong);
+}
+
+:root[data-theme='dark'] .submission-page .save-btn {
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme='dark'] .submission-page .save-btn:hover {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}

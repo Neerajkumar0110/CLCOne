@@ -6,8 +6,8 @@ import KpiTile from '../components/KpiTile';
 
 const STATUS_COLOR = { Active: 'green', 'On Hold': 'gold', Completed: 'blue', Dropped: 'default', Deferred: 'orange' };
 
-function KPI({ label, value, suffix, tone }) {
-  return <KpiTile title={label} value={value} suffix={suffix} tone={tone} span={{ xs: 12, sm: 8, md: 6, lg: 6, xxl: 6 }} />;
+function KPI({ label, value, suffix, tone, hint }) {
+  return <KpiTile title={label} value={value} suffix={suffix} tone={tone} hint={hint} span={{ xs: 12, sm: 8, md: 6, lg: 6, xxl: 6 }} />;
 }
 
 export default function TeacherStudents() {
@@ -53,7 +53,12 @@ export default function TeacherStudents() {
         <KPI label="Total candidates" value={k.totalStudents || 0} tone="blue" />
         <KPI label="My batches" value={k.totalBatches || 0} tone="cyan" />
         <KPI label="Active" value={k.activeStudents || 0} tone="green" />
-        <KPI label="In view" value={students.length} tone="slate" />
+        <KPI
+          label="Showing now"
+          value={students.length}
+          tone="slate"
+          hint="How many candidates match your current batch/status/search filters below — not your total count."
+        />
       </Row>
 
       {batches.length > 0 && (

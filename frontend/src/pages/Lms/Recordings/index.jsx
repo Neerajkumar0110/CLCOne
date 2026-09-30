@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker } from 'antd';
-import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
+import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip } from 'antd';
+import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
 
@@ -21,6 +21,19 @@ export default function Recordings() {
   const [uploadingId, setUploadingId] = useState(null);
   const fileInputRef = useRef(null);
   const uploadTargetRef = useRef(null);
+  // The BBB playback iframe has its own tiny internal fullscreen control
+  // (easy to miss, and it only fullscreens once BBB's player has finished
+  // loading) — calling requestFullscreen() on the <iframe>/<video> element
+  // itself instead gives one reliable, always-visible Fullscreen button,
+  // and works cross-origin as long as the element carries allowFullScreen
+  // (already set below), regardless of what's rendered inside it.
+  const mediaRef = useRef(null);
+  const goFullscreen = () => {
+    const el = mediaRef.current;
+    if (!el) return;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) req.call(el);
+  };
 
   const fetcher = isManager ? lmsApi.adminRecordings : lmsApi.recordings;
 
@@ -182,32 +195,63 @@ export default function Recordings() {
 
       <Modal
         open={!!playing}
-        title={playing ? playing.className : ''}
         footer={null}
-        width="92vw"
-        style={{ top: 16, maxWidth: 1400 }}
-        bodyStyle={{ padding: playing && playing.provider === 'bigbluebutton' ? 0 : 24 }}
+        closable={false}
+        width="100vw"
+        style={{ top: 0, margin: 0, maxWidth: 'none', paddingBottom: 0 }}
+        className="lms-recording-player-modal"
+        bodyStyle={{ padding: 0, background: '#000' }}
         onCancel={() => setPlaying(null)}
         destroyOnClose
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span
+              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
+              title={playing ? playing.className : ''}
+            >
+              {playing ? playing.className : ''}
+            </span>
+            <Space size={8} style={{ flexShrink: 0 }}>
+              {playing && playing.url && (
+                <>
+                  <Tooltip title="Fullscreen">
+                    <Button size="small" icon={<FullscreenOutlined />} onClick={goFullscreen}>Fullscreen</Button>
+                  </Tooltip>
+                  <Tooltip title="Open in a new browser tab">
+                    <a href={playing.url} target="_blank" rel="noopener">
+                      <Button size="small" icon={<ExportOutlined />}>Open in new tab</Button>
+                    </a>
+                  </Tooltip>
+                </>
+              )}
+              <Button size="small" onClick={() => setPlaying(null)}>Close</Button>
+            </Space>
+          </div>
+        }
       >
         {playing && playing.url ? (
           playing.provider === 'bigbluebutton' ? (
-            <div>
-              <div style={{ padding: '8px 16px', borderBottom: '1px solid #eee' }}>
-                <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
-              </div>
-              <iframe title="recording" src={playing.url} style={{ width: '100%', height: '78vh', border: 0, display: 'block' }} allowFullScreen />
-            </div>
+            <iframe
+              ref={mediaRef}
+              title="recording"
+              src={playing.url}
+              style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+              allowFullScreen
+            />
           ) : (
-            <div>
-              <p style={{ marginTop: 0 }}>
-                <a href={playing.url} target="_blank" rel="noopener">Open recording in a new tab ↗</a>
-              </p>
-              <video controls autoPlay src={playing.url} style={{ width: '100%', maxHeight: '75vh', borderRadius: 8, background: '#000' }} />
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <video
+                ref={mediaRef}
+                controls
+                autoPlay
+                src={playing.url}
+                style={{ maxWidth: '100%', maxHeight: '100%', background: '#000' }}
+                allowFullScreen
+              />
             </div>
           )
         ) : (
-          <p>No playback URL yet.</p>
+          <p style={{ color: '#fff', padding: 24, margin: 0 }}>No playback URL yet.</p>
         )}
       </Modal>
     </div>

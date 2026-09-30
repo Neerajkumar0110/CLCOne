@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { TableOutlined } from "@ant-design/icons";
+import { Tooltip } from "antd";
+import { TableOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import ChartCanvas, { PALETTE, fillRgba } from "./ChartCanvas";
 import { THEME, SERIES } from "./chartTheme";
 
@@ -136,7 +137,14 @@ export default function ChartCard({ def, raw, onSegmentDrill, height = 260 }) {
   return (
     <div className="hub-card dash-chart-card hub-fade-up" style={{ gridColumn: def.span === 2 ? "span 2" : undefined }}>
       <div className="hub-card-header">
-        <h3>{def.title}</h3>
+        <h3>
+          {def.title}
+          {def.hint && (
+            <Tooltip title={def.hint}>
+              <InfoCircleOutlined style={{ marginLeft: 6, fontSize: 13, opacity: 0.6, cursor: "help" }} />
+            </Tooltip>
+          )}
+        </h3>
         <button
           type="button"
           className={`hub-btn ${showNumbers ? "hub-btn-primary" : ""}`}
