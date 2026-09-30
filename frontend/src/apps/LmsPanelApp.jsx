@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Layout, Menu, Button, Grid, Drawer, Empty, Badge, Dropdown, message } from 'antd';
+import { Layout, Menu, Button, Grid, Drawer, Empty, message } from 'antd';
 import axios from 'axios';
 import lmsApi from '@/pages/Lms/api';
 import { getSocket } from '@/socket';
@@ -42,6 +42,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { logout as logoutAction } from '@/redux/auth/actions';
 import PageLoader from '@/components/PageLoader';
+import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
@@ -410,21 +411,11 @@ export default function LmsPanelApp() {
     markLinkRead(path);
   };
 
-  const notifItems = (updates.notifications || []).slice(0, 10).map((n) => ({
-    key: n.id,
-    label: (
-      <div
-        style={{ maxWidth: 320, whiteSpace: 'normal', padding: '2px 0' }}
-        onClick={() => {
-          if (n.link) navigate(n.link.replace(/^\/(learn|teacher)/, base));
-          if (!n.read) markRead([n.id]);
-        }}
-      >
-        <div style={{ fontWeight: n.read ? 400 : 600, fontSize: 13 }}>{n.title}</div>
-        {n.body ? <div style={{ fontSize: 12, color: '#667085' }}>{n.body}</div> : null}
-      </div>
-    ),
-  }));
+  const openNotification = (n) => {
+    if (n.link) navigate(n.link.replace(/^\/(learn|teacher)/, base));
+    if (!n.read) markRead([n.id]);
+  };
+  const markAllNotificationsRead = () => markRead((updates.notifications || []).filter((n) => !n.read).map((n) => n.id));
 
   const menu = (
     <Menu
@@ -547,13 +538,12 @@ export default function LmsPanelApp() {
             <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Instructor' : 'Candidate'} · {admin.name} {admin.surname || ''}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Dropdown menu={{ items: notifItems.length ? notifItems : [{ key: 'none', label: 'No notifications', disabled: true }] }} trigger={['click']} placement="bottomRight">
-              <Badge count={updates.unread || 0} size="small">
-                <span className="header-bell-trigger">
-                  <BellOutlined style={{ color: 'var(--nav-text)', fontSize: 16 }} />
-                </span>
-              </Badge>
-            </Dropdown>
+            <LmsNotificationBell
+              notifications={updates.notifications || []}
+              unread={updates.unread || 0}
+              onOpenItem={openNotification}
+              onMarkAllRead={markAllNotificationsRead}
+            />
             <Button type="text" icon={<UserOutlined />} onClick={() => go(base)} style={{ color: 'var(--nav-text)' }}>
               {admin.email}
             </Button>

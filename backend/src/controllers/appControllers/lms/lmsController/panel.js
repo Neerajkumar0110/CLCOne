@@ -417,7 +417,7 @@ async function myUpdates(req, res) {
     success: true,
     result: {
       unread,
-      notifications: recent.map((n) => ({ id: String(n._id), type: n.type, title: n.title, body: n.body, link: n.link, at: n.created, read: !!n.readAt })),
+      notifications: recent.map((n) => ({ id: String(n._id), type: n.type, title: n.title, body: n.body, link: n.link, at: n.created, read: !!n.readAt, actorName: n.actorName })),
       liveNow: live.map((s) => ({ id: String(s._id), title: s.title, course: s.courseTitle, batch: s.batchName })),
       finance,
     },
