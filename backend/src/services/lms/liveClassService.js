@@ -58,6 +58,13 @@ function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+// Support gets full teacher-level visibility + join on EVERY live class
+// (never scoped down to "my own batch" the way a real Teacher is) — this is
+// deliberately narrower than isManager: it only affects who can SEE and JOIN
+// a class (resolveRole/listFor below), not the actual class-management
+// actions (create/edit/cancel/regenerate) still gated to isManager elsewhere
+// in this file.
+const isSupport = (a) => !!(a && a.role === 'Support');
 
 // True while "now" is inside the class's scheduled time (± a small grace
 // buffer) — used so a class that got marked 'ended' early (a slip of the
@@ -1617,7 +1624,7 @@ async function resolveRole(session, admin, cache) {
     }
     if (trainer && trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
   }
-  if (isManager(admin)) return 'teacher';
+  if (isManager(admin) || isSupport(admin)) return 'teacher';
   // Every remaining branch below only resolves 'student' access. Spec §2
   // "Archive/suspend/withdraw states must immediately affect access rules" —
   // without this guard, a student who had ever joined once (so already has a
@@ -1825,8 +1832,9 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   // resolveRole's DB lookups on every single one — with a handful of
   // 6-month batches (~130 auto-generated sessions each, recurrence.js) an
   // unscoped load was issuing hundreds of sequential queries per request.
-  // A manager legitimately sees everything, so it's left unscoped for them.
-  if (admin && !isManager(admin) && !batchId) {
+  // A manager legitimately sees everything, so it's left unscoped for them
+  // — Support does too (see isSupport above), never narrowed to "my batch".
+  if (admin && !isManager(admin) && !isSupport(admin) && !batchId) {
     const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const scopeOr = [{ teacherCrmUser: admin._id }, { 'participants.crmUser': admin._id }];
     if (admin.name) scopeOr.push({ teacherName: new RegExp(`^${esc(admin.name)}$`, 'i') });
