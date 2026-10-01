@@ -98,6 +98,22 @@ function hasScheduleEnded(session) {
     : start + (session.scheduledDurationMin || 60) * 60000;
   return Date.now() > end + JOIN_WINDOW_GRACE_MIN * 60000;
 }
+
+// Lower-bound counterpart to hasScheduleEnded — true until a class's own
+// scheduled start time (minus the same grace buffer) is actually reached.
+// A batch's whole recurrence is generated up front (recurrence.js — e.g.
+// ~130 daily sessions for a 6-month batch), and without this check EVERY
+// one of those future, not-yet-reached sessions was "startable" from the
+// day the batch was created, not just the one actually due today. Because
+// every session of a batch shares one persistent BBB room
+// (ensureBatchRoom), starting the wrong future day looks and feels
+// identical to starting the right one — same link, same room — so nothing
+// in the live experience would reveal the mismatch; the class just gets
+// recorded against the wrong calendar date.
+function hasScheduleNotStartedYet(session) {
+  if (!session.scheduledStart) return false;
+  return Date.now() < new Date(session.scheduledStart).getTime() - JOIN_WINDOW_GRACE_MIN * 60000;
+}
 const DISPLAY = {
   scheduled: 'SCHEDULED',
   upcoming: 'UPCOMING',
@@ -922,6 +938,12 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
   // as startable indefinitely otherwise (see hasScheduleEnded's comment).
   if (['scheduled', 'upcoming'].includes(session.status) && hasScheduleEnded(session)) {
     return { error: 409, message: "This class's scheduled time has passed." };
+  }
+  // Its scheduled window hasn't opened yet — see hasScheduleNotStartedYet's
+  // comment for why this matters: without it, any of a batch's ~130
+  // pre-generated future sessions could be started today.
+  if (['scheduled', 'upcoming'].includes(session.status) && hasScheduleNotStartedYet(session)) {
+    return { error: 409, message: "This class hasn't started yet — you can start it up to 10 minutes early." };
   }
   const s = await settingsService.get();
 
@@ -1816,7 +1838,8 @@ function safeView(session, role, topic) {
     topic: topic || null,
     canStart:
       role === 'teacher' &&
-      ((['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session)) || resumable),
+      ((['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session) && !hasScheduleNotStartedYet(session)) ||
+        resumable),
     canEnd: role === 'teacher' && ['live', 'starting'].includes(session.status),
     canEditTime: role === 'teacher' && ['scheduled', 'upcoming'].includes(session.status),
     canAddStudent: role === 'teacher' && !!session.batch,
@@ -1827,7 +1850,7 @@ function safeView(session, role, topic) {
     canJoin:
       (role === 'teacher' &&
         (session.status === 'live' ||
-          (['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session)) ||
+          (['scheduled', 'upcoming'].includes(session.status) && !hasScheduleEnded(session) && !hasScheduleNotStartedYet(session)) ||
           resumable)) ||
       (role === 'student' && (session.status === 'live' || resumable)),
     canWatchRecording: ['recording_available'].includes(session.status),

@@ -104,9 +104,18 @@ function getStatusPanel(r) {
     };
   }
   // SCHEDULED / UPCOMING — canStart is teacher-only and, once the class is
-  // still in this status, is only ever false because its scheduled window
-  // has closed (see backend liveClassService.js's hasScheduleEnded).
+  // still in this status, is false either because its scheduled window has
+  // already closed, or because it hasn't opened yet (a batch's whole
+  // recurrence — e.g. ~130 daily sessions — is generated up front, so a
+  // far-future day sits in this same status from day one; see backend
+  // liveClassService.js's hasScheduleEnded/hasScheduleNotStartedYet).
+  // Disambiguate by comparing scheduledStart to now rather than showing
+  // "Time passed" for a class that's actually still ahead of us.
   if (r.myRole === 'teacher' && !r.canStart) {
+    const notYetOpen = r.scheduledStart && new Date(r.scheduledStart).getTime() > Date.now();
+    if (notYetOpen) {
+      return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not open yet', desc: `You can start this up to 10 minutes early — ${t(r.scheduledStart)}.` };
+    }
     return { icon: <ClockCircleOutlined />, tone: 'default', title: 'Time passed', desc: "This class wasn't started." };
   }
   if (r.autoStartAt) {
