@@ -149,6 +149,20 @@ async function autoAdvance(batchId) {
   return { chapters, sessionTopics };
 }
 
+// Same curriculum-topic label the Calendar shows for one session (e.g. "S1
+// — Python Setup & Environment"), for the handful of call sites that only
+// need a single session's label rather than a whole batch's map — e.g.
+// LiveRecording.className, which must match what Calendar shows for the
+// same class instead of the generic "<batch> — Class <n>" placeholder
+// session.title holds. Returns null (caller falls back to session.title)
+// when the batch has no native curriculum or no chapter covers this slot.
+async function topicForSession(batchId, sessionId) {
+  const advanced = await autoAdvance(batchId).catch(() => null);
+  const covered = advanced && advanced.sessionTopics[String(sessionId)];
+  if (!covered || !covered.length) return null;
+  return covered.map((c) => (c.sessionLabel ? `${c.sessionLabel} — ${c.title}` : c.title)).join(' + ');
+}
+
 // Rolls up (crmUser, course) LessonProgress rows into the CourseProgress
 // aggregate — same shape as learning.js's own (unexported) rollUpCourse, but
 // kept here rather than imported from a controller so this service has no
@@ -316,6 +330,7 @@ module.exports = {
   resolveCourseForBatch,
   orderedChaptersForCourse,
   autoAdvance,
+  topicForSession,
   completionForBatch,
   unitProgressForBatch,
   unitsForBatch,

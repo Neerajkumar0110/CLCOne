@@ -390,7 +390,17 @@ async function updateSchedule(id, admin, patch = {}) {
     { _id: session.liveClass },
     { $set: { topic: session.title, scheduledAt: session.scheduledStart, durationMin: session.scheduledDurationMin, agenda: session.description, updated: new Date() } }
   );
-  await mongoose.model('LiveRecording').updateOne({ liveSession: session._id }, { $set: { className: session.title } });
+  // A teacher's own explicit rename (patch.title) always wins outright —
+  // otherwise (e.g. just moving the time) keep the recording's name in sync
+  // with whatever curriculum topic Calendar shows for this slot, same as
+  // startSession, rather than clobbering it back to the generic
+  // "<batch> — Class <n>" placeholder on every reschedule.
+  let recordingClassName = session.title;
+  if (patch.title === undefined) {
+    const topic = await require('./chapterProgress').topicForSession(session.batch, session._id).catch(() => null);
+    if (topic) recordingClassName = topic;
+  }
+  await mongoose.model('LiveRecording').updateOne({ liveSession: session._id }, { $set: { className: recordingClassName } });
   return { result: safeView(session, 'teacher') };
 }
 
@@ -937,6 +947,15 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
   // looks at 'recording_processing' sessions) never checks this one again.
   if (teacherPresent && session.recordingEnabled && s.recordingAutoStart && session.recordingStatus !== 'AVAILABLE') {
     session.recordingStatus = 'RECORDING';
+    // session.title is just "<batch> — Class <n>" (set once at schedule-
+    // generation time, recurrence.js) — the Calendar instead shows each
+    // class's real curriculum topic ("S1 — Python Setup & Environment",
+    // services/lms/chapterProgress.js), computed on the fly and never
+    // written back to session.title. Resolve the same label here so a
+    // class's recording is named the way it already appears on Calendar,
+    // falling back to session.title only when no curriculum chapter covers
+    // this slot (e.g. no native curriculum set up for this course yet).
+    const topic = await require('./chapterProgress').topicForSession(session.batch, session._id).catch(() => null);
     // Created here (upsert), not when the session/schedule was generated —
     // only classes that actually go live get a recording row at all.
     const rec = await mongoose.model('LiveRecording').findOneAndUpdate(
@@ -950,7 +969,7 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
           courseTitle: session.courseTitle,
           batchName: session.batchName,
           teacherName: session.teacherName,
-          className: session.title,
+          className: topic || session.title,
           liveClass: session.liveClass,
         },
       },
