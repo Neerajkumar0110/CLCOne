@@ -33,11 +33,20 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id/device-check`).post(catchErrors(lms.liveDeviceCheck));
   router.route(`${base}/:id/regenerate`).post(requireManager, catchErrors(lms.liveRegenerate));
   router.route(`${base}/:id/open`).get(catchErrors(lms.liveOpenEntry));
+  // Paste in an already-hosted recording (Google Drive, etc.) for this one
+  // class — the class's own instructor or a manager (checked inside the
+  // handler, same as /recordings/:id/upload). Mainly for backfilling old
+  // classes that happened before this system tracked them.
+  router.route(`${base}/:id/recording-link`).post(catchErrors(lms.liveRecordingAttachLink));
 });
 
 // ── add a student to a running batch (manager, or the batch's teacher) ──
 router.route('/batches/:id/students').get(catchErrors(lms.batchStudents)).post(catchErrors(lms.liveAddStudent));
 router.route('/batches/:id/students/remove').post(catchErrors(lms.removeBatchStudent));
+// Bulk version of the recording-link endpoint above — one whole batch's
+// backlog of old Drive recordings in a single paste, matched to each
+// session by date (manager only).
+router.route('/admin/batches/:id/recording-links').post(requireManager, catchErrors(lms.liveRecordingBulkAttachLinks));
 router.route('/batches/:id/holidays').post(requireManager, catchErrors(lms.liveAddHoliday));
 router.route('/batches/:id/holidays/:date').delete(requireManager, catchErrors(lms.liveRemoveHoliday));
 // ── combined student search: LMS roster + User Management accounts ──────

@@ -184,6 +184,8 @@ module.exports = {
   liveRecordingUpload: scope.uploadRecording,
   liveRecordingDelete: scope.deleteRecording,
   liveRecordingSetBackup: scope.setBackupUrl,
+  liveRecordingAttachLink: scope.attachRecordingLink,
+  liveRecordingBulkAttachLinks: scope.bulkAttachRecordingLinks,
   liveAttendanceDashboard: scope.attendanceDashboard,
   liveAttendanceExport: scope.attendanceExport,
   liveMonitor: scope.liveMonitor,

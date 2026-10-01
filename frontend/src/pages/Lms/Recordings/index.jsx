@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip } from 'antd';
-import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined } from '@ant-design/icons';
+import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, List, Typography } from 'antd';
+import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { request } from '@/request';
 import lmsApi from '../api';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -118,6 +119,56 @@ export default function Recordings() {
       },
     });
 
+  // Backfill old recordings (Google Drive, etc.) a whole batch at a time —
+  // paste "YYYY-MM-DD, <link>" one per line, each matched to that batch's
+  // class scheduled on that date.
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [batchOptions, setBatchOptions] = useState([]);
+  const [bulkBatchId, setBulkBatchId] = useState(null);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
+
+  const openBulk = async () => {
+    setBulkResults(null);
+    setBulkText('');
+    setBulkOpen(true);
+    try {
+      const res = await request.list({ entity: 'batch', options: { items: 500, sortBy: 'name', sortValue: 1 } });
+      setBatchOptions(((res && res.result) || []).map((b) => ({ value: b._id, label: b.name })));
+    } catch (e) {
+      message.error('Could not load batches.');
+    }
+  };
+  const parseBulkLines = () =>
+    bulkText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const idx = line.indexOf(',');
+        if (idx === -1) return { date: '', url: '', raw: line };
+        return { date: line.slice(0, idx).trim(), url: line.slice(idx + 1).trim(), raw: line };
+      });
+  const submitBulk = async () => {
+    if (!bulkBatchId) return message.warning('Pick a batch first.');
+    const links = parseBulkLines();
+    if (!links.length) return message.warning('Paste at least one "date, link" line.');
+    setBulkSaving(true);
+    try {
+      const res = await lmsApi.batchBulkAttachRecordingLinks(bulkBatchId, links);
+      const results = (res && res.result && res.result.results) || [];
+      setBulkResults(results);
+      const okCount = results.filter((r) => r.ok).length;
+      if (okCount) load();
+      message[okCount === results.length ? 'success' : 'warning'](`${okCount} of ${results.length} attached.`);
+    } catch (e) {
+      message.error('Bulk attach failed.');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   const columns = [
     { title: 'Class', dataIndex: 'className', render: (v, r) => <><b>{v}</b><div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.courseTitle} · {r.batchName}</div></> },
     { title: 'Instructor', dataIndex: 'teacherName', width: 140 },
@@ -153,7 +204,12 @@ export default function Recordings() {
           <h2><PlaySquareOutlined /> Recordings</h2>
           <p>{isManager ? 'All class recordings.' : 'Recordings for your classes / enrolled courses.'}</p>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
+        <Space>
+          {isManager && (
+            <Button icon={<LinkOutlined />} onClick={openBulk}>Bulk attach recording links</Button>
+          )}
+          <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
+        </Space>
       </div>
 
       <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
@@ -230,7 +286,12 @@ export default function Recordings() {
         }
       >
         {playing && playing.url ? (
-          playing.provider === 'bigbluebutton' ? (
+          // BBB's playback page and an 'external' link (Google Drive's
+          // /preview, YouTube, etc. — see liveScope.js's
+          // normalizeExternalRecordingUrl) are HTML pages, not raw video
+          // streams, so they need an <iframe>; only our own hosted uploads
+          // (provider 'mock'/'jitsi', a direct .mp4 file) play in <video>.
+          playing.provider === 'bigbluebutton' || playing.provider === 'external' ? (
             <iframe
               ref={mediaRef}
               title="recording"
@@ -253,6 +314,53 @@ export default function Recordings() {
         ) : (
           <p style={{ color: '#fff', padding: 24, margin: 0 }}>No playback URL yet.</p>
         )}
+      </Modal>
+
+      <Modal
+        title="Bulk attach recording links"
+        open={bulkOpen}
+        onCancel={() => setBulkOpen(false)}
+        onOk={submitBulk}
+        okText="Attach"
+        confirmLoading={bulkSaving}
+        width={640}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Batch"
+            showSearch
+            optionFilterProp="label"
+            value={bulkBatchId}
+            onChange={setBulkBatchId}
+            options={batchOptions}
+          />
+          <Input.TextArea
+            rows={10}
+            placeholder={'One class per line: YYYY-MM-DD, https://drive.google.com/...\n2026-07-01, https://drive.google.com/file/d/abc123/view\n2026-07-02, https://drive.google.com/file/d/def456/view'}
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+            Each date is matched to that batch's class scheduled on that calendar day. A date with no class
+            scheduled is reported below instead of silently skipped.
+          </Typography.Text>
+          {bulkResults && (
+            <List
+              size="small"
+              bordered
+              dataSource={bulkResults}
+              style={{ maxHeight: 240, overflowY: 'auto' }}
+              renderItem={(r) => (
+                <List.Item>
+                  {r.ok ? <CheckCircleOutlined style={{ color: '#389e0d' }} /> : <CloseCircleOutlined style={{ color: '#cf1322' }} />}
+                  <span style={{ marginLeft: 8 }}>{r.date || '(blank)'}</span>
+                  {!r.ok && <span style={{ marginLeft: 8, color: '#889' }}>{r.message}</span>}
+                </List.Item>
+              )}
+            />
+          )}
+        </Space>
       </Modal>
     </div>
   );

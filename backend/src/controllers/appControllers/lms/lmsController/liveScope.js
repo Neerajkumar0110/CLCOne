@@ -353,6 +353,149 @@ async function setBackupUrl(req, res) {
   return res.status(200).json({ success: true, result: { id: String(r._id), hasBackup: !!r.backupUrl } });
 }
 
+/* ─────────────── EXTERNAL RECORDING LINKS (backfill — Drive, etc.) ─────────────── */
+
+// A Google Drive "share" link (/file/d/<id>/view, /open?id=<id>, /uc?id=<id>)
+// isn't itself a playable video — it's an HTML viewer page — so it can't go
+// into a plain <video src>. Drive's own /preview path embeds fine in an
+// <iframe> (same trick the frontend already uses for BBB's playback page),
+// so that's what becomes playbackUrl; the original share link is kept as
+// downloadUrl since that's the one that actually offers a download. Any
+// other URL (a direct .mp4 host, YouTube unlisted, etc.) is left exactly as
+// given — the frontend falls back to an <iframe> for anything that isn't a
+// recognizable direct video file anyway.
+function normalizeExternalRecordingUrl(raw) {
+  const url = String(raw || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  let id = null;
+  let m = /drive\.google\.com\/file\/d\/([^/?]+)/.exec(url);
+  if (m) id = m[1];
+  if (!id) {
+    m = /drive\.google\.com\/.*[?&]id=([^&]+)/.exec(url);
+    if (m) id = m[1];
+  }
+  if (id) {
+    return {
+      playbackUrl: `https://drive.google.com/file/d/${id}/preview`,
+      downloadUrl: `https://drive.google.com/uc?export=download&id=${id}`,
+    };
+  }
+  return { playbackUrl: url, downloadUrl: url };
+}
+
+// Upserts the LiveRecording for one session — a historical/backfilled
+// session (created outside the normal start/end-class flow) never got one
+// automatically, and even a normal session's existing row is fine to
+// overwrite here (an admin pasting a link is an explicit, deliberate
+// correction). Denormalised fields are read straight off the session so the
+// Recordings list/search never needs a join.
+async function attachLinkToSession(sessionId, rawUrl) {
+  const norm = normalizeExternalRecordingUrl(rawUrl);
+  if (!norm) throw new Error('A valid http(s) URL is required.');
+
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const LiveRecording = mongoose.model('LiveRecording');
+  const session = await LmsLiveSession.findById(sessionId).lean();
+  if (!session) throw new Error('Class session not found.');
+
+  const now = new Date();
+  await LiveRecording.findOneAndUpdate(
+    { liveSession: session._id },
+    {
+      $set: {
+        liveClass: session.liveClass,
+        crmCourse: session.crmCourse,
+        batch: session.batch,
+        teacherCrmUser: session.teacherCrmUser,
+        courseTitle: session.courseTitle,
+        batchName: session.batchName,
+        teacherName: session.teacherName,
+        className: session.title,
+        provider: 'external',
+        status: 'AVAILABLE',
+        startedAt: session.actualStart || session.scheduledStart,
+        endedAt: session.actualEnd || session.scheduledEnd,
+        durationMin: session.scheduledDurationMin || 0,
+        publishedAt: now,
+        playbackUrl: norm.playbackUrl,
+        downloadUrl: norm.downloadUrl,
+        removed: false,
+        updated: now,
+      },
+      $setOnInsert: { liveSession: session._id, created: now },
+    },
+    { upsert: true }
+  );
+  await LmsLiveSession.updateOne({ _id: session._id }, { $set: { recordingStatus: 'AVAILABLE' } });
+}
+
+// POST /api/lms/sessions/:id/recording-link   { url }
+// (the class's own instructor, or a manager)
+async function attachRecordingLink(req, res) {
+  const admin = req.admin;
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const session = await LmsLiveSession.findById(req.params.id).select('teacherCrmUser teacherName').lean();
+  if (!session) return res.status(404).json({ success: false, message: 'Class session not found.' });
+
+  const allowed =
+    isManager(admin) ||
+    String(session.teacherCrmUser) === String(admin._id) ||
+    (session.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
+  if (!allowed) return res.status(403).json({ success: false, message: "Only this class's instructor or a manager can attach its recording." });
+
+  try {
+    await attachLinkToSession(req.params.id, (req.body || {}).url);
+    return res.status(200).json({ success: true, result: { message: 'Recording attached.' } });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+}
+
+// POST /api/lms/admin/batches/:id/recording-links   { links: [{ date: 'YYYY-MM-DD', url }] }
+// (manager only — route guards) — matches each date to that batch's session
+// scheduled on that IST calendar day, so a whole batch's backlog of old
+// Drive recordings can be dropped in one paste instead of one row at a time.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+function istDateKeyOf(d) {
+  const ist = new Date(new Date(d).getTime() + IST_OFFSET_MS);
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}-${String(ist.getUTCDate()).padStart(2, '0')}`;
+}
+async function bulkAttachRecordingLinks(req, res) {
+  const Batch = mongoose.model('Batch');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const batch = await Batch.findOne({ _id: req.params.id, removed: false }).lean();
+  if (!batch) return res.status(404).json({ success: false, message: 'Batch not found.' });
+
+  const links = Array.isArray((req.body || {}).links) ? req.body.links : [];
+  const sessions = await LmsLiveSession.find({ batch: batch._id, removed: false }).select('_id scheduledStart').lean();
+  const byDateKey = new Map();
+  sessions.forEach((s) => {
+    if (s.scheduledStart) byDateKey.set(istDateKeyOf(s.scheduledStart), s._id);
+  });
+
+  const results = [];
+  for (const row of links) {
+    const date = String((row && row.date) || '').trim();
+    const url = String((row && row.url) || '').trim();
+    if (!date || !url) {
+      results.push({ date, ok: false, message: 'Missing date or URL.' });
+      continue;
+    }
+    const sessionId = byDateKey.get(date);
+    if (!sessionId) {
+      results.push({ date, ok: false, message: 'No class scheduled on this date for this batch.' });
+      continue;
+    }
+    try {
+      await attachLinkToSession(sessionId, url);
+      results.push({ date, ok: true });
+    } catch (e) {
+      results.push({ date, ok: false, message: e.message });
+    }
+  }
+  return res.status(200).json({ success: true, result: { results } });
+}
+
 /* ─────────────── ATTENDANCE DASHBOARD (teacher scoped / admin all) ─────────────── */
 
 async function attendanceDashboard(req, res) {
@@ -663,6 +806,8 @@ module.exports = {
   uploadRecording,
   deleteRecording,
   setBackupUrl,
+  attachRecordingLink,
+  bulkAttachRecordingLinks,
   attendanceDashboard,
   attendanceExport,
   liveMonitor,

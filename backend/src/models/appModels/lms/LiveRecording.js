@@ -19,7 +19,11 @@ const schema = new mongoose.Schema({
   teacherName: { type: String },
   className: { type: String },
 
-  provider: { type: String, enum: ['bigbluebutton', 'jitsi', 'mock'], default: 'mock' },
+  // 'external': a link an admin/teacher pasted in by hand (e.g. an old class
+  // backed up to Google Drive before this system tracked it) rather than
+  // something a meeting provider actually recorded — see liveScope.js's
+  // attachRecordingLink/bulkAttachRecordingLinks.
+  provider: { type: String, enum: ['bigbluebutton', 'jitsi', 'mock', 'external'], default: 'mock' },
   recordingId: { type: String, index: true }, // provider recordID
   meetingId: { type: String },
 

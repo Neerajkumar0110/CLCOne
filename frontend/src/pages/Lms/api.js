@@ -61,6 +61,13 @@ const lmsApi = {
     return request.post({ entity: `lms/recordings/${id}/upload`, jsonData: fd });
   },
   recordingDelete: (id) => request.post({ entity: `lms/admin/recordings/${id}/delete`, jsonData: {} }),
+  // Paste-a-link backfill (Google Drive, etc.) — sessionId is the class's own
+  // id, not the recording row's (there may not be one yet).
+  recordingAttachLink: (sessionId, url) =>
+    request.post({ entity: `lms/live-classes/${sessionId}/recording-link`, jsonData: { url } }),
+  // links: [{ date: 'YYYY-MM-DD', url }]
+  batchBulkAttachRecordingLinks: (batchId, links) =>
+    request.post({ entity: `lms/admin/batches/${batchId}/recording-links`, jsonData: { links } }),
 
   // ── attendance ────────────────────────────────────────────────────
   adminAttendance: (f = {}) => request.get({ entity: `lms/admin/attendance${qs(f)}` }),
