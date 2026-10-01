@@ -4,7 +4,7 @@ const { lmsConfig } = require('../../config/lms');
 const { getMeetingProvider } = require('./meeting');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_STUDENT_ROLES } = require('../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES } = require('../../config/roles');
 
 // Live-class orchestration: auto room, SCHEDULED..RECORDING_AVAILABLE
 // lifecycle, multi-session attendance (webhook-authoritative), recording
@@ -57,13 +57,15 @@ function coerceLegacy(session) {
 function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
-const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
-// Support gets full teacher-level visibility + join on EVERY live class
-// (never scoped down to "my own batch" the way a real Teacher is) — this is
-// deliberately narrower than isManager: it only affects who can SEE and JOIN
-// a class (resolveRole/listFor below), not the actual class-management
-// actions (create/edit/cancel/regenerate) still gated to isManager elsewhere
-// in this file.
+// LMS_FULL_ACCESS_ROLES = MANAGEMENT_ROLES + 'Support' — so Support now also
+// passes every class-management gate in this file (create/edit/cancel/
+// regenerate/addStudentToBatch/removeStudentFromBatch/etc.), not just the
+// narrower resolveRole/listFor visibility+join carve-out isSupport below
+// used to provide on its own.
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
+// Kept for resolveRole/listFor's own comments/call sites below — now
+// redundant with isManager (which already includes 'Support'), but harmless
+// to leave as an explicit `|| isSupport(admin)` where it already appears.
 const isSupport = (a) => !!(a && a.role === 'Support');
 
 // True while "now" is inside the class's scheduled time (± a small grace

@@ -3,7 +3,7 @@ const { assignQuestions } = require('../../../../../services/lms/assessments/rou
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 const { curriculumTracker, chapterProgress } = require('../../../../../services/lms');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES } = require('../../../../../config/roles');
 const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 
 // Ported from python-test-platform's src/controllers/testController.js
@@ -417,7 +417,7 @@ async function getBatchProgress(req, res) {
     if (!batchDoc) return res.status(404).json({ success: false, message: 'Batch not found.' });
 
     const admin = req.admin;
-    const isManager = !!(admin && (MANAGEMENT_ROLES.includes(admin.role) || SUPER_ADMIN_ROLES.includes(admin.role)));
+    const isManager = !!(admin && LMS_FULL_ACCESS_ROLES.includes(admin.role));
     if (!isManager) {
       const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
       const isOwnTeacherBatch = batchDoc.trainer && rxEq(admin.name || '').test(batchDoc.trainer);

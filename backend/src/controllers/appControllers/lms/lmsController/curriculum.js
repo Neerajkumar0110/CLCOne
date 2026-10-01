@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
 const { isTeacherOfCourse, chapterProgress } = require('../../../../services/lms');
 
 // Teacher / manager curriculum builder for a course:
@@ -17,7 +17,7 @@ const { isTeacherOfCourse, chapterProgress } = require('../../../../services/lms
 //   DELETE /api/lms/lessons/:id
 //   POST   /api/lms/courses/:courseId/reorder        { modules:[{id,order}], chapters:[...], lessons:[...] }
 
-const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
 const bad = (res, code, message) => res.status(code).json({ success: false, result: null, message });

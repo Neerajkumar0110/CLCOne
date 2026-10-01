@@ -43,6 +43,18 @@ const STAFF_CREATOR_ROLES = [...SUPER_ADMIN_ROLES, 'Admin'];
 // — the two can't share a literal import across packages, keep in sync by hand.
 const MANAGEMENT_ROLES = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
 
+// MANAGEMENT_ROLES, plus 'Support' — every LMS controller/service's local
+// "isManager" admin-access check should be built from this instead, not
+// MANAGEMENT_ROLES directly. Support has full view/edit/delete on the LMS
+// permission module (frontend/src/config/permissionModules.js,
+// defaultPermissionMatrix.js), same as Admin — but that matrix only gates
+// the sidebar/route entry; every individual LMS feature (Policies,
+// Certificates, Curriculum, Quizzes, Assignments, Projects, Study Material,
+// Doubts, Recordings, Attendance, Learner 360, Analytics, batch roster
+// management, …) separately re-checks role against MANAGEMENT_ROLES in its
+// own controller, which silently excluded Support until this was added.
+const LMS_FULL_ACCESS_ROLES = [...MANAGEMENT_ROLES, 'Support'];
+
 // Roles outside the core Sales/CRM pipeline. The Auto-Dialer is a Sales-only
 // tool — a campaign may never dial out through, or be worked by, one of
 // these roles (see callingController/campaigns.js). Inbound IVR routing is
@@ -57,6 +69,7 @@ module.exports = {
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
   MANAGEMENT_ROLES,
+  LMS_FULL_ACCESS_ROLES,
   NON_SALES_ROLES,
   LMS_TEACHER_ROLES,
   LMS_STUDENT_ROLES,

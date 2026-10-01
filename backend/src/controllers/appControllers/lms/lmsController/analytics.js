@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES } = require('../../../../config/roles');
 
 // GET /api/lms/teacher/analytics?course=
 // Aggregates across the teacher's courses/students and builds the cohorts the
 // spec asks for (high performers / slow learners / inactive / at-risk / low
 // attendance / pending assignments).
 
-const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const avg = (arr, f) => (arr.length ? Math.round(arr.reduce((a, b) => a + (f(b) || 0), 0) / arr.length) : 0);
 

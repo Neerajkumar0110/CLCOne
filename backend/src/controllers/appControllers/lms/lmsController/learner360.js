@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const engine = require('../../../../services/lms/eligibilityEngine');
 const { isTeacherOfCourse } = require('../../../../services/lms');
 
@@ -10,7 +10,7 @@ const { isTeacherOfCourse } = require('../../../../services/lms');
 // these per student; this just reshapes that + certificate status into a
 // flat, exportable row per student.
 
-const isManager = (a) => !!(a && MANAGEMENT_ROLES.includes(a.role));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 

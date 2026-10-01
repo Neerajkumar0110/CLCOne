@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const { istDateTime } = require('../../../../services/lms/recurrence');
 const { buildPlanSummary } = require('../../../../services/payments/plan');
 const { overdueQuery } = require('../../../../services/payments/financeHold');
@@ -14,7 +14,7 @@ const { overdueQuery } = require('../../../../services/payments/financeHold');
 // whose models don't exist yet (assignments, quizzes, doubts) report 0 with a
 // `pending` flag so the UI can show "coming soon" instead of a broken number.
 
-const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const rx = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 // "Today" means today in India, regardless of what timezone the server
 // process itself happens to be in — see recurrence.js's istDateTime for why

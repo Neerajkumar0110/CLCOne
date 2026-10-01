@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const certEngine = require('../../../../services/lms/certificateEngine');
 const { isTeacherOfCourse } = require('../../../../services/lms');
 
@@ -14,7 +14,7 @@ const { isTeacherOfCourse } = require('../../../../services/lms');
 //  anyone (bearer):
 //   GET   /api/lms/certificates/verify/:certificateId
 
-const isManager = (a) => !!(a && (MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role)));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
 const realtime = require('../../../../services/lms/realtime');
 const auditLog = require('../../../../services/lms/auditLog');
 const { CATEGORIES } = require('../../../../config/lmsPolicyCategories');
@@ -16,7 +16,7 @@ const { CATEGORIES } = require('../../../../config/lmsPolicyCategories');
 //   GET   /api/lms/my/policies                           (pending + acknowledged, for their own account)
 //   POST  /api/lms/policies/:id/acknowledge
 
-const isManager = (a) => !!(a && MANAGEMENT_ROLES.includes(a.role));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isStudent = (a) => !!(a && LMS_STUDENT_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });

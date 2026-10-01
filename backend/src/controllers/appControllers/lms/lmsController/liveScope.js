@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const { liveClassService, lmsConfig } = require('../../../../services/lms');
 const settingsService = require('../../../../services/lms/settingsService');
 const { compressVideo } = require('../../../../services/lms/recordingCompress');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES } = require('../../../../config/roles');
 
 // Students never see a class's recording until this long after the class
 // actually ended — gives the teacher room to upload without a partial/
@@ -15,7 +15,7 @@ const RECORDING_STUDENT_DELAY_MS = 2 * 60 * 60 * 1000;
 // Golden rule: course/batch/student ids from the client are NEVER trusted —
 // every list is re-scoped from req.admin.
 
-const isManager = (a) => MANAGEMENT_ROLES.includes(a.role) || SUPER_ADMIN_ROLES.includes(a.role);
+const isManager = (a) => LMS_FULL_ACCESS_ROLES.includes(a.role);
 
 function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');

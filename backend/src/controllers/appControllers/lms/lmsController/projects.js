@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
 const realtime = require('../../../../services/lms/realtime');
 const auditLog = require('../../../../services/lms/auditLog');
 
@@ -20,7 +20,7 @@ const auditLog = require('../../../../services/lms/auditLog');
 //   POST   /api/lms/projects/:id/review          { decision, feedback, rubricScores? }
 //   GET    /api/lms/teacher/projects
 
-const isManager = (a) => !!(a && MANAGEMENT_ROLES.includes(a.role));
+const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
 const isStudent = (a) => !!(a && LMS_STUDENT_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
