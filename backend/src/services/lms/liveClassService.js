@@ -1935,7 +1935,21 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   // batch: live right now, else the soonest upcoming one, else (nothing
   // scheduled) the most recently ended one so the batch doesn't just
   // disappear from the list.
-  const rank = (v) => (['live', 'starting'].includes(v.status) ? 0 : ['scheduled', 'upcoming'].includes(v.status) ? 1 : 2);
+  // A 'scheduled'/'upcoming' session whose own window has already closed
+  // (hasScheduleEnded) without ever being started no longer belongs in rank
+  // 1 — otherwise it's still the "soonest" scheduled row for its batch
+  // forever (its scheduledStart never changes), permanently out-ranking
+  // every later session that's actually still joinable and leaving that
+  // batch's card stuck pointing at a dead slot with no working Start
+  // button. Falls into rank 2 instead, alongside ended/recording sessions,
+  // where "most recent wins" surfaces the most recently-missed class rather
+  // than an arbitrarily old one.
+  const rank = (v) =>
+    ['live', 'starting'].includes(v.status)
+      ? 0
+      : ['scheduled', 'upcoming'].includes(v.status) && !hasScheduleEnded(v)
+        ? 1
+        : 2;
   const best = new Map();
   for (const v of out) {
     const key = v.batchId || v.batchName || v.id;
