@@ -1963,8 +1963,18 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   // months away — instead of whatever was actually live or next up. Use
   // `.lifecycle` (the untouched lowercase session.status) instead, which is
   // what these comparisons were always meant to read.
+  //
+  // `v.canJoin`/`v.canStart` also bump a row to rank 0 regardless of
+  // lifecycle: a class that auto-started but got auto-ended within minutes
+  // because nobody actually joined the BBB room (autoLifecycleTick's
+  // "teacher never showed up" cleanup) is 'ended' in lifecycle terms, but
+  // safeView's own `resumable` check already says it's still joinable while
+  // its scheduled window hasn't closed — that must outrank even a
+  // perfectly-fine future 'scheduled' session, which can't be joined yet at
+  // all. Without this, the card skipped straight past "still joinable,
+  // right now" to "next scheduled day" the moment auto-end fired.
   const rank = (v) =>
-    ['live', 'starting'].includes(v.lifecycle)
+    ['live', 'starting'].includes(v.lifecycle) || v.canJoin || v.canStart
       ? 0
       : ['scheduled', 'upcoming'].includes(v.lifecycle) && !hasScheduleEnded(v)
         ? 1
