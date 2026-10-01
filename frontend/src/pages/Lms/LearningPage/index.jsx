@@ -248,7 +248,10 @@ export default function LearningPage() {
                     {c.durationHours ? (
                       <div className="lms-course-chip">
                         <ClockCircleOutlined />
-                        <span><b>{c.durationHours}h</b> Duration</span>
+                        {/* Despite the field name, Course.durationHours is entered as
+                           MONTHS (see featureSections.js's "Duration (months)" label
+                           on this field) — "6" here means 6 months, not 6 hours. */}
+                        <span><b>{c.durationHours}</b> month{c.durationHours === 1 ? '' : 's'} Duration</span>
                       </div>
                     ) : null}
                     <div className="lms-course-chip">
