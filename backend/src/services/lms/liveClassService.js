@@ -1953,10 +1953,20 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   // button. Falls into rank 2 instead, alongside ended/recording sessions,
   // where "most recent wins" surfaces the most recently-missed class rather
   // than an arbitrarily old one.
+  //
+  // `v` here is a safeView() row, where `.status` is already the uppercase
+  // DISPLAY string ("LIVE", "SCHEDULED", …) — comparing that against these
+  // lowercase lifecycle values always failed, silently sending every single
+  // row to rank 2 regardless of its real state. With every row tied at rank
+  // 2, the "most recent wins" tiebreak below picked whichever session had
+  // the LATEST scheduledStart — a batch's very last auto-generated session,
+  // months away — instead of whatever was actually live or next up. Use
+  // `.lifecycle` (the untouched lowercase session.status) instead, which is
+  // what these comparisons were always meant to read.
   const rank = (v) =>
-    ['live', 'starting'].includes(v.status)
+    ['live', 'starting'].includes(v.lifecycle)
       ? 0
-      : ['scheduled', 'upcoming'].includes(v.status) && !hasScheduleEnded(v)
+      : ['scheduled', 'upcoming'].includes(v.lifecycle) && !hasScheduleEnded(v)
         ? 1
         : 2;
   const best = new Map();
