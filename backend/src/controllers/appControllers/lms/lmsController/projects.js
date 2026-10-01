@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
 const realtime = require('../../../../services/lms/realtime');
 const auditLog = require('../../../../services/lms/auditLog');
+const { trainerNames, trainerIncludes } = require('../../../../services/lms/teacherCourseAccess');
 
 // Project Management Module (spec §10). Confidentiality is enforced here,
 // not in the schema: only the owning student, the assigned mentor and a
@@ -82,7 +83,7 @@ async function assign(req, res) {
 
   const batchDoc = await Batch.findOne({ _id: b.batch, removed: false }).lean();
   if (!batchDoc) return bad(res, 404, 'Batch not found.');
-  if (isTeacher(req.admin) && !rxEq(batchDoc.trainer || '').test(req.admin.name || ''))
+  if (isTeacher(req.admin) && !trainerIncludes(batchDoc.trainer, req.admin.name))
     return bad(res, 403, 'You can only assign projects to your own batches.');
 
   const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }).lean() : null;
@@ -92,8 +93,12 @@ async function assign(req, res) {
   if (b.mentorEmail) {
     mentor = await Admin.findOne({ email: rxEq(b.mentorEmail), role: 'Teacher', removed: false }).select('_id name email').lean();
     if (!mentor) return bad(res, 404, 'Mentor not found (must be an Instructor account).');
-  } else if (batchDoc.trainer) {
-    mentor = await Admin.findOne({ name: rxEq(batchDoc.trainer), role: 'Teacher', removed: false }).select('_id name email').lean();
+  } else {
+    // No mentor picked — default to the batch's first Project Manager.
+    const primaryTrainerName = trainerNames(batchDoc.trainer)[0];
+    if (primaryTrainerName) {
+      mentor = await Admin.findOne({ name: rxEq(primaryTrainerName), role: 'Teacher', removed: false }).select('_id name email').lean();
+    }
   }
 
   // one specific student, or the whole batch roster

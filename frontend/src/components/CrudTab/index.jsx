@@ -95,6 +95,7 @@ function iconForField(f) {
 
 function formatCell(field, value) {
   if (field.type === 'bool') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
   if (value === undefined || value === null || value === '') return '—';
   if (field.type === 'date') {
     const d = dayjs(value);
@@ -130,6 +131,10 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
   // (duration, etc.), which the {value,label} pairs in `refOptions` don't carry.
   const [refRows, setRefRows] = useState({});
   const [form] = Form.useForm();
+  // Live preview of the record's name as the user types it, shown under the
+  // modal title — only when the entity actually exposes a visible `name` field.
+  const hasNameField = useMemo(() => fields.some((f) => f.name === 'name' && !f.hidden), [fields]);
+  const namePreview = Form.useWatch('name', form);
 
   // Fields whose Select options come from another entity's live list (e.g.
   // Students' Course/Batch pickers) instead of a static `options` array.
@@ -434,6 +439,9 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
             <span>
               <span className="crud-modal-title-kicker">{editing ? 'Edit record' : 'New record'}</span>
               <span className="crud-modal-title-main">{title}</span>
+              {hasNameField && namePreview ? (
+                <span className="crud-modal-title-preview">{namePreview}</span>
+              ) : null}
             </span>
           </span>
         }
@@ -514,7 +522,11 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                           }
                           valuePropName={f.type === 'bool' ? 'checked' : 'value'}
                           className={full ? 'crud-form-full' : undefined}
-                          extra={f.hint || (f.compute ? 'Auto-calculated' : undefined)}
+                          extra={
+                            f.lockOnEdit && editing
+                              ? 'Locked after creation — renaming would break every record that links to this by name.'
+                              : f.hint || (f.compute ? 'Auto-calculated' : undefined)
+                          }
                           rules={
                             f.required ? [{ required: true, message: `${f.label} is required` }] : undefined
                           }
@@ -533,12 +545,17 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                             <Select
                               allowClear
                               showSearch
+                              mode={f.multiple ? 'multiple' : undefined}
                               optionFilterProp="label"
                               placeholder={f.refEntity ? `Select a ${f.label.toLowerCase()}…` : undefined}
                               options={f.refEntity ? (refOptions[f.name] || []) : (f.options || []).map((o) => ({ label: o, value: o }))}
                             />
                           ) : (
-                            <Input type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'} placeholder={f.placeholder} />
+                            <Input
+                              type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'}
+                              placeholder={f.placeholder}
+                              disabled={f.lockOnEdit && !!editing}
+                            />
                           )}
                         </Form.Item>
                       );

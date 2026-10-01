@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { trainerIncludes } = require('../../../../services/lms/teacherCourseAccess');
 
 // Assignments — teacher creates/evaluates, student submits/resubmits.
 //
@@ -62,7 +63,7 @@ async function create(req, res) {
   if (mongoose.isValidObjectId(b.batch)) {
     batchDoc = await Batch.findOne({ _id: b.batch, removed: false });
     if (!batchDoc) return bad(res, 404, 'Batch not found.');
-    if (!isManager(req.admin) && !rxEq(batchDoc.trainer || '').test(req.admin.name || ''))
+    if (!isManager(req.admin) && !trainerIncludes(batchDoc.trainer, req.admin.name))
       return bad(res, 403, 'You can only add assignments to your own batches.');
     course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
     if (!course) return bad(res, 404, 'This batch has no matching course set up yet.');

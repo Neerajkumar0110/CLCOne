@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { liveClassService } = require('../../../../services/lms');
+const { trainerNames } = require('../../../../services/lms/teacherCourseAccess');
 
 // HTTP layer for live classes. Thin — all logic is in
 // services/lms/liveClassService.js. The real meeting URL is never in a
@@ -47,7 +48,7 @@ async function create(req, res) {
     moodleCourseId: courseMap ? courseMap.moodleId : undefined,
     courseTitle: (course && course.title) || (batch && batch.course) || b.courseTitle || '',
     batchName: (batch && batch.name) || b.batchName || '',
-    teacherName: b.teacherName || (batch && batch.trainer) || '',
+    teacherName: b.teacherName || (batch && trainerNames(batch.trainer).join(' & ')) || '',
     title: b.title || `${(batch && batch.name) || 'Live'} class`,
     description: b.description || '',
     scheduledStart: b.scheduledStart,

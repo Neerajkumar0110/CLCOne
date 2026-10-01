@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { lmsConfig } = require('../../config/lms');
+const { trainerNames } = require('./teacherCourseAccess');
 
 // Turn a batch's schedule (days + time + duration + start/end date) into a set
 // of LmsLiveSession rows — one per class date, each with its own room. Used by
@@ -169,8 +170,12 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
 
   const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
   const courseMap = course ? await MoodleObjectMap.findOne({ kind: 'course', crmId: course._id }) : null;
-  const teacher = batchDoc.trainer
-    ? await Admin.findOne({ name: new RegExp(`^${String(batchDoc.trainer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
+  // Same primary-trainer convention as liveClassService.ensureBatchRoom —
+  // the first listed Project Manager snapshots the session's owner; every
+  // listed trainer still gets full access to the batch itself.
+  const primaryTrainerName = trainerNames(batchDoc.trainer)[0] || null;
+  const teacher = primaryTrainerName
+    ? await Admin.findOne({ name: new RegExp(`^${primaryTrainerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
     : null;
 
   // ONE persistent room for the whole batch — same meetingId/link for >= 6 months
@@ -191,7 +196,7 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
       moodleCourseId: courseMap ? courseMap.moodleId : batchRoom.moodleCourseId,
       courseTitle: batchDoc.course || (course && course.title) || '',
       batchName: batchDoc.name,
-      teacherName: batchDoc.trainer || '',
+      teacherName: primaryTrainerName || '',
       teacherCrmUser: teacher ? teacher._id : undefined,
       title: occ.length > 1 ? `${batchDoc.name} — Class ${o.index}` : `${batchDoc.name} — Live Class`,
       description: batchDoc.notes || '',
@@ -217,7 +222,7 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
         await mailer.sendBatchClassEmail(emails, {
           batchName: batchDoc.name,
           courseTitle: batchDoc.course,
-          teacherName: batchDoc.trainer,
+          teacherName: trainerNames(batchDoc.trainer).join(' & '),
           schedule: { days: batchDoc.classDays, time: batchDoc.classTime, durationMin: batchDoc.classDurationMin, from: batchDoc.startDate, to: batchRoom.validUntil },
           sessions: created.map((c) => ({ scheduledStart: c.scheduledStart })).sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart)),
           joinPageUrl: `${base}/#/lms/classes`,

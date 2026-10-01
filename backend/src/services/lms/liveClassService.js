@@ -5,6 +5,7 @@ const { getMeetingProvider } = require('./meeting');
 const settingsService = require('./settingsService');
 const recurrence = require('./recurrence');
 const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES } = require('../../config/roles');
+const { trainerNames, trainerIncludes } = require('./teacherCourseAccess');
 
 // Live-class orchestration: auto room, SCHEDULED..RECORDING_AVAILABLE
 // lifecycle, multi-session attendance (webhook-authoritative), recording
@@ -494,7 +495,7 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
   if (!batch) return { error: 404, message: 'Batch not found.' };
   if (!isManager(admin)) {
     // a teacher can only add to their own batch
-    if ((batch.trainer || '').toLowerCase() !== (admin.name || '').toLowerCase()) {
+    if (!trainerIncludes(batch.trainer, admin.name)) {
       return { error: 403, message: 'You can only add candidates to your own batch.' };
     }
   }
@@ -564,7 +565,7 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
   const mail = await mailer.sendBatchClassEmail([cleanEmail], {
     batchName: batch.name,
     courseTitle: batch.course,
-    teacherName: batch.trainer,
+    teacherName: trainerNames(batch.trainer).join(' & '),
     schedule: { days: batch.classDays, time: batch.classTime, durationMin: batch.classDurationMin, from: batch.startDate, to: room.validUntil },
     sessions: upcoming,
     joinPageUrl: `${crmBase()}/#/lms/classes`,
@@ -671,7 +672,7 @@ async function removeStudentFromBatch({ batchId, studentId, crmUserId, email } =
   const Batch = mongoose.model('Batch');
   const batch = await Batch.findById(batchId);
   if (!batch) return { error: 404, message: 'Batch not found.' };
-  if (!isManager(admin) && (batch.trainer || '').toLowerCase() !== (admin.name || '').toLowerCase()) {
+  if (!isManager(admin) && !trainerIncludes(batch.trainer, admin.name)) {
     return { error: 403, message: 'You can only manage your own batch.' };
   }
 
@@ -728,8 +729,14 @@ async function ensureBatchRoom(batchDoc) {
 
   const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
   const courseMap = course ? await MoodleObjectMap.findOne({ kind: 'course', crmId: course._id }) : null;
-  const teacher = batchDoc.trainer
-    ? await Admin.findOne({ name: new RegExp(`^${String(batchDoc.trainer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
+  // The room/session still snapshots one primary teacher account — the
+  // batch's FIRST listed Project Manager — same single-owner shape as
+  // before; every listed trainer still gets full dashboard/roster/live-class
+  // access to the batch itself via trainerIncludes() elsewhere, this only
+  // picks who owns the room/session row.
+  const primaryTrainerName = trainerNames(batchDoc.trainer)[0] || null;
+  const teacher = primaryTrainerName
+    ? await Admin.findOne({ name: new RegExp(`^${primaryTrainerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), removed: false })
     : null;
 
   const from = new Date();
@@ -744,7 +751,7 @@ async function ensureBatchRoom(batchDoc) {
     courseTitle: batchDoc.course || (course && course.title) || '',
     crmCourse: course ? course._id : undefined,
     moodleCourseId: courseMap ? courseMap.moodleId : undefined,
-    teacherName: batchDoc.trainer || '',
+    teacherName: primaryTrainerName || '',
     teacherCrmUser: teacher ? teacher._id : undefined,
     provider: lmsConfig.meeting.effectiveProvider,
     roomName: computeBatchRoomName(batchDoc.course || (course && course.title) || '', batchDoc.name),
@@ -1665,7 +1672,7 @@ async function resolveRole(session, admin, cache) {
       trainer = (batch && batch.trainer) || null;
       if (cache) cache.batchTrainer.set(batchKey, trainer);
     }
-    if (trainer && trainer.toLowerCase() === admin.name.toLowerCase()) return 'teacher';
+    if (trainerIncludes(trainer, admin.name)) return 'teacher';
   }
   if (isManager(admin) || isSupport(admin)) return 'teacher';
   // Every remaining branch below only resolves 'student' access. Spec §2

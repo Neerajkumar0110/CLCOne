@@ -71,9 +71,12 @@ function ManageProjects() {
       ]);
       setRows((p && p.result) || []);
       const allBatches = (bt && bt.result) || [];
+      const myName = String(admin.name || '').toLowerCase();
       const mine = isMgr
         ? allBatches
-        : allBatches.filter((x) => x.trainer && String(x.trainer).toLowerCase() === String(admin.name || '').toLowerCase());
+        : allBatches.filter((x) =>
+            (Array.isArray(x.trainer) ? x.trainer : [x.trainer]).some((t) => t && String(t).toLowerCase() === myName)
+          );
       setBatches(mine.map((x) => ({ value: x._id || x.id, label: x.name })));
     } catch (e) { message.error('Load failed'); } finally { setLoading(false); }
   }, [isMgr, admin.name]);

@@ -22,4 +22,23 @@ async function isTeacherOfCourse(admin, course) {
   return !!viaBatch;
 }
 
-module.exports = { isTeacherOfCourse };
+// Batch.trainer holds the batch's Project Manager(s) — one or more exact
+// Teacher-account names (array) in current data, but legacy rows and the
+// Mongoose schema both still tolerate a single plain string, so every
+// in-memory check (as opposed to a Mongo query, where `{ trainer: regex }`
+// already matches any array element on its own) must go through these two
+// helpers instead of comparing `batch.trainer` directly — e.g.
+// `batch.trainer.toLowerCase()` throws once trainer is an array.
+function trainerNames(trainerValue) {
+  if (Array.isArray(trainerValue)) return trainerValue.filter(Boolean);
+  return trainerValue ? [trainerValue] : [];
+}
+
+// True if `name` matches any of this batch's trainers, case-insensitively.
+function trainerIncludes(trainerValue, name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return false;
+  return trainerNames(trainerValue).some((t) => String(t).trim().toLowerCase() === n);
+}
+
+module.exports = { isTeacherOfCourse, trainerNames, trainerIncludes };

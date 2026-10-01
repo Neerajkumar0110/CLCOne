@@ -4,6 +4,7 @@ const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 const { curriculumTracker, chapterProgress } = require('../../../../../services/lms');
 const { LMS_FULL_ACCESS_ROLES } = require('../../../../../config/roles');
+const { trainerIncludes } = require('../../../../../services/lms/teacherCourseAccess');
 const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 
 // Ported from python-test-platform's src/controllers/testController.js
@@ -419,8 +420,8 @@ async function getBatchProgress(req, res) {
     const admin = req.admin;
     const isManager = !!(admin && LMS_FULL_ACCESS_ROLES.includes(admin.role));
     if (!isManager) {
+      const isOwnTeacherBatch = trainerIncludes(batchDoc.trainer, admin.name);
       const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-      const isOwnTeacherBatch = batchDoc.trainer && rxEq(admin.name || '').test(batchDoc.trainer);
       const Student = mongoose.model('Student');
       const isOwnStudentBatch = await Student.exists({ removed: false, email: rxEq(admin.email || ''), batch });
       if (!isOwnTeacherBatch && !isOwnStudentBatch) {

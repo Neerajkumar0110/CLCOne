@@ -778,10 +778,17 @@ export const FEATURE_SECTIONS = [
         entity: 'batch',
         fields: [
           ...grp('Batch', [
-            // Self-generated from Program + Project Manager (e.g.
-            // "Artificial Intelligence — Rohit Kushwaha") — never shown as
-            // an input.
-            T('name', 'Name', { hidden: true }),
+            // Still self-generates (Program + Project Manager + Start date)
+            // when left blank — see Batch.js's pre('validate') hook — but is
+            // now a real input so a batch can be named by hand too. Locked
+            // once created: every other model that references a batch
+            // (Student.batch, LmsBatchRoom.batchName, session.batchName,
+            // recurrence.js, …) matches it by this exact string, so renaming
+            // an existing batch here would silently orphan all of them.
+            T('name', 'Batch Name', {
+              placeholder: 'Leave blank to auto-generate from Program + Project Manager',
+              lockOnEdit: true,
+            }),
             // Self-generated from the course (e.g. AI101) — never shown as an input.
             T('code', 'Code', { table: false, hidden: true }),
             REF('course', 'Program', 'course', {
@@ -803,9 +810,17 @@ export const FEATURE_SECTIONS = [
               refLabel: 'name',
               refFilter: (a) => a.role === 'Teacher',
               refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
-              hint: 'Pick the instructor account this batch belongs to — their dashboard shows exactly this batch.',
+              multiple: true,
+              hint: 'Pick every instructor account this batch belongs to — each one’s dashboard shows exactly this batch.',
             }),
-            T('coordinator', 'Account Manager', { table: false }),
+            // Every Support account — the Batches tab's own equivalent of
+            // Project Manager, but for Support rather than Teacher logins.
+            REF('coordinator', 'Account Manager', 'admin', {
+              table: false,
+              refLabel: 'name',
+              refFilter: (a) => a.role === 'Support',
+              refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
+            }),
             // Every new batch opens straight for enrollment; it then
             // auto-advances to Running/Completed on its own as Start/End
             // date arrive (backend services/lms/batchLifecycle.js) — this is

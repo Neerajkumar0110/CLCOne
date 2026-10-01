@@ -3189,6 +3189,16 @@
   font-weight: 700;
   color: var(--hub-text);
 }
+/* Live preview of whatever the user's typed into the record's `name` field
+   so far — shown under the modal title as they type (see CrudTab's
+   Form.useWatch('name', ...)). */
+.crud-modal-title-preview {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--hub-blue, #0e7490);
+  margin-top: 1px;
+}
 
 /* collapsible sections + two-column grid form */
 .crud-form {

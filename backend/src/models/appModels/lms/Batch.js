@@ -13,7 +13,13 @@ const batchSchema = featureSchema([
   { name: 'code', type: 'String' },
   { name: 'course', type: 'String' },
   { name: 'mode', type: 'String', enum: ["Online","Offline","Hybrid"], default: "Online" },
-  { name: 'trainer', type: 'String' },
+  // One or more exact Teacher-account names — a batch can have several
+  // Project Managers, each getting the same dashboard/roster/live-class
+  // access a single trainer always has (see services/lms/
+  // teacherCourseAccess.js's trainerIncludes/trainerNames, used everywhere
+  // this is checked in memory; raw Mongo queries like `{ trainer: regex }`
+  // already match any array element on their own).
+  { name: 'trainer', type: '[String]' },
   { name: 'coordinator', type: 'String' },
   { name: 'startDate', type: 'Date' },
   { name: 'endDate', type: 'Date' },
@@ -61,10 +67,11 @@ function dateStamp(d) {
   return `${ist.getUTCDate()} ${MONTH_ABBR[ist.getUTCMonth()]}`;
 }
 
-// `name` self-generates from Course + Trainer + the batch's Start date (e.g.
-// "Artificial Intelligence — Rohit Kushwaha — 22 Mar") and is never shown as
-// an input (see the `hidden` flag on its featureSections.js field spec) —
-// this runs in pre('validate'), not pre('save'), because `name` is
+// `name` self-generates from Course + Trainer(s) + the batch's Start date
+// (e.g. "Artificial Intelligence — Rohit Kushwaha — 22 Mar") whenever it's
+// left blank on create (featureSections.js's Batch Name field is a real,
+// optional input — see its `lockOnEdit` note there for why it's locked once
+// set) — this runs in pre('validate'), not pre('save'), because `name` is
 // `required: true` and Mongoose runs validation *before* pre('save') hooks;
 // filling it in any later would fail validation first. Uniqueness-checked
 // with a "(2)", "(3)"… suffix since `name` is the string every other model
@@ -72,7 +79,8 @@ function dateStamp(d) {
 batchSchema.pre('validate', async function (next) {
   if (this.isNew && !this.name) {
     const stamp = dateStamp(this.startDate || new Date());
-    const base = [this.course, this.trainer, stamp].filter(Boolean).join(' — ') || 'New Batch';
+    const trainerPart = Array.isArray(this.trainer) ? this.trainer.filter(Boolean).join(' & ') : this.trainer;
+    const base = [this.course, trainerPart, stamp].filter(Boolean).join(' — ') || 'New Batch';
     const Batch = mongoose.model('Batch');
     let candidate = base;
     let n = 1;
