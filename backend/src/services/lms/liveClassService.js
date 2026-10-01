@@ -1108,19 +1108,7 @@ async function endSession(id, admin, { auto = false } = {}) {
             sessions: [],
           });
         }
-        // Spec §8 event trigger "Absent learner — automatically after
-        // absence is confirmed" — previously no notification of any kind
-        // fired when a student was marked absent; best-effort, never blocks
-        // ending the class.
-        const notifiable = admins.filter((a) => !a.rosterHold);
-        if (notifiable.length) {
-          const realtime = require('./realtime');
-          const mailer = require('./mailer');
-          const title = `Marked absent: ${session.title}`;
-          const body = `${session.courseTitle || session.batchName} · ${new Date(session.scheduledStart || now).toLocaleString('en-IN')}. Contact your coordinator if this is incorrect.`;
-          await realtime.notify(notifiable.map((a) => a._id), { type: 'attendance.absent', title, body, link: '/learn/attendance' }).catch(() => {});
-          await mailer.sendMail(notifiable.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
-        }
+        // Notification moved below, after recompute() — see there for why.
       }
     } catch (e) {
       console.error('[lms] no-show backfill failed:', e.message);
@@ -1134,6 +1122,38 @@ async function endSession(id, admin, { auto = false } = {}) {
     recompute(p, session, s);
     if (p.present) present += 1;
     await writeAttendanceMirror(session, p);
+  }
+
+  // Spec §8 event trigger "Absent learner — automatically after absence is
+  // confirmed" — fires off recompute()'s FINAL attendanceStatus, not just
+  // the complete no-shows backfilled above, so a student who joined but
+  // stayed under the present/partial threshold (configurable —
+  // settingsService's presentThresholdPct/partialThresholdPct) gets the same
+  // email a student who never joined at all does. Best-effort, never blocks
+  // ending the class.
+  try {
+    const absentees = session.participants.filter((p) => p.role === 'student' && p.attendanceStatus === 'ABSENT');
+    if (absentees.length) {
+      const Admin = mongoose.model('Admin');
+      const ids = absentees.filter((p) => p.crmUser).map((p) => p.crmUser);
+      const emails = absentees.filter((p) => !p.crmUser && p.email).map((p) => p.email);
+      const emailRxs = emails.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+      const or = [];
+      if (ids.length) or.push({ _id: { $in: ids } });
+      if (emailRxs.length) or.push({ email: { $in: emailRxs } });
+      const admins = or.length ? await Admin.find({ removed: false, $or: or }, '_id name email rosterHold').lean() : [];
+      const notifiable = admins.filter((a) => !a.rosterHold);
+      if (notifiable.length) {
+        const realtime = require('./realtime');
+        const mailer = require('./mailer');
+        const title = `Marked absent: ${session.title}`;
+        const body = `${session.courseTitle || session.batchName} · ${new Date(session.scheduledStart || now).toLocaleString('en-IN')}. Contact your coordinator if this is incorrect.`;
+        await realtime.notify(notifiable.map((a) => a._id), { type: 'attendance.absent', title, body, link: '/learn/attendance' }).catch(() => {});
+        await mailer.sendMail(notifiable.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.error('[lms] absent notification failed:', e.message);
   }
 
   // recording -> processing / available

@@ -1031,6 +1031,16 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsProjects',
       },
       {
+        key: 'study-material',
+        label: 'Study Material',
+        Icon: FolderOpenOutlined,
+        // Teacher-uploaded files/links, scoped to a batch. Previously only
+        // reachable from the dedicated Teacher/Student panel (LmsPanelApp) —
+        // Admin/Support had no way to see or manage it from the CRM side at
+        // all. See pages/Lms/StudyMaterial + /api/lms/materials.
+        embed: 'lmsStudyMaterial',
+      },
+      {
         key: 'system-health',
         label: 'System Health',
         Icon: HeartOutlined,

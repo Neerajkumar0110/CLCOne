@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { request } from '@/request';
 import lmsApi from '../api';
 
 // Same "New record" modal look used everywhere else in the LMS (Announcements,
@@ -16,6 +17,13 @@ import lmsApi from '../api';
 const Lbl = ({ icon, children }) => (
   <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
 );
+
+// Admin/Support reach this page embedded in the CRM's own LMS tab
+// (ModuleScaffold's 'lmsStudyMaterial'), not just the dedicated Teacher
+// panel — the backend's isManager() (liveScope.js, studyMaterial.js) already
+// gives them full access to every batch's material, so they get the same
+// manage view a teacher does rather than falling through to the student one.
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 const KIND_LABEL = { pdf: 'PDF', video: 'Video', image: 'Image', other: 'Other' };
 const KIND_COLOR = { pdf: '#dc2626', video: '#7c3aed', image: '#059669', other: '#2563eb' };
@@ -92,6 +100,8 @@ function useFilteredRows(rows, search, typeFilter, batchFilter) {
 }
 
 function TeacherStudyMaterial() {
+  const admin = useSelector(selectCurrentAdmin) || {};
+  const isMgr = MGR.includes(admin.role);
   const [rows, setRows] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -110,13 +120,23 @@ function TeacherStudyMaterial() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [m, d] = await Promise.all([lmsApi.materials(), lmsApi.teacherDashboard()]);
+      // teacher/dashboard's `batches` is scoped to "batches this teacher
+      // trains" (Batch.trainer) — for a manager (Admin/Support) that's
+      // empty, since they're never themselves listed as a trainer, even
+      // though the backend already lets them upload to any batch. They get
+      // the full batch list instead, same source Projects/Assignments use.
+      const [m, d] = await Promise.all([
+        lmsApi.materials(),
+        isMgr ? request.list({ entity: 'batch', options: { items: 500, sortBy: 'name', sortValue: 1 } }) : lmsApi.teacherDashboard(),
+      ]);
       setRows((m && m.result) || []);
-      const bOpts = ((d && d.result && d.result.batches) || []).map((b) => ({ value: b.name, label: b.name }));
+      const bOpts = isMgr
+        ? ((d && d.result) || []).map((b) => ({ value: b.name, label: b.name }))
+        : ((d && d.result && d.result.batches) || []).map((b) => ({ value: b.name, label: b.name }));
       setBatches(bOpts);
       if (!uploadBatch && bOpts.length === 1) setUploadBatch(bOpts[0].value);
     } catch (e) { message.error('Could not load.'); } finally { setLoading(false); }
-  }, [uploadBatch]);
+  }, [uploadBatch, isMgr]);
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useFilteredRows(rows, search, typeFilter, batchFilter);
@@ -405,5 +425,5 @@ function StudentStudyMaterial() {
 
 export default function StudyMaterial() {
   const admin = useSelector(selectCurrentAdmin) || {};
-  return LMS_TEACHER_ROLES.includes(admin.role) ? <TeacherStudyMaterial /> : <StudentStudyMaterial />;
+  return MGR.includes(admin.role) || LMS_TEACHER_ROLES.includes(admin.role) ? <TeacherStudyMaterial /> : <StudentStudyMaterial />;
 }
