@@ -7,7 +7,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
 
-const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const SC = { PRESENT: 'green', LATE: 'gold', PARTIAL: 'orange', ABSENT: 'default', EXCUSED: 'blue' };
 
 function KPI({ label, value, suffix, tone }) {

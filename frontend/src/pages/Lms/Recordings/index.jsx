@@ -5,7 +5,7 @@ import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, Upl
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
 
-const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const STATUS_COLOR = { AVAILABLE: 'green', PROCESSING: 'purple', AWAITING_UPLOAD: 'orange', RECORDING: 'red', FAILED: 'red', NOT_STARTED: 'default', DELETED: 'default' };
 const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD' };
 

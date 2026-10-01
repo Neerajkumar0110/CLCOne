@@ -15,7 +15,7 @@ import { request } from '@/request';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
-const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 // Same label-with-icon treatment as the CRM's generic Add/Edit modal
 // (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css)

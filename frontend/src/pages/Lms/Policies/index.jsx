@@ -14,7 +14,7 @@ import { request } from '@/request';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
-const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 // Kept in sync by hand with backend/src/config/lmsPolicyCategories.js (same
 // convention as config/roles.js — the two packages can't share a literal import).

@@ -10,7 +10,7 @@ import { request } from '@/request';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
-const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 // Kept in sync by hand with backend/src/services/lms/eligibilityEngine.js
 // DEFAULT_CRITERIA (same convention as config/roles.js).
