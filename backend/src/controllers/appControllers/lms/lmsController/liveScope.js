@@ -808,6 +808,7 @@ module.exports = {
   setBackupUrl,
   attachRecordingLink,
   bulkAttachRecordingLinks,
+  attachLinkToSession,
   attendanceDashboard,
   attendanceExport,
   liveMonitor,
