@@ -321,7 +321,17 @@ async function saveProgress(req, res) {
   return ok(res, { lesson: { status: p.status, percent: p.percent }, course: rolled }, 'Progress saved.');
 }
 
+// A lesson's completion is meant to be system-driven — its chapter actually
+// getting delivered in a live class auto-completes it for every enrolled
+// student (chapterProgress.js#autoCompleteLessonsForChapter) — not
+// self-reported by clicking a button. Only a manager/teacher override
+// reaches this explicit "mark complete" path now; the frontend button
+// students used to see is gone too (LearningPage now shows a read-only
+// Complete/Pending tag).
 async function markComplete(req, res) {
+  if (!isManager(req.admin) && !isTeacher(req.admin)) {
+    return bad(res, 403, 'Lesson completion is tracked automatically from your live classes.');
+  }
   req.body = { ...(req.body || {}), completed: true, percent: 100 };
   return saveProgress(req, res);
 }

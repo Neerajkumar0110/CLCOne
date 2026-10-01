@@ -206,25 +206,6 @@ export default function LearningPage() {
     return null;
   })();
 
-  const markComplete = async () => {
-    try {
-      const res = await lmsApi.lessonComplete(lessonId);
-      message.success('Lesson marked complete');
-      if (res && res.result && res.result.course) {
-        setOutline((o) => (o ? { ...o, progress: { ...o.progress, ...res.result.course } } : o));
-      }
-      // reflect in the tree
-      setOutline((o) => {
-        if (!o) return o;
-        const next = JSON.parse(JSON.stringify(o));
-        for (const m of next.modules) for (const c of m.chapters) for (const l of c.lessons || []) if (l.id === lessonId) { l.status = 'completed'; l.percent = 100; }
-        return next;
-      });
-    } catch (e) {
-      message.error('Could not mark complete.');
-    }
-  };
-
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
   // ---- course list ----
@@ -354,7 +335,7 @@ export default function LearningPage() {
             ) : lesson ? (
               <div className="lms-player-card">
                 <div className={FRAME_TYPES.has(lesson.type) ? 'lms-player-media' : 'lms-player-content'}>
-                  <LessonPlayer lesson={lesson} onProgress={onProgress} onComplete={markComplete} />
+                  <LessonPlayer lesson={lesson} onProgress={onProgress} />
                 </div>
 
                 <div className="lms-player-lesson-meta">
@@ -375,14 +356,17 @@ export default function LearningPage() {
                     <Button icon={<ArrowLeftOutlined />} disabled={idx <= 0} onClick={() => setLessonId(flatOrder[idx - 1])}>
                       Previous
                     </Button>
-                    <Button
-                      icon={<CheckCircleOutlined />}
-                      className={lessonMeta?.status === 'completed' ? '' : 'lms-player-complete-btn'}
-                      onClick={markComplete}
-                      disabled={lessonMeta?.status === 'completed'}
+                    {/* Completion is system-driven (a lesson's chapter actually gets
+                       delivered in a live class — see chapterProgress.js), not
+                       self-reported — a student can watch Pending turn into
+                       Complete here, but can't flip it themselves. */}
+                    <Tag
+                      icon={lessonMeta?.status === 'completed' ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+                      color={lessonMeta?.status === 'completed' ? 'success' : 'default'}
+                      style={{ padding: '6px 16px', fontSize: 14, borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6, margin: 0 }}
                     >
-                      {lessonMeta?.status === 'completed' ? 'Completed' : 'Mark complete'}
-                    </Button>
+                      {lessonMeta?.status === 'completed' ? 'Complete' : 'Pending'}
+                    </Tag>
                     <Button
                       icon={<ArrowRightOutlined />}
                       type="primary"
