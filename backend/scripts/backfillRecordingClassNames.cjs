@@ -16,6 +16,7 @@
  */
 const path = require('path');
 const mongoose = require('mongoose');
+const { globSync } = require('glob');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
@@ -30,7 +31,17 @@ const GENERIC_PATTERN = / — (Class \d+|Live Class)$/;
 
   await mongoose.connect(process.env.DATABASE);
   require('../src/config/multiDb').installMultiDbRouting();
-  const LiveRecording = require('../src/models/appModels/lms/LiveRecording');
+  // chapterProgress.js reaches for mongoose.model('Batch'/'Course'/
+  // 'CourseModule'/'Chapter'/'BatchChapterProgress'/...) assuming every
+  // model is already registered, same as server.js guarantees for the real
+  // app (its own glob-require of every model file). A one-off script that
+  // only requires the two models it directly imports would hit a silent
+  // MissingSchemaError inside chapterProgress's own try/catch, which reads
+  // as "no curriculum topic for this session" even when one genuinely
+  // exists — mirror server.js's bootstrap exactly so results are real.
+  const modelsFiles = globSync(path.join(__dirname, '..', 'src', 'models', '**', '*.js'));
+  for (const filePath of modelsFiles) require(path.resolve(filePath));
+  const LiveRecording = mongoose.model('LiveRecording');
   const chapterProgress = require('../src/services/lms/chapterProgress');
 
   const rows = await LiveRecording.find({ removed: false }).select('batch liveSession className').lean();
@@ -51,7 +62,10 @@ const GENERIC_PATTERN = / — (Class \d+|Live Class)$/;
       continue;
     }
     // eslint-disable-next-line no-await-in-loop
-    const topic = await chapterProgress.topicForSession(r.batch, r.liveSession).catch(() => null);
+    const topic = await chapterProgress.topicForSession(r.batch, r.liveSession).catch((e) => {
+      console.error(`  ERROR resolving topic for recording ${r._id}:`, e.message);
+      return null;
+    });
     if (!topic || topic === r.className) {
       skippedNoTopic += 1;
       continue;
