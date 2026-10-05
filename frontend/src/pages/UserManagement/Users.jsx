@@ -504,6 +504,8 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
 // a different team — e.g. promoting an Executive, or assigning a Team
 // Manager to the team they now lead.
 function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignTeam, roleOptions = roles }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState(roles[0]);
   const depts = departmentsFor(roleOptions);
   const [department, setDepartment] = useState(Object.keys(depts)[0]);
@@ -516,6 +518,8 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
 
   useEffect(() => {
     if (!user) return;
+    setName(user.name || "");
+    setEmail(user.email || "");
     setRole(user.role);
     const d = ROLE_DEPARTMENT[user.role];
     setDepartment(depts[d] ? d : Object.keys(depts)[0]);
@@ -550,13 +554,16 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
   const effectiveTeamChoice = isNoTeamRole ? NO_TEAM : isManagerRole ? (ledTeam ? ledTeam.name : teamChoice) : teamChoice;
 
   const submit = async () => {
+    if (!isProtectedRole && (!name.trim() || !email.trim())) return;
     setSubmitting(true);
     setFormError("");
 
     const res = await request.update({
       entity: "admin",
       id: user._id,
-      jsonData: isProtectedRole ? {} : { role, ...(role === "Finance" ? { subRole } : {}) },
+      jsonData: isProtectedRole
+        ? {}
+        : { name: name.trim(), email: email.trim(), role, ...(role === "Finance" ? { subRole } : {}) },
     });
     setSubmitting(false);
 
@@ -605,6 +612,29 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
         <div className="hub-form-row">
           <span className="hub-badge hub-badge-red">{formError}</span>
         </div>
+      )}
+
+      {isProtectedRole ? (
+        <div className="hub-form-row">
+          <label>Full Name</label>
+          <div className="hub-input" style={{ background: "#f5f5f5", color: "#8c8c8c" }}>{user.name}</div>
+        </div>
+      ) : (
+        <>
+          <div className="hub-form-row">
+            <label>Full Name</label>
+            <input className="hub-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rohan Malhotra" />
+          </div>
+          <div className="hub-form-row">
+            <label>Email</label>
+            <input className="hub-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@careerlabconsulting.com" />
+            {user.role === "Student" && email.trim() !== (user.email || "") && (
+              <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+                Changing this resets their login password and emails the new credentials to the corrected address.
+              </span>
+            )}
+          </div>
+        </>
       )}
 
       <div className="hub-form-row">
@@ -832,6 +862,11 @@ export default function Users({
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [permUserEmail, setPermUserEmail] = useState(null);
   const [editUserEmail, setEditUserEmail] = useState(null);
+  // Only meaningful on the unfiltered "All Users" view — a roleFilter tab
+  // (Instructors/Candidates) already pins to one role, which is itself a
+  // single department, so the picker would be redundant there.
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const depts = departmentsFor(roleOptions || roles);
 
   // Load real users from the backend (GET /api/admin/list), then load each
   // one's saved permissions — anyone with no saved record yet gets seeded
@@ -963,9 +998,21 @@ export default function Users({
     }
   };
 
+  // LMS has no single-role shape like Sales/Finance/Support/Admin do — it's
+  // Instructors and Candidates, which used to be their own tabs — so its
+  // filter entries are per-role ("role:Teacher") instead of one "LMS" bucket.
   const visibleUsers = users
     .filter((u) => !roleFilter || u.role === roleFilter)
-    .filter((u) => !excludeRoles || !excludeRoles.includes(u.role));
+    .filter((u) => !excludeRoles || !excludeRoles.includes(u.role))
+    .filter((u) => {
+      if (!departmentFilter) return true;
+      if (departmentFilter.startsWith("role:")) return u.role === departmentFilter.slice(5);
+      return ROLE_DEPARTMENT[u.role] === departmentFilter;
+    });
+
+  const departmentFilterLabel = departmentFilter.startsWith("role:")
+    ? `${roleDisplay(departmentFilter.slice(5))}s`
+    : departmentFilter;
 
   if (loading) {
     return (
@@ -980,24 +1027,43 @@ export default function Users({
       <div className="hub-card">
         <div className="hub-card-header">
           <h3>{roleFilter ? `${roleDisplay(roleFilter)}s` : "All Users"}</h3>
-          {canCreate && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                className="hub-btn"
-                type="button"
-                onClick={() => setTeamsOpen(true)}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!roleFilter && Object.keys(depts).length > 1 && (
+              <select
+                className="hub-select"
+                style={{ width: 180 }}
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
               >
-                <TeamOutlined /> Create Team
-              </button>
-              <button
-                className="hub-btn hub-btn-primary"
-                type="button"
-                onClick={() => setAddOpen(true)}
-              >
-                <UserAddOutlined /> Add {roleDisplay(roleFilter) || "User"}
-              </button>
-            </div>
-          )}
+                <option value="">All Departments</option>
+                {Object.entries(depts).flatMap(([d, deptRoles]) =>
+                  d === "LMS"
+                    ? deptRoles.map((r) => (
+                        <option key={`role:${r}`} value={`role:${r}`}>{roleDisplay(r)}s</option>
+                      ))
+                    : [<option key={d} value={d}>{d}</option>]
+                )}
+              </select>
+            )}
+            {canCreate && (
+              <>
+                <button
+                  className="hub-btn"
+                  type="button"
+                  onClick={() => setTeamsOpen(true)}
+                >
+                  <TeamOutlined /> Create Team
+                </button>
+                <button
+                  className="hub-btn hub-btn-primary"
+                  type="button"
+                  onClick={() => setAddOpen(true)}
+                >
+                  <UserAddOutlined /> Add {roleDisplay(roleFilter) || "User"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="hub-table-wrapper">
@@ -1017,9 +1083,13 @@ export default function Users({
                   <td colSpan={5}>
                     <div className="hub-empty">
                       {roleFilter === "Student"
-                        ? "No candidates yet — candidates added from the LMS Candidates tab show up here automatically, or add one directly."
+                        ? "No candidates yet — candidates added from the LMS show up here automatically, or add one directly."
                         : roleFilter
                         ? `No ${roleDisplay(roleFilter).toLowerCase()}s yet — add one to get started.`
+                        : departmentFilter.startsWith("role:")
+                        ? `No ${departmentFilterLabel.toLowerCase()} yet.`
+                        : departmentFilter
+                        ? `No users in ${departmentFilter} yet.`
                         : "No users yet — add one to get started."}
                     </div>
                   </td>

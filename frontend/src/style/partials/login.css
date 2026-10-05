@@ -147,6 +147,21 @@
   color: rgba(226, 232, 240, 0.55);
 }
 
+/* Chrome/Edge autofill (e.g. a remembered login email) paints its own
+   background + text color over whatever we set above, which on this dark
+   glass card renders as near-invisible dark text on a dark backdrop. The
+   absurdly long transition delay is the standard trick to keep the native
+   autofill background from ever painting, so our transparent background
+   and light text color stay in control. */
+.auth-card .auth-input-underline input:-webkit-autofill,
+.auth-card .auth-input-underline input:-webkit-autofill:hover,
+.auth-card .auth-input-underline input:-webkit-autofill:focus,
+.auth-card .auth-input-underline input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
+  transition: background-color 600000s ease-in-out 0s;
+}
+
 .auth-card .ant-checkbox-wrapper {
   color: #e2e8f0;
 }

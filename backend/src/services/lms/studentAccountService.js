@@ -251,4 +251,95 @@ async function syncRosterHold(studentDoc) {
   }
 }
 
-module.exports = { provisionLogin, sendEnrollmentEmail, onStudentCreated, syncBatchEnrolledCounts, syncRosterHold };
+// Resets this account's password to whatever its (current) name/email
+// derive to and re-sends the enrollment email — used whenever a student's
+// email is corrected, from either side (LMS roster or User Management),
+// since the original address very likely never delivered the first
+// credentials email in the first place (that's usually *why* it's being
+// corrected). Best-effort, same as every other mail in this file.
+async function resetAndResendCredentials(admin, studentDoc) {
+  const AdminPassword = mongoose.model('AdminPassword');
+  const rawPassword = derivePassword(studentDoc.name, studentDoc.email);
+  const salt = uniqueId();
+  const passwordHash = bcrypt.hashSync(salt + rawPassword);
+  await AdminPassword.findOneAndUpdate(
+    { user: admin._id },
+    { $set: { password: passwordHash, salt, emailVerified: true } },
+    { upsert: true }
+  );
+  await sendEnrollmentEmail(studentDoc, { rawPassword });
+}
+
+// Fired after a Student roster row's email/name is edited via the generic
+// CRUD Edit path (Student.js's findOneAndUpdate hooks) — which bypasses
+// provisionLogin entirely, so without this the linked Admin login (matched
+// only by email, there's no stored FK) is silently left under the old,
+// wrong email forever: User Management keeps showing the stale value, and
+// nothing ever re-sends a working credentials email to the fixed address.
+async function syncAccountIdentity(studentDoc, { prevEmail, prevName } = {}) {
+  const Admin = mongoose.model('Admin');
+  const newEmail = String((studentDoc && studentDoc.email) || '').trim().toLowerCase();
+  const oldEmail = String(prevEmail || '').trim().toLowerCase();
+  const emailChanged = !!oldEmail && !!newEmail && oldEmail !== newEmail;
+  const nameChanged = prevName !== undefined && prevName !== studentDoc.name;
+  if (!emailChanged && !nameChanged) return;
+
+  const admin = oldEmail ? await Admin.findOne({ email: oldEmail, removed: false, role: 'Student' }) : null;
+  if (!admin) {
+    // No login under the old email — either it was never provisioned (a
+    // roster row added before this student ever had a usable address) or it
+    // already moved. Provision one now rather than leaving it missing,
+    // unless the new address is already claimed by some other account.
+    if (newEmail && !(await Admin.findOne({ email: newEmail, removed: false }))) {
+      const { rawPassword } = await provisionLogin(studentDoc);
+      await sendEnrollmentEmail(studentDoc, { rawPassword });
+    }
+    return;
+  }
+
+  if (emailChanged) {
+    const clash = await Admin.findOne({ email: newEmail, removed: false, _id: { $ne: admin._id } });
+    if (clash) {
+      console.error(`[lms] syncAccountIdentity: ${newEmail} already belongs to another account — left ${admin.email} as-is.`);
+      return;
+    }
+    admin.email = newEmail;
+  }
+  if (nameChanged && studentDoc.name) admin.name = studentDoc.name;
+  await admin.save();
+
+  if (emailChanged) await resetAndResendCredentials(admin, studentDoc);
+}
+
+// The reverse direction — a name/email fix made from User Management's Edit
+// User form instead of the LMS roster. Same email-only linkage, so this
+// looks the Student row up by the email the Admin record had BEFORE this
+// edit (passed in by the caller, which still has it from its own
+// pre-update snapshot).
+async function syncStudentRosterFromAdmin(admin, { prevEmail } = {}) {
+  const Student = mongoose.model('Student');
+  const oldEmail = String(prevEmail || '').trim().toLowerCase();
+  if (!oldEmail) return;
+
+  const studentDoc = await Student.findOne({ email: oldEmail, removed: false });
+  if (!studentDoc) return; // this Student-role account has no roster row (yet), nothing to mirror
+
+  const newEmail = String(admin.email || '').trim().toLowerCase();
+  const emailChanged = !!newEmail && newEmail !== oldEmail;
+  if (emailChanged) studentDoc.email = newEmail;
+  if (admin.name && admin.name !== studentDoc.name) studentDoc.name = admin.name;
+  if (studentDoc.isModified()) await studentDoc.save();
+
+  if (emailChanged) await resetAndResendCredentials(admin, studentDoc);
+}
+
+module.exports = {
+  provisionLogin,
+  sendEnrollmentEmail,
+  onStudentCreated,
+  syncBatchEnrolledCounts,
+  syncRosterHold,
+  syncAccountIdentity,
+  syncStudentRosterFromAdmin,
+  resetAndResendCredentials,
+};

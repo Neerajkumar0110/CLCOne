@@ -2,17 +2,19 @@ const mongoose = require('mongoose');
 const Joi = require('joi');
 const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES } = require('../../../config/roles');
 
-// Lets an admin change another user's role/position (and name/surname) after
-// creation — e.g. promoting an Executive, or correcting a Team Manager's title.
-// Does not touch password/email — those have their own dedicated endpoints.
+// Lets an admin change another user's role/position (and name/surname/email)
+// after creation — e.g. promoting an Executive, correcting a Team Manager's
+// title, or fixing a candidate's mistyped email. Password has its own
+// dedicated endpoint.
 const update = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
 
-  const { name, surname, role, subRole, removed } = req.body;
+  const { name, surname, email, role, subRole, removed } = req.body;
 
   const objectSchema = Joi.object({
     name: Joi.string(),
     surname: Joi.string().allow('', null),
+    email: Joi.string().email({ tlds: { allow: true } }),
     role: Joi.string().valid(...ROLES.filter((r) => r !== 'owner')),
     subRole: Joi.string()
       .valid(...FINANCE_SUB_ROLES)
@@ -20,7 +22,7 @@ const update = async (userModel, req, res) => {
     removed: Joi.boolean(),
   });
 
-  const { error } = objectSchema.validate({ name, surname, role, subRole, removed });
+  const { error } = objectSchema.validate({ name, surname, email, role, subRole, removed });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -61,9 +63,22 @@ const update = async (userModel, req, res) => {
     }
   }
 
+  if (email !== undefined) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const clash = await User.findOne({ email: normalizedEmail, removed: false, _id: { $ne: req.params.id } });
+    if (clash) {
+      return res.status(409).json({
+        success: false,
+        result: null,
+        message: 'A user with this email already exists.',
+      });
+    }
+  }
+
   const updateFields = {};
   if (name !== undefined) updateFields.name = name;
   if (surname !== undefined) updateFields.surname = surname;
+  if (email !== undefined) updateFields.email = email.toLowerCase().trim();
   if (role !== undefined) updateFields.role = role;
   if (removed !== undefined) updateFields.removed = removed;
 
@@ -82,8 +97,12 @@ const update = async (userModel, req, res) => {
 
   // Spec §17 "every sensitive change records who/what/when" — a role change
   // (including Super Admin/Admin promotion, gated above) previously left no
-  // audit trail at all.
-  const prevForAudit = role !== undefined ? await User.findById(req.params.id).select('role').lean() : null;
+  // audit trail at all. Also doubles as the pre-edit snapshot a Student's
+  // linked LMS roster row needs to be found by (see the sync call below —
+  // email is the only link between the two, so it has to be captured before
+  // findOneAndUpdate overwrites it).
+  const needsPrevSnapshot = role !== undefined || email !== undefined || name !== undefined;
+  const prevForAudit = needsPrevSnapshot ? await User.findById(req.params.id).select('role email name').lean() : null;
 
   let result;
   try {
@@ -121,6 +140,22 @@ const update = async (userModel, req, res) => {
         after: { user: result.email, from: prevForAudit.role, to: result.role },
       })
       .catch(() => {});
+  }
+
+  // A Candidate's email/name can also be fixed from here instead of the LMS
+  // roster — mirror it back onto their Student row and (on an email change)
+  // reset + re-send their login credentials, same as the LMS-side edit does
+  // in the other direction (see Student.js's findOneAndUpdate hooks).
+  if (
+    userModel === 'Admin' &&
+    prevForAudit &&
+    prevForAudit.role === 'Student' &&
+    ((email !== undefined && prevForAudit.email !== result.email) ||
+      (name !== undefined && prevForAudit.name !== result.name))
+  ) {
+    require('../../../services/lms/studentAccountService')
+      .syncStudentRosterFromAdmin(result, { prevEmail: prevForAudit.email })
+      .catch((e) => console.error('[lms] syncStudentRosterFromAdmin failed:', e && e.message));
   }
 
   // Push name / role / active-state changes to Moodle (no-op until the LMS

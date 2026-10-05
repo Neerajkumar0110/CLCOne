@@ -125,11 +125,25 @@ function hasUpdateField(update, field) {
 }
 studentSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate() || {};
-  if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed') || hasUpdateField(update, 'status')) {
-    const prev = await this.model.findOne(this.getQuery()).select('batch status').lean();
+  const needsEmailOrName = hasUpdateField(update, 'email') || hasUpdateField(update, 'name');
+  if (
+    hasUpdateField(update, 'batch') ||
+    hasUpdateField(update, 'removed') ||
+    hasUpdateField(update, 'status') ||
+    needsEmailOrName
+  ) {
+    const prev = await this.model.findOne(this.getQuery()).select('batch status email name').lean();
     this._prevBatch = prev && prev.batch;
     this._prevStatus = prev && prev.status;
+    this._prevEmail = prev && prev.email;
+    this._prevName = prev && prev.name;
   }
+  // The linked Admin login is matched BY email (no stored FK — see
+  // studentAccountService.js's provisionLogin comment), so an email/name fix
+  // made here (e.g. correcting a typo that silently failed to deliver the
+  // enrollment mail) would otherwise leave User Management showing the old
+  // value forever and never re-send working credentials.
+  this._syncAccountIdentity = needsEmailOrName;
   if (hasUpdateField(update, 'batch') || hasUpdateField(update, 'removed')) {
     this._recountBatch = true;
   }
@@ -162,6 +176,16 @@ studentSchema.post('findOneAndUpdate', function (doc) {
     Promise.resolve()
       .then(() => require('../../../services/lms/studentAccountService').syncRosterHold(doc))
       .catch((e) => console.error('[lms] syncRosterHold failed:', e && e.message));
+  }
+  if (this._syncAccountIdentity) {
+    Promise.resolve()
+      .then(() =>
+        require('../../../services/lms/studentAccountService').syncAccountIdentity(doc, {
+          prevEmail: this._prevEmail,
+          prevName: this._prevName,
+        })
+      )
+      .catch((e) => console.error('[lms] syncAccountIdentity failed:', e && e.message));
   }
   if (this._actor && this._prevStatus !== undefined && this._prevStatus !== doc.status) {
     Promise.resolve()
