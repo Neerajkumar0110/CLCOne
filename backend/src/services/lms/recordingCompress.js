@@ -7,7 +7,7 @@ const { execFile } = require('child_process');
 // download small. `nice` keeps it from competing for CPU with the VPS's
 // other live services (VICIdial, the CRM API itself) — this box only has
 // 2 cores.
-function compressVideo(inputPath, outputPath) {
+function compressVideo(inputPath, outputPath, preset = 'veryfast') {
   return new Promise((resolve, reject) => {
     execFile(
       'nice',
@@ -16,7 +16,7 @@ function compressVideo(inputPath, outputPath) {
         'ffmpeg', '-y',
         '-i', inputPath,
         '-vf', 'scale=-2:min(720\\,ih)',
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28',
+        '-c:v', 'libx264', '-preset', preset, '-crf', '28',
         '-c:a', 'aac', '-b:a', '128k',
         '-movflags', '+faststart',
         outputPath,

@@ -788,6 +788,10 @@ export const FEATURE_SECTIONS = [
             T('name', 'Batch Name', {
               placeholder: 'Leave blank to auto-generate from Program + Project Manager',
               lockOnEdit: true,
+              // Cascades the new name to every record that matches a batch by
+              // this exact string (Student, recordings, live classes, …) —
+              // see backend/src/services/lms/batchRename.js.
+              renamePath: (id) => `lms/batches/${id}/rename`,
             }),
             // Self-generated from the course (e.g. AI101) — never shown as an input.
             T('code', 'Code', { table: false, hidden: true }),

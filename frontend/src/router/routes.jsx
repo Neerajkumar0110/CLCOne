@@ -46,6 +46,7 @@ const Finance = lazy(() => import('@/pages/Finance'));
 const Support = lazy(() => import('@/pages/Support'));
 const GitManagement = lazy(() => import('@/pages/GitManagement'));
 const VercelManagement = lazy(() => import('@/pages/VercelManagement'));
+const CodeEditor = lazy(() => import('@/pages/CodeEditor'));
 
 const Profile = lazy(() => import('@/pages/Profile'));
 
@@ -166,6 +167,14 @@ let routes = {
       element: (
         <RequirePermission module="Vercel Management">
           <VercelManagement />
+        </RequirePermission>
+      ),
+    },
+    {
+      path: '/code-editor',
+      element: (
+        <RequirePermission module="Code Editor">
+          <CodeEditor />
         </RequirePermission>
       ),
     },

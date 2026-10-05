@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, List, Typography } from 'antd';
-import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
 import lmsApi from '../api';
@@ -9,6 +9,13 @@ import lmsApi from '../api';
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const STATUS_COLOR = { AVAILABLE: 'green', PROCESSING: 'purple', AWAITING_UPLOAD: 'orange', RECORDING: 'red', FAILED: 'red', NOT_STARTED: 'default', DELETED: 'default' };
 const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD' };
+
+function fmtBytes(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
 export default function Recordings() {
   const admin = useSelector(selectCurrentAdmin) || {};
@@ -20,6 +27,9 @@ export default function Recordings() {
   const [f, setF] = useState({ status: undefined, courseTitle: '', batchName: '', student: '', from: null, to: null });
   const [playing, setPlaying] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [importingId, setImportingId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
   const fileInputRef = useRef(null);
   const uploadTargetRef = useRef(null);
   // The BBB playback iframe has its own tiny internal fullscreen control
@@ -74,6 +84,35 @@ export default function Recordings() {
       message.error('Not available.');
     }
   };
+
+  // A pasted Google Drive/YouTube link (provider 'external') or a BigBlueButton
+  // playback page isn't a raw video file — there's nothing on our own server
+  // to download, so this is only offered for a recording actually hosted
+  // here (provider 'mock'/'jitsi', same gate the <video> vs <iframe> choice
+  // in the play modal already uses).
+  const canDownload = (r) => r.canPlay && r.provider !== 'bigbluebutton' && r.provider !== 'external';
+  const downloadRecording = async (rec) => {
+    setDownloadingId(rec.id);
+    try {
+      const res = await lmsApi.recordingPlay(rec.id);
+      const url = res && res.result && res.result.url;
+      if (!url) {
+        message.error(`Recording is ${rec.status.toLowerCase()}.`);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(rec.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      message.error('Download failed.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
   // Manual upload only makes sense when there's no recorder doing it
   // automatically: AWAITING_UPLOAD (the mock provider's "class ended, no
   // recorder of its own" state) or FAILED (any provider, incl. BigBlueButton,
@@ -81,8 +120,13 @@ export default function Recordings() {
   // pre-dates this flow. NOT_STARTED/RECORDING/PROCESSING mean either the
   // class hasn't happened yet or BBB is already recording/processing it —
   // showing "Upload recording" there would just be confusing.
+  // An 'external' row (a pasted Drive/YouTube/etc. link) always stays
+  // upload-eligible too, regardless of hasVideo — that link can go stale or
+  // turn out to be unshared/unplayable, and uploading a real file straight
+  // to the CRM's own storage (native <video>, no iframe/permissions
+  // dependency) is the reliable fix, not re-pasting another external link.
   const canUpload = (r) =>
-    (r.status === 'AWAITING_UPLOAD' || r.status === 'FAILED' || (r.status === 'AVAILABLE' && !r.hasVideo)) &&
+    (r.status === 'AWAITING_UPLOAD' || r.status === 'FAILED' || r.provider === 'external' || (r.status === 'AVAILABLE' && !r.hasVideo)) &&
     (isManager || (r.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase());
   const askUpload = (rec) => {
     uploadTargetRef.current = rec;
@@ -118,6 +162,53 @@ export default function Recordings() {
         load();
       },
     });
+
+  // Re-hosts a Drive-linked recording on the CRM's own server instead of
+  // relying on Drive's /preview iframe (the "No preview available" failure
+  // mode — depends on the viewer's own Google session/cookies, not actually
+  // fixable from the sharing dialog alone). Background job on the backend;
+  // this just kicks it off and lets the status column reflect PROCESSING.
+  const importFromDrive = async (rec) => {
+    setImportingId(rec.id);
+    try {
+      const res = await lmsApi.recordingImportDrive(rec.id);
+      if (res && res.success === false) message.error(res.message || 'Import failed.');
+      else {
+        message.success((res && res.result && res.result.message) || 'Importing from Google Drive…');
+        load();
+      }
+    } catch (e) {
+      message.error('Import failed.');
+    } finally {
+      setImportingId(null);
+    }
+  };
+
+  const canImportFromDrive = (r) => r.provider === 'external' && r.status !== 'PROCESSING';
+
+  const importAllFromDrive = async () => {
+    const targets = rows.filter(canImportFromDrive);
+    if (!targets.length) return message.info('Nothing to import — no Drive-linked recordings here.');
+    Modal.confirm({
+      title: `Import ${targets.length} recording${targets.length > 1 ? 's' : ''} from Google Drive?`,
+      content: 'Each one downloads and compresses in the background on the server, one at a time — this can take a while for a lot of classes.',
+      onOk: async () => {
+        setBulkImporting(true);
+        let ok = 0;
+        for (const r of targets) {
+          try {
+            await lmsApi.recordingImportDrive(r.id);
+            ok += 1;
+          } catch (e) {
+            // keep going — report the tally at the end, per-row status still shows FAILED for any that don't make it
+          }
+        }
+        setBulkImporting(false);
+        message.success(`Started import for ${ok} of ${targets.length} recordings — watch the Status column.`);
+        load();
+      },
+    });
+  };
 
   // Backfill old recordings (Google Drive, etc.) a whole batch at a time —
   // paste "YYYY-MM-DD, <link>" one per line, each matched to that batch's
@@ -170,23 +261,68 @@ export default function Recordings() {
   };
 
   const columns = [
-    { title: 'Class', dataIndex: 'className', render: (v, r) => <><b>{v}</b><div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.courseTitle} · {r.batchName}</div></> },
+    {
+      title: 'Class',
+      dataIndex: 'className',
+      render: (v, r) => (
+        <div>
+          <b>{v}</b>
+          <div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.courseTitle} · {r.batchName}</div>
+        </div>
+      ),
+    },
     { title: 'Instructor', dataIndex: 'teacherName', width: 140 },
     { title: 'Date', dataIndex: 'date', width: 120, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
     { title: 'Duration', dataIndex: 'durationMin', width: 90, render: (v) => (v ? `${v} min` : '—') },
+    { title: 'Size', dataIndex: 'sizeBytes', width: 90, render: (v) => fmtBytes(v) },
     { title: 'Status', dataIndex: 'status', width: 140, render: (v) => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
-    ...(isManager ? [{ title: 'Views', dataIndex: 'views', width: 70 }] : []),
+    ...(isManager
+      ? [
+          {
+            title: 'Views',
+            dataIndex: 'views',
+            width: 70,
+            render: (v, r) => (
+              <Tooltip
+                title={
+                  r.viewerNames && r.viewerNames.length ? (
+                    <div>
+                      {r.viewerNames.map((n, i) => (
+                        <div key={i}>{n}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    'No one yet'
+                  )
+                }
+              >
+                <span style={{ cursor: 'default', textDecoration: 'underline dotted' }}>{v || 0}</span>
+              </Tooltip>
+            ),
+          },
+        ]
+      : []),
     {
       title: '',
-      width: 260,
+      width: 340,
       render: (_, r) => (
         <Space>
           <Button size="small" icon={<PlaySquareOutlined />} disabled={!r.canPlay} onClick={() => play(r)}>
             Watch
           </Button>
+          {isManager && canDownload(r) && (
+            <Button size="small" icon={<DownloadOutlined />} loading={downloadingId === r.id} onClick={() => downloadRecording(r)}>
+              Download
+            </Button>
+          )}
           {canUpload(r) && (
             <Button size="small" icon={<UploadOutlined />} loading={uploadingId === r.id} onClick={() => askUpload(r)}>
               Upload recording
+            </Button>
+          )}
+          {isManager && canImportFromDrive(r) && (
+            <Button size="small" icon={<ExportOutlined />} loading={importingId === r.id} onClick={() => importFromDrive(r)}>
+              Import from Drive
             </Button>
           )}
           {isManager && r.status !== 'DELETED' && (
@@ -207,6 +343,11 @@ export default function Recordings() {
         <Space>
           {isManager && (
             <Button icon={<LinkOutlined />} onClick={openBulk}>Bulk attach recording links</Button>
+          )}
+          {isManager && (
+            <Button icon={<ExportOutlined />} loading={bulkImporting} onClick={importAllFromDrive}>
+              Import all from Drive
+            </Button>
           )}
           <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
         </Space>
@@ -245,7 +386,7 @@ export default function Recordings() {
         loading={loading}
         dataSource={rows}
         columns={columns}
-        pagination={{ pageSize: 20, showSizeChanger: true }}
+        pagination={{ defaultPageSize: 20, pageSizeOptions: ['20', '50', '100', '200'], showSizeChanger: true }}
         locale={{ emptyText: 'No recordings.' }}
       />
 
@@ -261,11 +402,19 @@ export default function Recordings() {
         destroyOnClose
         title={
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span
-              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
-              title={playing ? playing.className : ''}
-            >
-              {playing ? playing.className : ''}
+            <span style={{ overflow: 'hidden', minWidth: 0 }}>
+              <span
+                style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
+                title={playing ? playing.className : ''}
+              >
+                {playing ? playing.className : ''}
+              </span>
+              {playing && (
+                <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.75 }}>
+                  {fmtBytes(playing.sizeBytes)}
+                  {isManager ? ` · ${playing.views || 0} view${playing.views === 1 ? '' : 's'}` : ''}
+                </span>
+              )}
             </span>
             <Space size={8} style={{ flexShrink: 0 }}>
               {playing && playing.url && (
@@ -278,6 +427,13 @@ export default function Recordings() {
                       <Button size="small" icon={<ExportOutlined />}>Open in new tab</Button>
                     </a>
                   </Tooltip>
+                  {isManager && canDownload(playing) && (
+                    <Tooltip title="Download this recording">
+                      <a href={playing.url} download={`${(playing.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`} rel="noopener">
+                        <Button size="small" icon={<DownloadOutlined />}>Download</Button>
+                      </a>
+                    </Tooltip>
+                  )}
                 </>
               )}
               <Button size="small" onClick={() => setPlaying(null)}>Close</Button>

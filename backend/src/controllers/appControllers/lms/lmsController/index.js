@@ -73,6 +73,8 @@ module.exports = {
   liveCreate: liveclass.create,
   liveUpdateTime: liveclass.updateTime,
   liveCancel: liveclass.cancel,
+  livePostpone: liveclass.postpone,
+  liveRenameBatch: liveclass.renameBatch,
   liveAddStudent: liveclass.addStudent,
   liveAddHoliday: liveclass.addHoliday,
   liveRemoveHoliday: liveclass.removeHoliday,
@@ -182,6 +184,7 @@ module.exports = {
   liveRecordings: scope.listRecordings,
   liveRecordingPlay: scope.playRecording,
   liveRecordingUpload: scope.uploadRecording,
+  liveRecordingImportDrive: scope.importDriveRecording,
   liveRecordingDelete: scope.deleteRecording,
   liveRecordingSetBackup: scope.setBackupUrl,
   liveRecordingAttachLink: scope.attachRecordingLink,
@@ -222,6 +225,7 @@ module.exports = {
   policyGet: policies.getOne,
   policyPublish: policies.publish,
   policyArchive: policies.archive,
+  policyDelete: policies.remove,
   policyReport: policies.acknowledgementReport,
   myPolicies: policies.myPolicies,
   myOverview: learnerOverview.myOverview,
@@ -244,6 +248,7 @@ module.exports = {
   projectUpdateMilestone: projects.updateMilestone,
   projectSubmit: projects.submit,
   projectReview: projects.review,
+  projectDelete: projects.remove,
 
   // system health
   systemHealth: health.systemHealth,

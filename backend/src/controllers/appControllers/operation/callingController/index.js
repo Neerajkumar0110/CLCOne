@@ -64,5 +64,6 @@ module.exports = {
 
   leadPoolToggle: leadPool.toggle,
   leadPoolStatus: leadPool.status,
+  leadPoolBreakStart: leadPool.breakStart,
   leadPoolUsedLeads: leadPool.usedLeads,
 };

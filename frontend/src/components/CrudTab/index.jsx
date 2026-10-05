@@ -10,6 +10,8 @@ import {
   Switch,
   Popconfirm,
   ConfigProvider,
+  Button,
+  message,
 } from 'antd';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -39,6 +41,8 @@ import {
   IdcardOutlined,
   ProfileOutlined,
   RightOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 
 import { request } from '@/request';
@@ -131,6 +135,15 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
   // (duration, etc.), which the {value,label} pairs in `refOptions` don't carry.
   const [refRows, setRefRows] = useState({});
   const [form] = Form.useForm();
+
+  // A field with both `lockOnEdit` and `renamePath` (e.g. Batch Name — see
+  // featureSections.js) can't go through the generic update (every other
+  // record referencing it by raw string would be orphaned), but still needs
+  // *some* way to fix a typo: a dedicated rename endpoint that cascades the
+  // new value everywhere that string is matched.
+  const [renameField, setRenameField] = useState(null); // field spec | null
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
   // Live preview of the record's name as the user types it, shown under the
   // modal title — only when the entity actually exposes a visible `name` field.
   const hasNameField = useMemo(() => fields.some((f) => f.name === 'name' && !f.hidden), [fields]);
@@ -236,6 +249,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
 
   const openAdd = () => {
     setEditing(null);
+    closeRename();
     form.resetFields();
     // Visually pre-fill fields that declare a static `default` (e.g. Batch's
     // Status / Class duration) so what the backend schema defaults to on an
@@ -254,6 +268,7 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
 
   const openEdit = (row) => {
     setEditing(row);
+    closeRename();
     loadRefOptions();
     const values = {};
     fields.forEach((f) => {
@@ -305,6 +320,38 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
     if (res?.success) {
       setModalOpen(false);
       load(editing ? page : 1, q);
+    }
+  };
+
+  const openRename = (f) => {
+    setRenameField(f);
+    setRenameValue((editing && editing[f.name]) || '');
+  };
+  const closeRename = () => {
+    setRenameField(null);
+    setRenameValue('');
+  };
+  const submitRename = async () => {
+    if (!renameField || !editing) return;
+    const value = renameValue.trim();
+    if (!value) return;
+    setRenaming(true);
+    try {
+      const res = await request.post({ entity: renameField.renamePath(editing._id), jsonData: { name: value } });
+      if (res?.success) {
+        const newValue = res.result?.name || value;
+        form.setFieldsValue({ [renameField.name]: newValue });
+        setEditing((e) => (e ? { ...e, [renameField.name]: newValue } : e));
+        closeRename();
+        load(page, q);
+        message.success('Renamed — every linked record was updated too.');
+      } else {
+        message.error(res?.message || 'Could not rename.');
+      }
+    } catch (e) {
+      message.error(e?.message || 'Could not rename.');
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -446,7 +493,10 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
           </span>
         }
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false);
+          closeRename();
+        }}
         onOk={submit}
         okText={editing ? 'Save changes' : 'Create'}
         confirmLoading={saving}
@@ -524,7 +574,9 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                           className={full ? 'crud-form-full' : undefined}
                           extra={
                             f.lockOnEdit && editing
-                              ? 'Locked after creation — renaming would break every record that links to this by name.'
+                              ? f.renamePath
+                                ? 'Locked — use Rename so every linked record updates too, instead of just this field.'
+                                : 'Locked after creation — renaming would break every record that links to this by name.'
                               : f.hint || (f.compute ? 'Auto-calculated' : undefined)
                           }
                           rules={
@@ -550,6 +602,32 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                               placeholder={f.refEntity ? `Select a ${f.label.toLowerCase()}…` : undefined}
                               options={f.refEntity ? (refOptions[f.name] || []) : (f.options || []).map((o) => ({ label: o, value: o }))}
                             />
+                          ) : f.lockOnEdit && f.renamePath && editing ? (
+                            // Form.Item only injects value/onChange onto a direct child —
+                            // this wrapper isn't one, so the current value is read straight
+                            // off `editing` (kept in sync by submitRename) instead. Inline,
+                            // not a second Modal stacked on this one — nested Modals here
+                            // rendered misaligned/overlapping (the two masks don't actually
+                            // obscure each other cleanly).
+                            renameField === f ? (
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <Input
+                                  autoFocus
+                                  value={renameValue}
+                                  disabled={renaming}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onPressEnter={submitRename}
+                                  style={{ flex: 1 }}
+                                />
+                                <Button icon={<CheckOutlined />} loading={renaming} onClick={submitRename} />
+                                <Button icon={<CloseOutlined />} disabled={renaming} onClick={closeRename} />
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <Input disabled value={editing[f.name] || ''} style={{ flex: 1 }} />
+                                <Button onClick={() => openRename(f)}>Rename…</Button>
+                              </div>
+                            )
                           ) : (
                             <Input
                               type={f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'}

@@ -55,6 +55,16 @@ function istDateKey(d) {
   const p = istParts(d);
   return `${p.year}-${String(p.month + 1).padStart(2, '0')}-${String(p.date).padStart(2, '0')}`;
 }
+// 23:59 IST on the last calendar day of the IST month `d` falls in. A
+// batch's schedule always runs through the end of its finishing month
+// (e.g. an endDate of 3 March still fills classDays out to 31 March) rather
+// than stopping mid-month — whatever's left of the month becomes extra
+// sessions the instructor/admin can rename for whatever's actually run then.
+function istEndOfMonth(d) {
+  const p = istParts(d);
+  const lastDate = new Date(Date.UTC(p.year, p.month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(p.year, p.month, lastDate, 23, 59, 0, 0) - IST_OFFSET_MS);
+}
 
 function parseDays(batch) {
   const src = `${batch.classDays || ''} ${batch.schedule || ''}`.toLowerCase();
@@ -124,7 +134,7 @@ function occurrences(batch) {
   const minTo = new Date(from);
   minTo.setUTCMonth(minTo.getUTCMonth() + MIN_MONTHS);
   const endDate = batch.endDate ? new Date(batch.endDate) : null;
-  const to = endDate && endDate > minTo ? endDate : minTo;
+  const to = istEndOfMonth(endDate && endDate > minTo ? endDate : minTo);
 
   const out = [];
   let cursor = from;
@@ -236,4 +246,4 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
   return created;
 }
 
-module.exports = { generateForBatch, occurrences, parseDays, parseTime, parseDuration, istParts, istDateTime, istMidnight, IST_OFFSET_MS };
+module.exports = { generateForBatch, occurrences, parseDays, parseTime, parseDuration, istParts, istDateTime, istMidnight, istEndOfMonth, IST_OFFSET_MS };

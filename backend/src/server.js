@@ -134,3 +134,10 @@ startLmsUnassignedBatchTick();
 // due (auto-restored the instant they pay — see services/payments/financeHold.js).
 const startFinanceEmiTick = require('./jobs/financeEmiTick');
 startFinanceEmiTick();
+
+// Code Editor file-save audit trail — watches the workspace filesystem
+// (skipped entirely while no one has an open Code Editor session) and
+// writes to the shared AuditLog, since OpenVSCode Server is a separate
+// process the backend doesn't otherwise hear save events from.
+const startCodeEditorFileAuditTick = require('./jobs/codeEditorFileAuditTick');
+startCodeEditorFileAuditTick();

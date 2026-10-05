@@ -68,7 +68,7 @@ const verifyOtp = async (req, res, { userModel }) => {
     });
   }
 
-  const token = await issueSession({ user, UserPasswordModel, remember });
+  const token = await issueSession({ user, UserPasswordModel, remember, req });
 
   return res.status(200).json({
     success: true,

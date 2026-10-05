@@ -37,6 +37,7 @@ import {
   HistoryOutlined,
   ClockCircleOutlined,
   PlayCircleOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -149,6 +150,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     support: '/support',
     'git-management': '/git-management',
     'vercel-management': '/vercel-management',
+    'code-editor': '/code-editor',
     generalSettings: '/settings',
     about: '/about',
   };
@@ -285,6 +287,11 @@ function Sidebar({ collapsible, isMobile = false }) {
       key: 'vercel-management',
       label: 'Vercel Management',
       icon: <CloudServerOutlined />,
+    },
+    {
+      key: 'code-editor',
+      label: 'Code Editor',
+      icon: <CodeOutlined />,
     },
     {
       key: 'generalSettings',

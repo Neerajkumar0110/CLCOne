@@ -567,6 +567,15 @@ class CloudCallProvider extends CallingProvider {
     );
     advanced += wr.modifiedCount || 0;
 
+    // 2b. Instant Lead Pool scheduled break (Paused) → Available once its
+    // fixed duration passes (see leadPool.js's breakStart, config/
+    // shiftSchedule.js) — the agent never has to remember to toggle back on.
+    const br = await AgentCallState.updateMany(
+      { status: 'Paused', pausedUntil: { $lte: new Date(now) } },
+      { $set: { status: 'Available', since: new Date() }, $unset: { pausedUntil: '', breakKey: '' } }
+    );
+    advanced += br.modifiedCount || 0;
+
     // 3. Auto-dial Available agents on Active auto-dial campaigns.
     const campaigns = await CallCampaign.find({
       removed: false,
@@ -580,11 +589,16 @@ class CloudCallProvider extends CallingProvider {
       if (!withinCallingHours(camp)) continue;
 
       if (camp.isLeadPool) {
-        // Predictive dialing: up to 10 concurrent customer-only lines,
-        // independent of exactly how many agents are free right now — the
+        // One customer-only line dialing per free agent, never more — e.g.
+        // 1 agent available means exactly 1 line goes out; the moment that
+        // call ends and the agent is Available again, the next lead dials.
+        // (Previously this over-dialed up to 10 concurrent lines regardless
+        // of agent count — fine with a large pool, but with 1-2 agents it
+        // meant several customers answering a call nobody could take.) The
         // agent gets picked only once someone actually answers (see
-        // dialLeadPoolNext / plivoAnswer.js's claimLeadPoolAgent). Only
-        // worth dialing at all while at least one agent is in the pool.
+        // dialLeadPoolNext / plivoAnswer.js's claimLeadPoolAgent), so this
+        // still self-corrects for no-answers: an unanswered line never ties
+        // up an agent's slot, only a truly in-flight (dialing/ringing) one does.
         const availableAgents = await AgentCallState.countDocuments({ campaign: camp._id, status: 'Available' });
         if (availableAgents === 0) continue;
         const inFlight = await CallRecord.countDocuments({
@@ -592,7 +606,7 @@ class CloudCallProvider extends CallingProvider {
           removed: false,
           status: { $in: ['dialing', 'ringing'] },
         });
-        let budget = 10 - inFlight;
+        let budget = availableAgents - inFlight;
         while (budget > 0) {
           const r = await this.dialLeadPoolNext(camp);
           if (!r.ok) break;

@@ -30,6 +30,16 @@ export function defaultMatrixForRole(role) {
       return;
     }
 
+    // Code Editor opens a real VS Code session on this CRM's own source —
+    // never defaults to on, not even for a full-access role (owner/Admin/
+    // Sales Manager). The only way in is an explicit per-role or per-user
+    // grant from Roles & Permissions (see permissionContext's fullAccessMatrix
+    // override, which carves this module out of its blanket bypass too).
+    if (mod === "Code Editor") {
+      perModule[mod] = { view: false, edit: false, delete: false };
+      return;
+    }
+
     const canView =
       fullAccess ||
       isSupportRole ||

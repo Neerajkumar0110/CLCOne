@@ -1185,6 +1185,7 @@
   width: 100%; box-sizing: border-box;
 }
 .lms-cal-cell {
+  position: relative;
   min-width: 0;
   min-height: 96px;
   box-sizing: border-box;
@@ -1197,6 +1198,17 @@
   cursor: default;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+.lms-cal-more-btn {
+  position: absolute; top: 6px; right: 6px; z-index: 1;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px;
+  background: transparent;
+  color: var(--hub-text-soft, #6b7280);
+  cursor: pointer;
+  padding: 0;
+}
+.lms-cal-more-btn:hover { background: color-mix(in srgb, var(--hub-blue, #2563eb) 12%, transparent); color: var(--hub-blue, #2563eb); }
 .lms-cal-cell.has-classes { cursor: pointer; background: var(--hub-surface, #fff); border-color: var(--hub-border, #e5e7eb); }
 .lms-cal-cell.has-classes:hover { border-color: var(--hub-blue, #2563eb); box-shadow: var(--hub-shadow-sm, 0 1px 2px rgba(16,24,40,.06)); }
 .lms-cal-cell.is-outside { opacity: 0.5; }
@@ -1272,13 +1284,42 @@
   font-size: 14px;
 }
 .lms-cal-daylist-main { flex: 1 1 auto; min-width: 0; }
-.lms-cal-daylist-name { font-weight: 600; font-size: 13.5px; color: var(--hub-text, #17202c); line-height: 1.4; }
+.lms-cal-daylist-name { font-weight: 600; font-size: 13.5px; color: var(--hub-text, #17202c); line-height: 1.4; display: flex; align-items: center; gap: 6px; }
+.lms-cal-rename-btn {
+  flex-shrink: 0;
+  border: none; background: none; padding: 0;
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px;
+  color: var(--hub-text-soft, #6b7280);
+  font-size: 11px;
+  cursor: pointer;
+}
+.lms-cal-rename-btn:hover { background: color-mix(in srgb, var(--hub-blue, #2563eb) 12%, transparent); color: var(--hub-blue, #2563eb); }
+.lms-cal-daylist-renameacts { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .lms-cal-daylist-sub { font-size: 11.5px; color: var(--hub-text-soft, #6b7280); margin-top: 2px; }
 .lms-cal-daylist-topic {
   font-size: 11.5px; color: var(--hub-primary, #2563eb); margin-top: 4px;
   display: flex; align-items: center; gap: 5px; font-weight: 600;
 }
 .lms-cal-daylist-tag { flex-shrink: 0; margin-right: 0 !important; margin-top: 1px; }
+.lms-cal-daylist-row-clickable { cursor: pointer; transition: border-color 0.15s ease; }
+.lms-cal-daylist-row-clickable:hover { border-color: var(--hub-blue, #2563eb); }
+
+.lms-cal-back-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: none; background: none; padding: 0; margin-bottom: 10px;
+  font-size: 12px; font-weight: 600; color: var(--hub-text-soft, #6b7280);
+  cursor: pointer;
+}
+.lms-cal-back-link:hover { color: var(--hub-blue, #2563eb); }
+.lms-cal-postpone-current {
+  border: 1px solid var(--hub-border, #e5e7eb); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 14px; background: var(--hub-bg-soft, #f8f9fb);
+}
+.lms-cal-postpone-label { font-size: 12px; font-weight: 700; color: var(--hub-text, #17202c); margin-bottom: 8px; }
+.lms-cal-postpone-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lms-cal-postpone-note { font-size: 11.5px; color: var(--hub-text-soft, #6b7280); margin-top: 12px; line-height: 1.5; }
 
 @media (max-width: 640px) {
   .lms-cal-cell { min-height: 72px; }

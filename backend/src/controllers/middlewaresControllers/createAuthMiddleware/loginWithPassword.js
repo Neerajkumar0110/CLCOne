@@ -58,7 +58,7 @@ const loginWithPassword = async (req, res, { userModel }) => {
     });
   }
 
-  const token = await issueSession({ user, UserPasswordModel, remember: value.remember });
+  const token = await issueSession({ user, UserPasswordModel, remember: value.remember, req });
 
   return res.status(200).json({
     success: true,

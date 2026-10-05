@@ -30,6 +30,9 @@ const lmsApi = {
   // teacher / manager: set or edit a class's scheduled start + duration
   // ({ scheduledStart, scheduledDurationMin, autoStartAt, title }).
   liveClassUpdate: (id, patch) => request.patch({ entity: `lms/live-classes/${id}`, jsonData: patch }),
+  // teacher / support / manager: push a class (and every later not-yet-started
+  // class in its recurring series) forward by N days — class is running late.
+  liveClassPostpone: (id, days) => request.post({ entity: `lms/live-classes/${id}/postpone`, jsonData: { days } }),
   // manager / batch teacher: add a student to a running batch (same link + email).
   addBatchStudent: (batchId, jsonData) =>
     request.post({ entity: `lms/batches/${batchId}/students`, jsonData }),
@@ -61,6 +64,7 @@ const lmsApi = {
     return request.post({ entity: `lms/recordings/${id}/upload`, jsonData: fd });
   },
   recordingDelete: (id) => request.post({ entity: `lms/admin/recordings/${id}/delete`, jsonData: {} }),
+  recordingImportDrive: (id) => request.post({ entity: `lms/admin/recordings/${id}/import-drive`, jsonData: {} }),
   // Paste-a-link backfill (Google Drive, etc.) — sessionId is the class's own
   // id, not the recording row's (there may not be one yet).
   recordingAttachLink: (sessionId, url) =>
@@ -237,6 +241,7 @@ const lmsApi = {
   policyReport: (id) => request.get({ entity: `lms/policies/${id}/report` }),
   myPolicies: () => request.get({ entity: 'lms/my/policies' }),
   acknowledgePolicy: (id) => request.post({ entity: `lms/policies/${id}/acknowledge`, jsonData: {} }),
+  deletePolicy: (id) => request.del({ entity: `lms/policies/${id}` }),
 
   // ── eligibility / placement readiness engine ─────────────────
   eligibilityRule: (courseId) => request.get({ entity: `lms/courses/${courseId}/eligibility-rule` }),
@@ -254,6 +259,7 @@ const lmsApi = {
   updateMilestone: (id, b) => request.post({ entity: `lms/projects/${id}/milestones`, jsonData: b }),
   submitProject: (id, b) => request.post({ entity: `lms/projects/${id}/submit`, jsonData: b }),
   reviewProject: (id, b) => request.post({ entity: `lms/projects/${id}/review`, jsonData: b }),
+  deleteProject: (id) => request.del({ entity: `lms/projects/${id}` }),
 
   // ── camera/mic pre-join + attendance correction + system health ──
   joinPolicy: () => request.get({ entity: 'lms/live-settings/join-policy' }),

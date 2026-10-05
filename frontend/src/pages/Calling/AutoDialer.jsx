@@ -1,9 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
-import { ThunderboltOutlined, PoweroffOutlined } from "@ant-design/icons";
+import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
+
+function fmtHm(totalMinutes) {
+  const m = Math.max(0, Math.round(totalMinutes || 0));
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+function fmtClock(v) {
+  if (!v) return "";
+  return new Date(v).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });
+}
 
 // Mirrors backend/src/config/roles.js's NON_SALES_ROLES — the Instant Lead
 // Pool is Sales-only, so Support/Finance/LMS accounts never see the toggle.
@@ -57,9 +67,14 @@ function InstantLeadPool() {
   const isSales = !NON_SALES_ROLES.includes(currentAdmin?.role);
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [breakBusy, setBreakBusy] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [now, setNow] = useState(Date.now());
   const on = !!data?.on;
+  // Guards against firing the auto-join POST more than once while its
+  // response is still in flight — the next status poll (4s later) is what
+  // actually clears shouldAutoJoin once the backend records today's join.
+  const autoJoining = useRef(false);
 
   const load = async () => {
     if (!isSales) return;
@@ -67,6 +82,31 @@ function InstantLeadPool() {
     if (r?.success) setData(r.result);
   };
   usePoll(load, 4000, [isSales]);
+
+  // Auto-join the pool once per day during the shift's join window (see
+  // config/shiftSchedule.js) — only while this page is actually open, since
+  // "available for calls" has no meaning for someone not logged into the
+  // CRM at all; opening the Calls page any time in the window joins them.
+  useEffect(() => {
+    if (!data?.shift?.shouldAutoJoin || autoJoining.current) return;
+    autoJoining.current = true;
+    request
+      .post({ entity: "calling/lead-pool/toggle", jsonData: { on: true } })
+      .finally(() => {
+        autoJoining.current = false;
+        load();
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.shift?.shouldAutoJoin]);
+
+  const startBreak = async (key) => {
+    if (breakBusy) return;
+    setBreakBusy(true);
+    const r = await request.post({ entity: "calling/lead-pool/break/start", jsonData: { key } });
+    if (!r?.success) window.alert(r?.message || "Could not start the break.");
+    await load();
+    setBreakBusy(false);
+  };
 
   // Live "is a call actually going out right now" indicator — same endpoint
   // the manual Dialer screen polls, so a call this agent gets fed by the
@@ -143,6 +183,44 @@ function InstantLeadPool() {
         <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
           Join and it dials straight from unassigned New Leads, sending you the next customer the moment you're free — no campaign setup needed.
         </div>
+
+        {on && data?.shift && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 12.5, color: "#475569" }}>
+            <ClockCircleOutlined />
+            <span>
+              Worked today: <b>{fmtHm(data.shift.workedMinutesToday)}</b> / {fmtHm(data.shift.targetWorkMinutes)}
+            </span>
+          </div>
+        )}
+
+        {on && data?.shift?.onBreak && (
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e",
+              borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, fontWeight: 600,
+            }}
+          >
+            <CoffeeOutlined /> On {data.shift.breakLabel || "a break"} — the dialer resumes by itself at {fmtClock(data.shift.breakUntil)}.
+          </div>
+        )}
+
+        {on && !data?.shift?.onBreak && data?.shift?.activeBreak && !data.shift.activeBreak.taken && (
+          <button
+            type="button"
+            onClick={() => startBreak(data.shift.activeBreak.key)}
+            disabled={breakBusy}
+            style={{
+              display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+              background: "#ecfeff", border: "1px solid #a5f3fc", color: "#0e7490",
+              borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, fontWeight: 600,
+              cursor: breakBusy ? "wait" : "pointer",
+            }}
+          >
+            <CoffeeOutlined />
+            {breakBusy ? "Starting…" : `${data.shift.activeBreak.label} — tap to go (${data.shift.activeBreak.durationMin} min, dialer pauses)`}
+          </button>
+        )}
 
         {on && (
           <div

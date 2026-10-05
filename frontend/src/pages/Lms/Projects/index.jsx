@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Radio, Space, Empty, Skeleton, message, Typography, DatePicker, Drawer, Steps, Checkbox, List, Divider, Timeline, Alert,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Radio, Space, Empty, Skeleton, message, Typography, DatePicker, Drawer, Steps, Checkbox, List, Divider, Timeline, Alert, Popconfirm,
 } from 'antd';
 import {
   ProjectOutlined, PlusOutlined, GithubOutlined, LinkOutlined, SendOutlined, CheckCircleOutlined,
   MailOutlined, UserOutlined, TagOutlined, FileTextOutlined, CalendarOutlined, NumberOutlined, FlagOutlined, TeamOutlined,
-  CloseOutlined,
+  CloseOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -61,6 +61,7 @@ function ManageProjects() {
   const [reviewState, setReviewState] = useState({ decision: '', feedback: '', rubricMarks: {} });
   const [reviewOpen, setReviewOpen] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +107,12 @@ function ManageProjects() {
     } catch (e) { message.error('Load failed'); }
   };
 
+  const remove = async (row) => {
+    setDeletingId(row.id);
+    try { await lmsApi.deleteProject(row.id); message.success('Project deleted.'); load(); }
+    catch (e) { message.error('Delete failed.'); } finally { setDeletingId(null); }
+  };
+
   const submitReview = async () => {
     if (!reviewState.decision) { message.error('Pick a decision.'); return; }
     setSaving(true);
@@ -139,6 +146,29 @@ function ManageProjects() {
             { title: 'Status', dataIndex: 'status', render: (v) => <Tag color={STATUS_COLOR[v]}>{STATUS_LABEL[v] || v}</Tag> },
             { title: 'Due', dataIndex: 'dueDate', render: (v) => (v ? dayjs(v).format('D MMM') : '—') },
             { title: 'Score', dataIndex: 'finalScore', render: (v, r) => (v != null ? `${v}% (${r.finalGrade})` : '—') },
+            ...(isMgr
+              ? [
+                  {
+                    title: '',
+                    width: 60,
+                    render: (_, r) => (
+                      // Rows are themselves clickable (onRow opens the detail
+                      // drawer) — stop the click here so Delete doesn't also
+                      // pop the drawer open behind the confirm.
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <Popconfirm
+                          title="Delete this project?"
+                          description="Removes the whole record — assignment, milestones and every submission."
+                          okText="Delete" okButtonProps={{ danger: true }}
+                          onConfirm={() => remove(r)}
+                        >
+                          <Button size="small" danger icon={<DeleteOutlined />} loading={deletingId === r.id} />
+                        </Popconfirm>
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       )}

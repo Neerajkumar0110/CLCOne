@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox, Space, Empty, Skeleton, message, Typography, DatePicker, Progress, Drawer, Alert,
+  Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox, Space, Empty, Skeleton, message, Typography, DatePicker, Progress, Drawer, Alert, Popconfirm,
 } from 'antd';
 import {
-  FileProtectOutlined, PlusOutlined, CloudUploadOutlined, InboxOutlined, EyeOutlined,
+  FileProtectOutlined, PlusOutlined, CloudUploadOutlined, InboxOutlined, EyeOutlined, DeleteOutlined,
   TagOutlined, AppstoreOutlined, FileTextOutlined, LinkOutlined, CalendarOutlined, TeamOutlined, CheckSquareOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -89,6 +89,12 @@ function ManagePolicies() {
     catch (e) { message.error('Archive failed.'); } finally { setBusyId(null); }
   };
 
+  const remove = async (row) => {
+    setBusyId(row.id);
+    try { await lmsApi.deletePolicy(row.id); message.success('Policy deleted.'); load(); }
+    catch (e) { message.error('Delete failed.'); } finally { setBusyId(null); }
+  };
+
   const openReport = async (row) => {
     try {
       const res = await lmsApi.policyReport(row.id);
@@ -124,11 +130,19 @@ function ManagePolicies() {
                 : '—',
             },
             {
-              title: '', width: 220, render: (_, r) => (
+              title: '', width: 280, render: (_, r) => (
                 <Space size="small">
                   {r.status === 'draft' && <Button size="small" type="primary" icon={<CloudUploadOutlined />} loading={busyId === r.id} onClick={() => publish(r)}>Publish</Button>}
                   {r.status === 'published' && <Button size="small" danger loading={busyId === r.id} onClick={() => archive(r)}>Archive</Button>}
                   {r.status !== 'draft' && <Button size="small" icon={<EyeOutlined />} onClick={() => openReport(r)}>Report</Button>}
+                  <Popconfirm
+                    title="Delete this policy?"
+                    description="This removes the document entirely, including its acknowledgement trail — archiving is usually what you want instead."
+                    okText="Delete" okButtonProps={{ danger: true }}
+                    onConfirm={() => remove(r)}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />} loading={busyId === r.id} />
+                  </Popconfirm>
                 </Space>
               ),
             },

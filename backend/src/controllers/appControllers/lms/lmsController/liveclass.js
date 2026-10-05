@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { liveClassService } = require('../../../../services/lms');
+const { liveClassService, batchRename } = require('../../../../services/lms');
 const { trainerNames } = require('../../../../services/lms/teacherCourseAccess');
 
 // HTTP layer for live classes. Thin — all logic is in
@@ -66,6 +66,18 @@ async function updateTime(req, res) {
 // POST /api/lms/liveclasses/:id/cancel  { reason }
 async function cancel(req, res) {
   return send(res, await liveClassService.cancelSession(req.params.id, req.admin, { reason: (req.body || {}).reason }));
+}
+
+// POST /api/lms/liveclasses/:id/postpone  { days }
+async function postpone(req, res) {
+  return send(res, await liveClassService.postponeSession(req.params.id, req.admin, { days: (req.body || {}).days }));
+}
+
+// POST /api/lms/batches/:id/rename  { name } — manager/Support only (route-
+// gated). Cascades the new name to every record that matches this batch by
+// its raw name string; see services/lms/batchRename.js.
+async function renameBatch(req, res) {
+  return send(res, await batchRename.renameBatch(req.params.id, (req.body || {}).name, req.admin));
 }
 
 // POST /api/lms/batches/:id/holidays  { date: 'YYYY-MM-DD' }
@@ -277,4 +289,4 @@ async function deviceCheck(req, res) {
   return res.status(200).json({ success: true, result: { logged: true, persisted: true } });
 }
 
-module.exports = { list, get, create, updateTime, cancel, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };
+module.exports = { list, get, create, updateTime, cancel, postpone, renameBatch, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };

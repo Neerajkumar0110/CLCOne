@@ -22,6 +22,7 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id`).get(catchErrors(lms.liveGet));
   router.route(`${base}/:id`).patch(catchErrors(lms.liveUpdateTime));
   router.route(`${base}/:id/cancel`).post(catchErrors(lms.liveCancel));
+  router.route(`${base}/:id/postpone`).post(catchErrors(lms.livePostpone));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
   router.route(`${base}/:id/end`).post(catchErrors(lms.liveEnd));
   router.route(`${base}/:id/join`).post(catchErrors(lms.liveJoin));
@@ -47,6 +48,7 @@ router.route('/batches/:id/students/remove').post(catchErrors(lms.removeBatchStu
 // backlog of old Drive recordings in a single paste, matched to each
 // session by date (manager only).
 router.route('/admin/batches/:id/recording-links').post(requireManager, catchErrors(lms.liveRecordingBulkAttachLinks));
+router.route('/batches/:id/rename').post(requireManager, catchErrors(lms.liveRenameBatch));
 router.route('/batches/:id/holidays').post(requireManager, catchErrors(lms.liveAddHoliday));
 router.route('/batches/:id/holidays/:date').delete(requireManager, catchErrors(lms.liveRemoveHoliday));
 // ── combined student search: LMS roster + User Management accounts ──────
@@ -184,6 +186,7 @@ router.route('/admin/attendance').get(requireManager, catchErrors(lms.liveAttend
 router.route('/admin/attendance/export').get(requireManager, catchErrors(lms.liveAttendanceExport));
 router.route('/admin/recordings').get(requireManager, catchErrors(lms.liveRecordings));
 router.route('/admin/recordings/:id/delete').post(requireManager, catchErrors(lms.liveRecordingDelete));
+router.route('/admin/recordings/:id/import-drive').post(requireManager, catchErrors(lms.liveRecordingImportDrive));
 router.route('/admin/recordings/:id/backup').post(requireManager, catchErrors(lms.liveRecordingSetBackup));
 router.route('/admin/live-monitor').get(requireManager, catchErrors(lms.liveMonitor));
 router.route('/admin/live-analytics').get(requireManager, catchErrors(lms.liveAnalytics));
@@ -243,7 +246,7 @@ router
 
 // ── policy & acknowledgement centre ─────────────────────────────────
 router.route('/policies').get(catchErrors(lms.policyList)).post(requireManager, catchErrors(lms.policyCreate));
-router.route('/policies/:id').get(catchErrors(lms.policyGet));
+router.route('/policies/:id').get(catchErrors(lms.policyGet)).delete(requireManager, catchErrors(lms.policyDelete));
 router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.policyPublish));
 router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));
 router.route('/policies/:id/report').get(requireManager, catchErrors(lms.policyReport));
@@ -257,7 +260,7 @@ router.route('/my/eligibility').get(catchErrors(lms.myEligibility));
 
 // ── project management module ───────────────────────────────────────
 router.route('/projects').get(catchErrors(lms.projectList)).post(catchErrors(lms.projectAssign));
-router.route('/projects/:id').get(catchErrors(lms.projectGet)).patch(catchErrors(lms.projectUpdate));
+router.route('/projects/:id').get(catchErrors(lms.projectGet)).patch(catchErrors(lms.projectUpdate)).delete(requireManager, catchErrors(lms.projectDelete));
 router.route('/projects/:id/milestones').post(catchErrors(lms.projectUpdateMilestone));
 router.route('/projects/:id/submit').post(catchErrors(lms.projectSubmit));
 router.route('/projects/:id/review').post(catchErrors(lms.projectReview));

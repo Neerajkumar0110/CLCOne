@@ -16,6 +16,7 @@ const { isTeacherOfCourse } = require('./teacherCourseAccess');
 const curriculumTracker = require('./curriculumTracker');
 const chapterProgress = require('./chapterProgress');
 const unassignedBatchAlert = require('./unassignedBatchAlert');
+const batchRename = require('./batchRename');
 
 module.exports = {
   lmsConfig,
@@ -36,4 +37,5 @@ module.exports = {
   curriculumTracker,
   chapterProgress,
   unassignedBatchAlert,
+  batchRename,
 };

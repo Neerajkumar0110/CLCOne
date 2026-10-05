@@ -7,3 +7,8 @@ notes.md
 .env.local
 
 *.pdf
+
+# Uploaded files (study material, recordings, etc.) live on each box's own
+# local disk (src/public/uploads/) and are never meant to ship through git —
+# see deploy/vps/README.md's "Uploaded files" note. Back this up separately.
+src/public/uploads/

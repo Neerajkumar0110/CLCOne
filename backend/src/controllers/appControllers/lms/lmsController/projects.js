@@ -359,4 +359,19 @@ async function review(req, res) {
   return ok(res, { id: String(p._id), status: p.status, totalScore }, 'Review saved.');
 }
 
-module.exports = { assign, list, myProjects, getOne, update, updateMilestone, submit, review };
+// DELETE /api/lms/projects/:id  (manager only — mentors can review/reject,
+// but removing the record entirely is an admin-tier action, same tier as
+// the rest of this app's soft-delete pattern.)
+async function remove(req, res) {
+  if (!isManager(req.admin)) return bad(res, 403, 'Only an Admin/Super Admin can delete a project.');
+  const Project = mongoose.model('Project');
+  const p = await Project.findOne({ _id: req.params.id, removed: false });
+  if (!p) return bad(res, 404, 'Not found.');
+  p.removed = true;
+  p.updated = new Date();
+  await p.save();
+  await auditLog.record({ module: 'project', action: 'delete', entityType: 'Project', entityId: p._id, admin: req.admin, before: { title: p.title, status: p.status } });
+  return ok(res, { id: String(p._id) }, 'Project deleted.');
+}
+
+module.exports = { assign, list, myProjects, getOne, update, updateMilestone, submit, review, remove };

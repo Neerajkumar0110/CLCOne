@@ -18,7 +18,10 @@ function emptyMatrix() {
 function fullAccessMatrix() {
   const m = {};
   PERMISSION_MODULES.forEach((mod) => {
-    m[mod] = { view: true, edit: true, delete: true };
+    // Code Editor is carved out of the blanket full-access bypass below —
+    // see fetchMatrix's FULL_ACCESS_ROLES branch, which overlays this one
+    // module from a real Permission record instead of granting it here.
+    m[mod] = mod === 'Code Editor' ? { view: false, edit: false, delete: false } : { view: true, edit: true, delete: true };
   });
   return m;
 }
@@ -45,8 +48,23 @@ export function PermissionProvider({ children }) {
       }
 
       if (FULL_ACCESS_ROLES.includes(current.role)) {
+        setLoading(true);
+        // Full-access roles still bypass every module EXCEPT Code Editor —
+        // that one requires an explicit grant even for owner/Admin (it opens
+        // a real VS Code session on this CRM's own source), so look up a
+        // real Permission record just for it instead of short-circuiting.
+        const res = await request.listAll({ entity: 'permission' });
+        const all = res?.success ? res.result : [];
+        const userRecord = all.find((p) => p.scope === 'user' && p.key === current.email);
+        const roleRecord = all.find((p) => p.scope === 'role' && p.key === current.role);
+        const codeEditorGrant =
+          userRecord?.matrix?.['Code Editor'] || roleRecord?.matrix?.['Code Editor'] || {
+            view: false,
+            edit: false,
+            delete: false,
+          };
         if (!cancelled) {
-          setMatrix(fullAccessMatrix());
+          setMatrix({ ...fullAccessMatrix(), 'Code Editor': codeEditorGrant });
           setLoading(false);
         }
         return;

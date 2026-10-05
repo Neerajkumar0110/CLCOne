@@ -487,6 +487,125 @@ async function cancelSession(id, admin, { reason } = {}) {
   return { result: safeView(session, 'teacher') };
 }
 
+// IST day-of-week (0=Sun..6=Sat) for a UTC-stored Date — independent of the
+// server process's own timezone, since class times are always IST.
+function istDow(d) {
+  return new Date(new Date(d).getTime() + 5.5 * 60 * 60 * 1000).getUTCDay();
+}
+
+// Postpone a class that's running late — shifts this session AND every
+// later not-yet-started session in the same recurring series (same batch +
+// recurrenceGroup) forward by N days, so the rest of the schedule slides
+// along instead of leaving a gap / overlapping the next class. If the N-day
+// shift would land a session on a Saturday/Sunday, it's nudged forward to
+// the following Monday instead — classes don't run on weekends here.
+// Teacher or manager, only before the class has started.
+async function postponeSession(id, admin, { days } = {}) {
+  const session = await loadFull(id);
+  if (!session) return { error: 404, message: 'Live class not found.' };
+  const role = await resolveRole(session, admin);
+  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can postpone it.' };
+  if (!['scheduled', 'upcoming'].includes(session.status)) {
+    return { error: 409, message: `Cannot postpone a class that is ${DISPLAY[session.status] || session.status}.` };
+  }
+  const n = Number(days);
+  if (!Number.isInteger(n) || n < 1 || n > 90) {
+    return { error: 400, message: 'Postpone by 1–90 days.' };
+  }
+
+  const shiftMs = n * 24 * 60 * 60 * 1000;
+  const originalStart = session.scheduledStart;
+
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const series = session.recurrenceGroup
+    ? await LmsLiveSession.find({
+        batch: session.batch,
+        recurrenceGroup: session.recurrenceGroup,
+        removed: false,
+        status: { $in: ['scheduled', 'upcoming'] },
+        scheduledStart: { $gte: originalStart },
+      }).sort({ scheduledStart: 1 })
+    : [session];
+
+  const shifted = [];
+  let lastEnd = null; // latest scheduledEnd across the whole shifted series
+  for (const s of series) {
+    let newStart = new Date(new Date(s.scheduledStart).getTime() + shiftMs);
+    while (istDow(newStart) === 0 || istDow(newStart) === 6) {
+      newStart = new Date(newStart.getTime() + 24 * 60 * 60 * 1000);
+    }
+    const appliedShiftMs = newStart.getTime() - new Date(s.scheduledStart).getTime();
+    s.scheduledStart = newStart;
+    s.scheduledEnd = new Date(new Date(s.scheduledEnd).getTime() + appliedShiftMs);
+    const gap = s.scheduledStart.getTime() - Date.now();
+    s.status = gap <= 3600000 && gap > -60000 ? 'upcoming' : 'scheduled';
+    s.updated = new Date();
+    await s.save();
+    await mongoose.model('LiveClass').updateOne(
+      { _id: s.liveClass },
+      { $set: { scheduledAt: s.scheduledStart, status: 'Rescheduled', updated: new Date() } }
+    );
+    shifted.push(s._id);
+    if (String(s._id) === String(session._id)) {
+      session.scheduledStart = s.scheduledStart;
+      session.scheduledEnd = s.scheduledEnd;
+      session.status = s.status;
+    }
+    if (!lastEnd || s.scheduledEnd > lastEnd) lastEnd = s.scheduledEnd;
+  }
+
+  // The batch's recorded End Date is meant to reflect the real last class —
+  // a postpone that pushes the series past it should pull it along, not
+  // leave the batch looking like it finished before its last class did.
+  if (lastEnd) {
+    const Batch = mongoose.model('Batch');
+    const batchDoc = await Batch.findById(session.batch).select('endDate');
+    if (batchDoc && (!batchDoc.endDate || lastEnd > new Date(batchDoc.endDate))) {
+      batchDoc.endDate = lastEnd;
+      await batchDoc.save();
+    }
+  }
+
+  try {
+    await require('./auditLog').record({
+      module: 'liveclass',
+      action: 'postpone',
+      entityType: 'LmsLiveSession',
+      entityId: session._id,
+      admin,
+      after: { days: n, originalStart, newStart: session.scheduledStart, seriesShifted: shifted.length },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+
+  // Notify the batch roster — same "scheduled/upcoming has no participants
+  // yet" reasoning as cancelSession.
+  if (session.batchName) {
+    try {
+      const Student = mongoose.model('Student');
+      const Admin = mongoose.model('Admin');
+      const roster = await Student.find({ removed: false, batch: session.batchName, status: 'Active' }, 'email').lean();
+      const emails = roster.map((r) => r.email).filter(Boolean);
+      if (emails.length) {
+        const emailRxs = emails.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+        const admins = await Admin.find({ removed: false, email: { $in: emailRxs }, rosterHold: { $ne: true } }, '_id email').lean();
+        const realtime = require('./realtime');
+        const mailer = require('./mailer');
+        const title = `Class postponed: ${session.title}`;
+        const extra = shifted.length > 1 ? ` (${shifted.length - 1} later class${shifted.length - 1 === 1 ? '' : 'es'} in this batch also shifted by ${n} day${n === 1 ? '' : 's'}.)` : '';
+        const body = `${session.courseTitle || session.batchName} · moved from ${new Date(originalStart).toLocaleString('en-IN')} to ${new Date(session.scheduledStart).toLocaleString('en-IN')}.${extra}`;
+        await realtime.notify(admins.map((a) => a._id), { type: 'live.postponed', title, body, link: '/lms/classes' });
+        await mailer.sendMail(admins.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+      }
+    } catch (e) {
+      /* best-effort */
+    }
+  }
+
+  return { result: { postponed: shifted.length, newStart: session.scheduledStart, session: safeView(session, 'teacher') } };
+}
+
 // Add a student to a running batch: link/create the Student roster row, enrol
 // into the Moodle course (if mapped), email them the class link + schedule.
 async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin) {
@@ -2041,6 +2160,7 @@ module.exports = {
   ensureBatchRoom,
   updateSchedule,
   cancelSession,
+  postponeSession,
   addStudentToBatch,
   searchStudents,
   listBatchStudents,

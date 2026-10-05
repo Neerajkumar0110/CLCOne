@@ -132,6 +132,52 @@ this VPS) already give this for free — see the root `vercel.json`.
 
 ---
 
+## Code Editor (OpenVSCode Server)
+
+The admin "Code Editor" sidebar tab embeds a real [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server)
+instance, gated behind the CRM's own Permission matrix (module `Code Editor`,
+off by default for every role including owner) and nginx `auth_request`. See
+`backend/src/controllers/appControllers/operation/codeEditorController` for
+the ticket/session logic.
+
+**If this box is ever rebuilt from scratch**, reinstall it:
+```bash
+cd /opt
+curl -fL -o ovsc.tar.gz https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-x64.tar.gz
+tar -xzf ovsc.tar.gz && rm ovsc.tar.gz && mv openvscode-server-v1.109.5-linux-x64 openvscode-server
+```
+Then recreate `/etc/systemd/system/openvscode-server.service` — `ExecStart` must
+include `--host 127.0.0.1 --port 3000 --without-connection-token
+--server-base-path /code-editor --disable-telemetry` (the `--server-base-path`
+flag is required — without it, the editor's own asset URLs come out rooted
+at `/` instead of `/code-editor/` and silently 403 through nginx).
+Deliberately **no** `--default-folder` — every session starts with nothing
+open; whoever's using it opens a folder themselves via File > Open Folder. `systemctl enable --now openvscode-server`.
+
+Nginx needs the `/code-editor/` + `/internal/code-editor-auth` location
+blocks in the HTTPS server block of `/etc/nginx/sites-available/clccrm`
+(not currently templated into `nginx-clccrm.conf` — copy from a working
+backup, e.g. `clccrm.bak-20261001185053` on this box, or ask whoever set
+this up). Key gotcha already hit once: `$arg_ticket` only resolves against
+the *subrequest's own* (empty) query string inside the `auth_request`
+target location — capture it as `set $ce_ticket $arg_ticket;` in the
+`/code-editor/` block *before* the `auth_request` directive, then reference
+`$ce_ticket` (not `$arg_ticket`) when forwarding it to the auth endpoint.
+
+**Re-apply CareerLab branding** (favicon, PWA icons, the "no file open"
+watermark, the top-right corner badge) any time OpenVSCode Server is
+freshly installed or upgraded — a plain release extract always resets it
+to stock OpenVSCode branding:
+```bash
+bash /var/www/clccrm/deploy/vps/code-editor-branding/apply-branding.sh
+```
+Safe to re-run any time (idempotent). Source assets + the script itself are
+committed in `deploy/vps/code-editor-branding/` — this is the *only* place
+this branding is persisted; the live files it patches on disk under
+`/opt/openvscode-server/` are not backed up or version-controlled on their own.
+
+---
+
 ## Known limitations on bare IP (revisit when a domain is added)
 
 - **No HTTPS.** Login works (JWT in a header, not a Secure cookie), but traffic

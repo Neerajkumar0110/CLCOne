@@ -11,7 +11,7 @@ const logout = async (req, res, { userModel }) => {
   if (token)
     await UserPassword.findOneAndUpdate(
       { user: req.admin._id },
-      { $pull: { loggedSessions: token } },
+      { $pull: { loggedSessions: token, deviceSessions: { token } } },
       {
         new: true,
       }
@@ -19,7 +19,7 @@ const logout = async (req, res, { userModel }) => {
   else
     await UserPassword.findOneAndUpdate(
       { user: req.admin._id },
-      { loggedSessions: [] },
+      { loggedSessions: [], deviceSessions: [] },
       {
         new: true,
       }

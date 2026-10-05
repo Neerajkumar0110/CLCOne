@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { getOrCreateLeadPoolCampaign } = require('../../../../services/calling/callingShared');
 const { NON_SALES_ROLES } = require('../../../../config/roles');
+const shiftSchedule = require('../../../../config/shiftSchedule');
+const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
 
 // POST /api/calling/lead-pool/toggle { on: boolean }
 // Joins/leaves the one system-managed Instant Lead Pool campaign — Sales
@@ -21,23 +23,36 @@ const toggle = async (req, res) => {
     await CallCampaign.updateOne({ _id: camp._id }, { $addToSet: { agents: req.admin._id } });
   }
 
-  await AgentCallState.updateOne(
-    { agent: req.admin._id },
-    {
-      $setOnInsert: { agent: req.admin._id },
-      $set: {
-        agentName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
-        status: on ? 'Available' : 'Offline',
-        campaign: on ? camp._id : null,
-        since: new Date(),
-        lastSeenAt: new Date(),
-        // Leaving mid-call would otherwise leave a stale reference behind —
-        // clear it so the next join starts clean.
-        ...(on ? {} : { currentCall: null }),
-      },
+  const now = new Date();
+  const update = {
+    $setOnInsert: { agent: req.admin._id },
+    $set: {
+      agentName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
+      status: on ? 'Available' : 'Offline',
+      campaign: on ? camp._id : null,
+      since: now,
+      lastSeenAt: now,
+      // Leaving mid-call would otherwise leave a stale reference behind —
+      // clear it so the next join starts clean.
+      ...(on ? {} : { currentCall: null }),
     },
-    { upsert: true }
-  );
+  };
+
+  if (on) {
+    // A genuine first join of the IST day resets the shift clock + today's
+    // breaks; a brief re-toggle later the SAME day (e.g. a tab reload
+    // double-firing, or manually stepping away and back) must NOT reset
+    // worked-hours math or let today's breaks be taken again.
+    const existing = await AgentCallState.findOne({ agent: req.admin._id }).select('shiftJoinedAt').lean();
+    const joinedToday = existing && existing.shiftJoinedAt && istDateKey(existing.shiftJoinedAt) === istDateKey(now);
+    if (!joinedToday) {
+      update.$set.shiftJoinedAt = now;
+      update.$set.breakMinutesToday = 0;
+      update.$set.breaksTakenToday = [];
+    }
+  }
+
+  await AgentCallState.updateOne({ agent: req.admin._id }, update, { upsert: true });
 
   return res.status(200).json({
     success: true,
@@ -56,9 +71,26 @@ const status = async (req, res) => {
 
   const camp = await CallCampaign.findOne({ isLeadPool: true, removed: false }).lean();
   if (!camp) {
+    const now0 = new Date();
     return res.status(200).json({
       success: true,
-      result: { on: false, myStatus: 'Offline', leadsWaiting: 0, participants: 0, poolExhausted: false, recentCalls: [] },
+      result: {
+        on: false,
+        myStatus: 'Offline',
+        leadsWaiting: 0,
+        participants: 0,
+        poolExhausted: false,
+        recentCalls: [],
+        shift: {
+          targetWorkMinutes: shiftSchedule.targetWorkMinutes,
+          workedMinutesToday: 0,
+          shouldAutoJoin: false,
+          activeBreak: activeBreakWindow(now0) && { ...activeBreakWindow(now0), taken: false },
+          onBreak: false,
+          breakUntil: null,
+          breakLabel: null,
+        },
+      },
       message: 'ok',
     });
   }
@@ -68,6 +100,29 @@ const status = async (req, res) => {
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
+  // Shift/break info (spec: fixed daily schedule, see config/shiftSchedule.js)
+  const now = new Date();
+  const todayKey = istDateKey(now);
+  const joinedToday = !!(myState && myState.shiftJoinedAt && istDateKey(myState.shiftJoinedAt) === todayKey);
+  const breakMinutesToday = joinedToday ? myState.breakMinutesToday || 0 : 0;
+  const breaksTakenToday = joinedToday ? myState.breaksTakenToday || [] : [];
+  const workedMinutesToday =
+    joinedToday && on ? Math.max(0, Math.round((now - new Date(myState.shiftJoinedAt)) / 60000) - breakMinutesToday) : 0;
+  const win = activeBreakWindow(now);
+  const activeBreak = win ? { key: win.key, label: win.label, durationMin: win.durationMin, taken: breaksTakenToday.includes(win.key) } : null;
+  const shift = {
+    targetWorkMinutes: shiftSchedule.targetWorkMinutes,
+    workedMinutesToday,
+    shouldAutoJoin: !on && isWithinJoinWindow(now) && !joinedToday,
+    activeBreak,
+    onBreak: !!(myState && myState.status === 'Paused' && myState.pausedUntil),
+    breakUntil: myState && myState.status === 'Paused' ? myState.pausedUntil : null,
+    breakLabel:
+      myState && myState.status === 'Paused' && myState.breakKey
+        ? (shiftSchedule.breaks.find((b) => b.key === myState.breakKey) || {}).label
+        : null,
+  };
 
   const [leadsWaiting, participants, recentCalls] = await Promise.all([
     CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } }),
@@ -87,6 +142,7 @@ const status = async (req, res) => {
       leadsWaiting,
       participants,
       poolExhausted: leadsWaiting === 0,
+      shift,
       recentCalls: recentCalls.map((c) => ({
         _id: c._id,
         contactName: c.contactName,
@@ -99,6 +155,56 @@ const status = async (req, res) => {
       })),
     },
     message: 'ok',
+  });
+};
+
+// POST /api/calling/lead-pool/break/start { key } — the agent tapping a
+// break offer (Tea/Lunch) shown in its scheduled window (config/
+// shiftSchedule.js). Pauses the dialer for that break's fixed duration
+// FROM THIS MOMENT (not until the window's nominal end) — see
+// CloudCallProvider.tick() for the auto-resume-to-Available sweep once
+// pausedUntil passes.
+const breakStart = async (req, res) => {
+  if (NON_SALES_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: null, message: 'The Instant Lead Pool is Sales-only.' });
+  }
+  const key = String((req.body && req.body.key) || '');
+  const def = shiftSchedule.breaks.find((b) => b.key === key);
+  if (!def) return res.status(400).json({ success: false, result: null, message: 'Unknown break.' });
+
+  const AgentCallState = mongoose.model('AgentCallState');
+  const state = await AgentCallState.findOne({ agent: req.admin._id });
+  if (!state || state.status === 'Offline') {
+    return res.status(409).json({ success: false, result: null, message: 'Join the Instant Lead Pool first.' });
+  }
+  if (state.status === 'Paused') {
+    return res.status(409).json({ success: false, result: null, message: 'Already on a break.' });
+  }
+
+  const now = new Date();
+  const win = activeBreakWindow(now);
+  if (!win || win.key !== key) {
+    return res.status(409).json({ success: false, result: null, message: `${def.label} isn't open right now.` });
+  }
+  const joinedToday = state.shiftJoinedAt && istDateKey(state.shiftJoinedAt) === istDateKey(now);
+  if (joinedToday && (state.breaksTakenToday || []).includes(key)) {
+    return res.status(409).json({ success: false, result: null, message: `You've already taken today's ${def.label}.` });
+  }
+
+  const pausedUntil = new Date(now.getTime() + def.durationMin * 60000);
+  await AgentCallState.updateOne(
+    { _id: state._id },
+    {
+      $set: { status: 'Paused', pausedUntil, breakKey: key, since: now },
+      $addToSet: { breaksTakenToday: key },
+      $inc: { breakMinutesToday: def.durationMin },
+    }
+  );
+
+  return res.status(200).json({
+    success: true,
+    result: { pausedUntil, durationMin: def.durationMin, label: def.label },
+    message: `${def.label} started — back at ${pausedUntil.toTimeString().slice(0, 5)}.`,
   });
 };
 
@@ -158,4 +264,4 @@ const usedLeads = async (req, res) => {
   });
 };
 
-module.exports = { toggle, status, usedLeads };
+module.exports = { toggle, status, breakStart, usedLeads };

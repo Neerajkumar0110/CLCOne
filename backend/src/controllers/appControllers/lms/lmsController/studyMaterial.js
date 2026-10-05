@@ -2,18 +2,21 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
-const { lmsConfig } = require('../../../../services/lms');
+const { lmsConfig, isTeacherOfCourse } = require('../../../../services/lms');
 
-// Study Material — teacher-uploaded files (or a pasted link), scoped to a
-// batch so a student only ever sees material for the batch they're actually
-// enrolled in. Same shape as engagement.js's announcements (batch-owned,
+// Study Material — teacher-uploaded files (or a pasted link), scoped to
+// EITHER a single batch OR a whole course so a student only ever sees
+// material for a batch/course they're actually enrolled in. Course-scoped
+// material reaches every batch of that course automatically — including one
+// added to the course after the upload — without re-uploading per batch.
+// Same two-scope shape as engagement.js's announcements (course/batch-owned,
 // teacher manages own uploads, manager sees/manages everything).
 //
-//  POST   /api/lms/materials          (teacher/manager) multipart file + { batch, title?, subject? }
-//  POST   /api/lms/materials/link     (teacher/manager) { batch, url, title?, subject? }
+//  POST   /api/lms/materials          (teacher/manager) multipart file + { batch? | course?, title?, subject? }
+//  POST   /api/lms/materials/link     (teacher/manager) { batch? | course?, url, title?, subject? }
 //  GET    /api/lms/materials          (teacher = own uploads; manager = all)
 //  DELETE /api/lms/materials/:id
-//  GET    /api/lms/my/materials       (student — own batch only)
+//  GET    /api/lms/my/materials       (student — own batch/course only)
 
 const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
@@ -39,12 +42,39 @@ async function assertOwnsBatch(admin, batch) {
   return !!(await Batch.exists({ removed: false, name: batch, trainer: rxEq(admin.name || '') }));
 }
 
+// Resolves { batch? , course? } from the request body into a validated
+// scope ready to save — at most one of the two, same "exactly one" shape
+// Announcement's audience uses. Returns { error } on anything invalid, or
+// { batch } / { course: ObjectId, courseTitle } on success.
+async function resolveScope(admin, b) {
+  const batch = String(b.batch || '').trim();
+  const courseId = String(b.course || '').trim();
+
+  if (courseId) {
+    if (!mongoose.isValidObjectId(courseId)) return { errorCode: 400, error: 'Invalid course.' };
+    const Course = mongoose.model('Course');
+    const course = await Course.findOne({ _id: courseId, removed: false }).lean();
+    if (!course) return { errorCode: 404, error: 'Course not found.' };
+    if (!isManager(admin) && !(await isTeacherOfCourse(admin, course))) return { errorCode: 403, error: 'Not your course.' };
+    return { course: course._id, courseTitle: course.title };
+  }
+
+  if (batch) {
+    if (!(await assertOwnsBatch(admin, batch))) return { errorCode: 403, error: 'Not your batch.' };
+    return { batch };
+  }
+
+  return { errorCode: 400, error: 'Pick a batch or a course.' };
+}
+
 function serialize(r) {
   return {
     id: String(r._id),
     title: r.title,
     subject: r.subject || '',
-    batch: r.batch,
+    batch: r.batch || '',
+    course: r.course ? String(r.course) : '',
+    courseTitle: r.courseTitle || '',
     kind: r.kind,
     sourceType: r.sourceType,
     fileUrl: r.fileUrl,
@@ -59,9 +89,8 @@ function serialize(r) {
 async function upload(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
-  const batch = String(b.batch || '').trim();
-  if (!batch) return bad(res, 400, 'Pick a batch.');
-  if (!(await assertOwnsBatch(req.admin, batch))) return bad(res, 403, 'Not your batch.');
+  const scope = await resolveScope(req.admin, b);
+  if (scope.error) return bad(res, scope.errorCode, scope.error);
   if (!req.file) return bad(res, 400, 'No file uploaded.');
 
   // req.file.path is relative to process.cwd() (multer's diskStorage
@@ -83,7 +112,7 @@ async function upload(req, res) {
     teacherName: req.admin.name,
     title,
     subject: (b.subject || '').trim(),
-    batch,
+    ...scope,
     kind: kindFromMime(req.file.mimetype, originalName),
     sourceType: 'file',
     fileUrl: `${crmBase()}/${req.body.file}`,
@@ -97,12 +126,11 @@ async function upload(req, res) {
 async function addLink(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
   const b = req.body || {};
-  const batch = String(b.batch || '').trim();
   const url = String(b.url || '').trim();
-  if (!batch) return bad(res, 400, 'Pick a batch.');
   if (!url) return bad(res, 400, 'Paste a URL.');
   if (!/^https?:\/\//i.test(url)) return bad(res, 400, 'Enter a valid http(s) URL.');
-  if (!(await assertOwnsBatch(req.admin, batch))) return bad(res, 403, 'Not your batch.');
+  const scope = await resolveScope(req.admin, b);
+  if (scope.error) return bad(res, scope.errorCode, scope.error);
 
   const StudyMaterial = mongoose.model('StudyMaterial');
   const doc = await StudyMaterial.create({
@@ -110,7 +138,7 @@ async function addLink(req, res) {
     teacherName: req.admin.name,
     title: (b.title && b.title.trim()) || url,
     subject: (b.subject || '').trim(),
-    batch,
+    ...scope,
     kind: 'other',
     sourceType: 'link',
     fileUrl: url,
@@ -122,7 +150,13 @@ async function list(req, res) {
   const StudyMaterial = mongoose.model('StudyMaterial');
   const q = { removed: false };
   if (!isManager(req.admin)) q.teacherCrmUser = req.admin._id;
-  const rows = await StudyMaterial.find(q).sort({ uploadedAt: -1 }).limit(500).lean();
+  // By title, not upload time — a folder upload's files land in whatever
+  // order the browser happened to traverse the directory tree in, which has
+  // nothing to do with "01 Python + SQL" belonging before "02 ...". Title
+  // carries the folder path for a folder upload (see uploadFiles' webkitRelativePath
+  // title), so this naturally reconstructs the course's intended sequence —
+  // same reasoning as Recordings sorting by class date instead of compression order.
+  const rows = await StudyMaterial.find(q).sort({ title: 1 }).limit(500).lean();
   return ok(res, rows.map(serialize));
 }
 
@@ -137,13 +171,29 @@ async function remove(req, res) {
   return ok(res, {}, 'Removed.');
 }
 
+// Always resolved live off the student's CURRENT roster row, never a
+// one-time snapshot — so a newly-created candidate sees whatever course/
+// batch material already exists the moment their roster row is saved with
+// a batch/course, with no separate "assign material to this student" step.
 async function mine(req, res) {
   const StudyMaterial = mongoose.model('StudyMaterial');
   const Student = mongoose.model('Student');
-  const rows0 = await Student.find({ removed: false, email: rxEq(req.admin.email || '') }).select('batch').lean();
+  const Course = mongoose.model('Course');
+  const rows0 = await Student.find({ removed: false, email: rxEq(req.admin.email || '') }).select('batch course').lean();
   const batches = [...new Set(rows0.map((r) => r.batch).filter(Boolean))];
-  if (!batches.length) return ok(res, []);
-  const rows = await StudyMaterial.find({ removed: false, batch: { $in: batches } }).sort({ uploadedAt: -1 }).limit(500).lean();
+  const courseTitles = [...new Set(rows0.map((r) => r.course).filter(Boolean))];
+  const courses = courseTitles.length
+    ? await Course.find({ removed: false, title: { $in: courseTitles.map((t) => rxEq(t)) } }).select('_id').lean()
+    : [];
+  const courseIds = courses.map((c) => c._id);
+  if (!batches.length && !courseIds.length) return ok(res, []);
+  const rows = await StudyMaterial.find({
+    removed: false,
+    $or: [...(batches.length ? [{ batch: { $in: batches } }] : []), ...(courseIds.length ? [{ course: { $in: courseIds } }] : [])],
+  })
+    .sort({ title: 1 })
+    .limit(500)
+    .lean();
   return ok(res, rows.map(serialize));
 }
 

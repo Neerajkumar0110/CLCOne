@@ -200,6 +200,22 @@ async function archive(req, res) {
   return ok(res, {}, 'Archived.');
 }
 
+// DELETE /api/lms/policies/:id  (manager only) — distinct from archive:
+// archive just stops a published policy from being pushed to new candidates
+// while keeping the acknowledgement trail; this removes the document row
+// itself (soft-delete, same as everywhere else in this app).
+async function remove(req, res) {
+  if (!isManager(req.admin)) return bad(res, 403, 'Only an Admin/Super Admin can delete a policy.');
+  const PolicyDocument = mongoose.model('PolicyDocument');
+  const doc = await PolicyDocument.findOne({ _id: req.params.id, removed: false });
+  if (!doc) return bad(res, 404, 'Not found.');
+  doc.removed = true;
+  doc.updated = new Date();
+  await doc.save();
+  await auditLog.record({ module: 'policy', action: 'delete', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin, before: { title: doc.title, status: doc.status } });
+  return ok(res, { id: String(doc._id) }, 'Policy deleted.');
+}
+
 async function acknowledgementReport(req, res) {
   if (!isManager(req.admin)) return bad(res, 403, 'Management role required.');
   const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
@@ -307,4 +323,4 @@ async function acknowledge(req, res) {
   return ok(res, { id: String(row._id) }, 'Acknowledged.');
 }
 
-module.exports = { create, list, getOne, publish, archive, acknowledgementReport, myPolicies, acknowledge, CATEGORIES };
+module.exports = { create, list, getOne, publish, archive, remove, acknowledgementReport, myPolicies, acknowledge, CATEGORIES };

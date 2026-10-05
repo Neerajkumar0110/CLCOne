@@ -62,6 +62,27 @@ const schema = new mongoose.Schema({
 
   views: { type: Number, default: 0 },
   lastViewedAt: { type: Date },
+  // Distinct list of who has watched this (not a log of every play — one
+  // entry per viewer, refreshed on each re-watch) so the manager's Views
+  // tooltip can name names instead of just a count. `views` above stays the
+  // total play count across everyone, same as before.
+  viewedBy: {
+    type: [
+      {
+        _id: false,
+        crmUser: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+        name: { type: String },
+        count: { type: Number, default: 1 },
+        lastViewedAt: { type: Date },
+      },
+    ],
+    default: [],
+  },
+
+  // Compressed file's size on disk, captured once compression/Drive-import
+  // finishes (see liveScope.js's uploadRecording/runDriveImportJob) — blank
+  // for an 'external' (pasted-link) row, since there's no local file to stat.
+  sizeBytes: { type: Number },
 
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },

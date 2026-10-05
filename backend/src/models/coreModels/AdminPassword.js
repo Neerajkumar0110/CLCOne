@@ -36,6 +36,15 @@ const AdminPasswordSchema = new Schema({
     type: [String],
     default: [],
   },
+  // Student-only concurrent-device cap (see issueSession.js): one active
+  // session per device category (mobile / desktop) at a time. Every entry
+  // here always has its token also present in loggedSessions — this array
+  // just remembers *which category* each of those tokens belongs to, so a
+  // new login knows which old token to evict. Not used for any other role.
+  deviceSessions: {
+    type: [{ token: String, deviceCategory: String, issuedAt: Date }],
+    default: [],
+  },
 });
 
 // AdminPasswordSchema.index({ user: 1 });

@@ -29,6 +29,8 @@ const googleApiRouter = require('./routes/appRoutes/marketing/googleApi');
 const linkedinApiRouter = require('./routes/appRoutes/marketing/linkedinApi');
 const gitApiRouter = require('./routes/appRoutes/operation/gitApi');
 const vercelApiRouter = require('./routes/appRoutes/operation/vercelApi');
+const codeEditorPublicRouter = require('./routes/appRoutes/operation/codeEditorPublicApi');
+const codeEditorApiRouter = require('./routes/appRoutes/operation/codeEditorApi');
 const cronApiRouter = require('./routes/appRoutes/cronApi');
 
 const fileUpload = require('express-fileupload');
@@ -92,6 +94,12 @@ app.use('/api/payments/public', paymentsPublicRouter);
 // bearer gate; its own CRON_SECRET check stands in for a CRM login.
 app.use('/api/cron', cronApiRouter);
 
+// nginx's internal auth_request subrequest for /code-editor/* on the VPS —
+// before the bearer gate; a raw iframe navigation can't carry one. Only
+// GET /auth lives here; POST /session (below, with git/vercel) stays
+// bearer-gated like every other admin action.
+app.use('/api/code-editor', codeEditorPublicRouter);
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
@@ -105,6 +113,7 @@ app.use('/api/google', adminAuth.isValidAuthToken, googleApiRouter);
 app.use('/api/linkedin', adminAuth.isValidAuthToken, linkedinApiRouter);
 app.use('/api/git', adminAuth.isValidAuthToken, gitApiRouter);
 app.use('/api/vercel', adminAuth.isValidAuthToken, vercelApiRouter);
+app.use('/api/code-editor', adminAuth.isValidAuthToken, codeEditorApiRouter);
 app.use('/download', coreDownloadRouter);
 app.use('/public', corePublicRouter);
 

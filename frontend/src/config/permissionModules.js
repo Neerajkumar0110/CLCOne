@@ -33,6 +33,12 @@ export const PERMISSION_MODULES = [
   'Support',
   'Git Management',
   'Vercel Management',
+  // Opens a real VS Code (OpenVSCode Server) session on this CRM's own
+  // codebase on the VPS — deliberately excluded from FULL_ACCESS_ROLES'
+  // blanket bypass (see defaultPermissionMatrix.js + permissionContext),
+  // so it stays off for every role including owner until explicitly
+  // granted per-user/per-role via Roles & Permissions.
+  'Code Editor',
   'Settings',
   'About',
 ];
@@ -64,6 +70,7 @@ export const MODULE_NAV_KEY = {
   Support: 'support',
   'Git Management': 'git-management',
   'Vercel Management': 'vercel-management',
+  'Code Editor': 'code-editor',
   Settings: 'generalSettings',
   About: 'about',
 };

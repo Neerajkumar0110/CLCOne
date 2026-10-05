@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { liveClassService, lmsConfig } = require('../../../../services/lms');
 const settingsService = require('../../../../services/lms/settingsService');
 const { compressVideo } = require('../../../../services/lms/recordingCompress');
+const { downloadDriveFileTo, extractDriveFileId } = require('../../../../services/lms/driveImport');
 const { LMS_FULL_ACCESS_ROLES } = require('../../../../config/roles');
 
 // Students never see a class's recording until this long after the class
@@ -151,7 +152,11 @@ async function listRecordings(req, res) {
   // the actual search box.
   if (req.query.q && String(req.query.q).trim()) q.$text = { $search: String(req.query.q).trim() };
 
-  let rows = await LiveRecording.find(q).select('+playbackUrl +backupUrl').sort({ publishedAt: -1, created: -1 }).limit(500).lean();
+  // Sorted by the class's own date (the "Date" column), not by when its
+  // compression/publish happened to finish — a bulk backfill (e.g. many
+  // recordings imported/compressed together) finishes in whatever order the
+  // jobs ran, which has nothing to do with Class 1, 2, 3… sequence.
+  let rows = await LiveRecording.find(q).select('+playbackUrl +backupUrl').sort({ startedAt: -1, created: -1 }).limit(500).lean();
   const now = new Date();
   const ownTaught = (r) =>
     isManager(admin) ||
@@ -198,6 +203,16 @@ async function listRecordings(req, res) {
       status: r.status,
       provider: r.provider,
       views: r.views,
+      // Manager-only, same reasoning as hasBackup below — a student doesn't
+      // get to see who else in the batch has/hasn't watched a class.
+      viewerNames: isManager(admin)
+        ? (r.viewedBy || [])
+            .slice()
+            .sort((a, b) => new Date(b.lastViewedAt || 0) - new Date(a.lastViewedAt || 0))
+            .map((v) => v.name)
+            .filter(Boolean)
+        : undefined,
+      sizeBytes: r.sizeBytes || 0,
       publishedAt: r.publishedAt,
       // status AVAILABLE with no playbackUrl is a stale row from before the
       // manual-upload flow existed (or a failed compress) — canPlay stays
@@ -250,7 +265,23 @@ async function playRecording(req, res) {
   }
   if (!allowed) return res.status(403).json({ success: false, message: 'You do not have access to this recording.' });
 
-  await LiveRecording.updateOne({ _id: rec._id }, { $inc: { views: 1 }, $set: { lastViewedAt: new Date() } });
+  const now = new Date();
+  const bumped = await LiveRecording.updateOne(
+    { _id: rec._id, 'viewedBy.crmUser': admin._id },
+    { $inc: { views: 1, 'viewedBy.$.count': 1 }, $set: { lastViewedAt: now, 'viewedBy.$.lastViewedAt': now } }
+  );
+  if (!bumped.matchedCount) {
+    // First time this admin has watched it — no existing viewedBy entry to
+    // bump, so add one (and still count the play itself).
+    await LiveRecording.updateOne(
+      { _id: rec._id },
+      {
+        $inc: { views: 1 },
+        $set: { lastViewedAt: now },
+        $push: { viewedBy: { crmUser: admin._id, name: admin.name, count: 1, lastViewedAt: now } },
+      }
+    );
+  }
   return res.status(200).json({ success: true, result: { url: rec.playbackUrl || null, provider: rec.provider } });
 }
 
@@ -299,30 +330,149 @@ async function uploadRecording(req, res) {
     result: { id: String(rec._id), status: 'PROCESSING', message: 'Uploaded — compressing now. Candidates see it once ready, 2 hours after the class ended.' },
   });
 
-  // Compress in the background; the HTTP response above already went out.
-  compressVideo(rawAbsPath, compressedAbsPath)
-    .then(async () => {
-      fs.unlink(rawAbsPath, () => {}); // drop the raw upload, keep only the compressed copy
-      const url = `${crmBase()}/${compressedRelPath}`;
-      const session = await LmsLiveSession.findById(rec.liveSession).select('actualEnd').lean();
-      const earliestForStudents = session && session.actualEnd
-        ? new Date(new Date(session.actualEnd).getTime() + RECORDING_STUDENT_DELAY_MS)
-        : new Date();
-      const publishedAt = earliestForStudents > new Date() ? earliestForStudents : new Date();
-      const doneAt = new Date();
-      await LiveRecording.updateOne(
-        { _id: rec._id },
-        { $set: { status: 'AVAILABLE', playbackUrl: url, downloadUrl: url, publishedAt, updated: doneAt } }
-      );
-      await LmsLiveSession.updateOne(
-        { _id: rec.liveSession },
-        { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: doneAt } }
-      );
-    })
-    .catch(async (e) => {
-      console.error('[lms] recording compression failed:', e && e.message);
-      await LiveRecording.updateOne({ _id: rec._id }, { $set: { status: 'FAILED', failReason: String(e && e.message).slice(0, 300), updated: new Date() } });
-    });
+  // Compress in the background, queued — see compressionQueue below. The
+  // HTTP response above already went out; multer has already finished
+  // writing rawAbsPath to disk by this point regardless of how many other
+  // uploads are landing concurrently, so queuing only the compression step
+  // (not the upload itself) is enough to keep ffmpeg to one job at a time
+  // server-wide without making concurrent uploads wait on each other.
+  enqueueCompression(() =>
+    compressVideo(rawAbsPath, compressedAbsPath)
+      .then(async () => {
+        fs.unlink(rawAbsPath, () => {}); // drop the raw upload, keep only the compressed copy
+        const url = `${crmBase()}/${compressedRelPath}`;
+        const session = await LmsLiveSession.findById(rec.liveSession).select('actualEnd').lean();
+        const earliestForStudents = session && session.actualEnd
+          ? new Date(new Date(session.actualEnd).getTime() + RECORDING_STUDENT_DELAY_MS)
+          : new Date();
+        const publishedAt = earliestForStudents > new Date() ? earliestForStudents : new Date();
+        const doneAt = new Date();
+        // Best-effort — a stat failure shouldn't fail the whole publish, the
+        // recording just shows no size (same as any pre-existing row).
+        let sizeBytes;
+        try {
+          sizeBytes = (await fs.promises.stat(compressedAbsPath)).size;
+        } catch (e) { /* leave sizeBytes undefined */ }
+        await LiveRecording.updateOne(
+          { _id: rec._id },
+          // provider -> 'mock' regardless of what it was before (e.g. 'external'
+          // on a recording whose Drive link was unreliable and got re-uploaded
+          // directly instead) — this is always our own hosted file from here
+          // on, and the frontend player picks <video> vs <iframe> off this
+          // field, not the URL shape.
+          { $set: { status: 'AVAILABLE', provider: 'mock', playbackUrl: url, downloadUrl: url, publishedAt, updated: doneAt, ...(sizeBytes !== undefined ? { sizeBytes } : {}) } }
+        );
+        await LmsLiveSession.updateOne(
+          { _id: rec.liveSession },
+          { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: doneAt } }
+        );
+      })
+      .catch(async (e) => {
+        console.error('[lms] recording compression failed:', e && e.message);
+        await LiveRecording.updateOne({ _id: rec._id }, { $set: { status: 'FAILED', failReason: String(e && e.message).slice(0, 300), updated: new Date() } });
+      })
+  );
+}
+
+// Serial queue shared by every path that runs ffmpeg in the background
+// (manual upload below, and Drive import further down) — this VPS has a
+// handful of vCPUs and already runs the live CRM API, Nginx, BigBlueButton,
+// VICIdial, and (per deploy/vps/code-editor-branding) OpenVSCode Server on
+// it. A batch of uploads/imports landing close together would otherwise
+// fire that many concurrent downloads + ffmpeg compressions at once; this
+// runs them one at a time instead; so no matter how many requests arrive
+// together, only one compression ever runs at a time, server-wide.
+const compressionQueue = [];
+let compressionQueueRunning = false;
+
+function enqueueCompression(job) {
+  compressionQueue.push(job);
+  if (!compressionQueueRunning) runCompressionQueue();
+}
+
+async function runCompressionQueue() {
+  compressionQueueRunning = true;
+  while (compressionQueue.length) {
+    const job = compressionQueue.shift();
+    await job().catch((e) => console.error('[lms] queued compression job threw unexpectedly:', e && e.message));
+  }
+  compressionQueueRunning = false;
+}
+
+// POST /api/lms/admin/recordings/:id/import-drive  (manager only)
+// Pulls the file bytes straight from Google Drive and re-hosts them on the
+// CRM's own server, exactly like a manual upload — fixes the single most
+// common recording-playback failure (Drive's /preview iframe showing "No
+// preview available" for a viewer without the right Google session/cookies,
+// regardless of the file's sharing setting) without needing the teacher to
+// still have the original file to re-upload by hand.
+async function importDriveRecording(req, res) {
+  const LiveRecording = mongoose.model('LiveRecording');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const rec = await LiveRecording.findById(req.params.id).select('+downloadUrl +playbackUrl');
+  if (!rec || rec.removed) return res.status(404).json({ success: false, message: 'Recording not found.' });
+
+  const fileId = extractDriveFileId(rec.downloadUrl) || extractDriveFileId(rec.playbackUrl);
+  if (!fileId) {
+    return res.status(400).json({ success: false, message: 'This recording has no Google Drive link to import from.' });
+  }
+
+  const now = new Date();
+  await LiveRecording.updateOne({ _id: rec._id }, { $set: { status: 'PROCESSING', updated: now } });
+  await LmsLiveSession.updateOne(
+    { _id: rec.liveSession },
+    { $set: { recordingStatus: 'PROCESSING', status: 'recording_processing', updated: now } }
+  );
+  res.status(200).json({
+    success: true,
+    result: { id: String(rec._id), status: 'PROCESSING', message: 'Queued to import from Google Drive — this can take a while for a lot of classes, one at a time.' },
+  });
+
+  // Queued, not fired immediately — see compressionQueue above. HTTP
+  // response already went out.
+  enqueueCompression(() => runDriveImportJob(rec, fileId));
+}
+
+async function runDriveImportJob(rec, fileId) {
+  const LiveRecording = mongoose.model('LiveRecording');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const dir = path.join(process.cwd(), 'src', 'public', 'uploads', 'recordings');
+  await fs.promises.mkdir(dir, { recursive: true });
+  const rawAbsPath = path.join(dir, `${rec._id}-drive-raw.mp4`);
+  const compressedAbsPath = path.join(dir, `${rec._id}-web.mp4`);
+  const compressedRelPath = `public/uploads/recordings/${rec._id}-web.mp4`;
+  try {
+    await downloadDriveFileTo(fileId, rawAbsPath);
+    await compressVideo(rawAbsPath, compressedAbsPath);
+    fs.unlink(rawAbsPath, () => {});
+    const url = `${crmBase()}/${compressedRelPath}`;
+    let sizeBytes;
+    try {
+      sizeBytes = (await fs.promises.stat(compressedAbsPath)).size;
+    } catch (e) { /* leave sizeBytes undefined */ }
+    await LiveRecording.updateOne(
+      { _id: rec._id },
+      // publishedAt is left untouched on purpose — this recording was
+      // already published (it's being RE-hosted, not freshly uploaded), so
+      // re-applying the 2-hour student delay would wrongly hide an
+      // already-announced recording again.
+      { $set: { status: 'AVAILABLE', provider: 'mock', playbackUrl: url, downloadUrl: url, updated: new Date(), ...(sizeBytes !== undefined ? { sizeBytes } : {}) } }
+    );
+    await LmsLiveSession.updateOne(
+      { _id: rec.liveSession },
+      { $set: { recordingStatus: 'AVAILABLE', status: 'recording_available', updated: new Date() } }
+    );
+  } catch (e) {
+    console.error('[lms] Drive import failed for recording', rec._id, ':', e && e.message);
+    await LiveRecording.updateOne(
+      { _id: rec._id },
+      { $set: { status: 'FAILED', failReason: String(e && e.message).slice(0, 300), updated: new Date() } }
+    );
+    await LmsLiveSession.updateOne(
+      { _id: rec.liveSession },
+      { $set: { recordingStatus: 'FAILED', updated: new Date() } }
+    );
+  }
 }
 
 // POST /api/lms/admin/recordings/:id/delete   (manager only — route guards)
@@ -804,6 +954,7 @@ module.exports = {
   listRecordings,
   playRecording,
   uploadRecording,
+  importDriveRecording,
   deleteRecording,
   setBackupUrl,
   attachRecordingLink,
