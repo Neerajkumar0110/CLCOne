@@ -78,24 +78,26 @@ export default function Recordings() {
     try {
       const res = await lmsApi.recordingPlay(rec.id);
       const url = res && res.result && res.result.url;
-      if (url) setPlaying({ ...rec, url, provider: res.result.provider });
+      if (url) setPlaying({ ...rec, url, provider: res.result.provider, downloadUrl: (res.result && res.result.downloadUrl) || null });
       else message.info(`Recording is ${rec.status.toLowerCase()}.`);
     } catch (e) {
       message.error('Not available.');
     }
   };
 
-  // A pasted Google Drive/YouTube link (provider 'external') or a BigBlueButton
-  // playback page isn't a raw video file — there's nothing on our own server
-  // to download, so this is only offered for a recording actually hosted
-  // here (provider 'mock'/'jitsi', same gate the <video> vs <iframe> choice
-  // in the play modal already uses).
-  const canDownload = (r) => r.canPlay && r.provider !== 'bigbluebutton' && r.provider !== 'external';
+  // A pasted Google Drive/YouTube link (provider 'external') is never a raw
+  // video file, so never downloadable. A BigBlueButton recording's
+  // playbackUrl is its HTML "presentation" player page, not a raw file
+  // either — downloadable only when the BBB server also exported a
+  // video/podcast format (hasDownload, set by the backend off a separate
+  // downloadUrl — see liveScope.js's listRecordings). 'mock'/Drive-import
+  // rows are always downloadable once playable.
+  const canDownload = (r) => r.canPlay && r.provider !== 'external' && (r.provider !== 'bigbluebutton' || r.hasDownload);
   const downloadRecording = async (rec) => {
     setDownloadingId(rec.id);
     try {
       const res = await lmsApi.recordingPlay(rec.id);
-      const url = res && res.result && res.result.url;
+      const url = res && res.result && (res.result.downloadUrl || res.result.url);
       if (!url) {
         message.error(`Recording is ${rec.status.toLowerCase()}.`);
         return;
@@ -429,7 +431,7 @@ export default function Recordings() {
                   </Tooltip>
                   {isManager && canDownload(playing) && (
                     <Tooltip title="Download this recording">
-                      <a href={playing.url} download={`${(playing.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`} rel="noopener">
+                      <a href={playing.downloadUrl || playing.url} download={`${(playing.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`} rel="noopener">
                         <Button size="small" icon={<DownloadOutlined />}>Download</Button>
                       </a>
                     </Tooltip>

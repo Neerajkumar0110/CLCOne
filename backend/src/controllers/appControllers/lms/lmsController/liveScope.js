@@ -156,7 +156,7 @@ async function listRecordings(req, res) {
   // compression/publish happened to finish — a bulk backfill (e.g. many
   // recordings imported/compressed together) finishes in whatever order the
   // jobs ran, which has nothing to do with Class 1, 2, 3… sequence.
-  let rows = await LiveRecording.find(q).select('+playbackUrl +backupUrl').sort({ startedAt: -1, created: -1 }).limit(500).lean();
+  let rows = await LiveRecording.find(q).select('+playbackUrl +downloadUrl +backupUrl').sort({ startedAt: -1, created: -1 }).limit(500).lean();
   const now = new Date();
   const ownTaught = (r) =>
     isManager(admin) ||
@@ -220,6 +220,14 @@ async function listRecordings(req, res) {
       // show again for it instead of treating it as already done.
       hasVideo: !!r.playbackUrl,
       canPlay: r.status === 'AVAILABLE' && !!r.playbackUrl && (ownTaught(r) || releasedToStudents(r)),
+      // A BigBlueButton recording's playbackUrl is its HTML "presentation"
+      // player page (slides + overlay), not a raw file — nothing to
+      // download unless the BBB server also exported a video/podcast
+      // format (see BigBlueButtonProvider.getRecordings), in which case
+      // downloadUrl is that separate direct-file link. 'mock' (manual
+      // upload) and Drive-import rows always have one (downloadUrl ===
+      // playbackUrl there); 'external' (a pasted share link) never does.
+      hasDownload: !!r.downloadUrl,
       // Manager-only visibility into whether a manual backup link has been
       // recorded for this recording (spec §11) — never surfaced to students.
       hasBackup: isManager(admin) ? !!r.backupUrl : undefined,
@@ -282,7 +290,10 @@ async function playRecording(req, res) {
       }
     );
   }
-  return res.status(200).json({ success: true, result: { url: rec.playbackUrl || null, provider: rec.provider } });
+  return res.status(200).json({
+    success: true,
+    result: { url: rec.playbackUrl || null, downloadUrl: rec.downloadUrl || null, provider: rec.provider },
+  });
 }
 
 // POST /api/lms/recordings/:id/upload  (multipart, field "file") — the class

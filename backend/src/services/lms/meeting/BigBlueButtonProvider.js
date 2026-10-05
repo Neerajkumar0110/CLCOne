@@ -177,13 +177,34 @@ class BigBlueButtonProvider extends MeetingProvider {
   }
 
   // getRecordings — poll for a session's recording after it ends.
+  //
+  // A <recording> can carry several <format> blocks inside its <playback> —
+  // typically "presentation" (the slides+webcam HTML player, what we use for
+  // Watch) and, only on servers with video-format export enabled,
+  // "video"/"podcast" (an actual single .mp4/.webm file). Earlier this only
+  // ever read the first <format> it found; it now scans all of them so a
+  // real downloadable file is picked up when the server produces one,
+  // instead of always landing on whichever format happened to come first.
+  // Total output size (bytes, summed across formats) comes back as the
+  // recording's own top-level <size> on BBB versions that report it.
   async getRecordings(session) {
     const meetingId = session.meetingId;
     if (!meetingId) return [];
     const r = await this._call('getRecordings', { meetingID: meetingId });
     return r.xmlAll('recording').map((rec) => {
       const playbackBlock = /<playback>([\s\S]*?)<\/playback>/.exec(rec);
-      const fmt = playbackBlock ? playbackBlock[1] : '';
+      const playback = playbackBlock ? playbackBlock[1] : '';
+      const formats = /<format>[\s\S]*?<\/format>/g;
+      const blocks = playback.match(formats) || [];
+      const parsed = blocks.map((b) => ({
+        type: xmlVal(b, 'type'),
+        url: xmlVal(b, 'url'),
+      }));
+      const presentation = parsed.find((f) => f.type === 'presentation') || parsed[0];
+      // A directly-playable media file — only present when the BBB server
+      // has a video/podcast export format enabled.
+      const downloadable = parsed.find((f) => f.type === 'video' || f.type === 'podcast');
+      const sizeBytes = Number(xmlVal(rec, 'size')) || undefined;
       return {
         recordID: xmlVal(rec, 'recordID'),
         state: xmlVal(rec, 'state'), // processing | processed | published | unpublished | deleted
@@ -194,8 +215,10 @@ class BigBlueButtonProvider extends MeetingProvider {
           Number(xmlVal(rec, 'endTime')) && Number(xmlVal(rec, 'startTime'))
             ? Math.round((Number(xmlVal(rec, 'endTime')) - Number(xmlVal(rec, 'startTime'))) / 60000)
             : undefined,
-        playbackUrl: xmlVal(fmt, 'url'),
-        type: xmlVal(fmt, 'type'),
+        playbackUrl: presentation && presentation.url,
+        downloadUrl: downloadable && downloadable.url,
+        sizeBytes,
+        type: presentation && presentation.type,
       };
     });
   }

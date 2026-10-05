@@ -1621,7 +1621,7 @@ async function handleBbbEvent(evt) {
   return { ok: true };
 }
 
-async function applyRecordingReady(session, { recordingId, playbackUrl, downloadUrl, durationMin }) {
+async function applyRecordingReady(session, { recordingId, playbackUrl, downloadUrl, durationMin, sizeBytes }) {
   const RecModel = mongoose.model('LiveRecording');
   session.recordingStatus = 'AVAILABLE';
   session.status = 'recording_available';
@@ -1642,6 +1642,7 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
         playbackUrl: playbackUrl || undefined,
         downloadUrl: downloadUrl || undefined,
         durationMin: durationMin || undefined,
+        ...(sizeBytes ? { sizeBytes } : {}),
         publishedAt,
         updated: new Date(),
       },
@@ -1772,7 +1773,9 @@ async function pollRecordings() {
         await applyRecordingReady(session, {
           recordingId: ready.recordID,
           playbackUrl: ready.playbackUrl,
+          downloadUrl: ready.downloadUrl,
           durationMin: ready.durationMin,
+          sizeBytes: ready.sizeBytes,
         });
         await session.save();
       }
