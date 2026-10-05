@@ -181,46 +181,77 @@ class BigBlueButtonProvider extends MeetingProvider {
   // A <recording> can carry several <format> blocks inside its <playback> —
   // typically "presentation" (the slides+webcam HTML player, what we use for
   // Watch) and, only on servers with video-format export enabled,
-  // "video"/"podcast" (an actual single .mp4/.webm file). Earlier this only
-  // ever read the first <format> it found; it now scans all of them so a
-  // real downloadable file is picked up when the server produces one,
-  // instead of always landing on whichever format happened to come first.
-  // Total output size (bytes, summed across formats) comes back as the
-  // recording's own top-level <size> on BBB versions that report it.
+  // "video"/"podcast" (an actual single .mp4/.webm file). This server
+  // doesn't run that export step, so that format never shows up — but BBB
+  // always keeps the raw per-user webcam recording it composites the
+  // presentation player from (camera + audio, no slides), at a predictable
+  // published-file path, so that's used as the download fallback when no
+  // proper video/podcast format is offered. Total output size (bytes) comes
+  // back as the recording's own top-level <size> on BBB versions that
+  // report it.
   async getRecordings(session) {
     const meetingId = session.meetingId;
     if (!meetingId) return [];
     const r = await this._call('getRecordings', { meetingID: meetingId });
-    return r.xmlAll('recording').map((rec) => {
-      const playbackBlock = /<playback>([\s\S]*?)<\/playback>/.exec(rec);
-      const playback = playbackBlock ? playbackBlock[1] : '';
-      const formats = /<format>[\s\S]*?<\/format>/g;
-      const blocks = playback.match(formats) || [];
-      const parsed = blocks.map((b) => ({
-        type: xmlVal(b, 'type'),
-        url: xmlVal(b, 'url'),
-      }));
-      const presentation = parsed.find((f) => f.type === 'presentation') || parsed[0];
-      // A directly-playable media file — only present when the BBB server
-      // has a video/podcast export format enabled.
-      const downloadable = parsed.find((f) => f.type === 'video' || f.type === 'podcast');
-      const sizeBytes = Number(xmlVal(rec, 'size')) || undefined;
-      return {
-        recordID: xmlVal(rec, 'recordID'),
-        state: xmlVal(rec, 'state'), // processing | processed | published | unpublished | deleted
-        published: xmlVal(rec, 'published') === 'true',
-        startTime: Number(xmlVal(rec, 'startTime')) || undefined,
-        endTime: Number(xmlVal(rec, 'endTime')) || undefined,
-        durationMin:
-          Number(xmlVal(rec, 'endTime')) && Number(xmlVal(rec, 'startTime'))
-            ? Math.round((Number(xmlVal(rec, 'endTime')) - Number(xmlVal(rec, 'startTime'))) / 60000)
-            : undefined,
-        playbackUrl: presentation && presentation.url,
-        downloadUrl: downloadable && downloadable.url,
-        sizeBytes,
-        type: presentation && presentation.type,
-      };
-    });
+    return Promise.all(
+      r.xmlAll('recording').map(async (rec) => {
+        const playbackBlock = /<playback>([\s\S]*?)<\/playback>/.exec(rec);
+        const playback = playbackBlock ? playbackBlock[1] : '';
+        const formats = /<format>[\s\S]*?<\/format>/g;
+        const blocks = playback.match(formats) || [];
+        const parsed = blocks.map((b) => ({
+          type: xmlVal(b, 'type'),
+          url: xmlVal(b, 'url'),
+        }));
+        const presentation = parsed.find((f) => f.type === 'presentation') || parsed[0];
+        // A directly-playable media file — only present when the BBB server
+        // has a video/podcast export format enabled.
+        const downloadable = parsed.find((f) => f.type === 'video' || f.type === 'podcast');
+        const sizeBytes = Number(xmlVal(rec, 'size')) || undefined;
+        const recordID = xmlVal(rec, 'recordID');
+
+        let downloadUrl = downloadable && downloadable.url;
+        if (!downloadUrl && recordID) {
+          downloadUrl = await this._rawWebcamFallback(recordID);
+        }
+
+        return {
+          recordID,
+          state: xmlVal(rec, 'state'), // processing | processed | published | unpublished | deleted
+          published: xmlVal(rec, 'published') === 'true',
+          startTime: Number(xmlVal(rec, 'startTime')) || undefined,
+          endTime: Number(xmlVal(rec, 'endTime')) || undefined,
+          durationMin:
+            Number(xmlVal(rec, 'endTime')) && Number(xmlVal(rec, 'startTime'))
+              ? Math.round((Number(xmlVal(rec, 'endTime')) - Number(xmlVal(rec, 'startTime'))) / 60000)
+              : undefined,
+          playbackUrl: presentation && presentation.url,
+          downloadUrl,
+          sizeBytes,
+          type: presentation && presentation.type,
+        };
+      })
+    );
+  }
+
+  // BBB publishes the raw webcam track the presentation player composites
+  // from at this fixed path regardless of whether video-format export is
+  // configured — checked with a HEAD request rather than assumed, since a
+  // deskshare-only class (camera off throughout) never produces one.
+  async _rawWebcamFallback(recordID) {
+    const origin = String(this.cfg.url || '').replace(/\/bigbluebutton\/?$/, '');
+    if (!origin) return undefined;
+    const candidate = `${origin}/presentation/${recordID}/video/webcams.webm`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const head = await fetch(candidate, { method: 'HEAD', signal: ctrl.signal });
+      return head.ok ? candidate : undefined;
+    } catch (e) {
+      return undefined;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // Verify an incoming BBB webhook payload's checksum (if configured to send one).
