@@ -1,174 +1,1016 @@
-/* Device check modal (join-class preflight). Scoped under .dpf-* so it
-   can't collide with any other page's CSS. */
+/* =========================================
+   DEVICE CHECK MODAL
+========================================= */
 
-.dpf-intro {
-  color: #64748b;
-  font-size: 13.5px;
-  line-height: 1.55;
-  margin: 0 0 14px;
+.device-check-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+
+  box-sizing: border-box;
 }
 
-.dpf-video-box {
-  position: relative;
-  width: 100%;
-  height: 220px;
-  border-radius: 12px;
+
+/* =========================================
+   MODAL
+========================================= */
+
+.device-check-modal {
+  width: min(940px, 100%);
+  max-height: 94vh;
+
+  display: flex;
+  flex-direction: column;
+
   overflow: hidden;
-  background: linear-gradient(145deg, #11182b, #1b2436);
-  display: grid;
-  place-items: center;
-  margin-bottom: 16px;
+
+  background: #ffffff;
+
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+
+  box-shadow:
+    0 30px 80px rgba(15, 23, 42, 0.28),
+    0 8px 25px rgba(15, 23, 42, 0.12);
+
+  animation: deviceModalIn 0.25s ease-out;
 }
 
-.dpf-video-box video {
+
+@keyframes deviceModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.device-check-header {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 25px 28px 23px;
+
+  background:
+    radial-gradient(
+      circle at 12% 20%,
+      rgba(99, 102, 241, 0.15),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      #f2f6ff 55%,
+      #eef2ff 100%
+    );
+
+  border-bottom: 1px solid #e8edf5;
+}
+
+
+.device-check-header-icon {
+  width: 62px;
+  height: 62px;
+
+  flex: 0 0 62px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e9edff;
+
+  color: #4054e8;
+
+  font-size: 29px;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(79, 70, 229, 0.04);
+}
+
+
+.device-check-header-content {
+  min-width: 0;
+}
+
+
+.device-check-header-content h2 {
+  margin: 0;
+
+  color: #172554;
+
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 750;
+
+  letter-spacing: -0.5px;
+}
+
+
+.device-check-header-content p {
+  max-width: 720px;
+
+  margin: 7px 0 0;
+
+  color: #64748b;
+
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+
+.device-check-close {
+  position: absolute;
+
+  top: 22px;
+  right: 24px;
+
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 10px;
+
+  background: transparent;
+
+  color: #64748b;
+
+  font-size: 25px;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+
+.device-check-close:hover {
+  background: #e9eef7;
+  color: #172554;
+}
+
+
+/* =========================================
+   MODAL BODY
+========================================= */
+
+.device-check-body {
+  padding: 22px 28px 25px;
+
+  overflow-y: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: #aeb8c8 transparent;
+}
+
+
+.device-check-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.device-check-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.device-check-body::-webkit-scrollbar-thumb {
+  background: #b7c0ce;
+  border-radius: 20px;
+}
+
+
+/* =========================================
+   CAMERA PREVIEW
+========================================= */
+
+.camera-preview {
+  position: relative;
+
+  width: 100%;
+  height: 310px;
+
+  overflow: hidden;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #172554,
+      #312e81
+    );
+
+  border: 1px solid #cbd5e1;
+
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+
+.camera-preview video,
+.camera-preview img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+
   display: block;
+
+  object-fit: cover;
+}
+
+.camera-preview video {
   /* mirror the preview so it feels like a normal camera/webcam view */
   transform: scaleX(-1);
 }
 
-.dpf-video-placeholder {
+
+/* dark gradient over video */
+
+.camera-preview::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.16),
+      transparent 28%,
+      transparent 70%,
+      rgba(0, 0, 0, 0.12)
+    );
+}
+
+.camera-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  color: #94a3b8;
-}
+  justify-content: center;
 
-.dpf-video-placeholder .anticon {
-  font-size: 30px;
-  color: #475569;
-}
-
-.dpf-video-placeholder span {
-  font-size: 13px;
-}
-
-.dpf-video-placeholder.is-denied .anticon {
-  color: #f87171;
-}
-
-/* =====================================================
-   STATUS ROWS
-===================================================== */
-
-.dpf-rows {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
+
+  color: rgba(226, 232, 240, 0.85);
 }
 
-.dpf-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #edf1f5;
+.camera-preview-placeholder .anticon {
+  font-size: 34px;
+  color: rgba(226, 232, 240, 0.65);
 }
 
-.dpf-row.dpf-row-column {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.dpf-row-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.dpf-row-icon {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: #eef2ff;
-  color: #4f46e5;
-  font-size: 15px;
-}
-
-.dpf-row-label {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  color: #1f2937;
+.camera-preview-placeholder span {
   font-size: 13.5px;
 }
 
-.dpf-row-required {
-  font-size: 11px;
-  color: #dc2626;
-  font-weight: 600;
-  margin-left: 6px;
+.camera-preview-placeholder.is-denied .anticon {
+  color: #fca5a5;
 }
 
-.dpf-row-status {
+
+/* =========================================
+   CAMERA BADGES
+========================================= */
+
+.camera-status-badge,
+.live-preview-badge {
+  position: absolute;
+
+  z-index: 2;
+
+  top: 14px;
+
+  display: inline-flex;
+  align-items: center;
+
+  gap: 8px;
+
+  height: 36px;
+
+  padding: 0 13px;
+
+  border-radius: 999px;
+
+  color: #ffffff;
+
+  background: rgba(15, 23, 42, 0.72);
+
+  backdrop-filter: blur(8px);
+
+  font-size: 13px;
+  font-weight: 650;
+}
+
+
+.camera-status-badge {
+  left: 14px;
+}
+
+
+.live-preview-badge {
+  right: 14px;
+}
+
+
+.camera-status-dot {
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+
+  background: #22c55e;
+
+  box-shadow:
+    0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.camera-status-badge.is-bad .camera-status-dot {
+  background: #f87171;
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.18);
+}
+
+.camera-status-badge.is-checking .camera-status-dot {
+  background: #cbd5e1;
+  box-shadow: 0 0 0 4px rgba(203, 213, 225, 0.18);
+}
+
+
+/* =========================================
+   DEVICE ROWS
+========================================= */
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  margin-top: 20px;
+}
+
+
+.device-row {
+  min-height: 86px;
+
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
+
+  gap: 16px;
+
+  padding: 15px 18px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #e1e8f2;
+  border-radius: 15px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f8fbff,
+      #f5f8fc
+    );
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+.device-row:hover {
+  border-color: #cbd5e1;
+
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.06);
+
+  transform: translateY(-1px);
+}
+
+
+/* =========================================
+   DEVICE ICON
+========================================= */
+
+.device-icon {
+  width: 48px;
+  height: 48px;
+
+  flex: 0 0 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: #edf1ff;
+
+  color: #4f46e5;
+
+  font-size: 22px;
+}
+
+
+.device-row:nth-child(2) .device-icon {
+  background: #e9fbf4;
+  color: #0f9f6e;
+}
+
+
+.device-row:nth-child(3) .device-icon {
+  background: #f0edff;
+  color: #5b4de6;
+}
+
+
+/* =========================================
+   DEVICE INFO
+========================================= */
+
+.device-info {
+  flex: 1;
+
+  min-width: 0;
+}
+
+
+.device-info h3 {
+  margin: 0;
+
+  color: #172033;
+
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.device-info h3 .device-required {
+  margin-left: 6px;
+  color: #dc2626;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+
+.device-info p {
+  margin: 4px 0 0;
+
+  color: #718096;
+
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+
+/* =========================================
+   READY STATUS
+========================================= */
+
+.device-ready {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 9px 15px;
+
+  border-radius: 999px;
+
+  background: #e8f9f0;
+
+  color: #079455;
+
+  font-size: 14px;
+
+  font-weight: 700;
+
   white-space: nowrap;
 }
 
-.dpf-row-status.is-ok {
-  color: #16a34a;
+
+.device-ready svg,
+.device-ready .anticon {
+  font-size: 17px;
 }
 
-.dpf-row-status.is-bad {
+.device-ready.is-bad {
+  background: #fdecec;
   color: #dc2626;
 }
 
-.dpf-row-status.is-checking {
-  color: #94a3b8;
-  font-weight: 500;
+.device-ready.is-checking {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
-.dpf-mic-level {
-  margin-top: 2px;
+
+/* =========================================
+   MICROPHONE LEVEL
+========================================= */
+
+.mic-level-wrapper {
+  margin-top: 12px;
+
+  width: min(520px, 100%);
 }
 
-.dpf-speaker-btn {
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 7px;
-  border: 1px solid #d7dde6;
-  background: #fff;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 600;
+
+.mic-level {
+  width: 100%;
+  height: 8px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background: #e5eaf0;
+}
+
+
+.mic-level-fill {
+  width: 32%;
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: linear-gradient(
+    90deg,
+    #16a34a,
+    #22c55e
+  );
+
+  transition: width 0.15s ease;
+}
+
+
+/* =========================================
+   SPEAKER BUTTON
+========================================= */
+
+.test-sound-btn {
+  height: 42px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 0 18px;
+
+  border: 1px solid #c7d2fe;
+
+  border-radius: 11px;
+
+  background: #ffffff;
+
+  color: #3730a3;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+
+.test-sound-btn:hover {
+  background: #eef2ff;
+
+  border-color: #818cf8;
+
+  transform: translateY(-1px);
+}
+
+
+.test-sound-btn:active {
+  transform: translateY(0);
+}
+
+
+/* =========================================
+   PERMISSION WARNING
+========================================= */
+
+.device-check-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  margin-top: 16px;
+  padding: 13px 15px;
+
+  border: 1px solid #fde68a;
+  border-radius: 13px;
+
+  background: #fffbeb;
+
+  color: #92400e;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.device-check-warning .anticon {
+  font-size: 17px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.device-check-warning strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13.5px;
+}
+
+
+/* =========================================
+   CONSENT
+========================================= */
+
+.device-consent {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  margin-top: 20px;
+
+  padding: 15px 2px 3px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+}
+
+
+.device-consent input {
+  width: 17px;
+  height: 17px;
+
+  margin-top: 1px;
+
+  accent-color: #4f46e5;
+
   cursor: pointer;
 }
 
-.dpf-speaker-btn:hover {
-  border-color: #94a3b8;
-  background: #f8fafc;
+
+.device-consent label {
+  cursor: pointer;
 }
 
-.dpf-alert {
-  margin-top: 14px;
-}
 
-.dpf-consent {
+/* =========================================
+   FOOTER
+========================================= */
+
+.device-check-footer {
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid #edf1f5;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #334155;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  padding: 17px 28px;
+
+  border-top: 1px solid #e5eaf0;
+
+  background: #fbfcfe;
 }
 
-.dpf-consent .ant-checkbox {
-  margin-top: 2px;
+
+/* =========================================
+   CANCEL
+========================================= */
+
+.cancel-btn {
+  height: 46px;
+
+  padding: 0 23px;
+
+  border: 1px solid #d4dce8;
+
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  color: #344054;
+
+  font-size: 15px;
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+
+.cancel-btn:hover {
+  background: #f8fafc;
+
+  border-color: #aeb8c8;
+}
+
+
+/* =========================================
+   JOIN NOW
+========================================= */
+
+.join-now-btn {
+  height: 46px;
+
+  min-width: 150px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 9px;
+
+  padding: 0 23px;
+
+  border: none;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #4338ca
+    );
+
+  color: #ffffff;
+
+  font-size: 15px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 7px 18px rgba(79, 70, 229, 0.25);
+
+  transition: all 0.2s ease;
+}
+
+
+.join-now-btn:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 10px 24px rgba(79, 70, 229, 0.32);
+}
+
+
+.join-now-btn:active {
+  transform: translateY(0);
+}
+
+
+.join-now-btn:disabled {
+  cursor: not-allowed;
+
+  opacity: 0.55;
+
+  transform: none;
+
+  box-shadow: none;
+}
+
+
+/* =========================================
+   RESPONSIVE — TABLET
+========================================= */
+
+@media (max-width: 768px) {
+
+  .device-check-overlay {
+    padding: 12px;
+  }
+
+
+  .device-check-modal {
+    max-height: 96vh;
+
+    border-radius: 19px;
+  }
+
+
+  .device-check-header {
+    padding: 20px;
+  }
+
+
+  .device-check-header-icon {
+    width: 52px;
+    height: 52px;
+
+    flex-basis: 52px;
+  }
+
+
+  .device-check-header-content h2 {
+    font-size: 22px;
+  }
+
+
+  .device-check-header-content p {
+    font-size: 13px;
+  }
+
+
+  .device-check-body {
+    padding: 18px 20px 22px;
+  }
+
+
+  .camera-preview {
+    height: 270px;
+  }
+
+
+  .device-check-footer {
+    padding: 15px 20px;
+  }
+}
+
+
+/* =========================================
+   RESPONSIVE — MOBILE
+========================================= */
+
+@media (max-width: 560px) {
+
+  .device-check-overlay {
+    align-items: flex-end;
+
+    padding: 0;
+  }
+
+
+  .device-check-modal {
+    width: 100%;
+
+    max-height: 94vh;
+
+    border-radius: 22px 22px 0 0;
+  }
+
+
+  .device-check-header {
+    gap: 12px;
+
+    padding: 18px 17px;
+  }
+
+
+  .device-check-header-icon {
+    width: 45px;
+    height: 45px;
+
+    flex-basis: 45px;
+
+    font-size: 21px;
+  }
+
+
+  .device-check-header-content {
+    padding-right: 25px;
+  }
+
+
+  .device-check-header-content h2 {
+    font-size: 19px;
+  }
+
+
+  .device-check-header-content p {
+    font-size: 12px;
+  }
+
+
+  .device-check-close {
+    top: 15px;
+    right: 12px;
+
+    width: 34px;
+    height: 34px;
+  }
+
+
+  .device-check-body {
+    padding: 14px 15px 18px;
+  }
+
+
+  .camera-preview {
+    height: 220px;
+
+    border-radius: 14px;
+  }
+
+
+  .device-row {
+    min-height: 76px;
+
+    padding: 12px;
+
+    gap: 11px;
+  }
+
+
+  .device-icon {
+    width: 42px;
+    height: 42px;
+
+    flex-basis: 42px;
+
+    border-radius: 12px;
+
+    font-size: 19px;
+  }
+
+
+  .device-info h3 {
+    font-size: 14px;
+  }
+
+
+  .device-info p {
+    font-size: 11px;
+  }
+
+
+  .device-ready {
+    padding: 7px 10px;
+
+    font-size: 12px;
+  }
+
+
+  .test-sound-btn {
+    height: 38px;
+
+    padding: 0 11px;
+
+    font-size: 12px;
+  }
+
+
+  .device-check-footer {
+    padding: 13px 15px;
+
+    gap: 8px;
+  }
+
+
+  .cancel-btn,
+  .join-now-btn {
+    flex: 1;
+
+    min-width: 0;
+
+    height: 43px;
+
+    padding: 0 12px;
+
+    font-size: 13px;
+  }
 }
