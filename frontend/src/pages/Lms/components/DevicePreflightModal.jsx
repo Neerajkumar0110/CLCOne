@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Button, Checkbox, Alert, Space, Progress, Typography } from 'antd';
-import { CameraOutlined, AudioOutlined, SoundOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { Modal, Button, Checkbox, Alert, Progress } from 'antd';
+import { CameraOutlined, AudioOutlined, SoundOutlined, CheckCircleFilled, CloseCircleFilled, VideoCameraOutlined } from '@ant-design/icons';
 import lmsApi from '../api';
-
-const { Text, Paragraph } = Typography;
+import './DevicePreflightModal.css';
 
 // Pre-join device check (spec §6): camera/mic/speaker permission status +
 // a clear consent notice, with Join held until the configured requirement
@@ -43,9 +42,15 @@ export default function DevicePreflightModal({ open, onCancel, onConfirm, sessio
       let camStream = null;
       try {
         camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setCamera('ok');
         streamRef.current = camStream;
+        // The <video> element is always mounted (see render below) so the
+        // ref is already attached by the time this resolves — assigning it
+        // conditionally on a "camera === 'ok'" render used to leave this
+        // null forever (the video tag only mounted once state said 'ok',
+        // by which point this assignment had already run), which is why
+        // the preview stayed a plain black box even with permission granted.
         if (videoRef.current) videoRef.current.srcObject = camStream;
+        setCamera('ok');
       } catch (e) {
         setCamera(e && e.name === 'NotFoundError' ? 'none' : 'denied');
       }
@@ -105,11 +110,13 @@ export default function DevicePreflightModal({ open, onCancel, onConfirm, sessio
     onConfirm();
   };
 
-  const statusIcon = (s) => {
-    if (s === 'checking') return <Text type="secondary">checking…</Text>;
-    if (s === 'ok') return <CheckCircleFilled style={{ color: '#52c41a' }} />;
-    return <CloseCircleFilled style={{ color: '#ff4d4f' }} />;
+  const statusNode = (s) => {
+    if (s === 'checking') return <span className="dpf-row-status is-checking">checking…</span>;
+    if (s === 'ok') return <span className="dpf-row-status is-ok"><CheckCircleFilled /> Ready</span>;
+    return <span className="dpf-row-status is-bad"><CloseCircleFilled /> {s === 'none' ? 'Not found' : 'Blocked'}</span>;
   };
+
+  const placeholderText = camera === 'checking' ? 'Requesting camera…' : camera === 'none' ? 'No camera found' : 'Camera access blocked';
 
   return (
     <Modal
@@ -117,42 +124,73 @@ export default function DevicePreflightModal({ open, onCancel, onConfirm, sessio
       title="Device check before joining"
       onCancel={() => { stopAll(); onCancel(); }}
       width={480}
+      styles={{ body: { maxHeight: '75vh', overflowY: 'auto', overflowX: 'hidden' } }}
       footer={[
         <Button key="c" onClick={() => { stopAll(); onCancel(); }}>Cancel</Button>,
         <Button key="j" type="primary" disabled={!canJoin} onClick={confirm}>Join Now</Button>,
       ]}
       destroyOnClose
     >
-      <Paragraph type="secondary" style={{ marginBottom: 12 }}>
-        As per the Class Participation & Camera/Microphone Policy, please confirm your devices before joining.
+      <p className="dpf-intro">
+        As per the Class Participation &amp; Camera/Microphone Policy, please confirm your devices before joining.
         {cameraRequired && <b> Camera is mandatory for this class.</b>}
-      </Paragraph>
+      </p>
 
-      <div style={{ background: '#000', borderRadius: 8, height: 160, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {camera === 'ok' ? (
-          <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <Text style={{ color: '#999' }}>{camera === 'checking' ? 'Requesting camera…' : 'No camera preview'}</Text>
+      <div className="dpf-video-box">
+        {/* Always mounted (never conditionally unmounted) so the ref is
+           already live the moment getUserMedia resolves — see the comment
+           above. Hidden behind the placeholder overlay until it has a
+           stream. */}
+        <video ref={videoRef} autoPlay muted playsInline style={{ display: camera === 'ok' ? 'block' : 'none' }} />
+        {camera !== 'ok' && (
+          <div className={`dpf-video-placeholder${camera === 'denied' || camera === 'none' ? ' is-denied' : ''}`}>
+            {camera === 'checking' ? <VideoCameraOutlined /> : <CameraOutlined />}
+            <span>{placeholderText}</span>
+          </div>
         )}
       </div>
 
-      <Space direction="vertical" style={{ width: '100%' }} size={10}>
-        <Space><CameraOutlined /> <Text>Camera</Text> {statusIcon(camera)} {cameraRequired && <Text type="danger" style={{ fontSize: 12 }}>(required)</Text>}</Space>
-        <Space style={{ width: '100%' }}>
-          <AudioOutlined /> <Text>Microphone</Text> {statusIcon(mic)}
-        </Space>
-        {mic === 'ok' && <Progress percent={micLevel} showInfo={false} size="small" strokeColor="#52c41a" />}
-        <Space>
-          <SoundOutlined /> <Text>Speaker</Text>
-          <Button size="small" onClick={testSpeaker}>{speakerTested ? 'Played ✓' : 'Test sound'}</Button>
-        </Space>
-      </Space>
+      <div className="dpf-rows">
+        <div className="dpf-row">
+          <div className="dpf-row-icon"><CameraOutlined /></div>
+          <span className="dpf-row-label">
+            Camera
+            {cameraRequired && <span className="dpf-row-required">(required)</span>}
+          </span>
+          {statusNode(camera)}
+        </div>
+
+        <div className="dpf-row dpf-row-column">
+          <div className="dpf-row-top">
+            <div className="dpf-row-icon"><AudioOutlined /></div>
+            <span className="dpf-row-label">Microphone</span>
+            {statusNode(mic)}
+          </div>
+          {mic === 'ok' && (
+            <Progress className="dpf-mic-level" percent={micLevel} showInfo={false} size="small" strokeColor="#16a34a" />
+          )}
+        </div>
+
+        <div className="dpf-row">
+          <div className="dpf-row-icon"><SoundOutlined /></div>
+          <span className="dpf-row-label">Speaker</span>
+          <button type="button" className="dpf-speaker-btn" onClick={testSpeaker}>
+            {speakerTested ? 'Played ✓' : 'Test sound'}
+          </button>
+        </div>
+      </div>
 
       {(camera === 'denied' || mic === 'denied') && (
-        <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Permission blocked" description="Enable camera/microphone access for this site in your browser settings, then reopen this dialog." />
+        <Alert
+          className="dpf-alert"
+          type="warning"
+          showIcon
+          message="Permission blocked"
+          description="Enable camera/microphone access for this site in your browser settings, then reopen this dialog."
+        />
       )}
 
-      <Checkbox style={{ marginTop: 14 }} checked={agree} onChange={(e) => setAgree(e.target.checked)}>
+      <Checkbox className="dpf-consent" checked={agree} onChange={(e) => setAgree(e.target.checked)}>
         I understand and consent to my camera/microphone being used for this class as per the policy.
       </Checkbox>
     </Modal>
