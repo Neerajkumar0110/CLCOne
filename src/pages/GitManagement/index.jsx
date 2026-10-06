@@ -154,14 +154,14 @@ export default function GitManagement() {
 
   if (selectedRepo) {
     return (
-      <div className="hub-page">
+      <div className="hub-page visual-refresh-page visual-refresh-engineering">
         <RepoDetail owner={selectedRepo.owner} repoName={selectedRepo.name} onBack={() => setSelectedRepo(null)} />
       </div>
     );
   }
 
   return (
-    <div className="hub-page">
+    <div className="hub-page visual-refresh-page visual-refresh-engineering">
       <div className="hub-header">
         <div>
           <h2>Git Management</h2>

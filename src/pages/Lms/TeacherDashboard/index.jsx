@@ -95,7 +95,7 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="lms-portal lms-dashboard-shell">
+    <div className="lms-portal lms-dashboard-shell teacher-dashboard-redesign">
       <div className="lms-portal-head">
         <div>
           <h2><ReadOutlined /> Teacher Dashboard</h2>

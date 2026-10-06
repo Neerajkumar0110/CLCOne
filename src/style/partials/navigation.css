@@ -90,7 +90,10 @@
   border-radius: 6px;
   margin: 10px !important;
   width: calc(100% - 20px) !important;
-  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
 }
 
 .navigation .ant-menu-item a {
@@ -121,7 +124,9 @@
   margin: 8px 10px !important;
   width: calc(100% - 20px) !important;
   font-weight: 600;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .navigation .ant-menu-submenu-title:hover {
@@ -246,9 +251,16 @@
 }
 
 @keyframes hub-nav-badge-bounce {
-  0%, 100% { transform: translateY(0); }
-  25% { transform: translateY(-4px); }
-  50% { transform: translateY(0); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-4px);
+  }
+  50% {
+    transform: translateY(0);
+  }
 }
 
 /* Collapse trigger */
@@ -263,7 +275,9 @@
   border-top: 1px solid var(--nav-border);
   font-size: 16px;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
 }
 
 .navigation-trigger:hover {

@@ -563,7 +563,7 @@ export default function Finance() {
   }, []);
 
   return (
-    <div className="hub-page">
+    <div className="hub-page visual-refresh-page visual-refresh-finance">
       <div className="hub-header">
         <div>
           <h2>Finance</h2>

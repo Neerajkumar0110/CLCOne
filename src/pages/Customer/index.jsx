@@ -108,7 +108,7 @@ export default function Customer() {
   const totalLTV = customers.reduce((s, c) => s + c.lifetimeValue, 0);
 
   return (
-    <div className="hub-page">
+    <div className="hub-page visual-refresh-page visual-refresh-customers">
       <div className="hub-header">
         <div>
           <h2>Customers</h2>

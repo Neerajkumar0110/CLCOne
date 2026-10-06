@@ -6,6 +6,46 @@
   background: #0e7490;
   border-radius: 4px;
 }
+
+/* Keep the notification popover within the viewport and scroll its feed, not its header. */
+.hub-notification-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 40px));
+  max-height: min(480px, calc(100vh - 120px));
+}
+
+/* Cap the feed itself so long notification lists scroll while short ones stay compact. */
+.hub-notification-list {
+  flex: 0 1 auto;
+  max-height: min(360px, max(96px, calc(100vh - 240px)));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 8px;
+}
+
+.hub-notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hub-notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hub-notification-list::-webkit-scrollbar-thumb {
+  background: #0e7490;
+  border-radius: 999px;
+}
+
+.hub-notification-list::-webkit-scrollbar-thumb:hover {
+  background: #0891b2;
+}
+
+.hub-notification-list {
+  scrollbar-width: thin;
+  scrollbar-color: #0e7490 transparent;
+}
 .headerIcon {
   position: relative;
 }
@@ -51,7 +91,9 @@
    <Avatar> in HeaderContainer.jsx; the older ".headerIcon.ant-avatar :hover"
    rule above never matched anything since no element carries both classes. */
 .header-avatar-trigger {
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .header-avatar-trigger:hover {
@@ -69,7 +111,10 @@
   margin-top: 4px;
   border-radius: 50%;
   cursor: pointer;
-  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
 }
 
 .header-bell-trigger:hover {
@@ -112,7 +157,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 6px;
-  transition: background 0.25s ease, border-color 0.25s ease;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease;
 }
 .theme-toggle:hover .theme-toggle-track {
   background: rgba(255, 255, 255, 0.18);
@@ -120,7 +167,9 @@
 .theme-toggle .tt-icon {
   font-size: 12px;
   z-index: 1;
-  transition: color 0.25s ease, opacity 0.25s ease;
+  transition:
+    color 0.25s ease,
+    opacity 0.25s ease;
 }
 .theme-toggle .tt-sun {
   color: #fbbf24;
@@ -153,7 +202,9 @@
 .theme-toggle.is-dark .theme-toggle-knob {
   transform: translate(calc(var(--tt-w) - var(--tt-knob) - 8px), -50%);
   background: linear-gradient(180deg, #1e293b, #0f172a);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(147, 197, 253, 0.4);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(147, 197, 253, 0.4);
 }
 
 /* Logout button (LmsPanelApp header) — an antd default-type <Button> here
@@ -168,7 +219,11 @@
   border-radius: 10px;
   font-weight: 700;
   box-shadow: none !important;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.15s ease;
 }
 .lms-logout-btn.ant-btn:hover,
 .lms-logout-btn.ant-btn:focus {

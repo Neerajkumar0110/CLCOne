@@ -123,14 +123,14 @@ export default function VercelManagement() {
 
   if (selectedProject) {
     return (
-      <div className="hub-page">
+      <div className="hub-page visual-refresh-page visual-refresh-engineering">
         <ProjectDetail project={selectedProject} onBack={() => setSelectedProject(null)} />
       </div>
     );
   }
 
   return (
-    <div className="hub-page">
+    <div className="hub-page visual-refresh-page visual-refresh-engineering">
       <div className="hub-header">
         <div>
           <h2>Vercel Management</h2>
