@@ -115,18 +115,38 @@
   line-height: 1.55;
 }
 
-.attendance-hero-note {
-  position: relative;
+.attendance-motto {
+  position: absolute;
+  right: 38px;
+  top: 34px;
   z-index: 2;
-  align-self: flex-start;
-  margin-top: 4px;
-  color: #4f46e5;
-  font-family: "Brush Script MT", "Segoe Script", cursive;
-  font-size: 22px;
-  line-height: 1.15;
-  transform: rotate(-3deg);
-  opacity: 0.85;
-  text-align: right;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  font-size: 27px;
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+
+  color: #625cf4;
+
+  transform: rotate(-2deg);
+  user-select: none;
+}
+
+.attendance-motto span {
+  display: block;
+}
+
+/* Optional slight variation exactly like the screenshot */
+.attendance-motto span:nth-child(2) {
+  margin-left: 8px;
+}
+
+.attendance-motto span:nth-child(3) {
+  margin-left: 4px;
 }
 
 
@@ -835,8 +855,8 @@
     align-items: flex-start;
   }
 
-  .attendance-hero-note {
-    align-self: flex-start;
+  .attendance-motto {
+    display: none;
   }
 
   .attendance-hero-content h1 {
