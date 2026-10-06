@@ -21,7 +21,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   overflow: hidden;
   padding: 30px 40px;
   border-radius: 19px;
@@ -53,6 +53,8 @@
 .asm-hero-left {
   position: relative;
   z-index: 2;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 25px;
@@ -74,6 +76,7 @@
 
 .asm-hero-content {
   max-width: 720px;
+  min-width: 0;
 }
 
 .asm-hero-label {
@@ -114,6 +117,7 @@
 .asm-keepgoing {
   position: relative;
   z-index: 2;
+  flex-shrink: 0;
   min-width: 330px;
   display: flex;
   align-items: center;
