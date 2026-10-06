@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Empty, Skeleton, Alert, Button, Row } from 'antd';
-import { WalletOutlined, BookOutlined, CreditCardOutlined } from '@ant-design/icons';
+import { Empty, Skeleton, Alert } from 'antd';
+import {
+  WalletOutlined,
+  BookOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  CreditCardOutlined,
+  FileTextOutlined,
+  DownloadOutlined,
+} from '@ant-design/icons';
 import lmsApi from '../api';
-import KpiTile from '../components/KpiTile';
+import '../components/FeesCourses.css';
 
 // Same visual language as the Finance hub's payment detail modal
-// (pages/Finance/index.jsx's PaymentDetailModal + the .fin-pm-* rules in
-// style/partials/featureHub.css) — reused here rather than reinvented, so a
-// student sees the exact same "which month's payment has come in" schedule
-// their fee agent does.
+// (pages/Finance/index.jsx's PaymentDetailModal) — the underlying data
+// (plan/installments from GET /api/lms/my/fees) is unchanged, only the
+// markup/CSS here is redesigned.
 
 function money(amount) {
   const n = Number(amount || 0);
@@ -18,19 +25,14 @@ function formatDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function monthLabel(ins) {
-  const d = ins.paidAt || ins.dueAt;
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-}
 
-const STATUS_BADGE = {
-  paid: 'hub-badge-green',
-  created: 'hub-badge-yellow',
-  upcoming: 'hub-badge-purple',
-  expired: 'hub-badge-gray',
-  cancelled: 'hub-badge-gray',
-  failed: 'hub-badge-red',
+const STATUS_CLASS = {
+  paid: 'txn-status',
+  created: 'txn-status pending',
+  upcoming: 'txn-status pending',
+  expired: 'txn-status pending',
+  cancelled: 'txn-status pending',
+  failed: 'txn-status pending',
 };
 
 export default function MyFees() {
@@ -60,68 +62,194 @@ export default function MyFees() {
   if (!d) return <Empty style={{ marginTop: 80 }} description="No fee information on file yet." />;
 
   const plan = d.plan;
-  const feeGrandTotal = plan ? plan.planTotal : d.feeGrandTotal;
-  const feePaid = plan ? plan.paidTotal : d.feePaid;
-  const feeDue = plan ? plan.remaining : d.feeDue;
+  const feeGrandTotal = Number(plan ? plan.planTotal : d.feeGrandTotal) || 0;
+  const feePaid = Number(plan ? plan.paidTotal : d.feePaid) || 0;
+  const feeDue = Number(plan ? plan.remaining : d.feeDue) || 0;
   const payUrl = plan && plan.remaining > 0 ? plan.shortUrl : '';
+  const pct = feeGrandTotal > 0 ? Math.round((feePaid / feeGrandTotal) * 100) : feeDue <= 0 ? 100 : 0;
+  const paidInstallments = plan ? plan.installments.filter((i) => !i.projected) : [];
 
   return (
-    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div>
-          <h2>
-            <WalletOutlined /> My Fees
-          </h2>
-          <p>
-            {d.course || 'Your course'}
-            {d.batch ? ` · Batch ${d.batch}` : ''}
-            {d.enrollmentId ? ` · ${d.enrollmentId}` : ''}
-          </p>
+    <div className="fees-page">
+      <div className="page-hero">
+        <div className="hero-left">
+          <div className="hero-icon">
+            <WalletOutlined />
+          </div>
+          <div className="hero-title">
+            <h1>My Fees</h1>
+            <p>
+              {d.course || 'Your course'}
+              {d.batch ? ` · Batch ${d.batch}` : ''}
+              {d.enrollmentId ? ` · ${d.enrollmentId}` : ''}
+            </p>
+          </div>
         </div>
         {payUrl && (
-          <a href={payUrl} target="_blank" rel="noreferrer">
-            <Button type="primary" icon={<CreditCardOutlined />}>
-              Pay next installment
-            </Button>
+          <a className="hero-action" href={payUrl} target="_blank" rel="noreferrer">
+            <button type="button" className="hero-pay-button">
+              <CreditCardOutlined /> Pay next installment
+            </button>
           </a>
         )}
       </div>
 
-      <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
-        <KpiTile title="Total payable" value={money(feeGrandTotal)} tone="slate" icon={<BookOutlined />} />
-        <KpiTile title="Paid so far" value={money(feePaid)} tone="green" />
-        <KpiTile title="Balance due" value={money(feeDue)} tone={feeDue > 0 ? 'amber' : 'green'} />
-      </Row>
-
-      {plan && plan.installments && plan.installments.length > 1 && (
-        <div className="fin-pm-section" style={{ marginTop: 16 }}>
-          <div className="fin-pm-section-label">
-            <span className="fin-pm-section-icon">
-              <WalletOutlined />
-            </span>
-            EMI schedule
+      <div className="fee-stat-grid">
+        <div className="fee-stat-card">
+          <div className="fee-stat-icon">
+            <BookOutlined />
           </div>
-          <div className="fin-pm-sched-list">
-            {plan.installments.map((ins) => (
-              <div className={`fin-pm-sched-row ${ins.projected ? 'is-projected' : ''}`} key={ins.installmentNo}>
-                <div className="fin-pm-sched-no">
-                  {ins.installmentNo}/{plan.installmentCount}
-                </div>
-                <div className="fin-pm-sched-mid">
-                  <div className="fin-pm-sched-month">{monthLabel(ins)}</div>
-                  <div className="fin-pm-sched-emails">
-                    {ins.projected ? 'Not due yet' : ins.status === 'paid' ? `Paid ${formatDate(ins.paidAt)}` : `Due ${formatDate(ins.dueAt)}`}
-                  </div>
-                </div>
-                <div className="fin-pm-sched-end">
-                  <span className={`hub-badge ${STATUS_BADGE[ins.status] || 'hub-badge-gray'}`}>{ins.status}</span>
-                  <span className="fin-pm-sched-amount">{money(ins.amount)}</span>
-                </div>
-              </div>
-            ))}
+          <div className="fee-stat-content">
+            <span>Total payable</span>
+            <strong>{money(feeGrandTotal)}</strong>
           </div>
         </div>
-      )}
+        <div className="fee-stat-card paid">
+          <div className="fee-stat-icon">
+            <CheckCircleOutlined />
+          </div>
+          <div className="fee-stat-content">
+            <span>Paid so far</span>
+            <strong>{money(feePaid)}</strong>
+          </div>
+        </div>
+        <div className="fee-stat-card balance">
+          <div className="fee-stat-icon">
+            <ExclamationCircleOutlined />
+          </div>
+          <div className="fee-stat-content">
+            <span>Balance due</span>
+            <strong>{money(feeDue)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="fee-main-grid">
+        <div className="dashboard-card">
+          <div className="card-header">
+            <div>
+              <h2>Payment Overview</h2>
+            </div>
+          </div>
+          <div className="payment-overview">
+            <div className="payment-circle" style={{ '--pct': `${pct}%` }}>
+              <div className="payment-circle-content">
+                <strong>{pct}%</strong>
+                <span>Paid</span>
+              </div>
+            </div>
+            <div className="payment-details">
+              <div className="payment-values">
+                <div className="payment-value">
+                  <span>Total Paid</span>
+                  <strong>{money(feePaid)}</strong>
+                </div>
+                <div className="payment-value">
+                  <span>Remaining</span>
+                  <strong>{money(feeDue)}</strong>
+                </div>
+              </div>
+              <div className="payment-progress">
+                <div className="payment-progress-top">
+                  <span>Payment Progress</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="progress-track" style={{ '--pct': `${pct}%` }}>
+                  <span />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-card">
+          <div className="payment-success">
+            {feeDue <= 0 ? (
+              <div className="success-box">
+                <div className="success-icon">
+                  <CheckCircleOutlined />
+                </div>
+                <div className="success-content">
+                  <strong>No outstanding payment</strong>
+                  <p>Your fee is fully paid. Thank you for your payment!</p>
+                </div>
+              </div>
+            ) : (
+              <div className="success-box is-due">
+                <div className="success-icon">
+                  <ExclamationCircleOutlined />
+                </div>
+                <div className="success-content">
+                  <strong>Payment pending</strong>
+                  <p>You have a balance of {money(feeDue)} due.</p>
+                  {payUrl && (
+                    <a className="pay-link" href={payUrl} target="_blank" rel="noreferrer">
+                      Pay now →
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-card transaction-card">
+        <div className="card-header">
+          <div>
+            <h2>Transaction / Fee Details</h2>
+          </div>
+          <div className="transaction-actions">
+            <button type="button" className="download-button" disabled={!paidInstallments.length}>
+              <DownloadOutlined /> Download Receipt
+            </button>
+          </div>
+        </div>
+
+        <div className="transaction-table-wrapper">
+          <table className="transaction-table">
+            <thead>
+              <tr>
+                <th>DATE</th>
+                <th>DESCRIPTION</th>
+                <th>AMOUNT</th>
+                <th>PAYMENT MODE</th>
+                <th>STATUS</th>
+                <th>RECEIPT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paidInstallments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="empty-table">
+                    <div className="empty-icon">
+                      <FileTextOutlined />
+                    </div>
+                    <strong>No transaction records found</strong>
+                    <br />
+                    <span>Your payment history will appear here once available.</span>
+                  </td>
+                </tr>
+              ) : (
+                paidInstallments.map((ins) => (
+                  <tr key={ins.id || ins.installmentNo}>
+                    <td>{formatDate(ins.paidAt || ins.dueAt)}</td>
+                    <td>
+                      Installment {ins.installmentNo}/{plan.installmentCount}
+                    </td>
+                    <td>{money(ins.amount)}</td>
+                    <td>—</td>
+                    <td>
+                      <span className={STATUS_CLASS[ins.status] || 'txn-status pending'}>{ins.status}</span>
+                    </td>
+                    <td>—</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, List, Typography } from 'antd';
+import { Skeleton, Alert, Empty } from 'antd';
 import {
   TrophyOutlined,
   CheckSquareOutlined,
@@ -9,12 +9,13 @@ import {
   SafetyCertificateOutlined,
   SolutionOutlined,
   BellOutlined,
+  ArrowRightOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
-import KpiTile from '../components/KpiTile';
-
-const { Text } = Typography;
+import './MyOverview.css';
 
 // Spec §3 "Learner Portal — every learner should have a single dashboard
 // showing their complete academic and placement-readiness record, with an
@@ -23,13 +24,42 @@ const { Text } = Typography;
 // Certificates) — this is the missing "home" view that puts them together,
 // backed by GET /api/lms/my/overview (learnerOverview.js).
 
-const STATE_COLOR = { Eligible: 'green', 'Not Yet Eligible': 'orange', 'Action Required': 'red' };
+function StatCard({ icon, title, value, tone }) {
+  return (
+    <div className="ov-stat-card">
+      <div className={`ov-stat-icon ${tone}`}>{icon}</div>
+      <div className="ov-stat-content">
+        <span>{title}</span>
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ passed, applicable }) {
+  if (!applicable) return <span className="ov-status-badge neutral">N/A</span>;
+  if (passed) {
+    return (
+      <span className="ov-status-badge success">
+        <CheckSquareOutlined />
+        Passed
+      </span>
+    );
+  }
+  return (
+    <span className="ov-status-badge danger">
+      <SolutionOutlined />
+      Not met
+    </span>
+  );
+}
 
 export default function LearnerOverview() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [d, setD] = useState(null);
   const navigate = useNavigate();
+  const admin = useSelector(selectCurrentAdmin) || {};
 
   useEffect(() => {
     let alive = true;
@@ -65,147 +95,313 @@ export default function LearnerOverview() {
   const policiesPending = policies.filter((p) => p.status !== 'acknowledged').length;
   const certificates = Array.isArray(d.certificates) ? d.certificates : d.certificates?.result || [];
   const notifications = d.notifications || {};
+  const pendingPolicies = policies.filter((p) => p.status !== 'acknowledged').slice(0, 6);
+  const firstName = (admin.name || 'there').split(' ')[0];
 
   return (
-    <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div>
-          <h2><TrophyOutlined /> My Overview</h2>
+    <div className="ov-root">
+      {/* ================= WELCOME ================= */}
+      <section className="ov-welcome-banner">
+        <div className="ov-welcome-content">
+          <span className="ov-welcome-small">👋 Welcome Back,</span>
+          <h1>
+            {admin.name} {admin.surname || ''}
+          </h1>
           <p>Your complete academic and placement-readiness record, in one place.</p>
         </div>
-      </div>
+        <div className="ov-welcome-art">
+          <div className="art-laptop">💻</div>
+          <div className="art-books">📚</div>
+          <div className="art-plant">🌿</div>
+        </div>
+      </section>
 
-      {/* Overall Eligibility / Progress card */}
-      <Card
-        bordered
-        style={{ marginTop: 12 }}
-        title={elig ? `Overall Eligibility — ${elig.course?.title || ''}` : 'Overall Eligibility'}
-      >
-        {!elig ? (
-          <Empty description="No eligibility rule configured for your course yet." />
-        ) : (
-          <>
-            <Row gutter={[16, 16]} align="middle">
-              <Col xs={24} md={6}>
-                <Progress
-                  type="dashboard"
-                  percent={elig.score}
-                  status={elig.eligible ? 'success' : 'normal'}
-                  format={(p) => `${p}%`}
-                />
-              </Col>
-              <Col xs={24} md={18}>
-                <p style={{ marginBottom: 6 }}>
-                  <Tag color={STATE_COLOR[elig.state] || 'default'} style={{ fontSize: 13, padding: '4px 10px' }}>
-                    {elig.state}
-                  </Tag>
-                  <Text style={{ marginLeft: 10 }}>
-                    Score <b>{elig.score}%</b> · Required <b>{elig.threshold}%</b>
-                  </Text>
-                </p>
+      {/* ================= STATS ================= */}
+      <section className="ov-stats-grid">
+        <StatCard icon={<CheckSquareOutlined />} title="Attendance" value={attendance ? `${attendance.attendancePct}%` : '—'} tone="blue" />
+        <StatCard icon={<FileTextOutlined />} title="Assessments qualified" value={`${qualifiedCount} / ${assessmentResults.length}`} tone="purple" />
+        <StatCard icon={<ExperimentOutlined />} title="Quizzes completed" value={`${quizzesCompleted} / ${quizzes.length}`} tone="green" />
+        <StatCard icon={<ProjectOutlined />} title="Projects approved" value={`${projectsApproved} / ${projects.length}`} tone="orange" />
+        <StatCard icon={<SolutionOutlined />} title="Policies pending" value={policiesPending} tone="red" />
+        <StatCard icon={<SafetyCertificateOutlined />} title="Certificates" value={certificates.length} tone="cyan" />
+        <StatCard icon={<BellOutlined />} title="Unread notifications" value={notifications.unread || 0} tone="violet" />
+      </section>
+
+      {/* ================= ELIGIBILITY ================= */}
+      <section className="ov-eligibility-layout">
+        <div className="ov-eligibility-card">
+          <div className="ov-section-heading">
+            <div>
+              <h2>Overall Eligibility</h2>
+              <span>{elig ? elig.course?.title || '' : 'No active course'}</span>
+            </div>
+            {elig && elig.course?.title && <span className="ov-plan-badge">{elig.course.title}</span>}
+          </div>
+
+          {!elig ? (
+            <Empty style={{ padding: 40 }} description="No eligibility rule configured for your course yet." />
+          ) : (
+            <div className="ov-eligibility-body">
+              <div className="ov-score-container">
+                <div className="ov-progress-ring" style={{ '--progress': `${elig.score * 3.6}deg` }}>
+                  <div className="ov-progress-inner">
+                    <strong>{elig.score}%</strong>
+                    <span>Eligible</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ov-eligibility-details">
+                <div className="ov-score-line">
+                  <span className={`ov-action-badge ${elig.eligible ? 'ok' : ''}`}>{elig.state}</span>
+                  <strong>Score {elig.score}%</strong>
+                  <span>Required {elig.threshold}%</span>
+                </div>
+
                 {elig.missing && elig.missing.length > 0 && (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    message="Still needed to become eligible"
-                    description={<List size="small" dataSource={elig.missing} renderItem={(m) => <List.Item>{m}</List.Item>} />}
-                  />
+                  <div className="ov-warning-box">
+                    <div className="ov-warning-icon">!</div>
+                    <div>
+                      <strong>Still needed to become eligible</strong>
+                      {elig.missing.map((m) => (
+                        <div className="ov-warning-item" key={m}>
+                          {m}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </Col>
-            </Row>
-            <Table
-              style={{ marginTop: 16 }}
-              size="small"
-              rowKey="key"
-              dataSource={elig.items || []}
-              pagination={false}
-              columns={[
-                { title: 'Criterion', dataIndex: 'label' },
-                { title: 'Mandatory', dataIndex: 'mandatory', render: (v) => (v ? <Tag color="red">Mandatory</Tag> : <Tag>Optional</Tag>) },
-                { title: 'Required %', dataIndex: 'required' },
-                { title: 'Achieved %', dataIndex: 'achieved' },
-                { title: 'Status', dataIndex: 'passed', render: (v, r) => (!r.applicable ? <Tag>N/A</Tag> : v ? <Tag color="green">Passed</Tag> : <Tag color="red">Not met</Tag>) },
-              ]}
-            />
-          </>
-        )}
-      </Card>
+              </div>
+            </div>
+          )}
+        </div>
 
-      <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
-        <KpiTile title="Attendance" value={attendance?.attendancePct} suffix="%" tone="slate" icon={<CheckSquareOutlined />} />
-        <KpiTile title="Assessments qualified" value={qualifiedCount} suffix={`/ ${assessmentResults.length}`} tone="slate" icon={<FileTextOutlined />} />
-        <KpiTile title="Quizzes completed" value={quizzesCompleted} suffix={`/ ${quizzes.length}`} tone="slate" icon={<ExperimentOutlined />} />
-        <KpiTile title="Projects approved" value={projectsApproved} suffix={`/ ${projects.length}`} tone="slate" icon={<ProjectOutlined />} />
-        <KpiTile title="Policies pending" value={policiesPending} tone="slate" icon={<SolutionOutlined />} />
-        <KpiTile title="Certificates" value={certificates.length} tone="slate" icon={<SafetyCertificateOutlined />} />
-        <KpiTile title="Unread notifications" value={notifications.unread} tone="slate" icon={<BellOutlined />} />
-      </Row>
+        {/* PROGRESS CTA */}
+        <div className="ov-progress-card">
+          <div>
+            <span className="ov-progress-label">YOUR PROGRESS</span>
+            <h2>Your Progress Matters</h2>
+            <p>Complete your modules, assessments and assignments to become eligible for the next phase.</p>
+            <button type="button" className="ov-primary-button" onClick={() => navigate('/learn/curriculum')}>
+              View Curriculum
+              <ArrowRightOutlined />
+            </button>
+          </div>
+          <div className="ov-target-illustration">
+            <TrophyOutlined style={{ fontSize: 90 }} />
+          </div>
+        </div>
+      </section>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Attendance summary" bordered extra={<a onClick={() => navigate('/learn/attendance')}>View details</a>}>
-            {!attendance ? (
-              <Empty description="No attendance yet" />
-            ) : (
-              <List size="small">
-                <List.Item>Present: <b>{attendance.present}</b></List.Item>
-                <List.Item>Late: <b>{attendance.late}</b></List.Item>
-                <List.Item>Partial: <b>{attendance.partial}</b></List.Item>
-                <List.Item>Absent: <b>{attendance.absent}</b></List.Item>
-                <List.Item>Excused: <b>{attendance.excused}</b></List.Item>
-              </List>
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Recent notifications" bordered extra={<a onClick={() => navigate('/learn/notifications')}>View all</a>}>
-            <List
-              size="small"
-              dataSource={(notifications.recent || []).slice(0, 6)}
-              locale={{ emptyText: 'No notifications' }}
-              renderItem={(n) => (
-                <List.Item>
-                  <Text strong={!n.read}>{n.title}</Text>
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* ================= CRITERIA TABLE ================= */}
+      {elig && (
+        <section className="ov-criteria-card">
+          <div className="ov-criteria-header">
+            <div>
+              <h2>Eligibility Criteria Details</h2>
+              <p>Your current performance against program requirements</p>
+            </div>
+            <button type="button" className="ov-view-button" onClick={() => navigate('/learn/eligibility')}>
+              View Details
+              <ArrowRightOutlined />
+            </button>
+          </div>
 
-      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Projects" bordered extra={<a onClick={() => navigate('/learn/projects')}>View details</a>}>
-            <Table
-              size="small"
-              rowKey={(r) => r._id || r.title}
-              dataSource={projects}
-              pagination={false}
-              locale={{ emptyText: 'No project assigned yet' }}
-              columns={[
-                { title: 'Title', dataIndex: 'title' },
-                { title: 'Mentor', dataIndex: 'mentorName' },
-                { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{s}</Tag> },
-              ]}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Policies" bordered extra={<a onClick={() => navigate('/learn/policies')}>View details</a>}>
-            <Table
-              size="small"
-              rowKey={(r) => r._id || r.policyTitle}
-              dataSource={policies.filter((p) => p.status !== 'acknowledged').slice(0, 6)}
-              pagination={false}
-              locale={{ emptyText: 'Nothing pending — all acknowledged' }}
-              columns={[
-                { title: 'Policy', dataIndex: 'title' },
-                { title: 'Mandatory', dataIndex: 'mandatory', render: (v) => (v ? <Tag color="red">Mandatory</Tag> : <Tag>Optional</Tag>) },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
+          <div className="ov-table-wrapper">
+            <table className="ov-table">
+              <thead>
+                <tr>
+                  <th>CRITERION</th>
+                  <th>MANDATORY</th>
+                  <th>REQUIRED %</th>
+                  <th>ACHIEVED %</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(elig.items || []).map((item) => (
+                  <tr key={item.key}>
+                    <td>
+                      <strong>{item.label}</strong>
+                    </td>
+                    <td>
+                      <span className={item.mandatory ? 'ov-mandatory-badge' : 'ov-optional-badge'}>
+                        {item.mandatory ? 'Mandatory' : 'Optional'}
+                      </span>
+                    </td>
+                    <td>{item.required}</td>
+                    <td>
+                      <div className="ov-achieved-value">
+                        <strong>{item.achieved}</strong>
+                        <div className="ov-mini-progress">
+                          <span style={{ width: `${Math.min(item.achieved, 100)}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <StatusBadge passed={item.passed} applicable={item.applicable} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="ov-tip-box">
+            <div className="ov-tip-icon">💡</div>
+            <div className="ov-tip-box-text">
+              <strong>{elig.eligible ? 'Great work — you’re eligible!' : 'Keep up the good work!'}</strong>
+              <span>
+                {elig.eligible
+                  ? `You've met the eligibility bar at ${elig.score}%.`
+                  : `You're currently ${elig.score}% eligible. Focus on the items above to unlock the next stage.`}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================= SECONDARY INFO ================= */}
+      <section className="ov-two-up">
+        <div className="ov-criteria-card">
+          <div className="ov-criteria-header">
+            <div>
+              <h2>Attendance summary</h2>
+            </div>
+            <button type="button" className="ov-view-button" onClick={() => navigate('/learn/attendance')}>
+              View details
+              <ArrowRightOutlined />
+            </button>
+          </div>
+          {!attendance ? (
+            <div className="ov-empty-note">No attendance yet</div>
+          ) : (
+            <div className="ov-simple-list">
+              <div className="ov-simple-list-item">
+                <span>Present</span>
+                <strong>{attendance.present}</strong>
+              </div>
+              <div className="ov-simple-list-item">
+                <span>Late</span>
+                <strong>{attendance.late}</strong>
+              </div>
+              <div className="ov-simple-list-item">
+                <span>Partial</span>
+                <strong>{attendance.partial}</strong>
+              </div>
+              <div className="ov-simple-list-item">
+                <span>Absent</span>
+                <strong>{attendance.absent}</strong>
+              </div>
+              <div className="ov-simple-list-item">
+                <span>Excused</span>
+                <strong>{attendance.excused}</strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="ov-criteria-card">
+          <div className="ov-criteria-header">
+            <div>
+              <h2>Recent notifications</h2>
+            </div>
+            <button type="button" className="ov-view-button" onClick={() => navigate('/learn/notifications')}>
+              View all
+              <ArrowRightOutlined />
+            </button>
+          </div>
+          {(notifications.recent || []).length === 0 ? (
+            <div className="ov-empty-note">No notifications</div>
+          ) : (
+            <div className="ov-simple-list">
+              {(notifications.recent || []).slice(0, 6).map((n) => (
+                <div className={`ov-simple-list-item ${!n.read ? 'unread' : ''}`} key={n.id}>
+                  <strong>{n.title}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="ov-two-up">
+        <div className="ov-criteria-card">
+          <div className="ov-criteria-header">
+            <div>
+              <h2>Projects</h2>
+            </div>
+            <button type="button" className="ov-view-button" onClick={() => navigate('/learn/projects')}>
+              View details
+              <ArrowRightOutlined />
+            </button>
+          </div>
+          {projects.length === 0 ? (
+            <div className="ov-empty-note">No project assigned yet</div>
+          ) : (
+            <div className="ov-table-wrapper">
+              <table className="ov-table">
+                <thead>
+                  <tr>
+                    <th>TITLE</th>
+                    <th>MENTOR</th>
+                    <th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((p) => (
+                    <tr key={p._id || p.title}>
+                      <td>{p.title}</td>
+                      <td>{p.mentorName || '—'}</td>
+                      <td>
+                        <span className="ov-plain-badge">{p.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="ov-criteria-card">
+          <div className="ov-criteria-header">
+            <div>
+              <h2>Policies</h2>
+            </div>
+            <button type="button" className="ov-view-button" onClick={() => navigate('/learn/policies')}>
+              View details
+              <ArrowRightOutlined />
+            </button>
+          </div>
+          {pendingPolicies.length === 0 ? (
+            <div className="ov-empty-note">Nothing pending — all acknowledged</div>
+          ) : (
+            <div className="ov-table-wrapper">
+              <table className="ov-table">
+                <thead>
+                  <tr>
+                    <th>POLICY</th>
+                    <th>MANDATORY</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingPolicies.map((p) => (
+                    <tr key={p._id || p.title}>
+                      <td>{p.title}</td>
+                      <td>
+                        <span className={p.mandatory ? 'ov-mandatory-badge' : 'ov-optional-badge'}>
+                          {p.mandatory ? 'Mandatory' : 'Optional'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

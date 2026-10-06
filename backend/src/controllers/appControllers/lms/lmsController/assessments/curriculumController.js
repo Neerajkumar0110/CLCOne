@@ -37,7 +37,15 @@ async function getSessions(req, res) {
     const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
     const AssessmentDeliveryRecord = mongoose.model('AssessmentDeliveryRecord');
 
-    const sessions = await AssessmentCurriculumSession.find(track ? { track } : {})
+    // The student-facing Curriculum Progress view never sends `track` at all
+    // (it just trusts `resolvedTrack` above) — falling back to {} here used
+    // to return EVERY session across BOTH tracks (Elite being a superset of
+    // Foundation), so a Foundation-plan (6-month) student saw the full
+    // Elite (12-month) syllabus mixed in. An explicit `track` (the
+    // teacher's Segmented toggle) is still honoured as-is, so a teacher can
+    // still browse the other track's syllabus on purpose.
+    const sessionTrack = track || resolvedTrack;
+    const sessions = await AssessmentCurriculumSession.find(sessionTrack ? { track: sessionTrack } : {})
       .sort({ order: 1 })
       .lean();
 

@@ -1,0 +1,697 @@
+/* My Overview — candidate dashboard content.
+   Scoped under .ov-root; sidebar/header are the shared LmsPanelApp shell. */
+
+.ov-root {
+  color: #10213f;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* =====================================================
+   WELCOME BANNER
+===================================================== */
+
+.ov-welcome-banner {
+  min-height: 124px;
+  border-radius: 17px;
+  padding: 25px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 75% 20%, rgba(255, 255, 255, 0.8), transparent 28%),
+    linear-gradient(110deg, #bcd8ff, #e9f5ff);
+  border: 1px solid #d5e8fa;
+}
+
+.ov-welcome-content {
+  position: relative;
+  z-index: 2;
+}
+
+.ov-welcome-small {
+  font-size: 12px;
+  color: #205c9b;
+  font-weight: 600;
+}
+
+.ov-welcome-banner h1 {
+  margin: 6px 0 5px;
+  font-size: 27px;
+  line-height: 1.1;
+  color: #092a55;
+}
+
+.ov-welcome-banner p {
+  margin: 0;
+  font-size: 13px;
+  color: #385d80;
+}
+
+.ov-welcome-art {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  font-size: 55px;
+  padding-right: 35px;
+}
+
+.ov-welcome-art .art-laptop {
+  font-size: 66px;
+}
+
+.ov-welcome-art .art-books {
+  font-size: 44px;
+}
+
+.ov-welcome-art .art-plant {
+  font-size: 52px;
+}
+
+/* =====================================================
+   STATS
+===================================================== */
+
+.ov-stats-grid {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ov-stat-card {
+  min-height: 100px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e8edf4;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 6px 20px rgba(27, 58, 94, 0.055);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ov-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(27, 58, 94, 0.11);
+}
+
+.ov-stat-icon {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+
+.ov-stat-icon.blue {
+  background: #e8f1ff;
+  color: #1269dc;
+}
+
+.ov-stat-icon.purple {
+  background: #eee9ff;
+  color: #7548db;
+}
+
+.ov-stat-icon.green {
+  background: #e5f8ed;
+  color: #149b57;
+}
+
+.ov-stat-icon.orange {
+  background: #fff2df;
+  color: #e89219;
+}
+
+.ov-stat-icon.red {
+  background: #ffe8ed;
+  color: #ed4058;
+}
+
+.ov-stat-icon.cyan {
+  background: #e5f7fa;
+  color: #079bad;
+}
+
+.ov-stat-icon.violet {
+  background: #eee8ff;
+  color: #7a4be1;
+}
+
+.ov-stat-content {
+  min-width: 0;
+}
+
+.ov-stat-content > span {
+  display: block;
+  color: #74849a;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.ov-stat-content strong {
+  display: block;
+  font-size: 21px;
+  color: #10203b;
+}
+
+.ov-stat-content small {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 3px;
+  color: #6f8298;
+  font-size: 10px;
+}
+
+/* =====================================================
+   ELIGIBILITY
+===================================================== */
+
+.ov-eligibility-layout {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
+  gap: 15px;
+}
+
+.ov-eligibility-card,
+.ov-progress-card,
+.ov-criteria-card {
+  background: white;
+  border: 1px solid #e6ebf2;
+  border-radius: 16px;
+  box-shadow: 0 7px 25px rgba(28, 56, 89, 0.055);
+}
+
+.ov-eligibility-card {
+  overflow: hidden;
+}
+
+.ov-section-heading {
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf0f5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ov-section-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  color: #122847;
+}
+
+.ov-section-heading span {
+  font-size: 11px;
+  color: #6f8096;
+}
+
+.ov-plan-badge {
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #edf5ff;
+  color: #2166b4;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ov-eligibility-body {
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  gap: 35px;
+}
+
+.ov-score-container {
+  width: 180px;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ov-progress-ring {
+  width: 145px;
+  height: 145px;
+  border-radius: 50%;
+  background: conic-gradient(#1576f4 var(--progress), #e8edf3 var(--progress));
+  display: grid;
+  place-items: center;
+  transform: rotate(-40deg);
+}
+
+.ov-progress-inner {
+  width: 112px;
+  height: 112px;
+  background: white;
+  border-radius: 50%;
+  transform: rotate(40deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ov-progress-inner strong {
+  font-size: 29px;
+  color: #13223e;
+}
+
+.ov-progress-inner span {
+  color: #8a98a9;
+  font-size: 10px;
+}
+
+.ov-eligibility-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.ov-score-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.ov-score-line > span:last-child {
+  color: #65768c;
+}
+
+.ov-action-badge {
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: #ed3544;
+  border: 1px solid #ffb9c0;
+  background: #fff5f6;
+  font-weight: 700;
+}
+
+.ov-action-badge.ok {
+  color: #1a9c4b;
+  border: 1px solid #b1e8c4;
+  background: #f0fcf4;
+}
+
+.ov-warning-box {
+  display: flex;
+  gap: 12px;
+  padding: 17px;
+  border-radius: 10px;
+  background: #fffbed;
+  border: 1px solid #ffe0a1;
+}
+
+.ov-warning-icon {
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffb018;
+  color: white;
+  font-weight: 800;
+}
+
+.ov-warning-box strong {
+  display: block;
+  font-size: 13px;
+  color: #27334a;
+  margin-bottom: 9px;
+}
+
+.ov-warning-item {
+  padding: 7px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f0e7c9;
+  color: #596579;
+}
+
+.ov-warning-item:last-child {
+  border-bottom: 0;
+}
+
+/* =====================================================
+   PROGRESS CTA
+===================================================== */
+
+.ov-progress-card {
+  padding: 25px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: radial-gradient(circle at 90% 50%, #dcecff, transparent 42%), linear-gradient(135deg, #edf4ff, #f7fbff);
+}
+
+.ov-progress-label {
+  color: #5482bd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.ov-progress-card h2 {
+  margin: 7px 0;
+  color: #102957;
+  font-size: 22px;
+}
+
+.ov-progress-card p {
+  max-width: 300px;
+  margin: 0 0 18px;
+  color: #647b98;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ov-primary-button {
+  border: 0;
+  padding: 10px 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 8px;
+  background: #0878ef;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 7px 18px rgba(8, 120, 239, 0.22);
+}
+
+.ov-target-illustration {
+  color: #267af0;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+/* =====================================================
+   CARDS / TABLES (criteria + secondary sections)
+===================================================== */
+
+.ov-criteria-card {
+  margin-top: 15px;
+  padding: 0 0 15px;
+  overflow: hidden;
+}
+
+.ov-criteria-header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.ov-criteria-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #122847;
+}
+
+.ov-criteria-header p {
+  margin: 0;
+  font-size: 11px;
+  color: #7b899a;
+}
+
+.ov-view-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  color: #1664d9;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ov-table-wrapper {
+  overflow-x: auto;
+  padding: 0 15px;
+}
+
+.ov-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+}
+
+.ov-table thead {
+  background: #f5f8fc;
+}
+
+.ov-table th {
+  padding: 12px 13px;
+  text-align: left;
+  color: #647a99;
+  font-size: 10px;
+  font-weight: 800;
+  border-bottom: 1px solid #e3e9f0;
+}
+
+.ov-table td {
+  padding: 13px;
+  color: #2a3b55;
+  font-size: 12px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.ov-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ov-table tbody tr:hover {
+  background: #fafcff;
+}
+
+.ov-mandatory-badge,
+.ov-optional-badge,
+.ov-status-badge,
+.ov-plain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ov-mandatory-badge {
+  background: #fff0f1;
+  border: 1px solid #ffb8bd;
+  color: #e63243;
+}
+
+.ov-optional-badge {
+  background: #f0f5ff;
+  border: 1px solid #bdd2ff;
+  color: #3974d5;
+}
+
+.ov-plain-badge {
+  background: #f3f6fa;
+  border: 1px solid #dce3eb;
+  color: #536985;
+}
+
+.ov-status-badge.success {
+  color: #299b3a;
+  background: #effbea;
+  border: 1px solid #b8e8ae;
+}
+
+.ov-status-badge.danger {
+  color: #e83b48;
+  background: #fff0f1;
+  border: 1px solid #ffbdc1;
+}
+
+.ov-status-badge.neutral {
+  color: #536985;
+  background: #f3f6fa;
+  border: 1px solid #dce3eb;
+}
+
+.ov-achieved-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ov-mini-progress {
+  width: 65px;
+  height: 5px;
+  background: #edf0f4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ov-mini-progress span {
+  display: block;
+  height: 100%;
+  background: #2382ee;
+  border-radius: inherit;
+}
+
+.ov-empty-note {
+  padding: 24px 20px;
+  text-align: center;
+  color: #8a98ac;
+  font-size: 12px;
+}
+
+/* simple list rows, used by attendance summary / notifications */
+.ov-simple-list {
+  padding: 4px 20px 16px;
+}
+
+.ov-simple-list-item {
+  padding: 9px 0;
+  font-size: 12px;
+  color: #40506b;
+  border-bottom: 1px solid #edf1f5;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ov-simple-list-item:last-child {
+  border-bottom: 0;
+}
+
+.ov-simple-list-item strong {
+  color: #122847;
+}
+
+.ov-simple-list-item.unread strong {
+  color: #0d57b8;
+}
+
+/* =====================================================
+   TIP
+===================================================== */
+
+.ov-tip-box {
+  margin: 15px 15px 0;
+  min-height: 52px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #f1f7ff;
+  border: 1px solid #dcecff;
+  border-radius: 9px;
+  color: #3f6794;
+}
+
+.ov-tip-icon {
+  font-size: 19px;
+}
+
+.ov-tip-box-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ov-tip-box strong {
+  font-size: 11px;
+  color: #1d5798;
+}
+
+.ov-tip-box span {
+  font-size: 10px;
+}
+
+/* =====================================================
+   TWO-UP ROW (attendance summary / notifications / projects / policies)
+===================================================== */
+
+.ov-two-up {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1250px) {
+  .ov-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1000px) {
+  .ov-eligibility-layout,
+  .ov-two-up {
+    grid-template-columns: 1fr;
+  }
+
+  .ov-progress-card {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 800px) {
+  .ov-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .ov-welcome-banner {
+    padding: 20px;
+  }
+
+  .ov-welcome-banner h1 {
+    font-size: 22px;
+  }
+
+  .ov-welcome-art {
+    display: none;
+  }
+
+  .ov-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ov-eligibility-body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ov-score-container {
+    width: 100%;
+  }
+
+  .ov-criteria-header {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ov-criteria-header p {
+    display: none;
+  }
+}

@@ -1,20 +1,65 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Table, Tag, Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, List, Typography } from 'antd';
-import { ReloadOutlined, PlaySquareOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, List, Typography, Pagination, Dropdown } from 'antd';
+import {
+  ReloadOutlined, PlaySquareOutlined, PlayCircleOutlined, DeleteOutlined, SearchOutlined, UploadOutlined,
+  FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined,
+  LockOutlined, ClockCircleOutlined, UserOutlined, MoreOutlined, CodeOutlined, DatabaseOutlined,
+  ExperimentOutlined, ApiOutlined, ThunderboltOutlined, FileTextOutlined,
+} from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
 import lmsApi from '../api';
+import './Recordings.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
-const STATUS_COLOR = { AVAILABLE: 'green', PROCESSING: 'purple', AWAITING_UPLOAD: 'orange', RECORDING: 'red', FAILED: 'red', NOT_STARTED: 'default', DELETED: 'default' };
-const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD' };
+const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD', NOT_STARTED: 'NOT STARTED' };
 
 function fmtBytes(bytes) {
   if (!bytes) return '—';
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function fmtDuration(min) {
+  if (!min) return '—';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} hr ${m} min` : `${h} hr`;
+}
+
+// No real thumbnail image exists for a recording (BBB/uploaded files don't
+// carry a frame grab) — this is a deterministic decorative placeholder
+// (same class/course always gets the same look) rather than a fabricated
+// photo, the same approach already used for course cards with no
+// thumbnailUrl elsewhere in the LMS.
+const THUMB_PALETTE = [
+  ['#2a78d6', '#1b4f9c'],
+  ['#1baf7a', '#0c7a52'],
+  ['#8540e0', '#5a26a3'],
+  ['#eb6834', '#b84a1e'],
+  ['#e87ba4', '#b84c78'],
+  ['#0d9aaa', '#076873'],
+];
+const THUMB_ICON_RULES = [
+  [/python|django|flask/i, CodeOutlined],
+  [/sql|database|db\b/i, DatabaseOutlined],
+  [/nlp|llm|language|transformer|agent/i, ExperimentOutlined],
+  [/api|integration/i, ApiOutlined],
+  [/cloud|deploy|docker|devops/i, ThunderboltOutlined],
+];
+function hashText(text) {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return h;
+}
+function thumbFor(text) {
+  const key = text || 'recording';
+  const idx = hashText(key) % THUMB_PALETTE.length;
+  const Icon = (THUMB_ICON_RULES.find(([re]) => re.test(key)) || [, FileTextOutlined])[1];
+  return { colors: THUMB_PALETTE[idx], Icon };
 }
 
 export default function Recordings() {
@@ -30,6 +75,9 @@ export default function Recordings() {
   const [importingId, setImportingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [bulkImporting, setBulkImporting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const fileInputRef = useRef(null);
   const uploadTargetRef = useRef(null);
   // The BBB playback iframe has its own tiny internal fullscreen control
@@ -73,6 +121,23 @@ export default function Recordings() {
 
   const courses = useMemo(() => [...new Set(rows.map((r) => r.courseTitle).filter(Boolean))], [rows]);
   const batches = useMemo(() => [...new Set(rows.map((r) => r.batchName).filter(Boolean))], [rows]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [r.className, r.courseTitle, r.batchName, r.teacherName].some((v) => (v || '').toLowerCase().includes(q))
+    );
+  }, [rows, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, f]);
+
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
 
   const play = async (rec) => {
     try {
@@ -262,135 +327,207 @@ export default function Recordings() {
     }
   };
 
-  const columns = [
-    {
-      title: 'Class',
-      dataIndex: 'className',
-      render: (v, r) => (
-        <div>
-          <b>{v}</b>
-          <div style={{ fontSize: 12, color: 'var(--hub-muted)' }}>{r.courseTitle} · {r.batchName}</div>
-        </div>
-      ),
-    },
-    { title: 'Instructor', dataIndex: 'teacherName', width: 140 },
-    { title: 'Date', dataIndex: 'date', width: 120, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
-    { title: 'Duration', dataIndex: 'durationMin', width: 90, render: (v) => (v ? `${v} min` : '—') },
-    { title: 'Size', dataIndex: 'sizeBytes', width: 90, render: (v) => fmtBytes(v) },
-    { title: 'Status', dataIndex: 'status', width: 140, render: (v) => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
-    ...(isManager
-      ? [
-          {
-            title: 'Views',
-            dataIndex: 'views',
-            width: 70,
-            render: (v, r) => (
-              <Tooltip
-                title={
-                  r.viewerNames && r.viewerNames.length ? (
-                    <div>
-                      {r.viewerNames.map((n, i) => (
-                        <div key={i}>{n}</div>
-                      ))}
-                    </div>
-                  ) : (
-                    'No one yet'
-                  )
-                }
-              >
-                <span style={{ cursor: 'default', textDecoration: 'underline dotted' }}>{v || 0}</span>
-              </Tooltip>
-            ),
-          },
-        ]
-      : []),
-    {
-      title: '',
-      width: 340,
-      render: (_, r) => (
-        <Space>
-          <Button size="small" icon={<PlaySquareOutlined />} disabled={!r.canPlay} onClick={() => play(r)}>
-            Watch
-          </Button>
-          {isManager && canDownload(r) && (
-            <Button size="small" icon={<DownloadOutlined />} loading={downloadingId === r.id} onClick={() => downloadRecording(r)}>
-              Download
-            </Button>
-          )}
-          {canUpload(r) && (
-            <Button size="small" icon={<UploadOutlined />} loading={uploadingId === r.id} onClick={() => askUpload(r)}>
-              Upload recording
-            </Button>
-          )}
-          {isManager && canImportFromDrive(r) && (
-            <Button size="small" icon={<ExportOutlined />} loading={importingId === r.id} onClick={() => importFromDrive(r)}>
-              Import from Drive
-            </Button>
-          )}
-          {isManager && r.status !== 'DELETED' && (
-            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => del(r)} />
-          )}
-        </Space>
-      ),
-    },
-  ];
+  // Manager-only extra actions, tucked behind the row's "⋮" button — Watch
+  // stays the one always-visible primary action for everyone.
+  const extraActionsFor = (r) => {
+    const items = [];
+    if (isManager && canDownload(r)) {
+      items.push({ key: 'download', icon: <DownloadOutlined />, label: downloadingId === r.id ? 'Downloading…' : 'Download', disabled: downloadingId === r.id, onClick: () => downloadRecording(r) });
+    }
+    if (canUpload(r)) {
+      items.push({ key: 'upload', icon: <UploadOutlined />, label: uploadingId === r.id ? 'Uploading…' : 'Upload recording', disabled: uploadingId === r.id, onClick: () => askUpload(r) });
+    }
+    if (isManager && canImportFromDrive(r)) {
+      items.push({ key: 'import', icon: <ExportOutlined />, label: importingId === r.id ? 'Importing…' : 'Import from Drive', disabled: importingId === r.id, onClick: () => importFromDrive(r) });
+    }
+    if (isManager && r.status !== 'DELETED') {
+      items.push({ key: 'delete', icon: <DeleteOutlined />, label: 'Delete', danger: true, onClick: () => del(r) });
+    }
+    return items;
+  };
+
+  const totalBytes = fmtBytes;
 
   return (
-    <div className="lms-portal lms-section-recordings">
-      <div className="lms-portal-head">
-        <div>
-          <h2><PlaySquareOutlined /> Recordings</h2>
-          <p>{isManager ? 'All class recordings.' : 'Recordings for your classes / enrolled courses.'}</p>
+    <div className="recordings-page">
+      <div className="recordings-container">
+        <div className="recordings-header">
+          <div className="recordings-title-area">
+            <div className="recordings-icon">
+              <PlaySquareOutlined />
+            </div>
+            <div>
+              <h1>Recordings</h1>
+              <p>{isManager ? 'All class recordings.' : 'Recordings for your classes / enrolled courses.'}</p>
+            </div>
+          </div>
+
+          <div className="recordings-header-actions">
+            {isManager && (
+              <button type="button" className="refresh-btn" onClick={openBulk}>
+                <LinkOutlined /> Bulk attach links
+              </button>
+            )}
+            {isManager && (
+              <button type="button" className="refresh-btn" disabled={bulkImporting} onClick={importAllFromDrive}>
+                <ExportOutlined /> Import all from Drive
+              </button>
+            )}
+            <button type="button" className="refresh-btn" onClick={load}>
+              <ReloadOutlined /> Refresh
+            </button>
+          </div>
         </div>
-        <Space>
-          {isManager && (
-            <Button icon={<LinkOutlined />} onClick={openBulk}>Bulk attach recording links</Button>
-          )}
-          {isManager && (
-            <Button icon={<ExportOutlined />} loading={bulkImporting} onClick={importAllFromDrive}>
-              Import all from Drive
-            </Button>
-          )}
-          <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
-        </Space>
-      </div>
 
-      <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
+        <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 12 }} />}
+        {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} />}
 
-      <Space wrap className="lms-toolbar" style={{ marginBottom: 12 }}>
-        <Select
-          allowClear placeholder="Course" style={{ width: 200 }} value={f.courseTitle || undefined}
-          onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))}
-          options={courses.map((c) => ({ value: c, label: c }))}
-        />
-        <Select
-          allowClear placeholder="Batch" style={{ width: 180 }} value={f.batchName || undefined}
-          onChange={(v) => setF((x) => ({ ...x, batchName: v || '' }))}
-          options={batches.map((c) => ({ value: c, label: c }))}
-        />
-        {isManager && (
+        <div className="recording-filters">
+          <div className="rec-search-box">
+            <SearchOutlined />
+            <input
+              placeholder="Search by course, batch or instructor..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <Select
-            allowClear placeholder="Status" style={{ width: 160 }} value={f.status}
-            onChange={(v) => setF((x) => ({ ...x, status: v }))}
-            options={['AVAILABLE', 'AWAITING_UPLOAD', 'PROCESSING', 'RECORDING', 'FAILED', 'DELETED'].map((s) => ({ value: s, label: STATUS_LABEL[s] || s }))}
+            className="rec-filter-box"
+            allowClear placeholder="Course" style={{ width: 200 }} value={f.courseTitle || undefined}
+            onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))}
+            options={courses.map((c) => ({ value: c, label: c }))}
           />
-        )}
-        <DatePicker.RangePicker
-          onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))}
-        />
-      </Space>
+          <Select
+            className="rec-filter-box"
+            allowClear placeholder="Batch" style={{ width: 180 }} value={f.batchName || undefined}
+            onChange={(v) => setF((x) => ({ ...x, batchName: v || '' }))}
+            options={batches.map((c) => ({ value: c, label: c }))}
+          />
+          {isManager && (
+            <Select
+              className="rec-filter-box"
+              allowClear placeholder="Status" style={{ width: 160 }} value={f.status}
+              onChange={(v) => setF((x) => ({ ...x, status: v }))}
+              options={['AVAILABLE', 'AWAITING_UPLOAD', 'PROCESSING', 'RECORDING', 'FAILED', 'DELETED'].map((s) => ({ value: s, label: STATUS_LABEL[s] || s }))}
+            />
+          )}
+          <DatePicker.RangePicker
+            className="rec-daterange"
+            onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))}
+          />
+        </div>
 
-      <Table
-        rowKey="id"
-        size="small"
-        loading={loading}
-        dataSource={rows}
-        columns={columns}
-        pagination={{ defaultPageSize: 20, pageSizeOptions: ['20', '50', '100', '200'], showSizeChanger: true }}
-        locale={{ emptyText: 'No recordings.' }}
-      />
+        <div className="recordings-table-wrapper">
+          <table className="recordings-table">
+            <thead>
+              <tr>
+                <th>CLASS</th>
+                <th>INSTRUCTOR</th>
+                <th>DATE</th>
+                <th>DURATION</th>
+                <th>SIZE</th>
+                <th>STATUS</th>
+                {isManager && <th>VIEWS</th>}
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!loading && pagedRows.length === 0 && (
+                <tr className="rec-empty-row">
+                  <td colSpan={isManager ? 8 : 7}>No recordings.</td>
+                </tr>
+              )}
+              {pagedRows.map((r) => {
+                const thumb = thumbFor(r.className || r.courseTitle);
+                const extras = extraActionsFor(r);
+                return (
+                  <tr key={r.id}>
+                    <td className="class-column">
+                      <div className="rec-row-flex">
+                        <div
+                          className="rec-thumb"
+                          style={{ background: `linear-gradient(135deg, ${thumb.colors[0]}, ${thumb.colors[1]})` }}
+                        >
+                          <thumb.Icon />
+                          <span className="rec-thumb-play"><PlayCircleOutlined /></span>
+                          <span className="rec-thumb-duration">{fmtDuration(r.durationMin)}</span>
+                        </div>
+                        <div>
+                          <div className="class-title">{r.className}</div>
+                          <div className="class-subtitle">{r.courseTitle} · {r.batchName}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="rec-instructor">
+                        <UserOutlined /> {r.teacherName || '—'}
+                      </div>
+                    </td>
+                    <td>{r.date ? new Date(r.date).toLocaleDateString() : '—'}</td>
+                    <td>
+                      <div className="duration-cell">
+                        <ClockCircleOutlined /> {fmtDuration(r.durationMin)}
+                      </div>
+                    </td>
+                    <td>{totalBytes(r.sizeBytes)}</td>
+                    <td>
+                      <span className={`rec-status st-${(r.status || '').toLowerCase()}`}>{STATUS_LABEL[r.status] || r.status}</span>
+                    </td>
+                    {isManager && (
+                      <td>
+                        <Tooltip
+                          title={
+                            r.viewerNames && r.viewerNames.length ? (
+                              <div>
+                                {r.viewerNames.map((n, i) => (
+                                  <div key={i}>{n}</div>
+                                ))}
+                              </div>
+                            ) : (
+                              'No one yet'
+                            )
+                          }
+                        >
+                          <span className="rec-views">{r.views || 0}</span>
+                        </Tooltip>
+                      </td>
+                    )}
+                    <td>
+                      <div className="rec-actions-cell">
+                        <button type="button" className="recording-watch-btn" disabled={!r.canPlay} onClick={() => play(r)}>
+                          {r.canPlay ? <><PlayCircleOutlined /> Watch</> : <><LockOutlined /> Locked</>}
+                        </button>
+                        {extras.length > 0 && (
+                          <Dropdown menu={{ items: extras }} trigger={['click']} placement="bottomRight">
+                            <button type="button" className="rec-kebab" onClick={(e) => e.stopPropagation()}>
+                              <MoreOutlined />
+                            </button>
+                          </Dropdown>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="recordings-pagination">
+          <span className="recordings-pagination-count">
+            {filteredRows.length === 0 ? 'No recordings' : `Showing ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, filteredRows.length)} of ${filteredRows.length} recordings`}
+          </span>
+          <Pagination
+            current={page}
+            pageSize={pageSize}
+            total={filteredRows.length}
+            showSizeChanger
+            pageSizeOptions={['20', '50', '100', '200']}
+            onChange={(p, ps) => { setPage(p); setPageSize(ps); }}
+          />
+        </div>
+      </div>
 
       <Modal
         open={!!playing}
@@ -523,3 +660,4 @@ export default function Recordings() {
     </div>
   );
 }
+

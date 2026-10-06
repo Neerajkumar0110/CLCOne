@@ -15,6 +15,7 @@ import {
   ClusterOutlined,
   RocketOutlined,
   InfoCircleOutlined,
+  FileDoneOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,6 +23,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '@/pages/Lms/api';
 import { BasicTest, MajorTestPythonSql, MajorTestNlp, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
+import './AssessmentDashboard.css';
 
 const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
 
@@ -151,143 +153,42 @@ export default function AssessmentDashboard() {
   return (
     <div className="assessment-dashboard-v2">
       {contextHolder}
-      <style>{`
-        .assessment-dashboard-v2 { padding: 4px; }
-        .adv2-header {
-          position: relative;
-          overflow: hidden;
-          border-radius: 18px;
-          padding: 22px 28px;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-          background: linear-gradient(100deg, #f8fafd 0%, #eef4fc 55%, #e6eefb 100%);
-        }
-        .adv2-welcome h1 { margin: 0 0 4px; font-size: 25px; font-weight: 800; color: #0b0b0b; }
-        .adv2-welcome h1 span { color: ${PALETTE[6]}; }
-        .adv2-welcome p { margin: 0; color: #52514e; font-size: 14px; }
-        .adv2-keepgoing {
-          display: flex; align-items: center; gap: 12px;
-          background: rgba(255,255,255,0.7);
-          border: 1px solid ${tint(PALETTE[0], 0.25)};
-          border-radius: 14px;
-          padding: 10px 18px;
-        }
-        .adv2-keepgoing .adv2-target {
-          width: 38px; height: 38px; border-radius: 50%;
-          background: ${tint(PALETTE[0], 0.15)};
-          color: ${PALETTE[0]};
-          display: flex; align-items: center; justify-content: center;
-          font-size: 18px; flex-shrink: 0;
-        }
-        .adv2-keepgoing strong { display: block; color: #0b0b0b; font-size: 13px; }
-        .adv2-keepgoing span { display: block; color: #898781; font-size: 12px; }
-        .adv2-batchbar {
-          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-          margin-bottom: 16px;
-        }
-        .adv2-batchbar-label { font-size: 12px; font-weight: 700; color: #52514e; text-transform: uppercase; letter-spacing: .3px; }
-        .adv2-batchbar-meta { font-size: 12.5px; color: #52514e; }
-        :root[data-theme="dark"] .adv2-batchbar-label,
-        :root[data-theme="dark"] .adv2-batchbar-meta,
-        :root:not([data-theme="light"]) .adv2-batchbar-label,
-        :root:not([data-theme="light"]) .adv2-batchbar-meta { color: #c3c2b7; }
-        .adv2-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 18px;
-        }
-        @media (max-width: 1100px) { .adv2-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 700px) { .adv2-grid { grid-template-columns: 1fr; } }
-        .adv2-card {
-          position: relative;
-          height: 198px;
-          display: flex;
-          flex-direction: column;
-          border-radius: 14px;
-          padding: 16px;
-          cursor: pointer;
-          overflow: hidden;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .adv2-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(11,11,11,0.08); }
-        .adv2-card.locked { cursor: not-allowed; }
-        .adv2-icon {
-          width: 36px; height: 36px; border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          color: #fff; font-size: 16px; margin-bottom: 8px; flex-shrink: 0;
-        }
-        .adv2-eyebrow {
-          display: inline-block; align-self: flex-start;
-          font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-          padding: 2px 9px; border-radius: 999px; margin-bottom: 7px; flex-shrink: 0;
-        }
-        .adv2-title {
-          font-size: 15px; font-weight: 700; color: #0b0b0b; margin: 0 0 5px; line-height: 1.25;
-          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .adv2-title.muted { color: #6b6a66; }
-        .adv2-desc {
-          font-size: 12.5px; color: #52514e; margin: 0;
-          display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .adv2-desc.muted { color: #898781; -webkit-line-clamp: 1; }
-        .adv2-bullets { margin: 0; padding-left: 16px; overflow: hidden; max-height: 36px; }
-        .adv2-bullets li {
-          font-size: 12px; color: #898781; margin-bottom: 2px;
-          display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .adv2-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 10px; flex-shrink: 0; }
-        .adv2-duration { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #898781; }
-        .adv2-arrow {
-          width: 28px; height: 28px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          color: #fff; flex-shrink: 0; font-size: 12px;
-        }
-        .adv2-arrow.locked { background: #e1e0d9 !important; color: #898781; }
-        .adv2-lock { position: absolute; top: 14px; right: 14px; color: #898781; font-size: 13px; }
-        @media (prefers-color-scheme: dark) {
-          :root:not([data-theme="light"]) .adv2-header { background: linear-gradient(120deg, #1a2233 0%, #241f33 55%, #1a2a26 100%); }
-          :root:not([data-theme="light"]) .adv2-welcome h1 { color: #ffffff; }
-          :root:not([data-theme="light"]) .adv2-welcome p { color: #c3c2b7; }
-          :root:not([data-theme="light"]) .adv2-keepgoing { background: rgba(255,255,255,0.06); }
-          :root:not([data-theme="light"]) .adv2-keepgoing strong { color: #ffffff; }
-          :root:not([data-theme="light"]) .adv2-title { color: #ffffff; }
-          :root:not([data-theme="light"]) .adv2-desc { color: #c3c2b7; }
-        }
-        :root[data-theme="dark"] .adv2-header { background: linear-gradient(120deg, #1a2233 0%, #241f33 55%, #1a2a26 100%); }
-        :root[data-theme="dark"] .adv2-welcome h1 { color: #ffffff; }
-        :root[data-theme="dark"] .adv2-welcome p { color: #c3c2b7; }
-        :root[data-theme="dark"] .adv2-keepgoing { background: rgba(255,255,255,0.06); }
-        :root[data-theme="dark"] .adv2-keepgoing strong { color: #ffffff; }
-        :root[data-theme="dark"] .adv2-title { color: #ffffff; }
-        :root[data-theme="dark"] .adv2-desc { color: #c3c2b7; }
-      `}</style>
 
-      <div className="adv2-header">
-        <div className="adv2-welcome">
-          <h1>{firstName ? <>Welcome, <span>{firstName}</span></> : 'Your Assessment Dashboard'}</h1>
-          <p>
-            {firstName
-              ? 'This is your assessment portal. Select an assessment to begin, or review your previous results.'
-              : 'Select an assessment to begin, or review your previous results.'}
-          </p>
+      <div className="asm-hero">
+        <div className="asm-hero-dot asm-hero-dot-1" />
+        <div className="asm-hero-dot asm-hero-dot-2" />
+
+        <div className="asm-hero-left">
+          <div className="asm-hero-illustration">
+            <FileDoneOutlined />
+          </div>
+
+          <div className="asm-hero-content">
+            <div className="asm-hero-label">
+              <AimOutlined /> ASSESSMENT PORTAL
+            </div>
+            <h1>{firstName ? <>Welcome, <span>{firstName}</span></> : 'Your Assessment Dashboard'}</h1>
+            <p>
+              {firstName
+                ? 'This is your assessment portal. Select an assessment to begin, or review your previous results.'
+                : 'Select an assessment to begin, or review your previous results.'}
+            </p>
+          </div>
         </div>
-        <div className="adv2-keepgoing">
-          <div className="adv2-target"><AimOutlined /></div>
+
+        <div className="asm-keepgoing">
+          <div className="asm-keepgoing-icon"><AimOutlined /></div>
           <div>
             <strong>Keep going!</strong>
-            <span>Every assessment builds your future.</span>
+            <p>Every assessment builds your future.</p>
           </div>
+          <ArrowRightOutlined className="asm-keepgoing-arrow" />
         </div>
       </div>
 
       {isTeacher && !batchesLoading && batches.length > 0 && (
-        <div className="adv2-batchbar">
-          <span className="adv2-batchbar-label">Batch</span>
+        <div className="asm-batchbar">
+          <span className="asm-batchbar-label">Batch</span>
           <Select
             value={batch}
             onChange={setBatch}
@@ -297,60 +198,98 @@ export default function AssessmentDashboard() {
             optionFilterProp="label"
           />
           {progress && (
-            <span className="adv2-batchbar-meta">
-              {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
+            <span className="asm-course-info">
+              {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} <b>•</b> {progress.curriculumPercent}% curriculum delivered
               <Tooltip title="How much of this batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
-                <InfoCircleOutlined style={{ marginLeft: 6, opacity: 0.6, cursor: 'help' }} />
+                <InfoCircleOutlined className="asm-info-icon" />
               </Tooltip>
             </span>
           )}
         </div>
       )}
       {!isTeacher && !batchesLoading && progress && (
-        <div className="adv2-batchbar">
-          <span className="adv2-batchbar-meta">
-            <b>{batch}</b> · {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} · {progress.curriculumPercent}% curriculum delivered
-            <Tooltip title="How much of your batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
-              <InfoCircleOutlined style={{ marginLeft: 6, opacity: 0.6, cursor: 'help' }} />
-            </Tooltip>
-          </span>
+        <div className="asm-course-info">
+          <span>{batch}</span>
+          <b>•</b>
+          <span>{TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack}</span>
+          <b>•</b>
+          <span>{progress.curriculumPercent}% curriculum delivered</span>
+          <Tooltip title="How much of your batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
+            <InfoCircleOutlined className="asm-info-icon" />
+          </Tooltip>
         </div>
       )}
+
+      <div className="asm-section-header">
+        <div className="asm-section-title">
+          <div className="asm-section-icon">
+            <FileTextOutlined />
+          </div>
+          <div>
+            <h2>Your Assessments</h2>
+            <p>Explore and complete your assessments. Track your progress and performance.</p>
+          </div>
+        </div>
+        <span className="asm-count">{cards.length} Assessments</span>
+      </div>
 
       {progressLoading || batchesLoading ? (
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (
-        <div className="adv2-grid">
+        <div className="asm-grid">
           {cards.map((c) => (
-            <div
+            <article
               key={c.key}
-              className={`adv2-card${c.locked ? ' locked' : ''}`}
+              className={`asm-card${c.locked ? ' is-locked' : ''}`}
               style={{ background: tint(c.color, 0.08), border: `1px solid ${tint(c.color, 0.28)}` }}
               onClick={() => (c.locked ? clickLocked(c) : openTest(c))}
             >
-              {c.locked && <LockOutlined className="adv2-lock" />}
-              <div className="adv2-icon" style={{ background: c.color }}>
-                <c.Icon />
-              </div>
-              <span className="adv2-eyebrow" style={{ background: tint(c.color, 0.15), color: c.color }}>{c.eyebrow}</span>
-              <h3 className={`adv2-title${c.locked ? ' muted' : ''}`}>{c.title}</h3>
-              <p className={`adv2-desc${c.locked ? ' muted' : ''}`}>{c.description}</p>
-              <div className="adv2-footer">
-                <span className="adv2-duration">
-                  {c.locked ? (
-                    <>
-                      <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
-                      {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
-                    </>
-                  ) : (
-                    <><ClockCircleOutlined /> {c.duration}</>
-                  )}
-                </span>
-                <div className={`adv2-arrow${c.locked ? ' locked' : ''}`} style={c.locked ? undefined : { background: c.color }}>
-                  {c.locked ? <LockOutlined /> : <ArrowRightOutlined />}
+              <c.Icon className="asm-card-decoration" style={{ color: c.color }} />
+
+              <div className="asm-card-top">
+                <div className="asm-card-icon" style={{ background: c.color }}>
+                  <c.Icon />
                 </div>
+                {c.locked && <LockOutlined className="asm-card-lock" />}
               </div>
-            </div>
+
+              <span className="asm-type" style={{ background: tint(c.color, 0.15), color: c.color }}>{c.eyebrow}</span>
+
+              <h3 className={c.locked ? 'is-muted' : ''}>{c.title}</h3>
+              <p className={`asm-desc${c.locked ? ' is-muted' : ''}`}>{c.description}</p>
+
+              {c.locked ? (
+                <div className="asm-card-bottom asm-locked-bottom">
+                  <span className="asm-unlock-text">
+                    <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
+                    {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
+                  </span>
+                  <div className="asm-locked-button">
+                    <LockOutlined />
+                  </div>
+                </div>
+              ) : (
+                <div className="asm-card-bottom asm-unlocked-bottom">
+                  <span className="asm-duration">
+                    <ClockCircleOutlined /> {c.duration}
+                  </span>
+                  <div className="asm-progress-area">
+                    <div className="asm-progress-circle" style={{ '--card-color': c.color, '--pct': '0%' }}>
+                      <span />
+                    </div>
+                    <div className="asm-progress-text">
+                      <strong>0% completed</strong>
+                      <div className="asm-progress-line" style={{ '--card-color': c.color, '--pct': '0%' }}>
+                        <span />
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" className="asm-start-btn" style={{ background: c.color }}>
+                    <ArrowRightOutlined />
+                  </button>
+                </div>
+              )}
+            </article>
           ))}
         </div>
       )}

@@ -80,7 +80,7 @@ async function myCourses(req, res) {
   const ids = await learnerCourseIds(req.admin);
   if (!ids.length) return ok(res, []);
   const [courses, progs] = await Promise.all([
-    Course.find({ _id: { $in: ids }, removed: false }).select('title code thumbnailUrl instructor level durationHours status modules lessons').lean(),
+    Course.find({ _id: { $in: ids }, removed: false }).select('title code thumbnailUrl instructor level durationHours status modules lessons description').lean(),
     CourseProgress.find({ crmUser: req.admin._id, course: { $in: ids } }).lean(),
   ]);
   const pById = {};
@@ -97,6 +97,7 @@ async function myCourses(req, res) {
         level: c.level,
         thumbnailUrl: c.thumbnailUrl,
         durationHours: c.durationHours,
+        description: c.description || '',
         modules: c.modules || 0,
         lessons: c.lessons || 0,
         progress: p.percent || 0,

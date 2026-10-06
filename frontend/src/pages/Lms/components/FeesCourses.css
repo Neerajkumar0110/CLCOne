@@ -1,0 +1,617 @@
+/* My Fees — design. Variables are scoped to this page's own root class
+   rather than :root, so they can't leak into/collide with unrelated pages.
+   (My Courses has its own stylesheet — components/MyCourses.css.) */
+
+.fees-page {
+  --primary: #1677f2;
+  --primary-dark: #0b5dcc;
+  --navy: #061f30;
+  --text: #17243a;
+  --muted: #718096;
+  --border: #e6ebf2;
+  --card: #ffffff;
+  --bg: #f5f8fc;
+
+  --success: #16b364;
+  --success-bg: #ecfbf3;
+
+  --danger: #ef476f;
+  --danger-bg: #fff1f4;
+
+  --purple: #7657e8;
+  --purple-bg: #f2efff;
+
+  --orange: #f59e0b;
+  --orange-bg: #fff7e8;
+}
+
+/* =========================================================
+   COMMON PAGE
+========================================================= */
+
+.fees-page {
+  min-height: calc(100vh - 72px);
+  padding: 4px;
+  color: var(--text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* =========================================================
+   PAGE HEADER
+========================================================= */
+
+.page-hero {
+  min-height: 105px;
+  padding: 22px 25px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.75), transparent 30%),
+    linear-gradient(110deg, #eef5ff, #e8f4ff 50%, #f1ecff);
+  border: 1px solid #e0e9f4;
+  box-shadow: 0 8px 28px rgba(27, 57, 90, 0.06);
+}
+
+.page-hero::after {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  right: -100px;
+  top: -130px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.hero-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-icon {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--primary);
+  background: linear-gradient(135deg, #e8f1ff, #dbeaff);
+  border: 1px solid #cfe1fa;
+  box-shadow: 0 8px 18px rgba(22, 119, 242, 0.12);
+  font-size: 20px;
+}
+
+.hero-title h1 {
+  margin: 0;
+  font-size: 25px;
+  color: var(--text);
+  font-weight: 750;
+  letter-spacing: -0.4px;
+}
+
+.hero-title p {
+  margin: 5px 0 0;
+  color: #667892;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.hero-action {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-pay-button {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(90deg, #0878ef, #2f8cff);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 7px 18px rgba(22, 119, 242, 0.18);
+  transition: 0.2s ease;
+}
+
+.hero-pay-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(22, 119, 242, 0.25);
+}
+
+/* =========================================================
+   FEES STAT CARDS
+========================================================= */
+
+.fee-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.fee-stat-card {
+  min-height: 112px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 7px 22px rgba(31, 57, 87, 0.055);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fee-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(31, 57, 87, 0.1);
+}
+
+.fee-stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary);
+}
+
+.fee-stat-card.paid::before {
+  background: var(--success);
+}
+
+.fee-stat-card.balance::before {
+  background: var(--danger);
+}
+
+.fee-stat-icon {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: #edf4ff;
+  font-size: 20px;
+}
+
+.fee-stat-card.paid .fee-stat-icon {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.fee-stat-card.balance .fee-stat-icon {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.fee-stat-content span {
+  display: block;
+  color: #718096;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.fee-stat-content strong {
+  display: block;
+  color: #15243c;
+  font-size: 25px;
+  line-height: 1;
+}
+
+/* =========================================================
+   FEES MAIN GRID
+========================================================= */
+
+.fee-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* =========================================================
+   COMMON CARD
+========================================================= */
+
+.dashboard-card {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 7px 25px rgba(27, 57, 90, 0.055);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf1f5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-header h2 {
+  margin: 0;
+  color: #172740;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.card-header p {
+  margin: 4px 0 0;
+  color: #8996a7;
+  font-size: 11px;
+}
+
+/* =========================================================
+   PAYMENT OVERVIEW
+========================================================= */
+
+.payment-overview {
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.payment-circle {
+  width: 125px;
+  height: 125px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--success) var(--pct, 0%), #e8edf2 var(--pct, 0%));
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.payment-circle::after {
+  content: "";
+  position: absolute;
+  width: 98px;
+  height: 98px;
+  border-radius: 50%;
+  background: white;
+}
+
+.payment-circle-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.payment-circle-content strong {
+  display: block;
+  color: #17243a;
+  font-size: 23px;
+}
+
+.payment-circle-content span {
+  color: #6f8095;
+  font-size: 10px;
+}
+
+.payment-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.payment-values {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.payment-value span {
+  display: block;
+  color: #8290a2;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.payment-value strong {
+  color: #1b2940;
+  font-size: 19px;
+}
+
+.payment-progress {
+  margin-top: 20px;
+}
+
+.payment-progress-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  font-size: 10px;
+  color: #6f8095;
+}
+
+.progress-track {
+  height: 7px;
+  background: #edf1f5;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  width: var(--pct, 0%);
+  background: linear-gradient(90deg, #12a95c, #24c979);
+  border-radius: inherit;
+}
+
+/* =========================================================
+   PAYMENT SUCCESS / DUE
+========================================================= */
+
+.payment-success {
+  padding: 22px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.success-box {
+  width: 100%;
+  min-height: 125px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #c8efdc;
+  background: linear-gradient(135deg, #effdf6, #f8fffb);
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  position: relative;
+  overflow: hidden;
+}
+
+.success-box::after {
+  content: "₹";
+  position: absolute;
+  right: 25px;
+  bottom: -35px;
+  font-size: 100px;
+  font-weight: 800;
+  color: rgba(22, 179, 100, 0.07);
+}
+
+.success-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #19b765;
+  color: white;
+}
+
+.success-content strong {
+  display: block;
+  color: #18372a;
+  font-size: 14px;
+  margin: 2px 0 6px;
+}
+
+.success-content p {
+  margin: 0;
+  color: #678172;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.success-box.is-due {
+  border-color: #ffc9d4;
+  background: linear-gradient(135deg, #fff1f4, #fffbfc);
+}
+
+.success-box.is-due::after {
+  color: rgba(239, 71, 111, 0.08);
+}
+
+.success-box.is-due .success-icon {
+  background: var(--danger);
+}
+
+.success-box.is-due .success-content strong {
+  color: #5b1a2c;
+}
+
+.success-box.is-due .success-content p {
+  color: #8a5c69;
+}
+
+.success-box.is-due .pay-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* =========================================================
+   TRANSACTION TABLE
+========================================================= */
+
+.transaction-card {
+  margin-top: 16px;
+}
+
+.transaction-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.download-button {
+  border: 1px solid #dce6f1;
+  background: #f8fbff;
+  color: #55708e;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.download-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transaction-table-wrapper {
+  padding: 0 15px 15px;
+  overflow-x: auto;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e5ebf2;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.transaction-table th {
+  padding: 11px;
+  background: #f7faff;
+  color: #6e829c;
+  font-size: 9px;
+  text-align: left;
+  font-weight: 800;
+  border-bottom: 1px solid #e6ecf3;
+}
+
+.transaction-table td {
+  padding: 13px 11px;
+  border-bottom: 1px solid #edf1f5;
+  font-size: 11px;
+  color: #40536d;
+}
+
+.transaction-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.empty-table {
+  height: 105px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.empty-icon {
+  width: 38px;
+  height: 38px;
+  margin: auto auto 7px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #f1f6fd;
+  color: #8aa6c7;
+}
+
+.empty-table strong {
+  display: block;
+  color: #5d7694;
+  font-size: 11px;
+}
+
+.empty-table span {
+  color: #9aa8b8;
+  font-size: 9px;
+}
+
+.txn-status {
+  padding: 6px 9px;
+  border-radius: 20px;
+  background: #eafaf1;
+  border: 1px solid #c9efd9;
+  color: #159657;
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.txn-status.pending {
+  background: #f1f4f9;
+  border-color: #dde3ec;
+  color: #61738b;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1200px) {
+  .fee-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fee-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .fee-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .page-hero {
+    min-height: 90px;
+    padding: 17px;
+  }
+
+  .hero-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .hero-title h1 {
+    font-size: 20px;
+  }
+
+  .hero-title p {
+    font-size: 10px;
+  }
+
+  .fee-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-overview {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .payment-circle {
+    margin: auto;
+  }
+
+  .payment-values {
+    grid-template-columns: 1fr 1fr;
+  }
+}

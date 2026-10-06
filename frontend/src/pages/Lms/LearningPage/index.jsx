@@ -5,10 +5,29 @@ import {
 import {
   PlayCircleOutlined, CheckCircleTwoTone, CheckCircleOutlined, ArrowLeftOutlined, ArrowRightOutlined,
   FileTextOutlined, LinkOutlined, FilePdfOutlined, VideoCameraOutlined, BookOutlined, QuestionCircleOutlined,
-  FolderOpenOutlined, ClockCircleOutlined, DownOutlined,
+  ClockCircleOutlined, DownOutlined, SearchOutlined, AimOutlined, AppstoreOutlined, CalendarOutlined,
+  MoreOutlined, PauseCircleOutlined, StarOutlined,
 } from '@ant-design/icons';
 import lmsApi from '../api';
 import CurriculumViewer from '../components/CurriculumViewer';
+import '../components/MyCourses.css';
+
+const COURSE_FILTERS = [
+  { key: 'all', label: 'All Courses', icon: <AppstoreOutlined /> },
+  { key: 'inprogress', label: 'In Progress', icon: <ClockCircleOutlined /> },
+  { key: 'completed', label: 'Completed', icon: <CheckCircleOutlined /> },
+  { key: 'notstarted', label: 'Not Started', icon: <PauseCircleOutlined /> },
+];
+
+function courseStatusOf(c) {
+  const pct = c.progress || 0;
+  if (pct >= 100) return 'completed';
+  if (pct > 0) return 'inprogress';
+  return 'notstarted';
+}
+
+const STATUS_LABEL = { completed: 'Completed', inprogress: 'In Progress', notstarted: 'Not Started' };
+const STATUS_CLASS = { completed: 'course-status is-completed', inprogress: 'course-status', notstarted: 'course-status is-notstarted' };
 
 const { Text } = Typography;
 
@@ -100,6 +119,8 @@ export default function LearningPage() {
   // "View curriculum" modal from the list view — reuses the same
   // Module/Chapter/Lesson viewer the CRM and Teacher's Course Builder use.
   const [curriculumCourse, setCurriculumCourse] = useState(null); // { id, title } | null
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [courseId, setCourseId] = useState(null);
   const [outline, setOutline] = useState(null);
@@ -210,69 +231,294 @@ export default function LearningPage() {
 
   // ---- course list ----
   if (view === 'list') {
+    const filtered = courses.filter((c) => {
+      if (statusFilter !== 'all' && courseStatusOf(c) !== statusFilter) return false;
+      if (search.trim() && !String(c.title || '').toLowerCase().includes(search.trim().toLowerCase())) return false;
+      return true;
+    });
+
+    const totalCourses = courses.length;
+    const overallPct = totalCourses ? Math.round(courses.reduce((a, c) => a + (c.progress || 0), 0) / totalCourses) : 0;
+    const totalModules = courses.reduce((a, c) => a + (c.modules || 0), 0);
+    const totalLessonsAll = courses.reduce((a, c) => a + (c.totalLessons ?? c.lessons ?? 0), 0);
+    const completedLessonsAll = courses.reduce((a, c) => a + (c.completedLessons || 0), 0);
+
     return (
-      <div className="lms-portal" style={{ padding: 4 }}>
-        <div className="lms-portal-head">
-          <div><h2><BookOutlined /> My Courses</h2><p>Pick up where you left off.</p></div>
-        </div>
+      <div className="my-courses-page">
+        <section className="courses-hero">
+          <div className="hero-content">
+            <div className="hero-small-title">
+              <BookOutlined />
+              <span>My Courses</span>
+            </div>
+            <h1>
+              Your Learning
+              <span> Journey</span>
+            </h1>
+            <p>Explore your enrolled courses, track your progress and build your future with the right skills.</p>
+
+            <div className="hero-stats">
+              <div className="hero-stat">
+                <span className="hero-stat-icon blue">
+                  <BookOutlined />
+                </span>
+                <div>
+                  <strong>{totalCourses}</strong>
+                  <span>Courses</span>
+                </div>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-icon purple">
+                  <AimOutlined />
+                </span>
+                <div>
+                  <strong>{overallPct}%</strong>
+                  <span>Overall Progress</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-illustration">
+            <div className="hero-image-circle">
+              <BookOutlined />
+            </div>
+          </div>
+
+          {totalCourses > 0 && (
+            <div className="hero-progress-card">
+              <div className="progress-ring" style={{ '--pct': `${overallPct}%` }}>
+                <div className="progress-ring-inner">
+                  <strong>{overallPct}%</strong>
+                  <span>Progress</span>
+                </div>
+              </div>
+              <div className="hero-progress-info">
+                <div>
+                  <BookOutlined />
+                  <span>
+                    Modules
+                    <strong>{totalModules}</strong>
+                  </span>
+                </div>
+                <div>
+                  <FileTextOutlined />
+                  <span>
+                    Lessons
+                    <strong>{completedLessonsAll} / {totalLessonsAll}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         {courses.length === 0 ? (
-          <Card><Empty description="You are not enrolled in any course yet." /></Card>
+          <Card style={{ marginTop: 16 }}><Empty description="You are not enrolled in any course yet." /></Card>
         ) : (
-          <Row gutter={[16, 16]}>
-            {courses.map((c) => (
-              <Col xs={24} sm={12} lg={8} key={c.id}>
-                <Card
-                  hoverable
-                  onClick={() => openCourse(c.id)}
-                  cover={c.thumbnailUrl ? <img alt={c.title} src={c.thumbnailUrl} style={{ height: 140, objectFit: 'cover' }} /> : null}
-                >
-                  <Card.Meta title={c.title} description={<Text type="secondary">{c.instructor || '—'} · {c.level || ''}</Text>} />
+          <>
+            <section className="course-toolbar">
+              <div className="course-search-box">
+                <SearchOutlined />
+                <input
+                  placeholder="Search courses..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && <button type="button" onClick={() => setSearch('')}>×</button>}
+              </div>
 
-                  <div
-                    className="lms-course-builder-chips"
-                    style={{ marginTop: 10, cursor: 'pointer' }}
-                    title="View full curriculum"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurriculumCourse({ id: c.id, title: c.title });
-                    }}
+              <div className="course-filter-buttons">
+                {COURSE_FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={statusFilter === f.key ? 'active' : ''}
+                    onClick={() => setStatusFilter(f.key)}
                   >
-                    <div className="lms-course-chip">
+                    {f.icon} {f.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="courses-layout">
+              <div className="courses-left">
+                {filtered.length === 0 ? (
+                  <div className="empty-courses">
+                    <div className="empty-course-icon">
                       <BookOutlined />
-                      <span><b>{c.modules ?? 0}</b> Modules</span>
                     </div>
-                    <div className="lms-course-chip">
-                      <FileTextOutlined />
-                      <span><b>{c.lessons ?? 0}</b> Lessons</span>
-                    </div>
-                    {c.durationHours ? (
-                      <div className="lms-course-chip">
-                        <ClockCircleOutlined />
-                        {/* Despite the field name, Course.durationHours is entered as
-                           MONTHS (see featureSections.js's "Duration (months)" label
-                           on this field) — "6" here means 6 months, not 6 hours. */}
-                        <span><b>{c.durationHours}</b> month{c.durationHours === 1 ? '' : 's'} Duration</span>
-                      </div>
-                    ) : null}
-                    <div className="lms-course-chip">
-                      <FolderOpenOutlined />
-                      <span>View curriculum</span>
-                    </div>
+                    <h3>No courses found</h3>
+                    <p>There are no courses matching your current search or filter.</p>
+                    <button type="button" onClick={() => { setSearch(''); setStatusFilter('all'); }}>
+                      View All Courses
+                    </button>
+                  </div>
+                ) : (
+                  filtered.map((c) => {
+                    const status = courseStatusOf(c);
+                    return (
+                      <article className="modern-course-card" key={c.id} onClick={() => openCourse(c.id)}>
+                        <div
+                          className="course-image-wrapper"
+                          style={c.thumbnailUrl ? { backgroundImage: `url(${c.thumbnailUrl})` } : undefined}
+                        >
+                          {c.thumbnailUrl ? null : (
+                            <span className="course-image-fallback">
+                              <BookOutlined />
+                            </span>
+                          )}
+                          <div className="image-overlay" />
+                          <span className="featured-badge">
+                            <StarOutlined />
+                            Featured
+                          </span>
+                          <span className="image-play-button">
+                            <PlayCircleOutlined />
+                          </span>
+                        </div>
+
+                        <div className="course-card-body">
+                          <div className="course-card-heading">
+                            <div>
+                              <h2>{c.title}</h2>
+                              <div className="course-batch">
+                                <CalendarOutlined />
+                                <span>{c.instructor || 'Self-paced'}</span>
+                                {c.code && (
+                                  <>
+                                    <i>•</i>
+                                    <span>{c.code}</span>
+                                  </>
+                                )}
+                                {/* Despite the field name, Course.durationHours is entered
+                                   as MONTHS (see featureSections.js's "Duration (months)"
+                                   label) — "6" here means 6 months, not 6 hours. */}
+                                {c.durationHours ? (
+                                  <>
+                                    <i>•</i>
+                                    <span>{c.durationHours} month{c.durationHours === 1 ? '' : 's'}</span>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="course-menu"
+                              title="View full curriculum"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurriculumCourse({ id: c.id, title: c.title });
+                              }}
+                            >
+                              <MoreOutlined />
+                            </button>
+                          </div>
+
+                          {c.description && <p className="course-description">{c.description}</p>}
+
+                          <div className="course-status-row">
+                            <span className={STATUS_CLASS[status]}>
+                              <span className="status-dot" />
+                              {STATUS_LABEL[status]}
+                            </span>
+                            <strong>{Math.round(c.progress || 0)}%</strong>
+                          </div>
+
+                          <div className="progress-line">
+                            <span style={{ width: `${Math.round(c.progress || 0)}%` }} />
+                          </div>
+
+                          <div className="course-card-footer">
+                            <div className="course-meta-box">
+                              <div className="meta-icon blue">
+                                <BookOutlined />
+                              </div>
+                              <div>
+                                <span>Modules</span>
+                                <strong>{c.modules ?? 0}</strong>
+                              </div>
+                            </div>
+
+                            <div className="course-meta-box">
+                              <div className="meta-icon purple">
+                                <FileTextOutlined />
+                              </div>
+                              <div>
+                                <span>Lessons</span>
+                                <strong>{c.completedLessons ?? 0} / {c.totalLessons ?? c.lessons ?? 0}</strong>
+                              </div>
+                            </div>
+
+                            <button type="button" className="continue-course-btn" onClick={(e) => { e.stopPropagation(); openCourse(c.id); }}>
+                              <PlayCircleOutlined />
+                              {c.progress > 0 ? 'Continue Learning' : 'Start Learning'}
+                              <ArrowRightOutlined />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+
+                <div className="additional-course-card">
+                  <div className="additional-icon">
+                    <BookOutlined />
+                  </div>
+                  <div className="additional-content">
+                    <strong>No additional courses assigned</strong>
+                    <span>You will see other courses here once they are assigned by your institute.</span>
+                  </div>
+                  <ArrowRightOutlined className="additional-arrow" />
+                </div>
+              </div>
+
+              <aside className="courses-right">
+                <div className="explore-card">
+                  <div className="explore-decoration decoration-one" />
+                  <div className="explore-decoration decoration-two" />
+
+                  <div className="explore-image">
+                    <BookOutlined />
                   </div>
 
-                  <div style={{ marginTop: 12 }}>
-                    <Progress percent={c.progress || 0} size="small" />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {c.completedLessons || 0}/{c.totalLessons || c.lessons || 0} lessons
-                    </Text>
+                  <div className="explore-content">
+                    <span className="explore-label">
+                      <StarOutlined />
+                      Keep Learning
+                    </span>
+                    <h3>Explore More Courses</h3>
+                    <p>Expand your skills and unlock new opportunities with additional courses.</p>
+                    <button type="button" className="explore-button">
+                      View Available Courses
+                      <ArrowRightOutlined />
+                    </button>
                   </div>
-                  <Button type="primary" ghost block style={{ marginTop: 12 }} icon={<PlayCircleOutlined />}>
-                    {c.progress > 0 ? 'Continue' : 'Start learning'}
-                  </Button>
-                </Card>
-              </Col>
-            ))}
-          </Row>
+                </div>
+
+                <div className="recent-activity-card">
+                  <div className="recent-header">
+                    <h3>
+                      <ClockCircleOutlined />
+                      Recent Learning Activity
+                    </h3>
+                    <button type="button">View All</button>
+                  </div>
+
+                  <div className="recent-empty">
+                    <div className="recent-empty-icon">
+                      <FileTextOutlined />
+                    </div>
+                    <strong>No recent activity</strong>
+                    <span>Your recent learning activities will appear here.</span>
+                  </div>
+                </div>
+              </aside>
+            </section>
+          </>
         )}
 
         <CurriculumViewer
