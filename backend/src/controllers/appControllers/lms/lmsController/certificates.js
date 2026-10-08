@@ -241,30 +241,12 @@ async function mine(req, res) {
   return ok(res, out);
 }
 
-// Resolves the real person + course behind a Certificate row (which only
-// stores denormalized name/course strings) so the PDF renderer can pull
-// their live assessment/project/attendance data.
-async function resolveCertificateSubject(cert) {
-  const Course = mongoose.model('Course');
-  const Student = mongoose.model('Student');
-  const Admin = mongoose.model('Admin');
-  const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).lean();
-  const roster = await Student.findOne({ name: rxEq(cert.student || ''), course: rxEq(cert.course || ''), removed: false })
-    .select('email batch').lean();
-  const admin = roster && roster.email
-    ? await Admin.findOne({ email: rxEq(roster.email), removed: false }).select('_id email').lean()
-    : null;
-  return {
-    course,
-    adminId: admin ? admin._id : null,
-    adminEmail: admin ? admin.email : (roster ? roster.email : null),
-    batchName: cert.batch || (roster ? roster.batch : null),
-  };
-}
-
+// Course is only looked up to know which real template (Foundation/Elite —
+// Course.durationHours) the PDF renderer should fill in.
 async function streamCertificatePdf(res, cert) {
-  const { course, adminId, adminEmail, batchName } = await resolveCertificateSubject(cert);
-  const buf = await certPdf.renderCertificatePdf({ cert, course, adminId, adminEmail, batchName });
+  const Course = mongoose.model('Course');
+  const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).select('durationHours').lean();
+  const buf = await certPdf.renderCertificatePdf({ cert, course });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${String(cert.certificateId || 'certificate').replace(/[^a-z0-9-]/gi, '_')}.pdf"`);
   res.send(buf);
@@ -302,7 +284,7 @@ async function previewMine(req, res) {
 
   const existing = await findIssuedCertificate(req.admin.name, course.title);
   const cert = existing || { student: req.admin.name, course: course.title, batch: roster.batch, certificateId: 'PREVIEW', issuedOn: null };
-  const buf = await certPdf.renderCertificatePdf({ cert, course, adminId: req.admin._id, adminEmail: req.admin.email, batchName: roster.batch });
+  const buf = await certPdf.renderCertificatePdf({ cert, course });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline; filename="certificate-preview.pdf"');
   res.send(buf);
