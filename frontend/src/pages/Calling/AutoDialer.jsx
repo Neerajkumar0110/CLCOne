@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
-import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 
@@ -70,6 +70,8 @@ function InstantLeadPool() {
   const [breakBusy, setBreakBusy] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [callsPage, setCallsPage] = useState(1);
+  const CALLS_PAGE_SIZE = 10;
   const on = !!data?.on;
   // Guards against firing the auto-join POST more than once while its
   // response is still in flight — the next status poll (4s later) is what
@@ -149,6 +151,11 @@ function InstantLeadPool() {
   const isRinging = !!call && !call.answeredAt;
   const isConnected = !!call && !!call.answeredAt;
   const callSeconds = isConnected ? Math.max(0, Math.floor((now - new Date(call.answeredAt).getTime()) / 1000)) : 0;
+
+  const recentCalls = data?.recentCalls || [];
+  const callsPages = Math.max(1, Math.ceil(recentCalls.length / CALLS_PAGE_SIZE));
+  const callsPageClamped = Math.min(callsPage, callsPages);
+  const pagedCalls = recentCalls.slice((callsPageClamped - 1) * CALLS_PAGE_SIZE, callsPageClamped * CALLS_PAGE_SIZE);
 
   return (
     <div className="hub-stack">
@@ -291,8 +298,8 @@ function InstantLeadPool() {
           <table className="hub-table">
             <thead><tr><th>Contact</th><th>Duration</th><th>Status</th><th>Outcome</th></tr></thead>
             <tbody>
-              {(!data || data.recentCalls.length === 0) && <tr><td colSpan={4}><div className="hub-empty">No calls yet today.</div></td></tr>}
-              {data && data.recentCalls.map((c) => (
+              {(!data || recentCalls.length === 0) && <tr><td colSpan={4}><div className="hub-empty">No calls yet today.</div></td></tr>}
+              {data && pagedCalls.map((c) => (
                 <tr key={c._id}>
                   <td>{c.contactName}<div style={{ fontSize: 11, color: "#94a3b8" }}>{c.phone}</div></td>
                   <td>{fmtDuration(c.durationSec)}</td>
@@ -303,6 +310,18 @@ function InstantLeadPool() {
             </tbody>
           </table>
         </div>
+
+        {callsPages > 1 && (
+          <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
+              Page {callsPageClamped} of {callsPages} · {recentCalls.length} call{recentCalls.length === 1 ? "" : "s"}
+            </span>
+            <div className="hub-row" style={{ gap: 8 }}>
+              <button type="button" className="hub-btn" disabled={callsPageClamped <= 1} onClick={() => setCallsPage(callsPageClamped - 1)}><LeftOutlined /> Prev</button>
+              <button type="button" className="hub-btn" disabled={callsPageClamped >= callsPages} onClick={() => setCallsPage(callsPageClamped + 1)}>Next <RightOutlined /></button>
+            </div>
+          </div>
+        )}
       </div>
 
       <UsedLeads />
