@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Select, Skeleton, message, Tooltip } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Select, Skeleton, message, Tooltip, Modal, Form, Input, Segmented, Tag } from 'antd';
 import {
   LockOutlined,
+  UnlockOutlined,
   ArrowLeftOutlined,
   ArrowRightOutlined,
   ClockCircleOutlined,
@@ -16,6 +17,7 @@ import {
   RocketOutlined,
   InfoCircleOutlined,
   FileDoneOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -88,6 +90,64 @@ export default function AssessmentDashboard() {
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [progress, setProgress] = useState(null); // { resolvedTrack, curriculumPercent, unlockedByType }
   const [progressLoading, setProgressLoading] = useState(true);
+
+  // Manual curriculum-gate bypass (manager only) — overrides active for the
+  // selected batch, keyed by testType, so a locked-but-overridden card can
+  // show "manually unlocked" + a revoke action instead of just "locked".
+  const [overrides, setOverrides] = useState([]);
+  const [unlockForm] = Form.useForm();
+  const [unlockModal, setUnlockModal] = useState(null); // the card being unlocked, or null
+  const [unlockSaving, setUnlockSaving] = useState(false);
+
+  const loadOverrides = useCallback(() => {
+    if (!isManagerRole || !batch) { setOverrides([]); return; }
+    lmsApi.listUnlockOverrides({ batch }).then((r) => setOverrides((r && r.result) || [])).catch(() => setOverrides([]));
+  }, [isManagerRole, batch]);
+  useEffect(() => { loadOverrides(); }, [loadOverrides]);
+
+  const batchOverrideByType = useMemo(() => {
+    const m = {};
+    overrides.filter((o) => o.scope === 'batch').forEach((o) => { m[o.testType] = o; });
+    return m;
+  }, [overrides]);
+
+  const openUnlockModal = (card) => {
+    unlockForm.resetFields();
+    unlockForm.setFieldsValue({ scope: 'batch', batch });
+    setUnlockModal(card);
+  };
+  const submitUnlock = async () => {
+    let v;
+    try { v = await unlockForm.validateFields(); } catch (e) { return; }
+    setUnlockSaving(true);
+    try {
+      await lmsApi.grantUnlockOverride({
+        testType: unlockModal.testType,
+        scope: v.scope,
+        batch: v.scope === 'batch' ? batch : undefined,
+        studentEmail: v.scope === 'student' ? v.studentEmail : undefined,
+        note: v.note,
+      });
+      msgApi.success('Unlocked.');
+      setUnlockModal(null);
+      loadOverrides();
+      lmsApi.assessmentBatchProgress(batch).then((res) => setProgress((res && res.result) || null)).catch(() => {});
+    } catch (e) {
+      msgApi.error(e?.response?.data?.message || 'Could not unlock.');
+    } finally {
+      setUnlockSaving(false);
+    }
+  };
+  const revokeOverride = async (id) => {
+    try {
+      await lmsApi.revokeUnlockOverride(id);
+      msgApi.success('Reverted to the normal % threshold.');
+      loadOverrides();
+      lmsApi.assessmentBatchProgress(batch).then((res) => setProgress((res && res.result) || null)).catch(() => {});
+    } catch (e) {
+      msgApi.error('Could not revoke.');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -275,9 +335,19 @@ export default function AssessmentDashboard() {
                     <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
                     {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
                   </span>
-                  <div className="asm-locked-button">
-                    <LockOutlined />
-                  </div>
+                  {isManagerRole ? (
+                    <Button
+                      size="small"
+                      icon={<UnlockOutlined />}
+                      onClick={(e) => { e.stopPropagation(); openUnlockModal(c); }}
+                    >
+                      Unlock…
+                    </Button>
+                  ) : (
+                    <div className="asm-locked-button">
+                      <LockOutlined />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="asm-card-bottom asm-unlocked-bottom">
@@ -300,10 +370,62 @@ export default function AssessmentDashboard() {
                   </button>
                 </div>
               )}
+              {isManagerRole && batchOverrideByType[c.testType] && (
+                <Tag
+                  color="purple"
+                  style={{ marginTop: 8 }}
+                  closeIcon={<CloseOutlined />}
+                  onClose={(e) => { e.preventDefault(); e.stopPropagation(); revokeOverride(batchOverrideByType[c.testType].id); }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Manually unlocked for this batch
+                </Tag>
+              )}
             </article>
           ))}
         </div>
       )}
+
+      <Modal
+        title={unlockModal ? `Unlock "${unlockModal.title}"` : ''}
+        open={!!unlockModal}
+        onCancel={() => setUnlockModal(null)}
+        onOk={submitUnlock}
+        confirmLoading={unlockSaving}
+        okText="Unlock"
+        destroyOnClose
+      >
+        <p style={{ color: '#667085', marginTop: -4 }}>
+          Opens this test without waiting for the curriculum % threshold — the threshold itself is unchanged for
+          everyone else.
+        </p>
+        <Form form={unlockForm} layout="vertical" preserve={false}>
+          <Form.Item name="scope" label="Who should this open for?">
+            <Segmented
+              options={[
+                { label: `This batch (${batch})`, value: 'batch' },
+                { label: 'A specific learner', value: 'student' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(p, c) => p.scope !== c.scope}>
+            {({ getFieldValue }) =>
+              getFieldValue('scope') === 'student' ? (
+                <Form.Item
+                  name="studentEmail"
+                  label="Learner's email"
+                  rules={[{ required: true, type: 'email', message: 'A valid email is required' }]}
+                >
+                  <Input placeholder="candidate@email.com" />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
+          <Form.Item name="note" label="Note (optional)">
+            <Input.TextArea rows={2} placeholder="e.g. Scheduled assessment on Friday, delivery tracker is lagging actual classes" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

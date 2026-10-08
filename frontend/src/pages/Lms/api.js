@@ -177,6 +177,11 @@ const lmsApi = {
   assessmentCurriculumSessions: (f = {}) => request.get({ entity: `lms/assessments/admin/curriculum/sessions${qs(f)}` }),
   updateAssessmentDelivery: (sessionId, b) =>
     request.patch({ entity: `lms/assessments/admin/curriculum/sessions/${sessionId}/delivery`, jsonData: b }),
+  // Manual curriculum-gate bypass — open a test for a batch/learner ahead
+  // of its tracked delivery % crossing the threshold.
+  listUnlockOverrides: (f = {}) => request.get({ entity: `lms/assessments/admin/unlock-overrides${qs(f)}` }),
+  grantUnlockOverride: (b) => request.post({ entity: 'lms/assessments/admin/unlock-overrides', jsonData: b }),
+  revokeUnlockOverride: (id) => request.del({ entity: `lms/assessments/admin/unlock-overrides/${id}` }),
 
   // ── doubts ─────────────────────────────────────────────────────
   doubts: (f = {}) => request.get({ entity: `lms/doubts${qs(f)}` }),

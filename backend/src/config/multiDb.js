@@ -67,6 +67,7 @@ const DB_MAP = {
   AssessmentProctorEvent: 'lmsDb',
   AssessmentQuestion: 'lmsDb',
   AssessmentRoundRobinCursor: 'lmsDb',
+  AssessmentUnlockOverride: 'lmsDb',
   AttendanceRecord: 'lmsDb',
   Batch: 'lmsDb',
   BatchChapterProgress: 'lmsDb',

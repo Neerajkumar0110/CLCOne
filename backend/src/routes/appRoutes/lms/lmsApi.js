@@ -243,6 +243,13 @@ router
 router
   .route('/assessments/admin/attempts/:attemptId/correct')
   .post(requireManager, catchErrors(lms.assessmentCorrectAttempt));
+// Manual curriculum-gate bypass (spec: let a manager open a test for a
+// batch/learner ahead of a scheduled assessment) — read open like the rest
+// of this admin surface (a Teacher checking their own batch), grant/revoke
+// manager-only since it changes what candidates can do.
+router.route('/assessments/admin/unlock-overrides').get(catchErrors(lms.assessmentListUnlockOverrides));
+router.route('/assessments/admin/unlock-overrides').post(requireManager, catchErrors(lms.assessmentGrantUnlockOverride));
+router.route('/assessments/admin/unlock-overrides/:id').delete(requireManager, catchErrors(lms.assessmentRevokeUnlockOverride));
 router.route('/assessments/admin/curriculum/sessions').get(catchErrors(lms.assessmentCurriculumSessions));
 router
   .route('/assessments/admin/curriculum/sessions/:sessionId/delivery')

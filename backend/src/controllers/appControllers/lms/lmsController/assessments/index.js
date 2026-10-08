@@ -23,6 +23,9 @@ module.exports = {
   getAssessmentSettings: admin.getAssessmentSettings,
   updateAssessmentSettings: admin.updateAssessmentSettings,
   correctAttempt: admin.correctAttempt,
+  listUnlockOverrides: admin.listUnlockOverrides,
+  grantUnlockOverride: admin.grantUnlockOverride,
+  revokeUnlockOverride: admin.revokeUnlockOverride,
 
   getSessions: curriculum.getSessions,
   updateDelivery: curriculum.updateDelivery,

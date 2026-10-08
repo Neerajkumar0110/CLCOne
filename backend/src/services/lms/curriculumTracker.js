@@ -128,4 +128,35 @@ const UNLOCK_THRESHOLD_PCT = {
   NLP_MICRO: 80,
 };
 
-module.exports = { trackForBatch, autoAdvance, completionPercentForBatchName, UNLOCK_THRESHOLD_PCT };
+// A manager can manually open a test for a whole batch or specific
+// learners ahead of the tracked % actually crossing its threshold — see
+// AssessmentUnlockOverride's header comment for why. Checked for a whole
+// batch (scope: 'batch') and/or one candidate (scope: 'student'); either
+// one being active is enough.
+async function hasUnlockOverride({ testType, batch, candidateId }) {
+  const AssessmentUnlockOverride = mongoose.model('AssessmentUnlockOverride');
+  const or = [];
+  if (batch) or.push({ scope: 'batch', batch });
+  if (candidateId) or.push({ scope: 'student', student: candidateId });
+  if (!or.length) return false;
+  return AssessmentUnlockOverride.exists({ testType, removed: false, $or: or });
+}
+
+// Single entry point the gate (testController.js#startTest) and both
+// dashboard views (getMyResults/getBatchProgress) all share, so "unlocked"
+// means the exact same thing — curriculum % past the threshold, OR a
+// manager opened it manually — everywhere a student could see it.
+async function isTestUnlocked({ testType, curriculumPercent, batch, candidateId }) {
+  const requiredPct = UNLOCK_THRESHOLD_PCT[testType] || 0;
+  if (curriculumPercent >= requiredPct) return true;
+  return !!(await hasUnlockOverride({ testType, batch, candidateId }));
+}
+
+module.exports = {
+  trackForBatch,
+  autoAdvance,
+  completionPercentForBatchName,
+  UNLOCK_THRESHOLD_PCT,
+  hasUnlockOverride,
+  isTestUnlocked,
+};

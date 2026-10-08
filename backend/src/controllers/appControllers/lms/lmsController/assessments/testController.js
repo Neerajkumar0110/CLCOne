@@ -99,7 +99,13 @@ async function startTest(req, res) {
     const requiredPct = UNLOCK_THRESHOLD_PCT[testType] || 0;
     if (requiredPct > 0) {
       const curriculumPercent = await curriculumTracker.completionPercentForBatchName(student && student.batch);
-      if (curriculumPercent < requiredPct) {
+      const unlocked = await curriculumTracker.isTestUnlocked({
+        testType,
+        curriculumPercent,
+        batch: student && student.batch,
+        candidateId: admin._id,
+      });
+      if (!unlocked) {
         return res.status(403).json({
           success: false,
           message: `This test unlocks once ${requiredPct}% of your batch's curriculum has been delivered (currently ${curriculumPercent}%).`,
@@ -344,12 +350,19 @@ async function getMyResults(req, res) {
       }
 
       const requiredPercent = UNLOCK_THRESHOLD_PCT[testType] || 0;
+      // eslint-disable-next-line no-await-in-loop
+      const unlocked = await curriculumTracker.isTestUnlocked({
+        testType,
+        curriculumPercent,
+        batch: student && student.batch,
+        candidateId: admin._id,
+      });
       attemptsByType[testType] = {
         used,
         max: maxAttemptsPerType,
         remaining: Math.max(0, maxAttemptsPerType - used),
         nextEligibleAt,
-        unlocked: curriculumPercent >= requiredPercent,
+        unlocked,
         requiredPercent,
       };
     }
@@ -433,7 +446,8 @@ async function getBatchProgress(req, res) {
     const curriculumPercent = await curriculumTracker.completionPercentForBatchName(batch);
     const unlockedByType = {};
     for (const t of TEST_TYPES) {
-      unlockedByType[t] = curriculumPercent >= (UNLOCK_THRESHOLD_PCT[t] || 0);
+      // eslint-disable-next-line no-await-in-loop
+      unlockedByType[t] = await curriculumTracker.isTestUnlocked({ testType: t, curriculumPercent, batch });
     }
 
     // Foundation (6-month): one card per real curriculum unit instead of the

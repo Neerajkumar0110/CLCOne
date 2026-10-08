@@ -413,4 +413,99 @@ async function updateAssessmentSettings(req, res) {
   return res.status(200).json({ success: true, result: s });
 }
 
-module.exports = { getAttempts, getAttemptsExport, notAttemptedReport, getAttemptReport, getSummary, getAssessmentSettings, updateAssessmentSettings, correctAttempt };
+const OVERRIDE_TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'];
+
+// Manual bypass of the curriculum-delivery % gate (see
+// services/lms/curriculumTracker.js's UNLOCK_THRESHOLD_PCT) — requested
+// after an NLP assessment stayed locked for a whole batch because tracked
+// delivery % lagged real teaching. Opens one test for a whole batch, or
+// just the listed learners, without changing the % threshold itself.
+async function listUnlockOverrides(req, res) {
+  const AssessmentUnlockOverride = mongoose.model('AssessmentUnlockOverride');
+  const q = { removed: false };
+  if (req.query.batch) q.batch = req.query.batch;
+  if (req.query.testType) q.testType = req.query.testType;
+  const rows = await AssessmentUnlockOverride.find(q).sort({ created: -1 }).limit(200).lean();
+  return res.status(200).json({ success: true, result: rows.map((r) => ({ ...r, id: String(r._id) })) });
+}
+
+async function grantUnlockOverride(req, res) {
+  const b = req.body || {};
+  if (!OVERRIDE_TEST_TYPES.includes(b.testType)) return res.status(400).json({ success: false, message: 'Invalid test type.' });
+  if (!['batch', 'student'].includes(b.scope)) return res.status(400).json({ success: false, message: 'scope must be "batch" or "student".' });
+
+  const AssessmentUnlockOverride = mongoose.model('AssessmentUnlockOverride');
+  const doc = { testType: b.testType, scope: b.scope, note: String(b.note || ''), grantedBy: req.admin._id, grantedByName: req.admin.name };
+
+  if (b.scope === 'batch') {
+    const batch = String(b.batch || '').trim();
+    if (!batch) return res.status(400).json({ success: false, message: 'batch is required.' });
+    doc.batch = batch;
+  } else {
+    const email = String(b.studentEmail || '').trim();
+    if (!email) return res.status(400).json({ success: false, message: 'studentEmail is required.' });
+    const Admin = mongoose.model('Admin');
+    const rxEq = (s) => new RegExp(`^${String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const student = await Admin.findOne({ email: rxEq(email), removed: false }).select('_id name email').lean();
+    if (!student) return res.status(404).json({ success: false, message: 'No candidate account with that email.' });
+    doc.student = student._id;
+    doc.studentName = student.name;
+    doc.studentEmail = student.email;
+  }
+
+  const created = await AssessmentUnlockOverride.create(doc);
+
+  try {
+    await require('../../../../../services/lms/auditLog').record({
+      module: 'assessment',
+      action: 'unlock-override.grant',
+      entityType: 'AssessmentUnlockOverride',
+      entityId: created._id,
+      admin: req.admin,
+      after: { testType: doc.testType, scope: doc.scope, batch: doc.batch, studentEmail: doc.studentEmail },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+
+  return res.status(200).json({ success: true, result: { id: String(created._id) }, message: 'Unlocked.' });
+}
+
+async function revokeUnlockOverride(req, res) {
+  const AssessmentUnlockOverride = mongoose.model('AssessmentUnlockOverride');
+  const doc = await AssessmentUnlockOverride.findOne({ _id: req.params.id, removed: false });
+  if (!doc) return res.status(404).json({ success: false, message: 'Not found.' });
+  doc.removed = true;
+  doc.revokedBy = req.admin._id;
+  doc.revokedByName = req.admin.name;
+  doc.revokedAt = new Date();
+  await doc.save();
+
+  try {
+    await require('../../../../../services/lms/auditLog').record({
+      module: 'assessment',
+      action: 'unlock-override.revoke',
+      entityType: 'AssessmentUnlockOverride',
+      entityId: doc._id,
+      admin: req.admin,
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+
+  return res.status(200).json({ success: true, result: {}, message: 'Revoked.' });
+}
+
+module.exports = {
+  getAttempts,
+  getAttemptsExport,
+  notAttemptedReport,
+  getAttemptReport,
+  getSummary,
+  getAssessmentSettings,
+  updateAssessmentSettings,
+  correctAttempt,
+  listUnlockOverrides,
+  grantUnlockOverride,
+  revokeUnlockOverride,
+};
