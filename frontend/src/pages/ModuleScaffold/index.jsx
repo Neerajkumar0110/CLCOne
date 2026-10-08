@@ -26,6 +26,9 @@ const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
 const SalesDashboard = lazy(() => import('@/pages/SalesDashboard'));
 const MarketingDashboard = lazy(() => import('@/pages/MarketingDashboard'));
 const MarketingHub = lazy(() => import('@/pages/MarketingHub'));
+// Moved here from Sales ▸ Leads (ad-platform lead capture belongs with the
+// rest of Marketing) — see pages/Leads/CaptureForm.jsx.
+const MarketingCaptureForm = lazy(() => import('@/pages/Leads/CaptureForm'));
 // LMS "My Learning" tab — the student portal shell over Moodle (pages/Lms).
 const LmsStudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
 // LMS "Live Classes" tab — auto meeting rooms per batch/course.
@@ -65,6 +68,7 @@ const EMBED = {
   salesDashboard: SalesDashboard,
   marketingDashboard: MarketingDashboard,
   marketingHub: MarketingHub,
+  marketingCaptureForm: MarketingCaptureForm,
   lmsStudentPortal: LmsStudentPortal,
   lmsLiveClasses: LmsLiveClasses,
   lmsRecordings: LmsRecordings,

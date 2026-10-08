@@ -423,6 +423,16 @@ export const FEATURE_SECTIONS = [
         kpis: ['Sessions', 'Leads', 'MQL to SQL %', 'Attributed Revenue'],
         columns: ['Source', 'Sessions', 'Leads', 'Opportunities', 'Revenue', 'ROI'],
       },
+      {
+        // Ad-platform lead capture (field config + Facebook/Google/LinkedIn
+        // Ads connection + campaign setup) — moved here from Sales ▸ Leads,
+        // since this is marketing tooling, not lead-desk work. See
+        // pages/Leads/CaptureForm.jsx.
+        key: 'capture-form',
+        label: 'Capture Form',
+        Icon: FormOutlined,
+        embed: 'marketingCaptureForm',
+      },
     ],
   },
 

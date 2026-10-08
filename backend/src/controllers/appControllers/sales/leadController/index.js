@@ -9,7 +9,6 @@ const exportLeads = require('./export');
 const teamStats = require('./teamStats');
 const stageStats = require('./stageStats');
 const byStage = require('./byStage');
-const callbacks = require('./callbacks');
 const usedLeads = require('./usedLeads');
 const myContacts = require('./myContacts');
 const { leadScopeFilter } = require('./scope');
@@ -30,7 +29,6 @@ methods.export = exportLeads;
 methods.teamStats = teamStats;
 methods.stageStats = stageStats;
 methods.byStage = byStage;
-methods.callbacks = callbacks;
 methods.usedLeads = usedLeads;
 methods.myContacts = myContacts;
 
