@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const certEngine = require('../../../../services/lms/certificateEngine');
@@ -121,28 +122,122 @@ async function history(req, res) {
   return ok(res, rows.map((r) => ({ ...r, id: String(r._id) })));
 }
 
-async function mine(req, res) {
+function addMonths(date, months) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+function gradeForPct(pct) {
+  if (pct >= 90) return 'A+';
+  if (pct >= 80) return 'A';
+  if (pct >= 70) return 'B';
+  if (pct >= 60) return 'C';
+  return 'Pass';
+}
+
+// Fully automatic completion gate for the InternX-AI program — no admin
+// has to configure a CertificateRule (nobody ever did, which is why zero
+// certificates existed — certificateEngine.evaluate() bails immediately
+// with "no rule" otherwise). A candidate's card always shows for an
+// enrolled course; the certificate only becomes issuable/downloadable once
+// (a) the program's real duration (6 or 12 months — Course.durationHours,
+// the same field curriculumTracker.trackForBatch reads for Foundation vs
+// Elite) has actually elapsed since their real Student.enrolledOn date,
+// and (b) their capstone Project has actually been submitted at least
+// once (Project.currentVersion >= 1). Both are real, already-tracked data
+// — nothing here is fabricated or hand-toggled by an admin.
+async function checkEligibility({ adminId, course, enrolledOn }) {
+  const Project = mongoose.model('Project');
+  const durationMonths = Number(course.durationHours) || 6;
+  const durationOk = !!enrolledOn && addMonths(enrolledOn, durationMonths) <= new Date();
+  let projectOk = false;
+  if (adminId) {
+    const project = await Project.findOne({ course: course._id, student: adminId, removed: false })
+      .sort({ updated: -1 }).select('currentVersion').lean();
+    projectOk = !!project && (project.currentVersion || 0) >= 1;
+  }
+  return { durationOk, projectOk, eligible: durationOk && projectOk, durationMonths };
+}
+
+async function findIssuedCertificate(studentName, courseTitle) {
   const Certificate = mongoose.model('Certificate');
-  const rows = await Certificate.find({
+  return Certificate.findOne({
     removed: false,
-    student: rxEq(req.admin.name || ''),
+    student: rxEq(studentName || ''),
+    course: rxEq(courseTitle || ''),
     status: { $in: ['Issued', 'Sent'] },
-  }).sort({ issuedOn: -1 }).lean();
-  return ok(
-    res,
-    rows.map((r) => ({
-      id: String(r._id),
-      course: r.course,
-      title: r.title,
-      type: r.type,
-      certificateId: r.certificateId,
-      grade: r.grade,
-      score: r.score,
-      issuedOn: r.issuedOn,
-      validUntil: r.validUntil,
-      verificationUrl: r.verificationUrl,
-    }))
-  );
+  }).lean();
+}
+
+// Score/grade still come from the real CourseProgress %, same as
+// certificateEngine — this just isn't gated on hitting any particular
+// threshold, since duration-elapsed + project-submitted are the two real
+// signals this program actually wants to gate on.
+async function autoIssueCertificate({ adminId, adminName, course, batch }) {
+  const Certificate = mongoose.model('Certificate');
+  const CourseProgress = mongoose.model('CourseProgress');
+  const cp = await CourseProgress.findOne({ crmUser: adminId, course: course._id }).lean();
+  const coursePercent = cp ? cp.percent || 0 : 0;
+  const certificateId = `CLC-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  return Certificate.create({
+    student: adminName,
+    course: course.title,
+    batch,
+    certificateId,
+    title: 'Certificate of Completion',
+    type: 'Completion',
+    issuedOn: new Date(),
+    grade: gradeForPct(coursePercent),
+    score: coursePercent,
+    status: 'Issued',
+    verificationUrl: `/#/verify/${certificateId}`,
+    issuedBy: 'System (auto)',
+  });
+}
+
+async function ensureCertificate({ adminId, adminName, course, batch, enrolledOn }) {
+  const elig = await checkEligibility({ adminId, course, enrolledOn });
+  let cert = await findIssuedCertificate(adminName, course.title);
+  if (elig.eligible && !cert && adminId) {
+    cert = await autoIssueCertificate({ adminId, adminName, course, batch });
+  }
+  return { ...elig, cert };
+}
+
+async function mine(req, res) {
+  const Student = mongoose.model('Student');
+  const Course = mongoose.model('Course');
+  const rows = await Student.find({ removed: false, email: rxEq(req.admin.email || '') })
+    .select('course batch enrolledOn').lean();
+
+  const out = [];
+  for (const r of rows) {
+    const course = await Course.findOne({ title: rxEq(r.course || ''), removed: false }).select('title durationHours').lean();
+    if (!course) continue;
+    const { durationOk, projectOk, eligible, durationMonths, cert } = await ensureCertificate({
+      adminId: req.admin._id,
+      adminName: req.admin.name,
+      course,
+      batch: r.batch,
+      enrolledOn: r.enrolledOn,
+    });
+    out.push({
+      id: cert ? String(cert._id) : null,
+      course: course.title,
+      track: durationMonths > 6 ? 'Elite Program' : 'Foundation Program',
+      durationMonths,
+      title: cert ? cert.title : 'Certificate of Completion',
+      certificateId: cert ? cert.certificateId : null,
+      grade: cert ? cert.grade : null,
+      score: cert ? cert.score : null,
+      issuedOn: cert ? cert.issuedOn : null,
+      verificationUrl: cert ? cert.verificationUrl : null,
+      eligible,
+      durationOk,
+      projectOk,
+    });
+  }
+  return ok(res, out);
 }
 
 // Resolves the real person + course behind a Certificate row (which only
@@ -209,35 +304,53 @@ async function downloadForManager(req, res) {
 async function roster(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Managers/teachers only.');
   const Student = mongoose.model('Student');
-  const Certificate = mongoose.model('Certificate');
+  const Course = mongoose.model('Course');
+  const Admin = mongoose.model('Admin');
   const q = { removed: false };
   if (!isManager(req.admin)) {
-    const Course = mongoose.model('Course');
     const mine = await Course.find({ removed: false, instructor: rxEq(req.admin.name || '') }).select('title').lean();
     q.course = { $in: mine.map((c) => rxEq(c.title)) };
   }
-  const students = await Student.find(q).select('name email course batch status progress').sort({ batch: 1, name: 1 }).lean();
-  const certs = await Certificate.find({ removed: false, status: { $in: ['Issued', 'Sent'] } })
-    .select('student course certificateId issuedOn grade score').lean();
-  const certByKey = new Map();
-  certs.forEach((c) => certByKey.set(`${(c.student || '').toLowerCase()}|${(c.course || '').toLowerCase()}`, c));
+  const students = await Student.find(q).select('name email course batch status progress enrolledOn').sort({ batch: 1, name: 1 }).lean();
+
+  const courseTitles = [...new Set(students.map((s) => s.course).filter(Boolean))];
+  const courses = courseTitles.length
+    ? await Course.find({ removed: false, title: { $in: courseTitles.map((t) => rxEq(t)) } }).select('title durationHours').lean()
+    : [];
+  const courseByTitle = new Map(courses.map((c) => [c.title.toLowerCase(), c]));
+
+  const emails = [...new Set(students.map((s) => s.email).filter(Boolean))];
+  const admins = emails.length
+    ? await Admin.find({ email: { $in: emails.map((e) => rxEq(e)) }, removed: false }).select('_id email').lean()
+    : [];
+  const adminByEmail = new Map(admins.map((a) => [a.email.toLowerCase(), a]));
 
   const batches = new Map();
-  students.forEach((s) => {
+  for (const s of students) {
     const key = s.batch || '—';
     if (!batches.has(key)) batches.set(key, { batch: key, course: s.course || '', total: 0, completed: 0, students: [] });
     const row = batches.get(key);
-    const cert = certByKey.get(`${(s.name || '').toLowerCase()}|${(s.course || '').toLowerCase()}`);
     row.total += 1;
+
+    const course = courseByTitle.get((s.course || '').toLowerCase());
+    const admin = adminByEmail.get((s.email || '').toLowerCase());
+    let cert = null;
+    let eligible = false;
+    if (course) {
+      const res2 = await ensureCertificate({ adminId: admin ? admin._id : null, adminName: s.name, course, batch: s.batch, enrolledOn: s.enrolledOn });
+      cert = res2.cert;
+      eligible = res2.eligible;
+    }
     if (cert) row.completed += 1;
     row.students.push({
       name: s.name,
       email: s.email,
       status: s.status,
       progress: s.progress || 0,
+      eligible,
       certificate: cert ? { id: String(cert._id), certificateId: cert.certificateId, issuedOn: cert.issuedOn, grade: cert.grade, score: cert.score } : null,
     });
-  });
+  }
   return ok(res, [...batches.values()]);
 }
 

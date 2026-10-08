@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Divider, Row, Col, Collapse, Progress,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Divider, Row, Col, Collapse, Progress, Tooltip,
 } from 'antd';
-import { TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined } from '@ant-design/icons';
+import {
+  TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined,
+  LockOutlined, CheckCircleFilled, ClockCircleOutlined, FileDoneOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -227,6 +230,20 @@ function TeacherCertificates({ isManagerRole }) {
   );
 }
 
+// A card always shows for every enrolled course — it just stays locked
+// until both real conditions are met (see certificates.js#checkEligibility):
+// the program's actual duration (6/12 months since enrolment) has elapsed,
+// and the capstone project has actually been submitted. Nothing here is
+// issued by an admin clicking a button — it unlocks itself.
+function RequirementRow({ ok, icon, label }) {
+  return (
+    <Space size={8} style={{ color: ok ? '#15803d' : '#94a3b8' }}>
+      {ok ? <CheckCircleFilled style={{ color: '#16a34a' }} /> : icon}
+      <Text style={{ color: 'inherit' }}>{label}</Text>
+    </Space>
+  );
+}
+
 function StudentCertificates() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -236,28 +253,44 @@ function StudentCertificates() {
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><TrophyOutlined /> My Certificates</h2><p>Your earned certificates.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="No certificates yet — finish a course to earn one." /></Card> : (
+      <div className="lms-portal-head"><div><h2><TrophyOutlined /> My Certificates</h2><p>Your program certificates — unlocks once your duration is complete and your project is submitted.</p></div></div>
+      {rows.length === 0 ? <Card><Empty description="Not enrolled in any course yet." /></Card> : (
         <Row gutter={[16, 16]}>
           {rows.map((c) => (
-            <Col xs={24} sm={12} lg={8} key={c.id}>
+            <Col xs={24} sm={12} lg={8} key={c.course}>
               <Card>
-                <SafetyCertificateOutlined style={{ fontSize: 32, color: '#a16207' }} />
-                <Title level={5} style={{ marginTop: 8 }}>{c.title}</Title>
+                <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
+                <Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>{c.title}</Title>
                 <Text strong>{c.course}</Text>
-                <Paragraph type="secondary" style={{ margin: '6px 0' }}>
-                  ID {c.certificateId}<br />Grade {c.grade} · {c.score}%<br />Issued {c.issuedOn ? dayjs(c.issuedOn).format('D MMM YYYY') : '—'}
-                </Paragraph>
+                <Paragraph type="secondary" style={{ margin: '4px 0 10px' }}>{c.track}</Paragraph>
+
+                <Space direction="vertical" size={6} style={{ marginBottom: 12 }}>
+                  <RequirementRow ok={c.durationOk} icon={<ClockCircleOutlined />} label={`${c.durationMonths}-month duration complete`} />
+                  <RequirementRow ok={c.projectOk} icon={<FileDoneOutlined />} label="Capstone project submitted" />
+                </Space>
+
+                {c.eligible && (
+                  <Paragraph type="secondary" style={{ margin: '0 0 10px', fontSize: 12.5 }}>
+                    ID {c.certificateId}<br />Grade {c.grade} · {c.score}%<br />Issued {c.issuedOn ? dayjs(c.issuedOn).format('D MMM YYYY') : '—'}
+                  </Paragraph>
+                )}
+
                 <Space>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<DownloadOutlined />}
-                    onClick={() => lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`))}
-                  >
-                    Download
-                  </Button>
-                  {c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
+                  {c.eligible ? (
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<DownloadOutlined />}
+                      onClick={() => lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`))}
+                    >
+                      Download
+                    </Button>
+                  ) : (
+                    <Tooltip title="Complete both requirements above to unlock your certificate">
+                      <Button size="small" icon={<LockOutlined />} disabled>Locked</Button>
+                    </Tooltip>
+                  )}
+                  {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
                 </Space>
               </Card>
             </Col>

@@ -165,6 +165,11 @@ const schema = new mongoose.Schema({
   notifiedBeforeMins: { type: [Number], default: [] },
   notifiedStart: { type: Boolean, default: false },
   notifiedRecording: { type: Boolean, default: false },
+  // Separate from notifiedBeforeMins (that list is admin-configurable and
+  // in-app only) — this is a fixed, always-on 10-minute email reminder to
+  // every Active student on the batch roster, so it can't be silently
+  // dropped if an admin edits the in-app reminder minute list.
+  notifiedEmail10min: { type: Boolean, default: false },
   autoCreated: { type: Boolean, default: false },
   autoEnded: { type: Boolean, default: false },
 

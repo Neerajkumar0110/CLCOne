@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { lmsConfig, liveClassService } = require('../services/lms');
 const settingsService = require('../services/lms/settingsService');
 const { notifyUser } = require('../notify');
+const mailer = require('../services/lms/mailer');
 
 // In-process worker for live classes (same shape as jobs/lmsSyncTick.js — no
 // cron, no new services). Every ~30s:
@@ -101,6 +102,43 @@ async function runNotifications() {
       session.notifiedStart = true;
       await session.save();
     }
+  }
+
+  // 10-minute email reminder — fixed, not tied to the admin-configurable
+  // notifyBeforeMins list above (that one's in-app only). Every Active
+  // student on the batch roster gets an actual email, once per session.
+  const dueForEmail = await LmsLiveSession.find({
+    removed: false,
+    status: { $in: ['scheduled', 'upcoming'] },
+    notifiedEmail10min: false,
+    scheduledStart: { $gt: new Date(now), $lte: new Date(now + 10 * 60000 + TICK_MS) },
+  }).limit(50);
+  for (const session of dueForEmail) {
+    const minsAway = Math.round((new Date(session.scheduledStart) - now) / 60000);
+    if (minsAway > 10) continue;
+    try {
+      const rec = await recipients(session);
+      const studentIds = [...rec.entries()].filter(([, role]) => role === 'student').map(([id]) => id);
+      if (studentIds.length) {
+        const Admin = mongoose.model('Admin');
+        const students = await Admin.find({ _id: { $in: studentIds }, removed: false }, 'email').lean();
+        const emails = students.map((a) => a.email).filter(Boolean);
+        if (emails.length) {
+          const base = (lmsConfig.meeting.crmBaseUrl || '').replace(/\/+$/, '');
+          await mailer.sendLiveClassReminderEmail(emails, {
+            title: session.title,
+            courseTitle: session.courseTitle,
+            batchName: session.batchName,
+            scheduledStart: session.scheduledStart,
+            joinPageUrl: `${base}/#/lms/classes`,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('lmsLiveTick email reminder:', e.message);
+    }
+    session.notifiedEmail10min = true;
+    await session.save();
   }
 
   // recording available

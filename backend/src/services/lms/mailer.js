@@ -84,6 +84,45 @@ async function sendBatchClassEmail(recipients, payload) {
   return { sent };
 }
 
+// "Your class starts in 10 minutes" — sent once per session (see
+// jobs/lmsLiveTick.js's notifiedEmail10min flag), to every Active student
+// on the batch roster. The time is formatted with fmtDateTime (en-IN
+// locale — month/day names are English, e.g. "Thu, 8 Oct, 06:00 pm").
+function liveClassReminderEmailHtml({ title, courseTitle, batchName, scheduledStart, joinPageUrl }) {
+  return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
+  <h2 style="margin:0 0 6px">Your class starts in 10 minutes</h2>
+  <p style="color:#556;margin:0 0 14px">${esc(title || courseTitle || batchName)}${courseTitle && title && courseTitle !== title ? ` · ${esc(courseTitle)}` : ''}</p>
+  <div style="border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;margin:14px 0">
+    <p style="margin:0;color:#334"><b>Start time:</b> ${esc(fmtDate(scheduledStart))}</p>
+    ${batchName ? `<p style="margin:6px 0 0;color:#334"><b>Batch:</b> ${esc(batchName)}</p>` : ''}
+  </div>
+  <p style="margin:16px 0">
+    <a href="${esc(joinPageUrl)}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Join Live Class</a>
+  </p>
+  <p style="color:#889;font-size:13px">Sign in to the portal and click Join when you're ready — no separate link needed.</p>
+</div>`;
+}
+
+async function sendLiveClassReminderEmail(recipients, payload) {
+  if (!ready()) return { sent: 0, skipped: 'email not configured' };
+  const list = [...new Set((recipients || []).map((r) => String(r || '').trim().toLowerCase()).filter((e) => /.+@.+\..+/.test(e)))];
+  if (!list.length) return { sent: 0 };
+  const html = liveClassReminderEmailHtml(payload);
+  const subject = `Starting in 10 min — ${payload.title || payload.courseTitle || payload.batchName}`;
+  let sent = 0;
+  for (const to of list) {
+    try {
+      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html });
+      sent += 1;
+      logDelivery(to, subject, 'sent');
+    } catch (e) {
+      console.error('[lms] live class reminder email failed for', to, ':', e.message);
+      logDelivery(to, subject, 'failed', e.message);
+    }
+  }
+  return { sent };
+}
+
 // Generic best-effort fan-out — used by announcements, certificate issue, etc.
 // `attachments` is passed straight through to nodemailer, e.g.
 // [{ filename: 'receipt.pdf', content: bufferOrStream, contentType: 'application/pdf' }].
@@ -105,4 +144,4 @@ async function sendMail(recipients, { subject, html, text, attachments }) {
   return { sent };
 }
 
-module.exports = { sendBatchClassEmail, sendMail, ready };
+module.exports = { sendBatchClassEmail, sendLiveClassReminderEmail, sendMail, ready };
