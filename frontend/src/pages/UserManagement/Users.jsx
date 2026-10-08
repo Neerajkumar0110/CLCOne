@@ -870,14 +870,25 @@ export default function Users({
 
   // Load real users from the backend (GET /api/admin/list), then load each
   // one's saved permissions — anyone with no saved record yet gets seeded
-  // from their role's default and saved immediately (scope: 'user', key: email).
+  // from their role's CURRENT saved default (scope: 'role', key: role) —
+  // i.e. whatever an admin actually configured via Roles & Permissions —
+  // and saved immediately (scope: 'user', key: email). Previously this
+  // seeded from the static computed default instead, so a brand-new user
+  // got stuck with the original out-of-the-box permissions forever (that
+  // wrong 'user' record then permanently shadows the role default — see
+  // fetchMatrix in permissionContext/index.jsx's userRecord || roleRecord)
+  // even after an admin had since customized and saved that role's real
+  // active permissions. Only roles nobody has ever customized still fall
+  // back to the static default, same as before.
   const loadUsers = async () => {
     setLoading(true);
     const usersRes = await request.list({ entity: "admin" });
     const backendUsers = usersRes?.success ? usersRes.result : [];
 
     const userRecords = await fetchPermissionRecords("user");
+    const roleRecords = await fetchPermissionRecords("role");
     const byEmail = Object.fromEntries(userRecords.map((r) => [r.key, r]));
+    const byRole = Object.fromEntries(roleRecords.map((r) => [r.key, r]));
     const base = defaultMatrix();
 
     const loaded = [];
@@ -912,7 +923,10 @@ export default function Users({
         }
         loaded.push({ ...displayUser, permissions: filled, permRecordId });
       } else {
-        const defaultForRole = base[displayUser.role];
+        const roleRecord = byRole[displayUser.role];
+        const defaultForRole = roleRecord
+          ? fillMatrixDefaults(roleRecord.matrix, displayUser.role).matrix
+          : base[displayUser.role];
         const saved = await savePermissionRecord({
           scope: "user",
           key: u.email,
@@ -956,11 +970,17 @@ export default function Users({
     }
   };
 
+  // Same role-default-first resolution as loadUsers' initial seeding — a
+  // "Reset" should put a user back on their role's real current permissions,
+  // not the original static out-of-the-box ones if an admin has since
+  // customized that role via Roles & Permissions.
   const resetPermissions = async (email) => {
     const target = users.find((u) => u.email === email);
     if (!target) return;
 
-    const defaults = defaultMatrix()[target.role];
+    const roleRecords = await fetchPermissionRecords("role");
+    const roleRecord = roleRecords.find((r) => r.key === target.role);
+    const defaults = roleRecord ? fillMatrixDefaults(roleRecord.matrix, target.role).matrix : defaultMatrix()[target.role];
     setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, permissions: defaults } : u)));
 
     const saved = await savePermissionRecord({
