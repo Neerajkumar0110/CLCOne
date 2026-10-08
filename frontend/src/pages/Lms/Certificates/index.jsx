@@ -235,12 +235,15 @@ function TeacherCertificates({ isManagerRole }) {
 // the program's actual duration (6/12 months since enrolment) has elapsed,
 // and the capstone project has actually been submitted. Nothing here is
 // issued by an admin clicking a button — it unlocks itself.
+// Plain flex divs, not antd <Space> — Space defaults to display:inline-flex,
+// which let this row and the button row below it flow onto the same visual
+// line once the card got narrow (3-up grid), instead of stacking.
 function RequirementRow({ ok, icon, label }) {
   return (
-    <Space size={8} style={{ color: ok ? '#15803d' : '#94a3b8' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: ok ? '#15803d' : '#94a3b8' }}>
       {ok ? <CheckCircleFilled style={{ color: '#16a34a' }} /> : icon}
       <Text style={{ color: 'inherit' }}>{label}</Text>
-    </Space>
+    </div>
   );
 }
 
@@ -259,18 +262,18 @@ function StudentCertificates() {
           {rows.map((c) => (
             <Col xs={24} sm={12} lg={8} key={c.course}>
               <Card>
-                <Space align="center">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
                   {!c.eligible && <Tag icon={<LockOutlined />} color="default">Not unlocked yet</Tag>}
-                </Space>
+                </div>
                 <Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>{c.title}</Title>
                 <Text strong>{c.course}</Text>
                 <Paragraph type="secondary" style={{ margin: '4px 0 10px' }}>{c.track}</Paragraph>
 
-                <Space direction="vertical" size={6} style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                   <RequirementRow ok={c.durationOk} icon={<ClockCircleOutlined />} label={`${c.durationMonths}-month duration complete`} />
                   <RequirementRow ok={c.projectOk} icon={<FileDoneOutlined />} label="Capstone project submitted" />
-                </Space>
+                </div>
 
                 {c.eligible && (
                   <Paragraph type="secondary" style={{ margin: '0 0 10px', fontSize: 12.5 }}>
@@ -278,7 +281,7 @@ function StudentCertificates() {
                   </Paragraph>
                 )}
 
-                <Space>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {c.eligible ? (
                     <Button
                       size="small"
@@ -294,7 +297,7 @@ function StudentCertificates() {
                     </Tooltip>
                   )}
                   {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
-                </Space>
+                </div>
               </Card>
             </Col>
           ))}
