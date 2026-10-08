@@ -62,6 +62,14 @@ const LMS_FULL_ACCESS_ROLES = [...MANAGEMENT_ROLES, 'Support'];
 // Team the menu option names, independent of this list.
 const NON_SALES_ROLES = ['Support', 'Finance', ...LMS_PANEL_ROLES];
 
+// The actual Sales/CRM pipeline roles — every ROLES entry except the admin
+// tiers (owner/Super Admin/Admin) and NON_SALES_ROLES. Used to decide who
+// gets the Sales welcome email (services/sales/salesWelcomeEmail.js) and the
+// one-off backfill (scripts/sendSalesWelcomeEmails.cjs).
+const SALES_ROLES = ROLES.filter(
+  (r) => !SUPER_ADMIN_ROLES.includes(r) && r !== 'Admin' && !NON_SALES_ROLES.includes(r)
+);
+
 module.exports = {
   ROLES,
   FINANCE_SUB_ROLES,
@@ -71,6 +79,7 @@ module.exports = {
   MANAGEMENT_ROLES,
   LMS_FULL_ACCESS_ROLES,
   NON_SALES_ROLES,
+  SALES_ROLES,
   LMS_TEACHER_ROLES,
   LMS_STUDENT_ROLES,
   LMS_PANEL_ROLES,

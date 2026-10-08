@@ -8,6 +8,7 @@ const {
   SUPER_ADMIN_ROLES,
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
+  SALES_ROLES,
 } = require('../../../config/roles');
 const { notify } = require('../../../notify');
 
@@ -146,6 +147,18 @@ const create = async (userModel, req, res) => {
     }
   } catch (e) {
     console.error('lms enqueue (user.provision) failed:', e.message);
+  }
+
+  // Sales-pipeline accounts get a one-time welcome email with their login
+  // email + the login URL (login is OTP-only, see login.js — no password to
+  // send). Best-effort, same as the Moodle provisioning above: never blocks
+  // or fails account creation.
+  try {
+    if (userModel === 'Admin' && SALES_ROLES.includes(newUser.role)) {
+      await require('../../../services/sales/salesWelcomeEmail').sendSalesWelcomeEmail(newUser);
+    }
+  } catch (e) {
+    console.error('sales welcome email failed:', e.message);
   }
 
   return res.status(200).json({
