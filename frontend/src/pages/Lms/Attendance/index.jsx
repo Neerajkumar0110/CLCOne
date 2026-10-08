@@ -287,11 +287,6 @@ function MyAttendance() {
               <p>Track your live class attendance and stay consistent with your learning journey.</p>
             </div>
           </div>
-          <div className="attendance-motto">
-            <span>Show Up</span>
-            <span>Learn</span>
-            <span>Grow</span>
-          </div>
         </section>
 
         <div className="attendance-stats">

@@ -222,7 +222,28 @@ const lmsApi = {
   runCertificates: (courseId) => request.post({ entity: `lms/certificates/run/${courseId}`, jsonData: {} }),
   certHistory: (f = {}) => request.get({ entity: `lms/certificates${qs(f)}` }),
   myCertificates: () => request.get({ entity: 'lms/my/certificates' }),
+  certificateRoster: () => request.get({ entity: 'lms/certificates/roster' }),
   verifyCertificate: (cid) => request.get({ entity: `lms/certificates/verify/${cid}` }),
+  // PDF download -> fetch with the bearer (binary, so it can't go through a
+  // plain <a href>), then trigger a client download. Same pattern as
+  // attendanceExport/learner360Export above.
+  downloadCertificatePdf: async (id, mine, filename) => {
+    let token = '';
+    try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
+    const base = mine ? 'lms/my/certificates' : 'lms/certificates';
+    const res = await axios.get(`${API_BASE_URL}${base}/${id}/download`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename || 'certificate'}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 
   // ── analytics ─────────────────────────────────────────────────
   teacherAnalytics: (f = {}) => request.get({ entity: `lms/teacher/analytics${qs(f)}` }),

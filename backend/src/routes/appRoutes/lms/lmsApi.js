@@ -150,10 +150,13 @@ router.route('/students/unassigned-list').get(catchErrors(lms.studentsUnassigned
 // ── certificates ───────────────────────────────────────────────────
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));
 router.route('/certificates').get(catchErrors(lms.certHistory));
+router.route('/certificates/roster').get(catchErrors(lms.certRoster));
 router.route('/certificates/issue').post(catchErrors(lms.certIssue));
 router.route('/certificates/run/:courseId').post(catchErrors(lms.certRunForCourse));
 router.route('/certificates/verify/:certificateId').get(catchErrors(lms.certVerify));
+router.route('/certificates/:id/download').get(catchErrors(lms.certDownloadForManager));
 router.route('/my/certificates').get(catchErrors(lms.certMine));
+router.route('/my/certificates/:id/download').get(catchErrors(lms.certDownloadMine));
 router.route('/teacher/live-classes').get(catchErrors(lms.liveList));
 router.route('/teacher/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/teacher/attendance').get(catchErrors(lms.liveAttendanceDashboard));

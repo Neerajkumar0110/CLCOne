@@ -1,17 +1,93 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Divider, Row, Col,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Divider, Row, Col, Collapse, Progress,
 } from 'antd';
-import { TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined } from '@ant-design/icons';
+import { TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { request } from '@/request';
 import lmsApi from '../api';
 
 const { Text, Paragraph, Title } = Typography;
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
-function TeacherCertificates() {
+function slug(s) {
+  return String(s || 'certificate').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+// Admin/Super Admin/Support/Sales Manager/owner + Teacher — "which batches
+// exist, who's in them, who's actually earned a certificate yet" (per-batch
+// headcount + roster), reading services/lms/certificatePdf's same
+// Issued/Sent gate the student-facing download uses.
+function BatchRoster() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => {
+    setLoading(true);
+    lmsApi.certificateRoster().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Roster load failed')).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Skeleton active paragraph={{ rows: 3 }} />;
+  if (!rows.length) return <Empty description="No candidates yet." />;
+
+  return (
+    <Collapse
+      items={rows.map((b) => ({
+        key: b.batch,
+        label: (
+          <Space>
+            <b>{b.batch}</b>
+            <Text type="secondary">{b.course}</Text>
+            <Tag color={b.completed === b.total ? 'green' : 'blue'}>{b.completed}/{b.total} completed</Tag>
+          </Space>
+        ),
+        children: (
+          <Table
+            rowKey="email"
+            size="small"
+            pagination={false}
+            dataSource={b.students}
+            columns={[
+              { title: 'Candidate', dataIndex: 'name' },
+              { title: 'Email', dataIndex: 'email' },
+              { title: 'Progress', dataIndex: 'progress', width: 140, render: (v) => <Progress percent={v} size="small" /> },
+              { title: 'Status', dataIndex: 'status', width: 100 },
+              {
+                title: 'Certificate',
+                width: 170,
+                render: (_, s) => (s.certificate
+                  ? <Tag color="gold">{s.certificate.certificateId} · {s.certificate.grade}</Tag>
+                  : <Tag>Not yet</Tag>),
+              },
+              {
+                title: '',
+                width: 100,
+                render: (_, s) => (s.certificate ? (
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => lmsApi.downloadCertificatePdf(s.certificate.id, false, slug(`${s.name}-${s.certificate.certificateId}`))}
+                  >
+                    PDF
+                  </Button>
+                ) : null),
+              },
+            ]}
+          />
+        ),
+      }))}
+    />
+  );
+}
+
+// isManagerRole: Admin/Super Admin/Support/Sales Manager/owner aren't a
+// trainer on anything, so teacherDashboard()'s "my own courses" list always
+// comes back empty for them (same gap fixed earlier for Assignments/
+// AssessmentDashboard) — they instead get every course in the system.
+function TeacherCertificates({ isManagerRole }) {
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [rule, setRule] = useState(null);
@@ -25,14 +101,21 @@ function TeacherCertificates() {
   useEffect(() => {
     (async () => {
       try {
-        const [d, h] = await Promise.all([lmsApi.teacherDashboard(), lmsApi.certHistory()]);
-        const list = ((d && d.result && d.result.courses) || []).map((c) => ({ value: c.id, label: c.title }));
+        const [d, h] = await Promise.all([
+          isManagerRole
+            ? request.list({ entity: 'course', options: { items: 500, sortBy: 'title', sortValue: 1 } })
+            : lmsApi.teacherDashboard(),
+          lmsApi.certHistory(),
+        ]);
+        const list = isManagerRole
+          ? ((d && d.result) || []).map((c) => ({ value: c._id, label: c.title }))
+          : ((d && d.result && d.result.courses) || []).map((c) => ({ value: c.id, label: c.title }));
         setCourses(list);
         setHistory((h && h.result) || []);
         if (list[0]) setCourseId(list[0].value);
       } catch (e) { message.error('Load failed'); } finally { setLoading(false); }
     })();
-  }, []);
+  }, [isManagerRole]);
 
   const loadRule = useCallback(async (id) => {
     if (!id) return;
@@ -73,6 +156,10 @@ function TeacherCertificates() {
         <div><h2><TrophyOutlined /> Certificates</h2><p>Set the criteria — the system issues them automatically.</p></div>
         <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
       </div>
+
+      <Card size="small" title={<Space><TeamOutlined /> Batch roster — who's in which batch, who's completed</Space>} style={{ marginBottom: 12 }}>
+        <BatchRoster />
+      </Card>
 
       {!courseId ? <Card><Empty description="No courses assigned." /></Card> : (
         <Row gutter={[12, 12]}>
@@ -116,6 +203,13 @@ function TeacherCertificates() {
                   { title: 'Grade', dataIndex: 'grade', width: 70 },
                   { title: 'Issued', dataIndex: 'issuedOn', render: (v) => (v ? dayjs(v).format('D MMM YY') : '—') },
                   { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={['Issued', 'Sent'].includes(s) ? 'green' : 'default'}>{s}</Tag> },
+                  {
+                    title: '',
+                    width: 90,
+                    render: (_, r) => (['Issued', 'Sent'].includes(r.status) ? (
+                      <Button size="small" icon={<DownloadOutlined />} onClick={() => lmsApi.downloadCertificatePdf(r.id, false, slug(`${r.student}-${r.certificateId}`))}>PDF</Button>
+                    ) : null),
+                  },
                 ]}
               />
             </Card>
@@ -154,7 +248,17 @@ function StudentCertificates() {
                 <Paragraph type="secondary" style={{ margin: '6px 0' }}>
                   ID {c.certificateId}<br />Grade {c.grade} · {c.score}%<br />Issued {c.issuedOn ? dayjs(c.issuedOn).format('D MMM YYYY') : '—'}
                 </Paragraph>
-                {c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
+                <Space>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<DownloadOutlined />}
+                    onClick={() => lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`))}
+                  >
+                    Download
+                  </Button>
+                  {c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
+                </Space>
               </Card>
             </Col>
           ))}
@@ -166,5 +270,7 @@ function StudentCertificates() {
 
 export default function Certificates() {
   const admin = useSelector(selectCurrentAdmin) || {};
-  return LMS_TEACHER_ROLES.includes(admin.role) ? <TeacherCertificates /> : <StudentCertificates />;
+  const isManagerRole = MGR.includes(admin.role);
+  if (isManagerRole || LMS_TEACHER_ROLES.includes(admin.role)) return <TeacherCertificates isManagerRole={isManagerRole} />;
+  return <StudentCertificates />;
 }

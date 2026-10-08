@@ -12,7 +12,10 @@ import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { request } from '@/request';
 import lmsApi from '../api';
+
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 const { Text, Paragraph } = Typography;
 const fmt = (v) => (v ? dayjs(v).format('D MMM YYYY, HH:mm') : '—');
@@ -42,14 +45,19 @@ const Lbl = ({ icon, children }) => (
   <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
 );
 
-/* ───────────────────────── teacher ───────────────────────── */
-function TeacherAssignments() {
+/* ───────────────────────── teacher / manager ───────────────────────── */
+// Shared by Teacher and manager roles (Admin/Super Admin/Support) — the
+// backend already lets any manager create an assignment against ANY batch
+// (assignments.js's create() skips the trainer-ownership check entirely for
+// isManager), so the only thing that differs here is where the batch list
+// comes from: a Teacher's own trained batches vs. every batch in the system.
+function TeacherAssignments({ isManagerRole }) {
   const [rows, setRows] = useState([]);
   // The batches actually assigned to this teacher (Batch.trainer) — not the
   // Course list, which the backend permission check no longer keys off of
   // (a teacher can train a batch without being listed as that Course's
   // `instructor`, which is what used to throw "You can only add assignments
-  // to your own courses").
+  // to your own courses"). Managers get every batch instead (see load()).
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form] = Form.useForm();
@@ -75,15 +83,24 @@ function TeacherAssignments() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [a, d] = await Promise.all([lmsApi.assignments(), lmsApi.teacherDashboard()]);
+      const [a, b] = await Promise.all([
+        lmsApi.assignments(),
+        isManagerRole
+          ? request.list({ entity: 'batch', options: { items: 500, sortBy: 'name', sortValue: 1 } })
+          : lmsApi.teacherDashboard(),
+      ]);
       setRows((a && a.result) || []);
-      setBatches(((d && d.result && d.result.batches) || []).map((b) => ({ value: b.id, label: b.name })));
+      setBatches(
+        isManagerRole
+          ? ((b && b.result) || []).map((x) => ({ value: x._id, label: x.name }))
+          : ((b && b.result && b.result.batches) || []).map((x) => ({ value: x.id, label: x.name }))
+      );
     } catch (e) {
       message.error('Could not load assignments.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isManagerRole]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [q, batchFilter, statusFilter]);
 
@@ -174,14 +191,14 @@ function TeacherAssignments() {
             className="create-btn"
             onClick={() => openEditor(null)}
             disabled={!batches.length}
-            title={batches.length ? undefined : "You're not the trainer on any batch yet — ask an admin to assign you one."}
+            title={batches.length ? undefined : isManagerRole ? 'No batches exist yet — create one first.' : "You're not the trainer on any batch yet — ask an admin to assign you one."}
           >
             <PlusOutlined /> Create Assignment
           </button>
         </div>
 
         {rows.length === 0 ? (
-          <Card><Empty description={batches.length ? 'No assignments yet.' : 'You have no batches assigned.'} /></Card>
+          <Card><Empty description={batches.length ? 'No assignments yet.' : isManagerRole ? 'No batches exist yet.' : 'You have no batches assigned.'} /></Card>
         ) : (
           <>
         <div className="filter-card">
@@ -566,5 +583,7 @@ function StudentAssignments() {
 
 export default function Assignments() {
   const admin = useSelector(selectCurrentAdmin) || {};
-  return LMS_TEACHER_ROLES.includes(admin.role) ? <TeacherAssignments /> : <StudentAssignments />;
+  const isManagerRole = MGR.includes(admin.role);
+  if (isManagerRole || LMS_TEACHER_ROLES.includes(admin.role)) return <TeacherAssignments isManagerRole={isManagerRole} />;
+  return <StudentAssignments />;
 }

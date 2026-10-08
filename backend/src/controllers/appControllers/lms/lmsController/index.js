@@ -174,6 +174,9 @@ module.exports = {
   certHistory: certificates.history,
   certMine: certificates.mine,
   certVerify: certificates.verify,
+  certDownloadMine: certificates.downloadMine,
+  certDownloadForManager: certificates.downloadForManager,
+  certRoster: certificates.roster,
 
   // analytics
   teacherAnalytics: analytics.teacherAnalytics,

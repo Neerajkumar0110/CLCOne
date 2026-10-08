@@ -203,12 +203,17 @@ async function pinDoubt(req, res) {
 }
 
 /* ═══════════ ANNOUNCEMENTS ═══════════ */
+// Sending is manager-only (owner/Super Admin/Admin/Sales Manager/Support) —
+// a Teacher used to be able to send too, but now only sees what managers
+// send (see myAnnouncements below, which still scopes a Teacher's own view
+// to the courses/batches they actually teach).
 async function createAnnouncement(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
+  if (!isManager(req.admin)) return bad(res, 403, 'Managers only.');
   const b = req.body || {};
   const title = String(b.title || '').trim();
   if (!title) return bad(res, 400, 'Title is required.');
   const audience = ['all', 'course', 'batch'].includes(b.audience) ? b.audience : 'course';
+  const priority = b.priority === 'important' ? 'important' : 'general';
   const channels = Array.isArray(b.channels) && b.channels.length ? b.channels.filter((c) => ['in_app', 'email'].includes(c)) : ['in_app'];
 
   const Course = mongoose.model('Course');
@@ -249,6 +254,7 @@ async function createAnnouncement(req, res) {
     title,
     body: b.body || '',
     audience,
+    priority,
     course: course ? course._id : undefined,
     courseTitle: course ? course.title : undefined,
     batch: audience === 'batch' ? b.batch : undefined,
@@ -303,10 +309,10 @@ async function listAnnouncements(req, res) {
 }
 
 async function deleteAnnouncement(req, res) {
+  if (!isManager(req.admin)) return bad(res, 403, 'Managers only.');
   const Announcement = mongoose.model('LmsAnnouncement');
   const a = await Announcement.findOne({ _id: req.params.id, removed: false });
   if (!a) return bad(res, 404, 'Not found.');
-  if (!isManager(req.admin) && String(a.teacherCrmUser) !== String(req.admin._id)) return bad(res, 403, 'Not yours.');
   a.removed = true;
   a.updated = new Date();
   await a.save();
@@ -315,10 +321,25 @@ async function deleteAnnouncement(req, res) {
 
 async function myAnnouncements(req, res) {
   const Announcement = mongoose.model('LmsAnnouncement');
-  const { titles, batches } = await studentCourseTitles(req.admin);
-  const Course = mongoose.model('Course');
-  const courses = titles.length ? await Course.find({ title: { $in: titles.map((t) => rxEq(t)) }, removed: false }).select('_id').lean() : [];
-  const courseIds = courses.map((c) => c._id);
+  let courseIds = [];
+  let batches = [];
+  if (isTeacher(req.admin)) {
+    // A Teacher no longer sends announcements (createAnnouncement is
+    // manager-only now) but still sees what's been sent for the
+    // courses/batches they actually teach — same scoping teacherCourseIds()
+    // already uses for every other Teacher-facing endpoint in this file.
+    const { ids } = await teacherCourseIds(req.admin);
+    courseIds = ids;
+    const Batch = mongoose.model('Batch');
+    const rows = await Batch.find({ removed: false, trainer: rxEq(req.admin.name || '') }).select('name').lean();
+    batches = rows.map((b) => b.name);
+  } else {
+    const t = await studentCourseTitles(req.admin);
+    batches = t.batches;
+    const Course = mongoose.model('Course');
+    const courses = t.titles.length ? await Course.find({ title: { $in: t.titles.map((x) => rxEq(x)) }, removed: false }).select('_id').lean() : [];
+    courseIds = courses.map((c) => c._id);
+  }
   const rows = await Announcement.find({
     removed: false,
     $or: [{ audience: 'all' }, { audience: 'course', course: { $in: courseIds } }, { audience: 'batch', batch: { $in: batches } }],
@@ -330,6 +351,7 @@ async function myAnnouncements(req, res) {
       title: r.title,
       body: r.body,
       from: r.teacherName,
+      priority: r.priority === 'important' ? 'important' : 'general',
       scope: r.audience === 'all' ? 'All candidates' : r.audience === 'batch' ? r.batch : r.courseTitle,
       sentAt: r.sentAt,
     }))

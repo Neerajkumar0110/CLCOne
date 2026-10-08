@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Modal, Form, Input, Select, Drawer, Space, Empty, Skeleton, message, Typography, Segmented, Tooltip,
 } from 'antd';
-import { QuestionCircleOutlined, PushpinFilled, PushpinOutlined, CheckOutlined, PlusOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import {
+  QuestionCircleOutlined, PushpinFilled, PushpinOutlined, CheckOutlined, PlusOutlined, InfoCircleOutlined,
+  ReadOutlined, TagOutlined, FileTextOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -11,6 +14,14 @@ import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
 const ago = (v) => (v ? dayjs(v).fromNow?.() || dayjs(v).format('D MMM HH:mm') : '');
+
+// Same label-with-icon treatment as the CRM's generic Add/Edit modal
+// (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
+// matching Lms/Announcements, Lms/Assignments and Lms/Projects, so every
+// modal in the LMS reads as one consistent product.
+const Lbl = ({ icon, children }) => (
+  <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
+);
 // Display-only relabelling of the reply's stored byRole ('teacher'/'student'/
 // 'manager', see models/appModels/lms/Doubt.js) — the value itself is never
 // touched, just what's shown next to a reply.
@@ -127,11 +138,37 @@ export default function Doubts() {
         {openId && <Thread id={openId} onChange={load} />}
       </Drawer>
 
-      <Modal open={asking} title="Ask a question" onCancel={() => setAsking(false)} onOk={ask} okText="Post" destroyOnClose>
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="course" label="Course" rules={[{ required: true }]}><Select options={courses} /></Form.Item>
-          <Form.Item name="title" label="Question" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="body" label="Details"><Input.TextArea rows={4} /></Form.Item>
+      <Modal
+        className="crud-modal"
+        open={asking}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><QuestionCircleOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">New record</span>
+              <span className="crud-modal-title-main">Ask a question</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setAsking(false)}
+        onOk={ask}
+        okText="Post"
+        destroyOnClose
+        maskClosable={false}
+        width={560}
+      >
+        <Form form={form} layout="vertical" preserve={false} className="crud-form">
+          <div className="crud-form-grid">
+            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
+              <Select options={courses} showSearch optionFilterProp="label" placeholder="Select a course…" />
+            </Form.Item>
+            <Form.Item name="title" label={<Lbl icon={<TagOutlined />}>Question</Lbl>} rules={[{ required: true, message: 'Question is required' }]} className="crud-form-full">
+              <Input placeholder="e.g. How do I submit my assignment?" />
+            </Form.Item>
+            <Form.Item name="body" label={<Lbl icon={<FileTextOutlined />}>Details</Lbl>} className="crud-form-full">
+              <Input.TextArea rows={4} placeholder="Add any extra context (optional)" />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
     </div>

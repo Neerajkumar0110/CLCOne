@@ -16,6 +16,8 @@ const schema = new mongoose.Schema({
   courseTitle: String,
   batch: { type: String },
 
+  priority: { type: String, enum: ['important', 'general'], default: 'general' },
+
   channels: { type: [String], default: ['in_app'] },   // in_app | email
   recipientsCount: { type: Number, default: 0 },
   emailedCount: { type: Number, default: 0 },

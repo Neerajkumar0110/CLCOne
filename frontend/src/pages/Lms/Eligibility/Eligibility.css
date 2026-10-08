@@ -1,0 +1,554 @@
+/* ===============================
+   PAGE
+================================ */
+
+.elig-page {
+  min-height: 100%;
+  padding: 14px 18px 30px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff1f3 0%,
+      #eef3ff 48%,
+      #e9fff5 100%
+    );
+
+  color: #10213d;
+
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+
+/* ===============================
+   HERO
+================================ */
+
+.elig-hero {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  min-height: 205px;
+
+  padding: 30px 38px;
+
+  margin-bottom: 24px;
+
+  border-radius: 24px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #edf2ff,
+      #edf7ff 55%,
+      #effcff
+    );
+
+  border: 1px solid #dce7f5;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 10px 30px rgba(37, 99, 235, 0.07);
+}
+
+
+.elig-hero::after {
+  content: "";
+
+  position: absolute;
+
+  width: 260px;
+  height: 260px;
+
+  right: -100px;
+  bottom: -150px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(99, 91, 239, 0.06);
+}
+
+
+.elig-hero-icon {
+  position: relative;
+
+  width: 100px;
+  height: 100px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #2875e8;
+  font-size: 44px;
+
+  background: rgba(255, 255, 255, 0.88);
+
+  border-radius: 28px;
+
+  box-shadow:
+    0 12px 25px rgba(37, 99, 235, 0.12);
+}
+
+
+.elig-check {
+  position: absolute;
+
+  right: -5px;
+  bottom: -5px;
+
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+  font-size: 15px;
+
+  background: #16b981;
+
+  border: 3px solid white;
+
+  border-radius: 50%;
+}
+
+
+.elig-hero-content {
+  margin-left: 25px;
+
+  max-width: 720px;
+
+  z-index: 2;
+}
+
+
+.elig-hero-content h1 {
+  margin: 0;
+
+  color: #071b38;
+
+  font-size: 34px;
+
+  line-height: 1.15;
+
+  font-weight: 700;
+
+  letter-spacing: -0.7px;
+}
+
+
+.elig-hero-content p {
+  max-width: 680px;
+
+  margin: 12px 0 0;
+
+  color: #60718d;
+
+  font-size: 16px;
+
+  line-height: 1.55;
+
+  font-weight: 500;
+}
+
+
+/* ===============================
+   EMPTY
+================================ */
+
+.elig-empty {
+  padding: 50px;
+
+  background: white;
+
+  border: 1px solid #e4e9f1;
+
+  border-radius: 18px;
+
+  text-align: center;
+}
+
+
+/* ===============================
+   COURSE CARD
+================================ */
+
+.elig-card {
+  background: white;
+
+  border: 1px solid #e4e9f1;
+
+  border-radius: 20px;
+
+  padding: 22px 26px 8px;
+
+  margin-bottom: 20px;
+
+  box-shadow:
+    0 8px 24px rgba(20, 35, 60, 0.05);
+}
+
+
+.elig-card-head {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+
+.elig-course-icon {
+  width: 38px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #2875e8;
+
+  background: #e9f1ff;
+
+  border-radius: 11px;
+
+  font-size: 17px;
+}
+
+
+.elig-card-head h3 {
+  margin: 0;
+
+  flex: 1;
+
+  color: #071b38;
+
+  font-size: 20px;
+
+  font-weight: 700;
+}
+
+
+.elig-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 6px 14px;
+
+  border-radius: 999px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+
+.elig-status-badge.eligible {
+  color: #159962;
+  background: #e8fbf2;
+  border-color: #aee6cb;
+}
+
+
+.elig-status-badge.not-yet {
+  color: #b7791f;
+  background: #fff8e6;
+  border-color: #f3dc9e;
+}
+
+
+.elig-status-badge.action {
+  color: #d4302f;
+  background: #fff0f0;
+  border-color: #f3b4b4;
+}
+
+
+/* ===============================
+   SCORE ROW
+================================ */
+
+.elig-score-row {
+  display: flex;
+  align-items: center;
+
+  gap: 28px;
+
+  padding-bottom: 20px;
+
+  margin-bottom: 18px;
+
+  border-bottom: 1px solid #eef2f8;
+}
+
+
+.elig-ring {
+  flex-shrink: 0;
+}
+
+
+.elig-ring .ant-progress-text {
+  color: #071b38 !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+}
+
+
+.elig-score-info {
+  flex: 1;
+
+  min-width: 0;
+}
+
+
+.elig-score-info > p {
+  margin: 0;
+
+  color: #344766;
+
+  font-size: 16px;
+}
+
+
+.elig-score-info > p b {
+  color: #071b38;
+}
+
+
+.elig-missing-card {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 14px;
+
+  padding: 14px 18px;
+
+  margin-top: 14px;
+
+  background: #fff8e6;
+
+  border: 1px solid #f3dc9e;
+
+  border-radius: 14px;
+}
+
+
+.elig-missing-icon {
+  width: 32px;
+  height: 32px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+
+  background: #f3ab2c;
+
+  border-radius: 50%;
+
+  font-size: 15px;
+}
+
+
+.elig-missing-card strong {
+  display: block;
+
+  color: #071b38;
+
+  font-size: 15px;
+}
+
+
+.elig-missing-card p {
+  margin: 4px 0 0;
+
+  color: #7a6124;
+
+  font-size: 13px;
+}
+
+
+/* ===============================
+   REQUIREMENT ROWS
+================================ */
+
+.elig-reqs {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  padding-bottom: 20px;
+}
+
+
+.elig-req-row {
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  min-height: 64px;
+
+  padding: 0 18px;
+
+  background: #f8fafc;
+
+  border: 1px solid #edf1f7;
+
+  border-radius: 14px;
+}
+
+
+.elig-req-icon {
+  width: 38px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  font-size: 16px;
+}
+
+
+.elig-req-icon.blue { color: #2875e8; background: #e9f1ff; }
+.elig-req-icon.purple { color: #8254ed; background: #f0eaff; }
+.elig-req-icon.green { color: #12b981; background: #e4f9f1; }
+.elig-req-icon.orange { color: #f3ab2c; background: #fff4e0; }
+.elig-req-icon.red { color: #ff3344; background: #ffe9ec; }
+
+
+.elig-req-label {
+  flex: 1;
+
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  color: #1a2b47;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+
+.elig-mandatory-tag {
+  padding: 3px 10px;
+
+  color: #ff3344;
+
+  background: #ffe9ec;
+
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+.elig-req-score {
+  flex-shrink: 0;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+
+.elig-req-score.pass { color: #12b981; }
+.elig-req-score.fail { color: #ff3344; }
+
+
+.elig-req-score span {
+  margin-left: 4px;
+
+  color: #8190a8;
+
+  font-size: 13px;
+  font-weight: 500;
+}
+
+
+/* ===============================
+   RESPONSIVE
+================================ */
+
+
+
+@media (max-width: 650px) {
+
+  .elig-page {
+    padding: 10px;
+  }
+
+  .elig-hero {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    padding: 25px;
+
+    min-height: auto;
+  }
+
+  .elig-hero-content {
+    margin-left: 0;
+    margin-top: 20px;
+  }
+
+  .elig-hero-content h1 {
+    font-size: 27px;
+  }
+
+  .elig-hero-content p {
+    font-size: 14px;
+  }
+
+  .elig-card {
+    padding: 18px 16px 6px;
+  }
+
+  .elig-score-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .elig-req-row {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 14px;
+  }
+
+  .elig-req-score {
+    margin-left: 52px;
+  }
+}

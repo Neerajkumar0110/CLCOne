@@ -115,40 +115,6 @@
   line-height: 1.55;
 }
 
-.attendance-motto {
-  position: absolute;
-  right: 38px;
-  top: 34px;
-  z-index: 2;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  font-size: 27px;
-  line-height: 1.02;
-  font-weight: 800;
-  letter-spacing: -0.8px;
-
-  color: #625cf4;
-
-  transform: rotate(-2deg);
-  user-select: none;
-}
-
-.attendance-motto span {
-  display: block;
-}
-
-/* Optional slight variation exactly like the screenshot */
-.attendance-motto span:nth-child(2) {
-  margin-left: 8px;
-}
-
-.attendance-motto span:nth-child(3) {
-  margin-left: 4px;
-}
-
 
 /* =========================================
    STAT CARDS
@@ -853,10 +819,6 @@
   .attendance-hero {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .attendance-motto {
-    display: none;
   }
 
   .attendance-hero-content h1 {

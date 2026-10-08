@@ -21,11 +21,13 @@ import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { request } from '@/request';
 import lmsApi from '@/pages/Lms/api';
 import { BasicTest, MajorTestPythonSql, MajorTestNlp, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
 import './AssessmentDashboard.css';
 
 const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
+const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 // Colorful card-grid redesign of the candidate assessment landing page
 // ("Welcome, {name}"), matching the requested reference mockup 1:1 in style
@@ -69,14 +71,18 @@ function tint(hex, alpha) {
 export default function AssessmentDashboard() {
   const admin = useSelector(selectCurrentAdmin) || {};
   const isTeacher = LMS_TEACHER_ROLES.includes(admin.role);
+  const isManagerRole = MGR.includes(admin.role);
   const [msgApi, contextHolder] = message.useMessage();
   const [activeKey, setActiveKey] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Teacher: pick from their own batches (they may teach several). Student:
-  // auto-resolved to their own enrolled batch, same pattern as
-  // Curriculum/index.jsx's StudentCurriculum — no picker needed.
+  // Teacher: pick from their own batches (they may teach several). Manager
+  // (Admin/Super Admin/Support): pick from EVERY batch in the system — they
+  // aren't a trainer on anything, so the trainer-scoped teacherDashboard()
+  // batch list would always come back empty for them. Student: auto-resolved
+  // to their own enrolled batch, same pattern as Curriculum/index.jsx's
+  // StudentCurriculum — no picker needed.
   const [batches, setBatches] = useState([]);
   const [batch, setBatch] = useState(null);
   const [batchesLoading, setBatchesLoading] = useState(true);
@@ -90,6 +96,11 @@ export default function AssessmentDashboard() {
         const rows = (res && res.result && res.result.batches) || [];
         setBatches(rows);
         if (rows.length) setBatch(rows[0].name);
+      } else if (isManagerRole) {
+        const res = await request.list({ entity: 'batch', options: { items: 500, sortBy: 'name', sortValue: 1 } }).catch(() => null);
+        const rows = (res && res.result) || [];
+        setBatches(rows);
+        if (rows.length) setBatch(rows[0].name);
       } else {
         const res = await lmsApi.studentDashboard().catch(() => null);
         const enrolment = ((res && res.result && res.result.courses) || []).find((c) => c.batch);
@@ -97,7 +108,7 @@ export default function AssessmentDashboard() {
       }
       setBatchesLoading(false);
     })();
-  }, [isTeacher]);
+  }, [isTeacher, isManagerRole]);
 
   useEffect(() => {
     if (!batch) { setProgress(null); setProgressLoading(false); return; }
@@ -186,14 +197,14 @@ export default function AssessmentDashboard() {
         </div>
       </div>
 
-      {isTeacher && !batchesLoading && batches.length > 0 && (
+      {(isTeacher || isManagerRole) && !batchesLoading && batches.length > 0 && (
         <div className="asm-batchbar">
           <span className="asm-batchbar-label">Batch</span>
           <Select
             value={batch}
             onChange={setBatch}
             style={{ minWidth: 260 }}
-            options={batches.map((b) => ({ value: b.name, label: b.name }))}
+            options={batches.map((b) => ({ value: b.name, label: b.course ? `${b.name} — ${b.course}` : b.name }))}
             showSearch
             optionFilterProp="label"
           />
@@ -207,7 +218,7 @@ export default function AssessmentDashboard() {
           )}
         </div>
       )}
-      {!isTeacher && !batchesLoading && progress && (
+      {!isTeacher && !isManagerRole && !batchesLoading && progress && (
         <div className="asm-course-info">
           <span>{batch}</span>
           <b>•</b>

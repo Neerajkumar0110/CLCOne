@@ -1005,6 +1005,18 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsAttendance',
       },
       {
+        key: 'announcements',
+        label: 'Announcements',
+        Icon: SoundOutlined,
+        // Broadcast to a course, a batch, or everyone — sending is
+        // manager-only (Admin/Super Admin/Support); Teacher/Student only see
+        // what's been sent. Previously only reachable from the dedicated
+        // Teacher/Student panel (LmsPanelApp) — same class of gap Study
+        // Material had before its own embed was added below.
+        // See pages/Lms/Announcements + /api/lms/announcements, /api/lms/my/announcements.
+        embed: 'lmsAnnouncements',
+      },
+      {
         key: 'policies',
         label: 'Policies',
         Icon: FileProtectOutlined,
@@ -1033,6 +1045,19 @@ export const FEATURE_SECTIONS = [
         // Confidentiality enforced server-side (owner student + mentor + admin
         // only). See pages/Lms/Projects + /api/lms/projects, /api/lms/my/projects.
         embed: 'lmsProjects',
+      },
+      {
+        key: 'assignments',
+        label: 'Assignments',
+        Icon: FileTextOutlined,
+        // Create, collect and evaluate — Admin/Super Admin/Support/Teacher can
+        // all create assignments against any batch (assignments.js's create()
+        // already allows a manager to pick any batch, not just ones they
+        // train). Previously only reachable from the dedicated Teacher/Student
+        // panel (LmsPanelApp) — same class of gap Study Material had before
+        // its own embed was added below.
+        // See pages/Lms/Assignments + /api/lms/assignments, /api/lms/my/assignments.
+        embed: 'lmsAssignments',
       },
       {
         key: 'study-material',
@@ -1146,6 +1171,12 @@ export const FEATURE_SECTIONS = [
             AREA('notes', 'Notes'),
           ]),
         ],
+      },
+      {
+        key: 'certificate-center',
+        label: 'Certificate Center',
+        Icon: TrophyOutlined,
+        embed: 'lmsCertificates',
       },
     ],
   },

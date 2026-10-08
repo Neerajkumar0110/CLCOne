@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const certEngine = require('../../../../services/lms/certificateEngine');
+const certPdf = require('../../../../services/lms/certificatePdf');
 const { isTeacherOfCourse } = require('../../../../services/lms');
 
 //  teacher/manager:
@@ -9,8 +10,11 @@ const { isTeacherOfCourse } = require('../../../../services/lms');
 //   POST  /api/lms/certificates/issue                   { course, studentEmail, force? }
 //   POST  /api/lms/certificates/run/:courseId           (re-check all enrolled students)
 //   GET   /api/lms/certificates?course=                 (issued history)
+//   GET   /api/lms/certificates/roster                  (who's in which batch, who's completed)
+//   GET   /api/lms/certificates/:id/download             (PDF, any issued candidate)
 //  student:
 //   GET   /api/lms/my/certificates
+//   GET   /api/lms/my/certificates/:id/download           (PDF, own only)
 //  anyone (bearer):
 //   GET   /api/lms/certificates/verify/:certificateId
 
@@ -141,6 +145,102 @@ async function mine(req, res) {
   );
 }
 
+// Resolves the real person + course behind a Certificate row (which only
+// stores denormalized name/course strings) so the PDF renderer can pull
+// their live assessment/project/attendance data.
+async function resolveCertificateSubject(cert) {
+  const Course = mongoose.model('Course');
+  const Student = mongoose.model('Student');
+  const Admin = mongoose.model('Admin');
+  const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).lean();
+  const roster = await Student.findOne({ name: rxEq(cert.student || ''), course: rxEq(cert.course || ''), removed: false })
+    .select('email batch').lean();
+  const admin = roster && roster.email
+    ? await Admin.findOne({ email: rxEq(roster.email), removed: false }).select('_id email').lean()
+    : null;
+  return {
+    course,
+    adminId: admin ? admin._id : null,
+    adminEmail: admin ? admin.email : (roster ? roster.email : null),
+    batchName: cert.batch || (roster ? roster.batch : null),
+  };
+}
+
+async function streamCertificatePdf(res, cert) {
+  const { course, adminId, adminEmail, batchName } = await resolveCertificateSubject(cert);
+  const buf = await certPdf.renderCertificatePdf({ cert, course, adminId, adminEmail, batchName });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${String(cert.certificateId || 'certificate').replace(/[^a-z0-9-]/gi, '_')}.pdf"`);
+  res.send(buf);
+}
+
+// Gated exactly like mine() — only an Issued/Sent certificate exists for a
+// candidate, and that only happens once certificateEngine's criteria (course
+// %, attendance %, quiz %, assignments — see CertificateRule) are actually
+// met, so "can download" already means "course is complete".
+async function downloadMine(req, res) {
+  const Certificate = mongoose.model('Certificate');
+  const cert = await Certificate.findOne({
+    _id: req.params.id,
+    removed: false,
+    student: rxEq(req.admin.name || ''),
+    status: { $in: ['Issued', 'Sent'] },
+  }).lean();
+  if (!cert) return bad(res, 404, 'Certificate not found — finish the course to earn one.');
+  await streamCertificatePdf(res, cert);
+}
+
+async function downloadForManager(req, res) {
+  const Certificate = mongoose.model('Certificate');
+  const cert = await Certificate.findOne({ _id: req.params.id, removed: false, status: { $in: ['Issued', 'Sent'] } }).lean();
+  if (!cert) return bad(res, 404, 'Certificate not found.');
+  if (!isManager(req.admin)) {
+    const Course = mongoose.model('Course');
+    const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).select('instructor').lean();
+    if (!course || !(await isTeacherOfCourse(req.admin, course))) return bad(res, 403, 'Not your course.');
+  }
+  await streamCertificatePdf(res, cert);
+}
+
+// Admin/Super Admin/Support (and a Teacher, scoped to their own courses) —
+// per-batch roster: headcount, how many have actually been issued a
+// certificate (= completed, per the same gate downloadMine/mine use), and
+// each candidate's own status.
+async function roster(req, res) {
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Managers/teachers only.');
+  const Student = mongoose.model('Student');
+  const Certificate = mongoose.model('Certificate');
+  const q = { removed: false };
+  if (!isManager(req.admin)) {
+    const Course = mongoose.model('Course');
+    const mine = await Course.find({ removed: false, instructor: rxEq(req.admin.name || '') }).select('title').lean();
+    q.course = { $in: mine.map((c) => rxEq(c.title)) };
+  }
+  const students = await Student.find(q).select('name email course batch status progress').sort({ batch: 1, name: 1 }).lean();
+  const certs = await Certificate.find({ removed: false, status: { $in: ['Issued', 'Sent'] } })
+    .select('student course certificateId issuedOn grade score').lean();
+  const certByKey = new Map();
+  certs.forEach((c) => certByKey.set(`${(c.student || '').toLowerCase()}|${(c.course || '').toLowerCase()}`, c));
+
+  const batches = new Map();
+  students.forEach((s) => {
+    const key = s.batch || '—';
+    if (!batches.has(key)) batches.set(key, { batch: key, course: s.course || '', total: 0, completed: 0, students: [] });
+    const row = batches.get(key);
+    const cert = certByKey.get(`${(s.name || '').toLowerCase()}|${(s.course || '').toLowerCase()}`);
+    row.total += 1;
+    if (cert) row.completed += 1;
+    row.students.push({
+      name: s.name,
+      email: s.email,
+      status: s.status,
+      progress: s.progress || 0,
+      certificate: cert ? { id: String(cert._id), certificateId: cert.certificateId, issuedOn: cert.issuedOn, grade: cert.grade, score: cert.score } : null,
+    });
+  });
+  return ok(res, [...batches.values()]);
+}
+
 async function verify(req, res) {
   const Certificate = mongoose.model('Certificate');
   const c = await Certificate.findOne({ certificateId: req.params.certificateId, removed: false }).lean();
@@ -160,4 +260,4 @@ async function verify(req, res) {
   });
 }
 
-module.exports = { getRule, upsertRule, issue, runForCourse, history, mine, verify };
+module.exports = { getRule, upsertRule, issue, runForCourse, history, mine, verify, downloadMine, downloadForManager, roster };

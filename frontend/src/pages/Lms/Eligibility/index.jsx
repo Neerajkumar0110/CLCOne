@@ -2,12 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, Empty, Skeleton, message, Typography, Select, InputNumber, Checkbox, Row, Col, Progress, Divider, Alert, List,
 } from 'antd';
-import { SafetyCertificateOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
+import {
+  SafetyCertificateOutlined, ReloadOutlined, SaveOutlined, CheckOutlined, CalendarOutlined, ReadOutlined,
+  FileDoneOutlined, QuestionCircleOutlined, ThunderboltOutlined, ProjectOutlined, EyeOutlined,
+  WarningOutlined, CheckCircleOutlined, CloseCircleOutlined,
+} from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import './Eligibility.css';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -26,6 +31,27 @@ const DEFAULT_CRITERIA = [
 ];
 
 const STATE_COLOR = { Eligible: 'green', 'Not Yet Eligible': 'gold', 'Action Required': 'red' };
+
+// Per-criterion icon + accent colour for the student "My Eligibility" cards —
+// keyed off DEFAULT_CRITERIA's `key`, with a safe fallback for anything a
+// course's saved rule adds later (e.g. a custom criterion key).
+const REQ_ICON = {
+  attendance: { icon: <CalendarOutlined />, color: 'blue' },
+  curriculum: { icon: <ReadOutlined />, color: 'purple' },
+  assignment: { icon: <FileDoneOutlined />, color: 'green' },
+  quiz: { icon: <QuestionCircleOutlined />, color: 'orange' },
+  surpriseTest: { icon: <ThunderboltOutlined />, color: 'orange' },
+  acknowledgement: { icon: <SafetyCertificateOutlined />, color: 'blue' },
+  project: { icon: <ProjectOutlined />, color: 'purple' },
+  proctoredAssessment: { icon: <EyeOutlined />, color: 'red' },
+};
+const reqMeta = (key) => REQ_ICON[key] || { icon: <CheckCircleOutlined />, color: 'blue' };
+
+const STATE_BADGE = {
+  Eligible: { className: 'eligible', icon: <CheckCircleOutlined /> },
+  'Not Yet Eligible': { className: 'not-yet', icon: <WarningOutlined /> },
+  'Action Required': { className: 'action', icon: <CloseCircleOutlined /> },
+};
 
 /* ═══════════ MANAGER / TEACHER — configure + report ═══════════ */
 function ManageEligibility({ canEdit }) {
@@ -151,37 +177,70 @@ function MyEligibility() {
     lmsApi.myEligibility().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
+
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><SafetyCertificateOutlined /> My Eligibility</h2><p>Your placement-readiness status — computed live from attendance, assessments, quizzes and policy acknowledgements.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="Not enrolled in any course yet." /></Card> : rows.map((r) => (
-        <Card key={r.course.id} style={{ marginBottom: 16 }}
-          title={<Space><b>{r.course.title}</b><Tag color={STATE_COLOR[r.state]} style={{ fontSize: 13 }}>{r.state}</Tag></Space>}>
-          <Row gutter={16} align="middle" style={{ marginBottom: 12 }}>
-            <Col flex="140px"><Progress type="circle" size={100} percent={r.score} status={r.eligible ? 'success' : 'normal'} /></Col>
-            <Col flex="auto">
-              <Text>Current score <b>{r.score}%</b> · required <b>{r.threshold}%</b></Text>
-              {r.missing.length > 0 && (
-                <Alert style={{ marginTop: 8 }} type="warning" showIcon message="Still needed to become eligible" description={r.missing.join(', ')} />
-              )}
-            </Col>
-          </Row>
-          <List
-            size="small" dataSource={r.items.filter((i) => i.applicable)}
-            renderItem={(i) => (
-              <List.Item>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <span>{i.label} {i.mandatory && <Tag color="volcano" style={{ marginLeft: 4 }}>Mandatory</Tag>}</span>
-                  <span>
-                    <Text type={i.passed ? 'success' : 'danger'} strong>{i.achieved}%</Text>
-                    <Text type="secondary"> / {i.required}% required</Text>
-                  </span>
-                </Space>
-              </List.Item>
-            )}
-          />
-        </Card>
-      ))}
+    <div className="elig-page">
+      <div className="elig-hero">
+        <div className="elig-hero-icon">
+          <SafetyCertificateOutlined />
+          <span className="elig-check"><CheckOutlined /></span>
+        </div>
+        <div className="elig-hero-content">
+          <h1>My Eligibility</h1>
+          <p>Your placement-readiness status — computed live from attendance, assessments, quizzes and policy acknowledgements.</p>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="elig-empty"><Empty description="Not enrolled in any course yet." /></div>
+      ) : rows.map((r) => {
+        const badge = STATE_BADGE[r.state] || STATE_BADGE['Not Yet Eligible'];
+        return (
+          <div className="elig-card" key={r.course.id}>
+            <div className="elig-card-head">
+              <div className="elig-course-icon"><ReadOutlined /></div>
+              <h3>{r.course.title}</h3>
+              <span className={`elig-status-badge ${badge.className}`}>{badge.icon} {r.state}</span>
+            </div>
+
+            <div className="elig-score-row">
+              <div className="elig-ring">
+                <Progress type="circle" size={110} percent={r.score} strokeWidth={8} strokeColor="#2875e8" trailColor="#e7edf6" status={r.eligible ? 'success' : 'normal'} />
+              </div>
+              <div className="elig-score-info">
+                <p>Current score <b>{r.score}%</b> – required <b>{r.threshold}%</b></p>
+                {r.missing.length > 0 && (
+                  <div className="elig-missing-card">
+                    <span className="elig-missing-icon"><WarningOutlined /></span>
+                    <div>
+                      <strong>Still needed to become eligible</strong>
+                      <p>{r.missing.join(', ')}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="elig-reqs">
+              {r.items.filter((i) => i.applicable).map((i) => {
+                const meta = reqMeta(i.key);
+                return (
+                  <div className="elig-req-row" key={i.key || i.label}>
+                    <div className={`elig-req-icon ${meta.color}`}>{meta.icon}</div>
+                    <div className="elig-req-label">
+                      {i.label}
+                      {i.mandatory && <span className="elig-mandatory-tag">Mandatory</span>}
+                    </div>
+                    <div className={`elig-req-score ${i.passed ? 'pass' : 'fail'}`}>
+                      {i.achieved}%<span>/ {i.required}% required</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

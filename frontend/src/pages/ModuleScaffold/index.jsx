@@ -36,6 +36,9 @@ const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 const LmsPolicies = lazy(() => import('@/pages/Lms/Policies'));
 const LmsEligibility = lazy(() => import('@/pages/Lms/Eligibility'));
 const LmsProjects = lazy(() => import('@/pages/Lms/Projects'));
+const LmsAssignments = lazy(() => import('@/pages/Lms/Assignments'));
+const LmsAnnouncements = lazy(() => import('@/pages/Lms/Announcements'));
+const LmsCertificates = lazy(() => import('@/pages/Lms/Certificates'));
 const LmsStudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 const LmsSystemHealth = lazy(() => import('@/pages/Lms/SystemHealth'));
 const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
@@ -70,6 +73,9 @@ const EMBED = {
   lmsPolicies: LmsPolicies,
   lmsEligibility: LmsEligibility,
   lmsProjects: LmsProjects,
+  lmsAssignments: LmsAssignments,
+  lmsAnnouncements: LmsAnnouncements,
+  lmsCertificates: LmsCertificates,
   lmsStudyMaterial: LmsStudyMaterial,
   lmsSystemHealth: LmsSystemHealth,
   lmsLearner360: LmsLearner360,
