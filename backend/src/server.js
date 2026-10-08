@@ -88,6 +88,12 @@ startLinkedInLeadPoller();
 const startCallingDialerTick = require('./jobs/callingDialerTick');
 startCallingDialerTick();
 
+// Rings scheduled callbacks at the time the agent promised the customer,
+// waiting for that same agent to be free. See the job file for why it is
+// deliberately stricter than the campaign dialer above.
+const startCallingCallbackTick = require('./jobs/callingCallbackTick');
+startCallingCallbackTick();
+
 // Pulls call-recording links from the provider's Recording API for any
 // recently completed call that isn't marked available yet — the provider's
 // own push callback isn't reliably reaching this server (see the job file

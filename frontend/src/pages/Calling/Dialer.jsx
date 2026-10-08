@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
@@ -76,6 +76,14 @@ function CallIcon({ type }) {
   );
 }
 
+// Characters a phone can dial. A leading "+" is kept (international), any
+// other "+" is not; spaces, dashes and brackets from a pasted number go.
+function sanitizeDialInput(raw) {
+  const s = String(raw || "");
+  const lead = s.trimStart().startsWith("+") ? "+" : "";
+  return (lead + s.replace(/[^\d*#]/g, "")).slice(0, 20);
+}
+
 const DIAL_KEYS = [
   ["1", ""], ["2", "ABC"], ["3", "DEF"],
   ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
@@ -101,6 +109,7 @@ export default function Dialer() {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("All");
   const [dialNumber, setDialNumber] = useState("");
+  const dialInputRef = useRef(null);
   // Real elapsed talk time — only ever computed from `callAnsweredAt`, a
   // timestamp the backend sets (see manualDial.js / cloudWebhook.js), never
   // from a client-side counter started the instant dial() was called. A
@@ -288,8 +297,18 @@ export default function Dialer() {
     loadRecentCalls();
   };
 
-  const dialKey = (key) => setDialNumber((prev) => prev + key);
-  const clearDial = () => setDialNumber((prev) => prev.slice(0, -1));
+  // Typed or pasted input gets the same treatment a keypad tap would: keep
+  // only what a phone can actually dial, so a number copied as
+  // "+91 98765-43210" or "(022) 1234 5678" lands clean instead of being
+  // rejected later by the backend's validator.
+  const dialKey = (key) => {
+    setDialNumber((prev) => sanitizeDialInput(prev + key));
+    dialInputRef.current?.focus();
+  };
+  const clearDial = () => {
+    setDialNumber((prev) => prev.slice(0, -1));
+    dialInputRef.current?.focus();
+  };
   const callDialNumber = () => {
     if (!dialNumber) return;
     startCall({ name: "Unknown Number", phone: dialNumber, initials: "UN", color: "#2563EB" });
@@ -442,8 +461,25 @@ export default function Dialer() {
               </div>
             )}
 
+            {/* A real input, not a display div — an agent with a number on
+                screen or in the clipboard types or pastes it far faster than
+                they can tap twelve round buttons, and this also gives mobile
+                a numeric keyboard. The keypad below writes into the same
+                state, so both ways stay in sync. */}
             <div className="dial-display">
-              <div className="dial-number">{dialNumber || "Enter phone number"}</div>
+              <input
+                ref={dialInputRef}
+                className="dial-number"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                value={dialNumber}
+                placeholder="Enter phone number"
+                onChange={(e) => setDialNumber(sanitizeDialInput(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && dialNumber && !dialing) callDialNumber();
+                }}
+              />
             </div>
 
             <div className="dial-pad">

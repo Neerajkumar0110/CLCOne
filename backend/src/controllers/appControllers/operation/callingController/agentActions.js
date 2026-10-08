@@ -374,8 +374,18 @@ const logDetails = async (req, res) => {
   // Scheduled callback — one pending CallCallback per call record, updated
   // in place, so saving the form twice doesn't queue the same follow-up
   // twice.
-  if (scheduledCallback) {
-    const at = new Date(scheduledCallback);
+  //
+  // A callback-category disposition with no time is a promise with no date
+  // on it: nothing would appear in the Callbacks queue and nobody would ever
+  // call back. The UI makes the agent pick a time, so this only catches API
+  // callers that don't — fall back to an hour out rather than drop it.
+  let callbackAt = scheduledCallback;
+  if (!callbackAt && disp && disp.category === 'callback') {
+    callbackAt = new Date(Date.now() + 60 * 60 * 1000);
+  }
+
+  if (callbackAt) {
+    const at = new Date(callbackAt);
     if (!Number.isNaN(at.getTime())) {
       const CallCallback = mongoose.model('CallCallback');
       await CallCallback.findOneAndUpdate(

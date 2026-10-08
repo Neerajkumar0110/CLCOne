@@ -28,6 +28,17 @@ const schema = new mongoose.Schema({
   status: { type: String, enum: ['Pending', 'Done', 'Missed', 'Cancelled'], default: 'Pending', index: true },
   completedAt: Date,
 
+  // Auto-dial bookkeeping (jobs/callingCallbackTick.js). A Pending callback
+  // whose scheduledAt has passed gets dialled on its own, so these exist to
+  // keep that from becoming a loop: `lastDialedAt` is stamped the moment a
+  // tick claims this row (which is also what makes the claim atomic), and
+  // `dialAttempts` caps how many times an unreachable contact is retried.
+  lastDialedAt: Date,
+  dialAttempts: { type: Number, default: 0 },
+  // Set once the auto-dialer gives up, so the row stops being picked up but
+  // the agent can still see why and call by hand.
+  autoDialGaveUpAt: Date,
+
   createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   createdByName: String,
 

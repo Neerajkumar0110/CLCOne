@@ -306,6 +306,15 @@ export default function ActiveCallModal() {
   // Save in-call log details
   const saveDetails = async ({ hangup = false, closeAfter = false } = {}) => {
     if (!callData) return;
+
+    // A callback outcome without a time is a promise with no date on it —
+    // it would never surface in the Callbacks queue and the auto-dialer
+    // would have nothing to fire on. Ask here rather than guess.
+    if (selectedDisposition?.category === "callback" && !scheduledCallback) {
+      message.warning("Pick the callback date and time you promised the customer.");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
