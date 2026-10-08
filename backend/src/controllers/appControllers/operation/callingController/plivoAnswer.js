@@ -160,16 +160,47 @@ async function findAvailableAgentById(agentId) {
 // answer, claim whichever agent has been free the longest — atomically
 // (Available -> Ringing in one findOneAndUpdate), so two customers who
 // happen to answer within the same second can never grab the same agent.
-async function claimLeadPoolAgent(campaignId) {
+// `callRecordId` is stamped onto the claimed row's currentCall so the agent's
+// presence and the call agree from the moment of the claim — the dialer's
+// stale-reservation reaper and every "who is this agent on with" read key
+// off it.
+//
+// A row is only usable if it still has a real Admin behind it with a
+// dialable number. A presence row whose Admin was deleted stays Available
+// forever (nothing cleans it up), and claiming before checking would burn
+// that row to Ringing, hand back null, and leave the customer on hold music
+// with no agent — once per answered call, for as long as the orphan exists.
+// So walk past unusable rows, releasing each, and claim the first real one.
+async function claimLeadPoolAgent(campaignId, callRecordId) {
   const AgentCallState = mongoose.model('AgentCallState');
-  const state = await AgentCallState.findOneAndUpdate(
-    { campaign: campaignId, status: 'Available' },
-    { $set: { status: 'Ringing', since: new Date() } },
-    { sort: { since: 1 }, new: true }
-  );
-  if (!state) return null;
   const Admin = mongoose.model('Admin');
-  return Admin.findById(state.agent).select('name surname phone mobile contactNumber').lean();
+  const skip = [];
+
+  for (let i = 0; i < 10; i++) {
+    const query = { campaign: campaignId, status: 'Available' };
+    if (skip.length) query.agent = { $nin: skip };
+
+    const state = await AgentCallState.findOneAndUpdate(
+      query,
+      { $set: { status: 'Ringing', since: new Date(), currentCall: callRecordId || null } },
+      { sort: { since: 1 }, new: true }
+    );
+    if (!state) return null; // nobody claimable
+
+    const admin = await Admin.findById(state.agent)
+      .select('name surname phone mobile contactNumber removed enabled')
+      .lean();
+    const number = admin && last10(admin.phone || admin.mobile || admin.contactNumber);
+    if (admin && !admin.removed && admin.enabled !== false && number) return admin;
+
+    // Unusable row — put it back the way we found it and try the next agent.
+    await AgentCallState.updateOne(
+      { _id: state._id, status: 'Ringing' },
+      { $set: { status: 'Available', currentCall: null, since: new Date() } }
+    );
+    skip.push(state.agent);
+  }
+  return null;
 }
 
 // ── inbound: a stranger calling OUR number ──────────────────────────────
@@ -360,7 +391,7 @@ const plivoAnswer = async (req, res) => {
           .select('_id')
           .lean();
         if (camp) {
-          const claimed = await claimLeadPoolAgent(camp._id);
+          const claimed = await claimLeadPoolAgent(camp._id, rec._id);
           if (claimed) {
             rec.agent = claimed._id;
             rec.agentName = `${claimed.name} ${claimed.surname || ''}`.trim();

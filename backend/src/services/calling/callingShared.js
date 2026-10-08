@@ -98,8 +98,16 @@ async function agentsOnLiveCalls(agentIds) {
 // a reservation whose dial threw before placeCall, or a call whose hangup
 // webhook never arrived. Without this an agent can be parked out of the
 // rotation for the rest of the shift and the dialer will simply never call
-// them again. Only ever releases a row older than RESERVATION_TTL_MS whose
-// currentCall is missing or no longer live, so a live call is never cut.
+// them again.
+//
+// The test is "does this agent have ANY live call", NOT "does their
+// currentCall point at one". Those are not the same thing and the
+// difference is a live-call-dropping bug: plivoAnswer's claimLeadPoolAgent
+// flips a pool agent to Ringing WITHOUT setting currentCall (it claims them
+// the instant a customer answers, before the bridge exists), so keying off
+// currentCall alone would free an agent whose phone is ringing right now
+// and let the dialer hand them a second customer — exactly the fault this
+// pacing work exists to remove.
 async function reapStaleAgentReservations() {
   const AgentCallState = mongoose.model('AgentCallState');
   const stale = await AgentCallState.find({
@@ -111,22 +119,8 @@ async function reapStaleAgentReservations() {
     .lean();
   if (!stale.length) return 0;
 
-  const callIds = stale.map((s) => s.currentCall).filter(Boolean);
-  const liveIds = callIds.length
-    ? new Set(
-        (
-          await mongoose
-            .model('CallRecord')
-            .find({ _id: { $in: callIds }, removed: false, status: { $in: LIVE_CALL_STATUSES } })
-            .select('_id')
-            .lean()
-        ).map((r) => String(r._id))
-      )
-    : new Set();
-
-  const orphaned = stale
-    .filter((s) => !s.currentCall || !liveIds.has(String(s.currentCall)))
-    .map((s) => s.agent);
+  const busy = await agentsOnLiveCalls(stale.map((s) => s.agent));
+  const orphaned = stale.filter((s) => !busy.has(String(s.agent))).map((s) => s.agent);
   if (!orphaned.length) return 0;
 
   const r = await AgentCallState.updateMany(
