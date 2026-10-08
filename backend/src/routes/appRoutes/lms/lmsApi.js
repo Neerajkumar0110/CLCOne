@@ -156,6 +156,7 @@ router.route('/certificates/run/:courseId').post(catchErrors(lms.certRunForCours
 router.route('/certificates/verify/:certificateId').get(catchErrors(lms.certVerify));
 router.route('/certificates/:id/download').get(catchErrors(lms.certDownloadForManager));
 router.route('/my/certificates').get(catchErrors(lms.certMine));
+router.route('/my/certificates/preview').get(catchErrors(lms.certPreviewMine));
 router.route('/my/certificates/:id/download').get(catchErrors(lms.certDownloadMine));
 router.route('/teacher/live-classes').get(catchErrors(lms.liveList));
 router.route('/teacher/recordings').get(catchErrors(lms.liveRecordings));

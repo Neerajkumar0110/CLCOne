@@ -4,7 +4,7 @@ import {
 } from 'antd';
 import {
   TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined,
-  LockOutlined, CheckCircleFilled, ClockCircleOutlined, FileDoneOutlined,
+  LockOutlined, CheckCircleFilled, ClockCircleOutlined, FileDoneOutlined, EyeOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -259,7 +259,10 @@ function StudentCertificates() {
           {rows.map((c) => (
             <Col xs={24} sm={12} lg={8} key={c.course}>
               <Card>
-                <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
+                <Space align="center">
+                  <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
+                  {!c.eligible && <Tag icon={<LockOutlined />} color="default">Not unlocked yet</Tag>}
+                </Space>
                 <Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>{c.title}</Title>
                 <Text strong>{c.course}</Text>
                 <Paragraph type="secondary" style={{ margin: '4px 0 10px' }}>{c.track}</Paragraph>
@@ -286,8 +289,8 @@ function StudentCertificates() {
                       Download
                     </Button>
                   ) : (
-                    <Tooltip title="Complete both requirements above to unlock your certificate">
-                      <Button size="small" icon={<LockOutlined />} disabled>Locked</Button>
+                    <Tooltip title="View-only until both requirements above are complete — downloading unlocks automatically">
+                      <Button size="small" icon={<EyeOutlined />} onClick={() => lmsApi.previewCertificatePdf(c.courseId)}>Preview</Button>
                     </Tooltip>
                   )}
                   {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}

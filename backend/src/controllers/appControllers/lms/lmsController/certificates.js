@@ -223,6 +223,7 @@ async function mine(req, res) {
     });
     out.push({
       id: cert ? String(cert._id) : null,
+      courseId: String(course._id),
       course: course.title,
       track: durationMonths > 6 ? 'Elite Program' : 'Foundation Program',
       durationMonths,
@@ -270,9 +271,8 @@ async function streamCertificatePdf(res, cert) {
 }
 
 // Gated exactly like mine() — only an Issued/Sent certificate exists for a
-// candidate, and that only happens once certificateEngine's criteria (course
-// %, attendance %, quiz %, assignments — see CertificateRule) are actually
-// met, so "can download" already means "course is complete".
+// candidate once checkEligibility's two real conditions (duration elapsed +
+// project submitted) are both true, so "can download" already means "done".
 async function downloadMine(req, res) {
   const Certificate = mongoose.model('Certificate');
   const cert = await Certificate.findOne({
@@ -283,6 +283,29 @@ async function downloadMine(req, res) {
   }).lean();
   if (!cert) return bad(res, 404, 'Certificate not found — finish the course to earn one.');
   await streamCertificatePdf(res, cert);
+}
+
+// A student can always LOOK at what their certificate will be — rendered
+// inline (not a forced file save) with whatever's genuinely true right now
+// (so an incomplete one is still honest: "—" for anything not done yet).
+// Only downloadMine actually saves a file to disk, and that stays locked
+// until the real cert is issued.
+async function previewMine(req, res) {
+  const Student = mongoose.model('Student');
+  const Course = mongoose.model('Course');
+  if (!mongoose.isValidObjectId(req.query.course)) return bad(res, 400, 'Course required.');
+  const course = await Course.findOne({ _id: req.query.course, removed: false }).select('title durationHours').lean();
+  if (!course) return bad(res, 404, 'Course not found.');
+  const roster = await Student.findOne({ removed: false, email: rxEq(req.admin.email || ''), course: rxEq(course.title) })
+    .select('batch').lean();
+  if (!roster) return bad(res, 403, 'Not enrolled in this course.');
+
+  const existing = await findIssuedCertificate(req.admin.name, course.title);
+  const cert = existing || { student: req.admin.name, course: course.title, batch: roster.batch, certificateId: 'PREVIEW', issuedOn: null };
+  const buf = await certPdf.renderCertificatePdf({ cert, course, adminId: req.admin._id, adminEmail: req.admin.email, batchName: roster.batch });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="certificate-preview.pdf"');
+  res.send(buf);
 }
 
 async function downloadForManager(req, res) {
@@ -373,4 +396,4 @@ async function verify(req, res) {
   });
 }
 
-module.exports = { getRule, upsertRule, issue, runForCourse, history, mine, verify, downloadMine, downloadForManager, roster };
+module.exports = { getRule, upsertRule, issue, runForCourse, history, mine, verify, downloadMine, downloadForManager, previewMine, roster };

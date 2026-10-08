@@ -244,6 +244,21 @@ const lmsApi = {
     a.remove();
     window.URL.revokeObjectURL(url);
   },
+  // View-only — opens inline in a new tab (browser's own PDF viewer),
+  // never a forced save, so a candidate can see what their certificate
+  // will look like before it's actually unlocked. Revokes the blob URL
+  // after a minute, giving the new tab time to finish loading it.
+  previewCertificatePdf: async (courseId) => {
+    let token = '';
+    try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
+    const res = await axios.get(`${API_BASE_URL}lms/my/certificates/preview?course=${courseId}`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+  },
 
   // ── analytics ─────────────────────────────────────────────────
   teacherAnalytics: (f = {}) => request.get({ entity: `lms/teacher/analytics${qs(f)}` }),

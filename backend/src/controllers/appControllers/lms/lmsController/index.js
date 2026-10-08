@@ -176,6 +176,7 @@ module.exports = {
   certVerify: certificates.verify,
   certDownloadMine: certificates.downloadMine,
   certDownloadForManager: certificates.downloadForManager,
+  certPreviewMine: certificates.previewMine,
   certRoster: certificates.roster,
 
   // analytics
