@@ -15,6 +15,12 @@ router.route('/connection').get(catchErrors(controller.getConnection));
 router.route('/connection').patch(catchErrors(controller.updateConnection));
 router.route('/connection').delete(catchErrors(controller.disconnectConnection));
 
+// Multiple Facebook accounts can be connected at once — see
+// FacebookConnection.js's header comment.
+router.route('/connections').get(catchErrors(controller.listConnections));
+router.route('/connections/:id/activate').post(catchErrors(controller.activateConnection));
+router.route('/connections/:id').delete(catchErrors(controller.removeConnectionById));
+
 router.route('/pages').get(catchErrors(controller.getPages));
 router.route('/ad-accounts').get(catchErrors(controller.getAdAccounts));
 

@@ -1,9 +1,13 @@
 const mongoose = require('mongoose');
 
-// Org-wide Google Ads connection (this app has no multi-tenancy anywhere
-// else — mirrors FacebookConnection.js). Tokens are stored encrypted (see
-// utils/googleTokenCrypto.js) and must never be sent to the frontend as-is —
-// controllers strip them before responding.
+// Any number of Google Ads accounts can be connected at once (mirrors
+// FacebookConnection.js's multi-account design — one document each, matched
+// by googleUserId so reconnecting the same account updates its own row).
+// `active` marks which one manual Campaign Setup / the campaign-creation
+// routes currently act on (see googleController/_helpers.js#findConnection).
+// Tokens are stored encrypted (see utils/googleTokenCrypto.js) and must
+// never be sent to the frontend as-is — controllers strip them before
+// responding.
 //
 // webhookKey has no Meta equivalent: Google's Lead Form webhook isn't
 // subscribed via an API call the way Meta's /subscribed_apps is — the
@@ -17,6 +21,10 @@ const schema = new mongoose.Schema({
     default: false,
   },
   enabled: {
+    type: Boolean,
+    default: true,
+  },
+  active: {
     type: Boolean,
     default: true,
   },

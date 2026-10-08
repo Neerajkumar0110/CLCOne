@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const graph = require('../../../../utils/metaGraphClient');
 const tokenCrypto = require('../../../../utils/metaTokenCrypto');
-const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA
 // window that opened this OAuth popup via postMessage, then closes itself.
@@ -59,7 +58,11 @@ const callback = async (req, res) => {
       ? new Date(Date.now() + longLived.expires_in * 1000)
       : undefined;
 
-    let conn = await findConnection();
+    // Reconnecting the SAME Meta account updates its own row; a different
+    // Meta account creates a new one alongside whatever's already connected
+    // — multiple Facebook accounts can be connected at once (see
+    // FacebookConnection.js's header comment).
+    let conn = await FacebookConnection.findOne({ removed: false, metaUserId: me.id }).exec();
     if (!conn) conn = new FacebookConnection({});
 
     conn.metaUserId = me.id;
@@ -69,8 +72,18 @@ const callback = async (req, res) => {
     conn.status = 'connected';
     conn.connectedBy = admin.name;
     conn.lastError = undefined;
+    // The account just connected becomes the active one — manual Campaign
+    // Setup and the campaign-creation routes now act on it until the admin
+    // picks a different one from the Connected Accounts list.
+    conn.active = true;
     conn.updated = Date.now();
     await conn.save();
+    await FacebookConnection.updateMany({ removed: false, _id: { $ne: conn._id } }, { $set: { active: false } }).exec();
+
+    // Fire-and-forget — builds a campaign from the saved template (if one's
+    // enabled) in the background, for THIS specific account; the popup
+    // still closes right away.
+    require('../../../../services/marketing/autoLaunchCampaign').autoLaunchSafe('facebook', conn._id);
 
     return popupResponsePage(res, { type: 'fb-oauth-success' });
   } catch (err) {

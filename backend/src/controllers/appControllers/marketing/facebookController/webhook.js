@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const graph = require('../../../../utils/metaGraphClient');
-const { findConnection, decryptedPageToken } = require('./_helpers');
+const { decryptedPageToken } = require('./_helpers');
 
 // Meta's field_data[].name values vary by field type — normalize before
 // matching so "Full Name", "full_name" and "FULL_NAME" all hit the same key.
@@ -53,11 +53,16 @@ async function processWebhookLog(log) {
   log.processingStatus = 'processing';
   await log.save();
 
-  const conn = await findConnection();
+  // Multiple Facebook Pages can be connected at once — match THIS lead's
+  // own page_id to its real connection, never just "whichever is active"
+  // (that would silently attribute every lead to the wrong Page/Ad Account
+  // the moment a second account gets connected).
+  const FacebookConnection = mongoose.model('FacebookConnection');
+  const conn = await FacebookConnection.findOne({ removed: false, pageId: log.pageId }).exec();
   const pageToken = decryptedPageToken(conn);
   if (!conn || conn.status !== 'connected' || !pageToken) {
     log.processingStatus = 'failed';
-    log.errorMessage = 'No active Facebook connection with a page access token.';
+    log.errorMessage = 'No connected Facebook account found for this Page.';
     log.retryCount += 1;
     log.nextRetryAt = new Date(Date.now() + Math.min(2 ** log.retryCount, 60) * 60 * 1000);
     await log.save();

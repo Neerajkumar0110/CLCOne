@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const client = require('../../../../utils/linkedinAdsClient');
-const { findConnection, isTokenExpired, decryptedAccessToken } = require('./_helpers');
+const { findAllConnections, isTokenExpired, decryptedAccessToken } = require('./_helpers');
 
 // LinkedIn has NO webhook for Lead Gen Forms — this file (together with
 // jobs/linkedinLeadPoller.js, which calls runPollCycle() on a timer) IS the
@@ -152,26 +152,20 @@ async function syncForm({ form, conn, accessToken, log }) {
   }
 }
 
-// The main poll cycle — called on a timer by jobs/linkedinLeadPoller.js
-// (and available for an on-demand admin trigger via triggerSync below).
-// Fetches every Lead Gen Form owned by the connected Organization and pulls
-// responses submitted since the last successful cycle's watermark
-// (conn.lastPolledAt).
-async function runPollCycle() {
+// Polls one connected account — extracted from runPollCycle below so it can
+// loop over every connected LinkedIn account, not just the active one.
+async function pollOneConnection(conn) {
   const LinkedInLeadSyncLog = mongoose.model('LinkedInLeadSyncLog');
-  const conn = await findConnection();
-
-  if (!conn || conn.status !== 'connected') return { skipped: true, reason: 'LinkedIn is not connected.' };
 
   if (isTokenExpired(conn)) {
     conn.status = 'expired';
     conn.updated = Date.now();
     await conn.save();
-    return { skipped: true, reason: 'LinkedIn access token has expired — reconnect via OAuth.' };
+    return { connectionId: String(conn._id), skipped: true, reason: 'LinkedIn access token has expired — reconnect via OAuth.' };
   }
 
   if (!conn.organizationId || !conn.adAccountId) {
-    return { skipped: true, reason: 'Select a LinkedIn Organization and Ad Account first.' };
+    return { connectionId: String(conn._id), skipped: true, reason: 'Select a LinkedIn Organization and Ad Account first.' };
   }
 
   const accessToken = decryptedAccessToken(conn);
@@ -184,7 +178,7 @@ async function runPollCycle() {
   } catch (err) {
     conn.lastError = `Lead form list fetch failed: ${err.message}`;
     await conn.save();
-    return { skipped: true, reason: conn.lastError };
+    return { connectionId: String(conn._id), skipped: true, reason: conn.lastError };
   }
 
   let allSucceeded = true;
@@ -211,14 +205,38 @@ async function runPollCycle() {
     await conn.save();
   }
 
-  return { skipped: false, formsPolled: forms.length, allSucceeded, summary };
+  return { connectionId: String(conn._id), skipped: false, formsPolled: forms.length, allSucceeded, summary };
+}
+
+// The main poll cycle — called on a timer by jobs/linkedinLeadPoller.js
+// (and available for an on-demand admin trigger via triggerSync below).
+// Runs across EVERY connected LinkedIn account (multiple can be connected
+// at once — see LinkedInConnection.js's header comment), not just whichever
+// one is active for manual Campaign Setup — a lead from any connected
+// Organization's Lead Gen Forms must never go unpolled just because a
+// different account happens to be active right now.
+async function runPollCycle() {
+  const all = await findAllConnections();
+  const connected = all.filter((c) => c.status === 'connected');
+  if (!connected.length) return { skipped: true, reason: 'LinkedIn is not connected.' };
+
+  const results = [];
+  for (const conn of connected) {
+    // eslint-disable-next-line no-await-in-loop
+    results.push(await pollOneConnection(conn));
+  }
+  return { skipped: false, accountsPolled: results.length, results };
 }
 
 // Re-runs one failed/retrying log against its original pollWindowStart —
 // called by jobs/linkedinLeadPoller.js's retry pass, mirroring
-// jobs/facebookWebhookRetry.js's re-invocation of processWebhookLog.
+// jobs/facebookWebhookRetry.js's re-invocation of processWebhookLog. Matches
+// the connection by the log's own organizationId — never "whichever is
+// active" (that would retry against the wrong account's token the moment a
+// second account gets connected).
 async function retrySyncLog(log) {
-  const conn = await findConnection();
+  const LinkedInConnection = mongoose.model('LinkedInConnection');
+  const conn = await LinkedInConnection.findOne({ removed: false, organizationId: log.organizationId }).exec();
   if (!conn || conn.status !== 'connected' || isTokenExpired(conn)) {
     scheduleRetry(log, new Error('LinkedIn is not connected or the token has expired.'));
     await log.save();

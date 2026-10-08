@@ -2,12 +2,29 @@ const mongoose = require('mongoose');
 const tokenCrypto = require('../../../../utils/googleTokenCrypto');
 const graph = require('../../../../utils/googleAdsClient');
 
-// There's exactly one org-wide Google Ads connection (see plan: this app has
-// no multi-tenancy anywhere else). This finds it regardless of status so
-// callers can decide what "no connection yet" vs "disconnected" means.
+// Multiple Google Ads accounts can be connected at once (see
+// GoogleConnection.js's header comment). "The" connection every campaign/
+// ad-group/ad route and manual Campaign Setup acts on is whichever one is
+// marked `active` — falls back to the most recently connected non-removed
+// one if none is marked active yet (covers rows saved before this field
+// existed). Use findAllConnections()/findConnectionById() for anything that
+// needs to see every connected account instead of just the active one.
 async function findConnection() {
   const GoogleConnection = mongoose.model('GoogleConnection');
+  const active = await GoogleConnection.findOne({ removed: false, active: true }).sort({ created: -1 }).exec();
+  if (active) return active;
   return GoogleConnection.findOne({ removed: false }).sort({ created: -1 }).exec();
+}
+
+async function findConnectionById(id) {
+  if (!mongoose.isValidObjectId(id)) return null;
+  const GoogleConnection = mongoose.model('GoogleConnection');
+  return GoogleConnection.findOne({ _id: id, removed: false }).exec();
+}
+
+async function findAllConnections() {
+  const GoogleConnection = mongoose.model('GoogleConnection');
+  return GoogleConnection.find({ removed: false }).sort({ created: -1 }).exec();
 }
 
 // The backend's own public base URL — reuses PUBLIC_SERVER_FILE (already
@@ -27,6 +44,8 @@ function publicBaseUrl() {
 function sanitizeConnection(conn) {
   if (!conn) return { connected: false, status: 'disconnected' };
   return {
+    id: String(conn._id),
+    active: !!conn.active,
     connected: conn.status === 'connected',
     status: conn.status,
     googleUserEmail: conn.googleUserEmail,
@@ -83,6 +102,8 @@ async function requireConnection(res, { needCustomer = false } = {}) {
 
 module.exports = {
   findConnection,
+  findConnectionById,
+  findAllConnections,
   sanitizeConnection,
   decryptedRefreshToken,
   getFreshAccessToken,

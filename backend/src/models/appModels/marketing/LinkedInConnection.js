@@ -1,16 +1,23 @@
 const mongoose = require('mongoose');
 
-// Org-wide LinkedIn Ads connection (this app has no multi-tenancy anywhere
-// else, so there's one connection record, not one per admin — mirrors
-// FacebookConnection.js exactly). Tokens are stored encrypted (see
-// utils/linkedinTokenCrypto.js) and must never be sent to the frontend
-// as-is — controllers strip them before responding.
+// Any number of LinkedIn Ads accounts can be connected at once (mirrors
+// FacebookConnection.js's multi-account design — one document each, matched
+// by linkedinUserId so reconnecting the same account updates its own row).
+// `active` marks which one manual Campaign Setup / the campaign-creation
+// routes currently act on (see linkedinController/_helpers.js#findConnection).
+// Tokens are stored encrypted (see utils/linkedinTokenCrypto.js) and must
+// never be sent to the frontend as-is — controllers strip them before
+// responding.
 const schema = new mongoose.Schema({
   removed: {
     type: Boolean,
     default: false,
   },
   enabled: {
+    type: Boolean,
+    default: true,
+  },
+  active: {
     type: Boolean,
     default: true,
   },

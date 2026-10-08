@@ -1,6 +1,13 @@
 const connect = require('./connect');
 const callback = require('./callback');
-const { getConnection, updateConnection, disconnectConnection } = require('./connection');
+const {
+  getConnection,
+  updateConnection,
+  disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
+} = require('./connection');
 const getPages = require('./pages');
 const getAdAccounts = require('./adAccounts');
 const { getForms, createForm } = require('./forms');
@@ -16,6 +23,9 @@ module.exports = {
   getConnection,
   updateConnection,
   disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
   getPages,
   getAdAccounts,
   getForms,

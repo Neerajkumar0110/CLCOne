@@ -98,6 +98,7 @@ try {
     Product: unwrap(require('../src/models/appModels/sales/Product')),
 
     // ---- marketing (marketingDb) ----
+    AdCampaignTemplate: unwrap(require('../src/models/appModels/marketing/AdCampaignTemplate')),
     CaptureFormConfig: unwrap(require('../src/models/appModels/marketing/CaptureFormConfig')),
     FacebookAd: unwrap(require('../src/models/appModels/marketing/FacebookAd')),
     FacebookAdCreative: unwrap(require('../src/models/appModels/marketing/FacebookAdCreative')),
@@ -131,7 +132,7 @@ try {
     CallCallback: unwrap(require('../src/models/appModels/operation/CallCallback')),
     AgentCallState: unwrap(require('../src/models/appModels/operation/AgentCallState')),
     IvrFlow: unwrap(require('../src/models/appModels/operation/IvrFlow')),
-    TelephonyEvent: unwrap(require('../src/models/appModels/operation/TelephonyEvent')),
+    CodeEditorTicket: unwrap(require('../src/models/internal/CodeEditorTicket')),
     Message: unwrap(require('../src/models/appModels/operation/Message')),
     Notification: unwrap(require('../src/models/appModels/operation/Notification')),
     VercelConnection: unwrap(require('../src/models/appModels/operation/VercelConnection')),
@@ -178,6 +179,7 @@ try {
     Ticket: unwrap(require('../src/models/appModels/lms/Ticket')),
     Course: unwrap(require('../src/models/appModels/lms/Course')),
     Batch: unwrap(require('../src/models/appModels/lms/Batch')),
+    BatchChapterProgress: unwrap(require('../src/models/appModels/lms/BatchChapterProgress')),
     Student: unwrap(require('../src/models/appModels/lms/Student')),
     LiveClass: unwrap(require('../src/models/appModels/lms/LiveClass')),
     AttendanceRecord: unwrap(require('../src/models/appModels/lms/AttendanceRecord')),
@@ -202,6 +204,7 @@ try {
     Question: unwrap(require('../src/models/appModels/lms/Question')),
     QuizAttempt: unwrap(require('../src/models/appModels/lms/QuizAttempt')),
     Doubt: unwrap(require('../src/models/appModels/lms/Doubt')),
+    StudyMaterial: unwrap(require('../src/models/appModels/lms/StudyMaterial')),
     LmsAnnouncement: unwrap(require('../src/models/appModels/lms/LmsAnnouncement')),
     CertificateRule: unwrap(require('../src/models/appModels/lms/CertificateRule')),
     PolicyDocument: unwrap(require('../src/models/appModels/lms/PolicyDocument')),
@@ -222,6 +225,9 @@ try {
     AssessmentDeliveryRecord: unwrap(require('../src/models/appModels/lms/assessments/AssessmentDeliveryRecord')),
     AssessmentAttempt: unwrap(require('../src/models/appModels/lms/assessments/AssessmentAttempt')),
     AssessmentAttemptQuestion: unwrap(require('../src/models/appModels/lms/assessments/AssessmentAttemptQuestion')),
+    AssessmentUnlockOverride: unwrap(
+      require('../src/models/appModels/lms/assessments/AssessmentUnlockOverride')
+    ),
 
     // ---- core (coreDb) — shared/auth, plus appModels/core (Team, Permission).
     Permission: unwrap(require('../src/models/appModels/core/Permission')),

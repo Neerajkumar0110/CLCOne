@@ -117,6 +117,96 @@ async function disconnectLinkedinConnection() {
   return res.data;
 }
 
+// Any number of Facebook/Google/LinkedIn accounts can be connected at once
+// (see e.g. FacebookConnection.js's header comment on the backend) — this
+// lists every one of them for a given platform, with "Set active" (switches
+// which account manual Campaign Setup / Auto-Launch Template's manual
+// Publish step act on) and "Disconnect" per row. `routeKey` is the API path
+// segment ("facebook"/"google"/"linkedin"); `onChanged` lets the caller
+// refresh its own single "active connection" state after a change here.
+function ConnectedAccountsList({ routeKey, onChanged }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await request.get({ entity: `${routeKey}/connections` });
+    setRows(res?.success ? res.result : []);
+    setLoading(false);
+  };
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
+
+  const activate = async (id) => {
+    setBusyId(id);
+    const res = await request.post({ entity: `${routeKey}/connections/${id}/activate`, jsonData: {} });
+    setBusyId(null);
+    if (res?.success) {
+      await load();
+      onChanged && onChanged();
+    }
+  };
+
+  const remove = async (id) => {
+    setBusyId(id);
+    const res = await request.del({ entity: `${routeKey}/connections/${id}` });
+    setBusyId(null);
+    if (res?.success) {
+      await load();
+      onChanged && onChanged();
+    }
+  };
+
+  if (loading) return null;
+  if (!rows.length) return null;
+
+  const nameOf = (r) => r.metaUserName || r.googleUserEmail || r.linkedinUserName || "Connected account";
+  const detailOf = (r) => r.page?.name || r.customer?.name || r.organization?.name || r.adAccount?.name || "";
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--hub-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>
+        Connected Accounts ({rows.length})
+      </div>
+      <div className="hub-stack" style={{ gap: 8 }}>
+        {rows.map((r) => (
+          <div
+            key={r.id}
+            className="hub-row"
+            style={{
+              justifyContent: "space-between",
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${r.active ? "var(--hub-blue)" : "var(--hub-border)"}`,
+              background: r.active ? "var(--hub-blue-soft, #eef4ff)" : "transparent",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                {nameOf(r)} {r.active && <span className="hub-badge hub-badge-blue" style={{ marginLeft: 6 }}>Active</span>}
+              </div>
+              {detailOf(r) && <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{detailOf(r)}</div>}
+            </div>
+            <div className="hub-row" style={{ gap: 8 }}>
+              {!r.active && (
+                <button type="button" className="hub-btn" disabled={busyId === r.id} onClick={() => activate(r.id)}>
+                  Set active
+                </button>
+              )}
+              <button type="button" className="hub-btn" disabled={busyId === r.id} onClick={() => remove(r.id)}>
+                <DisconnectOutlined /> Disconnect
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CaptureForm() {
   const [enabled, setEnabled] = useState(DEFAULT_ENABLED);
   const [platform, setPlatform] = useState("Website");
@@ -658,20 +748,20 @@ function CaptureForm() {
           </div>
 
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect a real Facebook account, then pick the Page and Ad Account leads from
-            your Facebook ads should flow into — no manual entry, no hard-coded IDs.
+            Connect as many real Facebook accounts as you need — each one can run its own
+            campaign. Pick the Page and Ad Account for whichever is active below.
           </div>
 
-          {!connection?.connected ? (
-            <>
-              <button type="button" className="hub-btn hub-btn-primary" disabled={connecting} onClick={connectFacebook}>
-                <LinkOutlined /> {connecting ? "Opening Facebook…" : "Connect Facebook"}
-              </button>
-              {connectionMessage && (
-                <div style={{ marginTop: 10, fontSize: 12, color: "#dc2626" }}>{connectionMessage}</div>
-              )}
-            </>
-          ) : (
+          <ConnectedAccountsList routeKey="facebook" onChanged={loadConnection} />
+
+          <button type="button" className="hub-btn hub-btn-primary" disabled={connecting} onClick={connectFacebook} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {connecting ? "Opening Facebook…" : connection?.connected ? "Connect another Facebook account" : "Connect Facebook"}
+          </button>
+          {connectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{connectionMessage}</div>
+          )}
+
+          {connection?.connected && (
             <>
               <div className="hub-grid-2" style={{ marginBottom: 16 }}>
                 <div className="hub-form-row">
@@ -733,20 +823,20 @@ function CaptureForm() {
           </div>
 
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect a real Google Ads account, then pick the account leads from your
-            Google Ads Lead Form campaigns should flow into.
+            Connect as many real Google Ads accounts as you need. Pick the account for
+            whichever is active below.
           </div>
 
-          {!googleConnection?.connected ? (
-            <>
-              <button type="button" className="hub-btn hub-btn-primary" disabled={googleConnecting} onClick={connectGoogle}>
-                <LinkOutlined /> {googleConnecting ? "Opening Google…" : "Connect Google Ads"}
-              </button>
-              {googleConnectionMessage && (
-                <div style={{ marginTop: 10, fontSize: 12, color: "#dc2626" }}>{googleConnectionMessage}</div>
-              )}
-            </>
-          ) : (
+          <ConnectedAccountsList routeKey="google" onChanged={loadGoogleConnection} />
+
+          <button type="button" className="hub-btn hub-btn-primary" disabled={googleConnecting} onClick={connectGoogle} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {googleConnecting ? "Opening Google…" : googleConnection?.connected ? "Connect another Google Ads account" : "Connect Google Ads"}
+          </button>
+          {googleConnectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{googleConnectionMessage}</div>
+          )}
+
+          {googleConnection?.connected && (
             <>
               <div className="hub-grid-2" style={{ marginBottom: 16 }}>
                 <div className="hub-form-row">
@@ -837,9 +927,11 @@ function CaptureForm() {
           </div>
 
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect a real LinkedIn account, then set the Organization and Ad Account leads from
-            your LinkedIn ads should flow into.
+            Connect as many real LinkedIn accounts as you need. Set the Organization and Ad
+            Account for whichever is active below.
           </div>
+
+          <ConnectedAccountsList routeKey="linkedin" onChanged={loadLinkedinConnection} />
 
           {linkedinConnection?.status === "expired" && (
             <div className="hub-badge hub-badge-yellow" style={{ marginBottom: 12 }}>
@@ -847,16 +939,14 @@ function CaptureForm() {
             </div>
           )}
 
-          {!linkedinConnection?.connected ? (
-            <>
-              <button type="button" className="hub-btn hub-btn-primary" disabled={linkedinConnecting} onClick={connectLinkedin}>
-                <LinkOutlined /> {linkedinConnecting ? "Opening LinkedIn…" : "Connect LinkedIn"}
-              </button>
-              {linkedinConnectionMessage && (
-                <div style={{ marginTop: 10, fontSize: 12, color: "#dc2626" }}>{linkedinConnectionMessage}</div>
-              )}
-            </>
-          ) : (
+          <button type="button" className="hub-btn hub-btn-primary" disabled={linkedinConnecting} onClick={connectLinkedin} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {linkedinConnecting ? "Opening LinkedIn…" : linkedinConnection?.connected ? "Connect another LinkedIn account" : "Connect LinkedIn"}
+          </button>
+          {linkedinConnectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{linkedinConnectionMessage}</div>
+          )}
+
+          {linkedinConnection?.connected && (
             <>
               <div className="hub-grid-2" style={{ marginBottom: 16 }}>
                 <div className="hub-form-row">
@@ -1154,6 +1244,10 @@ function CaptureForm() {
         )}
       </div>
 
+      {TEMPLATE_PLATFORM_KEY[platform] && (
+        <AutoLaunchTemplateCard platformKey={TEMPLATE_PLATFORM_KEY[platform]} platformLabel={platform} />
+      )}
+
       {platform === "Facebook Ads" && <CampaignSetup connection={connection} metaFormId={metaFormId} />}
       {platform === "Google Ads" && <GoogleCampaignSetup connection={googleConnection} />}
       {platform === "LinkedIn Ads" && <LinkedInCampaignSetup connection={linkedinConnection} />}
@@ -1184,6 +1278,217 @@ async function createLinkedinCreative(formData) {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   return res.data;
+}
+
+// Same shape as createFacebookCreative/createLinkedinCreative above, for the
+// auto-launch template's own creative media (see adTemplateController.js).
+async function uploadAdTemplateMedia(platformKey, formData) {
+  const auth = storePersist.get("auth");
+  const token = auth?.current?.token;
+  const res = await axios.post(`${API_BASE_URL}marketing/ad-templates/${platformKey}/media`, formData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return res.data;
+}
+
+const TEMPLATE_PLATFORM_KEY = { "Facebook Ads": "facebook", "Google Ads": "google", "LinkedIn Ads": "linkedin" };
+
+// Saved "what to run" config for services/marketing/autoLaunchCampaign.js —
+// the moment this platform's account finishes connecting, it builds the
+// SAME Campaign → Ad Set/Group → Creative → Ad chain CampaignSetup below
+// builds by hand, from whatever's saved here, and stops just short of
+// Publish (that one step stays manual — see that file's header comment for
+// why). Saving this does nothing by itself; "Auto-launch" below must also
+// be checked.
+function AutoLaunchTemplateCard({ platformKey, platformLabel }) {
+  const [tpl, setTpl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    const res = await request.get({ entity: "marketing/ad-templates" });
+    const rows = res?.success ? res.result : [];
+    setTpl(rows.find((r) => r.platform === platformKey) || { platform: platformKey, enabled: false });
+    setLoading(false);
+  };
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platformKey]);
+
+  const set = (patch) => setTpl((t) => ({ ...t, ...patch }));
+  const linesToArray = (s) => s.split("\n").map((x) => x.trim()).filter(Boolean);
+
+  const save = async () => {
+    setSaving(true);
+    setErrorMsg("");
+    const res = await request.patch({ entity: `marketing/ad-templates/${platformKey}`, jsonData: tpl });
+    if (!res?.success) {
+      setSaving(false);
+      setErrorMsg(res?.message || "Could not save the template.");
+      return;
+    }
+    setTpl(res.result);
+    if (mediaFile) {
+      const fd = new FormData();
+      fd.append("file", mediaFile);
+      fd.append("mediaType", mediaFile.type.startsWith("video/") ? "video" : "image");
+      const mediaRes = await uploadAdTemplateMedia(platformKey, fd);
+      if (mediaRes?.success) {
+        setTpl(mediaRes.result);
+        setMediaFile(null);
+      } else {
+        setErrorMsg(mediaRes?.message || "Template saved, but the media upload failed.");
+      }
+    }
+    setSaving(false);
+  };
+
+  if (loading || !tpl) return null;
+
+  return (
+    <div className="hub-card" style={{ marginBottom: 16, border: tpl.enabled ? "1px solid var(--hub-blue)" : undefined }}>
+      <div className="hub-card-header">
+        <h3><RocketOutlined /> Auto-Launch Template — {platformLabel}</h3>
+        {errorMsg && <span className="hub-badge hub-badge-red">{errorMsg}</span>}
+      </div>
+      <p style={{ fontSize: 12.5, color: "var(--hub-muted)", marginTop: -6, marginBottom: 14 }}>
+        The moment {platformLabel} connects, this builds a real campaign from what&rsquo;s below — saved PAUSED, same as
+        Campaign Setup below. A manager still has to click Publish there before anything actually spends.
+      </p>
+
+      <label className="hub-row" style={{ gap: 8, marginBottom: 14, cursor: "pointer" }}>
+        <input type="checkbox" checked={!!tpl.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
+        <span>Auto-launch when {platformLabel} connects</span>
+      </label>
+
+      <div className="hub-stack" style={{ gap: 10 }}>
+        <input
+          className="hub-input"
+          placeholder="Campaign name"
+          value={tpl.campaignName || ""}
+          onChange={(e) => set({ campaignName: e.target.value })}
+        />
+
+        {platformKey === "facebook" && (
+          <>
+            <div className="hub-row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <input
+                className="hub-input"
+                style={{ flex: "1 1 180px" }}
+                placeholder="Daily budget (INR)"
+                value={tpl.dailyBudget || ""}
+                onChange={(e) => set({ dailyBudget: e.target.value.replace(/\D/g, "") })}
+              />
+              <input
+                className="hub-input"
+                style={{ flex: "1 1 180px" }}
+                placeholder="Countries, comma separated (e.g. IN)"
+                value={(tpl.countries || []).join(",")}
+                onChange={(e) => set({ countries: e.target.value.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean) })}
+              />
+              <input className="hub-input" style={{ width: 90 }} placeholder="Age min" value={tpl.ageMin ?? ""} onChange={(e) => set({ ageMin: Number(e.target.value) || "" })} />
+              <input className="hub-input" style={{ width: 90 }} placeholder="Age max" value={tpl.ageMax ?? ""} onChange={(e) => set({ ageMax: Number(e.target.value) || "" })} />
+            </div>
+            <input
+              className="hub-input"
+              placeholder="Privacy Policy URL (required by Meta for the Lead Form)"
+              value={tpl.privacyPolicyUrl || ""}
+              onChange={(e) => set({ privacyPolicyUrl: e.target.value })}
+            />
+            <textarea className="hub-input" rows={2} placeholder="Primary text" value={tpl.primaryText || ""} onChange={(e) => set({ primaryText: e.target.value })} />
+            <input className="hub-input" placeholder="Headline" value={tpl.headline || ""} onChange={(e) => set({ headline: e.target.value })} />
+            <input className="hub-input" placeholder="Description" value={tpl.description || ""} onChange={(e) => set({ description: e.target.value })} />
+          </>
+        )}
+
+        {platformKey === "google" && (
+          <>
+            <input
+              className="hub-input"
+              placeholder="Daily budget — micros (e.g. 500000000 = ₹500)"
+              value={tpl.dailyBudgetMicros || ""}
+              onChange={(e) => set({ dailyBudgetMicros: Number(e.target.value.replace(/\D/g, "")) || "" })}
+            />
+            <textarea
+              className="hub-input"
+              rows={3}
+              placeholder="Headlines — one per line, minimum 3 (Google requirement)"
+              value={(tpl.headlines || []).join("\n")}
+              onChange={(e) => set({ headlines: linesToArray(e.target.value) })}
+            />
+            <textarea
+              className="hub-input"
+              rows={2}
+              placeholder="Descriptions — one per line, minimum 2 (Google requirement)"
+              value={(tpl.descriptions || []).join("\n")}
+              onChange={(e) => set({ descriptions: linesToArray(e.target.value) })}
+            />
+            <input
+              className="hub-input"
+              placeholder="Final URL (landing page)"
+              value={(tpl.finalUrls || [])[0] || ""}
+              onChange={(e) => set({ finalUrls: e.target.value ? [e.target.value] : [] })}
+            />
+          </>
+        )}
+
+        {platformKey === "linkedin" && (
+          <>
+            <div className="hub-row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <input
+                className="hub-input"
+                style={{ flex: "1 1 180px" }}
+                placeholder="Daily budget (INR)"
+                value={tpl.dailyBudget || ""}
+                onChange={(e) => set({ dailyBudget: e.target.value.replace(/\D/g, "") })}
+              />
+              <input
+                className="hub-input"
+                style={{ flex: "1 1 220px" }}
+                placeholder="Locations, comma separated (urn:li:geo:... ids)"
+                value={(tpl.locations || []).join(",")}
+                onChange={(e) => set({ locations: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+              />
+            </div>
+            <input
+              className="hub-input"
+              placeholder="LinkedIn Lead Gen Form ID (create one by hand in LinkedIn Campaign Manager first)"
+              value={tpl.leadGenFormId || ""}
+              onChange={(e) => set({ leadGenFormId: e.target.value })}
+            />
+            <textarea className="hub-input" rows={2} placeholder="Commentary" value={tpl.commentary || ""} onChange={(e) => set({ commentary: e.target.value })} />
+            <input className="hub-input" placeholder="Headline" value={tpl.headline || ""} onChange={(e) => set({ headline: e.target.value })} />
+            <input className="hub-input" placeholder="Landing page URL" value={tpl.landingPageUrl || ""} onChange={(e) => set({ landingPageUrl: e.target.value })} />
+          </>
+        )}
+
+        {(platformKey === "facebook" || platformKey === "linkedin") && (
+          <div>
+            <input type="file" accept="image/*,video/*" onChange={(e) => setMediaFile(e.target.files[0] || null)} />
+            {tpl.mediaFileName && !mediaFile && (
+              <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 4 }}>Current creative: {tpl.mediaFileName}</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="hub-row" style={{ marginTop: 14, gap: 12, alignItems: "center" }}>
+        <button type="button" className="hub-btn hub-btn-primary" disabled={saving} onClick={save}>
+          {saving ? "Saving…" : "Save template"}
+        </button>
+        {tpl.lastRunAt && (
+          <span style={{ fontSize: 12, color: tpl.lastRunStatus === "success" ? "#16a34a" : "#dc2626" }}>
+            Last auto-launch: {tpl.lastRunStatus} ({new Date(tpl.lastRunAt).toLocaleString()})
+            {tpl.lastRunError ? ` — ${tpl.lastRunError}` : ""}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // New, additive UI — Campaign -> Ad Set -> Ad Creative -> Ad, each created

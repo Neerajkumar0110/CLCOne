@@ -1,6 +1,13 @@
 const connect = require('./connect');
 const callback = require('./callback');
-const { getConnection, updateConnection, disconnectConnection } = require('./connection');
+const {
+  getConnection,
+  updateConnection,
+  disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
+} = require('./connection');
 const getCustomerAccounts = require('./customerAccounts');
 const { listCampaigns, readCampaign, createCampaign, updateCampaign, publishCampaign } = require('./campaigns');
 const { listAdGroups, createAdGroup, updateAdGroup } = require('./adgroups');
@@ -13,6 +20,9 @@ module.exports = {
   getConnection,
   updateConnection,
   disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
   getCustomerAccounts,
   listCampaigns,
   readCampaign,

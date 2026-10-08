@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 const graph = require('../../../../utils/googleAdsClient');
 const tokenCrypto = require('../../../../utils/googleTokenCrypto');
-const { findConnection } = require('./_helpers');
 
 // Renders a tiny self-closing page that hands the result back to the SPA
 // window that opened this OAuth popup via postMessage, then closes itself.
@@ -66,10 +65,15 @@ const callback = async (req, res) => {
 
     const me = await graph.getUserInfo(tokens.access_token);
 
-    let conn = await findConnection();
+    // Reconnecting the SAME Google account updates its own row; a different
+    // Google account creates a new one alongside whatever's already
+    // connected — multiple Google Ads accounts can be connected at once
+    // (see GoogleConnection.js's header comment).
+    const googleUserId = me.sub || me.id;
+    let conn = await GoogleConnection.findOne({ removed: false, googleUserId }).exec();
     if (!conn) conn = new GoogleConnection({});
 
-    conn.googleUserId = me.sub || me.id;
+    conn.googleUserId = googleUserId;
     conn.googleUserEmail = me.email;
     conn.refreshToken = tokenCrypto.encrypt(tokens.refresh_token);
     conn.accessToken = tokenCrypto.encrypt(tokens.access_token);
@@ -81,8 +85,18 @@ const callback = async (req, res) => {
     conn.status = 'connected';
     conn.connectedBy = admin.name;
     conn.lastError = undefined;
+    // The account just connected becomes the active one — manual Campaign
+    // Setup and the campaign-creation routes now act on it until the admin
+    // picks a different one from the Connected Accounts list.
+    conn.active = true;
     conn.updated = Date.now();
     await conn.save();
+    await GoogleConnection.updateMany({ removed: false, _id: { $ne: conn._id } }, { $set: { active: false } }).exec();
+
+    // Fire-and-forget — builds a campaign from the saved template (if one's
+    // enabled) in the background, for THIS specific account; the popup
+    // still closes right away.
+    require('../../../../services/marketing/autoLaunchCampaign').autoLaunchSafe('google', conn._id);
 
     return popupResponsePage(res, { type: 'google-oauth-success' });
   } catch (err) {

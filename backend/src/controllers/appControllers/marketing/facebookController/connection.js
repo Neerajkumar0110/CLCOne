@@ -1,12 +1,82 @@
 const mongoose = require('mongoose');
 const graph = require('../../../../utils/metaGraphClient');
 const tokenCrypto = require('../../../../utils/metaTokenCrypto');
-const { findConnection, sanitizeConnection, decryptedUserToken } = require('./_helpers');
+const { findConnection, findConnectionById, findAllConnections, sanitizeConnection, decryptedUserToken } = require('./_helpers');
 
-// GET /api/facebook/connection — real status, never a hard-coded boolean.
+// GET /api/facebook/connection — the ACTIVE account's real status, never a
+// hard-coded boolean. See /connections below for every connected account.
 const getConnection = async (req, res) => {
   const conn = await findConnection();
   return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'OK' });
+};
+
+// GET /api/facebook/connections — every connected account (multiple can be
+// connected at once — see FacebookConnection.js's header comment), so the
+// frontend can render a Connected Accounts list instead of only ever
+// showing the single active one.
+const listConnections = async (req, res) => {
+  const rows = await findAllConnections();
+  return res.status(200).json({ success: true, result: rows.map(sanitizeConnection), message: 'OK' });
+};
+
+// POST /api/facebook/connections/:id/activate — switches which connected
+// account manual Campaign Setup / the campaign-creation routes act on.
+// Auto-launch is unaffected by this — it always targets whichever specific
+// account just finished connecting, active or not.
+const activateConnection = async (req, res) => {
+  const FacebookConnection = mongoose.model('FacebookConnection');
+  const conn = await findConnectionById(req.params.id);
+  if (!conn) return res.status(404).json({ success: false, result: null, message: 'Connection not found.' });
+
+  await FacebookConnection.updateMany({ removed: false, _id: { $ne: conn._id } }, { $set: { active: false } }).exec();
+  conn.active = true;
+  conn.updated = Date.now();
+  await conn.save();
+
+  return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'Now the active Facebook account.' });
+};
+
+// DELETE /api/facebook/connections/:id — disconnects one specific account
+// without touching any of the others (unlike disconnectConnection below,
+// which only ever acted on "the" single connection before multi-account
+// support existed). If the removed one was active, the most recently
+// connected remaining account (if any) becomes active instead, so there's
+// always an active account whenever one exists.
+const removeConnectionById = async (req, res) => {
+  const FacebookConnection = mongoose.model('FacebookConnection');
+  const conn = await findConnectionById(req.params.id);
+  if (!conn) return res.status(200).json({ success: true, result: null, message: 'Already disconnected.' });
+
+  if (conn.webhookSubscribed && conn.pageId && conn.pageAccessToken) {
+    try {
+      const pageToken = tokenCrypto.decrypt(conn.pageAccessToken);
+      await fetch(
+        `https://graph.facebook.com/${process.env.META_API_VERSION}/${conn.pageId}/subscribed_apps?access_token=${encodeURIComponent(pageToken)}`,
+        { method: 'DELETE' }
+      );
+    } catch (err) {
+      conn.lastError = `Webhook unsubscribe failed: ${err.message}`;
+    }
+  }
+
+  const wasActive = conn.active;
+  conn.removed = true;
+  conn.active = false;
+  conn.pageAccessToken = undefined;
+  conn.userAccessToken = undefined;
+  conn.updated = Date.now();
+  await conn.save();
+
+  if (wasActive) {
+    const next = await FacebookConnection.findOne({ removed: false }).sort({ created: -1 }).exec();
+    if (next) {
+      next.active = true;
+      next.updated = Date.now();
+      await next.save();
+    }
+  }
+
+  return res.status(200).json({ success: true, result: null, message: 'Facebook account disconnected.' });
 };
 
 // PATCH /api/facebook/connection — select a Page ({ pageId }) or an Ad
@@ -91,4 +161,11 @@ const disconnectConnection = async (req, res) => {
   return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'Facebook disconnected' });
 };
 
-module.exports = { getConnection, updateConnection, disconnectConnection };
+module.exports = {
+  getConnection,
+  updateConnection,
+  disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
+};

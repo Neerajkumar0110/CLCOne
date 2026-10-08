@@ -28,6 +28,7 @@ const DB_MAP = {
   SalesQuote: 'salesDb',
 
   // ---- marketingDb ----
+  AdCampaignTemplate: 'marketingDb',
   Campaign: 'marketingDb',
   CaptureFormConfig: 'marketingDb',
   EmailBroadcast: 'marketingDb',

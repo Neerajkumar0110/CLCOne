@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const { findConnection } = require('./_helpers');
 
 // Google's user_column_data[].column_id values are the built-in field types
 // (FULL_NAME, EMAIL, PHONE_NUMBER, ...) or the advertiser's own custom
@@ -125,10 +124,15 @@ async function processWebhookLog(log) {
 // GoogleConnection.webhookKey before anything is trusted or saved.
 const receiveWebhook = async (req, res) => {
   const GoogleWebhookLog = mongoose.model('GoogleWebhookLog');
+  const GoogleConnection = mongoose.model('GoogleConnection');
   const body = req.body || {};
 
-  const conn = await findConnection();
-  if (!conn || !conn.webhookKey || body.google_key !== conn.webhookKey) {
+  // Multiple Google Ads accounts can be connected at once, each with its
+  // own webhookKey — match on the key itself, never "whichever is active"
+  // (that would reject every webhook except the active account's the
+  // moment a second account gets connected).
+  const conn = body.google_key ? await GoogleConnection.findOne({ removed: false, webhookKey: body.google_key }).exec() : null;
+  if (!conn) {
     return res.status(401).json({ success: false, result: null, message: 'Invalid or missing google_key.' });
   }
 

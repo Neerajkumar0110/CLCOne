@@ -1,12 +1,66 @@
+const mongoose = require('mongoose');
 const graph = require('../../../../utils/googleAdsClient');
-const { findConnection, sanitizeConnection, getFreshAccessToken } = require('./_helpers');
+const { findConnection, findConnectionById, findAllConnections, sanitizeConnection, getFreshAccessToken } = require('./_helpers');
 
-// GET /api/google/connection — real status, never a hard-coded boolean.
-// result.webhookUrl/result.webhookKey are what the frontend shows the admin
-// to paste into the Google Ads UI's Lead form webhook config.
+// GET /api/google/connection — the ACTIVE account's real status, never a
+// hard-coded boolean. result.webhookUrl/result.webhookKey are what the
+// frontend shows the admin to paste into the Google Ads UI's Lead form
+// webhook config. See /connections below for every connected account.
 const getConnection = async (req, res) => {
   const conn = await findConnection();
   return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'OK' });
+};
+
+// GET /api/google/connections — every connected account (multiple can be
+// connected at once — see GoogleConnection.js's header comment).
+const listConnections = async (req, res) => {
+  const rows = await findAllConnections();
+  return res.status(200).json({ success: true, result: rows.map(sanitizeConnection), message: 'OK' });
+};
+
+// POST /api/google/connections/:id/activate — switches which connected
+// account manual Campaign Setup / the campaign-creation routes act on.
+const activateConnection = async (req, res) => {
+  const GoogleConnection = mongoose.model('GoogleConnection');
+  const conn = await findConnectionById(req.params.id);
+  if (!conn) return res.status(404).json({ success: false, result: null, message: 'Connection not found.' });
+
+  await GoogleConnection.updateMany({ removed: false, _id: { $ne: conn._id } }, { $set: { active: false } }).exec();
+  conn.active = true;
+  conn.updated = Date.now();
+  await conn.save();
+
+  return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'Now the active Google Ads account.' });
+};
+
+// DELETE /api/google/connections/:id — disconnects one specific account
+// without touching any of the others. If the removed one was active, the
+// most recently connected remaining account (if any) becomes active.
+const removeConnectionById = async (req, res) => {
+  const GoogleConnection = mongoose.model('GoogleConnection');
+  const conn = await findConnectionById(req.params.id);
+  if (!conn) return res.status(200).json({ success: true, result: null, message: 'Already disconnected.' });
+
+  const wasActive = conn.active;
+  conn.removed = true;
+  conn.active = false;
+  conn.refreshToken = undefined;
+  conn.accessToken = undefined;
+  conn.tokenExpiresAt = undefined;
+  conn.status = 'disconnected';
+  conn.updated = Date.now();
+  await conn.save();
+
+  if (wasActive) {
+    const next = await GoogleConnection.findOne({ removed: false }).sort({ created: -1 }).exec();
+    if (next) {
+      next.active = true;
+      next.updated = Date.now();
+      await next.save();
+    }
+  }
+
+  return res.status(200).json({ success: true, result: null, message: 'Google Ads account disconnected.' });
 };
 
 // PATCH /api/google/connection — select a Google Ads account
@@ -70,4 +124,11 @@ const disconnectConnection = async (req, res) => {
   return res.status(200).json({ success: true, result: sanitizeConnection(conn), message: 'Google Ads disconnected' });
 };
 
-module.exports = { getConnection, updateConnection, disconnectConnection };
+module.exports = {
+  getConnection,
+  updateConnection,
+  disconnectConnection,
+  listConnections,
+  activateConnection,
+  removeConnectionById,
+};
