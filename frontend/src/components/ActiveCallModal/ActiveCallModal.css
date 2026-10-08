@@ -713,3 +713,25 @@
 :root[data-theme='dark'] .incall-callback-label {
   color: #6ee7b7;
 }
+
+/* ==========================================================================
+   antd popups (Select dropdowns, the callback date/time picker)
+   --------------------------------------------------------------------------
+   antd renders these into document.body at z-index 1050, while the in-call
+   overlay sits at 9999 — so without this every dropdown and the whole
+   calendar open BEHIND the modal and look broken or dead. They have to beat
+   the overlay, not just the page.
+   ========================================================================== */
+.incall-popup {
+  z-index: 10050 !important;
+}
+
+.incall-callback-echo {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #166534;
+}
+
+:root[data-theme='dark'] .incall-callback-echo {
+  color: #6ee7b7;
+}

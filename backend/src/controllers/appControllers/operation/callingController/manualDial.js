@@ -45,6 +45,20 @@ const dial = async (req, res) => {
   // customer first, then bridges to the owning agent once they answer.
   const provider = getProvider();
   if (provider.name === 'cloud' && typeof provider.placeCall === 'function') {
+    // The provider bridges the answered customer to whatever number this
+    // agent has on file (plivoAnswer resolves it per call). With no number
+    // there is nothing to bridge TO: the customer's phone still rings, they
+    // answer, and they sit on hold music until they give up. Refuse here
+    // instead — a clear error beats a real call to a real person that was
+    // never going to connect.
+    if (!last10(b.agentPhone || req.admin.phone || req.admin.mobile || req.admin.contactNumber)) {
+      return res.status(400).json({
+        success: false,
+        result: null,
+        message: 'Add your own phone number first — the customer is connected to you on it.',
+      });
+    }
+
     const r = await provider.placeCall({
       agent: req.admin,
       agentPhone: b.agentPhone || undefined, // per-call override / first-time set
@@ -61,6 +75,11 @@ const dial = async (req, res) => {
     if (!r.ok) {
       return res.status(502).json({ success: false, result: null, message: r.error || 'Provider could not place the call.' });
     }
+    // Pop the agent's in-call modal now rather than up to one poll later —
+    // this is the path every "call this contact" button in the CRM takes
+    // (Dialer, Callbacks, Call History), so without it the agent watches a
+    // blank screen while the customer's phone is already ringing.
+    await notifyAgentCallEvent(req.admin._id, 'call:ringing', r.callRecord);
     return res.status(200).json({
       success: true,
       result: { record: r.callRecord, bridged: true },

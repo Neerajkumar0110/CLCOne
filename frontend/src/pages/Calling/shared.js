@@ -87,6 +87,27 @@ export function useCallingMeta() {
   return meta;
 }
 
+// Place a call to one contact from anywhere in the calling module — the
+// Dialer, a Callbacks row, a Call History row.
+//
+// On the cloud provider the backend rings the customer and bridges them to
+// this agent, and pushes `call:ringing` over the socket, which is what pops
+// components/ActiveCallModal — so the agent gets the same in-call form no
+// matter which button started the call. On a device/manual setup there is
+// no server leg, so hand the returned tel: URI to the phone instead.
+//
+// Returns the backend's message so the caller can show it; `ok` says whether
+// the call actually started.
+export async function dialContact({ phone, contactName, callLead, campaign } = {}) {
+  if (!phone) return { ok: false, message: "This contact has no phone number." };
+  const r = await request.post({
+    entity: "calling/manual/dial",
+    jsonData: { phone, contactName, callLead, campaign },
+  });
+  if (r?.success && r.result?.tel) openTel(r.result.tel);
+  return { ok: !!r?.success, message: r?.message, record: r?.result?.record };
+}
+
 // Fire the device tel: handler (mobile dials; desktop opens the default
 // softphone). Rendered as text elsewhere too, so a hand-dial is always
 // possible when no handler is registered.

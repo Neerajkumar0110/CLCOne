@@ -45,7 +45,7 @@ const { TextArea } = Input;
 // report can group on. Until meta lands, render nothing in the grid.
 const DISPOSITIONS_PLACEHOLDER = [];
 
-// Quick requirements ("kya chahiye")
+// Quick-pick programs for the Requirements field
 const POPULAR_COURSES = [
   "Full Stack AI & Python Development",
   "Data Science & Machine Learning",
@@ -62,6 +62,17 @@ const BUDGET_OPTIONS = [
   "₹50,000 - ₹75,000",
   "₹75,000 - ₹1,00,000",
   "₹1,00,000+",
+];
+
+// The follow-up times agents actually pick, as one tap each. `at()` is a
+// function, not a value, so "in 1 hour" means an hour from the tap rather
+// than an hour from when this module was first imported.
+const CALLBACK_PRESETS = [
+  { label: "In 1 hour", at: () => dayjs().add(1, "hour").second(0).millisecond(0) },
+  { label: "In 3 hours", at: () => dayjs().add(3, "hour").second(0).millisecond(0) },
+  { label: "Tomorrow 11:00 AM", at: () => dayjs().add(1, "day").hour(11).minute(0).second(0).millisecond(0) },
+  { label: "Tomorrow 5:00 PM", at: () => dayjs().add(1, "day").hour(17).minute(0).second(0).millisecond(0) },
+  { label: "In 3 days", at: () => dayjs().add(3, "day").hour(11).minute(0).second(0).millisecond(0) },
 ];
 
 // Quick start timeline
@@ -623,6 +634,7 @@ export default function ActiveCallModal() {
                 <div>
                   <label className="incall-field-label">Move Lead Stage</label>
                   <Select
+                    popupClassName="incall-popup"
                     style={{ width: "100%" }}
                     value={stage}
                     onChange={(val) => {
@@ -636,6 +648,7 @@ export default function ActiveCallModal() {
                 <div>
                   <label className="incall-field-label">Sub-status</label>
                   <Select
+                    popupClassName="incall-popup"
                     style={{ width: "100%" }}
                     value={subStatus}
                     onChange={(val) => setSubStatus(val)}
@@ -663,8 +676,7 @@ export default function ActiveCallModal() {
             <div className="incall-card">
               <div className="incall-card-title">
                 <span>
-                  <BookOutlined style={{ color: "#3b82f6" }} /> Requirements / Interest ("क्या
-                  चाहिए")
+                  <BookOutlined style={{ color: "#3b82f6" }} /> Requirements / Interest
                 </span>
                 <span className="incall-badge-tag">Program & Goals</span>
               </div>
@@ -699,6 +711,7 @@ export default function ActiveCallModal() {
                       How Soon To Start?
                     </label>
                     <Select
+                      popupClassName="incall-popup"
                       style={{ width: "100%" }}
                       value={howSoonToStart || undefined}
                       onChange={(v) => setHowSoonToStart(v)}
@@ -782,13 +795,41 @@ export default function ActiveCallModal() {
                     <CalendarOutlined /> Schedule Follow-up / Callback Date & Time:
                   </label>
                   <DatePicker
-                    showTime
+                    showTime={{ format: "hh:mm A", use12Hours: true, minuteStep: 5 }}
+                    showNow
+                    popupClassName="incall-popup"
                     style={{ width: "100%" }}
                     value={scheduledCallback}
                     onChange={(date) => setScheduledCallback(date)}
+                    // A callback in the past is always a mis-click — it would
+                    // be queued already overdue.
+                    disabledDate={(d) => d && d < dayjs().startOf("day")}
                     placeholder="Pick callback date and time"
-                    format="YYYY-MM-DD HH:mm"
+                    format="DD MMM YYYY, hh:mm A"
                   />
+
+                  {/* An agent on a live call should not have to drive a
+                      calendar for the three answers they actually give. */}
+                  <div className="incall-quick-tags" style={{ marginTop: 8 }}>
+                    {CALLBACK_PRESETS.map((p) => (
+                      <span
+                        key={p.label}
+                        className={`incall-tag-chip ${
+                          scheduledCallback && scheduledCallback.isSame(p.at(), "minute") ? "active" : ""
+                        }`}
+                        onClick={() => setScheduledCallback(p.at())}
+                      >
+                        {p.label}
+                      </span>
+                    ))}
+                  </div>
+
+                  {scheduledCallback && (
+                    <div className="incall-callback-echo">
+                      Callback set for <strong>{scheduledCallback.format("dddd, DD MMM YYYY")}</strong> at{" "}
+                      <strong>{scheduledCallback.format("hh:mm A")}</strong>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

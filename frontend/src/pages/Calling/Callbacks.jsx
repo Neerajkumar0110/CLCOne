@@ -1,10 +1,29 @@
 import React, { useState } from "react";
 import { request } from "@/request";
-import { CalendarOutlined } from "@ant-design/icons";
-import { fmtDateTime, usePoll } from "./shared";
+import { message } from "antd";
+import { CalendarOutlined, PhoneOutlined } from "@ant-design/icons";
+import { fmtDateTime, usePoll, dialContact } from "./shared";
 
 export default function Callbacks() {
   const [data, setData] = useState(null);
+  const [dialingId, setDialingId] = useState(null);
+
+  // Call the contact straight off the row — the whole point of this screen
+  // is "these people are due a call back", so making the agent copy the
+  // number into the Dialer is a pointless hop. The in-call modal opens by
+  // itself once the call starts (see shared.dialContact).
+  const callNow = async (cb) => {
+    setDialingId(cb._id);
+    const r = await dialContact({
+      phone: cb.phone,
+      contactName: cb.contactName,
+      callLead: cb.callLead,
+      campaign: cb.campaign?._id || cb.campaign,
+    });
+    setDialingId(null);
+    if (r.ok) message.success(r.message || "Calling…");
+    else message.error(r.message || "Could not start the call.");
+  };
 
   const load = async () => {
     const r = await request.get({ entity: "calling/callbacks?scope=all" });
@@ -45,12 +64,25 @@ export default function Callbacks() {
                   <td>{cb.assignedAgentName || "—"}</td>
                   <td><span className="hub-badge hub-badge-gray">{cb.status}</span></td>
                   <td>
-                    {cb.status === "Pending" && (
-                      <div className="hub-row" style={{ gap: 6 }}>
-                        <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Done")}>Done</button>
-                        <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Missed")}>Missed</button>
-                      </div>
-                    )}
+                    <div className="hub-row" style={{ gap: 6 }}>
+                      {cb.phone && (
+                        <button
+                          type="button"
+                          className="hub-btn hub-btn-primary"
+                          style={{ padding: "4px 10px" }}
+                          disabled={dialingId === cb._id}
+                          onClick={() => callNow(cb)}
+                        >
+                          <PhoneOutlined /> {dialingId === cb._id ? "Calling…" : "Call"}
+                        </button>
+                      )}
+                      {cb.status === "Pending" && (
+                        <>
+                          <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Done")}>Done</button>
+                          <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Missed")}>Missed</button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

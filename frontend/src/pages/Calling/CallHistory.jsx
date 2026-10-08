@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { request } from "@/request";
-import { HistoryOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
-import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, useCallingMeta } from "./shared";
+import { message } from "antd";
+import { HistoryOutlined, LeftOutlined, RightOutlined, PhoneOutlined } from "@ant-design/icons";
+import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, useCallingMeta, dialContact } from "./shared";
 
 const STATUSES = ["All", "completed", "connected", "no-answer", "busy", "failed", "voicemail", "transferred"];
 
@@ -13,6 +14,7 @@ export default function CallHistory() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [count, setCount] = useState(0);
+  const [dialingId, setDialingId] = useState(null);
   const [f, setF] = useState({ q: "", campaign: "", agent: "", status: "All", from: "", to: "" });
 
   useEffect(() => {
@@ -37,6 +39,22 @@ export default function CallHistory() {
   }, []);
 
   const dispLabel = (code) => (meta.dispositions || []).find((d) => d.code === code)?.label || code || "—";
+
+  // Re-dial a past call straight from its row — a no-answer or a scheduled
+  // callback is most often worked from exactly this list. The in-call modal
+  // opens on its own once the call starts (see shared.dialContact).
+  const callAgain = async (row) => {
+    setDialingId(row._id);
+    const r = await dialContact({
+      phone: row.phone,
+      contactName: row.contactName,
+      callLead: row.callLead,
+      campaign: row.campaign?._id || row.campaign,
+    });
+    setDialingId(null);
+    if (r.ok) message.success(r.message || "Calling…");
+    else message.error(r.message || "Could not start the call.");
+  };
 
   return (
     <div className="hub-stack">
@@ -78,11 +96,12 @@ export default function CallHistory() {
                 <th>Disposition</th>
                 <th>Recording</th>
                 <th>Notes</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={10}><div className="hub-empty">Loading…</div></td></tr>}
-              {!loading && rows.length === 0 && <tr><td colSpan={10}><div className="hub-empty">No calls found.</div></td></tr>}
+              {loading && <tr><td colSpan={11}><div className="hub-empty">Loading…</div></td></tr>}
+              {!loading && rows.length === 0 && <tr><td colSpan={11}><div className="hub-empty">No calls found.</div></td></tr>}
               {!loading &&
                 rows.map((r) => (
                   <tr key={r._id}>
@@ -104,6 +123,19 @@ export default function CallHistory() {
                       )}
                     </td>
                     <td style={{ maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.notes || "—"}</td>
+                    <td>
+                      {r.phone && (
+                        <button
+                          type="button"
+                          className="hub-btn"
+                          style={{ padding: "4px 10px" }}
+                          disabled={dialingId === r._id}
+                          onClick={() => callAgain(r)}
+                        >
+                          <PhoneOutlined /> {dialingId === r._id ? "Calling…" : "Call"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
             </tbody>
