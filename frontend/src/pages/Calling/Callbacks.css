@@ -1,0 +1,99 @@
+/* ==========================================================================
+   Calling › Callbacks table
+   --------------------------------------------------------------------------
+   This table carries more per row than the other calling tables (a date, a
+   time, how overdue it is, what the auto-dialer did, notes, three actions),
+   so the default hub-table rules alone leave it ragged: pills break mid-word,
+   "04:00 pm" wraps onto two lines, and the action buttons stack.
+
+   The fix is to stop fighting for width — related fields are stacked inside
+   one cell instead of each taking a column, and everything that reads as a
+   single token is told never to wrap.
+   ========================================================================== */
+
+.cb-table td,
+.cb-table th {
+  vertical-align: middle;
+}
+
+/* A pill is one token — breaking "will auto-call" across two lines makes it
+   look like a rendering fault. (.hub-badge has no nowrap of its own.) */
+.cb-table .hub-badge {
+  white-space: nowrap;
+}
+
+/* ── Contact: name over number, with the campaign only when there is one ── */
+.cb-contact-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cb-contact-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--hub-muted);
+  white-space: nowrap;
+}
+
+/* ── When: date over time, with the countdown under it ──────────────────── */
+.cb-when {
+  white-space: nowrap;
+}
+
+.cb-when-date {
+  font-weight: 600;
+}
+
+.cb-when-time {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cb-when-rel {
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--hub-muted);
+}
+
+/* Overdue rows say so in red, in the one place the eye already goes. */
+.cb-row-overdue .cb-when-date,
+.cb-row-overdue .cb-when-time,
+.cb-row-overdue .cb-when-rel {
+  color: var(--hub-red);
+}
+
+.cb-notes {
+  max-width: 220px;
+  font-size: 12.5px;
+  color: var(--hub-text-soft, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Actions: one compact row, never a stack ─────────────────────────────── */
+.cb-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cb-actions .hub-btn {
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* The overdue tint has to work in dark mode too — a hard #fef2f2 turns the
+   text unreadable there. */
+.cb-row-overdue td {
+  background: var(--hub-red-soft);
+}
+
+@media (max-width: 900px) {
+  .cb-notes {
+    max-width: 140px;
+  }
+}

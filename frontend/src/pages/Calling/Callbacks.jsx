@@ -3,6 +3,7 @@ import { request } from "@/request";
 import { message } from "antd";
 import { CalendarOutlined, PhoneOutlined } from "@ant-design/icons";
 import { usePoll, dialContact } from "./shared";
+import "./Callbacks.css";
 
 const IST = { timeZone: "Asia/Kolkata" };
 
@@ -32,12 +33,33 @@ const relativeToNow = (v) => {
 // What the auto-dialer (jobs/callingCallbackTick.js) has done with this row,
 // so a callback that is waiting on a busy agent doesn't look like one the
 // system forgot.
+// Kept to one or two words each: this sits in a narrow column next to six
+// other fields, and the full explanation lives in the tooltip.
 const autoCallLabel = (cb) => {
   if (cb.status !== "Pending") return <span className="hub-badge hub-badge-gray">—</span>;
-  if (cb.autoDialGaveUpAt) return <span className="hub-badge hub-badge-red">gave up — call by hand</span>;
-  if (cb.dialAttempts) return <span className="hub-badge hub-badge-yellow">tried {cb.dialAttempts}×</span>;
-  if (new Date(cb.scheduledAt) <= new Date()) return <span className="hub-badge hub-badge-blue">due — waiting for agent</span>;
-  return <span className="hub-badge hub-badge-green">will auto-call</span>;
+  if (cb.autoDialGaveUpAt)
+    return (
+      <span className="hub-badge hub-badge-red" title="Auto-dial gave up after repeated failures — call this one by hand.">
+        Call by hand
+      </span>
+    );
+  if (cb.dialAttempts)
+    return (
+      <span className="hub-badge hub-badge-yellow" title={`Auto-dialled ${cb.dialAttempts} time(s) — nobody picked up yet.`}>
+        Tried {cb.dialAttempts}×
+      </span>
+    );
+  if (new Date(cb.scheduledAt) <= new Date())
+    return (
+      <span className="hub-badge hub-badge-blue" title="Due now — it goes out as soon as the assigned agent is free.">
+        Waiting
+      </span>
+    );
+  return (
+    <span className="hub-badge hub-badge-green" title="This will be dialled automatically at the scheduled time.">
+      Scheduled
+    </span>
+  );
 };
 
 export default function Callbacks() {
@@ -86,38 +108,43 @@ export default function Callbacks() {
         <div className="hub-empty">Nothing here.</div>
       ) : (
         <div className="hub-table-wrapper">
-          <table className="hub-table">
+          <table className="hub-table cb-table">
             <thead>
-              <tr><th>Contact</th><th>Phone</th><th>Scheduled date</th><th>Time</th><th>Auto-call</th><th>Campaign</th><th>Assigned</th><th>Notes</th><th>Status</th><th>Actions</th></tr>
+              <tr>
+                <th>Contact</th>
+                <th>Scheduled for</th>
+                <th>Auto-call</th>
+                <th>Assigned</th>
+                <th>Notes</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {rows.map((cb) => (
-                <tr key={cb._id} style={tone === "red" ? { background: "#fef2f2" } : undefined}>
-                  <td>{cb.contactName || "—"}</td>
-                  <td>{cb.phone || "—"}</td>
-                  <td style={tone === "red" ? { color: "#dc2626", fontWeight: 700 } : undefined}>
-                    {fmtCallbackDate(cb.scheduledAt)}
-                  </td>
-                  <td style={tone === "red" ? { color: "#dc2626", fontWeight: 700 } : { fontWeight: 600 }}>
-                    {fmtCallbackTime(cb.scheduledAt)}
-                    <div style={{ fontSize: 11, fontWeight: 400, color: "var(--hub-muted)" }}>
-                      {relativeToNow(cb.scheduledAt)}
+                <tr key={cb._id} className={tone === "red" ? "cb-row-overdue" : undefined}>
+                  <td>
+                    <div className="cb-contact-name">{cb.contactName || "Unknown"}</div>
+                    <div className="cb-contact-sub">
+                      {cb.phone || "no number"}
+                      {cb.campaign?.name ? ` · ${cb.campaign.name}` : ""}
                     </div>
                   </td>
-                  <td>{autoCallLabel(cb)}</td>
-                  <td>{cb.campaign?.name || "—"}</td>
-                  <td>{cb.assignedAgentName || "—"}</td>
-                  <td style={{ maxWidth: 180, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {cb.notes || "—"}
+                  <td className="cb-when">
+                    <div className="cb-when-date">{fmtCallbackDate(cb.scheduledAt)}</div>
+                    <div className="cb-when-time">{fmtCallbackTime(cb.scheduledAt)}</div>
+                    <div className="cb-when-rel">{relativeToNow(cb.scheduledAt)}</div>
                   </td>
+                  <td>{autoCallLabel(cb)}</td>
+                  <td>{cb.assignedAgentName || "—"}</td>
+                  <td className="cb-notes" title={cb.notes || ""}>{cb.notes || "—"}</td>
                   <td><span className="hub-badge hub-badge-gray">{cb.status}</span></td>
                   <td>
-                    <div className="hub-row" style={{ gap: 6 }}>
+                    <div className="cb-actions">
                       {cb.phone && (
                         <button
                           type="button"
                           className="hub-btn hub-btn-primary"
-                          style={{ padding: "4px 10px" }}
                           disabled={dialingId === cb._id}
                           onClick={() => callNow(cb)}
                         >
@@ -126,8 +153,8 @@ export default function Callbacks() {
                       )}
                       {cb.status === "Pending" && (
                         <>
-                          <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Done")}>Done</button>
-                          <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => setStatus(cb, "Missed")}>Missed</button>
+                          <button type="button" className="hub-btn" onClick={() => setStatus(cb, "Done")}>Done</button>
+                          <button type="button" className="hub-btn" onClick={() => setStatus(cb, "Missed")}>Missed</button>
                         </>
                       )}
                     </div>
