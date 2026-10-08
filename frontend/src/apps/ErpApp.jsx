@@ -17,10 +17,9 @@ import { settingsAction } from '@/redux/settings/actions';
 import { selectSettings } from '@/redux/settings/selectors';
 
 import AppRouter from '@/router/AppRouter';
-
 import useResponsive from '@/hooks/useResponsive';
-
 import storePersist from '@/redux/storePersist';
+import ActiveCallModal from '@/components/ActiveCallModal';
 
 export default function ErpCrmApp() {
   const { Content } = Layout;
@@ -52,6 +51,11 @@ export default function ErpCrmApp() {
   if (settingIsloaded)
     return (
       <Layout hasSider>
+        {/* Fixed overlay, rendered once outside the routed Content so a live
+            call follows the agent across every page (and stays up as a
+            floating pill while they work elsewhere in the CRM). */}
+        <ActiveCallModal />
+
         <Navigation />
 
         {isMobile ? (

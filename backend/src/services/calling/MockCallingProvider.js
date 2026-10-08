@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 const CallingProvider = require('./CallingProvider');
-const { resolveLead } = require('./callingShared');
+const {
+  resolveLead,
+  notifyAgentCallEvent,
+  reserveAgent,
+  releaseAgent,
+  agentsOnLiveCalls,
+  reapStaleAgentReservations,
+} = require('./callingShared');
 const { NON_SALES_ROLES } = require('../../config/roles');
 
 // Deterministic, time-driven call simulation. NO real calls, NO timers /
@@ -104,6 +111,8 @@ class MockCallingProvider extends CallingProvider {
       { upsert: true }
     );
 
+    await notifyAgentCallEvent(agent._id, 'call:ringing', rec);
+
     return { ok: true, callRecord: rec };
   }
 
@@ -116,6 +125,7 @@ class MockCallingProvider extends CallingProvider {
     await callRecord.save();
     await this._setAgent(callRecord.agent, { status: 'OnCall', currentCall: callRecord._id });
     await mongoose.model('CallLead').updateOne({ _id: callRecord.callLead }, { $set: { status: 'Connected' } });
+    await notifyAgentCallEvent(callRecord.agent, 'call:connected', callRecord);
     return { ok: true, callRecord };
   }
 
@@ -159,6 +169,7 @@ class MockCallingProvider extends CallingProvider {
     await this._resolveLead(callRecord, disposition);
     await this._wrapupAgent(callRecord, actorName);
     await this._recountCampaign(callRecord.campaign);
+    await notifyAgentCallEvent(callRecord.agent, 'call:ended', callRecord);
     return { ok: true, callRecord };
   }
 
@@ -227,6 +238,7 @@ class MockCallingProvider extends CallingProvider {
     const CallLead = mongoose.model('CallLead');
     const CallCampaign = mongoose.model('CallCampaign');
     const AgentCallState = mongoose.model('AgentCallState');
+    const Admin = mongoose.model('Admin');
 
     const now = Date.now();
     const M = this.config.mock;
@@ -261,6 +273,7 @@ class MockCallingProvider extends CallingProvider {
             rec.phaseAt = new Date();
             await this._setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id });
             await CallLead.updateOne({ _id: rec.callLead }, { $set: { status: 'Connected' } });
+            await notifyAgentCallEvent(rec.agent, 'call:connected', rec);
           } else {
             rec.status = outcome; // no-answer | busy | failed | voicemail
             rec.endedAt = new Date();
@@ -269,6 +282,7 @@ class MockCallingProvider extends CallingProvider {
             const leadStatus = { 'no-answer': 'No Answer', busy: 'Busy', failed: 'Failed', voicemail: 'Voicemail' }[outcome];
             await CallLead.updateOne({ _id: rec.callLead }, { $set: { status: leadStatus } });
             await this._setAgent(rec.agent, { status: 'Available', currentCall: null, since: new Date() });
+            await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
           }
           changed = true;
         }
@@ -287,6 +301,7 @@ class MockCallingProvider extends CallingProvider {
           };
           await this._resolveLead(rec, rec.disposition);
           await this._wrapupAgent(rec);
+          await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
           changed = true;
         }
       }
@@ -321,32 +336,51 @@ class MockCallingProvider extends CallingProvider {
     );
     advanced += wr.modifiedCount || 0;
 
-    // 4. auto-dial: Available agents on Active campaigns get the next lead
+    // 3b. Free agents pinned busy for a call that already ended, so the
+    // simulation can't strand an agent out of the rotation either.
+    advanced += await reapStaleAgentReservations();
+
+    // 4. auto-dial: one live line per agent, agent claimed atomically.
+    //
+    // Mirrors CloudCallProvider.tick's progressive pacing exactly — see the
+    // long comment there. Keeping the two identical is the whole point of
+    // the mock: if the simulation over-dialled where the real provider
+    // doesn't (or vice versa), local testing would prove nothing.
     const activeCampaigns = await CallCampaign.find({ removed: false, status: 'Active' }).limit(20).exec();
     for (const camp of activeCampaigns) {
-      const agentIds = (camp.agents || []).map((a) => String(a));
-      if (agentIds.length === 0) continue;
-      // Same hard cap as CloudCallProvider — the Instant Lead Pool is
-      // opt-in and shouldn't scale unbounded with headcount.
-      const rawLimit = Math.max(1, camp.dialRatio || 1) * agentIds.length;
-      const freeAgents = await AgentCallState.find({
-        agent: { $in: camp.agents },
-        status: 'Available',
-      })
-        .limit(camp.isLeadPool ? Math.min(rawLimit, 10) : rawLimit)
-        .populate('agent', 'name surname role')
-        .exec();
-      for (const st of freeAgents) {
+      if (!camp.agents || !camp.agents.length) continue;
+
+      const busy = await agentsOnLiveCalls(camp.agents);
+      const attempted = new Set();
+
+      for (;;) {
+        const pool = camp.agents.filter(
+          (id) => !attempted.has(String(id)) && !busy.has(String(id))
+        );
+        if (!pool.length) break;
+
+        const claimed = await reserveAgent({ agentIds: pool, campaignId: camp._id });
+        if (!claimed) break; // every agent busy → no line goes out
+
+        attempted.add(String(claimed.agent));
+
+        const admin = await Admin.findById(claimed.agent).select('name surname role').lean();
         // Auto-Dialer is Sales-only — see campaigns.js's write-time guard;
         // this just protects against anything saved before it existed.
-        if (!st.agent || NON_SALES_ROLES.includes(st.agent.role)) continue;
-        const r = await this.dialNext({ campaign: camp, agent: st.agent });
+        if (!admin || NON_SALES_ROLES.includes(admin.role)) {
+          await releaseAgent(claimed.agent);
+          continue;
+        }
+
+        const r = await this.dialNext({ campaign: camp, agent: admin });
         if (r.ok) {
           advanced++;
           touchedCampaigns.add(String(camp._id));
-        } else {
-          break; // no leads left
+          continue;
         }
+
+        await releaseAgent(claimed.agent);
+        break; // no leads left
       }
     }
 

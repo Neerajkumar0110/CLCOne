@@ -8,6 +8,10 @@ const {
   resolveLead,
   recountCampaign,
   withinCallingHours,
+  reserveAgent,
+  releaseAgent,
+  agentsOnLiveCalls,
+  reapStaleAgentReservations,
 } = require('./callingShared');
 const { NON_SALES_ROLES } = require('../../config/roles');
 
@@ -576,6 +580,12 @@ class CloudCallProvider extends CallingProvider {
     );
     advanced += br.modifiedCount || 0;
 
+    // 2c. Free agents still flagged Ringing/OnCall for a call that is
+    // already over — a reservation whose dial threw, or a hangup webhook
+    // that never arrived. Without this they drop out of the rotation and
+    // the dialer silently stops calling them for the rest of the shift.
+    advanced += await reapStaleAgentReservations();
+
     // 3. Auto-dial Available agents on Active auto-dial campaigns.
     const campaigns = await CallCampaign.find({
       removed: false,
@@ -599,8 +609,20 @@ class CloudCallProvider extends CallingProvider {
         // dialLeadPoolNext / plivoAnswer.js's claimLeadPoolAgent), so this
         // still self-corrects for no-answers: an unanswered line never ties
         // up an agent's slot, only a truly in-flight (dialing/ringing) one does.
-        const availableAgents = await AgentCallState.countDocuments({ campaign: camp._id, status: 'Available' });
+        const poolStates = await AgentCallState.find({ campaign: camp._id, status: 'Available' })
+          .select('agent')
+          .lean();
+        if (!poolStates.length) continue;
+        // An agent whose presence row says Available but who CallRecord
+        // shows mid-call (a manual dial, an inbound transfer, a missed
+        // hangup webhook) is not really free — don't over-dial on them.
+        const poolBusy = await agentsOnLiveCalls(poolStates.map((s) => s.agent));
+        const availableAgents = poolStates.filter((s) => !poolBusy.has(String(s.agent))).length;
         if (availableAgents === 0) continue;
+        // Only the UNANSWERED lines count against the budget here: a
+        // lead-pool call that connected has already claimed its agent (see
+        // claimLeadPoolAgent), so that agent has dropped out of the
+        // Available count above and must not be charged for twice.
         const inFlight = await CallRecord.countDocuments({
           campaign: camp._id,
           removed: false,
@@ -619,35 +641,63 @@ class CloudCallProvider extends CallingProvider {
 
       if (!camp.agents || !camp.agents.length) continue;
 
-      const ratio = Math.max(1, camp.dialRatio || 1);
-      const [freeStates, inFlight] = await Promise.all([
-        AgentCallState.find({ agent: { $in: camp.agents }, status: 'Available' }).limit(50).lean(),
-        CallRecord.countDocuments({
-          campaign: camp._id,
-          removed: false,
-          status: { $in: ['dialing', 'ringing'] },
-        }),
-      ]);
+      // ── progressive dialing: one live line per agent, claimed atomically ──
+      //
+      // Each pass reserves a single Available agent (longest idle first),
+      // dials exactly one lead for them, and repeats until nobody is free.
+      // When every agent is busy, reserveAgent returns null and NOTHING is
+      // dialled — a customer is only ever called once there is a person
+      // ready to talk to them, and an agent's next call only starts after
+      // their current one has ended and their wrapup has elapsed.
+      //
+      // Note this deliberately ignores camp.dialRatio. Over-dialling more
+      // lines than free agents (predictive dialing) is only safe when the
+      // extra lines carry NO agent and claim one on answer, the way the
+      // Instant Lead Pool branch above does — pinning a second line to an
+      // already-reserved agent just means two customers answering for one
+      // person, which is what the ratio used to cause here. Adding real
+      // predictive pacing back means giving this path the lead pool's
+      // claim-on-answer handling plus an abandoned-call rate cap, not
+      // multiplying the reservation count.
+      const busy = await agentsOnLiveCalls(camp.agents);
+      const attempted = new Set();
 
-      // lines allowed right now = (available agents × ratio) − already ringing
-      let budget = freeStates.length * ratio - inFlight;
-      if (budget <= 0) continue;
+      for (;;) {
+        // Agents still worth offering this campaign's next lead to: never
+        // one we already dialled this pass (that would re-dial an agent we
+        // just released), never one CallRecord says is mid-call.
+        const pool = camp.agents.filter(
+          (id) => !attempted.has(String(id)) && !busy.has(String(id))
+        );
+        if (!pool.length) break;
 
-      for (const st of freeStates) {
-        if (budget <= 0) break;
-        const admin = await Admin.findById(st.agent).select('name surname phone mobile contactNumber role').lean();
+        const claimed = await reserveAgent({ agentIds: pool, campaignId: camp._id });
+        if (!claimed) break; // every agent busy → no line goes out
+
+        attempted.add(String(claimed.agent));
+
+        const admin = await Admin.findById(claimed.agent)
+          .select('name surname phone mobile contactNumber role')
+          .lean();
         // Auto-Dialer is Sales-only — campaigns.js already keeps non-Sales
         // agents out of camp.agents, this is just a belt-and-braces check
         // against anything saved before that guard existed.
-        if (!admin || NON_SALES_ROLES.includes(admin.role)) continue;
+        if (!admin || NON_SALES_ROLES.includes(admin.role)) {
+          await releaseAgent(claimed.agent);
+          continue;
+        }
+
         const r = await this.dialNext({ campaign: camp, agent: admin });
         if (r.ok) {
           advanced++;
-          budget--;
           touched.add(String(camp._id));
-        } else if (/No leads waiting/.test(r.error || '')) {
-          break; // campaign drained
+          continue;
         }
+
+        // The dial never happened, so this agent is still free — give them
+        // straight back rather than leaving them reserved until the reaper.
+        await releaseAgent(claimed.agent);
+        if (/No leads waiting/.test(r.error || '')) break; // campaign drained
       }
     }
 

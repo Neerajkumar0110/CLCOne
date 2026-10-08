@@ -318,8 +318,12 @@ function CampaignForm({ campaign, meta, onClose, onSave }) {
         </div>
       </div>
       <div className="hub-form-row">
-        <label>Dial Ratio (lines per available agent)</label>
-        <input type="number" min={1} max={5} className="hub-input" value={f.dialRatio} onChange={set("dialRatio")} />
+        <label>Dial Pacing</label>
+        <div style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+          Progressive — one call per free agent, handed to whoever has been idle longest. A
+          customer is only dialled once someone is actually ready to talk, and nothing goes out
+          while every agent is busy.
+        </div>
       </div>
       <div className="hub-form-row">
         <label>Assigned Agents</label>

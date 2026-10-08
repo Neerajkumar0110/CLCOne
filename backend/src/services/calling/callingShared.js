@@ -14,6 +14,128 @@ const last10 = (s) => {
 };
 const secs = (from, to) => Math.max(0, Math.round((new Date(to) - new Date(from)) / 1000));
 
+// ── agent capacity / dial pacing ────────────────────────────────────────
+//
+// A CallRecord in any of these states is occupying its agent's one and only
+// line: the customer is being dialled, is ringing, is talking, or is on
+// hold. Anything else (completed / failed / no-answer / …) is over and
+// frees the agent. Every capacity decision in the dialer is phrased in
+// terms of this list, so "busy" can never drift between call-sites.
+const LIVE_CALL_STATUSES = ['dialing', 'ringing', 'connected', 'onhold'];
+
+// An agent's presence row is "occupied" in these states — Ringing covers
+// both a real ringing customer leg and a dial we have reserved them for
+// but not placed yet (see reserveAgent).
+const BUSY_AGENT_STATUSES = ['Ringing', 'OnCall'];
+
+// How long an agent may sit in a reserved/busy presence state with no live
+// call behind it before the reaper frees them. Must stay above the longest
+// plausible customer ring (the stuck-dial sweep uses the same 120s) so a
+// genuinely ringing customer is never cut short.
+const RESERVATION_TTL_MS = 120 * 1000;
+
+// Atomically reserve ONE agent for a dial — the core of the pacing
+// algorithm, and the reason an agent can no longer be handed two calls.
+//
+// The old engine read the list of Available agents and then dialled them in
+// a loop. That is a read-then-write race: tick() runs from the 8s cron job
+// AND on demand from every polled read endpoint, so two ticks would both
+// see "agent X is Available", both pick a (different) lead, and both place
+// a call to the same agent. findOneAndUpdate is atomic per document, so the
+// loser of that race now gets null and dials nothing.
+//
+// `sort: { since: 1 }` hands the call to whoever has been idle longest —
+// the same longest-waiting-agent routing a real ACD uses, and what
+// claimLeadPoolAgent already does on the answer side. Returns the claimed
+// presence row, or null when nobody is free (→ no call goes out at all).
+async function reserveAgent({ agentIds, campaignId }) {
+  if (!agentIds || !agentIds.length) return null;
+  return mongoose.model('AgentCallState').findOneAndUpdate(
+    { agent: { $in: agentIds }, status: 'Available' },
+    {
+      $set: {
+        status: 'Ringing',
+        campaign: campaignId || null,
+        currentCall: null,
+        since: new Date(),
+        lastSeenAt: new Date(),
+      },
+    },
+    { sort: { since: 1 }, new: true }
+  );
+}
+
+// Hand a reserved agent back when the dial never happened (no leads left,
+// provider rejected the call). Guarded on `status: 'Ringing'` so it can
+// never clobber a genuine call that landed in between.
+async function releaseAgent(agentId) {
+  if (!agentId) return;
+  await mongoose.model('AgentCallState').updateOne(
+    { agent: agentId, status: 'Ringing' },
+    { $set: { status: 'Available', currentCall: null, since: new Date(), lastSeenAt: new Date() } }
+  );
+}
+
+// Agents out of these who are already on a live call, by id string.
+//
+// AgentCallState is meant to answer this on its own, but it is written by
+// provider webhooks that can be lost or delayed, and it is per-agent rather
+// than per-call. CallRecord is the ground truth, and it covers calls this
+// campaign cannot see at all — a manual click-to-call, an inbound IVR
+// transfer, another campaign's auto-dial. Checking it keeps the dialer from
+// calling an agent who is demonstrably mid-conversation.
+async function agentsOnLiveCalls(agentIds) {
+  if (!agentIds || !agentIds.length) return new Set();
+  const rows = await mongoose
+    .model('CallRecord')
+    .find({ agent: { $in: agentIds }, removed: false, status: { $in: LIVE_CALL_STATUSES } })
+    .select('agent')
+    .lean();
+  return new Set(rows.map((r) => String(r.agent)));
+}
+
+// Free agents pinned "busy" by a presence row whose call is already over —
+// a reservation whose dial threw before placeCall, or a call whose hangup
+// webhook never arrived. Without this an agent can be parked out of the
+// rotation for the rest of the shift and the dialer will simply never call
+// them again. Only ever releases a row older than RESERVATION_TTL_MS whose
+// currentCall is missing or no longer live, so a live call is never cut.
+async function reapStaleAgentReservations() {
+  const AgentCallState = mongoose.model('AgentCallState');
+  const stale = await AgentCallState.find({
+    status: { $in: BUSY_AGENT_STATUSES },
+    since: { $lte: new Date(Date.now() - RESERVATION_TTL_MS) },
+  })
+    .select('agent currentCall')
+    .limit(200)
+    .lean();
+  if (!stale.length) return 0;
+
+  const callIds = stale.map((s) => s.currentCall).filter(Boolean);
+  const liveIds = callIds.length
+    ? new Set(
+        (
+          await mongoose
+            .model('CallRecord')
+            .find({ _id: { $in: callIds }, removed: false, status: { $in: LIVE_CALL_STATUSES } })
+            .select('_id')
+            .lean()
+        ).map((r) => String(r._id))
+      )
+    : new Set();
+
+  const orphaned = stale
+    .filter((s) => !s.currentCall || !liveIds.has(String(s.currentCall)))
+    .map((s) => s.agent);
+  if (!orphaned.length) return 0;
+
+  const r = await AgentCallState.updateMany(
+    { agent: { $in: orphaned }, status: { $in: BUSY_AGENT_STATUSES } },
+    { $set: { status: 'Available', currentCall: null, since: new Date(), lastSeenAt: new Date() } }
+  );
+  return r.modifiedCount || 0;
+}
+
 // Push a patch onto an agent's live presence row (upsert).
 async function setAgent(agentId, patch) {
   if (!agentId) return;
@@ -145,18 +267,9 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
   const d = dispositionCode && BY_CODE[dispositionCode];
   let stage, subStatus;
   if (d) {
-    if (d.category === 'sale' || d.category === 'callback') {
-      stage = 'Interested';
-      subStatus = 'Workshop Prospect';
-    } else if (d.code === 'WRONG_NUMBER') {
-      stage = 'Invalid';
-      subStatus = 'Wrong Number';
-    } else {
-      // not-interested / no-contact (other than wrong number) / dnc — none
-      // of these have a dedicated Lead stage, "Not Interested" is closest.
-      stage = 'Not Interested';
-      subStatus = 'Price Too High';
-    }
+    // dispositions.js owns the outcome → (stage, subStatus) mapping so the
+    // auto-dialer here and the agent's in-call modal can never drift apart.
+    ({ stage, subStatus } = d.crmStage);
   } else if (rawOutcome === 'connected') {
     stage = 'Contacted';
     subStatus = 'First Contact Done';
@@ -294,14 +407,55 @@ function withinCallingHours(campaign, now = new Date()) {
   return start <= end ? mins >= start && mins <= end : mins >= start || mins <= end;
 }
 
+// Dispatches real-time call event to the agent's screen via Socket.IO
+async function notifyAgentCallEvent(agentId, event, callRecord) {
+  if (!agentId || !callRecord) return;
+  try {
+    const { emitCallToAgent } = require('../../socket');
+    const CallLead = mongoose.model('CallLead');
+    const Lead = mongoose.model('Lead');
+
+    const lead = callRecord.callLead
+      ? await CallLead.findById(callRecord.callLead).lean()
+      : null;
+
+    let crmLead = null;
+    if (lead && lead.crmLead) {
+      crmLead = await Lead.findById(lead.crmLead).lean();
+    } else if (callRecord.phone) {
+      const norm = String(callRecord.phone).replace(/[^\d]/g, '').slice(-10);
+      if (norm) {
+        crmLead = await Lead.findOne({ phoneNormalized: norm, removed: false }).lean();
+      }
+    }
+
+    emitCallToAgent(agentId, event, {
+      call: callRecord.toObject ? callRecord.toObject() : callRecord,
+      lead,
+      crmLead,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[calling] notifyAgentCallEvent error:', err.message);
+  }
+}
+
 module.exports = {
   digitsOnly,
   last10,
   secs,
+  LIVE_CALL_STATUSES,
+  BUSY_AGENT_STATUSES,
+  RESERVATION_TTL_MS,
+  reserveAgent,
+  releaseAgent,
+  agentsOnLiveCalls,
+  reapStaleAgentReservations,
   setAgent,
   wrapupAgent,
   resolveLead,
   recountCampaign,
   withinCallingHours,
   getOrCreateLeadPoolCampaign,
+  notifyAgentCallEvent,
 };

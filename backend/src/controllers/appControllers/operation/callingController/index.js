@@ -39,6 +39,7 @@ module.exports = {
   agentTransfer: agentActions.transfer,
   agentDisposition: agentActions.disposition,
   agentScheduleCallback: agentActions.scheduleCallback,
+  agentLogDetails: agentActions.logDetails,
 
   manualDial: manualDial.dial,
   manualEnd: manualDial.end,

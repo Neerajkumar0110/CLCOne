@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { callingConfig } = require('../../../../config/calling');
-const { setAgent, wrapupAgent, resolveLead, recountCampaign } = require('../../../../services/calling/callingShared');
+const { setAgent, wrapupAgent, resolveLead, recountCampaign, notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
 
 // POST /api/cloud-call/webhook — call-status + IVR callbacks from the cloud
 // calling provider (Plivo).
@@ -257,9 +257,13 @@ const cloudWebhook = async (req, res) => {
 
   if (rec.agent && nowConnected) {
     await setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id });
+    await notifyAgentCallEvent(rec.agent, 'call:connected', rec);
   }
   if (nowDone) {
-    if (rec.agent) await wrapupAgent(rec);
+    if (rec.agent) {
+      await wrapupAgent(rec);
+      await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
+    }
     await resolveLead(
       rec,
       rec.disposition,

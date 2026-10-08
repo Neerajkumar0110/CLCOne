@@ -310,11 +310,17 @@ const plivoAnswer = async (req, res) => {
   if (leg === 'agent') {
     if (!crmCallId || !mongoose.isValidObjectId(crmCallId)) return respondXml(res, '<Response><Hangup/></Response>');
     const CallRecord = mongoose.model('CallRecord');
-    const rec = await CallRecord.findOne({ _id: crmCallId, removed: false }).select('providerCallId').lean();
-    if (rec && rec.providerCallId) {
-      interruptGreeting({ cfg, liveCallUuid: rec.providerCallId, crmCallId, secretQs }).catch((err) =>
-        console.error('[plivoAnswer] failed to interrupt greeting:', err.message)
-      );
+    const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
+    if (rec) {
+      if (rec.agent) {
+        const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
+        notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
+      }
+      if (rec.providerCallId) {
+        interruptGreeting({ cfg, liveCallUuid: rec.providerCallId, crmCallId, secretQs }).catch((err) =>
+          console.error('[plivoAnswer] failed to interrupt greeting:', err.message)
+        );
+      }
     }
     const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
     return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl, false)}</Response>`);

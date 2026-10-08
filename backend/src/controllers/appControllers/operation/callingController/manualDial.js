@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { getProvider } = require('../../../../services/calling');
-const { last10 } = require('../../../../services/calling/callingShared');
+const { last10, notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
 
 // "Call this lead" from a lead row / the agent screen.
 //
@@ -86,6 +86,8 @@ const dial = async (req, res) => {
     providerCallId: `manual-${now.getTime()}`,
   }).save();
 
+  await notifyAgentCallEvent(req.admin._id, 'call:connected', rec);
+
   return res.status(200).json({
     success: true,
     result: { record: rec, tel: `tel:${digits(b.phone)}` },
@@ -144,6 +146,8 @@ const end = async (req, res) => {
       );
     }
   }
+
+  await notifyAgentCallEvent(req.admin._id, 'call:ended', rec);
 
   return res.status(200).json({ success: true, result: rec, message: 'Call logged' });
 };

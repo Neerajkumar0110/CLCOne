@@ -162,6 +162,17 @@ function emitLmsToUsers(userIds, event, payload) {
   for (const id of [].concat(userIds)) io.to(`user:${String(id)}`).emit(event, payload);
 }
 
+// Telephony real-time (services/calling) — emits directly to the agent's room
+function emitCallToAgent(agentId, event, payload) {
+  if (!io || !agentId) return;
+  io.to(`user:${String(agentId)}`).emit(event, payload);
+}
+
+function emitCallBroadcast(event, payload) {
+  if (!io) return;
+  io.emit(event, payload);
+}
+
 module.exports = {
   initSocket,
   emitMessage,
@@ -173,5 +184,7 @@ module.exports = {
   // read as an LMS-only API despite sharing the implementation.
   emitBroadcast: emitLmsBroadcast,
   emitLmsToUsers,
+  emitCallToAgent,
+  emitCallBroadcast,
   getOnlineUserIds,
 };

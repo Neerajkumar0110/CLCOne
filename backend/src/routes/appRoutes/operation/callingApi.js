@@ -55,6 +55,7 @@ router.route('/agent/call/:id/hangup').post(catchErrors(c.agentHangup));
 router.route('/agent/call/:id/transfer').post(catchErrors(c.agentTransfer));
 router.route('/agent/call/:id/disposition').post(catchErrors(c.agentDisposition));
 router.route('/agent/call/:id/callback').post(catchErrors(c.agentScheduleCallback));
+router.route('/agent/call/:id/log-details').post(catchErrors(c.agentLogDetails));
 
 // ── click-to-call (device-originated, no server) ───────────────────────
 router.route('/manual/dial').post(catchErrors(c.manualDial));
