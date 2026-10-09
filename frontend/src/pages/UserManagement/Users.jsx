@@ -1152,18 +1152,6 @@ export default function Users({
     await loadUsers();
   };
 
-  // One-click "spin up a team for this Team Leader, with them as lead" —
-  // right in their row, instead of the old two-step dance (create a
-  // leaderless team from the generic button up top, then separately edit
-  // this Team Leader to attach them as its lead). Reuses the exact same
-  // create-with-lead path the Add User flow's "+ Create New Team" option
-  // already takes (see useTeams().assignUserToTeam's NEW_TEAM branch).
-  const createTeamFor = async (user) => {
-    const name = window.prompt(`Team name for ${user.name}:`, `${user.name}'s Team`);
-    if (!name || !name.trim()) return;
-    await onAssignTeam(user.name, NEW_TEAM, name.trim());
-  };
-
   // Soft delete (DELETE /api/admin/delete/:id) — the user stops showing here
   // but stays visible, and restorable, under the "Deleted Users" tab.
   const deleteUser = async (user) => {
@@ -1317,8 +1305,8 @@ export default function Users({
                             type="button"
                             className="hub-btn"
                             style={{ whiteSpace: "nowrap" }}
-                            title={`Create a team with ${u.name} as lead`}
-                            onClick={() => createTeamFor(u)}
+                            title="Create a team — opens the same Teams panel as the button up top"
+                            onClick={() => setTeamsOpen(true)}
                           >
                             <TeamOutlined /> Create Team
                           </button>
