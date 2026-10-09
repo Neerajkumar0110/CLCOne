@@ -96,11 +96,26 @@ const summary = async (req, res) => {
   const rawClients = await hydrateClientAndAdmin(rawClientsUnhydrated, { adminSelect: 'name' });
   const clients = rawClients.filter((c) => inScope(c.createdBy?.name));
 
-  const agentNames = scopeAgent
-    ? [scopeAgent]
-    : scopeTeam
-    ? allTeams.find((t) => t.name === scopeTeam)?.members || []
-    : [...new Set(allTeams.flatMap((t) => t.members))];
+  // Default (no team/agent filter) is queried straight from Admin by role
+  // rather than flattened Team membership — Team Manager/Sales Manager have
+  // no Team concept at all, and plenty of real Sales people are never added
+  // to a Team doc now that the real hierarchy lives on Admin.reportsTo (see
+  // services/access/salesHierarchy.js) — flattening Team.members alone
+  // silently dropped them from this report and its Individual picker.
+  let agentNames;
+  if (scopeAgent) {
+    agentNames = [scopeAgent];
+  } else if (scopeTeam) {
+    agentNames = allTeams.find((t) => t.name === scopeTeam)?.members || [];
+  } else {
+    const allSalesAdmins = await Admin.find({
+      role: { $in: require('../../../../config/roles').SALES_ROLES },
+      removed: false,
+    })
+      .select('name')
+      .lean();
+    agentNames = allSalesAdmins.map((a) => a.name);
+  }
 
   const teamForAgent = (name) => allTeams.find((t) => t.members.includes(name)) || null;
 
@@ -192,6 +207,11 @@ const summary = async (req, res) => {
       filters: {
         teams: isManagement ? allTeams.map((t) => t.name) : myTeam ? [myTeam.name] : [],
         agents: agentNames,
+        // Org-chart tree for the Individual picker (see services/access/
+        // salesHierarchy.js's buildOrgTree) — selecting a non-leaf person
+        // (e.g. a Team Leader) in the frontend expands to that person +
+        // everyone reporting up to them, not just their own single row.
+        orgTree: isManagement ? await require('../../../../services/access/salesHierarchy').buildOrgTree() : [],
       },
       totals: {
         ...totals,

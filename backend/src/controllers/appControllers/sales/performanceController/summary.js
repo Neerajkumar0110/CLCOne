@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { resolveHierarchyScope, FULL_ACCESS_ROLES } = require('../../../../services/access/salesHierarchy');
+const { resolveHierarchyScope, namesForAgent, FULL_ACCESS_ROLES } = require('../../../../services/access/salesHierarchy');
 const { hydrateClientAndAdmin } = require('../../../../services/finance/hydrateClientAndAdmin');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
@@ -69,7 +69,14 @@ const summary = async (req, res) => {
 
   if (isManagement) {
     scopeTeam = req.query.team || null;
-    scopeAgent = req.query.agent || null;
+    if (req.query.agent) {
+      // "View as <name>" — not just that one person's own row, but their
+      // own hierarchy scope (self + everyone reporting up to them). A leaf
+      // (no reports) naturally resolves to just themselves, so this is a
+      // strict upgrade over the old literal-name match, never a narrowing.
+      scopeAgent = req.query.agent; // kept for the response's scope.agent display only
+      scopeNames = await namesForAgent(req.query.agent);
+    }
   } else if (hierarchy.legacy) {
     if (myTeam) {
       scopeTeam = myTeam.name; // team-wide — naturally includes their own rows
@@ -105,9 +112,14 @@ const summary = async (req, res) => {
   const payments = rawPayments.filter((p) => {
     const name = p.createdBy?.name;
     if (!name) return false;
+    // nameSet (hierarchy-resolved) takes priority over the literal scopeAgent
+    // match — when a management caller picks an individual, scopeAgent is
+    // set only for the response's display label now; the real filter is
+    // always nameSet. scopeAgent alone (no nameSet) only ever means the
+    // legacy "no team, self only" case.
+    if (nameSet) return nameSet.has(name);
     if (scopeAgent) return name === scopeAgent;
     if (scopeTeam) return memberSet.has(name);
-    if (nameSet) return nameSet.has(name);
     return true; // management, no team/agent filter — every payment is in scope
   });
 
@@ -121,12 +133,14 @@ const summary = async (req, res) => {
   // Admin.reportsTo — flattening Team.members alone silently dropped them
   // from the default (no-filter) agent list and the Person picker.
   let agentNames;
-  if (scopeAgent) {
+  if (scopeNames) {
+    // Hierarchy-resolved — either a non-management caller's own chain, or a
+    // management caller's "view as <name>" individual pick (see above).
+    agentNames = scopeNames;
+  } else if (scopeAgent) {
     agentNames = [scopeAgent];
   } else if (scopeTeam) {
     agentNames = allTeams.find((t) => t.name === scopeTeam)?.members || [];
-  } else if (scopeNames) {
-    agentNames = scopeNames;
   } else if (isManagement) {
     const allSalesAdmins = await Admin.find({
       role: { $in: require('../../../../config/roles').SALES_ROLES },

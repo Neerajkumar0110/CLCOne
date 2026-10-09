@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { TreeSelect } from "antd";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
 import { request } from "@/request";
+import { orgTreeToTreeData, namesInSubtree } from "@/utils/orgTree";
+import { roleDisplay } from "@/pages/UserManagement/Users";
 import {
   DashboardOutlined,
   CustomerServiceOutlined,
@@ -67,6 +70,46 @@ function avgSecPerCall(a) {
   return a.calls ? Math.round((a.talkMinutes * 60) / a.calls) : 0;
 }
 
+// Fetched once, shared by every tab's Individual picker — the sales
+// org-chart tree (see backend's services/access/salesHierarchy.js).
+function useOrgTree() {
+  const [tree, setTree] = useState([]);
+  useEffect(() => {
+    request.get({ entity: "performance/org-tree" }).then((res) => {
+      if (res?.success) setTree(res.result);
+    });
+  }, []);
+  return tree;
+}
+
+// Collapses multiple agent rows (a person + everyone reporting up to them —
+// see utils/orgTree.js's namesInSubtree) into one combined row, same shape
+// as a single `agents[]` entry, so "Individual" mode can show a Team
+// Leader's whole team without every call site needing its own summing logic.
+function aggregateAgentRows(rows) {
+  if (rows.length === 1) return rows[0];
+  const sum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
+  const calls = sum("calls");
+  const connected = sum("connected");
+  const talkMinutes = sum("talkMinutes");
+  return {
+    name: rows[0] ? `${rows[0].name}${rows.length > 1 ? ` + ${rows.length - 1} more` : ""}` : "",
+    team: rows[0]?.team || null,
+    color: rows[0]?.color || "#2563EB",
+    calls,
+    connected,
+    connectRatePct: calls ? Math.round((connected / calls) * 100) : 0,
+    talkMinutes,
+    longestCallSec: rows.reduce((m, r) => Math.max(m, r.longestCallSec || 0), 0),
+    customers: sum("customers"),
+    deals: sum("deals"),
+    revenue: sum("revenue"),
+    invoices: sum("invoices"),
+    taxCollected: sum("taxCollected"),
+    messages: sum("messages"),
+  };
+}
+
 function downloadCsv(filename, rows) {
   const csv = rows
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -128,6 +171,7 @@ function NumberLookup() {
   const [count, setCount] = useState(0);
   const [browseCalls, setBrowseCalls] = useState([]);
   const [browseLoading, setBrowseLoading] = useState(true);
+  const orgTree = useOrgTree();
 
   const { data } = useReportSummary({ range: "1Y", team: "all" });
   const teams = data?.filters?.teams || [];
@@ -136,6 +180,13 @@ function NumberLookup() {
   useEffect(() => {
     if (!individualAgent && allAgents.length) setIndividualAgent(allAgents[0]);
   }, [allAgents, individualAgent]);
+
+  // "View as <name>" — see TalkTimeReport's identical comment. Sent to the
+  // backend as a comma-separated list (see callController/list.js).
+  const individualNames = useMemo(
+    () => namesInSubtree(orgTree, individualAgent),
+    [orgTree, individualAgent]
+  );
 
   const numberSelected = searched && !searched.notFound;
 
@@ -158,7 +209,7 @@ function NumberLookup() {
   const loadBrowsePage = async (targetPage) => {
     setBrowseLoading(true);
     const options = { page: targetPage, items: 10, range };
-    if (mode === "individual" && individualAgent) options.calledBy = individualAgent;
+    if (mode === "individual" && individualAgent) options.calledBy = individualNames.join(",");
     else if (teamFilter !== "all") options.team = teamFilter;
     if (statusFilter !== "All") options.status = statusFilter;
     const res = await request.list({ entity: "call", options });
@@ -258,11 +309,16 @@ function NumberLookup() {
                     ))}
                   </select>
                 ) : (
-                  <select className="hub-select" value={individualAgent} onChange={(e) => { setIndividualAgent(e.target.value); setPage(1); }}>
-                    {allAgents.map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
+                  <TreeSelect
+                    className="hub-select"
+                    style={{ minWidth: 200 }}
+                    value={individualAgent || undefined}
+                    placeholder="Pick a person"
+                    showSearch
+                    treeNodeFilterProp="title"
+                    treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+                    onChange={(v) => { setIndividualAgent(v); setPage(1); }}
+                  />
                 )}
 
                 <select className="hub-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
@@ -444,6 +500,7 @@ function Overview360() {
   const [mode, setMode] = useState("team");
   const [teamFilter, setTeamFilter] = useState("all");
   const [selectedAgent, setSelectedAgent] = useState("");
+  const orgTree = useOrgTree();
 
   const { data, loading } = useReportSummary({ range, team: teamFilter });
   const filteredAgents = data?.agents || [];
@@ -457,7 +514,16 @@ function Overview360() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredAgents]);
 
-  const agent = filteredAgents.find((a) => a.name === selectedAgent) ?? filteredAgents[0];
+  // "View as <name>" — a Team Leader etc. expands to themselves + everyone
+  // reporting up to them (see utils/orgTree.js's namesInSubtree), combined
+  // into one KPI row (aggregateAgentRows) — a leaf naturally resolves to
+  // just their own single row, same as before.
+  const individualNames = useMemo(
+    () => new Set(namesInSubtree(orgTree, selectedAgent)),
+    [orgTree, selectedAgent]
+  );
+  const individualRows = filteredAgents.filter((a) => individualNames.has(a.name));
+  const agent = individualRows.length ? aggregateAgentRows(individualRows) : null;
 
   // Each team's own separate report — used for the "All Teams" comparison
   // table. One /report/summary call per team, scoped server-side exactly
@@ -474,10 +540,10 @@ function Overview360() {
   }, [teamFilter, teams.join(","), range]);
 
   const kpiSource = mode === "team" ? totals : (agent || totals);
-  const rows = mode === "team" ? filteredAgents : (agent ? [agent] : []);
+  const rows = mode === "team" ? filteredAgents : individualRows;
   const moduleCtx = { mode, agent, kpiSource, agentCount: filteredAgents.length, totals };
   const showAllTeamsReport = mode === "team" && teamFilter === "all";
-  const scopeLabel = mode === "team" ? (teamFilter === "all" ? "All Teams" : teamFilter) : agent?.name;
+  const scopeLabel = mode === "team" ? (teamFilter === "all" ? "All Teams" : teamFilter) : (selectedAgent || "—");
 
   const handleDownload = () => {
     if (showAllTeamsReport) {
@@ -522,9 +588,16 @@ function Overview360() {
             </select>
 
             {mode === "individual" && (
-              <select className="hub-select" value={agent?.name ?? ""} onChange={(e) => setSelectedAgent(e.target.value)}>
-                {filteredAgents.map((a) => <option key={a.name} value={a.name}>{a.name} · {a.team}</option>)}
-              </select>
+              <TreeSelect
+                className="hub-select"
+                style={{ minWidth: 220 }}
+                value={selectedAgent || undefined}
+                placeholder="Pick a person"
+                showSearch
+                treeNodeFilterProp="title"
+                treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+                onChange={(v) => setSelectedAgent(v)}
+              />
             )}
 
             <select className="hub-select" value={range} onChange={(e) => setRange(e.target.value)}>
@@ -740,7 +813,7 @@ function Overview360() {
    Shared Team/Individual + team filter toolbar
 ========================================================= */
 
-function ScopeToolbar({ mode, setMode, teamFilter, setTeamFilter, teams, agentOptions, individualAgent, setIndividualAgent, range, setRange, onDownload }) {
+function ScopeToolbar({ mode, setMode, teamFilter, setTeamFilter, teams, orgTree, individualAgent, setIndividualAgent, range, setRange, onDownload }) {
   return (
     <div className="hub-row" style={{ gap: 10, flexWrap: "wrap" }}>
       <div className="hub-pill-filter">
@@ -758,9 +831,16 @@ function ScopeToolbar({ mode, setMode, teamFilter, setTeamFilter, teams, agentOp
       </select>
 
       {mode === "individual" && (
-        <select className="hub-select" value={individualAgent} onChange={(e) => setIndividualAgent(e.target.value)}>
-          {agentOptions.map((a) => <option key={a.name} value={a.name}>{a.name} · {a.team}</option>)}
-        </select>
+        <TreeSelect
+          className="hub-select"
+          style={{ minWidth: 220 }}
+          value={individualAgent || undefined}
+          placeholder="Pick a person"
+          showSearch
+          treeNodeFilterProp="title"
+          treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+          onChange={(v) => setIndividualAgent(v)}
+        />
       )}
 
       {range !== undefined && (
@@ -787,6 +867,7 @@ function TalkTimeReport() {
   const [mode, setMode] = useState("team");
   const [teamFilter, setTeamFilter] = useState("all");
   const [individualAgent, setIndividualAgent] = useState("");
+  const orgTree = useOrgTree();
 
   const { data, loading } = useReportSummary({ range, team: teamFilter });
   const teamScoped = data?.agents || [];
@@ -800,14 +881,21 @@ function TalkTimeReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamScoped]);
 
-  const rows = mode === "individual" ? teamScoped.filter((a) => a.name === individualAgent) : teamScoped;
+  // "View as <name>" — a Team Leader etc. expands to themselves + everyone
+  // reporting up to them (see utils/orgTree.js's namesInSubtree), not just
+  // their own single row; a leaf naturally resolves to just themselves.
+  const individualNames = useMemo(
+    () => new Set(namesInSubtree(orgTree, individualAgent)),
+    [orgTree, individualAgent]
+  );
+  const rows = mode === "individual" ? teamScoped.filter((a) => individualNames.has(a.name)) : teamScoped;
 
   const totalMinutes = rows.reduce((sum, a) => sum + a.talkMinutes, 0);
   const totalCalls = rows.reduce((sum, a) => sum + a.calls, 0);
   const longestSec = rows.length ? Math.max(...rows.map((a) => a.longestCallSec)) : 0;
   const avgPerCallSec = totalCalls ? Math.round((totalMinutes * 60) / totalCalls) : 0;
 
-  const scopeLabel = mode === "individual" ? (rows[0]?.name ?? "—") : teamFilter === "all" ? "All Teams" : teamFilter;
+  const scopeLabel = mode === "individual" ? (individualAgent || "—") : teamFilter === "all" ? "All Teams" : teamFilter;
 
   const handleDownload = () => {
     downloadCsv(
@@ -833,7 +921,7 @@ function TalkTimeReport() {
           mode={mode} setMode={setMode}
           teamFilter={teamFilter} setTeamFilter={setTeamFilter}
           teams={teams}
-          agentOptions={teamScoped}
+          orgTree={orgTree}
           individualAgent={individualAgent} setIndividualAgent={setIndividualAgent}
           range={range} setRange={setRange}
           onDownload={handleDownload}
@@ -928,6 +1016,7 @@ function UserCallReport() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [individualAgent, setIndividualAgent] = useState("");
   const [query, setQuery] = useState("");
+  const orgTree = useOrgTree();
 
   const { data, loading } = useReportSummary({ range, team: teamFilter });
   const teamScoped = data?.agents || [];
@@ -940,7 +1029,12 @@ function UserCallReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamScoped]);
 
-  const scoped = mode === "individual" ? teamScoped.filter((a) => a.name === individualAgent) : teamScoped;
+  // "View as <name>" — see TalkTimeReport's identical comment.
+  const individualNames = useMemo(
+    () => new Set(namesInSubtree(orgTree, individualAgent)),
+    [orgTree, individualAgent]
+  );
+  const scoped = mode === "individual" ? teamScoped.filter((a) => individualNames.has(a.name)) : teamScoped;
   const filtered = scoped.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
 
   const handleDownload = () => {
@@ -966,7 +1060,7 @@ function UserCallReport() {
             mode={mode} setMode={setMode}
             teamFilter={teamFilter} setTeamFilter={setTeamFilter}
             teams={teams}
-            agentOptions={teamScoped}
+            orgTree={orgTree}
             individualAgent={individualAgent} setIndividualAgent={setIndividualAgent}
             range={range} setRange={setRange}
             onDownload={handleDownload}

@@ -126,4 +126,29 @@ async function buildOrgTree() {
   return roots;
 }
 
-module.exports = { resolveHierarchyScope, getDescendantIds, roleDepth, buildOrgTree, FULL_ACCESS_ROLES };
+// "View as <name>" — resolves a person's NAME (as picked from an Individual
+// filter) to their own hierarchy scope: themselves + everyone reporting up
+// to them, however many levels deep. A leaf (e.g. a Sales Intern with no
+// reports) naturally resolves to just their own name, same as before — so a
+// full-access caller picking ANY individual (not just a leaf) now sees that
+// person's own view instead of a single isolated row. Falls back to the
+// literal name if it doesn't match a real Admin (never crashes a filter on
+// stale/typo'd data).
+async function namesForAgent(agentName) {
+  if (!agentName) return null;
+  const Admin = mongoose.model('Admin');
+  const admin = await Admin.findOne({ name: agentName, removed: false }).select('_id').lean();
+  if (!admin) return [agentName];
+  const ids = await getDescendantIds(admin._id);
+  const people = await Admin.find({ _id: { $in: ids }, removed: false }).select('name').lean();
+  return people.map((p) => p.name);
+}
+
+module.exports = {
+  resolveHierarchyScope,
+  getDescendantIds,
+  roleDepth,
+  buildOrgTree,
+  namesForAgent,
+  FULL_ACCESS_ROLES,
+};

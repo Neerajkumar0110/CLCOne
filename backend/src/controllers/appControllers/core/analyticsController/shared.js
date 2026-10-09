@@ -171,10 +171,19 @@ async function resolveDashboardScope(req) {
   const admin = req && req.admin;
   const base = await resolveIdentityScope(admin);
   if (base.isFullAccess) {
+    const agentRaw = (req.query && req.query.agent) || null;
+    // "View as <name>" — a full-access caller picking one individual sees
+    // that person's own sales-hierarchy scope (self + everyone reporting up
+    // to them, see services/access/salesHierarchy.js), not just their single
+    // row. A leaf (no reports) naturally resolves to just themselves.
+    const agentNames = agentRaw
+      ? await require('../../../../services/access/salesHierarchy').namesForAgent(agentRaw)
+      : null;
     return {
       isFullAccess: true,
       team: (req.query && req.query.team) || null,
-      agent: (req.query && req.query.agent) || null,
+      agent: agentRaw,
+      agentNames,
       teamMemberNames: null,
     };
   }
@@ -182,6 +191,7 @@ async function resolveDashboardScope(req) {
     isFullAccess: false,
     team: base.teamName,
     agent: base.teamName ? null : admin.name,
+    agentNames: null,
     teamMemberNames: base.teamMemberNames,
   };
 }
@@ -229,7 +239,12 @@ async function scopeFacets(scope) {
 // against Admin.name (SalesDeal/SalesOrder/SalesQuote/Student's owner /
 // counselor fields) — no `team` field of its own to filter on directly.
 function ownerScopeFilter(scope, field) {
-  if (scope.isFullAccess) return scope.agent ? { [field]: scope.agent } : {};
+  if (scope.isFullAccess) {
+    // scope.agentNames (hierarchy-resolved "view as" set) takes priority
+    // over the raw scope.agent literal — see resolveDashboardScope's comment.
+    if (scope.agentNames) return { [field]: { $in: scope.agentNames } };
+    return scope.agent ? { [field]: scope.agent } : {};
+  }
   if (scope.team && scope.teamMemberNames) return { [field]: { $in: scope.teamMemberNames } };
   return { [field]: scope.agent };
 }
@@ -240,7 +255,10 @@ function teamFieldScopeFilter(scope, teamField, ownerField) {
   if (scope.isFullAccess) {
     const f = {};
     if (scope.team) f[teamField] = scope.team;
-    if (scope.agent && ownerField) f[ownerField] = scope.agent;
+    // scope.agentNames (hierarchy-resolved "view as" set) takes priority
+    // over the raw scope.agent literal — see resolveDashboardScope's comment.
+    if (scope.agentNames && ownerField) f[ownerField] = { $in: scope.agentNames };
+    else if (scope.agent && ownerField) f[ownerField] = scope.agent;
     return f;
   }
   // Prefer matching the individual-owner field against the real team

@@ -15,7 +15,14 @@ const list = async (req, res) => {
 
   const match = { removed: false };
   if (req.query.team) match.team = req.query.team;
-  if (req.query.calledBy) match.calledBy = req.query.calledBy;
+  // "View as <name>" — Number Lookup's Individual picker sends a
+  // comma-separated list (that person + everyone reporting up to them, see
+  // frontend/src/utils/orgTree.js's namesInSubtree) instead of just one
+  // literal name, same semantic as the hierarchy-aware pages.
+  if (req.query.calledBy) {
+    const names = String(req.query.calledBy).split(',').map((n) => n.trim()).filter(Boolean);
+    match.calledBy = names.length > 1 ? { $in: names } : names[0];
+  }
   if (req.query.status) match.status = req.query.status;
   if (RANGE_DAYS[req.query.range]) {
     match.created = { $gte: new Date(Date.now() - RANGE_DAYS[req.query.range] * 24 * 60 * 60 * 1000) };
