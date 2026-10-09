@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('../../../config/roles');
+const { CRM_ADMIN_ROLES } = require('../../../config/roles');
 
 // Admin settings for the saved per-platform ad templates autoLaunchCampaign.js
 // uses — see that file's header comment for the full picture. Reading is
 // open to any logged-in admin (so a non-manager can at least see what's
 // configured); saving/uploading is manager-only since it's what actually
-// controls real ad spend.
-const isManager = (a) => !!(a && MANAGEMENT_ROLES.includes(a.role));
+// controls real ad spend. Marketing, not Sales — built from CRM_ADMIN_ROLES,
+// not MANAGEMENT_ROLES, so Sales Manager (no Marketing access) can't touch it.
+const isManager = (a) => !!(a && CRM_ADMIN_ROLES.includes(a.role));
 
 const PLATFORMS = ['facebook', 'google', 'linkedin'];
 

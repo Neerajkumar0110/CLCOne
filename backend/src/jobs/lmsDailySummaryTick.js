@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const mailer = require('../services/lms/mailer');
-const { MANAGEMENT_ROLES, SUPER_ADMIN_ROLES } = require('../config/roles');
+const { CRM_ADMIN_ROLES } = require('../config/roles');
 
 // Spec §12 "Attendance/admin reporting dependent on manual sheets" — a
 // real-time dashboard + CSV/XLSX export already exist (liveScope.js's
@@ -113,8 +113,9 @@ function summaryHtml(s) {
 async function sendSummary() {
   if (!mailer.ready()) return;
   const Admin = mongoose.model('Admin');
-  const roles = [...new Set([...MANAGEMENT_ROLES, ...SUPER_ADMIN_ROLES])];
-  const recipients = await Admin.find({ removed: false, enabled: true, role: { $in: roles } }).select('email').lean();
+  // LMS/attendance/finance ops summary — true CRM admins only, not Sales
+  // Manager (she has no LMS access, see CRM_ADMIN_ROLES's comment).
+  const recipients = await Admin.find({ removed: false, enabled: true, role: { $in: CRM_ADMIN_ROLES } }).select('email').lean();
   const emails = recipients.map((r) => r.email).filter(Boolean);
   if (!emails.length) return;
 

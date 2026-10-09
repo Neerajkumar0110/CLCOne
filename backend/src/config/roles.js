@@ -36,24 +36,38 @@ const SUPER_ADMIN_ROLES = ['owner', 'Super Admin'];
 const ADMIN_CREATOR_ROLES = SUPER_ADMIN_ROLES;
 const STAFF_CREATOR_ROLES = [...SUPER_ADMIN_ROLES, 'Admin'];
 
-// Roles that see company-wide data in Dashboard/Performance by default, and
-// may narrow it down with team/agent filters. Everyone else is force-scoped
-// server-side to their own team (or just themselves, if not on one).
-// Mirrors frontend's FULL_ACCESS_ROLES (frontend/src/config/permissionModules.js)
-// — the two can't share a literal import across packages, keep in sync by hand.
-const MANAGEMENT_ROLES = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+// True CRM admins only — owner/Super Admin/Admin. Use this (not
+// MANAGEMENT_ROLES below) for anything outside the Sales module: LMS/HRMS/
+// Finance/Marketing admin bypasses, company-wide admin notifications, etc.
+// 'Sales Manager' is deliberately excluded — she gets full visibility across
+// every Sales person's data (that's what MANAGEMENT_ROLES below is for), but
+// is NOT a general CRM admin; frontend/src/config/permissionModules.js's
+// FULL_ACCESS_ROLES mirrors this same split (see its comment).
+const CRM_ADMIN_ROLES = ['owner', 'Super Admin', 'Admin'];
 
-// MANAGEMENT_ROLES, plus 'Support' — every LMS controller/service's local
+// CRM_ADMIN_ROLES plus 'Sales Manager' — roles that see company-wide SALES
+// data in Dashboard/Performance by default, and may narrow it down with
+// team/agent/role filters. Everyone else is force-scoped server-side to
+// their own sales-hierarchy chain (see services/access/salesHierarchy.js) or
+// team (or just themselves, if on neither). Only ever use this for
+// Sales-module scoping — for anything outside Sales, use CRM_ADMIN_ROLES
+// instead (see its comment); the two used to be the same list, which is how
+// Sales Manager ended up with blanket LMS/Finance/Marketing access it was
+// never meant to have.
+const MANAGEMENT_ROLES = [...CRM_ADMIN_ROLES, 'Sales Manager'];
+
+// CRM_ADMIN_ROLES, plus 'Support' — every LMS controller/service's local
 // "isManager" admin-access check should be built from this instead, not
-// MANAGEMENT_ROLES directly. Support has full view/edit/delete on the LMS
+// CRM_ADMIN_ROLES directly. Support has full view/edit/delete on the LMS
 // permission module (frontend/src/config/permissionModules.js,
 // defaultPermissionMatrix.js), same as Admin — but that matrix only gates
 // the sidebar/route entry; every individual LMS feature (Policies,
 // Certificates, Curriculum, Quizzes, Assignments, Projects, Study Material,
 // Doubts, Recordings, Attendance, Learner 360, Analytics, batch roster
-// management, …) separately re-checks role against MANAGEMENT_ROLES in its
-// own controller, which silently excluded Support until this was added.
-const LMS_FULL_ACCESS_ROLES = [...MANAGEMENT_ROLES, 'Support'];
+// management, …) separately re-checks role against this list in its own
+// controller. Deliberately NOT built from MANAGEMENT_ROLES — Sales Manager
+// has no LMS access (see CRM_ADMIN_ROLES's comment).
+const LMS_FULL_ACCESS_ROLES = [...CRM_ADMIN_ROLES, 'Support'];
 
 // Roles outside the core Sales/CRM pipeline. The Auto-Dialer is a Sales-only
 // tool — a campaign may never dial out through, or be worked by, one of
@@ -92,6 +106,7 @@ module.exports = {
   SUPER_ADMIN_ROLES,
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
+  CRM_ADMIN_ROLES,
   MANAGEMENT_ROLES,
   LMS_FULL_ACCESS_ROLES,
   NON_SALES_ROLES,

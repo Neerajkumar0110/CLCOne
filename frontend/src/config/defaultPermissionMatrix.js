@@ -4,6 +4,14 @@ import { PERMISSION_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModule
 const LEAD_TIER_ROLES = ["Team Manager", "Team Leader"];
 // Individual-contributor roles — restricted to the modules they work in day to day.
 const FRONTLINE_ROLES = ["Senior Executive", "Executive", "Sales Intern"];
+// Sales department head — full visibility across the whole sales org chart
+// (enforced server-side, see MANAGEMENT_ROLES in salesHierarchy.js/
+// salesScope.js/performanceController.js), but scoped to Sales-relevant
+// modules only, same spirit as FRONTLINE_ROLES — plus User Management, since
+// she's the one expected to add Sales hires and set up their "Reports To"
+// chain. NOT the same as a true CRM admin (owner/Super Admin/Admin): no
+// LMS/HRMS/Finance/Marketing/Operations access.
+const SALES_MANAGER_MODULES = ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance", "User Management"];
 
 // The default permission matrix for a single role — the fallback every user
 // of that role gets until an admin customizes it via Roles & Permissions.
@@ -51,12 +59,14 @@ export function defaultMatrixForRole(role) {
       // never company-wide, so there's no reason to hide the nav item itself.
       (LEAD_TIER_ROLES.includes(role) && mod !== "User Management") ||
       (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance"].includes(mod)) ||
+      (role === "Sales Manager" && SALES_MANAGER_MODULES.includes(mod)) ||
       (isFinance && ["Dashboard", "Invoices", "Payments", "Finance"].includes(mod));
 
     const canEdit =
       fullAccess ||
       isSupportRole ||
       (LEAD_TIER_ROLES.includes(role) && canView) ||
+      (role === "Sales Manager" && canView) ||
       (isFinance && ["Invoices", "Payments", "Finance"].includes(mod));
 
     const canDelete = fullAccess || isSupportRole;

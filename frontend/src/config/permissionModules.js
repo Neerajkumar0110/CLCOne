@@ -75,6 +75,15 @@ export const MODULE_NAV_KEY = {
   About: 'about',
 };
 
-// Roles that bypass the permission matrix entirely and always see every module.
-// 'owner' is the account created by the initial backend setup script.
-export const FULL_ACCESS_ROLES = ['owner', 'Super Admin', 'Admin', 'Sales Manager'];
+// Roles that bypass the permission matrix entirely and always see every
+// module — true CRM admins only. 'owner' is the account created by the
+// initial backend setup script.
+//
+// 'Sales Manager' was removed from this list — it bypassed the matrix
+// entirely and gave the sales department head the WHOLE CRM (LMS, HRMS,
+// Finance, Marketing, ...), not just Sales. She still gets full visibility
+// across every Sales person's data (enforced server-side via
+// MANAGEMENT_ROLES in salesHierarchy.js/salesScope.js/performanceController),
+// but is now scoped to Sales-relevant modules only, same as every other
+// Sales-tier role — see defaultPermissionMatrix.js's SALES_MANAGER_MODULES.
+export const FULL_ACCESS_ROLES = ['owner', 'Super Admin', 'Admin'];
