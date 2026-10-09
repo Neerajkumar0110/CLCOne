@@ -227,6 +227,9 @@ const logDetails = async (req, res) => {
     email,
     phone,
     city,
+    state,
+    zipcode,
+    country,
     requirement,
     budget,
     howSoonToStart,
@@ -234,6 +237,19 @@ const logDetails = async (req, res) => {
     notes,
     scheduledCallback,
     hangupCall,
+    // Persona detail (see config/leadPersonas.js — frontend-only options,
+    // free-text on the Lead model) + stage-specific capture dates.
+    persona,
+    age,
+    highestQualification,
+    gender,
+    education,
+    profile,
+    currentCtc,
+    painPoint,
+    preferredLanguage,
+    meetingAt,
+    futureFollowUpAt,
   } = b;
 
   if (contactName) rec.contactName = String(contactName).trim();
@@ -307,13 +323,27 @@ const logDetails = async (req, res) => {
       phone: phone || rec.phone,
       email: email ? String(email).trim() : undefined,
       city: city ? String(city).trim() : undefined,
+      state: state ? String(state).trim() : undefined,
+      zipcode: zipcode ? String(zipcode).trim() : undefined,
+      country: country ? String(country).trim() : undefined,
       budgetRange: budget || undefined,
       howSoonToStart: howSoonToStart || undefined,
       message: requirement || undefined,
       remarks: notes || undefined,
+      persona: persona || undefined,
+      age: age || undefined,
+      highestQualification: highestQualification || undefined,
+      gender: gender || undefined,
+      education: education || undefined,
+      profile: profile || undefined,
+      currentCtc: currentCtc || undefined,
+      painPoint: painPoint || undefined,
+      preferredLanguage: preferredLanguage || undefined,
+      meetingAt: meetingAt || undefined,
+      futureFollowUpAt: futureFollowUpAt || undefined,
       source: 'Calling',
-      stage: target ? target.stage : 'Contacted',
-      subStatus: target ? target.subStatus : 'First Contact Done',
+      stage: target ? target.stage : 'Connected Leads',
+      subStatus: target ? target.subStatus : '1st Discussion Done - Qualified',
       assignedUser: req.admin._id,
       assignedUserName: actorName(req),
       callHistory:
@@ -328,6 +358,7 @@ const logDetails = async (req, res) => {
             ]
           : [],
     });
+    if (crmLead.stage === 'Enrolled') crmLead.enrolledAt = crmLead.enrolledAt || new Date();
     await crmLead.save();
     if (callLead) {
       callLead.crmLead = crmLead._id;
@@ -337,10 +368,24 @@ const logDetails = async (req, res) => {
     if (contactName) crmLead.name = String(contactName).trim();
     if (email) crmLead.email = String(email).trim();
     if (city) crmLead.city = String(city).trim();
+    if (state) crmLead.state = String(state).trim();
+    if (zipcode) crmLead.zipcode = String(zipcode).trim();
+    if (country) crmLead.country = String(country).trim();
     if (budget) crmLead.budgetRange = budget;
     if (howSoonToStart) crmLead.howSoonToStart = howSoonToStart;
     if (requirement) crmLead.message = requirement;
     if (notes) crmLead.remarks = notes;
+    if (persona) crmLead.persona = persona;
+    if (age) crmLead.age = age;
+    if (highestQualification) crmLead.highestQualification = highestQualification;
+    if (gender) crmLead.gender = gender;
+    if (education) crmLead.education = education;
+    if (profile) crmLead.profile = profile;
+    if (currentCtc) crmLead.currentCtc = currentCtc;
+    if (painPoint) crmLead.painPoint = painPoint;
+    if (preferredLanguage) crmLead.preferredLanguage = preferredLanguage;
+    if (meetingAt) crmLead.meetingAt = meetingAt;
+    if (futureFollowUpAt) crmLead.futureFollowUpAt = futureFollowUpAt;
 
     // Re-saving the same form must not append a no-op stage change.
     if (target && (target.stage !== crmLead.stage || target.subStatus !== crmLead.subStatus)) {
@@ -348,6 +393,7 @@ const logDetails = async (req, res) => {
       const fromSubStatus = crmLead.subStatus;
       crmLead.stage = target.stage;
       crmLead.subStatus = target.subStatus;
+      if (target.stage === 'Enrolled' && !crmLead.enrolledAt) crmLead.enrolledAt = new Date();
       crmLead.stageHistory.push({
         fromStage,
         fromSubStatus,

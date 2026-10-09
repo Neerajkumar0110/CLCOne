@@ -12,17 +12,17 @@ const { notifyUser } = require('../notify');
 // game for whichever agent happens to be free in the shared pool.
 //
 // New Lead always comes first. Only once there isn't a single unassigned
-// New Lead left anywhere does it fall back to Contacted / No Response
+// New Lead left anywhere does it fall back to Connected Leads / No Response
 // leads that have never been through the pool at all (dialled once by
 // hand via the old manual Dialer screen, which never created a CallLead,
 // or landed there some other way) — the same two stages
 // callingShared.js's advanceCrmLead already treats as "still workable by
-// the auto-dialer", everything past that (Interested, Sales Meeting,
-// Enrolled, Not Interested, ...) is a rep's real pipeline progress and is
-// never swept in here.
+// the auto-dialer", everything past that (Demo Booking, Interested Leads,
+// Enrolled, Not Interested Leads, ...) is a rep's real pipeline progress
+// and is never swept in here.
 const TICK_MS = 30 * 1000;
 const BATCH_LIMIT = 200;
-const FALLBACK_STAGES = ['Contacted', 'No Response'];
+const FALLBACK_STAGES = ['Connected Leads', 'No Response'];
 
 function startLeadPoolSyncTick() {
   let running = false;

@@ -143,7 +143,7 @@ module.exports = ({ computeLeads, computeCampaigns }) => {
       { key: 'leads', label: 'Leads', value: c.leads },
       { key: 'connected', label: 'Connected', value: c.connected },
       { key: 'qualified', label: 'Qualified', value: c.qualified },
-      { key: 'meeting', label: 'Sales Meeting', value: c.meetings },
+      { key: 'meeting', label: 'Demo Booking', value: c.meetings },
       { key: 'enrolled', label: 'Enrollment', value: c.enrollments },
       { key: 'revenue', label: 'Revenue', value: c.revenue },
     ];

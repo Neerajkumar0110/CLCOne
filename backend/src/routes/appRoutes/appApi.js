@@ -155,4 +155,8 @@ const analytics = analyticsMod.default || analyticsMod;
 router.route('/analytics/:module/summary').get(catchErrors(analytics.summary));
 router.route('/analytics/:module/rows').get(catchErrors(analytics.rows));
 
+// Pin code -> City/State lookup (see controllers/.../utilsController/pincode.js).
+const pincodeController = require('../../controllers/appControllers/core/utilsController/pincode');
+router.route('/utils/pincode/:code').get(catchErrors(pincodeController));
+
 module.exports = router;

@@ -33,7 +33,18 @@ import { silentGet } from "@/request/silent";
 import { getSocket } from "@/socket";
 import { startPoll } from "@/utils/poll";
 import { usePermission } from "@/context/permissionContext";
-import { STAGE_NAMES, subStatusesFor, defaultSubStatus } from "@/config/leadStages";
+import { STAGE_NAMES, subStatusesFor, defaultSubStatus, stageConfig } from "@/config/leadStages";
+import {
+  PERSONAS,
+  EDUCATION_BY_PERSONA,
+  HIGHEST_QUALIFICATIONS,
+  GENDERS,
+  PROFILES,
+  PAIN_POINTS,
+  PAIN_POINT_BY_PERSONA,
+  PREFERRED_LANGUAGES,
+  COUNTRIES,
+} from "@/config/leadPersonas";
 import "./ActiveCallModal.css";
 
 const { TextArea } = Input;
@@ -145,14 +156,31 @@ export default function ActiveCallModal() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [zipcode, setZipcode] = useState("");
+  const [country, setCountry] = useState("India");
+  const [pincodeLoading, setPincodeLoading] = useState(false);
   const [requirement, setRequirement] = useState("");
   const [budget, setBudget] = useState("");
   const [howSoonToStart, setHowSoonToStart] = useState("");
   const [disposition, setDisposition] = useState("");
   const [notes, setNotes] = useState("");
-  const [stage, setStage] = useState("Interested");
-  const [subStatus, setSubStatus] = useState(defaultSubStatus("Interested"));
+  const [stage, setStage] = useState("Connected Leads");
+  const [subStatus, setSubStatus] = useState(defaultSubStatus("Connected Leads"));
   const [scheduledCallback, setScheduledCallback] = useState(null);
+  const [meetingAt, setMeetingAt] = useState(null);
+  const [futureFollowUpAt, setFutureFollowUpAt] = useState(null);
+
+  // Persona detail (see config/leadPersonas.js)
+  const [persona, setPersona] = useState("");
+  const [age, setAge] = useState("");
+  const [education, setEducation] = useState("");
+  const [highestQualification, setHighestQualification] = useState("");
+  const [gender, setGender] = useState("");
+  const [profile, setProfile] = useState("");
+  const [currentCtc, setCurrentCtc] = useState("");
+  const [painPoint, setPainPoint] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("");
 
   // Disposition catalogue (code + label + category + crmStage) from the API.
   const [dispositions, setDispositions] = useState(DISPOSITIONS_PLACEHOLDER);
@@ -194,6 +222,9 @@ export default function ActiveCallModal() {
     setPhone(call.phone || lead?.phone || crm?.phone || "");
     setEmail(lead?.email || crm?.email || "");
     setCity(crm?.city || lead?.city || "");
+    setStateName(crm?.state || "");
+    setZipcode(crm?.zipcode || "");
+    setCountry(crm?.country || "India");
 
     setRequirement(crm?.message || crm?.requirement || lead?.notes || "");
     setBudget(crm?.budgetRange || "");
@@ -201,19 +232,62 @@ export default function ActiveCallModal() {
 
     setDisposition(call.disposition || lead?.lastDisposition || "");
     setNotes(call.notes || "");
-    const s = crm?.stage || "Interested";
+    const s = crm?.stage || "Connected Leads";
     setStage(s);
     setSubStatus(crm?.subStatus || defaultSubStatus(s));
 
-    if (crm?.callBackAt) {
-      setScheduledCallback(dayjs(crm.callBackAt));
-    } else {
-      setScheduledCallback(null);
-    }
+    setScheduledCallback(crm?.callBackAt ? dayjs(crm.callBackAt) : null);
+    setMeetingAt(crm?.meetingAt ? dayjs(crm.meetingAt) : null);
+    setFutureFollowUpAt(crm?.futureFollowUpAt ? dayjs(crm.futureFollowUpAt) : null);
+
+    setPersona(crm?.persona || "");
+    setAge(crm?.age ? String(crm.age) : "");
+    setEducation(crm?.education || "");
+    setHighestQualification(crm?.highestQualification || "");
+    setGender(crm?.gender || "");
+    setProfile(crm?.profile || "");
+    setCurrentCtc(crm?.currentCtc || "");
+    setPainPoint(crm?.painPoint || "");
+    setPreferredLanguage(crm?.preferredLanguage || "");
 
     setMuted(!!call.muted);
     setOnHold(!!call.onHold);
   }, []);
+
+  // Pin Code -> City/State auto-fill (backend proxy, see
+  // controllers/appControllers/core/utilsController/pincode.js) — fires
+  // once the agent has typed a full 6-digit code, debounced so it doesn't
+  // fire on every keystroke. The agent can still edit City/State by hand
+  // afterwards; this only pre-fills them.
+  useEffect(() => {
+    const code = zipcode.trim();
+    if (!/^\d{6}$/.test(code)) return undefined;
+    let cancelled = false;
+    setPincodeLoading(true);
+    const t = setTimeout(async () => {
+      const res = await silentGet(`utils/pincode/${code}`);
+      if (!cancelled) {
+        if (res?.success && res.result) {
+          if (res.result.city) setCity(res.result.city);
+          if (res.result.state) setStateName(res.result.state);
+          if (res.result.country) setCountry(res.result.country);
+        }
+        setPincodeLoading(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [zipcode]);
+
+  // Picking a Persona resets Education (its options depend on the Persona)
+  // and suggests a Pain Point — the agent can still override either.
+  const onPersonaChange = (val) => {
+    setPersona(val);
+    setEducation("");
+    setPainPoint(PAIN_POINT_BY_PERSONA[val] || "");
+  };
 
   // Handler when a call connects or updates
   const handleCallConnected = useCallback(
@@ -334,6 +408,9 @@ export default function ActiveCallModal() {
         email,
         phone,
         city,
+        state: stateName,
+        zipcode,
+        country,
         requirement,
         budget,
         howSoonToStart,
@@ -342,6 +419,17 @@ export default function ActiveCallModal() {
         stage,
         subStatus,
         scheduledCallback: scheduledCallback ? scheduledCallback.toISOString() : undefined,
+        meetingAt: meetingAt ? meetingAt.toISOString() : undefined,
+        futureFollowUpAt: futureFollowUpAt ? futureFollowUpAt.toISOString() : undefined,
+        persona,
+        age: age || undefined,
+        highestQualification,
+        gender,
+        education,
+        profile,
+        currentCtc,
+        painPoint,
+        preferredLanguage,
         hangupCall: hangup,
       };
 
@@ -632,13 +720,166 @@ export default function ActiveCallModal() {
 
                 <div>
                   <label className="incall-field-label">
-                    City / Location
+                    City
                   </label>
                   <Input
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="City, State"
+                    placeholder="City"
                     prefix={<EnvironmentOutlined style={{ color: "#94a3b8" }} />}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="incall-field-label">
+                      Pin Code {pincodeLoading && <span style={{ color: "#94a3b8" }}>(looking up…)</span>}
+                    </label>
+                    <Input
+                      value={zipcode}
+                      onChange={(e) => setZipcode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="6-digit pin code"
+                      maxLength={6}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="incall-field-label">State</label>
+                    <Input value={stateName} onChange={(e) => setStateName(e.target.value)} placeholder="Auto-filled from pin code" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Country</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={country || undefined}
+                    onChange={(v) => setCountry(v)}
+                    options={COUNTRIES.map((c) => ({ label: c, value: c }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Persona Details */}
+            <div className="incall-card">
+              <div className="incall-card-title">
+                <span>
+                  <UserOutlined style={{ color: "#8b5cf6" }} /> Persona Details
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <label className="incall-field-label">Persona</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={persona || undefined}
+                    onChange={onPersonaChange}
+                    placeholder="Select persona"
+                    allowClear
+                    options={PERSONAS.map((p) => ({ label: p, value: p }))}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="incall-field-label">Age</label>
+                    <Input
+                      value={age}
+                      onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                      placeholder="Age"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="incall-field-label">Gender</label>
+                    <Select
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={gender || undefined}
+                      onChange={(v) => setGender(v)}
+                      placeholder="Select"
+                      allowClear
+                      options={GENDERS.map((g) => ({ label: g, value: g }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Highest Qualification</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={highestQualification || undefined}
+                    onChange={(v) => setHighestQualification(v)}
+                    placeholder="Select qualification"
+                    allowClear
+                    options={HIGHEST_QUALIFICATIONS.map((q) => ({ label: q, value: q }))}
+                  />
+                </div>
+
+                {(EDUCATION_BY_PERSONA[persona] || []).length > 0 && (
+                  <div>
+                    <label className="incall-field-label">Education</label>
+                    <Select
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={education || undefined}
+                      onChange={(v) => setEducation(v)}
+                      placeholder="Select education background"
+                      allowClear
+                      options={EDUCATION_BY_PERSONA[persona].map((e) => ({ label: e, value: e }))}
+                    />
+                  </div>
+                )}
+
+                {persona === "Working Professional" && (
+                  <div>
+                    <label className="incall-field-label">Profile</label>
+                    <Select
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={profile || undefined}
+                      onChange={(v) => setProfile(v)}
+                      placeholder="Select profile"
+                      allowClear
+                      options={PROFILES.map((p) => ({ label: p, value: p }))}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="incall-field-label">Current CTC / Monthly Income</label>
+                  <Input
+                    value={currentCtc}
+                    onChange={(e) => setCurrentCtc(e.target.value)}
+                    placeholder="e.g. 4.5 LPA or ₹25,000/month"
+                  />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Pain Point / Need</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={painPoint || undefined}
+                    onChange={(v) => setPainPoint(v)}
+                    placeholder="Select pain point"
+                    allowClear
+                    options={PAIN_POINTS.map((p) => ({ label: p, value: p }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Preferred Language</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={preferredLanguage || undefined}
+                    onChange={(v) => setPreferredLanguage(v)}
+                    placeholder="Select language"
+                    allowClear
+                    options={PREFERRED_LANGUAGES.map((l) => ({ label: l, value: l }))}
                   />
                 </div>
               </div>
@@ -676,6 +917,41 @@ export default function ActiveCallModal() {
                     options={subStatusesFor(stage).map((s) => ({ label: s, value: s }))}
                   />
                 </div>
+
+                {/* Demo Booking — "Demo Booked" asks for a date/time */}
+                {(stageConfig(stage)?.meetingSubStatuses || []).includes(subStatus) && (
+                  <div>
+                    <label className="incall-field-label">
+                      <CalendarOutlined /> Demo Date & Time
+                    </label>
+                    <DatePicker
+                      showTime={{ format: "hh:mm A", use12Hours: true, minuteStep: 5 }}
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={meetingAt}
+                      onChange={(date) => setMeetingAt(date)}
+                      format="DD MMM YYYY, hh:mm A"
+                      placeholder="Pick demo date and time"
+                    />
+                  </div>
+                )}
+
+                {/* Future Prospect — expected follow-up date */}
+                {stageConfig(stage)?.capture === "futureFollowUp" && (
+                  <div>
+                    <label className="incall-field-label">
+                      <CalendarOutlined /> Expected Follow-up Date
+                    </label>
+                    <DatePicker
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={futureFollowUpAt}
+                      onChange={(date) => setFutureFollowUpAt(date)}
+                      format="DD MMM YYYY"
+                      placeholder="Pick expected date"
+                    />
+                  </div>
+                )}
 
                 {crmLeadData?.source && (
                   <div className="incall-meta-line">

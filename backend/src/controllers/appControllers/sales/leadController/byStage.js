@@ -46,13 +46,13 @@ const byStage = async (req, res) => {
 
   const now = new Date();
   if (q.quick === 'callback-today') {
-    filter.stage = 'Call Back';
+    filter.stage = 'Callback';
     filter.callBackAt = { $gte: startOfDay(now), $lte: endOfDay(now) };
   } else if (q.quick === 'callback-overdue') {
-    filter.stage = 'Call Back';
+    filter.stage = 'Callback';
     filter.callBackAt = { $lt: startOfDay(now) };
   } else if (q.quick === 'callback-upcoming') {
-    filter.stage = 'Call Back';
+    filter.stage = 'Callback';
     filter.callBackAt = { $gt: endOfDay(now) };
   }
 

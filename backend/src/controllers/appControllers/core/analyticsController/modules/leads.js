@@ -16,11 +16,16 @@ const {
 const { applyDrawer, drillToMongo, paginate } = require('./_util');
 
 // Stage buckets (mirror salesDashboardController + config/leadStages.js order).
-const QUALIFIED = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const MEETING = ['Sales Meeting', 'Opportunity', 'Enrolled'];
-const OPPORTUNITY = ['Opportunity', 'Enrolled'];
-const INTERESTED_EVER = ['Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const CONTACTED_EVER = ['Contacted', 'SUP Call', 'Fresh Lead', ...INTERESTED_EVER];
+// Updated 2026-10 for the new 12-stage taxonomy — see leadStages.js's
+// header comment / LEGACY_STAGE_MAP for how each old name maps onto these.
+// "Interested" and "Sales Meeting" both collapsed into "Demo Booking", so
+// MEETING and INTERESTED_EVER are now the same set — that's an intentional
+// consequence of the taxonomy merge, not a bug.
+const QUALIFIED = ['Interested Leads', 'Demo Booking', 'Prospects', 'Enrolled'];
+const MEETING = ['Demo Booking', 'Prospects', 'Enrolled'];
+const OPPORTUNITY = ['Prospects', 'Enrolled'];
+const INTERESTED_EVER = ['Demo Booking', 'Prospects', 'Enrolled'];
+const CONTACTED_EVER = ['Connected Leads', 'Interested Leads', 'Fresh Leads', ...INTERESTED_EVER];
 
 const DATE_FIELDS = { created: 'created', stageUpdatedAt: 'stageUpdatedAt' };
 
@@ -82,7 +87,7 @@ function classify(leads) {
     if (OPPORTUNITY.some((s) => ever.has(s))) opportunity += 1;
     if (stage === 'Enrolled' || ever.has('Enrolled')) enrolled += 1;
     if (stage === 'No Response') noResponse += 1;
-    if (stage === 'Invalid') invalid += 1;
+    if (stage === 'Invalid Leads') invalid += 1;
     if (stage === 'New Lead') newLeads += 1;
   }
   return { qualified, contacted, meetings, enrolled, noResponse, invalid, interested, opportunity, newLeads };
@@ -172,8 +177,8 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     { key: 'new', label: 'New', value: total },
     { key: 'contacted', label: 'Contacted', value: cur.contacted },
     { key: 'interested', label: 'Interested', value: cur.interested },
-    { key: 'meeting', label: 'Sales Meeting', value: cur.meetings },
-    { key: 'opportunity', label: 'Opportunity', value: cur.opportunity },
+    { key: 'meeting', label: 'Demo Booking', value: cur.meetings },
+    { key: 'opportunity', label: 'Prospects', value: cur.opportunity },
     { key: 'enrolled', label: 'Enrolled', value: cur.enrolled },
   ];
 

@@ -4,6 +4,7 @@ import { request } from "@/request";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import { openTel, fmtDateTime, usePoll } from "./shared";
+import { STAGE_NAMES } from "@/config/leadStages";
 import "./Dialer.css";
 
 // Same management tier used everywhere else in the app (see salesScope.js's
@@ -20,7 +21,7 @@ const CAN_SEE_AGENT_NUMBER_ROLES = [...FULL_ACCESS_ROLES, "Team Manager"];
 // and log the call — the same endpoints Agent Screen's active-call view
 // polls, so a call started here shows up there too.
 
-const LEAD_STATUS_FILTERS = ["All", "New", "Contacted", "Qualified", "Won", "Lost"];
+const LEAD_STATUS_FILTERS = ["All", ...STAGE_NAMES];
 
 function formatSeconds(total) {
   const m = Math.floor((total || 0) / 60);
@@ -217,7 +218,7 @@ export default function Dialer() {
   const filteredContacts = contacts.filter(
     (contact) =>
       (contact.name.toLowerCase().includes(search.toLowerCase()) || (contact.phone || "").includes(search)) &&
-      (tagFilter === "All" || contact.status === tagFilter)
+      (tagFilter === "All" || contact.stage === tagFilter)
   );
 
   const startCall = async (contact) => {
@@ -280,17 +281,17 @@ export default function Dialer() {
       setContactsCount((prev) => Math.max(0, prev - 1));
 
       // Auto-classify the lead's stage from this call's outcome — connected
-      // = "Contacted", nobody picked up = "No Response" — so the rep isn't
-      // also manually flipping the stage after every single call. Only
-      // touches a lead still in "New Lead"/"No Response" (not yet
-      // meaningfully engaged): one already qualified further (Interested,
-      // Sales Meeting, ...) keeps its real stage instead of being silently
-      // reset by a routine follow-up call.
+      // = "Connected Leads", nobody picked up = "No Response" — so the rep
+      // isn't also manually flipping the stage after every single call.
+      // Only touches a lead still in "New Lead"/"No Response" (not yet
+      // meaningfully engaged): one already qualified further (Demo Booking,
+      // Interested Leads, ...) keeps its real stage instead of being
+      // silently reset by a routine follow-up call.
       const stage = contact.stage || "New Lead";
       if (stage === "New Lead" || stage === "No Response") {
         const next = wasAnswered
-          ? { stage: "Contacted", subStatus: "First Contact Done" }
-          : { stage: "No Response", subStatus: "No Response" };
+          ? { stage: "Connected Leads", subStatus: "1st Discussion Done - Qualified" }
+          : { stage: "No Response", subStatus: "Not Reachable" };
         request.update({ entity: "lead", id: contact._id, jsonData: next, notify: false }).catch(() => {});
       }
     }

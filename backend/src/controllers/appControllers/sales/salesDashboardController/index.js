@@ -2,9 +2,10 @@ const mongoose = require('mongoose');
 const { teamSystemFilter, distinctSystemsFromTeams, systemLabel } = require('../../../../config/salesSystems');
 
 // Stage buckets used by the ratios (mirrors config/leadStages.js order).
-const QUALIFIED_STAGES = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const MEETING_REACHED = ['Sales Meeting', 'Opportunity', 'Enrolled'];
-const LOST_STAGES = ['Not Interested', 'No Response', 'Invalid'];
+// Updated 2026-10 for the new lead-stage taxonomy — see leadStages.js.
+const QUALIFIED_STAGES = ['Interested Leads', 'Demo Booking', 'Prospects', 'Enrolled'];
+const MEETING_REACHED = ['Demo Booking', 'Prospects', 'Enrolled'];
+const LOST_STAGES = ['Not Interested Leads', 'No Response', 'Invalid Leads'];
 
 const R = (num, den) => ({
   value: den ? num / den : 0,
@@ -85,7 +86,7 @@ async function computeForTeams(teamNames, agentNames, from, to, costRows) {
     if (stage === 'No Response') noResponse += 1;
     if (LOST_STAGES.includes(stage)) deadLeads += 1;
 
-    const hitMeeting = MEETING_REACHED.some((s) => everStages.has(s)) || everStages.has('Sales Meeting');
+    const hitMeeting = MEETING_REACHED.some((s) => everStages.has(s));
     if (hitMeeting) {
       meetingReached += 1;
       if (stage === 'Enrolled') enrolled += 1;
@@ -94,7 +95,7 @@ async function computeForTeams(teamNames, agentNames, from, to, costRows) {
       enrolled += 1; // enrolled without a recorded meeting stage
     }
 
-    if (['Interested', 'Sales Meeting', 'Opportunity'].includes(stage)) openQualified += 1;
+    if (['Interested Leads', 'Demo Booking', 'Prospects'].includes(stage)) openQualified += 1;
 
     const src = l.source || 'Unknown';
     bySourceMap[src] = bySourceMap[src] || { source: src, leads: 0, enrolled: 0 };

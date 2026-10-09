@@ -11,14 +11,14 @@ function validateStageRules(stage, subStatus, body = {}) {
     return `"${subStatus || '(none)'}" is not a valid sub-status for the "${stage}" stage.`;
   }
   if (cfg.requiresCallBack && !body.callBackAt) {
-    return 'Callback date & time are mandatory for the "Call Back" stage.';
+    return `Callback date & time are mandatory for the "${stage}" stage.`;
   }
   if (
     cfg.meetingSubStatuses &&
     cfg.meetingSubStatuses.includes(subStatus) &&
     !body.meetingAt
   ) {
-    return `Meeting date & time are required when sub-status is "${subStatus}".`;
+    return `A date & time are required when sub-status is "${subStatus}".`;
   }
   return null;
 }

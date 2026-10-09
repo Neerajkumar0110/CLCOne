@@ -65,7 +65,7 @@ const schema = new mongoose.Schema({
   },
   subStatus: {
     type: String,
-    default: 'Newly Generated',
+    default: 'Assigned to BDE After Connecting with Candidate (By Auto Dialer)',
     index: true,
   },
   status: {
@@ -106,6 +106,22 @@ const schema = new mongoose.Schema({
   state: String,
   country: String,
   zipcode: String,
+
+  // Persona detail — captured by the agent during/after a call (see
+  // config/leadPersonas.js for the dropdown options; ActiveCallModal is the
+  // primary place these get filled in). All optional/free-form on the
+  // model itself — the dropdown constraint lives entirely in the UI, same
+  // as every other free-text field here, so an old import or a future
+  // option tweak never fails a write.
+  persona: String, // e.g. "Student / Fresher", "Working Professional"
+  age: Number,
+  highestQualification: String,
+  gender: String,
+  education: String, // e.g. "Tech. Graduate" — options depend on `persona`
+  profile: String, // e.g. "Tech Professional" — mainly for Working Professional
+  currentCtc: String, // free text — "Current CTC / Monthly Income", not a fixed range
+  painPoint: String, // e.g. "Job into AI", "Upgradation for High CTC"
+  preferredLanguage: String,
 
   importBatch: { type: mongoose.Schema.ObjectId, ref: 'LeadImportBatch' },
 

@@ -31,6 +31,15 @@ const EDITABLE = [
   'zipcode',
   'remarks',
   'registrationLink',
+  'persona',
+  'age',
+  'highestQualification',
+  'gender',
+  'education',
+  'profile',
+  'currentCtc',
+  'painPoint',
+  'preferredLanguage',
   ...DATE_FIELDS,
 ];
 

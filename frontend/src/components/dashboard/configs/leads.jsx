@@ -1,8 +1,10 @@
-const QUALIFIED = ["SUP Call", "Interested", "Sales Meeting", "Opportunity", "Enrolled"];
-const MEETING = ["Sales Meeting", "Opportunity", "Enrolled"];
+// Updated 2026-10 for the new lead-stage taxonomy — see
+// backend/src/config/leadStages.js's header comment.
+const QUALIFIED = ["Interested Leads", "Demo Booking", "Prospects", "Enrolled"];
+const MEETING = ["Demo Booking", "Prospects", "Enrolled"];
 const STAGE_NAMES = [
-  "New Lead", "Contacted", "SUP Call", "Fresh Lead", "Future Prospects", "Invalid",
-  "Interested", "Sales Meeting", "Enrolled", "No Response", "Not Interested", "Call Back", "Opportunity",
+  "New Lead", "Fresh Leads", "Invalid Leads", "No Response", "Callback", "Connected Leads",
+  "Demo Booking", "Interested Leads", "Prospects", "Future Prospect", "Not Interested Leads", "Enrolled",
 ];
 
 export default {
@@ -21,17 +23,17 @@ export default {
     { key: "total", label: "Total Leads", fmt: "int" },
     { key: "qualified", label: "Qualified", fmt: "int", drill: { field: "stage", op: "in", value: QUALIFIED, label: "Qualified" } },
     { key: "contacted", label: "First Response", fmt: "int" },
-    { key: "meetings", label: "Sales Meetings", fmt: "int", drill: { field: "stage", op: "in", value: MEETING, label: "Sales Meetings" } },
+    { key: "meetings", label: "Demo Bookings", fmt: "int", drill: { field: "stage", op: "in", value: MEETING, label: "Demo Bookings" } },
     { key: "enrolled", label: "Enrolled", fmt: "int", drill: { field: "stage", op: "eq", value: "Enrolled", label: "Enrolled" } },
     { key: "noResponse", label: "No Response", fmt: "int", positiveWhenDown: true, drill: { field: "stage", op: "eq", value: "No Response", label: "No Response" } },
-    { key: "invalid", label: "Invalid / Junk", fmt: "int", positiveWhenDown: true, drill: { field: "stage", op: "eq", value: "Invalid", label: "Invalid" } },
+    { key: "invalid", label: "Invalid / Junk", fmt: "int", positiveWhenDown: true, drill: { field: "stage", op: "eq", value: "Invalid Leads", label: "Invalid" } },
     { key: "convPct", label: "Lead → Enrolled", fmt: "pct" },
   ],
   ratios: [
     { key: "leadQualification", label: "Qualification" },
     { key: "firstResponse", label: "First Response" },
-    { key: "leadToSalesMeeting", label: "Lead → Meeting" },
-    { key: "salesMeetingToEnrolled", label: "Meeting → Enrolled" },
+    { key: "leadToSalesMeeting", label: "Lead → Demo" },
+    { key: "salesMeetingToEnrolled", label: "Demo → Enrolled" },
     { key: "noResponseRate", label: "No Response", positiveWhenDown: true },
     { key: "leadToCalling", label: "Lead → Calling" },
   ],
@@ -47,9 +49,9 @@ export default {
     stages: [
       { key: "new", label: "New", drill: { field: "stage", op: "eq", value: "New Lead", label: "New leads" } },
       { key: "contacted", label: "Contacted" },
-      { key: "interested", label: "Interested", drill: { field: "stage", op: "eq", value: "Interested", label: "Interested" } },
-      { key: "meeting", label: "Sales Meeting", drill: { field: "stage", op: "in", value: MEETING, label: "Sales meetings" } },
-      { key: "opportunity", label: "Opportunity", drill: { field: "stage", op: "eq", value: "Opportunity", label: "Opportunity" } },
+      { key: "interested", label: "Interested", drill: { field: "stage", op: "eq", value: "Demo Booking", label: "Interested" } },
+      { key: "meeting", label: "Demo Booking", drill: { field: "stage", op: "in", value: MEETING, label: "Demo booking" } },
+      { key: "opportunity", label: "Prospects", drill: { field: "stage", op: "eq", value: "Prospects", label: "Prospects" } },
       { key: "enrolled", label: "Enrolled", drill: { field: "stage", op: "eq", value: "Enrolled", label: "Enrolled" } },
     ],
   },

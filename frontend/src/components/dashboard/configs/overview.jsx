@@ -32,7 +32,7 @@ export default {
       { key: "new", label: "Leads", drill: { field: "stage", op: "eq", value: "New Lead", label: "New leads" } },
       { key: "contacted", label: "Contacted" },
       { key: "qualified", label: "Qualified" },
-      { key: "meeting", label: "Meeting" },
+      { key: "meeting", label: "Demo Booking" },
       { key: "enrolled", label: "Enrolled", drill: { field: "stage", op: "eq", value: "Enrolled", label: "Enrolled" } },
     ],
   },

@@ -11,16 +11,16 @@
 // in-call modal, which uses it to pre-select a stage the agent can still
 // override by hand. Pairs must stay valid per config/leadStages.js.
 const CALL_DISPOSITIONS = [
-  { code: 'SALE', label: 'Sale / Converted', category: 'sale', final: true, crmStage: { stage: 'Interested', subStatus: 'Workshop Prospect' } },
-  { code: 'INTERESTED', label: 'Interested — Follow up', category: 'callback', final: false, crmStage: { stage: 'Interested', subStatus: 'Workshop Prospect' } },
-  { code: 'CALLBACK', label: 'Callback Requested', category: 'callback', final: false, crmStage: { stage: 'Call Back', subStatus: 'Call Back Requested' } },
-  { code: 'NOT_INTERESTED', label: 'Not Interested', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested', subStatus: 'Price Too High' } },
-  { code: 'WRONG_NUMBER', label: 'Wrong Number', category: 'no-contact', final: true, crmStage: { stage: 'Invalid', subStatus: 'Wrong Number' } },
-  { code: 'NO_ANSWER', label: 'No Answer', category: 'no-contact', final: false, crmStage: { stage: 'No Response', subStatus: 'No Response' } },
+  { code: 'SALE', label: 'Sale / Converted', category: 'sale', final: true, crmStage: { stage: 'Demo Booking', subStatus: 'Demo Booked' } },
+  { code: 'INTERESTED', label: 'Interested — Follow up', category: 'callback', final: false, crmStage: { stage: 'Demo Booking', subStatus: 'Demo Booked' } },
+  { code: 'CALLBACK', label: 'Callback Requested', category: 'callback', final: false, crmStage: { stage: 'Callback', subStatus: 'Call back (Custom Date & Time)' } },
+  { code: 'NOT_INTERESTED', label: 'Not Interested', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Reason Not Clear' } },
+  { code: 'WRONG_NUMBER', label: 'Wrong Number', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Wrong Number' } },
+  { code: 'NO_ANSWER', label: 'No Answer', category: 'no-contact', final: false, crmStage: { stage: 'No Response', subStatus: 'Not Reachable' } },
   { code: 'BUSY', label: 'Busy', category: 'no-contact', final: false, crmStage: { stage: 'No Response', subStatus: 'Ringing' } },
-  { code: 'VOICEMAIL', label: 'Left Voicemail', category: 'no-contact', final: false, crmStage: { stage: 'No Response', subStatus: 'No Response' } },
-  { code: 'LANG_BARRIER', label: 'Language Barrier', category: 'no-contact', final: true, crmStage: { stage: 'Invalid', subStatus: 'Did Not Enquire' } },
-  { code: 'DNC', label: 'Do Not Call', category: 'dnc', final: true, crmStage: { stage: 'Not Interested', subStatus: 'Price Too High' } },
+  { code: 'VOICEMAIL', label: 'Left Voicemail', category: 'no-contact', final: false, crmStage: { stage: 'No Response', subStatus: 'Not Reachable' } },
+  { code: 'LANG_BARRIER', label: 'Language Barrier', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Language Barrier' } },
+  { code: 'DNC', label: 'Do Not Call', category: 'dnc', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Reason Not Clear' } },
 ];
 
 const BY_CODE = Object.fromEntries(CALL_DISPOSITIONS.map((d) => [d.code, d]));

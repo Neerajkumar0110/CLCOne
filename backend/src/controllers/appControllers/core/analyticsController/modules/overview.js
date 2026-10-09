@@ -14,8 +14,9 @@ const {
 } = require('../shared');
 
 const DEAL_OPEN = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation'];
-const QUALIFIED = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const MEETING = ['Sales Meeting', 'Opportunity', 'Enrolled'];
+// Updated 2026-10 for the new lead-stage taxonomy — see config/leadStages.js.
+const QUALIFIED = ['Interested Leads', 'Demo Booking', 'Prospects', 'Enrolled'];
+const MEETING = ['Demo Booking', 'Prospects', 'Enrolled'];
 
 function everStages(l) {
   const hist = Array.isArray(l.stageHistory) ? l.stageHistory : [];
@@ -113,7 +114,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
       ]),
       revenueByMonth: chart(bkt.labels, [{ label: 'Revenue', data: revSeries }]),
       companyFunnel: chart(
-        ['Leads', 'Contacted', 'Qualified', 'Meeting', 'Enrolled'],
+        ['Leads', 'Contacted', 'Qualified', 'Demo Booking', 'Enrolled'],
         [{ label: 'Count', data: [leads.length, contacted, qualified, meetings, enrolled] }]
       ),
       dealsByStage: chart(dealsByStage.map((x) => x.label), [{ label: 'Deals', data: dealsByStage.map((x) => x.value) }]),
@@ -122,7 +123,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
       { key: 'new', label: 'Leads', value: leads.length },
       { key: 'contacted', label: 'Contacted', value: contacted },
       { key: 'qualified', label: 'Qualified', value: qualified },
-      { key: 'meeting', label: 'Meeting', value: meetings },
+      { key: 'meeting', label: 'Demo Booking', value: meetings },
       { key: 'enrolled', label: 'Enrolled', value: enrolled },
     ],
     table: {

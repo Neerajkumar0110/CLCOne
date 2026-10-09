@@ -9,9 +9,10 @@ const { teamSystemFilter } = require('../../../../config/salesSystems');
 const { windowFromQuery } = require('../../core/analyticsController/shared');
 const { buildPremium } = require('./premium');
 
-const QUALIFIED_STAGES = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const MEETING_REACHED = ['Sales Meeting', 'Opportunity', 'Enrolled'];
-const LOST_STAGES = ['Not Interested', 'No Response', 'Invalid'];
+// Updated 2026-10 for the new lead-stage taxonomy — see config/leadStages.js.
+const QUALIFIED_STAGES = ['Interested Leads', 'Demo Booking', 'Prospects', 'Enrolled'];
+const MEETING_REACHED = ['Demo Booking', 'Prospects', 'Enrolled'];
+const LOST_STAGES = ['Not Interested Leads', 'No Response', 'Invalid Leads'];
 
 const monthKey = (d) => {
   const dt = new Date(d);

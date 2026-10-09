@@ -421,7 +421,7 @@ function pipelineFormError(form) {
   const cfg = stageConfig(form.stage);
   if (!cfg) return "Pick a lead stage.";
   if (!isValidSubStatus(form.stage, form.subStatus)) return "Pick a sub-status for this stage.";
-  if (cfg.requiresCallBack && !form.callBackAt) return "Callback date & time are mandatory for “Call Back”.";
+  if (cfg.requiresCallBack && !form.callBackAt) return `Callback date & time are mandatory for “${form.stage}”.`;
   if (cfg.meetingSubStatuses && cfg.meetingSubStatuses.includes(form.subStatus) && !form.meetingAt)
     return `Meeting date & time are required for “${form.subStatus}”.`;
   return "";
@@ -437,15 +437,19 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
 
   const onStage = (e) => {
     const stage = e.target.value;
+    const newCfg = stageConfig(stage) || {};
     patch({
       stage,
       subStatus: defaultSubStatus(stage),
-      // drop stage-specific captures that no longer apply
-      callBackAt: stage === "Call Back" ? form.callBackAt : null,
-      meetingAt: stage === "Sales Meeting" ? form.meetingAt : null,
-      futureFollowUpAt: stage === "Future Prospects" ? form.futureFollowUpAt : null,
-      enrolledAt: stage === "Enrolled" ? form.enrolledAt : null,
-      registrationLink: stage === "Opportunity" ? form.registrationLink : "",
+      // drop stage-specific captures that no longer apply — flag-driven off
+      // the NEW stage's config, not a hardcoded stage name (see
+      // config/leadStages.js's requiresCallBack/meetingSubStatuses/capture/
+      // linkSubStatuses).
+      callBackAt: newCfg.requiresCallBack ? form.callBackAt : null,
+      meetingAt: newCfg.meetingSubStatuses ? form.meetingAt : null,
+      futureFollowUpAt: newCfg.capture === "futureFollowUp" ? form.futureFollowUpAt : null,
+      enrolledAt: newCfg.capture === "enrolledAt" ? form.enrolledAt : null,
+      registrationLink: newCfg.linkSubStatuses ? form.registrationLink : "",
     });
   };
 
@@ -499,10 +503,10 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
         </div>
       )}
 
-      {form.stage === "Sales Meeting" && (
+      {cfg.meetingSubStatuses && (
         <div className="hub-form-row">
           <label>
-            Meeting Date &amp; Time {needMeeting && <span style={{ color: "#ef4444" }}>*</span>}
+            Date &amp; Time {needMeeting && <span style={{ color: "#ef4444" }}>*</span>}
           </label>
           <input
             type="datetime-local"
@@ -515,7 +519,7 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
         </div>
       )}
 
-      {form.stage === "Future Prospects" && (
+      {cfg.capture === "futureFollowUp" && (
         <div className="hub-form-row">
           <label>Expected Follow-up Date</label>
           <input
@@ -529,7 +533,7 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
         </div>
       )}
 
-      {form.stage === "Enrolled" && (
+      {cfg.capture === "enrolledAt" && (
         <div className="hub-form-row">
           <label>Registration / Enrollment Date</label>
           <input
@@ -1321,9 +1325,9 @@ function AllLeads() {
     }
     const nextFilters = { ...BLANK_FILTERS, quick: qf.quick || "" };
     setFilters(nextFilters);
-    setDrillStage(qf.stage || (qf.quick ? "Call Back" : null));
+    setDrillStage(qf.stage || (qf.quick ? "Callback" : null));
     setDrillSub(null);
-    loadLeadList(1, { stage: qf.stage || (qf.quick ? "Call Back" : null), sub: null, filters: nextFilters });
+    loadLeadList(1, { stage: qf.stage || (qf.quick ? "Callback" : null), sub: null, filters: nextFilters });
   };
 
   const updateFilter = (patch) => {
@@ -1680,7 +1684,7 @@ function AllLeads() {
                   {!drill.loading &&
                     drill.leads.map((l) => {
                       const overdue =
-                        l.stage === "Call Back" && l.callBackAt && new Date(l.callBackAt) < new Date();
+                        l.stage === "Callback" && l.callBackAt && new Date(l.callBackAt) < new Date();
                       return (
                         <tr key={l._id}>
                           <td>

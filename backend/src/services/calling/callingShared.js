@@ -205,15 +205,15 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
       phone: callLead.phone,
       email: callLead.email || undefined,
       source: 'Auto-Dialer',
-      stage: 'Interested',
-      subStatus: 'Workshop Prospect',
+      stage: 'Demo Booking',
+      subStatus: 'Demo Booked',
       assignedUser: callRecord.agent || undefined,
       assignedUserName: callRecord.agentName || undefined,
       team: teamName || undefined,
       stageHistory: [
         {
-          toStage: 'Interested',
-          toSubStatus: 'Workshop Prospect',
+          toStage: 'Demo Booking',
+          toSubStatus: 'Demo Booked',
           changedByName: callRecord.agentName || undefined,
           remarks: `Auto-created from a calling-campaign call (${outcomeLabel})`,
           at: new Date(),
@@ -255,8 +255,8 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
   const lead = await Lead.findOne({ _id: leadId, removed: false });
   // Only ever move it forward from wherever the auto-dialer itself left it
   // last time — never overwrite progress a human has since made (e.g. it's
-  // already in Sales Meeting because someone worked it by hand).
-  if (!lead || !['New Lead', 'Contacted', 'No Response'].includes(lead.stage)) return;
+  // already in Demo Booking because someone worked it by hand).
+  if (!lead || !['New Lead', 'Connected Leads', 'No Response'].includes(lead.stage)) return;
 
   const d = dispositionCode && BY_CODE[dispositionCode];
   let stage, subStatus;
@@ -265,11 +265,11 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
     // auto-dialer here and the agent's in-call modal can never drift apart.
     ({ stage, subStatus } = d.crmStage);
   } else if (rawOutcome === 'connected') {
-    stage = 'Contacted';
-    subStatus = 'First Contact Done';
+    stage = 'Connected Leads';
+    subStatus = '1st Discussion Done - Qualified';
   } else {
     stage = 'No Response';
-    subStatus = 'No Response';
+    subStatus = 'Not Reachable';
   }
 
   const outcomeLabel = d ? d.label : rawOutcome || 'No Answer';

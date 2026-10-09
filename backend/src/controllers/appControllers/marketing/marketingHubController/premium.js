@@ -83,14 +83,15 @@ function attachRatioFmt(ratios, defs) {
 }
 
 // ── funnels per source ──────────────────────────────────────────────────
-const QUALIFIED_STAGES = ['SUP Call', 'Interested', 'Sales Meeting', 'Opportunity', 'Enrolled'];
-const MEETING_STAGES = ['Sales Meeting', 'Opportunity', 'Enrolled'];
+// Updated 2026-10 for the new lead-stage taxonomy — see config/leadStages.js.
+const QUALIFIED_STAGES = ['Interested Leads', 'Demo Booking', 'Prospects', 'Enrolled'];
+const MEETING_STAGES = ['Demo Booking', 'Prospects', 'Enrolled'];
 function funnelLeads(t) {
   return [
     { key: 'leads', label: 'Leads', value: t.leads || 0 },
     { key: 'contacted', label: 'Contacted', value: t.firstResponse || 0 },
     { key: 'qualified', label: 'Qualified', value: t.qualified || 0, drill: { field: 'stage', op: 'in', value: QUALIFIED_STAGES, label: 'Qualified' } },
-    { key: 'meeting', label: 'Sales Meeting', value: t.meetingReached || 0, drill: { field: 'stage', op: 'in', value: MEETING_STAGES, label: 'Sales meetings' } },
+    { key: 'meeting', label: 'Demo Booking', value: t.meetingReached || 0, drill: { field: 'stage', op: 'in', value: MEETING_STAGES, label: 'Demo booking' } },
     { key: 'enrolled', label: 'Enrollment', value: t.enrolled || 0, drill: { field: 'stage', op: 'eq', value: 'Enrolled', label: 'Enrolled' } },
   ];
 }
