@@ -277,13 +277,13 @@ export default function FinancePayments() {
     load();
   }, [load]);
 
-  // The Individual dropdown's roster is always the unfiltered (Team-mode)
-  // set for whoever is viewing — fetched separately from `rows` so picking
-  // an individual doesn't shrink the list of people you can pick from.
+  // The Individual dropdown's roster is the full sales hierarchy scope
+  // (everyone, for a full-access viewer; their own downline otherwise) —
+  // not derived from payment rows, so someone who hasn't recorded a payment
+  // yet (a brand-new Sales Intern, say) still shows up and can be picked.
   const loadRoster = useCallback(async () => {
-    const res = await paymentsApi.list({ limit: 500, hierarchyScope: 1 });
-    const names = [...new Set(((res && res.result) || []).map((r) => r.createdByName).filter(Boolean))].sort();
-    setRoster(names);
+    const res = await paymentsApi.roster();
+    setRoster((res && res.result) || []);
   }, []);
   useEffect(() => {
     loadRoster();

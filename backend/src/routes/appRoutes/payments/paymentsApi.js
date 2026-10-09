@@ -7,9 +7,10 @@ const payments = require('../../../controllers/appControllers/payments/paymentsC
 const router = express.Router();
 
 router.route('/').get(catchErrors(payments.list)).post(catchErrors(payments.create));
-// Must come before '/:id' — otherwise Express would match "course-fee"/"stats" as an :id.
+// Must come before '/:id' — otherwise Express would match "course-fee"/"stats"/"roster" as an :id.
 router.route('/course-fee').get(catchErrors(payments.courseFee));
 router.route('/stats').get(catchErrors(payments.stats));
+router.route('/roster').get(catchErrors(payments.roster));
 router.route('/:id').get(catchErrors(payments.get));
 router.route('/:id/resend').post(catchErrors(payments.resend));
 router.route('/:id/refresh').post(catchErrors(payments.refreshStatus));
