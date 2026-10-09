@@ -115,18 +115,29 @@ const summary = async (req, res) => {
   // queries above, so a non-management caller only ever sees their own
   // hierarchy scope (or legacy team, if that's all that's configured for them).
   // Queried straight from Admin (by role) rather than flattened Team
-  // membership when a role filter is active — Team Manager/Sales Manager
-  // have no Team concept at all (NO_TEAM_FIELD_ROLES), so they'd otherwise
-  // never show up under a role filter even though they're real agents.
-  let agentNames = scopeAgent
-    ? [scopeAgent]
-    : scopeTeam
-    ? (allTeams.find((t) => t.name === scopeTeam)?.members || [])
-    : scopeNames
-    ? scopeNames
-    : isManagement
-    ? [...new Set(allTeams.flatMap((t) => t.members))]
-    : [req.admin.name];
+  // membership — Team Manager/Sales Manager have no Team concept at all
+  // (NO_TEAM_FIELD_ROLES), and plenty of real Sales people are never added
+  // to a Team doc at all now that the real hierarchy lives on
+  // Admin.reportsTo — flattening Team.members alone silently dropped them
+  // from the default (no-filter) agent list and the Person picker.
+  let agentNames;
+  if (scopeAgent) {
+    agentNames = [scopeAgent];
+  } else if (scopeTeam) {
+    agentNames = allTeams.find((t) => t.name === scopeTeam)?.members || [];
+  } else if (scopeNames) {
+    agentNames = scopeNames;
+  } else if (isManagement) {
+    const allSalesAdmins = await Admin.find({
+      role: { $in: require('../../../../config/roles').SALES_ROLES },
+      removed: false,
+    })
+      .select('name')
+      .lean();
+    agentNames = allSalesAdmins.map((a) => a.name);
+  } else {
+    agentNames = [req.admin.name];
+  }
 
   if (scopeRole) {
     const roleAdmins = await Admin.find({ role: scopeRole, removed: false }).select('name').lean();

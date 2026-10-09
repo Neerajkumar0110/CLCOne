@@ -88,6 +88,7 @@ router.route('/dashboard/summary').get(catchErrors(appControllers.dashboardContr
 
 // Same story — a read-only aggregate over Call/Payment/Team, not a model of its own.
 router.route('/performance/summary').get(catchErrors(appControllers.performanceController.summary));
+router.route('/performance/org-tree').get(catchErrors(appControllers.performanceController.orgTree));
 
 // Monthly target vs. actual, scoped to the caller's sales-hierarchy chain
 // (see services/access/salesHierarchy.js) — Target IS a real model (unlike

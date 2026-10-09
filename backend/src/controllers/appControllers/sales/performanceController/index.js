@@ -1,3 +1,4 @@
 const summary = require('./summary');
+const orgTree = require('./orgTree');
 
-module.exports = { summary };
+module.exports = { summary, orgTree };

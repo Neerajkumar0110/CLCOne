@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { TreeSelect } from "antd";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
 import { request } from "@/request";
@@ -8,6 +9,20 @@ const RANGE_OPTIONS = ["1M", "3M", "6M", "1Y"];
 const ALL_TEAMS = "__all_teams__";
 const ALL_AGENTS = "__all_agents__";
 const ALL_ROLES = "__all_roles__";
+
+// backend's orgTree.js nodes ({id, name, role, children}) -> antd
+// TreeSelect's shape. `value` is the person's NAME, not their id — every
+// other agent-scoped query in this app (Call.calledBy, Payment.createdBy,
+// ?agent=) is already name-keyed, so this stays consistent instead of
+// introducing a second identity scheme just for this picker.
+function toTreeData(nodes) {
+  return (nodes || []).map((n) => ({
+    title: `${n.name}${n.role ? ` — ${roleDisplay(n.role)}` : ""}`,
+    value: n.name,
+    key: n.id,
+    children: n.children && n.children.length ? toTreeData(n.children) : undefined,
+  }));
+}
 
 function fmtMoney(n) {
   return `₹${Math.round((n || 0) / 1000).toLocaleString()}k`;
@@ -493,6 +508,16 @@ export default function Performance() {
   const [roleFilter, setRoleFilter] = useState(ALL_ROLES);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [orgTreeData, setOrgTreeData] = useState([]);
+
+  useEffect(() => {
+    // 403s harmlessly for a non-full-access caller — they have nothing to
+    // browse outside their own hard-scoped chain anyway, so the TreeSelect
+    // below just never renders for them.
+    request.get({ entity: "performance/org-tree" }).then((res) => {
+      if (res?.success) setOrgTreeData(res.result);
+    });
+  }, []);
 
   const loadPerformance = async () => {
     setLoading(true);
@@ -554,12 +579,20 @@ export default function Performance() {
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-              <select className="hub-select" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
-                <option value={ALL_AGENTS}>All People</option>
-                {(data?.filters?.agents || []).map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+              <TreeSelect
+                className="hub-select"
+                style={{ minWidth: 220 }}
+                value={agentFilter === ALL_AGENTS ? undefined : agentFilter}
+                placeholder="All People"
+                allowClear
+                treeDefaultExpandAll={false}
+                showSearch
+                treeNodeFilterProp="title"
+                dropdownMatchSelectWidth={280}
+                treeData={orgTreeData.length ? toTreeData(orgTreeData) : undefined}
+                notFoundContent={<div className="hub-empty" style={{ padding: 8 }}>No one in the sales hierarchy yet.</div>}
+                onChange={(v) => setAgentFilter(v || ALL_AGENTS)}
+              />
             </>
           )}
           <select className="hub-select" value={range} onChange={(e) => setRange(e.target.value)}>
