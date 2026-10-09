@@ -1258,10 +1258,10 @@ export default function Users({
           <table className="hub-table">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
+                <th style={{ width: 190 }}>User</th>
+                <th style={{ width: 230 }}>Email</th>
+                <th style={{ width: 130 }}>Role</th>
+                <th style={{ width: 150 }}>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
