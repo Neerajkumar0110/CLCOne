@@ -246,20 +246,48 @@ function PaymentDetailModal({ id, onClose }) {
 export default function FinancePayments() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [scope, setScope] = useState("team"); // 'team' = everyone, 'individual' = one agent
+  const [scope, setScope] = useState("team"); // 'team' = everyone in my scope, 'individual' = one agent
   const [agent, setAgent] = useState("");
   const [search, setSearch] = useState("");
   const [detailId, setDetailId] = useState(null);
+  const [roster, setRoster] = useState([]); // agents selectable in the Individual dropdown
 
+  // Scoping follows the sales org chart (Admin.reportsTo — same rule as
+  // Performance/Targets/Reports, see services/access/salesHierarchy.js):
+  // Sales Manager/Admin/owner see everyone and may narrow to one person via
+  // `agent` — which the backend expands to that person's own hierarchy scope
+  // (self + everyone reporting up to them), not just their single row.
+  // Everyone else is always scoped to themselves + everyone reporting up to
+  // them, so an Executive sees only their own team (or, picking themselves
+  // under Individual, just their own row) — never a flat "whole CRM" view.
+  // `hierarchyScope=1` opts this page into that rule without touching the
+  // Sales "create a payment link" hub, which still uses the older flat
+  // Team-based scope (see backend's paymentsController/scope.js).
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await paymentsApi.list({ limit: 500 });
+    const res = await paymentsApi.list({
+      limit: 500,
+      hierarchyScope: 1,
+      agent: scope === "individual" && agent ? agent : undefined,
+    });
     setRows((res && res.result) || []);
     setLoading(false);
-  }, []);
+  }, [scope, agent]);
   useEffect(() => {
     load();
   }, [load]);
+
+  // The Individual dropdown's roster is always the unfiltered (Team-mode)
+  // set for whoever is viewing — fetched separately from `rows` so picking
+  // an individual doesn't shrink the list of people you can pick from.
+  const loadRoster = useCallback(async () => {
+    const res = await paymentsApi.list({ limit: 500, hierarchyScope: 1 });
+    const names = [...new Set(((res && res.result) || []).map((r) => r.createdByName).filter(Boolean))].sort();
+    setRoster(names);
+  }, []);
+  useEffect(() => {
+    loadRoster();
+  }, [loadRoster]);
 
   // Live updates — a payment can flip from "created" to "paid" (or KYC get
   // submitted) purely server-side, whenever the student completes it on
@@ -269,16 +297,18 @@ export default function FinancePayments() {
   // manual reload. Same event/pattern pages/Payments/index.jsx already uses.
   useEffect(() => {
     const socket = getSocket();
-    const onUpdate = () => load();
+    const onUpdate = () => {
+      load();
+      loadRoster();
+    };
     socket?.on("payments:updated", onUpdate);
     return () => socket?.off("payments:updated", onUpdate);
-  }, [load]);
+  }, [load, loadRoster]);
 
-  const agents = [...new Set(rows.map((r) => r.createdByName).filter(Boolean))].sort();
+  const agents = roster;
 
   const q = search.trim().toLowerCase();
   const filtered = rows.filter((r) => {
-    if (scope === "individual" && agent && (r.createdByName || "") !== agent) return false;
     if (!q) return true;
     return (
       (r.studentName || "").toLowerCase().includes(q) ||
