@@ -7,6 +7,7 @@ import { roleDisplay } from "@/pages/UserManagement/Users";
 const RANGE_OPTIONS = ["1M", "3M", "6M", "1Y"];
 const ALL_TEAMS = "__all_teams__";
 const ALL_AGENTS = "__all_agents__";
+const ALL_ROLES = "__all_roles__";
 
 function fmtMoney(n) {
   return `₹${Math.round((n || 0) / 1000).toLocaleString()}k`;
@@ -489,6 +490,7 @@ export default function Performance() {
   const [range, setRange] = useState("1M");
   const [teamFilter, setTeamFilter] = useState(ALL_TEAMS);
   const [agentFilter, setAgentFilter] = useState(ALL_AGENTS);
+  const [roleFilter, setRoleFilter] = useState(ALL_ROLES);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -497,6 +499,7 @@ export default function Performance() {
     const options = { range };
     if (teamFilter !== ALL_TEAMS) options.team = teamFilter;
     if (agentFilter !== ALL_AGENTS) options.agent = agentFilter;
+    if (roleFilter !== ALL_ROLES) options.role = roleFilter;
     const res = await request.get({ entity: "performance/summary?" + new URLSearchParams(options).toString() });
     setData(res?.success ? res.result : null);
     setLoading(false);
@@ -505,7 +508,7 @@ export default function Performance() {
   useEffect(() => {
     loadPerformance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, teamFilter, agentFilter]);
+  }, [range, teamFilter, agentFilter, roleFilter]);
 
   const isManagement = data?.scope?.isManagement;
   const scopeNote = isManagement
@@ -525,6 +528,19 @@ export default function Performance() {
         <div className="hub-row" style={{ gap: 12, flexWrap: "wrap" }}>
           {isManagement && (
             <>
+              <select
+                className="hub-select"
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  setAgentFilter(ALL_AGENTS);
+                }}
+              >
+                <option value={ALL_ROLES}>All Roles</option>
+                {(data?.filters?.roles || []).map((r) => (
+                  <option key={r} value={r}>{roleDisplay(r)}</option>
+                ))}
+              </select>
               <select
                 className="hub-select"
                 value={teamFilter}

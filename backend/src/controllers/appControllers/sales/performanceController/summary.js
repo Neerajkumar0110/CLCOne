@@ -61,6 +61,12 @@ const summary = async (req, res) => {
   // needed) or legacy (handled via scopeTeam/scopeAgent exactly as before).
   let scopeNames = null;
 
+  // Full-access callers (owner/Super Admin/Admin/Sales Manager) may also
+  // narrow by role — "show me only what Team Leaders look like right now" —
+  // on top of (or instead of) team/agent. Never consulted for a non-full-access
+  // caller, same as team/agent above.
+  const scopeRole = isManagement && req.query.role ? req.query.role : null;
+
   if (isManagement) {
     scopeTeam = req.query.team || null;
     scopeAgent = req.query.agent || null;
@@ -108,7 +114,11 @@ const summary = async (req, res) => {
   // Which agents to report on — identical enforcement to what scoped the
   // queries above, so a non-management caller only ever sees their own
   // hierarchy scope (or legacy team, if that's all that's configured for them).
-  const agentNames = scopeAgent
+  // Queried straight from Admin (by role) rather than flattened Team
+  // membership when a role filter is active — Team Manager/Sales Manager
+  // have no Team concept at all (NO_TEAM_FIELD_ROLES), so they'd otherwise
+  // never show up under a role filter even though they're real agents.
+  let agentNames = scopeAgent
     ? [scopeAgent]
     : scopeTeam
     ? (allTeams.find((t) => t.name === scopeTeam)?.members || [])
@@ -117,6 +127,15 @@ const summary = async (req, res) => {
     : isManagement
     ? [...new Set(allTeams.flatMap((t) => t.members))]
     : [req.admin.name];
+
+  if (scopeRole) {
+    const roleAdmins = await Admin.find({ role: scopeRole, removed: false }).select('name').lean();
+    const roleNameSet = new Set(roleAdmins.map((r) => r.name));
+    agentNames =
+      scopeTeam || scopeAgent
+        ? agentNames.filter((n) => roleNameSet.has(n)) // intersect with an already-chosen team/agent
+        : [...roleNameSet]; // role filter alone — every person holding that role
+  }
 
   const teamForAgent = (name) => allTeams.find((t) => t.members.includes(name)) || null;
 
@@ -189,6 +208,7 @@ const summary = async (req, res) => {
         role: req.admin.role,
         team: scopeTeam,
         agent: scopeAgent,
+        roleFilter: scopeRole,
         isHierarchy: !!scopeNames,
         legacy: !!hierarchy.legacy,
         teamSize: scopeNames ? scopeNames.length : null,
@@ -196,6 +216,7 @@ const summary = async (req, res) => {
       filters: {
         teams: isManagement ? allTeams.map((t) => t.name) : myTeam ? [myTeam.name] : [],
         agents: agentNames,
+        roles: isManagement ? require('../../../../config/roles').SALES_ROLE_ORDER : [],
       },
       totals: {
         ...totals,
