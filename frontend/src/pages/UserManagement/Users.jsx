@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
+import { usePermission } from "@/context/permissionContext";
 import {
   SafetyCertificateOutlined,
   ReloadOutlined,
@@ -539,12 +540,19 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         <input className="hub-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
       </div>
 
-      <div className="hub-form-row">
-        <label>Department</label>
-        <select className="hub-select" value={department} onChange={(e) => onDepartmentChange(e.target.value)}>
-          {Object.keys(depts).map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
-      </div>
+      {Object.keys(depts).length > 1 ? (
+        <div className="hub-form-row">
+          <label>Department</label>
+          <select className="hub-select" value={department} onChange={(e) => onDepartmentChange(e.target.value)}>
+            {Object.keys(depts).map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      ) : (
+        <div className="hub-form-row">
+          <label>Department</label>
+          <span className="hub-badge hub-badge-blue">{Object.keys(depts)[0]}</span>
+        </div>
+      )}
 
       {(depts[department] || []).length > 1 && (
         <div className="hub-form-row">
@@ -760,10 +768,12 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
               Super Admin's role can't be changed here.
             </span>
           </>
-        ) : (
+        ) : Object.keys(depts).length > 1 ? (
           <select className="hub-select" value={department} onChange={(e) => onDepartmentChange(e.target.value)}>
             {Object.keys(depts).map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
+        ) : (
+          <span className="hub-badge hub-badge-blue">{Object.keys(depts)[0]}</span>
         )}
       </div>
 
@@ -979,6 +989,16 @@ export default function Users({
   excludeRoles,
   roleOptions,
 }) {
+  // Sales Manager/Team Manager can only ever create/edit Sales-role users
+  // (enforced server-side — see createUserController/create.js, update.js),
+  // so Add/Edit User's Department picker is pinned to Sales for them rather
+  // than offering Finance/Support/Admin/LMS options that would just 403.
+  // Only kicks in when nothing more specific was already passed in (e.g. the
+  // HRMS "Users" tab already scopes roleOptions itself).
+  const { role: viewerRole } = usePermission();
+  const effectiveRoleOptions =
+    roleOptions || (["Sales Manager", "Team Manager"].includes(viewerRole) ? DEPARTMENT_ROLES.Sales : roles);
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -989,7 +1009,7 @@ export default function Users({
   // (Instructors/Candidates) already pins to one role, which is itself a
   // single department, so the picker would be redundant there.
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const depts = departmentsFor(roleOptions || roles);
+  const depts = departmentsFor(effectiveRoleOptions);
 
   // Load real users from the backend (GET /api/admin/list), then load each
   // one's saved permissions — anyone with no saved record yet gets seeded
@@ -1130,6 +1150,18 @@ export default function Users({
     }
     onAssignTeam(user.name, teamInfo.teamChoice, teamInfo.newTeamName);
     await loadUsers();
+  };
+
+  // One-click "spin up a team for this Team Leader, with them as lead" —
+  // right in their row, instead of the old two-step dance (create a
+  // leaderless team from the generic button up top, then separately edit
+  // this Team Leader to attach them as its lead). Reuses the exact same
+  // create-with-lead path the Add User flow's "+ Create New Team" option
+  // already takes (see useTeams().assignUserToTeam's NEW_TEAM branch).
+  const createTeamFor = async (user) => {
+    const name = window.prompt(`Team name for ${user.name}:`, `${user.name}'s Team`);
+    if (!name || !name.trim()) return;
+    await onAssignTeam(user.name, NEW_TEAM, name.trim());
   };
 
   // Soft delete (DELETE /api/admin/delete/:id) — the user stops showing here
@@ -1282,6 +1314,12 @@ export default function Users({
                           <EditOutlined /> Edit
                         </button>
                       )}
+                      {MANAGER_TEAM_ROLES.includes(u.role) &&
+                        !teams.some((t) => t.lead === u.name || t.members.includes(u.name)) && (
+                          <button type="button" className="hub-btn" onClick={() => createTeamFor(u)}>
+                            <TeamOutlined /> Create Team
+                          </button>
+                        )}
                       <button type="button" className="hub-btn" onClick={() => setPermUserEmail(u.email)}>
                         <SafetyCertificateOutlined /> Permissions
                       </button>
@@ -1309,7 +1347,7 @@ export default function Users({
             onClose={() => setAddOpen(false)}
             teams={teams}
             initialRole={roleFilter}
-            roleOptions={roleOptions}
+            roleOptions={effectiveRoleOptions}
             allUsers={users}
             onAdd={async (u, teamInfo) => {
               await loadUsers();
@@ -1335,7 +1373,7 @@ export default function Users({
         onAssignTeam={onAssignTeam}
         onClose={() => setEditUserEmail(null)}
         onSave={saveUserEdit}
-        roleOptions={roleOptions}
+        roleOptions={effectiveRoleOptions}
       />
 
       <UserPermissionsModal

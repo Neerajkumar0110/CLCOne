@@ -80,11 +80,20 @@ const create = async (userModel, req, res) => {
         message: 'Only a Super Admin can create an Admin account.',
       });
     }
-  } else if (!requester || !STAFF_CREATOR_ROLES.includes(requester.role)) {
+  } else if (
+    !requester ||
+    !(
+      STAFF_CREATOR_ROLES.includes(requester.role) ||
+      // Sales Manager/Team Manager may add new Sales people directly — same
+      // Sales-only scope as everything else they can do from User
+      // Management (see list.js/read.js/update.js). Never any other role.
+      (['Sales Manager', 'Team Manager'].includes(requester.role) && SALES_ROLES.includes(role))
+    )
+  ) {
     return res.status(403).json({
       success: false,
       result: null,
-      message: 'Only an Admin or Super Admin can create this account.',
+      message: 'Only an Admin, Super Admin, Sales Manager or Team Manager can create this account.',
     });
   }
 
