@@ -1320,7 +1320,7 @@ export default function Users({
                             title={`Create a team with ${u.name} as lead`}
                             onClick={() => createTeamFor(u)}
                           >
-                            <TeamOutlined /> + Team
+                            <TeamOutlined /> Create Team
                           </button>
                         )}
                       <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u.email)}>
