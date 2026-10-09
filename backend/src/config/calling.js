@@ -43,6 +43,13 @@ const config = {
       // Local numbers are stored/passed around as bare 10-digit strings
       // (see last10() in callingShared.js); Plivo needs the country code.
       countryCode: process.env.PLIVO_DEFAULT_COUNTRY_CODE || '91',
+      // How long the agent's own leg (placeBridgeLeg) rings before Plivo
+      // gives up and hits hangup_url — the signal plivoAnswer.js's
+      // leg=agent-hangup branch uses to flag a missed call against that
+      // agent (see CallRecord.missedByAgent). Without this Plivo's own
+      // default (45s) applies, which is fine too, but explicit here so it's
+      // tunable without touching code.
+      ringTimeoutSec: Number(process.env.PLIVO_AGENT_RING_TIMEOUT_SEC || 30),
     },
   },
 

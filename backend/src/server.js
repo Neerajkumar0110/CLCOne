@@ -107,6 +107,13 @@ startCallingRecordingSync();
 const startLeadPoolSyncTick = require('./jobs/leadPoolSyncTick');
 startLeadPoolSyncTick();
 
+// End-of-day email to every agent who missed at least one routed call today
+// (never picked up — see CallRecord.missedByAgent / plivoAnswer.js's
+// leg=agent-hangup branch). No-op unless CALLING_PROVIDER=cloud, since
+// missedByAgent is only ever set by the Plivo hangup callback.
+const startMissedCallDailySummaryTick = require('./jobs/missedCallDailySummaryTick');
+startMissedCallDailySummaryTick();
+
 // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
 // failed inbound webhook events, runs the nightly reconcile. No-op until
 // MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).

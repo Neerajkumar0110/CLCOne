@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { request } from "@/request";
 import { BarChartOutlined } from "@ant-design/icons";
-import { fmtDuration, useCallingMeta } from "./shared";
+import { fmtDuration, fmtDateTime, useCallingMeta } from "./shared";
 
 const RANGES = ["1W", "1M", "3M", "6M", "1Y"];
 
@@ -69,8 +69,8 @@ export default function Reports() {
         <>
           <TableCard
             title="Agent Performance"
-            head={["Agent", "Made", "Connected", "Answer Rate", "Avg Dur."]}
-            rows={d.agentPerformance.map((a) => [a.agent, a.made, a.connected, `${a.answerRate}%`, fmtDuration(a.avgDurationSec)])}
+            head={["Agent", "Made", "Connected", "Answer Rate", "Avg Dur.", "Missed"]}
+            rows={d.agentPerformance.map((a) => [a.agent, a.made, a.connected, `${a.answerRate}%`, fmtDuration(a.avgDurationSec), a.missed])}
           />
           <TableCard
             title="Campaign Performance"
@@ -84,7 +84,40 @@ export default function Reports() {
           />
         </>
       )}
+
+      {meta.tier === "admin" && <MissedCalls range={range} />}
     </div>
+  );
+}
+
+// Every call (inbound IVR included) where the call reached a specific agent
+// and that agent never picked up — see CallRecord.missedByAgent /
+// plivoAnswer.js's leg=agent-hangup. Deliberately its own fetch, not folded
+// into the summary above: the Agent/Campaign Performance tables above are
+// scoped to campaign-bound calls only, which excludes inbound IVR calls
+// entirely (they never carry a `campaign`) — exactly the calls this is for.
+function MissedCalls({ range }) {
+  const [d, setD] = useState(null);
+
+  useEffect(() => {
+    request.get({ entity: `calling/missed-calls?range=${range}` }).then((r) => setD(r?.success ? r.result : null));
+  }, [range]);
+
+  if (!d) return null;
+
+  return (
+    <>
+      <TableCard
+        title={`Missed Calls by Agent — ${d.total} total`}
+        head={["Agent", "Missed"]}
+        rows={d.byAgent.map((a) => [a.name, a.missed])}
+      />
+      <TableCard
+        title="Recent Missed Calls"
+        head={["Contact", "Phone", "Agent", "Direction", "When"]}
+        rows={d.recent.map((r) => [r.contactName || "—", r.phone || "—", r.agentName || "—", r.direction, fmtDateTime(r.missedByAgentAt || r.created)])}
+      />
+    </>
   );
 }
 

@@ -13,6 +13,7 @@ const manualDial = require('./manualDial');
 const supportDial = require('./supportDial');
 const ivrFlows = require('./ivrFlows');
 const leadPool = require('./leadPool');
+const missedCalls = require('./missedCalls');
 
 module.exports = {
   status: meta.status,
@@ -67,4 +68,6 @@ module.exports = {
   leadPoolStatus: leadPool.status,
   leadPoolBreakStart: leadPool.breakStart,
   leadPoolUsedLeads: leadPool.usedLeads,
+
+  missedCallsSummary: missedCalls.summary,
 };

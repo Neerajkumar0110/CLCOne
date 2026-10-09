@@ -24,6 +24,9 @@ const { last10 } = require('../../../../services/calling/callingShared');
 //   • leg=join — the redirect target above: joins the conference
 //     immediately, no greeting. Also what the first party reaches on its
 //     own if the far end never answers early enough to interrupt it.
+//   • leg=agent-hangup — passive notification (placeBridgeLeg's hangup_url)
+//     for the agent's own leg specifically. Flags CallRecord.missedByAgent
+//     when it fires without leg=agent ever having answered first.
 // Recording is attached to whichever request actually starts the
 // conference for the first party (leg=join, or the natural end of the
 // greeting/hold message) — never the far end's wait-only join.
@@ -72,13 +75,28 @@ const conferenceXml = (crmCallId, recordingCallbackUrl, startConferenceOnEnter =
 // Places the far end's own leg — a separate outbound Plivo call, fired the
 // instant the first party is live, so it rings in parallel instead of after
 // whatever they're hearing finishes.
+//
+// ring_timeout + hangup_url turn an agent who never picks up into a signal
+// we can actually see: without ring_timeout, Plivo's own default (45s)
+// still applies, but without hangup_url we'd never hear about it at all —
+// see the leg=agent-hangup branch below, which is what flags
+// CallRecord.missedByAgent.
 async function placeBridgeLeg({ cfg, dialNumber, callerId, crmCallId, secretQs }) {
   const p = cfg.plivo;
   const answerUrl = `${p.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${crmCallId}&leg=agent${secretQs}`;
+  const hangupUrl = `${p.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${crmCallId}&leg=agent-hangup${secretQs}`;
   const res = await fetch(`${p.apiBase}/v1/Account/${p.authId}/Call/`, {
     method: 'POST',
     headers: plivoAuthHeaders(p),
-    body: JSON.stringify({ from: callerId, to: dialNumber, answer_url: answerUrl, answer_method: 'POST' }),
+    body: JSON.stringify({
+      from: callerId,
+      to: dialNumber,
+      answer_url: answerUrl,
+      answer_method: 'POST',
+      ring_timeout: p.ringTimeoutSec,
+      hangup_url: hangupUrl,
+      hangup_method: 'POST',
+    }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -343,6 +361,11 @@ const plivoAnswer = async (req, res) => {
     const CallRecord = mongoose.model('CallRecord');
     const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
     if (rec) {
+      // The answer_url for this leg only ever fires once Plivo actually
+      // connects it — this IS the "agent picked up" signal the
+      // leg=agent-hangup branch below checks before flagging a miss.
+      rec.agentLegAnswered = true;
+      await rec.save();
       if (rec.agent) {
         const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
         notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
@@ -355,6 +378,27 @@ const plivoAnswer = async (req, res) => {
     }
     const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
     return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl, false)}</Response>`);
+  }
+
+  // ── far-end leg's hangup notification — fires whether it was ever
+  // answered or not. If leg=agent's answer_url never fired for this
+  // CallRecord (agentLegAnswered still false), the agent's phone rang out
+  // (ring_timeout), was busy, was rejected, or the caller gave up first —
+  // every one of those is "this agent didn't pick up", so flag it exactly
+  // once. Passive notification only — Plivo doesn't act on the response. ──
+  if (leg === 'agent-hangup') {
+    if (crmCallId && mongoose.isValidObjectId(crmCallId)) {
+      const CallRecord = mongoose.model('CallRecord');
+      const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
+      if (rec && rec.agent && !rec.agentLegAnswered && !rec.missedByAgent) {
+        rec.missedByAgent = true;
+        rec.missedByAgentAt = new Date();
+        await rec.save();
+        const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
+        notifyAgentCallEvent(rec.agent, 'call:missed', rec).catch(() => {});
+      }
+    }
+    return respondXml(res, '<Response></Response>');
   }
 
   // ── inbound IVR digit resolution ───────────────────────────────────────

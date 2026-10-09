@@ -48,6 +48,7 @@ router.get(
       financeEmiTick: require('../../jobs/financeEmiTick'),
       lmsDailySummaryTick: require('../../jobs/lmsDailySummaryTick'),
       lmsUnassignedBatchTick: require('../../jobs/lmsUnassignedBatchTick'),
+      missedCallDailySummaryTick: require('../../jobs/missedCallDailySummaryTick'),
     };
     const results = {};
     for (const [name, job] of Object.entries(jobs)) {

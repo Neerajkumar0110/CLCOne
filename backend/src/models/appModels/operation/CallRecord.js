@@ -65,6 +65,18 @@ const schema = new mongoose.Schema({
   muted: { type: Boolean, default: false },
   onHold: { type: Boolean, default: false },
 
+  // Set the instant the agent's own bridge leg actually answers (see
+  // plivoAnswer.js's leg=agent branch) — the authoritative "did this
+  // specific agent pick up" signal. missedByAgent is set from the SAME
+  // leg's hangup_url callback (leg=agent-hangup) when it fires while this
+  // is still false, i.e. the leg ended (timed out / busy / rejected /
+  // customer gave up) without ever being answered. Deliberately a separate
+  // pair of fields rather than overloading `status` — cloudWebhook.js's
+  // rank-based status merge (customer-leg events) would otherwise race it.
+  agentLegAnswered: { type: Boolean, default: false },
+  missedByAgent: { type: Boolean, default: false },
+  missedByAgentAt: Date,
+
   disposition: String,
   notes: String,
   transferredTo: String, // team or agent label

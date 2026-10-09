@@ -46,6 +46,7 @@ const summary = async (req, res) => {
           made: { $sum: 1 },
           connected: { $sum: { $cond: [{ $ne: ['$answeredAt', null] }, 1, 0] } },
           talk: { $sum: '$duration' },
+          missed: { $sum: { $cond: ['$missedByAgent', 1, 0] } },
         },
       },
       { $sort: { made: -1 } },
@@ -94,6 +95,7 @@ const summary = async (req, res) => {
         connected: r.connected,
         answerRate: r.made ? Math.round((r.connected / r.made) * 100) : 0,
         avgDurationSec: r.connected ? Math.round(r.talk / r.connected) : 0,
+        missed: r.missed || 0,
       })),
       campaignPerformance: byCampaign.map((r) => ({
         campaign: campName[String(r._id)] || '—',

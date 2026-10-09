@@ -76,5 +76,6 @@ router.route('/recordings/:id').get(catchErrors(c.recordingRead));
 router.route('/recordings/:id/stream').get(catchErrors(c.recordingStream));
 
 router.route('/reports').get(catchErrors(c.reportSummary));
+router.route('/missed-calls').get(requireTier('admin'), catchErrors(c.missedCallsSummary));
 
 module.exports = router;

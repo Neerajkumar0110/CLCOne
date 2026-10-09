@@ -240,6 +240,16 @@ export default function ActiveCallModal() {
     setCallData((prev) => (prev ? { ...prev, ...payload.call, status: "completed" } : payload.call));
   }, []);
 
+  // A call that was routed to THIS agent and never got picked up — see
+  // backend's plivoAnswer.js leg=agent-hangup branch. Purely informational;
+  // doesn't touch the in-call modal state since there was never a live call
+  // here to begin with.
+  const handleCallMissed = useCallback((payload) => {
+    if (!payload || !payload.call) return;
+    const who = payload.call.contactName || payload.lead?.name || payload.call.phone || "a customer";
+    message.warning(`Missed call from ${who} — you didn't pick up in time.`, 6);
+  }, []);
+
   // Handler when a call updates
   const handleCallUpdated = useCallback((payload) => {
     if (!payload || !payload.call) return;
@@ -257,14 +267,16 @@ export default function ActiveCallModal() {
     socket.on("call:ringing", handleCallConnected);
     socket.on("call:updated", handleCallUpdated);
     socket.on("call:ended", handleCallEnded);
+    socket.on("call:missed", handleCallMissed);
 
     return () => {
       socket.off("call:connected", handleCallConnected);
       socket.off("call:ringing", handleCallConnected);
       socket.off("call:updated", handleCallUpdated);
       socket.off("call:ended", handleCallEnded);
+      socket.off("call:missed", handleCallMissed);
     };
-  }, [handleCallConnected, handleCallUpdated, handleCallEnded]);
+  }, [handleCallConnected, handleCallUpdated, handleCallEnded, handleCallMissed]);
 
   // Socket events are the primary trigger; this poll is the fallback for
   // the serverless deploy (backend/src/socket.js is a no-op there, so no
