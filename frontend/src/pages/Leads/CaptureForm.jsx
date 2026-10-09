@@ -19,6 +19,13 @@ import {
   DisconnectOutlined,
 } from "@ant-design/icons";
 import { LeadDetailModal } from "@/pages/Leads";
+import { badgeClassForStatus } from "@/config/leadStages";
+
+// Every call site does `STATUS_META[lead.status]` to get a hub-badge-* class
+// — mirrors the same back-compat shim Leads/index.jsx defines locally
+// (this file was split out of it and needs its own copy, see the "Captured
+// Leads from {platform}" table below).
+const STATUS_META = new Proxy({}, { get: (_t, key) => badgeClassForStatus(typeof key === "string" ? key : "") });
 
 // Moved out of Leads/index.jsx (Sales) into Marketing — this is ad-platform
 // lead capture: the embeddable capture form field config plus the
