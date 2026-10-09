@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
 import { request } from "@/request";
+import { roleDisplay } from "@/pages/UserManagement/Users";
 
 const RANGE_OPTIONS = ["1M", "3M", "6M", "1Y"];
 const ALL_TEAMS = "__all_teams__";
@@ -9,6 +10,10 @@ const ALL_AGENTS = "__all_agents__";
 
 function fmtMoney(n) {
   return `₹${Math.round((n || 0) / 1000).toLocaleString()}k`;
+}
+
+function currentPeriodLabel() {
+  return new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 }
 
 function initials(name) {
@@ -109,6 +114,7 @@ function TeamPerformance({ data, metric }) {
             <thead>
               <tr>
                 <th>Agent</th>
+                <th>Role</th>
                 <th>{metric === "calls" ? "Calls Made" : "Sales Value"}</th>
                 <th>{metric === "calls" ? "Connected" : "Deals Closed"}</th>
                 <th>{metric === "calls" ? "Connect Rate" : "Share of Team Sales"}</th>
@@ -117,7 +123,7 @@ function TeamPerformance({ data, metric }) {
             <tbody>
               {agents.length === 0 && (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={5}>
                     <div className="hub-empty">No agents in this scope.</div>
                   </td>
                 </tr>
@@ -134,12 +140,15 @@ function TeamPerformance({ data, metric }) {
                   return (
                     <tr key={a.name}>
                       <td>
-                        <div className="hub-person">
+                        <div className="hub-person" style={{ paddingLeft: (a.depth || 0) * 18 }}>
                           <div className="hub-avatar" style={{ background: a.color }}>
                             {initials(a.name)}
                           </div>
                           {a.name}
                         </div>
+                      </td>
+                      <td>
+                        {a.role ? <span className="hub-badge hub-badge-blue">{roleDisplay(a.role)}</span> : "—"}
                       </td>
                       <td>{metric === "calls" ? a.calls.toLocaleString() : fmtMoney(a.sales)}</td>
                       <td>{metric === "calls" ? a.connected.toLocaleString() : a.deals}</td>
@@ -266,6 +275,214 @@ function IndividualPerformance({ data, metric }) {
   );
 }
 
+// Monthly target vs. actual for everyone in the caller's sales-hierarchy
+// scope (GET /api/performance/targets — see backend's targetController).
+// Editable only for rows "canSetTargets" allows (the caller is full-access,
+// or has at least one person reporting up to them) — a leaf Sales Intern
+// with nobody beneath them just sees their own numbers, read-only.
+function TargetsTab() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editAdmin, setEditAdmin] = useState(null);
+  const [draft, setDraft] = useState({ targetCalls: "", targetDeals: "", targetRevenue: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await request.get({ entity: "performance/targets" });
+    setData(res?.success ? res.result : null);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const startEdit = (row) => {
+    setEditAdmin(row.admin);
+    setDraft({
+      targetCalls: row.targetCalls ?? "",
+      targetDeals: row.targetDeals ?? "",
+      targetRevenue: row.targetRevenue ?? "",
+    });
+  };
+
+  const save = async (row) => {
+    setSaving(true);
+    const res = await request.post({
+      entity: "performance/targets",
+      jsonData: {
+        admin: row.admin,
+        targetCalls: draft.targetCalls === "" ? null : Number(draft.targetCalls),
+        targetDeals: draft.targetDeals === "" ? null : Number(draft.targetDeals),
+        targetRevenue: draft.targetRevenue === "" ? null : Number(draft.targetRevenue),
+      },
+    });
+    setSaving(false);
+    if (res?.success) {
+      setEditAdmin(null);
+      await load();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="hub-card">
+        <div className="hub-empty">Loading targets…</div>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="hub-card">
+        <div className="hub-empty">Couldn't load targets.</div>
+      </div>
+    );
+  }
+
+  const pctOf = (achieved, target) => (target ? Math.min(100, Math.round((achieved / target) * 100)) : null);
+
+  return (
+    <div className="hub-card">
+      <div className="hub-card-header">
+        <h3>Monthly Targets — {currentPeriodLabel()}</h3>
+      </div>
+      <div className="hub-table-wrapper">
+        <table className="hub-table">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Role</th>
+              <th>Calls</th>
+              <th>Deals</th>
+              <th>Revenue</th>
+              {data.canSetTargets && <th>Action</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.length === 0 && (
+              <tr>
+                <td colSpan={data.canSetTargets ? 6 : 5}>
+                  <div className="hub-empty">No one in this scope yet.</div>
+                </td>
+              </tr>
+            )}
+            {data.rows.map((r) => {
+              const isEditing = data.canSetTargets && editAdmin === r.admin;
+              const callsPct = pctOf(r.achievedCalls, r.targetCalls);
+              const dealsPct = pctOf(r.achievedDeals, r.targetDeals);
+              const revPct = pctOf(r.achievedRevenue, r.targetRevenue);
+              return (
+                <tr key={r.admin || r.name}>
+                  <td>
+                    <div className="hub-person" style={{ paddingLeft: (r.depth || 0) * 18 }}>
+                      <div className="hub-avatar" style={{ background: "#2563EB" }}>{initials(r.name)}</div>
+                      {r.name}
+                    </div>
+                  </td>
+                  <td>{r.role ? <span className="hub-badge hub-badge-blue">{roleDisplay(r.role)}</span> : "—"}</td>
+                  {isEditing ? (
+                    <>
+                      <td>
+                        <input
+                          className="hub-input"
+                          style={{ width: 80 }}
+                          type="number"
+                          min="0"
+                          placeholder="target"
+                          value={draft.targetCalls}
+                          onChange={(e) => setDraft((d) => ({ ...d, targetCalls: e.target.value }))}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="hub-input"
+                          style={{ width: 70 }}
+                          type="number"
+                          min="0"
+                          placeholder="target"
+                          value={draft.targetDeals}
+                          onChange={(e) => setDraft((d) => ({ ...d, targetDeals: e.target.value }))}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="hub-input"
+                          style={{ width: 100 }}
+                          type="number"
+                          min="0"
+                          placeholder="target ₹"
+                          value={draft.targetRevenue}
+                          onChange={(e) => setDraft((d) => ({ ...d, targetRevenue: e.target.value }))}
+                        />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        {r.targetCalls != null ? (
+                          <div className="hub-progress">
+                            <div className="hub-progress-track">
+                              <div className="hub-progress-fill" style={{ width: `${callsPct}%`, background: "#2563EB" }} />
+                            </div>
+                            <span>{r.achievedCalls}/{r.targetCalls}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--hub-muted)" }}>{r.achievedCalls} (no target)</span>
+                        )}
+                      </td>
+                      <td>
+                        {r.targetDeals != null ? (
+                          <div className="hub-progress">
+                            <div className="hub-progress-track">
+                              <div className="hub-progress-fill" style={{ width: `${dealsPct}%`, background: "#16A34A" }} />
+                            </div>
+                            <span>{r.achievedDeals}/{r.targetDeals}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--hub-muted)" }}>{r.achievedDeals} (no target)</span>
+                        )}
+                      </td>
+                      <td>
+                        {r.targetRevenue != null ? (
+                          <div className="hub-progress">
+                            <div className="hub-progress-track">
+                              <div className="hub-progress-fill" style={{ width: `${revPct}%`, background: "#D97706" }} />
+                            </div>
+                            <span>{fmtMoney(r.achievedRevenue)}/{fmtMoney(r.targetRevenue)}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--hub-muted)" }}>{fmtMoney(r.achievedRevenue)} (no target)</span>
+                        )}
+                      </td>
+                    </>
+                  )}
+                  {data.canSetTargets && (
+                    <td>
+                      {isEditing ? (
+                        <div className="hub-row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                          <button type="button" className="hub-btn hub-btn-primary" disabled={saving} onClick={() => save(r)}>
+                            {saving ? "Saving…" : "Save"}
+                          </button>
+                          <button type="button" className="hub-btn" onClick={() => setEditAdmin(null)}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button type="button" className="hub-btn" disabled={!r.admin} onClick={() => startEdit(r)}>
+                          Set Target
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Performance() {
   const [tab, setTab] = useState("team");
   const [metric, setMetric] = useState("calls");
@@ -291,17 +508,18 @@ export default function Performance() {
   }, [range, teamFilter, agentFilter]);
 
   const isManagement = data?.scope?.isManagement;
+  const scopeNote = isManagement
+    ? "Company-wide — filter by team or by one person below"
+    : data?.scope?.isHierarchy
+    ? `Your data and everyone reporting up to you (${data.scope.teamSize} people)`
+    : `Your data${data?.scope?.team ? ` and ${data.scope.team}'s` : ""}`;
 
   return (
     <div className="hub-page">
       <div className="hub-header">
         <div>
           <h2>Performance</h2>
-          <p>
-            {isManagement
-              ? "Company-wide — filter by team or by one person below"
-              : `Your data${data?.scope?.team ? ` and ${data.scope.team}'s` : ""}`}
-          </p>
+          <p>{scopeNote}</p>
         </div>
 
         <div className="hub-row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -352,12 +570,15 @@ export default function Performance() {
         tabs={[
           { key: "team", label: "Team Performance" },
           { key: "individual", label: "Individual Performance" },
+          { key: "targets", label: "Targets" },
         ]}
         active={tab}
         onChange={setTab}
       />
 
-      {!data ? (
+      {tab === "targets" ? (
+        <TargetsTab />
+      ) : !data ? (
         <div className="hub-card">
           <div className="hub-empty">{loading ? "Loading performance…" : "Couldn't load performance data."}</div>
         </div>

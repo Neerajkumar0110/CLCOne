@@ -89,6 +89,13 @@ router.route('/dashboard/summary').get(catchErrors(appControllers.dashboardContr
 // Same story — a read-only aggregate over Call/Payment/Team, not a model of its own.
 router.route('/performance/summary').get(catchErrors(appControllers.performanceController.summary));
 
+// Monthly target vs. actual, scoped to the caller's sales-hierarchy chain
+// (see services/access/salesHierarchy.js) — Target IS a real model (unlike
+// the aggregates above), so this gets a normal GET/POST pair instead of just
+// a summary route.
+router.route('/performance/targets').get(catchErrors(appControllers.targetController.summary));
+router.route('/performance/targets').post(catchErrors(appControllers.targetController.upsert));
+
 // Same story again — aggregates over Call/Lead/Payment/Client/Team. Both
 // endpoints self-restrict to management roles inside the controller (see
 // reportController/summary.js), unlike dashboard/performance which degrade

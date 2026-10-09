@@ -9,7 +9,7 @@ const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES } = req
 const update = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
 
-  const { name, surname, email, role, subRole, removed } = req.body;
+  const { name, surname, email, role, subRole, removed, reportsTo } = req.body;
 
   const objectSchema = Joi.object({
     name: Joi.string(),
@@ -20,9 +20,12 @@ const update = async (userModel, req, res) => {
       .valid(...FINANCE_SUB_ROLES)
       .when('role', { is: 'Finance', then: Joi.optional(), otherwise: Joi.forbidden() }),
     removed: Joi.boolean(),
+    // '' or null clears it (e.g. promoted to Sales Manager, top of the
+    // chain) — see Admin.js's reportsTo comment.
+    reportsTo: Joi.string().allow('', null),
   });
 
-  const { error } = objectSchema.validate({ name, surname, email, role, subRole, removed });
+  const { error } = objectSchema.validate({ name, surname, email, role, subRole, removed, reportsTo });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -75,6 +78,14 @@ const update = async (userModel, req, res) => {
     }
   }
 
+  if (reportsTo && reportsTo === String(req.params.id)) {
+    return res.status(409).json({
+      success: false,
+      result: null,
+      message: 'A user cannot report to themselves.',
+    });
+  }
+
   const updateFields = {};
   if (name !== undefined) updateFields.name = name;
   if (surname !== undefined) updateFields.surname = surname;
@@ -89,6 +100,10 @@ const update = async (userModel, req, res) => {
     } else if (role !== 'Finance') {
       unsetFields.subRole = '';
     }
+  }
+  if (reportsTo !== undefined) {
+    if (reportsTo && mongoose.isValidObjectId(reportsTo)) updateFields.reportsTo = reportsTo;
+    else unsetFields.reportsTo = '';
   }
 
   const mongoUpdate = Object.keys(unsetFields).length
@@ -182,6 +197,7 @@ const update = async (userModel, req, res) => {
       email: result.email,
       role: result.role,
       subRole: result.subRole,
+      reportsTo: result.reportsTo,
       enabled: result.enabled,
       removed: result.removed,
     },

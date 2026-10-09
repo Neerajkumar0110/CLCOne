@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
+const { resolveHierarchyScope, FULL_ACCESS_ROLES } = require('../../../../services/access/salesHierarchy');
 const { hydrateClientAndAdmin } = require('../../../../services/finance/hydrateClientAndAdmin');
 
 const RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
@@ -24,26 +24,31 @@ function weekBucketKey(d) {
 
 // GET /api/performance/summary?range=1M|3M|6M|1Y&team=<name>&agent=<name>
 //
-// Same scoping rule as dashboard/summary: MANAGEMENT_ROLES (owner, Super
-// Admin, Admin, Sales Manager) see company-wide data and may filter by team
-// or agent; everyone else is force-scoped server-side to their own team (or
-// just themselves, if they're not on one) — a non-management caller can
-// never see another team's numbers, regardless of what they pass in the
-// query string.
+// Scoping follows the sales org chart (Sales Manager -> Team Manager -> Team
+// Leader -> Senior Executive -> Executive -> Sales Intern — see
+// services/access/salesHierarchy.js): MANAGEMENT_ROLES see company-wide data
+// and may filter by team or agent; everyone else is force-scoped
+// server-side to themselves + everyone reporting up to them through
+// Admin.reportsTo, however many levels deep. Anyone whose reportsTo chain
+// hasn't been configured yet falls back to the old flat
+// team-membership/self-only scope so this never breaks for an un-migrated
+// account.
 const summary = async (req, res) => {
   const Team = mongoose.model('Team');
   const Call = mongoose.model('Call');
   const Payment = mongoose.model('Payment');
+  const Admin = mongoose.model('Admin');
 
   const range = RANGE_DAYS[req.query.range] ? req.query.range : '1M';
   const since = new Date(Date.now() - RANGE_DAYS[range] * 24 * 60 * 60 * 1000);
 
-  const isManagement = FULL_ACCESS_ROLES.includes(req.admin.role);
+  const hierarchy = await resolveHierarchyScope(req.admin);
+  const isManagement = hierarchy.isFullAccess;
 
   const allTeams = await Team.find({ removed: false }).select('name members color').lean();
 
   let myTeam = null;
-  if (!isManagement) {
+  if (!isManagement && hierarchy.legacy) {
     myTeam = allTeams.find((t) => t.members.includes(req.admin.name)) || null;
   }
 
@@ -51,30 +56,40 @@ const summary = async (req, res) => {
   // authorization for team/agent filtering happens.
   let scopeTeam = null;
   let scopeAgent = null;
+  // Hierarchy scope (non-legacy, non-management) — self + every descendant's
+  // name, however deep the chain goes. null when management (no filter
+  // needed) or legacy (handled via scopeTeam/scopeAgent exactly as before).
+  let scopeNames = null;
 
   if (isManagement) {
     scopeTeam = req.query.team || null;
     scopeAgent = req.query.agent || null;
-  } else if (myTeam) {
-    scopeTeam = myTeam.name; // team-wide — naturally includes their own rows
+  } else if (hierarchy.legacy) {
+    if (myTeam) {
+      scopeTeam = myTeam.name; // team-wide — naturally includes their own rows
+    } else {
+      scopeAgent = req.admin.name; // no team — just their own data
+    }
   } else {
-    scopeAgent = req.admin.name; // no team — just their own data
+    scopeNames = hierarchy.names; // hierarchy-aware — self + full reporting chain beneath them
   }
 
   // ---- Calls — real per-agent data, filtered straight in the query. ----
   const callMatch = { removed: false, created: { $gte: since } };
   if (scopeTeam) callMatch.team = scopeTeam;
   if (scopeAgent) callMatch.calledBy = scopeAgent;
+  if (scopeNames) callMatch.calledBy = { $in: scopeNames };
   const calls = await Call.find(callMatch).select('status duration calledBy created').lean();
 
   // ---- Payments — real per-agent revenue. Payment has no team field of its
-  // own, so team scoping is applied here in JS against that team's member
-  // list rather than in the query. createdBy (Admin, coreDb) is a plain ref
-  // now — Payment is financeDb, autopopulate can't cross databases — so it's
-  // hydrated manually right after the fetch, same {_id, name} shape as before. ----
+  // own, so team/hierarchy scoping is applied here in JS rather than in the
+  // query. createdBy (Admin, coreDb) is a plain ref now — Payment is
+  // financeDb, autopopulate can't cross databases — so it's hydrated
+  // manually right after the fetch, same {_id, name} shape as before. ----
   const memberSet = scopeTeam
     ? new Set((allTeams.find((t) => t.name === scopeTeam) || {}).members || [])
     : null;
+  const nameSet = scopeNames ? new Set(scopeNames) : null;
 
   const rawPaymentsUnhydrated = await Payment.find({ removed: false, created: { $gte: since } })
     .select('amount createdBy created')
@@ -86,20 +101,32 @@ const summary = async (req, res) => {
     if (!name) return false;
     if (scopeAgent) return name === scopeAgent;
     if (scopeTeam) return memberSet.has(name);
+    if (nameSet) return nameSet.has(name);
     return true; // management, no team/agent filter — every payment is in scope
   });
 
   // Which agents to report on — identical enforcement to what scoped the
-  // queries above, so a non-management caller only ever sees their own team.
+  // queries above, so a non-management caller only ever sees their own
+  // hierarchy scope (or legacy team, if that's all that's configured for them).
   const agentNames = scopeAgent
     ? [scopeAgent]
     : scopeTeam
     ? (allTeams.find((t) => t.name === scopeTeam)?.members || [])
+    : scopeNames
+    ? scopeNames
     : isManagement
     ? [...new Set(allTeams.flatMap((t) => t.members))]
     : [req.admin.name];
 
   const teamForAgent = (name) => allTeams.find((t) => t.members.includes(name)) || null;
+
+  // role + hierarchy depth per agent, for the Leaderboard's Role column and
+  // indent — depth comes straight from resolveHierarchyScope's precomputed
+  // value when available (non-legacy hierarchy scope); otherwise looked up
+  // fresh so management/legacy callers still get a Role column, just no depth.
+  const depthByName = new Map((hierarchy.people || []).map((p) => [p.name, p.depth]));
+  const roleRows = await Admin.find({ name: { $in: agentNames }, removed: false }).select('name role').lean();
+  const roleByName = new Map(roleRows.map((r) => [r.name, r.role]));
 
   const agents = agentNames
     .map((name) => {
@@ -112,6 +139,8 @@ const summary = async (req, res) => {
 
       return {
         name,
+        role: roleByName.get(name) || null,
+        depth: depthByName.has(name) ? depthByName.get(name) : 0,
         team: team?.name || null,
         color: team?.color || '#2563EB',
         calls: myCalls.length,
@@ -123,7 +152,7 @@ const summary = async (req, res) => {
         sales,
       };
     })
-    .sort((a, b) => b.calls - a.calls);
+    .sort((a, b) => a.depth - b.depth || b.calls - a.calls);
 
   const totals = agents.reduce(
     (acc, a) => {
@@ -160,6 +189,9 @@ const summary = async (req, res) => {
         role: req.admin.role,
         team: scopeTeam,
         agent: scopeAgent,
+        isHierarchy: !!scopeNames,
+        legacy: !!hierarchy.legacy,
+        teamSize: scopeNames ? scopeNames.length : null,
       },
       filters: {
         teams: isManagement ? allTeams.map((t) => t.name) : myTeam ? [myTeam.name] : [],

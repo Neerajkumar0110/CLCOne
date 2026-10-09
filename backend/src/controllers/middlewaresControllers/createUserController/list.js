@@ -17,6 +17,7 @@ const list = async (userModel, req, res) => {
     surname: u.surname,
     photo: u.photo,
     role: u.role,
+    reportsTo: u.reportsTo,
     created: u.created,
   }));
 

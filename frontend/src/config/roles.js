@@ -92,6 +92,21 @@ export const BELOW_TEAM_MANAGER_ROLES = [
   "Sales Intern",
 ];
 
+// The sales org chart, top to bottom — mirrors backend/src/config/roles.js's
+// SALES_ROLE_ORDER/SALES_ROLE_PARENT (kept in sync by hand). SALES_ROLE_PARENT
+// drives the "Reports To" picker in Add/Edit User (pages/UserManagement/
+// Users.jsx) — it's filtered to people already holding the selected role's
+// parent tier, e.g. an Executive's "Reports To" picker only offers Senior
+// Executives. Sales Manager has no parent — it's the top of the chain.
+export const SALES_ROLE_ORDER = ["Sales Manager", "Team Manager", "Team Leader", "Senior Executive", "Executive", "Sales Intern"];
+export const SALES_ROLE_PARENT = {
+  "Team Manager": "Sales Manager",
+  "Team Leader": "Team Manager",
+  "Senior Executive": "Team Leader",
+  Executive: "Senior Executive",
+  "Sales Intern": "Executive",
+};
+
 // Old role names that no longer exist, mapped to their closest new
 // equivalent — purely for display of users created before this rename.
 export const ROLE_ALIASES = {

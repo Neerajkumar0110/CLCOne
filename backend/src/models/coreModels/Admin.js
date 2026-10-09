@@ -74,6 +74,17 @@ const adminSchema = new Schema({
   // decide on its own, so this only flags the account for admin review (see
   // learnerOverview.js#requestDataDeletion + the system-health/notify path).
   dataDeletionRequestedAt: { type: Date },
+
+  // Sales org-chart reporting line — this person's direct manager (e.g. an
+  // Executive's reportsTo points at their Senior Executive). Optional and
+  // independent of Team membership (Team.members is a flat, unordered bag of
+  // name strings with no levels); this is what lets
+  // services/access/salesHierarchy.js walk a multi-level chain (Sales
+  // Manager -> Team Manager -> Team Leader -> Senior Executive -> Executive
+  // -> Sales Intern) via $graphLookup. null/unset = top of their chain, or
+  // hierarchy not configured for them yet (resolveHierarchyScope falls back
+  // to legacy flat Team scoping in that case).
+  reportsTo: { type: Schema.ObjectId, ref: 'Admin', default: null },
 });
 
 module.exports = mongoose.model('Admin', adminSchema);

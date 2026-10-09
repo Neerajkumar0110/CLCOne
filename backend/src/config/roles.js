@@ -70,6 +70,22 @@ const SALES_ROLES = ROLES.filter(
   (r) => !SUPER_ADMIN_ROLES.includes(r) && r !== 'Admin' && !NON_SALES_ROLES.includes(r)
 );
 
+// The sales org chart, top to bottom — mirrors frontend/src/config/roles.js's
+// SALES_ROLE_PARENT (kept in sync by hand, same convention as the rest of
+// this file). SALES_ROLE_ORDER's index is used by services/access/
+// salesHierarchy.js to compute a person's display "depth" relative to the
+// viewer without walking the Admin.reportsTo graph a second time; SALES_ROLE_PARENT
+// is which role a given tier's "Reports To" picker should be filtered to in
+// the Add/Edit User forms.
+const SALES_ROLE_ORDER = ['Sales Manager', 'Team Manager', 'Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'];
+const SALES_ROLE_PARENT = {
+  'Team Manager': 'Sales Manager',
+  'Team Leader': 'Team Manager',
+  'Senior Executive': 'Team Leader',
+  Executive: 'Senior Executive',
+  'Sales Intern': 'Executive',
+};
+
 module.exports = {
   ROLES,
   FINANCE_SUB_ROLES,
@@ -80,6 +96,8 @@ module.exports = {
   LMS_FULL_ACCESS_ROLES,
   NON_SALES_ROLES,
   SALES_ROLES,
+  SALES_ROLE_ORDER,
+  SALES_ROLE_PARENT,
   LMS_TEACHER_ROLES,
   LMS_STUDENT_ROLES,
   LMS_PANEL_ROLES,

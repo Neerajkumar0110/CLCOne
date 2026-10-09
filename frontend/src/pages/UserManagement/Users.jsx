@@ -23,6 +23,7 @@ import {
   BELOW_TEAM_MANAGER_ROLES,
   ROLE_ALIASES,
   DEFAULT_FALLBACK_ROLE,
+  SALES_ROLE_PARENT,
 } from "@/config/roles";
 
 // Shared by UserManagement (Settings) and the HRMS "Users" tab — same
@@ -302,7 +303,38 @@ function TeamsModal({ open, onClose, teams, allUsers, onAssignTeam, onTeamsChang
   );
 }
 
-function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = roles }) {
+// Sales org-chart "Reports To" picker — only rendered for a role that has a
+// parent tier in SALES_ROLE_PARENT (Team Manager and below; Sales Manager is
+// the top of the chart and has none). Options are every existing user
+// already holding that parent role, so e.g. an Executive can only be
+// assigned to a real Senior Executive, never a Team Leader two tiers up.
+// Shared by AddUserModal/EditUserModal below — same convention as the rest
+// of this file.
+function ReportsToField({ role, value, onChange, allUsers, excludeEmail }) {
+  const parentRole = SALES_ROLE_PARENT[role];
+  if (!parentRole) return null;
+
+  const candidates = (allUsers ?? []).filter((u) => u.role === parentRole && u.email !== excludeEmail);
+
+  return (
+    <div className="hub-form-row">
+      <label>Reports To ({roleDisplay(parentRole)})</label>
+      <select className="hub-select" value={value || ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Not set yet</option>
+        {candidates.map((u) => (
+          <option key={u._id} value={u._id}>{u.name}</option>
+        ))}
+      </select>
+      {candidates.length === 0 && (
+        <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+          No {roleDisplay(parentRole)} exists yet — add one first, or leave this unset for now.
+        </span>
+      )}
+    </div>
+  );
+}
+
+function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = roles, allUsers }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -319,6 +351,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [newTeamName, setNewTeamName] = useState("");
+  const [reportsTo, setReportsTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -339,6 +372,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
     if (NO_TEAM_FIELD_ROLES.includes(role) || (!isManagerRole && teamChoice === NEW_TEAM)) {
       setTeamChoice(NO_TEAM);
     }
+    setReportsTo(""); // the parent-role pool changes with the role, so any previous pick is no longer valid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
@@ -356,6 +390,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
     setPhone("");
     setTeamChoice(NO_TEAM);
     setNewTeamName("");
+    setReportsTo("");
     setFormError("");
     setSubRole(FINANCE_SUB_ROLES[0]);
   };
@@ -380,6 +415,7 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         phone: phone.trim(),
         role,
         ...(role === "Finance" ? { subRole } : {}),
+        ...(reportsTo ? { reportsTo } : {}),
       },
     });
 
@@ -472,6 +508,8 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         </div>
       )}
 
+      <ReportsToField role={role} value={reportsTo} onChange={setReportsTo} allUsers={allUsers} />
+
       {!NO_TEAM_FIELD_ROLES.includes(role) && (
         <div className="hub-form-row">
           <label>Team</label>
@@ -511,6 +549,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
   const [department, setDepartment] = useState(Object.keys(depts)[0]);
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
+  const [reportsTo, setReportsTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [assignEmail, setAssignEmail] = useState("");
@@ -526,6 +565,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
     setSubRole(user.subRole || FINANCE_SUB_ROLES[0]);
     const currentTeam = teams.find((t) => t.members.includes(user.name));
     setTeamChoice(currentTeam ? currentTeam.name : NO_TEAM);
+    setReportsTo(user.reportsTo || "");
     setFormError("");
     setAssignEmail("");
     setAssignedNote("");
@@ -537,6 +577,12 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
   const onDepartmentChange = (d) => {
     setDepartment(d);
     setRole((depts[d] || [])[0] || role);
+    setReportsTo(""); // parent-role pool changes with department — any previous pick is no longer valid
+  };
+
+  const onRoleChange = (r) => {
+    setRole(r);
+    setReportsTo(""); // parent-role pool changes with role — any previous pick is no longer valid
   };
 
   // Super Admin's account is provisioned once, outside this UI — its role
@@ -563,7 +609,13 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
       id: user._id,
       jsonData: isProtectedRole
         ? {}
-        : { name: name.trim(), email: email.trim(), role, ...(role === "Finance" ? { subRole } : {}) },
+        : {
+            name: name.trim(),
+            email: email.trim(),
+            role,
+            ...(role === "Finance" ? { subRole } : {}),
+            reportsTo: SALES_ROLE_PARENT[role] ? reportsTo || "" : "",
+          },
     });
     setSubmitting(false);
 
@@ -656,7 +708,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
       {!isProtectedRole && (depts[department] || []).length > 1 && (
         <div className="hub-form-row">
           <label>Position</label>
-          <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)}>
+          <select className="hub-select" value={role} onChange={(e) => onRoleChange(e.target.value)}>
             {depts[department].map((r) => <option key={r} value={r}>{roleDisplay(r)}</option>)}
           </select>
         </div>
@@ -677,6 +729,10 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
             {FINANCE_SUB_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
+      )}
+
+      {!isProtectedRole && (
+        <ReportsToField role={role} value={reportsTo} onChange={setReportsTo} allUsers={allUsers} excludeEmail={user.email} />
       )}
 
       {isNoTeamRole ? null : isManagerRole ? (
@@ -903,6 +959,7 @@ export default function Users({
         email: u.email,
         role: resolvedRole,
         subRole: u.subRole,
+        reportsTo: u.reportsTo,
         enabled: u.enabled,
         init: initialsOf([u.name, u.surname].filter(Boolean).join(" ") || u.email),
         color: colorFor(u.email),
@@ -1171,6 +1228,7 @@ export default function Users({
             teams={teams}
             initialRole={roleFilter}
             roleOptions={roleOptions}
+            allUsers={users}
             onAdd={async (u, teamInfo) => {
               await loadUsers();
               onAssignTeam(u.name, teamInfo.teamChoice, teamInfo.newTeamName);

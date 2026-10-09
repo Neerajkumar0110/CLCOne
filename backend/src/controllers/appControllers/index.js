@@ -21,6 +21,7 @@ const controllerModules = {
   notificationController: require('./operation/notificationController'),
   paymentController: require('./finance/paymentController'),
   performanceController: require('./sales/performanceController'),
+  targetController: require('./sales/targetController'),
   reportController: require('./core/reportController'),
   salesDealController: require('./sales/salesDealController'),
   teamController: require('./core/teamController'),

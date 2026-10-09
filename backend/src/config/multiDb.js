@@ -25,6 +25,7 @@ const DB_MAP = {
   SalesCost: 'salesDb',
   SalesDeal: 'salesDb',
   SalesOrder: 'salesDb',
+  Target: 'salesDb',
   SalesQuote: 'salesDb',
 
   // ---- marketingDb ----

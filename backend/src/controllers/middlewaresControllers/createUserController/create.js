@@ -22,7 +22,7 @@ const create = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
   const UserPassword = mongoose.model(userModel + 'Password');
 
-  const { name, surname, email, phone, role, subRole } = req.body;
+  const { name, surname, email, phone, role, subRole, reportsTo } = req.body;
 
   const objectSchema = Joi.object({
     name: Joi.string().required(),
@@ -37,9 +37,13 @@ const create = async (userModel, req, res) => {
     subRole: Joi.string()
       .valid(...FINANCE_SUB_ROLES)
       .when('role', { is: 'Finance', then: Joi.optional(), otherwise: Joi.forbidden() }),
+    // Sales org-chart "reports to" — see Admin.js's reportsTo comment. Only
+    // meaningful for the sales hierarchy roles; harmless to accept (and
+    // leave unset) for any other role.
+    reportsTo: Joi.string().allow('', null),
   });
 
-  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole });
+  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole, reportsTo });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -102,6 +106,7 @@ const create = async (userModel, req, res) => {
       phone,
       role,
       subRole: role === 'Finance' ? subRole : undefined,
+      reportsTo: reportsTo && mongoose.isValidObjectId(reportsTo) ? reportsTo : undefined,
       enabled: true,
     }).save();
   } catch (err) {
@@ -171,6 +176,7 @@ const create = async (userModel, req, res) => {
       phone: newUser.phone,
       role: newUser.role,
       subRole: newUser.subRole,
+      reportsTo: newUser.reportsTo,
       enabled: newUser.enabled,
     },
     message: 'User created successfully — they can now log in.',
