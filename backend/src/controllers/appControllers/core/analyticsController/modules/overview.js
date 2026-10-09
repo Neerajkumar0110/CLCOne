@@ -81,7 +81,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
   const revSeries = bucketCounts(orders, 'created', bkt, (o) => (o.paymentStatus === 'Paid' ? o.total || 0 : 0));
 
   const dealsByStage = groupBy(deals, (d) => d.stage || 'Qualification', { sort: false });
-  const { teams: teamOptions, names: agentOptions } = await scopeFacets(scope);
+  const { teams: teamOptions, names: agentOptions, orgTree } = await scopeFacets(scope);
 
   return {
     range: { from, to, prevFrom, prevTo, bucket: bkt.unit },
@@ -150,6 +150,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
       // options at all, even though scoping itself is working correctly.
       teams: teamOptions,
       agents: agentOptions,
+      orgTree,
     },
   };
 }

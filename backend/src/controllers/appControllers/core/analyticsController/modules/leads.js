@@ -195,6 +195,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
       // team) — see scopeFacets() in shared.js.
       teams: [...new Set([...scopeOpts.teams, ...leads.map((l) => l.team).filter(Boolean)])].sort(),
       owners: [...new Set([...scopeOpts.names, ...leads.map((l) => l.assignedUserName).filter(Boolean)])].sort(),
+      orgTree: scopeOpts.orgTree,
     },
   };
 }

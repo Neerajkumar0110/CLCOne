@@ -53,7 +53,8 @@ export default {
   filterDrawer: [
     { key: "direction", label: "Direction", kind: "multiselect", options: ["Outbound", "Inbound"] },
     { key: "status", label: "Status", kind: "multiselect", options: "@statuses" },
-    { key: "agent", label: "Agent", kind: "multiselect", options: "@agents" },
+    // Expandable org-chart tree, multi-select — see utils/orgTree.js.
+    { key: "agent", label: "Agent", kind: "treemulti", options: "@orgTree" },
     { key: "disposition", label: "Disposition", kind: "multiselect", options: "@dispositions" },
   ],
 };

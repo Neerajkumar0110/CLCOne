@@ -1,11 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { Drawer, Select, Input, InputNumber, Switch } from "antd";
+import { Drawer, Select, TreeSelect, Input, InputNumber, Switch } from "antd";
+import { orgTreeToTreeData } from "@/utils/orgTree";
+import { roleDisplay } from "@/pages/UserManagement/Users";
 
 // Resolve "@facetName" option refs against the summary payload's facets.
 function resolveOptions(opt, facets) {
   if (Array.isArray(opt)) return opt.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
   if (typeof opt === "string" && opt.startsWith("@")) {
     return (facets[opt.slice(1)] || []).map((v) => ({ value: v, label: v }));
+  }
+  return [];
+}
+
+// Same "@facetName" ref, but for a "tree"/"treemulti" field — the facet is
+// already the nested org-chart shape (see utils/orgTree.js), not a flat list.
+function resolveTreeData(opt, facets) {
+  if (typeof opt === "string" && opt.startsWith("@")) {
+    return orgTreeToTreeData(facets[opt.slice(1)] || [], roleDisplay);
   }
   return [];
 }
@@ -65,6 +76,32 @@ export default function FilterDrawer({ open, onClose, fields = [], facets = {}, 
                 value={draft[f.key] || (f.kind === "multiselect" ? [] : undefined)}
                 onChange={(v) => set(f.key, v)}
                 options={resolveOptions(f.options, facets)}
+                placeholder={`Any ${f.label.toLowerCase()}`}
+                maxTagCount="responsive"
+              />
+            )}
+            {f.kind === "tree" && (
+              <TreeSelect
+                allowClear
+                showSearch
+                treeNodeFilterProp="title"
+                style={{ width: "100%" }}
+                value={draft[f.key] || undefined}
+                onChange={(v) => set(f.key, v)}
+                treeData={resolveTreeData(f.options, facets)}
+                placeholder={`Any ${f.label.toLowerCase()}`}
+              />
+            )}
+            {f.kind === "treemulti" && (
+              <TreeSelect
+                multiple
+                allowClear
+                showSearch
+                treeNodeFilterProp="title"
+                style={{ width: "100%" }}
+                value={draft[f.key] || []}
+                onChange={(v) => set(f.key, v)}
+                treeData={resolveTreeData(f.options, facets)}
                 placeholder={`Any ${f.label.toLowerCase()}`}
                 maxTagCount="responsive"
               />

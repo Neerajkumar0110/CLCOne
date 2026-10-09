@@ -4,25 +4,12 @@ import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
 import { request } from "@/request";
 import { roleDisplay } from "@/pages/UserManagement/Users";
+import { orgTreeToTreeData } from "@/utils/orgTree";
 
 const RANGE_OPTIONS = ["1M", "3M", "6M", "1Y"];
 const ALL_TEAMS = "__all_teams__";
 const ALL_AGENTS = "__all_agents__";
 const ALL_ROLES = "__all_roles__";
-
-// backend's orgTree.js nodes ({id, name, role, children}) -> antd
-// TreeSelect's shape. `value` is the person's NAME, not their id — every
-// other agent-scoped query in this app (Call.calledBy, Payment.createdBy,
-// ?agent=) is already name-keyed, so this stays consistent instead of
-// introducing a second identity scheme just for this picker.
-function toTreeData(nodes) {
-  return (nodes || []).map((n) => ({
-    title: `${n.name}${n.role ? ` — ${roleDisplay(n.role)}` : ""}`,
-    value: n.name,
-    key: n.id,
-    children: n.children && n.children.length ? toTreeData(n.children) : undefined,
-  }));
-}
 
 function fmtMoney(n) {
   return `₹${Math.round((n || 0) / 1000).toLocaleString()}k`;
@@ -589,7 +576,7 @@ export default function Performance() {
                 showSearch
                 treeNodeFilterProp="title"
                 dropdownMatchSelectWidth={280}
-                treeData={orgTreeData.length ? toTreeData(orgTreeData) : undefined}
+                treeData={orgTreeData.length ? orgTreeToTreeData(orgTreeData, roleDisplay) : undefined}
                 notFoundContent={<div className="hub-empty" style={{ padding: 8 }}>No one in the sales hierarchy yet.</div>}
                 onChange={(v) => setAgentFilter(v || ALL_AGENTS)}
               />

@@ -192,13 +192,24 @@ async function resolveDashboardScope(req) {
 // back empty (no data in range), which would otherwise make the filter
 // dropdown render with zero options and look broken/missing even though
 // scoping itself is working correctly.
+//
+// `orgTree` is the same nested shape as performanceController/orgTree.js's
+// endpoint (built from Admin.reportsTo, see services/access/
+// salesHierarchy.js's buildOrgTree) — every dashboard's Person/Owner/Agent
+// filter renders it as an expandable TreeSelect instead of a flat list, so
+// e.g. picking "Team Manager" expands to the Team Leaders under them. A
+// non-full-access caller's query string can't widen their own forced scope
+// anyway (see mergeScope's comment), so their tree is just their own
+// allowed names, flattened (no real sub-tree to browse outside their chain).
 async function scopeFacets(scope) {
   const Team = mongoose.model('Team');
   const allTeams = await Team.find({ removed: false }).select('name members').lean();
   if (scope.isFullAccess) {
+    const { buildOrgTree } = require('../../../../services/access/salesHierarchy');
     return {
       teams: allTeams.map((t) => t.name).sort(),
       names: [...new Set(allTeams.flatMap((t) => t.members || []))].filter(Boolean).sort(),
+      orgTree: await buildOrgTree(),
     };
   }
   const names = scope.teamMemberNames && scope.teamMemberNames.length
@@ -206,9 +217,11 @@ async function scopeFacets(scope) {
     : scope.agent
     ? [scope.agent]
     : [];
+  const uniqNames = [...new Set(names)].filter(Boolean).sort();
   return {
     teams: scope.team ? [scope.team] : [],
-    names: [...new Set(names)].filter(Boolean).sort(),
+    names: uniqNames,
+    orgTree: uniqNames.map((n) => ({ id: n, name: n, role: null, children: [] })),
   };
 }
 

@@ -59,6 +59,9 @@ export default {
     // force-scoped server-side to their own team (or themselves), so picking
     // a value here is a no-op for them, not a way to see someone else's data.
     { key: "team", label: "Team", kind: "select", options: "@teams" },
-    { key: "agent", label: "Person", kind: "select", options: "@agents" },
+    // Expandable org-chart tree instead of a flat list — expand "Team
+    // Manager" to see the Team Leaders under them, and so on. See
+    // utils/orgTree.js + backend's services/access/salesHierarchy.js.
+    { key: "agent", label: "Person", kind: "tree", options: "@orgTree" },
   ],
 };

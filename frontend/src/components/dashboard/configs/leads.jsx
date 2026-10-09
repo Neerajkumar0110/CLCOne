@@ -73,7 +73,8 @@ export default {
     { key: "source", label: "Source", kind: "multiselect", options: "@sources" },
     { key: "stage", label: "Stage", kind: "multiselect", options: STAGE_NAMES },
     { key: "team", label: "Team", kind: "multiselect", options: "@teams" },
-    { key: "owner", label: "Owner", kind: "multiselect", options: "@owners" },
+    // Expandable org-chart tree, multi-select — see utils/orgTree.js.
+    { key: "owner", label: "Owner", kind: "treemulti", options: "@orgTree" },
     { key: "city", label: "City", kind: "text" },
     { key: "hasFollowUp", label: "Has pending follow-up", kind: "bool" },
   ],

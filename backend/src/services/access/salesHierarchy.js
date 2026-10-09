@@ -100,4 +100,30 @@ async function resolveHierarchyScope(admin) {
   };
 }
 
-module.exports = { resolveHierarchyScope, getDescendantIds, roleDepth, FULL_ACCESS_ROLES };
+// The whole sales org chart as a nested tree ({id, name, role, children}[]),
+// built from Admin.reportsTo — shared by performanceController/orgTree.js's
+// endpoint and analyticsController/shared.js's scopeFacets(), so every
+// dashboard's Person/Owner/Agent filter gets the same expandable tree
+// instead of each reimplementing this walk.
+async function buildOrgTree() {
+  const { SALES_ROLES } = require('../../config/roles');
+  const Admin = mongoose.model('Admin');
+  const people = await Admin.find({ role: { $in: SALES_ROLES }, removed: false })
+    .select('name role reportsTo')
+    .sort({ name: 1 })
+    .lean();
+
+  const byId = new Map(
+    people.map((p) => [String(p._id), { id: String(p._id), name: p.name, role: p.role, children: [] }])
+  );
+  const roots = [];
+  for (const p of people) {
+    const node = byId.get(String(p._id));
+    const parent = p.reportsTo && byId.get(String(p.reportsTo));
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
+module.exports = { resolveHierarchyScope, getDescendantIds, roleDepth, buildOrgTree, FULL_ACCESS_ROLES };

@@ -146,6 +146,8 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     value: cur.filter((r) => new Date(r.when).getHours() === h).length,
   }));
 
+  const scopeOpts = await scopeFacets(scope);
+
   return {
     range: { from, to, prevFrom, prevTo, bucket: bkt.unit },
     businessType: query.businessType || 'all',
@@ -186,9 +188,10 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     facets: {
       // Union of scope-derived (real team roster, never empty for a valid
       // caller) and data-derived — see scopeFacets() in shared.js.
-      agents: [...new Set([...(await scopeFacets(scope)).names, ...cur.map((r) => r.agentName).filter(Boolean)])].sort(),
+      agents: [...new Set([...scopeOpts.names, ...cur.map((r) => r.agentName).filter(Boolean)])].sort(),
       statuses: [...new Set(cur.map((r) => r.status).filter(Boolean))].sort(),
       dispositions: [...new Set(cur.map((r) => r.disposition).filter(Boolean))].sort(),
+      orgTree: scopeOpts.orgTree,
     },
   };
 }
