@@ -215,6 +215,14 @@ function TeamsModal({ open, onClose, teams, allUsers, onAssignTeam, onTeamsChang
   const unassigned = (allUsers ?? []).filter(
     (u) => BELOW_TEAM_MANAGER_ROLES.includes(u.role) && !teams.some((t) => t.members.includes(u.name))
   );
+  // Everyone else eligible who's already on a team — same picker, but moving
+  // them calls assignUserToTeam with their new choice; it already takes care
+  // of pulling them out of whichever team currently has them first (see
+  // useTeams above), so this is a straight move, not add-then-orphan.
+  const teamForUser = (u) => teams.find((t) => t.members.includes(u.name));
+  const assignedElsewhere = (allUsers ?? []).filter(
+    (u) => BELOW_TEAM_MANAGER_ROLES.includes(u.role) && teamForUser(u)
+  );
 
   return (
     <HubModal open={open} onClose={onClose} title="Teams" width={520}>
@@ -295,6 +303,54 @@ function TeamsModal({ open, onClose, teams, allUsers, onAssignTeam, onTeamsChang
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--hub-text-soft)" }}>
+            Move someone to a different team ({assignedElsewhere.length})
+          </label>
+          {assignedElsewhere.length === 0 ? (
+            <div className="hub-empty" style={{ marginTop: 8 }}>No one eligible is on a team yet.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              {assignedElsewhere.map((u) => {
+                const current = teamForUser(u);
+                return (
+                  <div key={u.email} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="hub-avatar" style={{ background: u.color }}>{u.init}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--hub-text)" }}>{u.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>
+                        {roleDisplay(u.role)} · currently {current?.name || "—"}
+                      </div>
+                    </div>
+                    <select
+                      className="hub-select"
+                      style={{ width: 160 }}
+                      value={picks[u.email] || ""}
+                      onChange={(e) => setPicks((p) => ({ ...p, [u.email]: e.target.value }))}
+                    >
+                      <option value="">Move to…</option>
+                      {teams
+                        .filter((t) => t.name !== current?.name)
+                        .map((t) => (
+                          <option key={t._id} value={t.name}>{t.name}</option>
+                        ))}
+                      <option value={NO_TEAM}>No team</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="hub-btn"
+                      disabled={!picks[u.email] || assigningEmail === u.email}
+                      onClick={() => assign(u)}
+                    >
+                      {assigningEmail === u.email ? "Moving…" : "Move"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -630,18 +686,24 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
 
   // Only offered once the manager already has a real (saved) team.
   const isRealTeam = isManagerRole ? !!ledTeam : effectiveTeamChoice !== NO_TEAM;
+  // Anyone eligible who isn't already IN this team — including someone
+  // currently on a different team, so this doubles as "move them here"
+  // (assignUserToTeam already pulls them out of their old team first, see
+  // useTeams above), not just a picker for people with no team at all.
+  const teamOf = (u) => teams.find((t) => t.members.includes(u.name));
   const assignablePeople = (allUsers ?? []).filter(
     (u) =>
       BELOW_TEAM_MANAGER_ROLES.includes(u.role) &&
       u.email !== user.email &&
-      !teams.some((t) => t.members.includes(u.name))
+      !(ledTeam && ledTeam.members.includes(u.name))
   );
 
   const assignTeamMember = () => {
     const person = assignablePeople.find((u) => u.email === assignEmail);
     if (!person) return;
+    const wasOnAnotherTeam = !!teamOf(person);
     onAssignTeam(person.name, effectiveTeamChoice, "");
-    setAssignedNote(`${person.name} added to "${effectiveTeamChoice}".`);
+    setAssignedNote(`${person.name} ${wasOnAnotherTeam ? "moved" : "added"} to "${effectiveTeamChoice}".`);
     setAssignEmail("");
   };
 
@@ -797,17 +859,22 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
               onChange={(e) => setAssignEmail(e.target.value)}
             >
               <option value="">Select a team member by email…</option>
-              {assignablePeople.map((sp) => (
-                <option key={sp.email} value={sp.email}>{sp.name} · {sp.email} ({roleDisplay(sp.role)})</option>
-              ))}
+              {assignablePeople.map((sp) => {
+                const spTeam = teamOf(sp);
+                return (
+                  <option key={sp.email} value={sp.email}>
+                    {sp.name} · {sp.email} ({roleDisplay(sp.role)}){spTeam ? ` — currently on ${spTeam.name}` : ""}
+                  </option>
+                );
+              })}
             </select>
             <button type="button" className="hub-btn" disabled={!assignEmail} onClick={assignTeamMember}>
-              + Add
+              {teamOf(assignablePeople.find((u) => u.email === assignEmail) || {}) ? "Move here" : "+ Add"}
             </button>
           </div>
           {assignablePeople.length === 0 && (
             <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
-              No unassigned accounts left to add.
+              No other eligible accounts to add.
             </span>
           )}
           {assignedNote && <span className="hub-badge hub-badge-green">{assignedNote}</span>}

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
-const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES } = require('../../../config/roles');
+const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES, CRM_ADMIN_ROLES, SALES_ROLES } = require('../../../config/roles');
 
 // Lets an admin change another user's role/position (and name/surname/email)
 // after creation — e.g. promoting an Executive, correcting a Team Manager's
@@ -10,6 +10,36 @@ const update = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
 
   const { name, surname, email, role, subRole, removed, reportsTo } = req.body;
+
+  // Authorization — previously this endpoint had none beyond the
+  // role-escalation checks below, so any authenticated user could PATCH any
+  // other user's reportsTo/name/email as long as they didn't also touch
+  // `role`. Now: a true CRM admin (owner/Super Admin/Admin) can edit anyone,
+  // same as before. Sales Manager/Team Manager — who now manage the Sales
+  // roster's team assignments from User Management — may only edit a user
+  // who is CURRENTLY a Sales role, and may not move them to a non-Sales
+  // role (role-escalation to Admin/Super Admin is still separately blocked
+  // below regardless). Everyone else is blocked outright, closing the gap.
+  if (userModel === 'Admin') {
+    const requesterRole = req.admin && req.admin.role;
+    const isCrmAdmin = CRM_ADMIN_ROLES.includes(requesterRole);
+    if (!isCrmAdmin) {
+      const isSalesLead = ['Sales Manager', 'Team Manager'].includes(requesterRole);
+      const target = await User.findById(req.params.id).select('role').lean();
+      if (!target) {
+        return res.status(404).json({ success: false, result: null, message: 'No user found.' });
+      }
+      const targetIsSales = SALES_ROLES.includes(target.role);
+      const newRoleOk = role === undefined || SALES_ROLES.includes(role);
+      if (!isSalesLead || !targetIsSales || !newRoleOk) {
+        return res.status(403).json({
+          success: false,
+          result: null,
+          message: 'You do not have permission to edit this user.',
+        });
+      }
+    }
+  }
 
   const objectSchema = Joi.object({
     name: Joi.string(),
