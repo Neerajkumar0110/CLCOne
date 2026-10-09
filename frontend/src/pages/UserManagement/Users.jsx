@@ -1142,6 +1142,21 @@ export default function Users({
     }
   };
 
+  // The Department dropdown only lists departments actually present among
+  // the users this viewer can even see — not every department that exists
+  // in the whole CRM. A Sales Manager/Team Manager's list is already scoped
+  // server-side to Sales-only (see createUserController/list.js), so this
+  // naturally collapses to just "Sales" for them and the dropdown (and its
+  // now-pointless "All Departments"/Finance/Support/Admin/… options) simply
+  // doesn't render — same condition (`length > 1`) that already hides it for
+  // a roleFilter tab like HRMS's Instructors/Candidates view below.
+  const presentRoles = new Set(users.map((u) => u.role));
+  const visibleDepts = Object.fromEntries(
+    Object.entries(depts)
+      .map(([d, deptRoles]) => [d, deptRoles.filter((r) => presentRoles.has(r))])
+      .filter(([, deptRoles]) => deptRoles.length > 0)
+  );
+
   // LMS has no single-role shape like Sales/Finance/Support/Admin do — it's
   // Instructors and Candidates, which used to be their own tabs — so its
   // filter entries are per-role ("role:Teacher") instead of one "LMS" bucket.
@@ -1172,7 +1187,7 @@ export default function Users({
         <div className="hub-card-header">
           <h3>{roleFilter ? `${roleDisplay(roleFilter)}s` : "All Users"}</h3>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!roleFilter && Object.keys(depts).length > 1 && (
+            {!roleFilter && Object.keys(visibleDepts).length > 1 && (
               <select
                 className="hub-select"
                 style={{ width: 180 }}
@@ -1180,7 +1195,7 @@ export default function Users({
                 onChange={(e) => setDepartmentFilter(e.target.value)}
               >
                 <option value="">All Departments</option>
-                {Object.entries(depts).flatMap(([d, deptRoles]) =>
+                {Object.entries(visibleDepts).flatMap(([d, deptRoles]) =>
                   d === "LMS"
                     ? deptRoles.map((r) => (
                         <option key={`role:${r}`} value={`role:${r}`}>{roleDisplay(r)}s</option>
