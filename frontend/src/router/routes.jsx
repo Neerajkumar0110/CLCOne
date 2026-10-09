@@ -32,7 +32,7 @@ const Customer = lazy(() => import('@/pages/Customer'));
 const Invoice = lazy(() => import('@/pages/Invoice'));
 
 
-const Payment = lazy(() => import('@/pages/Payment/index'));
+const FinancePayments = lazy(() => import('@/pages/FinancePayments'));
 
 const Settings = lazy(() => import('@/pages/Settings/Settings'));
 const Calling = lazy(() => import('@/pages/Calling'));
@@ -203,10 +203,10 @@ let routes = {
     //   element: <QuoteUpdate />,
     // },
     {
-      path: '/payment',
+      path: '/finance-payments',
       element: (
         <RequirePermission module="Payments">
-          <Payment />
+          <FinancePayments />
         </RequirePermission>
       ),
     },

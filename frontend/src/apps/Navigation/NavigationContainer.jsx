@@ -143,7 +143,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     reports: '/reports',
     // Billing & finance
     invoice: '/invoice',
-    payment: '/payment',
+    'finance-payments': '/finance-payments',
     finance: '/finance',
     // Administration
     'user-management': '/user-management',
@@ -256,7 +256,7 @@ function Sidebar({ collapsible, isMobile = false }) {
       children: [
         { key: 'finance', label: 'Overview', icon: <FundOutlined /> },
         { key: 'invoice', label: translate('invoices'), icon: <ContainerOutlined /> },
-        { key: 'payment', label: translate('payments'), icon: <CreditCardOutlined /> },
+        { key: 'finance-payments', label: translate('payments'), icon: <CreditCardOutlined /> },
       ],
     },
 
@@ -334,7 +334,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     const active = FEATURE_SECTIONS.find((s) => currentPath.startsWith(s.key + '/'));
     let want = active ? active.key : null;
     if (!want && (currentPath === 'reports' || currentPath === 'performance')) want = 'reports-group';
-    if (!want && ['finance', 'invoice', 'payment'].includes(currentPath)) want = 'finance-group';
+    if (!want && ['finance', 'invoice', 'finance-payments'].includes(currentPath)) want = 'finance-group';
     if (!want && currentPath.startsWith('calling-')) want = 'calling';
     if (want) {
       setOpenKeys((prev) => (prev.includes(want) ? prev : [...prev, want]));

@@ -65,7 +65,7 @@ export const MODULE_NAV_KEY = {
   Performance: 'performance',
   Finance: 'finance',
   Invoices: 'invoice',
-  Payments: 'payment',
+  Payments: 'finance-payments',
   'User Management': 'user-management',
   Support: 'support',
   'Git Management': 'git-management',
