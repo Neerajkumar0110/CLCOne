@@ -28,12 +28,30 @@ const LMS_SECTION_CONFIG = {
   subtitle: "Enrolment, progress and completion, folded in from LMS ▸ Overview.",
 };
 
+// "Good Morning, Mamta Kumari" instead of a generic "Executive Overview" —
+// based on the viewer's own local clock, not a fixed server timezone, since
+// it's a greeting for whoever's actually looking at the screen right now.
+function greetingFor(date) {
+  const h = date.getHours();
+  if (h < 12) return "Good Morning";
+  if (h < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const currentAdmin = useSelector(selectCurrentAdmin);
   const { tickets, addTicket } = useTickets();
   const [ticketOpen, setTicketOpen] = useState(false);
   const isSupport = currentAdmin?.role === "Support";
+
+  const fullName = [currentAdmin?.name, currentAdmin?.surname].filter(Boolean).join(" ");
+  const baseConfig = isSupport ? DASH_CONFIGS.support : DASH_CONFIGS.overview;
+  const greetedConfig = {
+    ...baseConfig,
+    title: fullName ? `${greetingFor(new Date())}, ${fullName}` : baseConfig.title,
+    subtitle: currentAdmin?.role ? `${currentAdmin.role} · ${baseConfig.subtitle}` : baseConfig.subtitle,
+  };
 
   const myOpen = tickets.filter(
     (t) => t.createdBy === currentAdmin?._id && t.status !== "Resolved"
@@ -54,7 +72,7 @@ export default function Dashboard() {
     <>
       <DashboardShell
         module={isSupport ? "support" : "overview"}
-        config={isSupport ? DASH_CONFIGS.support : DASH_CONFIGS.overview}
+        config={greetedConfig}
         live
         extraActions={raiseTicketActions}
       />
