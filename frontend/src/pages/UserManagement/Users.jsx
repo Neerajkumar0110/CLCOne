@@ -1174,20 +1174,17 @@ export default function Users({
     }
   };
 
-  // The Department dropdown only lists departments actually present among
-  // the users this viewer can even see — not every department that exists
-  // in the whole CRM. A Sales Manager/Team Manager's list is already scoped
-  // server-side to Sales-only (see createUserController/list.js), so this
-  // naturally collapses to just "Sales" for them and the dropdown (and its
-  // now-pointless "All Departments"/Finance/Support/Admin/… options) simply
-  // doesn't render — same condition (`length > 1`) that already hides it for
-  // a roleFilter tab like HRMS's Instructors/Candidates view below.
-  const presentRoles = new Set(users.map((u) => u.role));
-  const visibleDepts = Object.fromEntries(
-    Object.entries(depts)
-      .map(([d, deptRoles]) => [d, deptRoles.filter((r) => presentRoles.has(r))])
-      .filter(([, deptRoles]) => deptRoles.length > 0)
-  );
+  // The Department dropdown is built from `depts` (departmentsFor(effectiveRoleOptions)
+  // above) — a true CRM admin always gets every department (even one with
+  // zero users in it right now, e.g. before the first Finance hire), while
+  // Sales Manager/Team Manager's effectiveRoleOptions is already pinned to
+  // Sales-only, so this naturally collapses to just "Sales" for them and the
+  // dropdown (and its now-pointless Finance/Support/Admin/… options) simply
+  // doesn't render — same `length > 1` condition that already hides it for a
+  // roleFilter tab like HRMS's Instructors/Candidates view below. (A data-
+  // presence-based version of this — only listing departments some user
+  // currently holds — was tried and reverted: it also hid a department from
+  // a true admin whenever it happened to have zero users, which was wrong.)
 
   // LMS has no single-role shape like Sales/Finance/Support/Admin do — it's
   // Instructors and Candidates, which used to be their own tabs — so its
@@ -1219,7 +1216,7 @@ export default function Users({
         <div className="hub-card-header">
           <h3>{roleFilter ? `${roleDisplay(roleFilter)}s` : "All Users"}</h3>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!roleFilter && Object.keys(visibleDepts).length > 1 && (
+            {!roleFilter && Object.keys(depts).length > 1 && (
               <select
                 className="hub-select"
                 style={{ width: 180 }}
@@ -1227,7 +1224,7 @@ export default function Users({
                 onChange={(e) => setDepartmentFilter(e.target.value)}
               >
                 <option value="">All Departments</option>
-                {Object.entries(visibleDepts).flatMap(([d, deptRoles]) =>
+                {Object.entries(depts).flatMap(([d, deptRoles]) =>
                   d === "LMS"
                     ? deptRoles.map((r) => (
                         <option key={`role:${r}`} value={`role:${r}`}>{roleDisplay(r)}s</option>
@@ -1310,23 +1307,29 @@ export default function Users({
                   <td>
                     <div className="hub-row" style={{ gap: 8, flexWrap: "nowrap" }}>
                       {!NO_EDIT_ROLES.includes(u.role) && (
-                        <button type="button" className="hub-btn" onClick={() => setEditUserEmail(u.email)}>
+                        <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEditUserEmail(u.email)}>
                           <EditOutlined /> Edit
                         </button>
                       )}
                       {MANAGER_TEAM_ROLES.includes(u.role) &&
                         !teams.some((t) => t.lead === u.name || t.members.includes(u.name)) && (
-                          <button type="button" className="hub-btn" onClick={() => createTeamFor(u)}>
-                            <TeamOutlined /> Create Team
+                          <button
+                            type="button"
+                            className="hub-btn"
+                            style={{ whiteSpace: "nowrap" }}
+                            title={`Create a team with ${u.name} as lead`}
+                            onClick={() => createTeamFor(u)}
+                          >
+                            <TeamOutlined /> + Team
                           </button>
                         )}
-                      <button type="button" className="hub-btn" onClick={() => setPermUserEmail(u.email)}>
+                      <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u.email)}>
                         <SafetyCertificateOutlined /> Permissions
                       </button>
                       <button
                         type="button"
                         className="hub-btn"
-                        style={{ color: "#e11d48", borderColor: "#fecdd3" }}
+                        style={{ whiteSpace: "nowrap", color: "#e11d48", borderColor: "#fecdd3" }}
                         onClick={() => deleteUser(u)}
                       >
                         <DeleteOutlined /> Delete
