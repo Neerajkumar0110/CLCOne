@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { TreeSelect } from "antd";
+import { Select } from "antd";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
 import { request } from "@/request";
-import { orgTreeToTreeData, namesInSubtree } from "@/utils/orgTree";
+import { flattenOrgTree, namesInSubtree } from "@/utils/orgTree";
 import { roleDisplay } from "@/pages/UserManagement/Users";
 import {
   DashboardOutlined,
@@ -309,14 +309,14 @@ function NumberLookup() {
                     ))}
                   </select>
                 ) : (
-                  <TreeSelect
+                  <Select
                     className="hub-select"
                     style={{ minWidth: 200 }}
                     value={individualAgent || undefined}
                     placeholder="Pick a person"
                     showSearch
-                    treeNodeFilterProp="title"
-                    treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+                    optionFilterProp="label"
+                    options={flattenOrgTree(orgTree, roleDisplay)}
                     onChange={(v) => { setIndividualAgent(v); setPage(1); }}
                   />
                 )}
@@ -588,14 +588,14 @@ function Overview360() {
             </select>
 
             {mode === "individual" && (
-              <TreeSelect
+              <Select
                 className="hub-select"
                 style={{ minWidth: 220 }}
                 value={selectedAgent || undefined}
                 placeholder="Pick a person"
                 showSearch
-                treeNodeFilterProp="title"
-                treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+                optionFilterProp="label"
+                options={flattenOrgTree(orgTree, roleDisplay)}
                 onChange={(v) => setSelectedAgent(v)}
               />
             )}
@@ -831,14 +831,14 @@ function ScopeToolbar({ mode, setMode, teamFilter, setTeamFilter, teams, orgTree
       </select>
 
       {mode === "individual" && (
-        <TreeSelect
+        <Select
           className="hub-select"
           style={{ minWidth: 220 }}
           value={individualAgent || undefined}
           placeholder="Pick a person"
           showSearch
-          treeNodeFilterProp="title"
-          treeData={orgTreeToTreeData(orgTree, roleDisplay)}
+          optionFilterProp="label"
+          options={flattenOrgTree(orgTree, roleDisplay)}
           onChange={(v) => setIndividualAgent(v)}
         />
       )}

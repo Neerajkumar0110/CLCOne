@@ -2,18 +2,30 @@
 // org-chart tree (backend's orgTree shape: {id, name, role, children}[] —
 // see services/access/salesHierarchy.js's buildOrgTree, consumed by
 // performanceController/orgTree.js and analyticsController/shared.js's
-// scopeFacets). Converts it to antd TreeSelect's {title, value, key,
-// children} shape. `value` is the person's NAME, not their id — every
-// agent-scoped query in this app (Call.calledBy, Payment.createdBy,
-// Lead.assignedUserName, ?agent=) is already name-keyed, so this stays
-// consistent instead of introducing a second identity scheme just for a picker.
-export function orgTreeToTreeData(nodes, roleDisplay) {
-  return (nodes || []).map((n) => ({
-    title: roleDisplay && n.role ? `${n.name} — ${roleDisplay(n.role)}` : n.name,
-    value: n.name,
-    key: n.id,
-    children: n.children && n.children.length ? orgTreeToTreeData(n.children, roleDisplay) : undefined,
-  }));
+// scopeFacets). Flattens it to one level for a plain searchable Select —
+// no expand/collapse, no indentation, just every person in one flat,
+// filterable dropdown (deliberately not a nested tree widget). `value` is
+// the person's NAME, not their id — every agent-scoped query in this app
+// (Call.calledBy, Payment.createdBy, Lead.assignedUserName, ?agent=) is
+// already name-keyed, so this stays consistent instead of introducing a
+// second identity scheme just for a picker. The "view as" expansion (self +
+// everyone reporting up to them — see namesInSubtree below / backend's
+// namesForAgent) still happens once a name is picked; only the PICKER
+// itself is flat, not the resulting data scope.
+export function flattenOrgTree(nodes, roleDisplay) {
+  const out = [];
+  function walk(list) {
+    for (const n of list || []) {
+      out.push({
+        label: roleDisplay && n.role ? `${n.name} — ${roleDisplay(n.role)}` : n.name,
+        value: n.name,
+      });
+      walk(n.children);
+    }
+  }
+  walk(nodes);
+  out.sort((a, b) => a.label.localeCompare(b.label));
+  return out;
 }
 
 // "View as <rootName>" for pages that filter an already-fetched flat agent

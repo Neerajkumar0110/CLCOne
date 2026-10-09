@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Drawer, Select, TreeSelect, Input, InputNumber, Switch } from "antd";
-import { orgTreeToTreeData } from "@/utils/orgTree";
+import { Drawer, Select, Input, InputNumber, Switch } from "antd";
+import { flattenOrgTree } from "@/utils/orgTree";
 import { roleDisplay } from "@/pages/UserManagement/Users";
 
 // Resolve "@facetName" option refs against the summary payload's facets.
@@ -13,10 +13,14 @@ function resolveOptions(opt, facets) {
 }
 
 // Same "@facetName" ref, but for a "tree"/"treemulti" field — the facet is
-// already the nested org-chart shape (see utils/orgTree.js), not a flat list.
+// the nested org-chart shape (see utils/orgTree.js), flattened to a plain
+// searchable list here — no expand/collapse, no indentation, just every
+// person in one flat, filterable dropdown. Picking a non-leaf person (e.g.
+// a Team Leader) still expands to their whole team server-side; only the
+// PICKER itself is flat, not the resulting data scope.
 function resolveTreeData(opt, facets) {
   if (typeof opt === "string" && opt.startsWith("@")) {
-    return orgTreeToTreeData(facets[opt.slice(1)] || [], roleDisplay);
+    return flattenOrgTree(facets[opt.slice(1)] || [], roleDisplay);
   }
   return [];
 }
@@ -81,27 +85,27 @@ export default function FilterDrawer({ open, onClose, fields = [], facets = {}, 
               />
             )}
             {f.kind === "tree" && (
-              <TreeSelect
+              <Select
                 allowClear
                 showSearch
-                treeNodeFilterProp="title"
+                optionFilterProp="label"
                 style={{ width: "100%" }}
                 value={draft[f.key] || undefined}
                 onChange={(v) => set(f.key, v)}
-                treeData={resolveTreeData(f.options, facets)}
+                options={resolveTreeData(f.options, facets)}
                 placeholder={`Any ${f.label.toLowerCase()}`}
               />
             )}
             {f.kind === "treemulti" && (
-              <TreeSelect
-                multiple
+              <Select
+                mode="multiple"
                 allowClear
                 showSearch
-                treeNodeFilterProp="title"
+                optionFilterProp="label"
                 style={{ width: "100%" }}
                 value={draft[f.key] || []}
                 onChange={(v) => set(f.key, v)}
-                treeData={resolveTreeData(f.options, facets)}
+                options={resolveTreeData(f.options, facets)}
                 placeholder={`Any ${f.label.toLowerCase()}`}
                 maxTagCount="responsive"
               />
