@@ -17,6 +17,7 @@ import {
 } from "@ant-design/icons";
 import { fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
 import { ROLE_COLORS } from "@/config/roles";
+import { usePermission } from "@/context/permissionContext";
 import Users, {
   initialsOf,
   colorFor,
@@ -982,9 +983,33 @@ function LoginActivityPanel() {
   );
 }
 
+// Sales Manager/Team Manager only get the Sales-scoped Users list (see
+// createUserController/list.js) — Deleted Users, Roles & Permissions, Team
+// Management (a fuller cross-team view) and Shift Management are either
+// company-wide or admin-tier concerns neither of them needs, and the
+// Users tab already covers their actual job (adding Sales people to a
+// Team Leader's team — see Users.jsx's TeamsModal/assign-member picker).
+const SALES_SCOPED_ROLES = ["Sales Manager", "Team Manager"];
+
 export default function UserManagement() {
   const [tab, setTab] = useState("users");
   const { teams, teamsLoading, loadTeams, assignUserToTeam } = useTeams();
+  const { role } = usePermission();
+  const isSalesScoped = SALES_SCOPED_ROLES.includes(role);
+
+  const allTabs = [
+    { key: "users", label: "Users", icon: <UserAddOutlined /> },
+    { key: "deleted", label: "Deleted Users", icon: <UsergroupDeleteOutlined /> },
+    { key: "roles", label: "Roles & Permissions", icon: <SafetyCertificateOutlined /> },
+    { key: "teams", label: "Team Management", icon: <TeamOutlined /> },
+    { key: "shifts", label: "Shift Management", icon: <ClockCircleOutlined /> },
+  ];
+  const visibleTabs = isSalesScoped ? allTabs.filter((t) => t.key === "users") : allTabs;
+
+  useEffect(() => {
+    if (isSalesScoped && tab !== "users") setTab("users");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSalesScoped]);
 
   return (
     <div className="hub-page">
@@ -995,17 +1020,7 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <HubTabs
-        tabs={[
-          { key: "users", label: "Users", icon: <UserAddOutlined /> },
-          { key: "deleted", label: "Deleted Users", icon: <UsergroupDeleteOutlined /> },
-          { key: "roles", label: "Roles & Permissions", icon: <SafetyCertificateOutlined /> },
-          { key: "teams", label: "Team Management", icon: <TeamOutlined /> },
-          { key: "shifts", label: "Shift Management", icon: <ClockCircleOutlined /> },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
+      <HubTabs tabs={visibleTabs} active={tab} onChange={setTab} />
 
       {tab === "users" && <Users teams={teams} onAssignTeam={assignUserToTeam} onTeamsChanged={loadTeams} />}
       {tab === "deleted" && <DeletedUsers />}
