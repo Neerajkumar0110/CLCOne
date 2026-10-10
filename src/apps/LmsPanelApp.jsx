@@ -370,7 +370,14 @@ export default function LmsPanelApp() {
             <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Teacher' : 'Student'} · {admin.name} {admin.surname || ''}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Dropdown menu={{ items: notifItems.length ? notifItems : [{ key: 'none', label: 'No notifications', disabled: true }] }} trigger={['click']} placement="bottomRight">
+            <Dropdown
+              menu={{
+                items: notifItems.length ? notifItems : [{ key: 'none', label: 'No notifications', disabled: true }],
+                style: { maxHeight: 360, overflowY: 'auto', scrollBehavior: 'smooth' },
+              }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
               <Badge count={updates.unread || 0} size="small">
                 <span className="header-bell-trigger">
                   <BellOutlined style={{ color: 'var(--nav-text)', fontSize: 16 }} />

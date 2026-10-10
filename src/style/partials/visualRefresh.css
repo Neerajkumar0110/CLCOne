@@ -461,11 +461,45 @@
   color: var(--refresh-ink);
 }
 
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-portal-head,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-kpi-tile {
+  background: #111111;
+}
+
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-kpi-tile .ant-statistic-title,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-kpi-tile .ant-statistic-content {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .teacher-dashboard-redesign {
+  background: #111111;
+}
+
+:root[data-theme='dark'] .teacher-dashboard-redesign .dash-chart-card,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-card-head,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-card-body,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-container,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-thead > tr > th,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-tbody > tr > td,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-placeholder .ant-table-cell {
+  background: #111111 !important;
+}
+
+:root[data-theme='dark'] .teacher-dashboard-redesign .dash-chart-card .hub-card-header h3,
+:root[data-theme='dark'] .teacher-dashboard-redesign .dash-chart-card .hub-empty,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-card-head-title,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-thead > tr > th,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-tbody > tr > td,
+:root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-empty-description {
+  color: #ffffff !important;
+}
+
 :root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table,
 :root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-container,
 :root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-thead > tr > th,
 :root[data-theme='dark'] .teacher-dashboard-redesign .lms-table-card .ant-table-tbody > tr > td {
-  background: var(--refresh-surface);
   border-color: var(--refresh-line);
 }
 

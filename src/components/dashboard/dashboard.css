@@ -1643,7 +1643,7 @@
 /* Dark KPI */
 
 :root[data-theme='dark'] .sales-dashboard-ui .dash-kpi {
-  background: linear-gradient(145deg, #111827, #0f172a);
+  background: #000000;
 
   border-color: #273244;
 
@@ -1656,16 +1656,11 @@
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
 }
 
-:root[data-theme='dark'] .dash-kpi-label {
-  color: #9ca3af;
-}
-
-:root[data-theme='dark'] .dash-kpi-value {
-  color: #f8fafc;
-}
-
-:root[data-theme='dark'] .dash-kpi-prev {
-  color: #9ca3af;
+:root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-label,
+:root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-value,
+:root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-prev,
+:root[data-theme='dark'] .sales-dashboard-ui .dash-kpi-delta {
+  color: #ffffff !important;
 }
 
 /* Dark ratio */

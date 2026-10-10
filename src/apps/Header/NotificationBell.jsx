@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Popover } from 'antd';
 import { BellOutlined, PaperClipOutlined, SettingOutlined } from '@ant-design/icons';
@@ -99,6 +99,13 @@ function NotificationPanel({ navigate, closePopover }) {
   const { conversations, markAllRead: markMessagesRead } = useMessages();
   const { notifications, markOneRead, markAllRead: markNotificationsRead } = useNotifications();
   const [tab, setTab] = useState('inbox');
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [tab]);
 
   const messageItems = conversations
     .filter((c) => c.lastMessage) // no history yet -> nothing to show as a notification
@@ -196,7 +203,7 @@ function NotificationPanel({ navigate, closePopover }) {
         <SettingOutlined style={{ color: '#98a2b3' }} />
       </div>
 
-      <div className="hub-notification-list">
+      <div ref={listRef} className="hub-notification-list" style={{ scrollBehavior: 'smooth' }}>
         {list.length === 0 ? (
           <div className="hub-empty" style={{ padding: '24px 8px' }}>
             {tab === 'inbox' ? "You're all caught up." : 'No notifications yet.'}

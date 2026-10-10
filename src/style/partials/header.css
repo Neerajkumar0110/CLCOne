@@ -1,3 +1,7 @@
+.notification {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
 .notification::-webkit-scrollbar {
   width: 4px;
   height: 60px;
@@ -22,6 +26,8 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   padding: 0 8px 8px;
 }
 
