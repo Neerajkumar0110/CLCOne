@@ -16,6 +16,8 @@ import {
   ROLES,
   KNOWN_NON_SELECTABLE_ROLES,
   FINANCE_SUB_ROLES,
+  BUSINESS_NAMES,
+  BUSINESS_SEGMENTS,
   DEPARTMENT_ROLES,
   ROLE_DEPARTMENT,
   MANAGER_TEAM_ROLES,
@@ -391,6 +393,34 @@ function ReportsToField({ role, value, onChange, allUsers, excludeEmail }) {
   );
 }
 
+const isSalesDept = (role) => ROLE_DEPARTMENT[role] === "Sales";
+
+// Business line picker (BUSINESS_NAMES), plus a Business Segment picker that
+// only appears for Sales-department roles. Shared by AddUserModal/
+// EditUserModal below.
+function BusinessFields({ role, businessName, onBusinessName, businessSegment, onBusinessSegment }) {
+  return (
+    <>
+      <div className="hub-form-row">
+        <label>Business Name</label>
+        <select className="hub-select" value={businessName} onChange={(e) => onBusinessName(e.target.value)}>
+          <option value="">Select business…</option>
+          {BUSINESS_NAMES.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+      </div>
+      {isSalesDept(role) && (
+        <div className="hub-form-row">
+          <label>Business Segment</label>
+          <select className="hub-select" value={businessSegment} onChange={(e) => onBusinessSegment(e.target.value)}>
+            <option value="">Select segment…</option>
+            {BUSINESS_SEGMENTS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      )}
+    </>
+  );
+}
+
 function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = roles, allUsers }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -409,6 +439,8 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [newTeamName, setNewTeamName] = useState("");
   const [reportsTo, setReportsTo] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [businessSegment, setBusinessSegment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -450,11 +482,15 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
     setReportsTo("");
     setFormError("");
     setSubRole(FINANCE_SUB_ROLES[0]);
+    setBusinessName("");
+    setBusinessSegment("");
   };
 
   const submit = async () => {
     if (!name.trim() || !email.trim() || !phone.trim()) return;
     if (teamChoice === NEW_TEAM && !newTeamName.trim()) return;
+    if (!businessName) return setFormError("Please select a Business Name.");
+    if (isSalesDept(role) && !businessSegment) return setFormError("Please select a Business Segment.");
 
     setSubmitting(true);
     setFormError("");
@@ -473,6 +509,8 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         role,
         ...(role === "Finance" ? { subRole } : {}),
         ...(reportsTo ? { reportsTo } : {}),
+        businessName,
+        ...(isSalesDept(role) ? { businessSegment } : {}),
       },
     });
 
@@ -572,6 +610,14 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
         </div>
       )}
 
+      <BusinessFields
+        role={role}
+        businessName={businessName}
+        onBusinessName={setBusinessName}
+        businessSegment={businessSegment}
+        onBusinessSegment={setBusinessSegment}
+      />
+
       <ReportsToField role={role} value={reportsTo} onChange={setReportsTo} allUsers={allUsers} />
 
       {!NO_TEAM_FIELD_ROLES.includes(role) && (
@@ -608,12 +654,15 @@ function AddUserModal({ open, onClose, onAdd, teams, initialRole, roleOptions = 
 function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignTeam, roleOptions = roles }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState(roles[0]);
   const depts = departmentsFor(roleOptions);
   const [department, setDepartment] = useState(Object.keys(depts)[0]);
   const [subRole, setSubRole] = useState(FINANCE_SUB_ROLES[0]);
   const [teamChoice, setTeamChoice] = useState(NO_TEAM);
   const [reportsTo, setReportsTo] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [businessSegment, setBusinessSegment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [assignEmail, setAssignEmail] = useState("");
@@ -623,6 +672,7 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
     if (!user) return;
     setName(user.name || "");
     setEmail(user.email || "");
+    setPhone(user.phone || "");
     setRole(user.role);
     const d = ROLE_DEPARTMENT[user.role];
     setDepartment(depts[d] ? d : Object.keys(depts)[0]);
@@ -630,6 +680,8 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
     const currentTeam = teams.find((t) => t.members.includes(user.name));
     setTeamChoice(currentTeam ? currentTeam.name : NO_TEAM);
     setReportsTo(user.reportsTo || "");
+    setBusinessName(user.businessName || "");
+    setBusinessSegment(user.businessSegment || "");
     setFormError("");
     setAssignEmail("");
     setAssignedNote("");
@@ -676,9 +728,12 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
         : {
             name: name.trim(),
             email: email.trim(),
+            ...(phone.trim() ? { phone: phone.trim() } : {}),
             role,
             ...(role === "Finance" ? { subRole } : {}),
             reportsTo: SALES_ROLE_PARENT[role] ? reportsTo || "" : "",
+            businessName,
+            ...(isSalesDept(role) ? { businessSegment } : {}),
           },
     });
     setSubmitting(false);
@@ -756,6 +811,10 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
               </span>
             )}
           </div>
+          <div className="hub-form-row">
+            <label>Phone Number</label>
+            <input className="hub-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
+          </div>
         </>
       )}
 
@@ -801,6 +860,16 @@ function EditUserModal({ open, onClose, onSave, user, teams, allUsers, onAssignT
             {FINANCE_SUB_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
+      )}
+
+      {!isProtectedRole && (
+        <BusinessFields
+          role={role}
+          businessName={businessName}
+          onBusinessName={setBusinessName}
+          businessSegment={businessSegment}
+          onBusinessSegment={setBusinessSegment}
+        />
       )}
 
       {!isProtectedRole && (
@@ -1044,9 +1113,12 @@ export default function Users({
         _id: u._id,
         name: [u.name, u.surname].filter(Boolean).join(" "),
         email: u.email,
+        phone: u.phone,
         role: resolvedRole,
         subRole: u.subRole,
         reportsTo: u.reportsTo,
+        businessName: u.businessName,
+        businessSegment: u.businessSegment,
         enabled: u.enabled,
         init: initialsOf([u.name, u.surname].filter(Boolean).join(" ") || u.email),
         color: colorFor(u.email),

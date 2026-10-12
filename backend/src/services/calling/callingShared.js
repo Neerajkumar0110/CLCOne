@@ -162,8 +162,11 @@ async function wrapupAgent(callRecord, actorName) {
 // Dispositions that mean the contact showed real interest — these are the
 // ones worth surfacing in the actual Sales pipeline, not just left sitting
 // in the calling module's own CallLead list where a sales rep never sees
-// them. ('sale' = SALE, 'callback' = INTERESTED/CALLBACK — see dispositions.js)
-const CRM_BRIDGE_CATEGORIES = ['sale', 'callback'];
+// them. ('sale' = enrolled, 'interested' = anything from a qualified first
+// discussion through to a Prospect, 'callback' = asked to be called back —
+// see dispositions.js. 'not-interested', 'no-contact' and 'dnc' are left out
+// on purpose: those stay in CallLead and never create a Lead.)
+const CRM_BRIDGE_CATEGORIES = ['sale', 'interested', 'callback'];
 
 // Link (or create) the CRM `Lead` a genuinely-interested CallLead deserves.
 // CallLead.crmLead is a one-way, set-once link — once a contact has a real

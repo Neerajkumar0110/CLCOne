@@ -52,6 +52,17 @@ const lmsApi = {
   // ── recordings ────────────────────────────────────────────────────
   recordings: (f = {}) => request.get({ entity: `lms/recordings${qs(f)}` }),
   adminRecordings: (f = {}) => request.get({ entity: `lms/admin/recordings${qs(f)}` }),
+  // Organisation-wide holiday calendar (no classes on these days).
+  holidays: (year) => request.get({ entity: `lms/admin/holidays${qs({ year })}` }),
+  // Read-only, any signed-in role — used by the Calendar to mark holidays.
+  holidaysPublic: (year) => request.get({ entity: `lms/holidays${qs({ year })}` }),
+  // Every batch + how far through its course it is (manager only).
+  curriculumOverview: () => request.get({ entity: 'lms/admin/curriculum/overview' }),
+  holidaySetYear: (key, body) => request.post({ entity: `lms/admin/holidays/${key}`, jsonData: body }),
+  // Mark a class as orientation / doubt / revision so the curriculum
+  // mapping skips it (and its recording keeps its own name).
+  liveClassSyllabusFlag: (id, countsTowardSyllabus) =>
+    request.post({ entity: `lms/live-classes/${id}/syllabus`, jsonData: { countsTowardSyllabus } }),
   teacherRecordings: (f = {}) => request.get({ entity: `lms/teacher/recordings${qs(f)}` }),
   studentRecordings: (f = {}) => request.get({ entity: `lms/student/recordings${qs(f)}` }),
   recordingPlay: (id) => request.get({ entity: `lms/recordings/${id}/play` }),

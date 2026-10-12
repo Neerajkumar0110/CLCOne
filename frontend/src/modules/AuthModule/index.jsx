@@ -3,7 +3,7 @@ import useLanguage from '@/locale/useLanguage';
 import AuthLayout from '@/layout/AuthLayout';
 // Transparent PNG with a light wordmark — sits on the dark liquid-glass
 // card with no white box behind it.
-import logo from '@/style/images/Horizontal-1-transparent.png';
+import useBrandLogo from '@/hooks/useBrandLogo';
 
 // AUTH_TITLE is a short phrase like "Sign in" or "Enter your code" — split
 // on the first word so it renders two-tone like the reference design
@@ -20,6 +20,7 @@ function AuthTitle({ text }) {
 }
 
 const AuthModule = ({ authContent, AUTH_TITLE }) => {
+  const logo = useBrandLogo('logo_login');
   const translate = useLanguage();
   return (
     <AuthLayout>

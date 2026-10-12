@@ -55,11 +55,39 @@ async function getSessions(req, res) {
     }).lean();
     const recordBySessionId = new Map(records.map((r) => [String(r.sessionId), r]));
 
+    // Show the code the CALENDAR uses for the same topic.
+    //
+    // This tracker and the Calendar are two copies of one syllabus — 77
+    // AssessmentCurriculumSessions against 84 Chapters — grouped slightly
+    // differently, so the same topic carries a different S-number on each
+    // side (the Calendar's S73 is this tracker's S70). Delivery is already
+    // driven off the Calendar (services/lms/curriculumTracker.js), so the
+    // only thing left out of step was the label people read. Prefer the
+    // Calendar's own label wherever the topic matches by title, and fall
+    // back to this row’s own code for the few units the Calendar has no
+    // counterpart for.
+    const calendarCodeByTitle = new Map();
+    try {
+      const chapterProgress = require('../../../../../services/lms/chapterProgress');
+      const Batch = mongoose.model('Batch');
+      const bDoc = await Batch.findOne({ name: batch, removed: false }).select('_id course').lean();
+      const course = bDoc && (await chapterProgress.resolveCourseForBatch(bDoc));
+      if (course) {
+        const chapters = await chapterProgress.orderedChaptersForCourse(course._id);
+        for (const c of chapters) {
+          const key = String(c.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+          if (c.sessionLabel) calendarCodeByTitle.set(key, c.sessionLabel);
+        }
+      }
+    } catch (e) {
+      /* best-effort — fall back to this track’s own codes */
+    }
+
     const result = sessions.map((s) => {
       const record = recordBySessionId.get(String(s._id)) || null;
       return {
         sessionId: s._id,
-        code: s.code,
+        code: calendarCodeByTitle.get(String(s.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()) || s.code,
         unit: s.unit,
         track: s.track,
         title: s.title,

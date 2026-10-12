@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const { ROLES, FINANCE_SUB_ROLES } = require('../../config/roles');
+const { ROLES, FINANCE_SUB_ROLES, BUSINESS_NAMES, BUSINESS_SEGMENTS } = require('../../config/roles');
 
 const adminSchema = new Schema({
   removed: {
@@ -51,6 +51,10 @@ const adminSchema = new Schema({
     type: String,
     enum: FINANCE_SUB_ROLES,
   },
+  // Business line this user works for (Add/Edit User). businessSegment is
+  // only set for Sales-department roles.
+  businessName: { type: String, enum: BUSINESS_NAMES },
+  businessSegment: { type: String, enum: BUSINESS_SEGMENTS },
   // Set by jobs/financeEmiTick.js when a Student's EMI installment goes more
   // than 24h past its due date, cleared automatically the moment they clear
   // every overdue installment (see services/payments/financeHold.js). Does

@@ -132,9 +132,14 @@
 }
 
 .auth-card .auth-input-underline.ant-input,
-.auth-card .auth-input-underline .ant-input {
+.auth-card .auth-input-underline .ant-input,
+.auth-card .auth-input-underline input {
   color: #f1f5f9;
   background: transparent;
+  /* antd paints the input colour through its own CSS-in-JS layer, and a
+     browser autofill paints over that again — on this dark card either
+     one landing wins means near-black text on near-black glass. */
+  -webkit-text-fill-color: #f1f5f9;
 }
 
 .auth-card .auth-input-underline input::placeholder,
@@ -156,8 +161,12 @@
 .auth-card .auth-input-underline input:-webkit-autofill,
 .auth-card .auth-input-underline input:-webkit-autofill:hover,
 .auth-card .auth-input-underline input:-webkit-autofill:focus,
-.auth-card .auth-input-underline input:-webkit-autofill:active {
-  -webkit-text-fill-color: #f1f5f9;
+.auth-card .auth-input-underline input:-webkit-autofill:active,
+.auth-card .auth-input-underline input:autofill {
+  /* Chrome sets autofill text through an internal rule that an ordinary
+     declaration does not outrank, so this one has to be !important or the
+     remembered email renders in Chrome dark-on-dark and looks blank. */
+  -webkit-text-fill-color: #f1f5f9 !important;
   caret-color: #f1f5f9;
   transition: background-color 600000s ease-in-out 0s;
 }
@@ -217,6 +226,34 @@
 .auth-input-underline.ant-input:hover,
 .auth-input-underline.ant-input:focus {
   border-bottom-color: var(--hub-blue, #2563eb);
+}
+
+/* antd's status/hover/focus variants (e.g. `.ant-input-affix-wrapper-outlined
+   .ant-input-affix-wrapper-status-error:not(...)`) out-specify the rules
+   above and repaint a white boxed input with a full red border — on the dark
+   card that turns the light email text invisible the moment validation
+   fails. Pin the underline look for every state. */
+.auth-card .auth-input-underline.ant-input-affix-wrapper,
+.auth-card .auth-input-underline.ant-input,
+.auth-card .auth-input-underline.ant-input-affix-wrapper:hover,
+.auth-card .auth-input-underline.ant-input-affix-wrapper-focused,
+.auth-card .auth-input-underline.ant-input-affix-wrapper-status-error,
+.auth-card .auth-input-underline.ant-input-status-error {
+  background: transparent !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.auth-card .auth-input-underline.ant-input-affix-wrapper-status-error,
+.auth-card .auth-input-underline.ant-input-status-error {
+  border-bottom-color: #f87171 !important;
+}
+
+.auth-card .ant-form-item-explain-error {
+  color: #f87171;
 }
 
 @media (max-width: 480px) {

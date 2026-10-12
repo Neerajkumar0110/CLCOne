@@ -8,6 +8,27 @@ const adminController = require('../../controllers/coreControllers/adminControll
 const settingController = require('../../controllers/coreControllers/settingController');
 
 const { singleStorageUpload } = require('../../middlewares/uploadMiddleware');
+const path = require('path');
+const { trimTransparentPng } = require('../../utils/trimTransparentPng');
+
+// Crop dead transparent space off an uploaded logo before it is recorded.
+// The logo slots are sized by CSS height, so a file with transparent bands
+// baked around the artwork renders as a tiny logo in a correctly-sized box.
+// See utils/trimTransparentPng.js. Best-effort: a failure here must never
+// lose the upload, so the original file just stays as it was.
+const trimUploadedLogo = (req, res, next) => {
+  try {
+    if (req.file && req.file.path) {
+      const result = trimTransparentPng(path.resolve(process.cwd(), req.file.path));
+      if (result.trimmed) {
+        console.log(`[setting.upload] trimmed ${req.file.filename}: ${result.from} -> ${result.to}`);
+      }
+    }
+  } catch (e) {
+    console.error('[setting.upload] trim failed:', e.message);
+  }
+  next();
+};
 
 // //_______________________________ Admin management_______________________________
 
@@ -48,8 +69,16 @@ router
   .patch(catchErrors(settingController.updateBySettingKey));
 router
   .route('/setting/upload/:settingKey?')
+  // POST as well as PATCH: the frontend request helper posts, so the
+  // Settings logo upload hit a route that only answered PATCH and 404-ed.
+  .post(
+    singleStorageUpload({ entity: 'setting', fieldName: 'settingValue', fileType: 'image' }),
+    trimUploadedLogo,
+    catchErrors(settingController.updateBySettingKey)
+  )
   .patch(
     singleStorageUpload({ entity: 'setting', fieldName: 'settingValue', fileType: 'image' }),
+    trimUploadedLogo,
     catchErrors(settingController.updateBySettingKey)
   );
 router.route('/setting/updateManySetting').patch(catchErrors(settingController.updateManySetting));

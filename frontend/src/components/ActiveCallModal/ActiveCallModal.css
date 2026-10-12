@@ -370,6 +370,21 @@
   margin-top: 6px;
 }
 
+/* Outcome families inside the Disposition card — there is one chip per
+   pipeline stage now, so the chips are grouped under a quiet heading
+   instead of one long wrap the agent has to read end to end. */
+.incall-disp-group + .incall-disp-group {
+  margin-top: 12px;
+}
+
+.incall-disp-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
 .incall-disp-chip {
   padding: 7px 12px;
   border-radius: 10px;
@@ -696,6 +711,10 @@
 :root[data-theme='dark'] .incall-disp-chip:hover,
 :root[data-theme='dark'] .incall-tag-chip:hover {
   background: #1e2d4a;
+}
+
+:root[data-theme='dark'] .incall-disp-group-title {
+  color: #94a3b8;
 }
 
 /* The header keeps its dark gradient in both themes — only the footer,

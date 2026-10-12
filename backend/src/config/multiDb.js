@@ -85,6 +85,7 @@ const DB_MAP = {
   LessonProgress: 'lmsDb',
   LiveClass: 'lmsDb',
   LiveRecording: 'lmsDb',
+  HolidayRule: 'lmsDb',
   LmsAnnouncement: 'lmsDb',
   LmsBatchRoom: 'lmsDb',
   LmsEnrolment: 'lmsDb',

@@ -69,88 +69,119 @@ const server = app.listen(app.get('port'), () => {
 const { initSocket } = require('./socket');
 initSocket(server);
 
-// Retries failed Facebook lead webhook deliveries (no queue infra exists in
-// this app, so this is a minimal in-process poller — see the file itself).
-const startFacebookWebhookRetryJob = require('./jobs/facebookWebhookRetry');
-startFacebookWebhookRetryJob();
+// ── Background jobs ────────────────────────────────────────────────────
+// Every tick below acts on the WORLD, not just on this process: it emails
+// students, dials customers, polls ad platforms and writes to the shared
+// database. That is correct for the one real deployment and wrong for every
+// other copy of this app.
+//
+// The hazard is concrete, not theoretical. A developer's .env is usually a
+// copy of the production one — same Atlas DATABASE, same Gmail credentials,
+// same NODE_ENV=production — so a laptop running `npm run dev` quietly
+// became a second live sender. On 2026-10-09 that is exactly what happened:
+// the laptop and the VPS each sent the same "Starting in 10 min" class
+// reminder to the same students, the laptop's copy carrying a
+// localhost:8888 join link, and the doubled SMTP login rate throttled the
+// Gmail account so 143 of those reminders were lost outright.
+//
+// NODE_ENV cannot tell the two apart, precisely because the .env is copied.
+// So this is an explicit switch, and it defaults to ON: the deployment must
+// keep working untouched, and an operator who never sets the variable gets
+// exactly today's behaviour. Any copy of this app that is NOT the single
+// live deployment must set RUN_BACKGROUND_JOBS=false — see .env.example.
+const RUN_BACKGROUND_JOBS = String(process.env.RUN_BACKGROUND_JOBS ?? 'true').toLowerCase() !== 'false';
 
-// Retries failed Google Ads lead webhook deliveries — same shape as Facebook's.
-const startGoogleWebhookRetryJob = require('./jobs/googleWebhookRetry');
-startGoogleWebhookRetryJob();
+if (!RUN_BACKGROUND_JOBS) {
+  // Loud on purpose: "my reminder never went out" is otherwise a long hunt.
+  console.log(
+    'Background jobs DISABLED (RUN_BACKGROUND_JOBS=false) — no scheduled email, auto-dialing or ad-platform polling from this process.',
+  );
+} else {
+  console.log('Background jobs ENABLED — this process sends real email and places real calls.');
 
-// LinkedIn has no webhook — this poller IS the primary way LinkedIn leads
-// enter the app (see jobs/linkedinLeadPoller.js), not just a retry path.
-const startLinkedInLeadPoller = require('./jobs/linkedinLeadPoller');
-startLinkedInLeadPoller();
+  // Retries failed Facebook lead webhook deliveries (no queue infra exists in
+  // this app, so this is a minimal in-process poller — see the file itself).
+  const startFacebookWebhookRetryJob = require('./jobs/facebookWebhookRetry');
+  startFacebookWebhookRetryJob();
 
-// Calling auto-dialer heartbeat — feeds Available agents the next lead on
-// Active campaigns, clears stuck calls (no-op unless CALLING_PROVIDER is set).
-const startCallingDialerTick = require('./jobs/callingDialerTick');
-startCallingDialerTick();
+  // Retries failed Google Ads lead webhook deliveries — same shape as Facebook's.
+  const startGoogleWebhookRetryJob = require('./jobs/googleWebhookRetry');
+  startGoogleWebhookRetryJob();
 
-// Rings scheduled callbacks at the time the agent promised the customer,
-// waiting for that same agent to be free. See the job file for why it is
-// deliberately stricter than the campaign dialer above.
-const startCallingCallbackTick = require('./jobs/callingCallbackTick');
-startCallingCallbackTick();
+  // LinkedIn has no webhook — this poller IS the primary way LinkedIn leads
+  // enter the app (see jobs/linkedinLeadPoller.js), not just a retry path.
+  const startLinkedInLeadPoller = require('./jobs/linkedinLeadPoller');
+  startLinkedInLeadPoller();
 
-// Pulls call-recording links from the provider's Recording API for any
-// recently completed call that isn't marked available yet — the provider's
-// own push callback isn't reliably reaching this server (see the job file
-// for what was actually verified). No-op unless CALLING_PROVIDER=cloud.
-const startCallingRecordingSync = require('./jobs/callingRecordingSync');
-startCallingRecordingSync();
+  // Calling auto-dialer heartbeat — feeds Available agents the next lead on
+  // Active campaigns, clears stuck calls (no-op unless CALLING_PROVIDER is set).
+  const startCallingDialerTick = require('./jobs/callingDialerTick');
+  startCallingDialerTick();
 
-// Feeds the per-agent "Instant Lead Pool" auto-dialer toggle straight from
-// unassigned New Lead stage Sales leads, and tells participating agents
-// when it runs dry. See jobs/leadPoolSyncTick.js.
-const startLeadPoolSyncTick = require('./jobs/leadPoolSyncTick');
-startLeadPoolSyncTick();
+  // Rings scheduled callbacks at the time the agent promised the customer,
+  // waiting for that same agent to be free. See the job file for why it is
+  // deliberately stricter than the campaign dialer above.
+  const startCallingCallbackTick = require('./jobs/callingCallbackTick');
+  startCallingCallbackTick();
 
-// End-of-day email to every agent who missed at least one routed call today
-// (never picked up — see CallRecord.missedByAgent / plivoAnswer.js's
-// leg=agent-hangup branch). No-op unless CALLING_PROVIDER=cloud, since
-// missedByAgent is only ever set by the Plivo hangup callback.
-const startMissedCallDailySummaryTick = require('./jobs/missedCallDailySummaryTick');
-startMissedCallDailySummaryTick();
+  // Pulls call-recording links from the provider's Recording API for any
+  // recently completed call that isn't marked available yet — the provider's
+  // own push callback isn't reliably reaching this server (see the job file
+  // for what was actually verified). No-op unless CALLING_PROVIDER=cloud.
+  const startCallingRecordingSync = require('./jobs/callingRecordingSync');
+  startCallingRecordingSync();
 
-// LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
-// failed inbound webhook events, runs the nightly reconcile. No-op until
-// MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).
-const startLmsSyncTick = require('./jobs/lmsSyncTick');
-startLmsSyncTick();
+  // Feeds the per-agent "Instant Lead Pool" auto-dialer toggle straight from
+  // unassigned New Lead stage Sales leads, and tells participating agents
+  // when it runs dry. See jobs/leadPoolSyncTick.js.
+  const startLeadPoolSyncTick = require('./jobs/leadPoolSyncTick');
+  startLeadPoolSyncTick();
 
-// LMS live-class worker — lifecycle transitions (scheduled->upcoming, auto
-// start/end per policy), BBB recording polling, and class notifications.
-const startLmsLiveTick = require('./jobs/lmsLiveTick');
-startLmsLiveTick();
+  // End-of-day email to every agent who missed at least one routed call today
+  // (never picked up — see CallRecord.missedByAgent / plivoAnswer.js's
+  // leg=agent-hangup branch). No-op unless CALLING_PROVIDER=cloud, since
+  // missedByAgent is only ever set by the Plivo hangup callback.
+  const startMissedCallDailySummaryTick = require('./jobs/missedCallDailySummaryTick');
+  startMissedCallDailySummaryTick();
 
-// LMS policy-acknowledgement reminders (spec §8/§12) — email + in-app only
-// (no WhatsApp leg yet). Re-reminds any pending acknowledgement on a cycle.
-const startLmsPolicyReminderTick = require('./jobs/lmsPolicyReminderTick');
-startLmsPolicyReminderTick();
+  // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
+  // failed inbound webhook events, runs the nightly reconcile. No-op until
+  // MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).
+  const startLmsSyncTick = require('./jobs/lmsSyncTick');
+  startLmsSyncTick();
 
-// LMS daily attendance + admin-health summary email (spec §12 "reporting
-// dependent on manual sheets") — once/day to management, on top of the
-// already-real-time Attendance dashboard + CSV/XLSX export.
-const startLmsDailySummaryTick = require('./jobs/lmsDailySummaryTick');
-startLmsDailySummaryTick();
+  // LMS live-class worker — lifecycle transitions (scheduled->upcoming, auto
+  // start/end per policy), BBB recording polling, and class notifications.
+  const startLmsLiveTick = require('./jobs/lmsLiveTick');
+  startLmsLiveTick();
 
-// Daily reminder to every Support-role account of how many students still
-// have no batch assigned — stops on its own the day that count hits 0.
-const startLmsUnassignedBatchTick = require('./jobs/lmsUnassignedBatchTick');
-startLmsUnassignedBatchTick();
+  // LMS policy-acknowledgement reminders (spec §8/§12) — email + in-app only
+  // (no WhatsApp leg yet). Re-reminds any pending acknowledgement on a cycle.
+  const startLmsPolicyReminderTick = require('./jobs/lmsPolicyReminderTick');
+  startLmsPolicyReminderTick();
 
-// Finance EMI automation — auto-creates each installment's payment link 10
-// days before it's due, emails reminders (10/7/5 days before, then daily
-// through the due date), and puts a student's LMS access on hold 24h past
-// due (auto-restored the instant they pay — see services/payments/financeHold.js).
-const startFinanceEmiTick = require('./jobs/financeEmiTick');
-startFinanceEmiTick();
+  // LMS daily attendance + admin-health summary email (spec §12 "reporting
+  // dependent on manual sheets") — once/day to management, on top of the
+  // already-real-time Attendance dashboard + CSV/XLSX export.
+  const startLmsDailySummaryTick = require('./jobs/lmsDailySummaryTick');
+  startLmsDailySummaryTick();
 
-// Code Editor file-save audit trail — watches the workspace filesystem
-// (skipped entirely while no one has an open Code Editor session) and
-// writes to the shared AuditLog, since OpenVSCode Server is a separate
-// process the backend doesn't otherwise hear save events from.
-const startCodeEditorFileAuditTick = require('./jobs/codeEditorFileAuditTick');
-startCodeEditorFileAuditTick();
+  // Daily reminder to every Support-role account of how many students still
+  // have no batch assigned — stops on its own the day that count hits 0.
+  const startLmsUnassignedBatchTick = require('./jobs/lmsUnassignedBatchTick');
+  startLmsUnassignedBatchTick();
+
+  // Finance EMI automation — auto-creates each installment's payment link 10
+  // days before it's due, emails reminders (10/7/5 days before, then daily
+  // through the due date), and puts a student's LMS access on hold 24h past
+  // due (auto-restored the instant they pay — see services/payments/financeHold.js).
+  const startFinanceEmiTick = require('./jobs/financeEmiTick');
+  startFinanceEmiTick();
+
+  // Code Editor file-save audit trail — watches the workspace filesystem
+  // (skipped entirely while no one has an open Code Editor session) and
+  // writes to the shared AuditLog, since OpenVSCode Server is a separate
+  // process the backend doesn't otherwise hear save events from.
+  const startCodeEditorFileAuditTick = require('./jobs/codeEditorFileAuditTick');
+  startCodeEditorFileAuditTick();
+}

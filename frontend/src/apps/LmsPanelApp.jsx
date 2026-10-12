@@ -46,8 +46,7 @@ import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
-import careerLabIcon from '@/style/images/Horizontal-1-transparent.png';
-import careerLabCollapsedIcon from '@/style/images/Vertical-1-transparent.png';
+import useBrandLogo from '@/hooks/useBrandLogo';
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -306,6 +305,9 @@ export default function LmsPanelApp() {
   // nesting depth.
   const leaves = useMemo(() => flattenNavLeaves(nav), [nav]);
   const collapsed = isMobile ? false : isNavMenuClose;
+  // Same two slots the CRM sidebar uses — see config/logoSlots.js.
+  const expandedLogo = useBrandLogo('logo_sidebar_expanded');
+  const collapsedLogo = useBrandLogo('logo_sidebar_collapsed');
   const sidebarGap = isMobile ? 0 : collapsed ? 80 : 256;
 
   const selectedKey = useMemo(() => {
@@ -463,7 +465,7 @@ export default function LmsPanelApp() {
         }}
       >
         <img
-          src={!isDrawer && collapsed ? careerLabCollapsedIcon : careerLabIcon}
+          src={!isDrawer && collapsed ? collapsedLogo : expandedLogo}
           alt="Career Lab Consulting"
           style={{
             height: '40px',

@@ -84,7 +84,7 @@ async function autoAdvance(batchId) {
     batch: batchId,
     status: { $ne: 'cancelled' },
   })
-    .select('scheduledStart actualStart scheduledDurationMin status')
+    .select('scheduledStart actualStart scheduledDurationMin status countsTowardSyllabus')
     .sort({ scheduledStart: 1 })
     .lean();
   if (!allSessions.length) return { chapters, sessionTopics: {} };
@@ -96,6 +96,15 @@ async function autoAdvance(batchId) {
   const sessionTopics = {};
 
   for (const cls of allSessions) {
+    // A class that doesn't deliver syllabus (orientation, doubt-clearing,
+    // revision — LmsLiveSession.countsTowardSyllabus) must not consume any
+    // of the curriculum, or it both takes a topic name it never taught and
+    // pushes every later class one slot out of step. Skipping it before
+    // deliveredHours moves keeps the next real class on the topic it is
+    // actually going to teach. `!== false` so the thousands of sessions
+    // written before this field existed keep counting, as they did.
+    if (cls.countsTowardSyllabus === false) continue;
+
     const isCompleted = COMPLETED_STATUSES.includes(cls.status);
     const classStart = deliveredHours;
     deliveredHours += (cls.scheduledDurationMin || defaultDurationMin) / 60;
@@ -110,7 +119,24 @@ async function autoAdvance(batchId) {
       if (!touches) continue;
 
       const ch = chapters[i];
-      covered.push({ chapterId: String(ch._id), title: ch.title, sessionLabel: ch.sessionLabel });
+
+      // Where this class sits inside a chapter that spans several classes.
+      // Without it, a two-class chapter names both recordings identically
+      // ("S2–3 — Variables, Data Types & Operators" twice) and a learner has
+      // no way to tell which half is which. Derived from the chapter's own
+      // hour range and the per-class duration, so it stays right when a
+      // class is rescheduled to a different length.
+      const perClassHours = (cls.scheduledDurationMin || defaultDurationMin) / 60;
+      const spanHours = end - start;
+      const partCount = perClassHours > 0 ? Math.ceil(spanHours / perClassHours - 1e-6) : 1;
+      const partIndex = perClassHours > 0 ? Math.floor((classStart - start) / perClassHours + 1e-6) + 1 : 1;
+
+      covered.push({
+        chapterId: String(ch._id),
+        title: ch.title,
+        sessionLabel: ch.sessionLabel,
+        ...(partCount > 1 && partIndex >= 1 && partIndex <= partCount ? { partIndex, partCount } : {}),
+      });
 
       // Only tick DELIVERED once an actually-completed class's own
       // contribution reaches the chapter's full cumulative end — a chapter
@@ -156,11 +182,29 @@ async function autoAdvance(batchId) {
 // same class instead of the generic "<batch> — Class <n>" placeholder
 // session.title holds. Returns null (caller falls back to session.title)
 // when the batch has no native curriculum or no chapter covers this slot.
+// Render one session's covered-chapter list as the label Calendar and the
+// recording title both use. Separate from topicForSession so a caller that
+// already has a whole batch's sessionTopics map can format every session
+// without re-walking the batch once per session.
+function formatTopic(covered) {
+  if (!covered || !covered.length) return null;
+  return covered
+    .map((c) => {
+      const base = c.sessionLabel ? `${c.sessionLabel} — ${c.title}` : c.title;
+      // Chapter split across several classes — say which one this is, so
+      // two recordings of the same chapter are not both just "S2–3 —
+      // Variables, Data Types & Operators".
+      return c.partCount > 1 ? `${base} (Part ${c.partIndex} of ${c.partCount})` : base;
+    })
+    .join(' + ');
+}
+
+// Single session's label. Convenient, but it re-walks the whole batch on
+// every call — use autoAdvance + formatTopic directly when labelling more
+// than one session.
 async function topicForSession(batchId, sessionId) {
   const advanced = await autoAdvance(batchId).catch(() => null);
-  const covered = advanced && advanced.sessionTopics[String(sessionId)];
-  if (!covered || !covered.length) return null;
-  return covered.map((c) => (c.sessionLabel ? `${c.sessionLabel} — ${c.title}` : c.title)).join(' + ');
+  return formatTopic(advanced && advanced.sessionTopics[String(sessionId)]);
 }
 
 // Rolls up (crmUser, course) LessonProgress rows into the CourseProgress
@@ -331,6 +375,7 @@ module.exports = {
   orderedChaptersForCourse,
   autoAdvance,
   topicForSession,
+  formatTopic,
   completionForBatch,
   unitProgressForBatch,
   unitsForBatch,

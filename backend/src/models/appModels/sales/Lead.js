@@ -114,11 +114,15 @@ const schema = new mongoose.Schema({
   // as every other free-text field here, so an old import or a future
   // option tweak never fails a write.
   persona: String, // e.g. "Student / Fresher", "Working Professional"
-  age: Number,
+  // An age BAND off the Personas table ("18-25", "21-35", "21-40", "24-45"),
+  // not a number — the business records the band, and a plain number would
+  // lose which persona row the lead came from. String (not an enum) so an
+  // older lead that stored a bare number, or a future band, still reads back.
+  age: String,
   highestQualification: String,
   gender: String,
   education: String, // e.g. "Tech. Graduate" — options depend on `persona`
-  profile: String, // e.g. "Tech Professional" — mainly for Working Professional
+  profile: String, // free text — the candidate's current role/designation
   currentCtc: String, // free text — "Current CTC / Monthly Income", not a fixed range
   painPoint: String, // e.g. "Job into AI", "Upgradation for High CTC"
   preferredLanguage: String,

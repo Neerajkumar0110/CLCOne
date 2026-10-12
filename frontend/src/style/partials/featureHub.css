@@ -3437,3 +3437,55 @@
 :root[data-theme='dark'] .ant-dropdown-menu-item:hover {
   background: var(--hub-blue-soft);
 }
+/* ── Settings > Logos ────────────────────────────────────────────────────
+   One row per place the logo appears (config/logoSlots.js). Each row owns
+   its own upload, so changing the collapsed-sidebar mark never silently
+   swaps the invoice logo too. */
+.hub-logo-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hub-logo-slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 2px;
+}
+.hub-logo-slot + .hub-logo-slot {
+  border-top: 1px solid var(--hub-border, #e5e7eb);
+}
+
+/* A wide wordmark and a square mark need different room, so the preview is
+   sized per slot rather than one box that crops one of them. */
+.hub-logo-slot-preview {
+  flex: 0 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid var(--hub-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--hub-bg-soft, #f8fafc);
+  overflow: hidden;
+}
+.hub-logo-slot-preview.is-wide { width: 150px; }
+.hub-logo-slot-preview.is-square { width: 72px; }
+.hub-logo-slot-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.hub-logo-slot-main { flex: 1 1 auto; min-width: 0; }
+.hub-logo-slot-label { font-weight: 600; font-size: 13.5px; }
+.hub-logo-slot-desc { font-size: 12px; color: #667085; margin-top: 2px; }
+.hub-logo-slot-default { font-size: 11.5px; color: #94a3b8; margin-top: 4px; font-style: italic; }
+.hub-logo-slot-btn { flex: 0 0 auto; display: inline-flex; }
+
+@media (max-width: 640px) {
+  .hub-logo-slot { flex-wrap: wrap; }
+  .hub-logo-slot-main { flex-basis: 100%; order: 3; }
+}

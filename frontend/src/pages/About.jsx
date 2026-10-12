@@ -13,7 +13,7 @@ import {
   CopyrightOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
-import logo from "@/style/images/Horizontal-1-transparent.png";
+import useBrandLogo from '@/hooks/useBrandLogo';
 import { request } from "@/request";
 import { BorderTrail } from "@/components/ui/border-trail";
 
@@ -29,6 +29,7 @@ const FEATURES = [
 const TECH_STACK = ["React", "Vite", "Node.js", "Express", "MongoDB", "Ant Design"];
 
 export default function About() {
+  const logo = useBrandLogo('logo_public');
   const [info, setInfo] = useState(null);
 
   useEffect(() => {

@@ -58,9 +58,23 @@ async function create(req, res) {
   return res.status(200).json({ success: true, result: liveClassService.safeView(session, 'teacher') });
 }
 
-// PATCH /api/lms/liveclasses/:id  { scheduledStart?, scheduledDurationMin?, scheduledEnd?, title?, description?, autoStartAt? }
+// PATCH /api/lms/liveclasses/:id  { scheduledStart?, scheduledDurationMin?, scheduledEnd?, title?, description?, autoStartAt?, countsTowardSyllabus? }
 async function updateTime(req, res) {
   return send(res, await liveClassService.updateSchedule(req.params.id, req.admin, req.body || {}));
+}
+
+// POST /api/lms/liveclasses/:id/syllabus  { countsTowardSyllabus: boolean }
+//
+// Separate from PATCH above because that one refuses to touch a class that
+// has already run, and correcting a class that already happened — and whose
+// recording is already mislabelled with a topic nobody taught — is the whole
+// point of this one.
+async function syllabusFlag(req, res) {
+  const b = req.body || {};
+  if (typeof b.countsTowardSyllabus !== 'boolean') {
+    return res.status(400).json({ success: false, result: null, message: 'countsTowardSyllabus must be true or false.' });
+  }
+  return send(res, await liveClassService.setCountsTowardSyllabus(req.params.id, req.admin, b.countsTowardSyllabus));
 }
 
 // POST /api/lms/liveclasses/:id/cancel  { reason }
@@ -289,4 +303,4 @@ async function deviceCheck(req, res) {
   return res.status(200).json({ success: true, result: { logged: true, persisted: true } });
 }
 
-module.exports = { list, get, create, updateTime, cancel, postpone, renameBatch, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };
+module.exports = { list, get, create, updateTime, syllabusFlag, cancel, postpone, renameBatch, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };

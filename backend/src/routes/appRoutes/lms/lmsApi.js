@@ -21,6 +21,10 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(base).post(requireManager, catchErrors(lms.liveCreate));
   router.route(`${base}/:id`).get(catchErrors(lms.liveGet));
   router.route(`${base}/:id`).patch(catchErrors(lms.liveUpdateTime));
+  // Mark a class as delivering syllabus or not (orientation / doubt /
+  // revision). Allowed after the class has run, unlike PATCH above —
+  // correcting an already-mislabelled recording is the point.
+  router.route(`${base}/:id/syllabus`).post(catchErrors(lms.liveSyllabusFlag));
   router.route(`${base}/:id/cancel`).post(catchErrors(lms.liveCancel));
   router.route(`${base}/:id/postpone`).post(catchErrors(lms.livePostpone));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
@@ -189,6 +193,19 @@ router.route('/admin/provision-all').post(requireManager, catchErrors(lms.adminP
 router.route('/admin/attendance').get(requireManager, catchErrors(lms.liveAttendanceDashboard));
 router.route('/admin/attendance/export').get(requireManager, catchErrors(lms.liveAttendanceExport));
 router.route('/admin/recordings').get(requireManager, catchErrors(lms.liveRecordings));
+// Organisation-wide holiday calendar — the dates no batch gets a class on.
+// Rules, not a date list, so one entry covers every year; the lunar ones
+// still need a date per year confirmed (see models/.../HolidayRule.js).
+// Read-only copy for everyone signed in — the Calendar marks holidays for
+// teachers and students too, and which days the company is closed is not
+// sensitive. Editing stays manager-only below.
+router.route('/holidays').get(catchErrors(lms.holidayList));
+// Every batch and how far through its course it is. The teacher-facing
+// Curriculum Tracker lists only batches you train, which is empty for a
+// manager — this is their whole-org view.
+router.route('/admin/curriculum/overview').get(requireManager, catchErrors(lms.curriculumOverview));
+router.route('/admin/holidays').get(requireManager, catchErrors(lms.holidayList));
+router.route('/admin/holidays/:key').post(requireManager, catchErrors(lms.holidaySetYear));
 router.route('/admin/recordings/:id/delete').post(requireManager, catchErrors(lms.liveRecordingDelete));
 router.route('/admin/recordings/:id/import-drive').post(requireManager, catchErrors(lms.liveRecordingImportDrive));
 router.route('/admin/recordings/:id/backup').post(requireManager, catchErrors(lms.liveRecordingSetBackup));

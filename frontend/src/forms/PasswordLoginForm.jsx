@@ -11,6 +11,7 @@ export default function PasswordLoginForm() {
       <Form.Item
         label={translate('email')}
         name="email"
+        normalize={(v) => (v || '').trim()}
         rules={[
           {
             required: true,

@@ -1,6 +1,6 @@
-// Persona/qualification dropdown options for the in-call modal
-// (components/ActiveCallModal) — captures who the candidate actually is,
-// separate from the Lead pipeline Stage/Sub-status (config/leadStages.js).
+// Persona dropdown options for the in-call modal (components/ActiveCallModal)
+// — captures who the candidate actually is, separate from the Lead pipeline
+// Stage/Sub-status (config/leadStages.js).
 //
 // Frontend-only by design: unlike Stage/Sub-status (which the backend
 // enforces via config/leadStages.js's stageConfig/resolveStageSub), these
@@ -9,55 +9,83 @@
 // lives entirely here so adding/renaming an option never needs a backend
 // deploy or risks rejecting a write.
 
-export const PERSONAS = ["Student / Fresher", "Working Professional", "Homemaker / Career Restart"];
+// The business's Personas reference table, one entry per row of it. Persona,
+// Age, Highest Qualification, Education and Pain Point are NOT independent
+// lists — the table ties them together (a Working Professional who is a Tech
+// Graduate is 21-35, a Non Tech Graduate one is 21-40; a Homemaker's Education
+// follows 1:1 from their qualification). Keeping the rows verbatim here, and
+// deriving everything else from them, means the table is the single place to
+// edit when the business changes it.
+//
+// `highestQualification: ""` is the table's blank cell — Student / Fresher
+// rows don't record one.
+export const PERSONA_MATRIX = [
+  // Student / Fresher — one age band, no qualification, four backgrounds.
+  { persona: 'Student / Fresher', ageRange: '18-25', highestQualification: '', education: 'Tech. College Student', painPoint: 'Job into AI' },
+  { persona: 'Student / Fresher', ageRange: '18-25', highestQualification: '', education: 'Non Tech. College Student', painPoint: 'Job into AI' },
+  { persona: 'Student / Fresher', ageRange: '18-25', highestQualification: '', education: 'Tech. Graduate', painPoint: 'Job into AI' },
+  { persona: 'Student / Fresher', ageRange: '18-25', highestQualification: '', education: 'Non Tech. Graduate', painPoint: 'Job into AI' },
 
-// Options for the "Education" dropdown, filtered by which Persona is picked
-// first — mirrors the Personas reference table (college/degree background
-// for a Student, work background for a Homemaker; a Working Professional's
-// background is captured via Highest Qualification + Profile instead).
-export const EDUCATION_BY_PERSONA = {
-  "Student / Fresher": ["Tech. College Student", "Non Tech. College Student", "Tech. Graduate", "Non Tech. Graduate"],
-  "Working Professional": [],
-  "Homemaker / Career Restart": ["Technical Background", "Non Tech Background", "No Background"],
-};
+  // Working Professional — the age band depends on the qualification.
+  { persona: 'Working Professional', ageRange: '21-35', highestQualification: 'Tech Graduate', education: 'Tech Professional', painPoint: 'Upgradation for High CTC' },
+  { persona: 'Working Professional', ageRange: '21-35', highestQualification: 'Tech Graduate', education: 'Non Tech Professional', painPoint: 'Upgradation for High CTC' },
+  { persona: 'Working Professional', ageRange: '21-40', highestQualification: 'Non Tech Graduate', education: 'Tech Professional', painPoint: 'Upgradation for High CTC' },
+  { persona: 'Working Professional', ageRange: '21-40', highestQualification: 'Non Tech Graduate', education: 'Non Tech Professional', painPoint: 'Upgradation for High CTC' },
 
-export const HIGHEST_QUALIFICATIONS = [
-  "Tech Graduate",
-  "Non Tech Graduate",
-  "Non Graduate",
-  "Post Graduate",
-  "Diploma",
-  "12th / Below",
+  // Homemaker / Career Restart — Education follows 1:1 from the qualification.
+  { persona: 'Homemaker / Career Restart', ageRange: '24-45', highestQualification: 'Tech Graduate', education: 'Technical Background', painPoint: 'Need a Opportunity for Earning' },
+  { persona: 'Homemaker / Career Restart', ageRange: '24-45', highestQualification: 'Non Tech Graduate', education: 'Non Tech Background', painPoint: 'Need a Opportunity for Earning' },
+  { persona: 'Homemaker / Career Restart', ageRange: '24-45', highestQualification: 'Non Graduate', education: 'No Background', painPoint: 'Need a Opportunity for Earning' },
 ];
 
-export const GENDERS = ["Male", "Female", "Other"];
+// De-duplicated column values, in table order. Every dropdown offers the FULL
+// list at all times — the matrix only drives which value gets pre-selected, so
+// an agent is never blocked by a real customer who doesn't fit a row.
+const column = (key) => [...new Set(PERSONA_MATRIX.map((r) => r[key]).filter(Boolean))];
 
-// Mainly relevant for "Working Professional".
-export const PROFILES = ["Tech Professional", "Non Tech Professional"];
+export const PERSONAS = column('persona');
+export const AGE_RANGES = column('ageRange');
+export const HIGHEST_QUALIFICATIONS = column('highestQualification');
+export const EDUCATIONS = column('education');
+export const PAIN_POINTS = column('painPoint');
 
-export const PAIN_POINTS = ["Job into AI", "Upgradation for High CTC", "Need a Opportunity for Earning"];
+// Rows still consistent with what the agent has picked so far. An empty/absent
+// value matches everything, so this narrows as the agent fills the card in.
+export function matchingRows({ persona, highestQualification, education } = {}) {
+  return PERSONA_MATRIX.filter(
+    (r) =>
+      (!persona || r.persona === persona) &&
+      (!highestQualification || r.highestQualification === highestQualification) &&
+      (!education || r.education === education),
+  );
+}
 
-// Suggests a Pain Point once a Persona is picked — the agent can still
-// override it from the dropdown.
-export const PAIN_POINT_BY_PERSONA = {
-  "Student / Fresher": "Job into AI",
-  "Working Professional": "Upgradation for High CTC",
-  "Homemaker / Career Restart": "Need a Opportunity for Earning",
-};
+// The value every matching row agrees on, or "" when they disagree (or when
+// nothing matches). Callers use this to pre-fill a field without ever
+// overruling a choice the agent made deliberately — if the table can't name a
+// single answer, it leaves the field alone.
+export function suggest(field, selection) {
+  const values = [...new Set(matchingRows(selection).map((r) => r[field]))];
+  return values.length === 1 ? values[0] : '';
+}
+
+// Columns the table leaves blank for every persona — the agent fills these in
+// freely from what the customer says, so there's nothing to cascade.
+export const GENDERS = ['Male', 'Female', 'Other'];
 
 export const PREFERRED_LANGUAGES = [
-  "Hindi",
-  "English",
-  "Hinglish",
-  "Tamil",
-  "Telugu",
-  "Kannada",
-  "Malayalam",
-  "Bengali",
-  "Marathi",
-  "Gujarati",
-  "Punjabi",
-  "Other",
+  'Hindi',
+  'English',
+  'Hinglish',
+  'Tamil',
+  'Telugu',
+  'Kannada',
+  'Malayalam',
+  'Bengali',
+  'Marathi',
+  'Gujarati',
+  'Punjabi',
+  'Other',
 ];
 
-export const COUNTRIES = ["India"];
+export const COUNTRIES = ['India'];

@@ -17,6 +17,9 @@ import {
 } from "@ant-design/icons";
 import { request } from "@/request";
 import { BASE_URL } from "@/config/serverApiConfig";
+import { LOGO_SLOTS, LOGO_SLOT_KEYS } from '@/config/logoSlots';
+import { useDispatch } from 'react-redux';
+import { settingsAction } from '@/redux/settings/actions';
 import { BorderTrail } from "@/components/ui/border-trail";
 
 // Company/Logo/Currency/Localization below are backed by the real Setting
@@ -205,30 +208,46 @@ function CompanySection() {
 }
 
 function LogoSection() {
-  const [logoPath, setLogoPath] = useState(null);
+  const dispatch = useDispatch();
+  const [paths, setPaths] = useState({});
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [busyKey, setBusyKey] = useState(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchSettings(["company_logo"]).then((map) => {
-      setLogoPath(map.company_logo || null);
+  const load = () =>
+    fetchSettings(LOGO_SLOT_KEYS).then((map) => {
+      setPaths(map || {});
       setLoading(false);
     });
+
+  useEffect(() => {
+    load();
   }, []);
 
-  const handleFile = async (e) => {
+  // Upload applies to ONE slot — the one whose button was clicked. The same
+  // picture rarely suits every place at once (a wide wordmark is unreadable
+  // in a collapsed sidebar), so each slot is set deliberately rather than a
+  // single upload silently changing the logo everywhere.
+  const handleFile = async (slotKey, e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploading(true);
+    setBusyKey(slotKey);
     setError("");
     const formData = new FormData();
+    // Multer is configured as .single("file") (uploadMiddleware/
+    // singleStorageUpload.js), so the form field has to be "file". The
+    // middleware's own `fieldName: settingValue` option is a separate
+    // thing — it only says which req.body key to write the saved path to.
     formData.append("file", file);
-    const res = await request.post({ entity: "setting/upload/company_logo", jsonData: formData });
-    setUploading(false);
+    const res = await request.post({ entity: `setting/upload/${slotKey}`, jsonData: formData });
+    setBusyKey(null);
     if (res?.success) {
-      setLogoPath(res.result?.settingValue || null);
+      await load();
+      // The sidebar, login page and public pages render straight from the
+      // settings store, so re-pull it — otherwise the new logo only shows
+      // up after a full page reload.
+      dispatch(settingsAction.list({ entity: 'setting' }));
     } else {
       setError(res?.message || "Could not upload the logo.");
     }
@@ -238,38 +257,47 @@ function LogoSection() {
     <div className="hub-card">
       <div className="hub-card-header" style={{ alignItems: "flex-start" }}>
         <div>
-          <h3>Company Logo</h3>
+          <h3>Logos</h3>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: "#667085" }}>
-            Used on invoices, the login page, and the sidebar
+            Each place the logo appears is set separately — upload to the one you want to change.
           </p>
         </div>
       </div>
 
-      <div className="hub-image-upload">
-        <div className="hub-image-upload-preview" style={{ width: 72, height: 72, overflow: "hidden" }}>
-          {loading ? "…" : logoPath ? (
-            <img
-              src={BASE_URL + logoPath}
-              alt="Company logo"
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          ) : (
-            "No logo"
-          )}
-        </div>
-        <div>
-          <label
-            className="hub-btn hub-btn-primary"
-            style={{ cursor: uploading ? "wait" : "pointer", display: "inline-flex" }}
-          >
-            {uploading ? "Uploading…" : "Upload Logo"}
-            <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} disabled={uploading} />
-          </label>
-          <div style={{ fontSize: 11.5, color: "#667085", marginTop: 8 }}>
-            PNG or SVG, at least 256×256px, transparent background recommended.
-          </div>
-          {error && <div style={{ fontSize: 11.5, color: "var(--hub-red)", marginTop: 6 }}>{error}</div>}
-        </div>
+      {error && <div style={{ fontSize: 12, color: "var(--hub-red)", marginBottom: 10 }}>{error}</div>}
+
+      <div className="hub-logo-slots">
+        {LOGO_SLOTS.map((slot) => {
+          const stored = paths[slot.key];
+          const src = stored ? BASE_URL + stored : slot.fallback;
+          return (
+            <div className="hub-logo-slot" key={slot.key}>
+              <div className={`hub-logo-slot-preview is-${slot.shape}`}>
+                {loading ? "…" : <img src={src} alt={slot.label} />}
+              </div>
+              <div className="hub-logo-slot-main">
+                <div className="hub-logo-slot-label">{slot.label}</div>
+                <div className="hub-logo-slot-desc">{slot.description}</div>
+                {!stored && !loading && <div className="hub-logo-slot-default">Using the built-in logo</div>}
+              </div>
+              <label className="hub-btn hub-btn-primary hub-logo-slot-btn" style={{ cursor: busyKey === slot.key ? "wait" : "pointer" }}>
+                {busyKey === slot.key ? "Uploading…" : "Upload"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => handleFile(slot.key, e)}
+                  disabled={!!busyKey}
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 11.5, color: "#667085", marginTop: 10 }}>
+        PNG or SVG, transparent background recommended. Use a wide wordmark for the sidebar-expanded, login and public
+        slots, and a square mark for sidebar-collapsed.
       </div>
     </div>
   );

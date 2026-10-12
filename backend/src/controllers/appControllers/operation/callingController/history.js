@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { getProvider } = require('../../../../services/calling');
 const { callingTier, campaignScope } = require('./permissions');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 // GET /api/calling/history
 //   q, campaign, agent, status, disposition, direction,
@@ -50,6 +51,17 @@ const list = async (req, res) => {
       .lean(),
     CallRecord.countDocuments(filter),
   ]);
+
+  // History rows can include teammates' calls (campaign scope), but the
+  // recording itself follows recordings.js's stricter rule: only see-all
+  // roles get another agent's recording URL. Status stays, so the column
+  // still shows "available".
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
+    const me = String(req.admin._id);
+    for (const r of result) {
+      if (r.recording && String(r.agent) !== me) r.recording = { ...r.recording, url: null };
+    }
+  }
 
   return res.status(200).json({
     success: true,

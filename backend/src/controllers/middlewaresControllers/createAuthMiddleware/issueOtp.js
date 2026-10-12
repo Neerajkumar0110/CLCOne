@@ -8,6 +8,10 @@ const OTP_TTL_MS = 10 * 60 * 1000;
 // record, and emails it. Shared by the initial login step and "resend code".
 const issueOtp = async ({ user, UserPasswordModel }) => {
   const otp = crypto.randomInt(100000, 1000000).toString();
+  // TEMP DEBUG — requested to verify login/OTP delivery while testing.
+  // Remove this line once testing is done; it prints every OTP issued
+  // (any user, including real logins) to this server's own console/logs.
+  console.log(`[DEBUG OTP] ${user.email} -> ${otp}`);
   const otpSalt = crypto.randomBytes(8).toString('hex');
   const otpCode = bcrypt.hashSync(otpSalt + otp);
 

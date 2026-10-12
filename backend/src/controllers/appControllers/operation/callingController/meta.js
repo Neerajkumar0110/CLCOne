@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { getProvider } = require('../../../../services/calling');
 const { publicCallingConfig } = require('../../../../config/calling');
-const { CALL_DISPOSITIONS } = require('../../../../services/calling/dispositions');
+const { ACTIVE_DISPOSITIONS } = require('../../../../services/calling/dispositions');
 const { callingTier } = require('./permissions');
 
 // GET /api/calling/status — provider name + TEST MODE flag (no secrets).
@@ -28,7 +28,7 @@ const meta = async (req, res) => {
   return res.status(200).json({
     success: true,
     result: {
-      dispositions: CALL_DISPOSITIONS,
+      dispositions: ACTIVE_DISPOSITIONS,
       transferTargets: ['Sales', 'Finance', 'Support', ...teams.map((t) => t.name)].filter(
         (v, i, a) => a.indexOf(v) === i
       ),

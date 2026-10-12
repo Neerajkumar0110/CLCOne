@@ -48,7 +48,8 @@
     "tesseract.js": "^7.0.0",
     "transliteration": "^2.3.5",
     "ws": "^8.21.3",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "pngjs": "^5.0.0"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.2.0",

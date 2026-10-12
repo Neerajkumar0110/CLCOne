@@ -28,6 +28,25 @@ function crmBase() {
   return lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 }
 
+// The URL a student should actually open for one material row.
+//
+// An uploaded file lives on THIS server, so its URL is built fresh on every
+// read from the host we are configured to serve as — never from whatever was
+// stored. Rows written before `filePath` existed kept a full absolute URL,
+// and any of those uploaded from a developer machine were saved pointing at
+// http://localhost:8888/..., which is a dead link in a student's browser; for
+// those we keep only the path and put the current host back in front.
+//
+// A pasted link (sourceType 'link') is someone else's URL — YouTube, Drive,
+// a blog — and is returned exactly as stored.
+function fileUrlOf(r) {
+  if (r.sourceType === 'link') return r.fileUrl;
+
+  const rel = r.filePath || String(r.fileUrl || '').replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+\//i, '');
+  if (!rel) return r.fileUrl;
+  return `${crmBase()}/${String(rel).replace(/^\/+/, '')}`;
+}
+
 function kindFromMime(mime, name) {
   const m = mime || '';
   if (m.startsWith('image/')) return 'image';
@@ -77,7 +96,7 @@ function serialize(r) {
     courseTitle: r.courseTitle || '',
     kind: r.kind,
     sourceType: r.sourceType,
-    fileUrl: r.fileUrl,
+    fileUrl: fileUrlOf(r),
     originalName: r.originalName || '',
     mimeType: r.mimeType || '',
     sizeBytes: r.sizeBytes || 0,
@@ -115,6 +134,10 @@ async function upload(req, res) {
     ...scope,
     kind: kindFromMime(req.file.mimetype, originalName),
     sourceType: 'file',
+    filePath: req.body.file,
+    // Kept in step with filePath only so the required field has a value and
+    // anything still reading the raw column sees something sane; fileUrlOf()
+    // is what every response actually goes through.
     fileUrl: `${crmBase()}/${req.body.file}`,
     originalName,
     mimeType: req.file.mimetype,

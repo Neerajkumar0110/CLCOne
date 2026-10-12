@@ -79,6 +79,25 @@ const schema = new mongoose.Schema({
   recurrenceGroup: { type: String, index: true }, // shared id for a generated series
   sessionIndex: { type: Number, default: 1 }, // "Class 1", "Class 2", ...
 
+  // Does this class actually deliver syllabus?
+  //
+  // services/lms/chapterProgress.js#autoAdvance walks a batch's sessions in
+  // date order and hands each one the next slice of the course's chapter
+  // hours — session 1 gets the first 1.5h of curriculum, session 2 the next,
+  // and so on. That is also where a recording gets its name.
+  //
+  // It only holds while every class on the calendar teaches curriculum. An
+  // orientation, a doubt-clearing hour or a revision class consumes a slot
+  // in that walk without delivering anything, so it is labelled with a topic
+  // nobody taught and every class after it is shifted by one — which is how
+  // a batch still doing basic preparation ended up with recordings called
+  // "Python Setup & Environment" and "Variables, Data Types & Operators".
+  //
+  // Setting this false takes the session out of that walk entirely: it
+  // consumes no chapter hours, and its recording keeps the session's own
+  // title instead of borrowing a curriculum topic.
+  countsTowardSyllabus: { type: Boolean, default: true },
+
   // denormalised for the card
   title: { type: String, required: true },
   description: { type: String },

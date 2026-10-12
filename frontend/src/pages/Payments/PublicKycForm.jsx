@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Form, Input, Select, Button, Upload, message, Result, Spin } from 'antd';
 import { UploadOutlined, CheckCircleFilled, ClockCircleOutlined, SafetyCertificateOutlined, CloseCircleFilled } from '@ant-design/icons';
 import paymentsPublicApi from './publicApi';
-import logo from '@/style/images/Horizontal-1-transparent.png';
+import useBrandLogo from '@/hooks/useBrandLogo';
 import { INDIA_STATES, INDIA_DISTRICTS } from '@/data/indiaStatesDistricts';
 
 const fmtInr = (n) => {
@@ -32,6 +32,7 @@ function Header() {
 }
 
 export default function PublicKycForm() {
+  const logo = useBrandLogo('logo_public');
   const { token } = useParams();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);

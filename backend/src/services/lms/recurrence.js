@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { inductionForIndex } = require('../../config/inductionWeek');
 const mongoose = require('mongoose');
 const { lmsConfig } = require('../../config/lms');
 const { trainerNames } = require('./teacherCourseAccess');
@@ -115,13 +116,19 @@ function parseDuration(batch) {
 }
 
 // Returns an array of { start: Date, end: Date, index: n }
-function occurrences(batch) {
+function occurrences(batch, orgHolidays) {
   const days = parseDays(batch);
   const { h, min } = parseTime(batch);
   const durMin = parseDuration(batch);
-  // Spec §13 "Batch Management: ... holidays" — previously no way to exclude
-  // a calendar date from the auto-generated schedule at all.
+  // Two sources, both "YYYY-MM-DD" IST calendar days:
+  //  - batch.holidays       per-batch exceptions (spec §13), set by hand
+  //  - orgHolidays          the organisation-wide holiday calendar
+  //                         (services/lms/holidayCalendar.js) — Republic
+  //                         Day, Diwali and the rest, so the company list
+  //                         is entered once instead of per batch.
+  // A date in either one is not a class day.
   const holidays = new Set((batch.holidays || []).filter(Boolean));
+  for (const d of orgHolidays || []) holidays.add(d);
 
   const fromRaw = batch.startDate ? new Date(batch.startDate) : new Date();
   const from = istMidnight(fromRaw); // UTC instant of 00:00 IST on that calendar day
@@ -136,18 +143,42 @@ function occurrences(batch) {
   const endDate = batch.endDate ? new Date(batch.endDate) : null;
   const to = istEndOfMonth(endDate && endDate > minTo ? endDate : minTo);
 
+  // How many classes this batch is supposed to get: the number its own
+  // start/end window yields when nothing is in the way. Holidays must not
+  // reduce it — a holiday means the class MOVES, it is not cancelled. A
+  // dropped class is a dropped chunk of curriculum, since chapterProgress.js
+  // hands out chapter hours one class at a time.
+  //
+  // So the walk below targets this count and keeps going past the nominal
+  // end date until it has them all, pushing the tail of the schedule later
+  // by exactly the number of holidays it skipped.
+  const plannedCount = (() => {
+    let n = 0;
+    let c = from;
+    let g = 0;
+    while (g++ < 1200 && n < MAX_AUTO_CLASSES) {
+      if (to && c > to) break;
+      if (days.length ? days.includes(istParts(c).dow) : n === 0) {
+        n += 1;
+        if (!days.length) break;
+      }
+      c = new Date(c.getTime() + 86400000);
+    }
+    return n;
+  })();
+
   const out = [];
   let cursor = from;
   let guard = 0;
-  while (guard++ < 1200 && out.length < MAX_AUTO_CLASSES) {
-    if (to && cursor > to) break;
+  // The guard is generous because the end date is no longer the stop
+  // condition — `plannedCount` is. It only exists so a misconfigured batch
+  // (e.g. no class days that ever match) cannot spin forever.
+  while (guard++ < 2000 && out.length < Math.min(plannedCount, MAX_AUTO_CLASSES)) {
     const isClassDay =
       (days.length ? days.includes(istParts(cursor).dow) : out.length === 0) && !holidays.has(istDateKey(cursor));
     if (isClassDay) {
       const start = istDateTime(cursor, h, min);
-      if (!to || start <= new Date(to.getTime() + 86400000)) {
-        out.push({ start, end: new Date(start.getTime() + durMin * 60000), index: out.length + 1, durMin });
-      }
+      out.push({ start, end: new Date(start.getTime() + durMin * 60000), index: out.length + 1, durMin });
       if (!days.length) break; // single occurrence
     }
     // Advance exactly one calendar day. India has no DST, so +24h from an
@@ -191,12 +222,33 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
   // ONE persistent room for the whole batch — same meetingId/link for >= 6 months
   const batchRoom = await liveClassService.ensureBatchRoom(batchDoc);
 
-  const occ = occurrences(batchDoc);
+  // A generated schedule runs at least 6 months and often crosses a new
+  // year, so pull the holiday calendar for the whole span, not just the
+  // start year. Generous upper bound: MAX_AUTO_CLASSES of them cannot
+  // reach beyond a few years even on a weekly batch.
+  const startYear = new Date(batchDoc.startDate || Date.now()).getUTCFullYear();
+  const endYear = batchDoc.endDate ? new Date(batchDoc.endDate).getUTCFullYear() : startYear + 2;
+  const orgHolidays = await require('./holidayCalendar')
+    .holidayDateSet(startYear, Math.max(startYear, endYear) + 1)
+    .catch(() => new Set());
+
+  const occ = occurrences(batchDoc, orgHolidays);
   const group =
     (existingRows.find((r) => r.recurrenceGroup) || {}).recurrenceGroup || crypto.randomBytes(8).toString('hex');
   const created = [];
   for (const o of occ) {
+    // Classes 1-5 of a brand-new batch are the fixed induction week; from
+    // class 6 the course modules begin.
+    const induction = inductionForIndex(o.index);
     if (force && alreadyHas(o.start)) continue;
+    // Never create a class in the past during a regenerate. A regenerate
+    // gap-fills any class day with no session, and a batch that has been
+    // running a while can have older gaps — a day that was cancelled and
+    // hard-deleted, or simply missed by an earlier generation. Filling
+    // those produces a class that is already over and can never be held:
+    // it just sits on the calendar as "scheduled" forever and skews the
+    // attendance and curriculum counts. Only the future is ours to fix.
+    if (force && o.start < new Date()) continue;
     const s = await liveClassService.createSession({
       crmCourse: course ? course._id : undefined,
       batch: batchDoc._id,
@@ -208,8 +260,11 @@ async function generateForBatch(batchDoc, liveClassService, { force = false } = 
       batchName: batchDoc.name,
       teacherName: primaryTrainerName || '',
       teacherCrmUser: teacher ? teacher._id : undefined,
-      title: occ.length > 1 ? `${batchDoc.name} — Class ${o.index}` : `${batchDoc.name} — Live Class`,
-      description: batchDoc.notes || '',
+      title: induction ? induction.title : occ.length > 1 ? `${batchDoc.name} — Class ${o.index}` : `${batchDoc.name} — Live Class`,
+      description: induction ? induction.description : batchDoc.notes || '',
+      // The induction week teaches no syllabus, so it must not consume
+      // curriculum hours — see config/inductionWeek.js.
+      countsTowardSyllabus: !induction,
       scheduledStart: o.start,
       scheduledEnd: o.end,
       scheduledDurationMin: o.durMin,

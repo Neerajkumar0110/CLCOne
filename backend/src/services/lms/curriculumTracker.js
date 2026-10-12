@@ -3,12 +3,37 @@ const mongoose = require('mongoose');
 // Auto-progresses a batch's Curriculum Delivery Tracker (AssessmentCurriculumSession
 // / AssessmentDeliveryRecord — see lmsController/assessments/curriculumController.js)
 // off its ACTUAL completed live classes, instead of requiring a teacher to
-// click "Mark Delivered" by hand for every session. One curriculum unit is
-// assumed per class (the batch's own default class length, ~90 min — see
-// Batch.classDurationMin), so "N classes have happened" -> "the first N
-// units (in order) are DELIVERED", dated to when that class actually ran.
+// click "Mark Delivered" by hand for every session.
+//
+// Progress is measured in HOURS, not in class count. A curriculum unit
+// carries its own `hours` (AssessmentCurriculumSession.hours — the
+// FOUNDATION track mixes 1.5, 3, 4.5, 6, 7.5, 9, 18 and 45 hour units), so
+// a unit is rarely one class. This used to advance one unit per class,
+// which ran far ahead of reality: a batch 72 classes in (108 hours, which
+// is 48 units) was shown as having delivered 72 units, all the way to
+// "S133-S136 Containerisation with Docker" — content nobody had reached.
+//
+// Each class contributes its own scheduled length to a running total, and
+// a unit is DELIVERED only once that total covers the unit in full, dated
+// to the class that completed it. Same hour-accumulating walk
+// services/lms/chapterProgress.js uses for the native curriculum.
 // Never touches a unit a teacher already resolved by hand (SKIPPED, or
 // DELIVERED with its own note/date) — only fills PENDING ones forward.
+//
+// THE CALENDAR IS THE SOURCE OF TRUTH. A unit is delivered because a class
+// that teaches syllabus actually happened on the calendar, and for no other
+// reason. Two consequences:
+//
+//  - A class that teaches no syllabus does not count. Orientation, the
+//    fixed induction week (config/inductionWeek.js), a doubt-clearing or
+//    revision hour all carry countsTowardSyllabus:false and are skipped,
+//    so a batch still doing orientation is not shown as having covered the
+//    first units of Python.
+//
+//  - The calendar can shrink as well as grow. A class cancelled, or pushed
+//    off a holiday, means a unit that was auto-marked delivered has not
+//    been taught after all — those are retracted to PENDING. Only records
+//    this function set itself (auto:true) are ever retracted.
 
 // FOUNDATION/ELITE are the only two curriculum tracks that exist (seeded
 // content) — a batch's own Course duration (months) decides which one
@@ -28,43 +53,83 @@ async function autoAdvance(batchId) {
   if (!batchDoc) return;
 
   const track = await trackForBatch(batchDoc);
-  const LmsLiveSession = mongoose.model('LmsLiveSession');
   const AssessmentCurriculumSession = mongoose.model('AssessmentCurriculumSession');
   const AssessmentDeliveryRecord = mongoose.model('AssessmentDeliveryRecord');
 
-  const completedClasses = await LmsLiveSession.find({
-    removed: false,
-    batch: batchId,
-    status: { $in: ['ended', 'recording_processing', 'recording_available'] },
-  })
-    .select('scheduledStart actualStart')
-    .sort({ scheduledStart: 1 })
+  const units = await AssessmentCurriculumSession.find({ track }).sort({ order: 1 }).select('_id title').lean();
+  if (!units.length) return;
+
+  // What the Calendar says. chapterProgress walks the batch's real classes
+  // (skipping any that teach no syllabus) and marks Chapters delivered; this
+  // reads that result rather than recomputing anything.
+  const chapterProgress = require('./chapterProgress');
+  const course = await chapterProgress.resolveCourseForBatch(batchDoc);
+  if (!course) return;
+  const chapters = await chapterProgress.orderedChaptersForCourse(course._id);
+  if (!chapters.length) return;
+  await chapterProgress.autoAdvance(batchId).catch(() => null);
+  const deliveredChapters = await chapterProgress.completionForBatch(batchId);
+
+  // The two curricula are the same syllabus entered twice — 84 Chapters
+  // against 77 AssessmentCurriculumSessions, with the same topic titles but
+  // different grouping, so their S-numbers drift apart (the Calendar calls
+  // "Feature Importance & Model Explainability" S71, the tracker calls it
+  // S68). Matching on the title is what actually lines them up; matching on
+  // the code does not, and the independent hour-walk this used to do landed
+  // the tracker several topics behind what the Calendar showed.
+  const titleKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const chapterByTitle = new Map(chapters.map((c) => [titleKey(c.title), c]));
+
+  // The frontier: the last tracker unit whose Calendar chapter has been
+  // delivered. Everything up to it counts as delivered, which also carries
+  // the handful of units that have no Chapter counterpart at all (a few
+  // micro-tests) — they sit inside taught territory, so they are taught.
+  let frontier = -1;
+  const dateFor = [];
+  for (let i = 0; i < units.length; i += 1) {
+    const ch = chapterByTitle.get(titleKey(units[i].title));
+    if (!ch) continue;
+    const row = deliveredChapters.get(String(ch._id));
+    if (!row) continue;
+    frontier = i;
+    dateFor[i] = row.completedAt || null;
+  }
+  const n = frontier + 1;
+
+  const existing = await AssessmentDeliveryRecord.find({ batch: batchDoc.name })
+    .select('sessionId status auto')
     .lean();
-  if (!completedClasses.length) return;
+  const bySession = new Map(existing.map((r) => [r.sessionId, r]));
 
-  const units = await AssessmentCurriculumSession.find({ track }).sort({ order: 1 }).select('_id').lean();
-  const n = Math.min(completedClasses.length, units.length);
-  if (!n) return;
-
-  const unitIds = units.slice(0, n).map((u) => u._id);
-  const existing = await AssessmentDeliveryRecord.find({ batch: batchDoc.name, sessionId: { $in: unitIds } })
-    .select('sessionId status')
-    .lean();
-  const statusBySession = new Map(existing.map((r) => [r.sessionId, r.status]));
-
-  for (let i = 0; i < n; i++) {
+  // Forward: everything up to the frontier is delivered.
+  let lastDate = null;
+  for (let i = 0; i < n; i += 1) {
+    if (dateFor[i]) lastDate = dateFor[i];
     const unitId = units[i]._id;
-    const currentStatus = statusBySession.get(unitId);
-    if (currentStatus && currentStatus !== 'PENDING') continue; // teacher already resolved this one by hand
-    const cls = completedClasses[i];
+    const rec = bySession.get(unitId);
+    // A teacher's own decision stands — only fill in PENDING, or refresh a
+    // date this function set itself.
+    if (rec && rec.status !== 'PENDING' && !rec.auto) continue;
     // eslint-disable-next-line no-await-in-loop
     await AssessmentDeliveryRecord.findOneAndUpdate(
       { sessionId: unitId, batch: batchDoc.name },
       {
-        $set: { status: 'DELIVERED', actualDate: cls.actualStart || cls.scheduledStart, updatedAt: new Date() },
+        $set: { status: 'DELIVERED', actualDate: dateFor[i] || lastDate || null, auto: true, updatedAt: new Date() },
         $setOnInsert: { sessionId: unitId, batch: batchDoc.name },
       },
       { upsert: true }
+    ).catch(() => {});
+  }
+
+  // Backward: anything this function previously marked past the frontier no
+  // longer has a delivered class behind it — the Calendar lost one, or a
+  // class turned out to be orientation. Put it back to PENDING so the
+  // tracker never claims a topic the Calendar has not reached.
+  const beyond = units.slice(n).map((x) => x._id);
+  if (beyond.length) {
+    await AssessmentDeliveryRecord.updateMany(
+      { batch: batchDoc.name, sessionId: { $in: beyond }, auto: true, status: 'DELIVERED' },
+      { $set: { status: 'PENDING', actualDate: null, updatedAt: new Date() } }
     ).catch(() => {});
   }
 }

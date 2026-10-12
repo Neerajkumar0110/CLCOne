@@ -241,6 +241,7 @@ export default function LiveClasses() {
       scheduledStart: r.scheduledStart ? dayjs(r.scheduledStart) : null,
       scheduledDurationMin: r.scheduledDurationMin || 60,
       autoStartAt: !!r.autoStartAt,
+      countsTowardSyllabus: r.countsTowardSyllabus !== false,
     });
   };
   const submitEdit = async () => {
@@ -256,6 +257,7 @@ export default function LiveClasses() {
         scheduledStart: v.scheduledStart ? v.scheduledStart.toISOString() : undefined,
         scheduledDurationMin: v.scheduledDurationMin,
         autoStartAt: !!v.autoStartAt,
+        countsTowardSyllabus: !!v.countsTowardSyllabus,
       });
       if (res && res.success === false) message.warning(res.message || 'Could not update the class time.');
       else {
@@ -502,6 +504,17 @@ export default function LiveClasses() {
           <Form.Item name="autoStartAt" valuePropName="checked">
             <Checkbox>Start the class automatically at this time</Checkbox>
           </Form.Item>
+          {/* Untick for orientation, doubt-clearing or revision classes.
+              The curriculum mapping hands out topics in date order, so a
+              class that teaches no syllabus must be skipped or it takes a
+              topic name nobody taught and shifts every class after it. */}
+          <Form.Item name="countsTowardSyllabus" valuePropName="checked" style={{ marginBottom: 4 }}>
+            <Checkbox>Counts toward syllabus</Checkbox>
+          </Form.Item>
+          <div style={{ marginLeft: 24, marginTop: -4, fontSize: 12, color: '#64748b' }}>
+            Untick for orientation, doubt-clearing or revision classes — the recording keeps
+            this class&apos;s own name instead of taking the next curriculum topic.
+          </div>
         </Form>
       </Modal>
 

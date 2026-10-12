@@ -1,15 +1,24 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
-const { ROLES, FINANCE_SUB_ROLES, SUPER_ADMIN_ROLES, ADMIN_CREATOR_ROLES, CRM_ADMIN_ROLES, SALES_ROLES } = require('../../../config/roles');
+const {
+  ROLES,
+  FINANCE_SUB_ROLES,
+  SUPER_ADMIN_ROLES,
+  ADMIN_CREATOR_ROLES,
+  CRM_ADMIN_ROLES,
+  SALES_ROLES,
+  BUSINESS_NAMES,
+  BUSINESS_SEGMENTS,
+} = require('../../../config/roles');
 
-// Lets an admin change another user's role/position (and name/surname/email)
+// Lets an admin change another user's role/position (and name/surname/email/phone)
 // after creation — e.g. promoting an Executive, correcting a Team Manager's
 // title, or fixing a candidate's mistyped email. Password has its own
 // dedicated endpoint.
 const update = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
 
-  const { name, surname, email, role, subRole, removed, reportsTo } = req.body;
+  const { name, surname, email, phone, role, subRole, removed, reportsTo, businessName, businessSegment } = req.body;
 
   // Authorization — previously this endpoint had none beyond the
   // role-escalation checks below, so any authenticated user could PATCH any
@@ -45,6 +54,7 @@ const update = async (userModel, req, res) => {
     name: Joi.string(),
     surname: Joi.string().allow('', null),
     email: Joi.string().email({ tlds: { allow: true } }),
+    phone: Joi.string().trim().min(7),
     role: Joi.string().valid(...ROLES.filter((r) => r !== 'owner')),
     subRole: Joi.string()
       .valid(...FINANCE_SUB_ROLES)
@@ -53,9 +63,11 @@ const update = async (userModel, req, res) => {
     // '' or null clears it (e.g. promoted to Sales Manager, top of the
     // chain) — see Admin.js's reportsTo comment.
     reportsTo: Joi.string().allow('', null),
+    businessName: Joi.string().valid(...BUSINESS_NAMES).allow('', null),
+    businessSegment: Joi.string().valid(...BUSINESS_SEGMENTS).allow('', null),
   });
 
-  const { error } = objectSchema.validate({ name, surname, email, role, subRole, removed, reportsTo });
+  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole, removed, reportsTo, businessName, businessSegment });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -120,6 +132,7 @@ const update = async (userModel, req, res) => {
   if (name !== undefined) updateFields.name = name;
   if (surname !== undefined) updateFields.surname = surname;
   if (email !== undefined) updateFields.email = email.toLowerCase().trim();
+  if (phone !== undefined) updateFields.phone = phone.trim();
   if (role !== undefined) updateFields.role = role;
   if (removed !== undefined) updateFields.removed = removed;
 
@@ -134,6 +147,17 @@ const update = async (userModel, req, res) => {
   if (reportsTo !== undefined) {
     if (reportsTo && mongoose.isValidObjectId(reportsTo)) updateFields.reportsTo = reportsTo;
     else unsetFields.reportsTo = '';
+  }
+  if (businessName !== undefined) {
+    if (businessName) updateFields.businessName = businessName;
+    else unsetFields.businessName = '';
+  }
+  // Segment is Sales-only — moving someone out of Sales clears it.
+  if (role !== undefined && !SALES_ROLES.includes(role)) {
+    unsetFields.businessSegment = '';
+  } else if (businessSegment !== undefined) {
+    if (businessSegment) updateFields.businessSegment = businessSegment;
+    else unsetFields.businessSegment = '';
   }
 
   const mongoUpdate = Object.keys(unsetFields).length
@@ -225,9 +249,12 @@ const update = async (userModel, req, res) => {
       name: result.name,
       surname: result.surname,
       email: result.email,
+      phone: result.phone,
       role: result.role,
       subRole: result.subRole,
       reportsTo: result.reportsTo,
+      businessName: result.businessName,
+      businessSegment: result.businessSegment,
       enabled: result.enabled,
       removed: result.removed,
     },

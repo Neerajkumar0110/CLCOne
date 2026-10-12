@@ -27,6 +27,12 @@ const LMS_PANEL_ROLES = [...LMS_TEACHER_ROLES, ...LMS_STUDENT_ROLES];
 // Only shown/stored when role === 'Finance'.
 const FINANCE_SUB_ROLES = ['Finance Manager', 'Finance Executive', 'Finance Support'];
 
+// Which business line a user works for — picked on Add/Edit User. Sales users
+// additionally pick a BUSINESS_SEGMENTS entry. Mirrored in
+// frontend/src/config/roles.js.
+const BUSINESS_NAMES = ['AI Development', 'Training Division', 'FreelanceX', 'HireX', 'SaaS Products', 'FranchiseX'];
+const BUSINESS_SEGMENTS = ['B2B Segment', 'B2C Segment'];
+
 // 'owner' is the account backend/src/setup/setup.js bootstraps — it's the
 // same tier as 'Super Admin' and the two together may only have one holder.
 const SUPER_ADMIN_ROLES = ['owner', 'Super Admin'];
@@ -103,6 +109,8 @@ const SALES_ROLE_PARENT = {
 module.exports = {
   ROLES,
   FINANCE_SUB_ROLES,
+  BUSINESS_NAMES,
+  BUSINESS_SEGMENTS,
   SUPER_ADMIN_ROLES,
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,

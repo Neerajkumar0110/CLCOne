@@ -1,22 +1,16 @@
-const nodemailer = require('nodemailer');
 const { lmsConfig } = require('../../config/lms');
 const { escHtml: esc, fmtDateTime: fmtDate } = require('../../utils/emailFormat');
+const { mailReady, sendMailWithRetry } = require('../mail/transport');
 
-// Reuses the same Gmail transport as the OTP mailer. All LMS emails are
-// best-effort — a send failure never blocks the action that triggered it.
+// Every LMS email goes down the one shared pooled Gmail transport
+// (services/mail/transport.js) — see that file for why pooling matters:
+// these sends are per-recipient loops, and an unpooled transport logged in
+// once per student until Gmail throttled the whole batch. All LMS emails
+// stay best-effort — a send failure never blocks the action that triggered
+// it, it is just logged against the recipient.
 
 const BRAND = process.env.GMAIL_SENDER_NAME || 'Career Lab Consulting';
-let _tx = null;
-function tx() {
-  if (!_tx) {
-    _tx = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-    });
-  }
-  return _tx;
-}
-const ready = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+const ready = mailReady;
 
 // Best-effort per-recipient delivery log (spec §8) — never lets a logging
 // failure affect the actual send outcome.
@@ -68,7 +62,7 @@ async function sendBatchClassEmail(recipients, payload) {
   const subject = `Your live classes — ${payload.batchName}`;
   for (const to of list) {
     try {
-      await tx().sendMail({
+      await sendMailWithRetry({
         from: `"${BRAND}" <${process.env.GMAIL_USER}>`,
         to,
         subject,
@@ -112,7 +106,7 @@ async function sendLiveClassReminderEmail(recipients, payload) {
   let sent = 0;
   for (const to of list) {
     try {
-      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html });
+      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html });
       sent += 1;
       logDelivery(to, subject, 'sent');
     } catch (e) {
@@ -133,7 +127,7 @@ async function sendMail(recipients, { subject, html, text, attachments }) {
   let sent = 0;
   for (const to of list) {
     try {
-      await tx().sendMail({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments });
+      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments });
       sent += 1;
       logDelivery(to, subject, 'sent');
     } catch (e) {

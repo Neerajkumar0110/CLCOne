@@ -27,6 +27,13 @@ export const LMS_TEACHER_ROLES = ["Teacher"];
 export const LMS_STUDENT_ROLES = ["Student"];
 export const LMS_PANEL_ROLES = [...LMS_TEACHER_ROLES, ...LMS_STUDENT_ROLES];
 
+// Roles that see every batch in the LMS, not just the ones they teach.
+// Mirrors backend/src/config/roles.js LMS_FULL_ACCESS_ROLES (CRM admin
+// roles + Support) — keep the two in step by hand, same as the lists
+// above. Without this an Admin fell through the Teacher check and got the
+// STUDENT view of pages like the Curriculum Tracker.
+export const LMS_FULL_ACCESS_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
+
 // Solid, high-contrast colors used by the Roles & Permissions selector.
 // Keeping these beside the role names prevents every selected role from
 // falling back to the generic dashboard blue.
@@ -49,6 +56,11 @@ export const KNOWN_NON_SELECTABLE_ROLES = ["owner", "Super Admin"];
 
 // Shown as a second dropdown only when the selected role is "Finance".
 export const FINANCE_SUB_ROLES = ["Finance Manager", "Finance Executive", "Finance Support"];
+
+// Business line picked on Add/Edit User; Sales users also pick a segment.
+// Mirrors backend/src/config/roles.js.
+export const BUSINESS_NAMES = ["AI Development", "Training Division", "FreelanceX", "HireX", "SaaS Products", "FranchiseX"];
+export const BUSINESS_SEGMENTS = ["B2B Segment", "B2C Segment"];
 
 // Groups the flat ROLES list into departments, purely for the Add/Edit User
 // form's two-step Department -> Position picker (pages/UserManagement/Users.jsx).

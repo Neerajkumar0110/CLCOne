@@ -11,8 +11,7 @@ import { MODULE_NAV_KEY } from '@/config/permissionModules';
 import { FEATURE_SECTIONS } from '@/config/featureSections';
 
 import useLanguage from '@/locale/useLanguage';
-import careerLabIcon from '@/style/images/Horizontal-1-transparent.png';
-import careerLabCollapsedIcon from '@/style/images/Vertical-1-transparent.png';
+import useBrandLogo from '@/hooks/useBrandLogo';
 
 import useResponsive from '@/hooks/useResponsive';
 
@@ -92,6 +91,10 @@ function Sidebar({ collapsible, isMobile = false }) {
   const { tickets } = useTickets();
   const openTicketsCount = tickets.filter((t) => t.status === 'Open').length;
   const { totalUnread } = useMessages();
+  // Both sidebar states are separate logo slots — a wide wordmark is
+  // unreadable once the sidebar collapses to icons. See config/logoSlots.js.
+  const expandedLogo = useBrandLogo('logo_sidebar_expanded');
+  const collapsedLogo = useBrandLogo('logo_sidebar_collapsed');
   const [showLogoApp, setLogoApp] = useState(isNavMenuClose);
   const [currentPath, setCurrentPath] = useState(pathKeyFor(location));
 
@@ -396,7 +399,7 @@ function Sidebar({ collapsible, isMobile = false }) {
         }}
       >
         <img
-          src={isNavMenuClose ? careerLabCollapsedIcon : careerLabIcon}
+          src={isNavMenuClose ? collapsedLogo : expandedLogo}
           alt="Career Lab Consulting"
           style={{
             height: isNavMenuClose ? '40px' : '40px',

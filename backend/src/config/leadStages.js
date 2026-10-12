@@ -29,13 +29,6 @@ const LEAD_STAGES = [
     subStatuses: ['Assigned to BDE After Connecting with Candidate (By Auto Dialer)'],
   },
   {
-    stage: 'Fresh Leads',
-    color: '#22C55E',
-    badgeClass: 'hub-badge-green',
-    description: 'Old lead being redialed / reassigned for another pass.',
-    subStatuses: ['Old Leads reassignment or Stage wise Dialing'],
-  },
-  {
     stage: 'Invalid Leads',
     color: '#94A3B8',
     badgeClass: 'hub-badge-gray',
@@ -44,6 +37,7 @@ const LEAD_STAGES = [
       'Incoming Not Available',
       'Invalid Number',
       'Number not in Service',
+      'Number Does not Exist',
       'Wrong Number',
       'Did not Inquire',
       'Language Barrier',
@@ -55,6 +49,13 @@ const LEAD_STAGES = [
     badgeClass: 'hub-badge-yellow',
     description: 'Lead could not be reached on this attempt.',
     subStatuses: ['Switch off', 'Not Reachable', 'Ringing'],
+  },
+  {
+    stage: 'Fresh Leads',
+    color: '#22C55E',
+    badgeClass: 'hub-badge-green',
+    description: 'Old lead being redialed / reassigned for another pass.',
+    subStatuses: ['Old Leads reassignment or Stage wise Dialing'],
   },
   {
     stage: 'Callback',

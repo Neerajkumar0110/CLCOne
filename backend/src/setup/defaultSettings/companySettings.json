@@ -76,5 +76,29 @@
     "settingKey": "company_bank_account",
     "settingValue": "iban : 00001231421",
     "valueType": "string"
+  },
+  {
+    "settingCategory": "company_settings",
+    "settingKey": "logo_sidebar_expanded",
+    "settingValue": "",
+    "valueType": "image"
+  },
+  {
+    "settingCategory": "company_settings",
+    "settingKey": "logo_sidebar_collapsed",
+    "settingValue": "",
+    "valueType": "image"
+  },
+  {
+    "settingCategory": "company_settings",
+    "settingKey": "logo_login",
+    "settingValue": "",
+    "valueType": "image"
+  },
+  {
+    "settingCategory": "company_settings",
+    "settingKey": "logo_public",
+    "settingValue": "",
+    "valueType": "image"
   }
 ]

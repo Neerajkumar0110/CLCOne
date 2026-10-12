@@ -26,6 +26,8 @@ const learnerOverview = require('./learnerOverview');
 const communication = require('./communication');
 const studyMaterial = require('./studyMaterial');
 const studentAlerts = require('./studentAlerts');
+const holidays = require('./holidays');
+const curriculumAdmin = require('./curriculumAdmin');
 
 module.exports = {
   // inbound webhook (mounted before the bearer gate, HMAC-verified)
@@ -72,6 +74,10 @@ module.exports = {
   liveGet: liveclass.get,
   liveCreate: liveclass.create,
   liveUpdateTime: liveclass.updateTime,
+  liveSyllabusFlag: liveclass.syllabusFlag,
+  curriculumOverview: curriculumAdmin.overview,
+  holidayList: holidays.list,
+  holidaySetYear: holidays.setYear,
   liveCancel: liveclass.cancel,
   livePostpone: liveclass.postpone,
   liveRenameBatch: liveclass.renameBatch,

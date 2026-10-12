@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   PhoneOutlined,
   UserOutlined,
@@ -36,14 +36,15 @@ import { usePermission } from "@/context/permissionContext";
 import { STAGE_NAMES, subStatusesFor, defaultSubStatus, stageConfig } from "@/config/leadStages";
 import {
   PERSONAS,
-  EDUCATION_BY_PERSONA,
+  AGE_RANGES,
   HIGHEST_QUALIFICATIONS,
+  EDUCATIONS,
   GENDERS,
-  PROFILES,
   PAIN_POINTS,
-  PAIN_POINT_BY_PERSONA,
   PREFERRED_LANGUAGES,
   COUNTRIES,
+  matchingRows,
+  suggest,
 } from "@/config/leadPersonas";
 import "./ActiveCallModal.css";
 
@@ -55,6 +56,41 @@ const { TextArea } = Input;
 // Never hardcode the list here: an unknown code saves a disposition no
 // report can group on. Until meta lands, render nothing in the grid.
 const DISPOSITIONS_PLACEHOLDER = [];
+
+// Heading for each disposition `category` the API returns (see backend's
+// services/calling/dispositions.js), in the order the chips should read —
+// roughly best outcome to worst. A category not listed here still renders,
+// under its own raw name, so a new one added server-side is never silently
+// dropped from the modal.
+const DISPOSITION_GROUP_TITLES = {
+  sale: "Enrolled",
+  interested: "Interested / In progress",
+  callback: "Callback",
+  "not-interested": "Not interested",
+  "no-contact": "Could not reach / Invalid",
+  dnc: "Do not call",
+};
+
+function groupDispositions(list) {
+  const order = Object.keys(DISPOSITION_GROUP_TITLES);
+  const byCategory = new Map();
+  for (const d of list) {
+    if (!byCategory.has(d.category)) byCategory.set(d.category, []);
+    byCategory.get(d.category).push(d);
+  }
+  return [...byCategory.keys()]
+    .sort((a, b) => {
+      // Unknown categories sort last, keeping their relative order.
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      return (ia < 0 ? order.length : ia) - (ib < 0 ? order.length : ib);
+    })
+    .map((category) => ({
+      category,
+      title: DISPOSITION_GROUP_TITLES[category] || category,
+      items: byCategory.get(category),
+    }));
+}
 
 // Quick-pick programs for the Requirements field
 const POPULAR_COURSES = [
@@ -281,13 +317,51 @@ export default function ActiveCallModal() {
     };
   }, [zipcode]);
 
-  // Picking a Persona resets Education (its options depend on the Persona)
-  // and suggests a Pain Point — the agent can still override either.
-  const onPersonaChange = (val) => {
-    setPersona(val);
-    setEducation("");
-    setPainPoint(PAIN_POINT_BY_PERSONA[val] || "");
+  // Persona / Highest Qualification / Education cascade down the Personas
+  // table (config/leadPersonas.js): each pick narrows the remaining rows, and
+  // any field the surviving rows all agree on gets filled in automatically —
+  // picking "Student / Fresher" alone already fixes Age at 18-25 and the Pain
+  // Point at "Job into AI", and a Homemaker's Education follows straight from
+  // their qualification. Every dropdown still lists ALL its options, so this
+  // only ever saves the agent typing; it never blocks a customer who doesn't
+  // fit a row, and a value the agent picks by hand is left alone.
+  //
+  // `suggest` returns "" when the surviving rows disagree, which is exactly
+  // what a cleared field should look like, so it can be assigned as-is.
+  const applyPersonaCascade = (selection) => {
+    setPersona(selection.persona || "");
+    if (selection.highestQualification !== undefined) setHighestQualification(selection.highestQualification || "");
+    if (selection.education !== undefined) setEducation(selection.education || "");
+
+    // A combination the table doesn't cover at all (the loose dropdowns allow
+    // it) tells us nothing, so leave the derived fields as the agent left
+    // them rather than blanking work they've already done.
+    if (!matchingRows(selection).length) return;
+
+    if (selection.highestQualification === undefined) setHighestQualification(suggest("highestQualification", selection));
+    if (selection.education === undefined) setEducation(suggest("education", selection));
+    setAge(suggest("ageRange", selection));
+    setPainPoint(suggest("painPoint", selection));
   };
+
+  // Changing the Persona starts the card over — a qualification or education
+  // from the previous persona is almost never right for the new one.
+  const onPersonaChange = (val) => applyPersonaCascade({ persona: val });
+
+  // Narrowing by qualification can only ever keep Education if it's still
+  // reachable (e.g. a Working Professional switching Tech -> Non Tech Graduate
+  // keeps "Tech Professional", which both rows allow).
+  const onQualificationChange = (val) => {
+    const keepEducation = matchingRows({ persona, highestQualification: val }).some((r) => r.education === education);
+    applyPersonaCascade({
+      persona,
+      highestQualification: val,
+      education: keepEducation ? education : undefined,
+    });
+  };
+
+  const onEducationChange = (val) =>
+    applyPersonaCascade({ persona, highestQualification: highestQualification || undefined, education: val });
 
   // Handler when a call connects or updates
   const handleCallConnected = useCallback(
@@ -491,6 +565,7 @@ export default function ActiveCallModal() {
   };
 
   const selectedDisposition = dispositions.find((d) => d.code === disposition) || null;
+  const groupedDispositions = useMemo(() => groupDispositions(dispositions), [dispositions]);
 
   // Compute live duration
   const isCallLive = callData && ["connected", "onhold", "ringing", "dialing"].includes(callData.status);
@@ -785,10 +860,14 @@ export default function ActiveCallModal() {
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <label className="incall-field-label">Age</label>
-                    <Input
-                      value={age}
-                      onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                      placeholder="Age"
+                    <Select
+                      popupClassName="incall-popup"
+                      style={{ width: "100%" }}
+                      value={age || undefined}
+                      onChange={(v) => setAge(v || "")}
+                      placeholder="Select age band"
+                      allowClear
+                      options={AGE_RANGES.map((a) => ({ label: a, value: a }))}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
@@ -811,42 +890,34 @@ export default function ActiveCallModal() {
                     popupClassName="incall-popup"
                     style={{ width: "100%" }}
                     value={highestQualification || undefined}
-                    onChange={(v) => setHighestQualification(v)}
+                    onChange={onQualificationChange}
                     placeholder="Select qualification"
                     allowClear
                     options={HIGHEST_QUALIFICATIONS.map((q) => ({ label: q, value: q }))}
                   />
                 </div>
 
-                {(EDUCATION_BY_PERSONA[persona] || []).length > 0 && (
-                  <div>
-                    <label className="incall-field-label">Education</label>
-                    <Select
-                      popupClassName="incall-popup"
-                      style={{ width: "100%" }}
-                      value={education || undefined}
-                      onChange={(v) => setEducation(v)}
-                      placeholder="Select education background"
-                      allowClear
-                      options={EDUCATION_BY_PERSONA[persona].map((e) => ({ label: e, value: e }))}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="incall-field-label">Education</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={education || undefined}
+                    onChange={onEducationChange}
+                    placeholder="Select education background"
+                    allowClear
+                    options={EDUCATIONS.map((e) => ({ label: e, value: e }))}
+                  />
+                </div>
 
-                {persona === "Working Professional" && (
-                  <div>
-                    <label className="incall-field-label">Profile</label>
-                    <Select
-                      popupClassName="incall-popup"
-                      style={{ width: "100%" }}
-                      value={profile || undefined}
-                      onChange={(v) => setProfile(v)}
-                      placeholder="Select profile"
-                      allowClear
-                      options={PROFILES.map((p) => ({ label: p, value: p }))}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="incall-field-label">Profile</label>
+                  <Input
+                    value={profile}
+                    onChange={(e) => setProfile(e.target.value)}
+                    placeholder="Current role / designation"
+                  />
+                </div>
 
                 <div>
                   <label className="incall-field-label">Current CTC / Monthly Income</label>
@@ -1064,25 +1135,39 @@ export default function ActiveCallModal() {
                 <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 600 }}>* Required</span>
               </div>
 
-              <div className="incall-disp-grid">
-                {dispositions.map((d) => (
-                  <div
-                    key={d.code}
-                    className={`incall-disp-chip ${disposition === d.code ? "selected" : ""}`}
-                    onClick={() => {
-                      setDisposition(d.code);
-                      // Pre-select the stage this outcome maps onto — the
-                      // agent can still override it above.
-                      if (d.crmStage) {
-                        setStage(d.crmStage.stage);
-                        setSubStatus(d.crmStage.subStatus);
-                      }
-                    }}
-                  >
-                    {d.label}
+              {/* One row per outcome family. There are ~26 chips now that
+                  every pipeline stage has its own, which is too many to scan
+                  as one flat wrap — the headings let an agent jump straight to
+                  the group they already know they want. Chip order inside a
+                  group is the API's, so adding a disposition server-side needs
+                  no change here. */}
+              {groupedDispositions.map(({ category, title, items }) => {
+                const inGroup = items;
+                return (
+                  <div key={category} className="incall-disp-group">
+                    <div className="incall-disp-group-title">{title}</div>
+                    <div className="incall-disp-grid">
+                      {inGroup.map((d) => (
+                        <div
+                          key={d.code}
+                          className={`incall-disp-chip ${disposition === d.code ? "selected" : ""}`}
+                          onClick={() => {
+                            setDisposition(d.code);
+                            // Pre-select the stage this outcome maps onto — the
+                            // agent can still override it above.
+                            if (d.crmStage) {
+                              setStage(d.crmStage.stage);
+                              setSubStatus(d.crmStage.subStatus);
+                            }
+                          }}
+                        >
+                          {d.label}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
 
               {/* Callback scheduler — only the outcomes that imply a
                   follow-up (dispositions.js marks those `callback`). */}

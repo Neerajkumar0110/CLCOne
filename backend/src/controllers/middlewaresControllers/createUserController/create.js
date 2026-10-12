@@ -5,6 +5,8 @@ const Joi = require('joi');
 const {
   ROLES,
   FINANCE_SUB_ROLES,
+  BUSINESS_NAMES,
+  BUSINESS_SEGMENTS,
   SUPER_ADMIN_ROLES,
   ADMIN_CREATOR_ROLES,
   STAFF_CREATOR_ROLES,
@@ -22,7 +24,7 @@ const create = async (userModel, req, res) => {
   const User = mongoose.model(userModel);
   const UserPassword = mongoose.model(userModel + 'Password');
 
-  const { name, surname, email, phone, role, subRole, reportsTo } = req.body;
+  const { name, surname, email, phone, role, subRole, reportsTo, businessName, businessSegment } = req.body;
 
   const objectSchema = Joi.object({
     name: Joi.string().required(),
@@ -41,9 +43,11 @@ const create = async (userModel, req, res) => {
     // meaningful for the sales hierarchy roles; harmless to accept (and
     // leave unset) for any other role.
     reportsTo: Joi.string().allow('', null),
+    businessName: Joi.string().valid(...BUSINESS_NAMES).allow('', null),
+    businessSegment: Joi.string().valid(...BUSINESS_SEGMENTS).allow('', null),
   });
 
-  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole, reportsTo });
+  const { error } = objectSchema.validate({ name, surname, email, phone, role, subRole, reportsTo, businessName, businessSegment });
   if (error) {
     return res.status(409).json({
       success: false,
@@ -116,6 +120,9 @@ const create = async (userModel, req, res) => {
       role,
       subRole: role === 'Finance' ? subRole : undefined,
       reportsTo: reportsTo && mongoose.isValidObjectId(reportsTo) ? reportsTo : undefined,
+      businessName: businessName || undefined,
+      // Segment is a Sales-only concept — dropped for every other department.
+      businessSegment: SALES_ROLES.includes(role) && businessSegment ? businessSegment : undefined,
       enabled: true,
     }).save();
   } catch (err) {

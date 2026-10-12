@@ -1268,7 +1268,7 @@ function AllLeads() {
     setStageLoading(true);
     setStageError(false);
     const teamView = teamViewOverride !== undefined ? teamViewOverride : filters.teamView;
-    const qs = teamView ? "?teamView=1" : "";
+    const qs = teamView ? `?teamView=${teamView}` : "";
     const res = await request.get({ entity: `lead/stage-stats${qs}` });
     if (res?.success) setStageData(res.result);
     else setStageError(true);
@@ -1586,20 +1586,20 @@ function AllLeads() {
                 </select>
               </div>
             )}
-            {/* Non-full-access: the only choice they get is their own rows
-                vs their whole team's — never one named teammate's, and
-                never automatic just from being on a team (server default is
-                self-only; see leadController/scope.js). */}
+            {/* Non-full-access users see every lead by default (see
+                leadController/scope.js); this narrows to their team's or
+                their own. Full-access users get the Team/Agent pickers. */}
             {!isFullAccess && (
               <div className="hub-form-row">
                 <label>Showing</label>
                 <select
                   className="hub-select"
-                  value={filters.teamView ? "team" : "mine"}
-                  onChange={(e) => updateFilter({ teamView: e.target.value === "team" ? "1" : "" })}
+                  value={filters.teamView}
+                  onChange={(e) => updateFilter({ teamView: e.target.value })}
                 >
+                  <option value="">All leads</option>
+                  <option value="1">My team</option>
                   <option value="mine">My leads only</option>
-                  <option value="team">My whole team</option>
                 </select>
               </div>
             )}
@@ -3028,12 +3028,12 @@ function UsedLeadsBoard() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [teamView, setTeamView] = useState(false);
+  const [teamView, setTeamView] = useState("");
 
   const load = async () => {
     setLoading(true);
     setError(false);
-    const qs = teamView && !isFullAccess ? "?teamView=1" : "";
+    const qs = teamView && !isFullAccess ? `?teamView=${teamView}` : "";
     const res = await request.get({ entity: `lead/used${qs}` });
     if (res?.success) setLeads(res.result);
     else setError(true);
@@ -3052,9 +3052,10 @@ function UsedLeadsBoard() {
           <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{leads.length}</span>}</h3>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {!isFullAccess && (
-              <select className="hub-select" value={teamView ? "team" : "mine"} onChange={(e) => setTeamView(e.target.value === "team")}>
+              <select className="hub-select" value={teamView} onChange={(e) => setTeamView(e.target.value)}>
+                <option value="">All leads</option>
+                <option value="1">My team</option>
                 <option value="mine">My leads only</option>
-                <option value="team">My whole team</option>
               </select>
             )}
             <button type="button" className="hub-btn" onClick={load}>Refresh</button>

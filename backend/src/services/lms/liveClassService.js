@@ -271,6 +271,9 @@ async function createSession(opts = {}) {
     moodleCourseId: opts.moodleCourseId,
     recurrenceGroup: opts.recurrenceGroup,
     sessionIndex: opts.sessionIndex || 1,
+    // Defaults true; recurrence.js passes false for the induction week
+    // (config/inductionWeek.js), which teaches no syllabus.
+    countsTowardSyllabus: opts.countsTowardSyllabus !== false,
     title,
     description: opts.description || '',
     courseTitle,
@@ -339,7 +342,43 @@ async function regenerateForBatch(batchId) {
     { $set: { removed: true, status: 'cancelled' } }
   );
   const created = await recurrence.generateForBatch({ ...batch.toObject(), _id: batch._id }, module.exports, { force: true });
-  return { result: { created: created.length } };
+  const renumbered = await renumberBatchSessions(batch._id, batch.name);
+  return { result: { created: created.length, renumbered } };
+}
+
+// Put a batch's class numbers back in date order, 1..n with no gaps and no
+// repeats.
+//
+// Regeneration is a gap-fill: classes that have already been taught keep
+// their original sessionIndex, while the freshly generated ones are
+// numbered from the newly computed schedule. Once a holiday shifts the
+// dates those two numberings stop agreeing, and a batch ends up with two
+// "Class 4" and no "Class 5" — which is exactly the out-of-sequence
+// confusion learners hit when picking a recording.
+//
+// Only the auto-generated "<batch> — Class N" title is rewritten. A title
+// someone set by hand (a renamed extra class, or an induction day from
+// config/inductionWeek.js) is left exactly as it is.
+async function renumberBatchSessions(batchId, batchName) {
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const sessions = await LmsLiveSession.find({ batch: batchId, removed: false, status: { $ne: 'cancelled' } })
+    .sort({ scheduledStart: 1 })
+    .select('_id sessionIndex title')
+    .lean();
+
+  let changed = 0;
+  for (let i = 0; i < sessions.length; i += 1) {
+    const s = sessions[i];
+    const want = i + 1;
+    if (s.sessionIndex === want) continue;
+    const auto = `${batchName} — Class ${s.sessionIndex}`;
+    const $set = { sessionIndex: want };
+    if (s.title === auto) $set.title = `${batchName} — Class ${want}`;
+    // eslint-disable-next-line no-await-in-loop
+    await LmsLiveSession.updateOne({ _id: s._id }, { $set });
+    changed += 1;
+  }
+  return changed;
 }
 
 // Spec §13 "Batch Management: ... holidays" — add/remove one IST calendar
@@ -382,6 +421,12 @@ async function updateSchedule(id, admin, patch = {}) {
   if (patch.title !== undefined) session.title = String(patch.title).slice(0, 200) || session.title;
   if (patch.description !== undefined) session.description = String(patch.description).slice(0, 2000);
   if (patch.autoStartAt !== undefined) session.autoStartAt = !!patch.autoStartAt;
+  // Marking a class as non-syllabus here shifts the curriculum topic of
+  // every later class in the batch, so the recording names are rewalked
+  // below (see resyncBatchRecordingNames) rather than only this one.
+  const syllabusFlagChanged =
+    patch.countsTowardSyllabus !== undefined && !!patch.countsTowardSyllabus !== session.countsTowardSyllabus;
+  if (patch.countsTowardSyllabus !== undefined) session.countsTowardSyllabus = !!patch.countsTowardSyllabus;
 
   let start = session.scheduledStart;
   if (patch.scheduledStart) {
@@ -420,7 +465,73 @@ async function updateSchedule(id, admin, patch = {}) {
     if (topic) recordingClassName = topic;
   }
   await mongoose.model('LiveRecording').updateOne({ liveSession: session._id }, { $set: { className: recordingClassName } });
+  if (syllabusFlagChanged) await resyncBatchRecordingNames(session.batch).catch(() => {});
   return { result: safeView(session, 'teacher') };
+}
+
+// Re-derive every recording name for one batch from the current curriculum
+// mapping.
+//
+// One session's countsTowardSyllabus changing is never a local edit: the
+// mapping hands out chapter hours in date order, so taking one class out of
+// the walk (or putting it back) shifts the topic of every class after it.
+// Renaming only the session that was edited would leave the rest of the
+// batch pointing at the topics they had before — the exact mismatch this is
+// meant to clear up — so the whole batch is rewalked in one pass.
+//
+// A session whose title a teacher set by hand is left alone: that is a
+// deliberate name, and the curriculum has no business overwriting it. Same
+// rule updateSchedule/startSession already follow.
+async function resyncBatchRecordingNames(batchId) {
+  if (!batchId) return { updated: 0 };
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const LiveRecording = mongoose.model('LiveRecording');
+  const { autoAdvance, formatTopic } = require('./chapterProgress');
+
+  const sessions = await LmsLiveSession.find({ removed: false, batch: batchId, status: { $ne: 'cancelled' } })
+    .select('_id title')
+    .lean();
+
+  // ONE walk of the batch for the whole rename, not one per session.
+  // topicForSession() is a convenience wrapper that calls autoAdvance
+  // internally, so using it in this loop re-walked every session (and
+  // rewrote its chapter-progress rows) once per session — quadratic, and
+  // minutes of needless writes on a 170-class batch.
+  const advanced = await autoAdvance(batchId).catch(() => null);
+  const topics = (advanced && advanced.sessionTopics) || {};
+
+  let updated = 0;
+  for (const s of sessions) {
+    const name = formatTopic(topics[String(s._id)]) || s.title;
+    // eslint-disable-next-line no-await-in-loop
+    const r = await LiveRecording.updateOne({ liveSession: s._id, className: { $ne: name } }, { $set: { className: name } });
+    updated += r.modifiedCount || 0;
+  }
+  return { updated };
+}
+
+// Mark a class as delivering syllabus or not (orientation, doubt-clearing,
+// revision). Unlike updateSchedule this is allowed at ANY status: the whole
+// reason it exists is to correct classes that already happened and got
+// labelled with a topic nobody taught.
+async function setCountsTowardSyllabus(id, admin, counts) {
+  const session = await loadFull(id);
+  if (!session) return { error: 404, message: 'Live class not found.' };
+  const role = await resolveRole(session, admin);
+  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor or a manager can change this.' };
+
+  session.countsTowardSyllabus = !!counts;
+  session.updated = new Date();
+  await session.save();
+
+  const { updated } = await resyncBatchRecordingNames(session.batch);
+  return {
+    result: {
+      id: String(session._id),
+      countsTowardSyllabus: session.countsTowardSyllabus,
+      recordingsRenamed: updated,
+    },
+  };
 }
 
 // Single-session cancel — teacher or manager, reason required, only before a
@@ -1966,6 +2077,9 @@ function safeView(session, role, topic) {
     batchName: session.batchName,
     teacherName: session.teacherName,
     sessionIndex: session.sessionIndex,
+    // false = orientation / doubt / revision: skipped by the curriculum
+    // mapping, so its recording keeps this title instead of a topic name.
+    countsTowardSyllabus: session.countsTowardSyllabus !== false,
     scheduledStart: session.scheduledStart,
     scheduledEnd: session.scheduledEnd,
     scheduledDurationMin: session.scheduledDurationMin,
@@ -2162,6 +2276,9 @@ module.exports = {
   removeBatchHoliday,
   ensureBatchRoom,
   updateSchedule,
+  renumberBatchSessions,
+  setCountsTowardSyllabus,
+  resyncBatchRecordingNames,
   cancelSession,
   postponeSession,
   addStudentToBatch,

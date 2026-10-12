@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Collapse, Segmented, Select, Progress, Table, DatePicker, Space, Typography, Empty, Button, Skeleton } from 'antd';
-import { ScheduleOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons';
+import { Card, Collapse, Segmented, Select, Progress, Table, DatePicker, Space, Typography, Empty, Button, Skeleton, Input, Row, Col, Statistic, Tag, Tooltip } from 'antd';
+import { ScheduleOutlined, ClockCircleOutlined, CalendarOutlined, ArrowLeftOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
-import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { LMS_TEACHER_ROLES, LMS_FULL_ACCESS_ROLES } from '@/config/roles';
 import lmsApi from '@/pages/Lms/api';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
 
@@ -255,6 +255,270 @@ function TeacherCurriculum() {
   );
 }
 
+/* ═══════════ ADMIN — every batch, filter + drill in ═══════════ */
+
+// Colour the number, not just the bar: in a list of many batches an admin is
+// looking for the one that has stalled, not reading every row.
+const pctTone = (p) => (p >= 75 ? '#16a34a' : p >= 40 ? '#d97706' : '#dc2626');
+
+function AdminCurriculum() {
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // filters
+  const [q, setQ] = useState('');
+  const [course, setCourse] = useState('');
+  const [trainer, setTrainer] = useState('');
+
+  // drill-in: the batch whose session-by-session detail is open
+  const [drill, setDrill] = useState(null); // batch row | null
+  const [track, setTrack] = useState('FOUNDATION');
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await lmsApi.curriculumOverview();
+      const r = (res && res.result) || {};
+      setRows(r.batches || []);
+      setSummary(r.summary || null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const loadSessions = useCallback(async () => {
+    if (!drill) return;
+    setSessionsLoading(true);
+    try {
+      const res = await lmsApi.assessmentCurriculumSessions({ batch: drill.name, track });
+      const data = (res && res.result) || {};
+      setSessions(data.sessions || []);
+      // Course length decides the track server-side — follow it rather than
+      // showing 0% against the wrong one.
+      if (data.resolvedTrack && data.resolvedTrack !== track) setTrack(data.resolvedTrack);
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, [drill, track]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  const courses = useMemo(() => [...new Set(rows.map((r) => r.course).filter(Boolean))].sort(), [rows]);
+  const trainers = useMemo(() => [...new Set(rows.map((r) => r.trainer).filter(Boolean))].sort(), [rows]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter(
+      (r) =>
+        (!needle || `${r.name} ${r.course} ${r.trainer}`.toLowerCase().includes(needle)) &&
+        (!course || r.course === course) &&
+        (!trainer || r.trainer === trainer)
+    );
+  }, [rows, q, course, trainer]);
+
+  const updateDelivery = async (sessionId, patch) => {
+    await lmsApi.updateAssessmentDelivery(sessionId, { batch: drill.name, ...patch });
+    loadSessions();
+    load(); // the overview percentage moves too
+  };
+
+  const columns = [
+    {
+      title: 'Batch',
+      dataIndex: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name),
+      render: (v, r) => (
+        <Space direction="vertical" size={0}>
+          <a onClick={() => setDrill(r)}>
+            <strong>{v}</strong>
+          </a>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {r.course || 'No course'}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Trainer',
+      dataIndex: 'trainer',
+      width: 150,
+      render: (v) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: 'Classes held',
+      width: 130,
+      sorter: (a, b) => a.classesHeld - b.classesHeld,
+      render: (_, r) => (
+        <span>
+          {r.classesHeld} <Text type="secondary">/ {r.classesTotal}</Text>
+        </span>
+      ),
+    },
+    {
+      title: 'Curriculum',
+      width: 250,
+      sorter: (a, b) => (a.percent || 0) - (b.percent || 0),
+      render: (_, r) =>
+        !r.tracked ? (
+          <Tooltip title="This batch has no course curriculum mapped, so there is nothing to measure against.">
+            <Tag>Not tracked</Tag>
+          </Tooltip>
+        ) : (
+          <Space direction="vertical" size={2} style={{ width: '100%' }}>
+            <Space size={8}>
+              <strong style={{ color: pctTone(r.percent) }}>{r.percent}%</strong>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {r.deliveredChapters}/{r.totalChapters} topics · {r.completedUnits}/{r.totalUnits} units
+              </Text>
+            </Space>
+            <Progress percent={r.percent} showInfo={false} size="small" strokeColor={pctTone(r.percent)} />
+          </Space>
+        ),
+    },
+    {
+      title: 'Currently on',
+      dataIndex: 'nextChapter',
+      render: (v, r) => (!r.tracked ? <Text type="secondary">—</Text> : v || <Tag color="green">Course complete</Tag>),
+    },
+    {
+      title: 'Last delivered',
+      dataIndex: 'lastDeliveredAt',
+      width: 130,
+      sorter: (a, b) => new Date(a.lastDeliveredAt || 0) - new Date(b.lastDeliveredAt || 0),
+      render: (v) => (v ? dayjs(v).format('D MMM YYYY') : <Text type="secondary">Not started</Text>),
+    },
+  ];
+
+  if (drill) {
+    return (
+      <div className="lms-portal" style={{ padding: 4 }}>
+        <Space style={{ marginBottom: 12 }} wrap>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => {
+              setDrill(null);
+              setSessions([]);
+            }}
+          >
+            All batches
+          </Button>
+          <Segmented value={track} onChange={setTrack} options={TRACKS.map((t) => ({ value: t.value, label: t.label }))} />
+        </Space>
+        <PageHeading
+          icon={<ScheduleOutlined />}
+          title={drill.name}
+          description={`${drill.course || 'No course'}${drill.trainer ? ` · ${drill.trainer}` : ''} — ${drill.classesHeld} of ${drill.classesTotal} classes held`}
+        />
+        {drill.tracked && (
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+              <Text type="secondary" style={{ textTransform: 'uppercase', fontSize: 11, fontWeight: 600 }}>
+                Curriculum delivered
+              </Text>
+              <Text strong>
+                {drill.deliveredChapters} / {drill.totalChapters} topics ({drill.percent}%)
+              </Text>
+            </Space>
+            <Progress percent={drill.percent} showInfo={false} strokeColor={pctTone(drill.percent)} style={{ marginTop: 8 }} />
+          </Card>
+        )}
+        <SessionsList sessions={sessions} loading={sessionsLoading} onUpdate={updateDelivery} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="lms-portal" style={{ padding: 4 }}>
+      <PageHeading
+        icon={<ScheduleOutlined />}
+        title="Curriculum Delivery Tracker"
+        description="Every batch and how far through its course it is. Click a batch to see it session by session."
+      />
+
+      {summary && (
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={12} md={6}>
+            <Card size="small">
+              <Statistic title="Batches" value={summary.batches} />
+            </Card>
+          </Col>
+          <Col xs={12} md={6}>
+            <Card size="small">
+              <Statistic title="Average completion" value={summary.avgPercent} suffix="%" valueStyle={{ color: pctTone(summary.avgPercent) }} />
+            </Card>
+          </Col>
+          <Col xs={12} md={6}>
+            <Card size="small">
+              <Statistic title="Classes held" value={summary.classesHeld} suffix={`/ ${summary.classesTotal}`} />
+            </Card>
+          </Col>
+          <Col xs={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Not tracked"
+                value={summary.untrackedBatches}
+                valueStyle={summary.untrackedBatches ? { color: '#d97706' } : undefined}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Space wrap style={{ marginBottom: 12 }}>
+        <Input
+          allowClear
+          prefix={<SearchOutlined />}
+          placeholder="Search batch, course or trainer"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ width: 280 }}
+        />
+        <Select
+          allowClear
+          value={course || undefined}
+          onChange={(v) => setCourse(v || '')}
+          placeholder="All courses"
+          style={{ minWidth: 220 }}
+          options={courses.map((c) => ({ value: c, label: c }))}
+        />
+        <Select
+          allowClear
+          value={trainer || undefined}
+          onChange={(v) => setTrainer(v || '')}
+          placeholder="All trainers"
+          style={{ minWidth: 180 }}
+          options={trainers.map((t) => ({ value: t, label: t }))}
+        />
+        <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+          Refresh
+        </Button>
+      </Space>
+
+      {loading ? (
+        <Skeleton active paragraph={{ rows: 6 }} />
+      ) : (
+        <Table
+          rowKey="id"
+          size="small"
+          columns={columns}
+          dataSource={filtered}
+          pagination={tablePagination(filtered.length)}
+          locale={{ emptyText: <Empty description={rows.length ? 'No batch matches these filters.' : 'No batches yet.'} /> }}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ═══════════ STUDENT — read-only, own batch ═══════════ */
 function StudentCurriculum() {
   const [batch, setBatch] = useState(null); // { name, ... } or null once resolved
@@ -315,5 +579,10 @@ function StudentCurriculum() {
 
 export default function Curriculum() {
   const admin = useSelector(selectCurrentAdmin) || {};
+  // An Admin is not a Teacher and not a Student. Before this they fell
+  // through to the student view, which shows one batch — their own, of
+  // which they have none — so the page looked empty for the one role that
+  // is supposed to see everything.
+  if (LMS_FULL_ACCESS_ROLES.includes(admin.role)) return <AdminCurriculum />;
   return LMS_TEACHER_ROLES.includes(admin.role) ? <TeacherCurriculum /> : <StudentCurriculum />;
 }
