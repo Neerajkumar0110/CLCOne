@@ -2181,9 +2181,9 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
         topicsByBatch.set(key, (advanced && advanced.sessionTopics) || {});
       }
       const covered = topicsByBatch.get(key)[String(sn._id)];
-      if (covered && covered.length) {
-        topic = covered.map((c) => (c.sessionLabel ? `${c.sessionLabel} — ${c.title}` : c.title)).join(' + ');
-      }
+      // Same label the recording gets (Part n of m included), so Calendar
+      // and Recordings always read identically.
+      topic = chapterProgress.formatTopic(covered);
     }
     const v = safeView(sn, role, topic);
     if (scope === 'live' && sn.status !== 'live') continue;
