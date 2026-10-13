@@ -62,9 +62,12 @@ export default function Dashboard() {
       <button type="button" className="hub-btn" onClick={() => navigate("/support")}>
         <ProfileOutlined /> My Tickets{myOpen ? ` (${myOpen})` : ""}
       </button>
-      <button type="button" className="hub-btn hub-btn-primary" onClick={() => setTicketOpen(true)}>
-        <PlusOutlined /> Raise Ticket
-      </button>
+      {/* Support works tickets — it doesn't raise them. */}
+      {!isSupport && (
+        <button type="button" className="hub-btn hub-btn-primary" onClick={() => setTicketOpen(true)}>
+          <PlusOutlined /> Raise Ticket
+        </button>
+      )}
     </>
   );
 

@@ -128,7 +128,7 @@ export const FEATURE_SECTIONS = [
       // lives only in the dedicated Calling module (/calling) — see
       // pages/Calling.
       { key: 'leads', label: 'Leads', Icon: SolutionOutlined, embed: 'leads' },
-      { key: 'customers', label: 'Customers', Icon: CustomerServiceOutlined, embed: 'customer', dashboard: 'customers' },
+      { key: 'customers', label: 'Candidates', Icon: CustomerServiceOutlined, embed: 'customer', dashboard: 'customers' },
       {
         key: 'payments',
         label: 'Payments',

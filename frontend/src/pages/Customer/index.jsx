@@ -45,7 +45,7 @@ function AddCustomerModal({ open, onClose, onAdd }) {
     <HubModal
       open={open}
       onClose={onClose}
-      title="Add New Customer"
+      title="Add New Candidate"
       subtitle="Add a company and its primary contact"
       width={440}
       footer={
@@ -111,14 +111,14 @@ export default function Customer() {
     <div className="hub-page">
       <div className="hub-header">
         <div>
-          <h2>Customers</h2>
+          <h2>Candidates</h2>
           <p>Every company you work with, their contacts, and lifetime value</p>
         </div>
       </div>
 
       <div className="hub-kpi-row">
         <div className="hub-kpi">
-          <div className="hub-kpi-label">Total Customers</div>
+          <div className="hub-kpi-label">Total Candidates</div>
           <div className="hub-kpi-value">{totalCustomers}</div>
         </div>
         <div className="hub-kpi">
@@ -138,7 +138,7 @@ export default function Customer() {
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>All Customers</h3>
+          <h3>All Candidates</h3>
 
           <div className="hub-row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <input
@@ -163,7 +163,7 @@ export default function Customer() {
             </div>
 
             <button type="button" className="hub-btn hub-btn-primary" onClick={() => setAddOpen(true)}>
-              + Add Customer
+              + Add Candidate
             </button>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function Customer() {
               {pageItems.length === 0 && (
                 <tr>
                   <td colSpan={7}>
-                    <div className="hub-empty">No customers match this search.</div>
+                    <div className="hub-empty">No candidates match this search.</div>
                   </td>
                 </tr>
               )}
