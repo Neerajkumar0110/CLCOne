@@ -126,7 +126,9 @@ async function autoAdvance(batchId) {
     const classEnd = deliveredHours;
 
     const covered = [];
-    for (let i = 0; i < chapters.length; i += 1) {
+    // After an anchor, nothing before its chapter is in play — not even a
+    // zero-hour chapter (an assessment) sitting at the same hour mark.
+    for (let i = anchor ? anchor.idx : 0; i < chapters.length; i += 1) {
       const { start, end } = ranges[i];
       // A zero-hour chapter (no duration set) has a zero-width range — bundle
       // it into whichever class's window reaches that position at all.
