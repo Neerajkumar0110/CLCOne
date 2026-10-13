@@ -14,10 +14,15 @@
  * second argument is then used as the class title instead, and the class is
  * marked countsTowardSyllabus:false so it consumes no curriculum hours.
  *
+ * --fit-before: make the classes BEFORE the anchored one end exactly where it
+ * starts. They keep running S1, S2… in order; any class past that point
+ * becomes a "Revision & Practice" class (countsTowardSyllabus:false), since
+ * the batch spent it without moving the syllabus on.
+ *
  * Dry run by default — prints what would change. Add --apply to write.
  *
  * Usage (from backend/):
- *   node scripts/anchorBatchSyllabus.cjs <batchName> "<chapter title text>" [--date YYYY-MM-DD] [--induction] [--revision] [--apply]
+ *   node scripts/anchorBatchSyllabus.cjs <batchName> "<chapter title text>" [--date YYYY-MM-DD] [--induction] [--revision] [--fit-before] [--apply]
  *   --date defaults to today (IST); the first class that day is anchored.
  */
 const path = require('path');
@@ -34,6 +39,7 @@ const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[
 const [batchName, chapterQuery] = positional;
 const APPLY = flag('--apply');
 const REVISION = flag('--revision');
+const REVISION_TITLE = 'Revision & Practice';
 
 const IST_MS = 330 * 60000;
 const istDay = (d) => new Date(new Date(d).getTime() + IST_MS).toISOString().slice(0, 10);
@@ -94,7 +100,26 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tr
     if (!induction.length) console.log('  induction: no classes before this one — nothing to convert.');
   }
 
+  let overflow = [];
+  if (flag('--fit-before') && chapter) {
+    const anchorStart = chapters.slice(0, chapters.indexOf(chapter)).reduce((h, c) => h + (c.hours || 0), 0);
+    const skip = new Set(induction.map((s) => String(s._id)));
+    let hours = 0;
+    for (const s of sessions) {
+      if (s.scheduledStart >= target.scheduledStart) break;
+      if (s.countsTowardSyllabus === false || skip.has(String(s._id))) continue;
+      if (hours >= anchorStart - 1e-6) overflow.push(s);
+      else hours += (s.scheduledDurationMin || batch.classDurationMin || 90) / 60;
+    }
+    console.log(`  fit-before: syllabus reaches the anchor after ${hours}h; ${overflow.length} earlier class(es) become "${REVISION_TITLE}"`);
+    overflow.forEach((s) => console.log(`    ${istDay(s.scheduledStart)} #${s.sessionIndex} "${label(s)}"`));
+  }
+
   if (APPLY) {
+    for (const s of overflow) {
+      await LmsLiveSession.updateOne({ _id: s._id }, { $set: { title: REVISION_TITLE, countsTowardSyllabus: false, updated: new Date() } });
+      if (s.liveClass) await LiveClass.updateOne({ _id: s.liveClass }, { $set: { topic: REVISION_TITLE, updated: new Date() } });
+    }
     for (let i = 0; i < induction.length; i += 1) {
       const s = induction[i];
       const { title, description } = INDUCTION_WEEK[i];
@@ -113,7 +138,8 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tr
   }
 
   const after = await chapterProgress.autoAdvance(batch._id);
-  const tail = sessions.filter((s) => s.scheduledStart >= target.scheduledStart).slice(0, 4);
+  const at = sessions.indexOf(target);
+  const tail = sessions.slice(Math.max(0, at - 3), at + 3);
   console.log(APPLY ? '  now:' : '  (after --apply the anchor takes effect; current projection shown)');
   tail.forEach((s) => console.log(`    ${istDay(s.scheduledStart)} #${s.sessionIndex} ${chapterProgress.formatTopic(after && after.sessionTopics[String(s._id)]) || s.title}`));
 
