@@ -102,17 +102,6 @@ async function autoAdvance(batchId) {
   // below — the calendar is the source of truth.
   const deliveredNow = new Set();
 
-  // A class before an anchor cannot have delivered the anchor chapter or
-  // anything after it — that is exactly what the anchor says was not taught
-  // yet. Nearest later anchor per session, walking backwards.
-  const capFor = new Map();
-  let cap = Infinity;
-  for (let k = allSessions.length - 1; k >= 0; k -= 1) {
-    capFor.set(String(allSessions[k]._id), cap);
-    const a = allSessions[k].syllabusAnchorChapter;
-    if (a != null && chapterIndex.has(String(a)) && allSessions[k].countsTowardSyllabus !== false) cap = chapterIndex.get(String(a));
-  }
-
   for (const cls of allSessions) {
     // A class that doesn't deliver syllabus (orientation, doubt-clearing,
     // revision — LmsLiveSession.countsTowardSyllabus) must not consume any
@@ -170,7 +159,7 @@ async function autoAdvance(batchId) {
       // contribution reaches the chapter's full cumulative end — a chapter
       // spanning two classes shows on both days but only completes on the
       // second, and an upcoming class never writes anything, only labels.
-      if (isCompleted && classEnd >= end - 1e-6 && i < capFor.get(String(cls._id))) {
+      if (isCompleted && classEnd >= end - 1e-6) {
         deliveredNow.add(String(ch._id));
         // eslint-disable-next-line no-await-in-loop
         const prev = await BatchChapterProgress.findOneAndUpdate(
