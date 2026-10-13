@@ -10,10 +10,14 @@
  * anchored one into the fixed induction week (config/inductionWeek.js), the
  * same as a newly generated batch gets.
  *
+ * --revision: the class teaches no chapter (revision / doubt-clearing). The
+ * second argument is then used as the class title instead, and the class is
+ * marked countsTowardSyllabus:false so it consumes no curriculum hours.
+ *
  * Dry run by default — prints what would change. Add --apply to write.
  *
  * Usage (from backend/):
- *   node scripts/anchorBatchSyllabus.cjs <batchName> "<chapter title text>" [--date YYYY-MM-DD] [--induction] [--apply]
+ *   node scripts/anchorBatchSyllabus.cjs <batchName> "<chapter title text>" [--date YYYY-MM-DD] [--induction] [--revision] [--apply]
  *   --date defaults to today (IST); the first class that day is anchored.
  */
 const path = require('path');
@@ -29,6 +33,7 @@ const opt = (f) => (args.indexOf(f) >= 0 ? args[args.indexOf(f) + 1] : null);
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1] === '--date'));
 const [batchName, chapterQuery] = positional;
 const APPLY = flag('--apply');
+const REVISION = flag('--revision');
 
 const IST_MS = 330 * 60000;
 const istDay = (d) => new Date(new Date(d).getTime() + IST_MS).toISOString().slice(0, 10);
@@ -61,12 +66,12 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tr
   const hits = chapters.filter((c) => norm(c.title) === q || norm(`${c.sessionLabel || ''} ${c.title}`).includes(q) || norm(c.title).includes(q));
   const exact = hits.filter((c) => norm(c.title) === q);
   const pick = exact.length === 1 ? exact : hits;
-  if (pick.length !== 1) {
+  if (!REVISION && pick.length !== 1) {
     console.error(`Chapter "${chapterQuery}" matched ${pick.length} chapters in "${course.title}":`);
     (pick.length ? pick : chapters).forEach((c) => console.error(`  - ${c.sessionLabel || ''} | ${c.title}`));
     process.exit(1);
   }
-  const chapter = pick[0];
+  const chapter = REVISION ? null : pick[0];
 
   const sessions = await LmsLiveSession.find({ batch: batch._id, removed: false, status: { $ne: 'cancelled' } })
     .sort({ scheduledStart: 1 })
@@ -80,7 +85,7 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tr
 
   console.log(`\n${APPLY ? 'APPLYING' : 'DRY RUN'} — ${batchName} (${course.title})`);
   console.log(`  class on ${day}: #${target.sessionIndex} "${label(target)}"`);
-  console.log(`  -> anchored to: ${chapter.sessionLabel || ''} — ${chapter.title}`);
+  console.log(REVISION ? `  -> revision class: "${chapterQuery}" (no syllabus consumed)` : `  -> anchored to: ${chapter.sessionLabel || ''} — ${chapter.title}`);
 
   let induction = [];
   if (flag('--induction')) {
@@ -96,7 +101,12 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tr
       await LmsLiveSession.updateOne({ _id: s._id }, { $set: { title, description, countsTowardSyllabus: false, updated: new Date() } });
       if (s.liveClass) await LiveClass.updateOne({ _id: s.liveClass }, { $set: { topic: title, agenda: description, updated: new Date() } });
     }
-    await LmsLiveSession.updateOne({ _id: target._id }, { $set: { syllabusAnchorChapter: chapter._id, updated: new Date() } });
+    if (REVISION) {
+      await LmsLiveSession.updateOne({ _id: target._id }, { $set: { title: chapterQuery, countsTowardSyllabus: false, updated: new Date() } });
+      if (target.liveClass) await LiveClass.updateOne({ _id: target.liveClass }, { $set: { topic: chapterQuery, updated: new Date() } });
+    } else {
+      await LmsLiveSession.updateOne({ _id: target._id }, { $set: { syllabusAnchorChapter: chapter._id, updated: new Date() } });
+    }
     const { updated } = await liveClassService.resyncBatchRecordingNames(batch._id);
     await require('../src/services/lms/curriculumTracker').autoAdvance(batch._id);
     console.log(`  recordings renamed: ${updated}`);
