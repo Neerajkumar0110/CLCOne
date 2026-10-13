@@ -5,7 +5,9 @@
 // first place, and to notice the instant it clears — see
 // LmsPanelApp.jsx / lmsController/panel.js myUpdates. Teachers/managers are
 // never affected (role check first).
-const ALLOWED_PATHS = new Set(['/my/updates']);
+// /my/tickets*: a student on hold must still be able to reach Support
+// (often about the very payment that put them on hold).
+const ALLOWED_PATHS = new Set(['/my/updates', '/my/tickets', '/my/tickets/payments']);
 
 module.exports = function financeHoldGuard(req, res, next) {
   const user = req.admin;

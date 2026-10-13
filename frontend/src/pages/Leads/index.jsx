@@ -9,6 +9,7 @@ import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { FULL_ACCESS_ROLES } from "@/config/permissionModules";
+import { DEPARTMENT_ROLES } from "@/config/roles";
 import {
   STAGE_NAMES,
   QUICK_FILTERS,
@@ -3022,19 +3023,36 @@ function ImportExport() {
 // the Instant Lead Pool auto-dialer) — one flat list instead of adding up
 // several rows of the Lead Stages funnel by hand. Kept deliberately simple:
 // just who it was, what happened, who called them.
+// Sales-department roles — who can appear in Used Leads' "called by" picker.
+const SALES_CALLER_ROLES = DEPARTMENT_ROLES.Sales;
+
 function UsedLeadsBoard() {
-  const currentAdmin = useSelector(selectCurrentAdmin);
-  const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
+  // Management-only (see the tabs in Leads below). Filter by which sales
+  // user made the call (all of them together, or one), and by how their
+  // last call on the lead went — backend leadController/usedLeads.js.
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [teamView, setTeamView] = useState("");
+  const [callers, setCallers] = useState([]);
+  const [caller, setCaller] = useState("");
+  const [outcome, setOutcome] = useState("");
+
+  useEffect(() => {
+    request.list({ entity: "admin", options: { items: 500 } }).then((res) => {
+      const sales = (res?.success ? res.result : []).filter((a) => SALES_CALLER_ROLES.includes(a.role));
+      setCallers(
+        sales
+          .map((a) => ({ id: a._id, name: [a.name, a.surname].filter(Boolean).join(" ") }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
+    });
+  }, []);
 
   const load = async () => {
     setLoading(true);
     setError(false);
-    const qs = teamView && !isFullAccess ? `?teamView=${teamView}` : "";
-    const res = await request.get({ entity: `lead/used${qs}` });
+    const qs = new URLSearchParams({ ...(caller ? { caller } : {}), ...(outcome ? { outcome } : {}) }).toString();
+    const res = await request.get({ entity: `lead/used${qs ? `?${qs}` : ""}` });
     if (res?.success) setLeads(res.result);
     else setError(true);
     setLoading(false);
@@ -3043,26 +3061,28 @@ function UsedLeadsBoard() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamView]);
+  }, [caller, outcome]);
 
   return (
     <div className="hub-stack">
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{leads.length}</span>}</h3>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!isFullAccess && (
-              <select className="hub-select" value={teamView} onChange={(e) => setTeamView(e.target.value)}>
-                <option value="">All leads</option>
-                <option value="1">My team</option>
-                <option value="mine">My leads only</option>
-              </select>
-            )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select className="hub-select" style={{ width: 200 }} value={caller} onChange={(e) => setCaller(e.target.value)}>
+              <option value="">All sales users</option>
+              {callers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select className="hub-select" style={{ width: 160 }} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+              <option value="">All responses</option>
+              <option value="connected">Connected</option>
+              <option value="notpicked">Not picked up</option>
+            </select>
             <button type="button" className="hub-btn" onClick={load}>Refresh</button>
           </div>
         </div>
         <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
-          Every lead whose number has already been called, and the response recorded for it.
+          Every lead whose number has already been called, who called it, and the response recorded for it.
         </div>
       </div>
 
@@ -3079,7 +3099,7 @@ function UsedLeadsBoard() {
       {!loading && !error && (
         <div className="hub-card">
           {leads.length === 0 ? (
-            <div className="hub-empty">No leads have been called yet.</div>
+            <div className="hub-empty">{caller || outcome ? "No leads match these filters." : "No leads have been called yet."}</div>
           ) : (
             <div className="hub-table-wrapper">
               <table className="hub-table">
@@ -3088,6 +3108,7 @@ function UsedLeadsBoard() {
                     <th>Client</th>
                     <th>Phone</th>
                     <th>Response</th>
+                    <th>Called By</th>
                     <th>Assigned</th>
                     <th>Team</th>
                     <th>Last Contact</th>
@@ -3098,7 +3119,16 @@ function UsedLeadsBoard() {
                     <tr key={l._id}>
                       <td>{l.name}</td>
                       <td>{l.phone || "—"}</td>
-                      <td><span className={`hub-badge ${STATUS_META[l.stage]}`}>{l.response}</span></td>
+                      <td>
+                        <span
+                          className={`hub-badge ${
+                            l.outcome === "notpicked" ? "hub-badge-yellow" : l.outcome === "connected" ? "hub-badge-green" : STATUS_META[l.stage]
+                          }`}
+                        >
+                          {l.response}
+                        </span>
+                      </td>
+                      <td>{l.calledBy || "—"}</td>
                       <td>{l.assignedUserName || "—"}</td>
                       <td>{l.team || "Unassigned"}</td>
                       <td>{l.lastContactAt ? new Date(l.lastContactAt).toLocaleString() : "—"}</td>
@@ -3125,14 +3155,14 @@ export default function Leads() {
   // removed (its own dedicated view — every other stage already lives under
   // Lead Stages); Capture Form moved to Marketing (ad-platform lead capture
   // fits there, not Sales) — see pages/Leads/CaptureForm.jsx.
+  // Used Leads is management-only too (backend usedLeads.js enforces it).
   const tabs = [
     { key: "all", label: "Lead Stages" },
-    { key: "used", label: "Used Leads" },
-    ...(isLeadAdmin ? [{ key: "io", label: "Import / Export" }] : []),
+    ...(isLeadAdmin ? [{ key: "used", label: "Used Leads" }, { key: "io", label: "Import / Export" }] : []),
   ];
 
   useEffect(() => {
-    if (!isLeadAdmin && tab === "io") setTab("all");
+    if (!isLeadAdmin && (tab === "io" || tab === "used")) setTab("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeadAdmin]);
 
@@ -3148,7 +3178,7 @@ export default function Leads() {
       <HubTabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === "all" && <AllLeads />}
-      {tab === "used" && <UsedLeadsBoard />}
+      {isLeadAdmin && tab === "used" && <UsedLeadsBoard />}
       {isLeadAdmin && tab === "io" && <ImportExport />}
     </div>
   );

@@ -6,7 +6,7 @@ const FALLBACK_FIELDS = [
   { key: 'name', label: 'Full Name', type: 'Text', enabled: true, required: true },
   { key: 'email', label: 'Email Address', type: 'Email', enabled: true },
   { key: 'phone', label: 'Phone / WhatsApp', type: 'Text', enabled: true, required: true },
-  { key: 'course', label: 'Course / Interest', type: 'Text', enabled: true },
+  { key: 'course', label: 'Internship / Interest', type: 'Text', enabled: true },
   { key: 'city', label: 'City', type: 'Text', enabled: true },
 ];
 

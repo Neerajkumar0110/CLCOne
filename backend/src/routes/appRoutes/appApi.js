@@ -117,6 +117,15 @@ const presenceControllerMod = require('../../controllers/appControllers/operatio
 const presenceController = presenceControllerMod.default || presenceControllerMod;
 router.route('/presence/ping').post(catchErrors(presenceController.ping));
 
+// B2B / B2C lock (services/access/businessScope.js): a user with a Business
+// Segment only ever reads their own segment on every dashboard below. The
+// frontend asks /business-scope to hide the other segment's controls.
+const { lockedBusinessType, enforceBusinessLock } = require('../../services/access/businessScope');
+router.use(['/sales-dashboard', '/marketing-hub', '/analytics'], enforceBusinessLock);
+router.route('/business-scope').get((req, res) =>
+  res.status(200).json({ success: true, result: { locked: lockedBusinessType(req.admin) }, message: 'ok' })
+);
+
 // Sales B2B/B2C combined dashboard — aggregates Lead/Call/CallRecord scoped
 // to teams matching a "System" filter (Team.businessType/region/systemType),
 // + manual monthly cost rows (SalesCost) for the CAC / ROI ratios.

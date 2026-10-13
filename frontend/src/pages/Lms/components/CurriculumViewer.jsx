@@ -90,7 +90,7 @@ export default function CurriculumViewer({ open, onClose, courseId, courseTitle,
       {loading ? (
         <Skeleton active paragraph={{ rows: 8 }} />
       ) : modules.length === 0 ? (
-        <Empty description="No curriculum built for this course yet." />
+        <Empty description="No curriculum built for this internship yet." />
       ) : (
         <>
           {counts && (

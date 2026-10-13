@@ -52,7 +52,7 @@ export default function CourseBuilder() {
         setBatches(result.batches || []);
         if (list[0]) setCourseId(list[0].id);
       } catch (e) {
-        message.error('Could not load your courses.');
+        message.error('Could not load your internships.');
       } finally {
         setLoading(false);
       }
@@ -71,7 +71,7 @@ export default function CourseBuilder() {
       setActiveBatchName(batch.name);
       setCurriculumOpen(true);
     } else {
-      message.warning(`"${batch.course}" isn't set up in Course Builder yet — ask an admin to publish it as a course.`);
+      message.warning(`"${batch.course}" isn't set up in Internship Builder yet — ask an admin to publish it as an internship.`);
     }
   };
 
@@ -84,16 +84,16 @@ export default function CourseBuilder() {
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div>
-          <h2><ReadOutlined /> Course Builder</h2>
-          <p>Your assigned courses and batches — click one to view its full curriculum.</p>
+          <h2><ReadOutlined /> Internship Builder</h2>
+          <p>Your assigned internships and batches — click one to view its full curriculum.</p>
         </div>
         <Select
           style={{ minWidth: 260 }}
           value={courseId}
           onChange={(v) => { setCourseId(v); setActiveBatchName(null); }}
-          placeholder="Select a course"
+          placeholder="Select an internship"
           options={courses.map((c) => ({ value: c.id, label: `${c.title} · ${c.status}` }))}
-          notFoundContent="No courses assigned to you"
+          notFoundContent="No internships assigned to you"
         />
       </div>
 

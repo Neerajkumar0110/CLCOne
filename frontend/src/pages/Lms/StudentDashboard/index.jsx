@@ -43,7 +43,7 @@ export default function StudentDashboard() {
 
   if (loading) return <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 24 }} />;
   if (err) return <Alert type="error" showIcon message={err} style={{ margin: 24 }} />;
-  if (!d) return <Empty style={{ marginTop: 80 }} description="You are not enrolled in any course yet." />;
+  if (!d) return <Empty style={{ marginTop: 80 }} description="You are not enrolled in any internship yet." />;
 
   const k = d.kpis || {};
 
@@ -52,7 +52,7 @@ export default function StudentDashboard() {
       <div className="lms-portal-head">
         <div>
           <h2><BookOutlined /> Hi {d.student?.name || 'there'} 👋</h2>
-          <p>Continue learning — your courses, classes and progress.</p>
+          <p>Continue learning — your internships, classes and progress.</p>
         </div>
         {k.liveNow > 0 && (
           <Button type="primary" icon={<VideoCameraOutlined />} onClick={() => navigate('/learn/classes')}>
@@ -62,8 +62,8 @@ export default function StudentDashboard() {
       </div>
 
       <Row gutter={[14, 14]} style={{ marginTop: 12 }}>
-        <KPI title="Enrolled courses" value={k.enrolledCourses} tone="slate" icon={<BookOutlined />} />
-        <KPI title="Course progress" value={k.courseProgress} suffix="%" tone="slate" />
+        <KPI title="Enrolled internships" value={k.enrolledCourses} tone="slate" icon={<BookOutlined />} />
+        <KPI title="Internship progress" value={k.courseProgress} suffix="%" tone="slate" />
         <KPI title="Attendance" value={k.attendancePct} suffix="%" tone="slate" icon={<CheckSquareOutlined />} />
         <KPI title="Today's classes" value={k.todaysClasses} tone="slate" />
         <KPI title="Upcoming classes" value={k.upcomingClasses} tone="slate" />
@@ -74,15 +74,15 @@ export default function StudentDashboard() {
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
         <Col xs={24} lg={12}>
-          <Card size="small" title="My courses" bordered>
+          <Card size="small" title="My internships" bordered>
             <Table
               size="small"
               rowKey={(r) => `${r.course}-${r.batch}`}
               dataSource={d.courses || []}
               pagination={false}
-              locale={{ emptyText: 'No courses' }}
+              locale={{ emptyText: 'No internships' }}
               columns={[
-                { title: 'Course', dataIndex: 'course' },
+                { title: 'Internship', dataIndex: 'course' },
                 { title: 'Batch', dataIndex: 'batch' },
                 { title: 'Progress', dataIndex: 'progress', render: (v) => <Progress percent={v} size="small" style={{ width: 120 }} /> },
               ]}
@@ -118,7 +118,7 @@ export default function StudentDashboard() {
               locale={{ emptyText: 'No recordings yet' }}
               columns={[
                 { title: 'Class', dataIndex: 'className' },
-                { title: 'Course', dataIndex: 'course' },
+                { title: 'Internship', dataIndex: 'course' },
                 { title: 'Min', dataIndex: 'durationMin', width: 60 },
               ]}
             />
@@ -133,7 +133,7 @@ export default function StudentDashboard() {
               pagination={false}
               locale={{ emptyText: 'No certificates yet' }}
               columns={[
-                { title: 'Course', dataIndex: 'course' },
+                { title: 'Internship', dataIndex: 'course' },
                 { title: 'ID', dataIndex: 'certificateId' },
                 { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{s}</Tag> },
               ]}

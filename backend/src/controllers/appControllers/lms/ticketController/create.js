@@ -20,6 +20,10 @@ const create = async (req, res) => {
   body.status = 'Open';
   body.createdBy = req.admin._id;
   body.raisedByName = req.admin.name;
+  body.raisedByEmail = req.admin.email;
+  body.source = 'crm';
+  delete body.payment;
+  delete body.paymentSnapshot;
 
   const result = await new Model(body).save();
 

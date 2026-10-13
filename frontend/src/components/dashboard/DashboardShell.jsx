@@ -11,6 +11,7 @@ import FunnelChart from "./FunnelChart";
 import AdvancedTable from "./AdvancedTable";
 import FilterDrawer from "./FilterDrawer";
 import useDashboardData from "./useDashboardData";
+import useBusinessLock from "@/hooks/useBusinessLock";
 import { applyChartTheme } from "./chartTheme";
 import { DEFAULT_PRESET, rangeForPreset, quickRange, presetForRange } from "./dateRanges";
 
@@ -24,6 +25,12 @@ export default function DashboardShell({ module, config, extraActions, live = fa
   const [presetKey, setPresetKey] = useState(DEFAULT_PRESET);
   const [range, setRange] = useState(() => rangeForPreset(DEFAULT_PRESET));
   const [businessType, setBusinessType] = useState("all");
+  // A B2B/B2C-locked user (see hooks/useBusinessLock) sits on their own
+  // segment — no "All", no other segment.
+  const businessLock = useBusinessLock();
+  useEffect(() => {
+    if (businessLock) setBusinessType(businessLock.toLowerCase());
+  }, [businessLock]);
   const [dateBasis, setDateBasis] = useState(config.dateBasis ? config.dateBasis.default : "created");
   const [drawer, setDrawer] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -89,6 +96,7 @@ export default function DashboardShell({ module, config, extraActions, live = fa
           onCustomRange={setCustomRange}
           businessTypeMode={config.businessTypeMode}
           businessType={businessType}
+          businessTypeLock={businessLock}
           onBusinessType={setBusinessType}
           dateBasis={dateBasis}
           dateBasisOptions={config.dateBasis ? config.dateBasis.options : null}

@@ -24,10 +24,10 @@ const BORDER = '#e3e8ef';
 const DUE = '#b45309';
 
 const BENEFITS = [
-  ['Live interactive classes', 'Join scheduled sessions with your mentor and classmates in real time.'],
+  ['Live interactive classes', 'Join scheduled sessions with your project manager and classmates in real time.'],
   ['Recordings, anytime', "Missed a class? Every session is recorded and stays in your portal."],
   ['Assignments & progress tracking', 'Submit work, take quizzes, and track your progress module by module.'],
-  ['Certificate on completion', 'Earn a verifiable certificate once you finish the course.'],
+  ['Certificate on completion', 'Earn a verifiable certificate once you finish the internship.'],
 ];
 
 let LOGO_BUFFER = null;
@@ -119,7 +119,7 @@ function renderReceiptPdf(student, { crmLink, rawPassword, plan, brand = 'Career
       // ── Info rows ────────────────────────────────────────────────────
       const infoRows = [
         ['Enrollment ID', student.enrollmentId],
-        ['Course', student.course],
+        ['Internship', student.course],
         ['Batch', student.batch],
       ];
       for (const [label, value] of infoRows) {
@@ -161,7 +161,7 @@ function renderReceiptPdf(student, { crmLink, rawPassword, plan, brand = 'Career
       const feeDueTotal = plan ? plan.remaining : student.feeDue || 0;
       const feeBase = plan ? Math.round(feeGrandTotal / 1.18) : student.feeTotal || 0;
       const feeRows = [
-        ['Course fee', inr(feeBase)],
+        ['Internship fee', inr(feeBase)],
         ['GST (18%)', inr(feeGrandTotal - feeBase)],
         ['Total payable', inr(feeGrandTotal), true],
         ['Amount paid', inr(feePaidTotal)],

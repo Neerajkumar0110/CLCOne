@@ -79,7 +79,7 @@ export default function MyFees() {
           <div className="hero-title">
             <h1>My Fees</h1>
             <p>
-              {d.course || 'Your course'}
+              {d.course || 'Your internship'}
               {d.batch ? ` · Batch ${d.batch}` : ''}
               {d.enrollmentId ? ` · ${d.enrollmentId}` : ''}
             </p>

@@ -51,7 +51,7 @@ async function create(req, res) {
   if (audience === 'course' && mongoose.isValidObjectId(b.course)) {
     const Course = mongoose.model('Course');
     course = await Course.findById(b.course).lean();
-    if (!course) return bad(res, 404, 'Course not found.');
+    if (!course) return bad(res, 404, 'Internship not found.');
   }
   if (audience === 'batch' && !b.batch) return bad(res, 400, 'Batch name is required.');
 

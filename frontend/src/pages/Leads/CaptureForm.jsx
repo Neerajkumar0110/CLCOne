@@ -48,7 +48,7 @@ const FIELD_LIBRARY = [
   { key: "email", label: "Email Address", type: "Email" },
   { key: "phone", label: "Phone Number", type: "Text" },
   { key: "whatsapp", label: "WhatsApp Number", type: "WhatsApp" },
-  { key: "course", label: "Course / Interest", type: "Text" },
+  { key: "course", label: "Internship / Interest", type: "Text" },
   { key: "city", label: "City", type: "Text" },
   { key: "source", label: "How did you hear about us?", type: "Dropdown", options: ["Facebook", "Instagram", "Google Search", "LinkedIn", "YouTube", "Referral", "Other"] },
   { key: "budget", label: "Budget Range", type: "Dropdown", options: ["Under ₹10,000", "₹10,000 – ₹25,000", "₹25,000 – ₹50,000", "₹50,000+"] },

@@ -13,7 +13,7 @@ import CurriculumViewer from '../components/CurriculumViewer';
 import '../components/MyCourses.css';
 
 const COURSE_FILTERS = [
-  { key: 'all', label: 'All Courses', icon: <AppstoreOutlined /> },
+  { key: 'all', label: 'All Internships', icon: <AppstoreOutlined /> },
   { key: 'inprogress', label: 'In Progress', icon: <ClockCircleOutlined /> },
   { key: 'completed', label: 'Completed', icon: <CheckCircleOutlined /> },
   { key: 'notstarted', label: 'Not Started', icon: <PauseCircleOutlined /> },
@@ -138,7 +138,7 @@ export default function LearningPage() {
         const res = await lmsApi.myLearnCourses();
         setCourses((res && res.result) || []);
       } catch (e) {
-        message.error('Could not load your courses.');
+        message.error('Could not load your internships.');
       } finally {
         setLoading(false);
       }
@@ -156,7 +156,7 @@ export default function LearningPage() {
       setOutline(o);
       if (o && o.resume) setLessonId(o.resume);
     } catch (e) {
-      message.error('Could not open the course.');
+      message.error('Could not open the internship.');
     }
   }, []);
 
@@ -249,13 +249,13 @@ export default function LearningPage() {
           <div className="hero-content">
             <div className="hero-small-title">
               <BookOutlined />
-              <span>My Courses</span>
+              <span>My Internships</span>
             </div>
             <h1>
               Your Learning
               <span> Journey</span>
             </h1>
-            <p>Explore your enrolled courses, track your progress and build your future with the right skills.</p>
+            <p>Explore your enrolled internships, track your progress and build your future with the right skills.</p>
 
             <div className="hero-stats">
               <div className="hero-stat">
@@ -264,7 +264,7 @@ export default function LearningPage() {
                 </span>
                 <div>
                   <strong>{totalCourses}</strong>
-                  <span>Courses</span>
+                  <span>Internships</span>
                 </div>
               </div>
               <div className="hero-stat">
@@ -314,14 +314,14 @@ export default function LearningPage() {
         </section>
 
         {courses.length === 0 ? (
-          <Card style={{ marginTop: 16 }}><Empty description="You are not enrolled in any course yet." /></Card>
+          <Card style={{ marginTop: 16 }}><Empty description="You are not enrolled in any internship yet." /></Card>
         ) : (
           <>
             <section className="course-toolbar">
               <div className="course-search-box">
                 <SearchOutlined />
                 <input
-                  placeholder="Search courses..."
+                  placeholder="Search internships..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -349,10 +349,10 @@ export default function LearningPage() {
                     <div className="empty-course-icon">
                       <BookOutlined />
                     </div>
-                    <h3>No courses found</h3>
-                    <p>There are no courses matching your current search or filter.</p>
+                    <h3>No internships found</h3>
+                    <p>There are no internships matching your current search or filter.</p>
                     <button type="button" onClick={() => { setSearch(''); setStatusFilter('all'); }}>
-                      View All Courses
+                      View All Internships
                     </button>
                   </div>
                 ) : (
@@ -469,8 +469,8 @@ export default function LearningPage() {
                     <BookOutlined />
                   </div>
                   <div className="additional-content">
-                    <strong>No additional courses assigned</strong>
-                    <span>You will see other courses here once they are assigned by your institute.</span>
+                    <strong>No additional internships assigned</strong>
+                    <span>You will see other internships here once they are assigned by your institute.</span>
                   </div>
                   <ArrowRightOutlined className="additional-arrow" />
                 </div>
@@ -490,10 +490,10 @@ export default function LearningPage() {
                       <StarOutlined />
                       Keep Learning
                     </span>
-                    <h3>Explore More Courses</h3>
-                    <p>Expand your skills and unlock new opportunities with additional courses.</p>
+                    <h3>Explore More Internships</h3>
+                    <p>Expand your skills and unlock new opportunities with additional internships.</p>
                     <button type="button" className="explore-button">
-                      View Available Courses
+                      View Available Internships
                       <ArrowRightOutlined />
                     </button>
                   </div>
@@ -550,12 +550,12 @@ export default function LearningPage() {
   return (
     <div className="lms-portal lms-player" style={{ padding: 4 }}>
       <button type="button" className="lms-player-back" onClick={() => { setView('list'); flush(); }}>
-        <ArrowLeftOutlined /> All courses
+        <ArrowLeftOutlined /> All internships
       </button>
 
       <div className="lms-player-head">
         <div className="lms-player-head-info">
-          <span className="lms-player-head-kicker"><BookOutlined /> Course</span>
+          <span className="lms-player-head-kicker"><BookOutlined /> Internship</span>
           <h2 className="lms-player-title">{outline?.course?.title || 'Loading…'}</h2>
         </div>
         {outline && (
@@ -654,7 +654,7 @@ export default function LearningPage() {
           <Col xs={24} lg={8}>
             <div className="lms-player-sidebar">
               <div className="lms-player-sidebar-head">
-                <span>Course content</span>
+                <span>Internship content</span>
                 <span className="lms-player-sidebar-count">{completedLessons}/{totalLessons}</span>
               </div>
               <div className="lms-player-sidebar-body">

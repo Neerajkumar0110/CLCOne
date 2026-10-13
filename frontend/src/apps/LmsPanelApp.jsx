@@ -22,6 +22,7 @@ import {
   LogoutOutlined,
   BookOutlined,
   BellOutlined,
+  CustomerServiceOutlined,
   UserOutlined,
   MoonOutlined,
   SunOutlined,
@@ -82,6 +83,7 @@ const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 // serves both roles unchanged.
 const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 const MyFees = lazy(() => import('@/pages/Lms/MyFees'));
+const SupportTickets = lazy(() => import('@/pages/Lms/Support'));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -136,7 +138,7 @@ function FinanceHoldScreen({ info }) {
         </div>
         <h2 style={{ margin: '0 0 8px', fontSize: 19, fontWeight: 800 }}>Access on hold</h2>
         <p style={{ color: '#667085', fontSize: 14, marginBottom: 20 }}>
-          Your course access is paused because an EMI installment is overdue{info?.course ? ` for ${info.course}` : ''}. Pay
+          Your internship access is paused because an EMI installment is overdue{info?.course ? ` for ${info.course}` : ''}. Pay
           now to reactivate instantly.
         </p>
         {info?.amount ? <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 20 }}>{fmtInr(info.amount)}</div> : null}
@@ -237,7 +239,7 @@ function buildMenuItems(entries, unreadPaths) {
 const TEACHER_NAV = [
   ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
   ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
-  ['/teacher/courses', 'My Courses', <ReadOutlined />, <CourseBuilder />],
+  ['/teacher/courses', 'My Internships', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
@@ -262,8 +264,9 @@ const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
   ['/learn/overview', 'My Overview', <TrophyOutlined />, <LearnerOverview />],
   ['/learn/fees', 'My Fees', <WalletOutlined />, <MyFees />],
+  ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
   ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
-  ['/learn/courses', 'My Courses', <BookOutlined />, <LearningPage />],
+  ['/learn/courses', 'My Internships', <BookOutlined />, <LearningPage />],
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
@@ -537,7 +540,7 @@ export default function LmsPanelApp() {
         <Header className="app-header" style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {isMobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} style={{ color: 'var(--nav-text)' }} />}
-            <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Instructor' : 'Candidate'} · {admin.name} {admin.surname || ''}</span>
+            <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Project Manager' : 'Candidate'} · {admin.name} {admin.surname || ''}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <LmsNotificationBell

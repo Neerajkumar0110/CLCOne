@@ -4,6 +4,7 @@ import HubModal from "@/components/HubModal";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { DASH_CONFIGS } from "@/components/dashboard/configs";
 import SystemSettings from "./SystemSettings";
+import useBusinessLock from "@/hooks/useBusinessLock";
 
 // The Sales › "B2B / B2C Dashboard" tab — now the shared analytics shell
 // pointed at the `leads` module. The old Team-classification + monthly cost
@@ -11,6 +12,8 @@ import SystemSettings from "./SystemSettings";
 // ALL | B2B | B2C toggle and the legacy /sales-dashboard ratios).
 export default function SalesDashboard() {
   const [showSettings, setShowSettings] = useState(false);
+  // Team classification spans both segments — not for a B2B/B2C-locked user.
+  const businessLock = useBusinessLock();
 
   // UI update: the shared Purple Gradient default and Sales dashboard styles
   // are applied through this module wrapper; dashboard logic remains unchanged.
@@ -20,13 +23,15 @@ export default function SalesDashboard() {
         module="leads"
         config={DASH_CONFIGS.leads}
         extraActions={
+          !businessLock && (
           <button type="button" className="hub-btn" onClick={() => setShowSettings(true)}>
             <SettingOutlined /> Systems &amp; Costs
           </button>
+          )
         }
       />
       <HubModal
-        open={showSettings}
+        open={showSettings && !businessLock}
         onClose={() => setShowSettings(false)}
         title="Systems & Costs"
         subtitle="Classify teams into B2B / B2C systems and record monthly costs"

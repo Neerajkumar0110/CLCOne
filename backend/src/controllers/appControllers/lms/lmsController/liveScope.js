@@ -314,7 +314,7 @@ async function uploadRecording(req, res) {
     isManager(admin) ||
     String(rec.teacherCrmUser) === String(admin._id) ||
     (rec.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
-  if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s instructor or a manager can upload its recording.' });
+  if (!allowed) return res.status(403).json({ success: false, message: 'Only this class\'s project manager or a manager can upload its recording.' });
 
   if (!req.body.video) return res.status(400).json({ success: false, message: 'No video file received.' });
 
@@ -602,7 +602,7 @@ async function attachRecordingLink(req, res) {
     isManager(admin) ||
     String(session.teacherCrmUser) === String(admin._id) ||
     (session.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase();
-  if (!allowed) return res.status(403).json({ success: false, message: "Only this class's instructor or a manager can attach its recording." });
+  if (!allowed) return res.status(403).json({ success: false, message: "Only this class's project manager or a manager can attach its recording." });
 
   try {
     await attachLinkToSession(req.params.id, (req.body || {}).url);
@@ -783,7 +783,7 @@ async function attendanceExport(req, res) {
     'Candidate',
     'Email',
     'Batch',
-    'Course',
+    'Internship',
     'Class',
     'Date',
     'Scheduled Min',

@@ -18,11 +18,13 @@ const TIP = {
  * ALL | B2B | B2C segmented control.
  * @param {'team'|'derived'|'disabled'} mode
  */
-export default function BusinessTypeToggle({ mode = "team", value = "all", onChange }) {
+export default function BusinessTypeToggle({ mode = "team", value = "all", lockedTo = null, onChange }) {
   const disabled = mode === "disabled";
+  // lockedTo ('B2B' | 'B2C'): only that segment's button — no All, no other.
+  const opts = lockedTo ? OPTS.filter((o) => o.key === lockedTo.toLowerCase()) : OPTS;
   const control = (
     <div className={`dash-seg ${disabled ? "dash-seg-disabled" : ""}`} role="group" aria-label="Business type">
-      {OPTS.map((o) => (
+      {opts.map((o) => (
         <button
           key={o.key}
           type="button"

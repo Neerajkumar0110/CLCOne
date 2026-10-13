@@ -25,7 +25,7 @@ const Lbl = ({ icon, children }) => (
 // Display-only relabelling of the reply's stored byRole ('teacher'/'student'/
 // 'manager', see models/appModels/lms/Doubt.js) — the value itself is never
 // touched, just what's shown next to a reply.
-const BY_ROLE_LABEL = { teacher: 'Instructor', student: 'Candidate', manager: 'Manager' };
+const BY_ROLE_LABEL = { teacher: 'Project Manager', student: 'Candidate', manager: 'Manager' };
 
 function Thread({ id, onChange }) {
   const [d, setD] = useState(null);
@@ -107,7 +107,7 @@ export default function Doubts() {
         <div><h2><QuestionCircleOutlined /> Doubts / Questions</h2><p>{isTeacher ? 'Answer your candidates.' : 'Ask and track your questions.'}</p></div>
         <Space>
           <Segmented value={status} onChange={setStatus} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Answered', value: 'answered' }, { label: 'Resolved', value: 'resolved' }]} />
-          <Tooltip title={<span>Open — nobody has replied yet. Answered — an instructor replied, but the person who asked hasn't marked it resolved. Resolved — closed out via "Mark resolved" below the thread.</span>}>
+          <Tooltip title={<span>Open — nobody has replied yet. Answered — a project manager replied, but the person who asked hasn't marked it resolved. Resolved — closed out via "Mark resolved" below the thread.</span>}>
             <InfoCircleOutlined style={{ fontSize: 13, opacity: 0.55, cursor: 'help' }} />
           </Tooltip>
           {!isTeacher && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAsking(true)} disabled={!courses.length}>Ask a question</Button>}
@@ -125,7 +125,7 @@ export default function Doubts() {
           columns={[
             { title: '', width: 30, render: (_, r) => (r.pinned ? <PushpinFilled style={{ color: '#faad14' }} /> : null) },
             { title: 'Question', dataIndex: 'title' },
-            { title: 'Course', dataIndex: 'course' },
+            { title: 'Internship', dataIndex: 'course' },
             ...(isTeacher ? [{ title: 'Candidate', dataIndex: 'studentName' }] : []),
             { title: 'Replies', dataIndex: 'replyCount', width: 70 },
             { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={s === 'resolved' ? 'green' : s === 'answered' ? 'blue' : 'orange'}>{s}</Tag> },
@@ -159,8 +159,8 @@ export default function Doubts() {
       >
         <Form form={form} layout="vertical" preserve={false} className="crud-form">
           <div className="crud-form-grid">
-            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
-              <Select options={courses} showSearch optionFilterProp="label" placeholder="Select a course…" />
+            <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Internship</Lbl>} rules={[{ required: true, message: 'Internship is required' }]} className="crud-form-full">
+              <Select options={courses} showSearch optionFilterProp="label" placeholder="Select an internship…" />
             </Form.Item>
             <Form.Item name="title" label={<Lbl icon={<TagOutlined />}>Question</Lbl>} rules={[{ required: true, message: 'Question is required' }]} className="crud-form-full">
               <Input placeholder="e.g. How do I submit my assignment?" />

@@ -70,11 +70,11 @@ async function resolveScope(admin, b) {
   const courseId = String(b.course || '').trim();
 
   if (courseId) {
-    if (!mongoose.isValidObjectId(courseId)) return { errorCode: 400, error: 'Invalid course.' };
+    if (!mongoose.isValidObjectId(courseId)) return { errorCode: 400, error: 'Invalid internship.' };
     const Course = mongoose.model('Course');
     const course = await Course.findOne({ _id: courseId, removed: false }).lean();
-    if (!course) return { errorCode: 404, error: 'Course not found.' };
-    if (!isManager(admin) && !(await isTeacherOfCourse(admin, course))) return { errorCode: 403, error: 'Not your course.' };
+    if (!course) return { errorCode: 404, error: 'Internship not found.' };
+    if (!isManager(admin) && !(await isTeacherOfCourse(admin, course))) return { errorCode: 403, error: 'Not your internship.' };
     return { course: course._id, courseTitle: course.title };
   }
 
@@ -83,7 +83,7 @@ async function resolveScope(admin, b) {
     return { batch };
   }
 
-  return { errorCode: 400, error: 'Pick a batch or a course.' };
+  return { errorCode: 400, error: 'Pick a batch or an internship.' };
 }
 
 function serialize(r) {
@@ -106,7 +106,7 @@ function serialize(r) {
 }
 
 async function upload(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Project Managers only.');
   const b = req.body || {};
   const scope = await resolveScope(req.admin, b);
   if (scope.error) return bad(res, scope.errorCode, scope.error);
@@ -147,7 +147,7 @@ async function upload(req, res) {
 }
 
 async function addLink(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Project Managers only.');
   const b = req.body || {};
   const url = String(b.url || '').trim();
   if (!url) return bad(res, 400, 'Paste a URL.');

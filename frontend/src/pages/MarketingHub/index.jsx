@@ -7,6 +7,7 @@ import {
 import { PALETTE } from "@/pages/SalesDashboard/ChartCanvas";
 import { PRESETS, rangeForPreset, quickRange, presetForRange } from "@/components/dashboard/dateRanges";
 import LeafDashboard from "./LeafDashboard";
+import useBusinessLock from "@/hooks/useBusinessLock";
 import ComparePanel from "./ComparePanel";
 import "./marketingHub.css";
 
@@ -75,6 +76,12 @@ export default function MarketingHub() {
   const [leaf, setLeaf] = useState(MASTER_NODE);
 
   const [biz, setBiz] = useState("all");
+  // B2B/B2C-locked users get only their own segment's chip (hooks/useBusinessLock).
+  const businessLock = useBusinessLock();
+  const bizFilters = businessLock ? BUSINESS_FILTERS.filter((b) => b.businessType === businessLock) : BUSINESS_FILTERS;
+  useEffect(() => {
+    if (businessLock) setBiz(businessLock.toLowerCase());
+  }, [businessLock]);
   const [sys, setSys] = useState("combined");
   const [reg, setReg] = useState("all");
   const [presetKey, setPresetKey] = useState("30d");
@@ -175,7 +182,7 @@ export default function MarketingHub() {
             )}
           </div>
         </div>
-        <ChipRow value={biz} onChange={setBiz} items={BUSINESS_FILTERS} tone={PALETTE.blue} />
+        <ChipRow value={biz} onChange={setBiz} items={bizFilters} tone={PALETTE.blue} />
         <div style={{ marginTop: 8 }}><ChipRow value={sys} onChange={setSys} items={SYSTEM_FILTERS} tone={PALETTE.purple} /></div>
         <div style={{ marginTop: 8 }}><ChipRow value={reg} onChange={setReg} items={REGION_FILTERS} tone={PALETTE.cyan} /></div>
       </div>
@@ -221,6 +228,10 @@ function MetricEntry({ leaf, inputs, rows, defaults, onSaved }) {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [region, setRegion] = useState(defaults.region || "");
   const [businessType, setBusinessType] = useState(defaults.businessType || "");
+  const businessLock = useBusinessLock();
+  useEffect(() => {
+    if (businessLock) setBusinessType(businessLock);
+  }, [businessLock]);
   const [systemType, setSystemType] = useState(defaults.systemType || "");
   const [vals, setVals] = useState(blank());
   const [saving, setSaving] = useState(false);
@@ -251,7 +262,13 @@ function MetricEntry({ leaf, inputs, rows, defaults, onSaved }) {
         </L>
         <L label="Business">
           <select className="hub-select" value={businessType} onChange={(e) => setBusinessType(e.target.value)}>
-            <option value="">All</option><option>B2B</option><option>B2C</option>
+            {businessLock ? (
+              <option>{businessLock}</option>
+            ) : (
+              <>
+                <option value="">All</option><option>B2B</option><option>B2C</option>
+              </>
+            )}
           </select>
         </L>
         <L label="AI / Human">

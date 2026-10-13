@@ -63,7 +63,7 @@ const d = (v) => {
 // Display-only relabelling of the attendance roll's stored participant role
 // ('teacher'/'student'/'manager', see liveClassService.js#attendanceRows) —
 // the value itself is untouched, just what's shown in the table.
-const ROLE_LABEL = { teacher: 'Instructor', student: 'Candidate', manager: 'Manager' };
+const ROLE_LABEL = { teacher: 'Project Manager', student: 'Candidate', manager: 'Manager' };
 const t = (v) => {
   if (!v) return '';
   try {
@@ -124,7 +124,7 @@ function getStatusPanel(r) {
   if (r.myRole === 'teacher') {
     return { icon: <PlayCircleOutlined />, tone: 'blue', title: 'Ready to start', desc: 'Start the class whenever you are ready.' };
   }
-  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the instructor to start the class.' };
+  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the project manager to start the class.' };
 }
 
 export default function LiveClasses() {
@@ -335,7 +335,7 @@ export default function LiveClasses() {
         <Card>
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="No live classes yet. Create a batch (course + instructor + start date + class days) and the schedule appears here automatically."
+            description="No live classes yet. Create a batch (internship + project manager + start date + class days) and the schedule appears here automatically."
           />
         </Card>
       ) : (
@@ -399,7 +399,7 @@ export default function LiveClasses() {
                   <div className="info-box teacher">
                     <span className="info-icon"><TeamOutlined /></span>
                     <div className="info-content">
-                      <div className="info-label">Instructor</div>
+                      <div className="info-label">Project Manager</div>
                       <div className="info-value">{r.teacherName || 'TBD'}</div>
                     </div>
                   </div>
@@ -438,7 +438,7 @@ export default function LiveClasses() {
                         {primaryAction.label}
                       </a>
                     ) : (
-                      <Tooltip title={primaryAction.disabled ? 'You can join once the instructor starts the class.' : ''}>
+                      <Tooltip title={primaryAction.disabled ? 'You can join once the project manager starts the class.' : ''}>
                         <button
                           type="button"
                           className="add-student-btn"

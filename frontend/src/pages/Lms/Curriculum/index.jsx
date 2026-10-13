@@ -342,7 +342,7 @@ function AdminCurriculum() {
             <strong>{v}</strong>
           </a>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {r.course || 'No course'}
+            {r.course || 'No internship'}
           </Text>
         </Space>
       ),
@@ -369,7 +369,7 @@ function AdminCurriculum() {
       sorter: (a, b) => (a.percent || 0) - (b.percent || 0),
       render: (_, r) =>
         !r.tracked ? (
-          <Tooltip title="This batch has no course curriculum mapped, so there is nothing to measure against.">
+          <Tooltip title="This batch has no internship curriculum mapped, so there is nothing to measure against.">
             <Tag>Not tracked</Tag>
           </Tooltip>
         ) : (
@@ -387,7 +387,7 @@ function AdminCurriculum() {
     {
       title: 'Currently on',
       dataIndex: 'nextChapter',
-      render: (v, r) => (!r.tracked ? <Text type="secondary">—</Text> : v || <Tag color="green">Course complete</Tag>),
+      render: (v, r) => (!r.tracked ? <Text type="secondary">—</Text> : v || <Tag color="green">Internship complete</Tag>),
     },
     {
       title: 'Last delivered',
@@ -416,7 +416,7 @@ function AdminCurriculum() {
         <PageHeading
           icon={<ScheduleOutlined />}
           title={drill.name}
-          description={`${drill.course || 'No course'}${drill.trainer ? ` · ${drill.trainer}` : ''} — ${drill.classesHeld} of ${drill.classesTotal} classes held`}
+          description={`${drill.course || 'No internship'}${drill.trainer ? ` · ${drill.trainer}` : ''} — ${drill.classesHeld} of ${drill.classesTotal} classes held`}
         />
         {drill.tracked && (
           <Card size="small" style={{ marginBottom: 16 }}>
@@ -441,7 +441,7 @@ function AdminCurriculum() {
       <PageHeading
         icon={<ScheduleOutlined />}
         title="Curriculum Delivery Tracker"
-        description="Every batch and how far through its course it is. Click a batch to see it session by session."
+        description="Every batch and how far through its internship it is. Click a batch to see it session by session."
       />
 
       {summary && (
@@ -477,7 +477,7 @@ function AdminCurriculum() {
         <Input
           allowClear
           prefix={<SearchOutlined />}
-          placeholder="Search batch, course or trainer"
+          placeholder="Search batch, internship or trainer"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ width: 280 }}
@@ -486,7 +486,7 @@ function AdminCurriculum() {
           allowClear
           value={course || undefined}
           onChange={(v) => setCourse(v || '')}
-          placeholder="All courses"
+          placeholder="All internships"
           style={{ minWidth: 220 }}
           options={courses.map((c) => ({ value: c, label: c }))}
         />

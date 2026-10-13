@@ -4,7 +4,9 @@
 // gets every /api/lms call rejected except the one the panel already polls
 // to notice the change, matching financeHoldGuard's shape exactly. Teachers/
 // managers are never affected (role check first).
-const ALLOWED_PATHS = new Set(['/my/updates']);
+// /my/tickets*: a student on hold must still be able to reach Support
+// (often about the very payment that put them on hold).
+const ALLOWED_PATHS = new Set(['/my/updates', '/my/tickets', '/my/tickets/payments']);
 
 module.exports = function rosterHoldGuard(req, res, next) {
   const user = req.admin;
@@ -12,7 +14,7 @@ module.exports = function rosterHoldGuard(req, res, next) {
     return res.status(403).json({
       success: false,
       rosterHold: true,
-      message: user.rosterHoldReason || 'Your course access has been suspended. Contact your program coordinator.',
+      message: user.rosterHoldReason || 'Your internship access has been suspended. Contact your program coordinator.',
     });
   }
   return next();

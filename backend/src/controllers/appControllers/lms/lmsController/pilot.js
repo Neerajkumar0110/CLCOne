@@ -20,7 +20,7 @@ const { getMoodleClient, lmsConfig, syncService, sso, roleMap, liveClassService 
 
 const PILOT_TAG = '[LMS-PILOT]';
 const DEMO = {
-  courseTitle: 'Demo Test Course',
+  courseTitle: 'Demo Test Internship',
   courseCode: 'DEMO-101',
   batchName: 'Demo Live Class Batch',
   classTopic: 'Demo Live Class',
@@ -76,7 +76,7 @@ async function seed(req, res) {
       status: 'Published',
       instructor: DEMO.teacher.name,
       durationHours: 2,
-      description: 'Pilot course to verify the end-to-end LMS flow (CRM <-> Moodle).',
+      description: 'Pilot internship to verify the end-to-end LMS flow (CRM <-> Moodle).',
     }).save();
   }
   push('course', { crmCourseId: String(course._id), title: course.title });

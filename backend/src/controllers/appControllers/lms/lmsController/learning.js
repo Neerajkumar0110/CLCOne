@@ -111,8 +111,8 @@ async function myCourses(req, res) {
 
 async function courseOutline(req, res) {
   const { courseId } = req.params;
-  if (!mongoose.isValidObjectId(courseId)) return bad(res, 400, 'Invalid course id.');
-  if (!(await canAccessCourse(req.admin, courseId))) return bad(res, 403, 'You are not enrolled in this course.');
+  if (!mongoose.isValidObjectId(courseId)) return bad(res, 400, 'Invalid internship id.');
+  if (!(await canAccessCourse(req.admin, courseId))) return bad(res, 403, 'You are not enrolled in this internship.');
 
   const Course = mongoose.model('Course');
   const CourseModule = mongoose.model('CourseModule');
@@ -198,7 +198,7 @@ async function lessonDetail(req, res) {
   const Lesson = mongoose.model('Lesson');
   const l = await Lesson.findOne({ _id: req.params.id, removed: false }).lean();
   if (!l) return bad(res, 404, 'Lesson not found.');
-  if (!(await canAccessCourse(req.admin, l.course))) return bad(res, 403, 'You are not enrolled in this course.');
+  if (!(await canAccessCourse(req.admin, l.course))) return bad(res, 403, 'You are not enrolled in this internship.');
 
   const LessonProgress = mongoose.model('LessonProgress');
   const p = await LessonProgress.findOne({ crmUser: req.admin._id, lesson: l._id }).lean();
@@ -285,7 +285,7 @@ async function saveProgress(req, res) {
   const Lesson = mongoose.model('Lesson');
   const l = await Lesson.findOne({ _id: req.params.id, removed: false });
   if (!l) return bad(res, 404, 'Lesson not found.');
-  if (!(await canAccessCourse(req.admin, l.course))) return bad(res, 403, 'You are not enrolled in this course.');
+  if (!(await canAccessCourse(req.admin, l.course))) return bad(res, 403, 'You are not enrolled in this internship.');
 
   const LessonProgress = mongoose.model('LessonProgress');
   const body = req.body || {};
@@ -401,8 +401,8 @@ async function rollUpCourse(crmUser, courseId, lastLessonId) {
 // only way to browse content, with no query endpoint at all.
 async function searchContent(req, res) {
   const { courseId } = req.params;
-  if (!mongoose.isValidObjectId(courseId)) return bad(res, 400, 'Invalid course id.');
-  if (!(await canAccessCourse(req.admin, courseId))) return bad(res, 403, 'You are not enrolled in this course.');
+  if (!mongoose.isValidObjectId(courseId)) return bad(res, 400, 'Invalid internship id.');
+  if (!(await canAccessCourse(req.admin, courseId))) return bad(res, 403, 'You are not enrolled in this internship.');
 
   const q = String(req.query.q || '').trim();
   if (!q) return ok(res, { modules: [], chapters: [], lessons: [] });

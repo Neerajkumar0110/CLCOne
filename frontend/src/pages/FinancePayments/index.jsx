@@ -129,7 +129,7 @@ function PaymentDetailModal({ id, onClose }) {
             </div>
             <div className="fin-pm-grid">
               <div className="fin-pm-field">
-                <span>Course</span>
+                <span>Internship</span>
                 <b>
                   {detail.course || "—"}
                   {detail.installmentCount > 1 ? ` (${detail.installmentNo}/${detail.installmentCount})` : ""}
@@ -402,7 +402,7 @@ export default function FinancePayments() {
                 <thead>
                   <tr>
                     <th>Candidate</th>
-                    <th>Course</th>
+                    <th>Internship</th>
                     <th>Month</th>
                     <th>Amount</th>
                     <th>Status</th>

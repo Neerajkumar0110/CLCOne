@@ -34,7 +34,7 @@ async function assertOwnsCourse(admin, courseId) {
 
 async function getRule(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const EligibilityRule = mongoose.model('EligibilityRule');
   const rule = await EligibilityRule.findOne({ course: course._id, removed: { $ne: true } }).lean();
   return ok(
@@ -48,7 +48,7 @@ async function getRule(req, res) {
 async function upsertRule(req, res) {
   if (!isManager(req.admin)) return bad(res, 403, 'Management role required.');
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const EligibilityRule = mongoose.model('EligibilityRule');
   const b = req.body || {};
   const criteria =
@@ -83,7 +83,7 @@ async function upsertRule(req, res) {
 
 async function courseReport(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const Student = mongoose.model('Student');
   const Admin = mongoose.model('Admin');
   const roster = await Student.find({ course: rxEq(course.title), removed: false }).select('email').lean();

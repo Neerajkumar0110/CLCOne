@@ -51,7 +51,7 @@ export const roles = ROLES;
 // and stored with the real role value ('Teacher'/'Student'; ROLES/role
 // comparisons elsewhere are untouched), this just changes what a human sees
 // on the role picker, headings and empty-state copy in this file.
-const ROLE_DISPLAY_LABEL = { Teacher: "Instructor", Student: "Candidate" };
+const ROLE_DISPLAY_LABEL = { Teacher: "Project Manager", Student: "Candidate" };
 export const roleDisplay = (r) => (r && ROLE_DISPLAY_LABEL[r]) || r;
 
 // Given whatever role list a modal is allowed to offer (HR's tab excludes

@@ -26,7 +26,7 @@ function summaryHtml(count, rows) {
     <p style="color:#667;font-size:13px">These candidates can't attend live classes, see curriculum, or unlock assessments until a batch is set on their roster row.</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid #e3e8ef;border-radius:8px;overflow:hidden">
       <thead><tr style="background:#f8fafc;text-align:left">
-        <th style="padding:6px 10px">Name</th><th style="padding:6px 10px">Email</th><th style="padding:6px 10px">Course</th>
+        <th style="padding:6px 10px">Name</th><th style="padding:6px 10px">Email</th><th style="padding:6px 10px">Internship</th>
       </tr></thead>
       <tbody>${shown.map(row).join('')}</tbody>
     </table>

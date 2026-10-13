@@ -10,6 +10,7 @@ const stats = async (req, res) => {
 
   const match = { removed: false };
   if (req.query.category) match.category = req.query.category;
+  if (req.query.source === 'student' || req.query.source === 'crm') match.source = req.query.source === 'crm' ? { $ne: 'student' } : 'student';
   // Same row-level visibility as list.js — a non-full-access caller's KPI
   // cards should only ever total their own tickets.
   if (!isTicketFullAccess(req.admin)) match.createdBy = req.admin._id;

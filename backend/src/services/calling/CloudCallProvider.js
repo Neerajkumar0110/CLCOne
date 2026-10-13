@@ -27,6 +27,15 @@ const { NON_SALES_ROLES } = require('../../config/roles');
 
 const digitsOnly = (s) => String(s || '').replace(/[^\d]/g, '');
 
+// Instant Lead Pool retry pacing (dialLeadPoolNext): an unreached lead is
+// re-dialed after an hour, and retries make up at most about half of every
+// LEAD_POOL_MIX_WINDOW dials while any are due. The pool is system-managed,
+// so these are fixed here rather than read from the campaign's own
+// retryDelayMin (which still applies to ordinary campaigns via dialNext).
+const LEAD_POOL_RETRY_MIN = 60;
+const LEAD_POOL_MIX_WINDOW = 10;
+const LEAD_POOL_RETRY_SHARE = 0.5;
+
 // A failed call's `notes` is the only place to see WHY once the response
 // popup is gone — include the provider's full raw JSON (not just the
 // extracted message), since a generic-sounding error often carries an
@@ -322,36 +331,55 @@ class CloudCallProvider extends CallingProvider {
   // up front and left ringing in parallel — the whole point of the pool
   // being "dial up to 10 lines at once" independent of exactly how many
   // agents happen to be free right now.
+  //
+  // Unreached leads (no answer / switched off / busy …) are re-dialed an
+  // hour later, mixed in with fresh ones: whenever fewer than half of the
+  // pool's last LEAD_POOL_MIX_WINDOW dials were retries and a retry is due,
+  // the retry goes first — so of every 10 dials roughly 5 are retries while
+  // retries are waiting, and fresh leads fill the rest.
   async dialLeadPoolNext(campaign) {
     const CallLead = mongoose.model('CallLead');
     const CallRecord = mongoose.model('CallRecord');
 
     const maxAttempts = Math.max(1, campaign.maxAttempts || 3);
-    const retryBefore = new Date(Date.now() - (campaign.retryDelayMin || 30) * 60 * 1000);
+    const retryBefore = new Date(Date.now() - LEAD_POOL_RETRY_MIN * 60 * 1000);
 
-    const lead = await CallLead.findOneAndUpdate(
-      {
-        campaign: campaign._id,
-        removed: false,
-        dncAt: { $exists: false },
-        $or: [
-          { status: { $in: ['New', 'Queued'] } },
-          {
-            status: { $in: ['No Answer', 'Busy', 'Voicemail', 'Failed'] },
-            attempts: { $lt: maxAttempts },
-            lastAttemptAt: { $lt: retryBefore },
-          },
-        ],
+    const recent = await CallRecord.find({ campaign: campaign._id })
+      .sort({ created: -1 })
+      .limit(LEAD_POOL_MIX_WINDOW)
+      .select('attempt')
+      .lean();
+    const recentRetries = recent.filter((r) => (r.attempt || 1) > 1).length;
+    const preferRetry = recentRetries < Math.round(LEAD_POOL_MIX_WINDOW * LEAD_POOL_RETRY_SHARE);
+
+    const base = { campaign: campaign._id, removed: false, dncAt: { $exists: false } };
+    const fresh = { query: { ...base, status: { $in: ['New', 'Queued'] } }, sort: { attempts: 1, created: 1 } };
+    const retry = {
+      query: {
+        ...base,
+        status: { $in: ['No Answer', 'Busy', 'Voicemail', 'Failed'] },
+        attempts: { $lt: maxAttempts },
+        lastAttemptAt: { $lt: retryBefore },
       },
-      { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
-      { sort: { attempts: 1, created: 1 }, new: true }
-    );
+      sort: { lastAttemptAt: 1 },
+    };
+
+    let lead = null;
+    for (const pick of preferRetry ? [retry, fresh] : [fresh, retry]) {
+      lead = await CallLead.findOneAndUpdate(
+        pick.query,
+        { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
+        { sort: pick.sort, new: true }
+      );
+      if (lead) break;
+    }
     if (!lead) return { ok: false, error: 'No leads waiting in this campaign.' };
 
     const now = new Date();
     const rec = await new CallRecord({
       campaign: campaign._id,
       callLead: lead._id,
+      attempt: lead.attempts,
       contactName: lead.name,
       phone: lead.phone,
       direction: 'Outbound',

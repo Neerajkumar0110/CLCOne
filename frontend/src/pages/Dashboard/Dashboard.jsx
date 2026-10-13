@@ -24,7 +24,7 @@ import { DASH_CONFIGS } from "@/components/dashboard/configs";
 // everything they have permission to see lives on one "/" dashboard.
 const LMS_SECTION_CONFIG = {
   ...DASH_CONFIGS.interns,
-  title: "LMS — Candidates & Courses",
+  title: "LMS — Candidates & Internships",
   subtitle: "Enrolment, progress and completion, folded in from LMS ▸ Overview.",
 };
 

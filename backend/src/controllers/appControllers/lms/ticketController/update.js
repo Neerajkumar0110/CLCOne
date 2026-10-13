@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { notifyUser } = require('../../../../notify');
 const { isTicketFullAccess } = require('./scope');
+const { ticketNo } = require('../../../../config/supportTickets');
+const { ticketResolvedMail } = require('../../../../services/support/ticketMail');
 
 const Model = mongoose.model('Ticket');
 
@@ -24,6 +26,17 @@ const update = async (req, res) => {
   }
 
   req.body.removed = false;
+  // Raiser identity / source / attached payment are fixed at creation.
+  ['createdBy', 'raisedByName', 'raisedByEmail', 'raisedByPhone', 'source', 'payment', 'paymentSnapshot'].forEach(
+    (k) => delete req.body[k]
+  );
+  const resolvingNow = req.body.status === 'Resolved' && existing.status !== 'Resolved';
+  if (resolvingNow) {
+    req.body.resolvedAt = new Date();
+    req.body.resolvedByName = [req.admin.name, req.admin.surname].filter(Boolean).join(' ');
+  }
+  req.body.updated = new Date();
+
   const result = await Model.findOneAndUpdate({ _id: req.params.id, removed: false }, req.body, {
     new: true,
     runValidators: true,
@@ -34,16 +47,29 @@ const update = async (req, res) => {
   }
 
   if (req.body.status && req.body.status !== existing.status) {
+    // A student's ticket lives in the LMS panel — notify under module 'LMS'
+    // so the panel's bell/toast picks it up live (LmsPanelApp listens for
+    // LMS notifications), and link to their Help & Support page.
+    const fromStudent = result.source === 'student';
     notifyUser({
       recipient: result.createdBy,
       actorId: req.admin._id,
       actorName: req.admin.name,
-      module: 'Support',
+      module: fromStudent ? 'LMS' : 'Support',
       type: 'ticket.status',
-      title: `Your ticket is now ${result.status}`,
-      body: result.subject,
-      link: '/support',
+      title: `Your ticket ${ticketNo(result)} is now ${result.status}`,
+      body: result.status === 'Resolved' && result.resolutionNote ? result.resolutionNote : result.subject,
+      link: fromStudent ? '/learn/support' : '/support',
     });
+
+    if (resolvingNow) {
+      let toEmail = result.raisedByEmail;
+      if (!toEmail) {
+        const raiser = await mongoose.model('Admin').findById(result.createdBy).select('email').lean();
+        toEmail = raiser && raiser.email;
+      }
+      ticketResolvedMail(result.toObject(), toEmail).catch(() => {});
+    }
   }
 
   return res.status(200).json({

@@ -24,11 +24,11 @@ const bad = (res, code, message) => res.status(code).json({ success: false, resu
 
 async function loadOwnedCourse(req, courseId) {
   const Course = mongoose.model('Course');
-  if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
+  if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid internship id.'] };
   const course = await Course.findOne({ _id: courseId, removed: false });
-  if (!course) return { err: [404, 'Course not found.'] };
+  if (!course) return { err: [404, 'Internship not found.'] };
   if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course))) {
-    return { err: [403, 'You can only edit your own courses.'] };
+    return { err: [403, 'You can only edit your own internships.'] };
   }
   return { course };
 }
@@ -40,9 +40,9 @@ async function loadOwnedCourse(req, courseId) {
 // now read this same endpoint via CurriculumViewer.jsx.
 async function loadCourseForRead(courseId) {
   const Course = mongoose.model('Course');
-  if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid course id.'] };
+  if (!mongoose.isValidObjectId(courseId)) return { err: [400, 'Invalid internship id.'] };
   const course = await Course.findOne({ _id: courseId, removed: false });
-  if (!course) return { err: [404, 'Course not found.'] };
+  if (!course) return { err: [404, 'Internship not found.'] };
   return { course };
 }
 

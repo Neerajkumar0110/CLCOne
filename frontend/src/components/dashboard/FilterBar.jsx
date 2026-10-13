@@ -16,6 +16,7 @@ export default function FilterBar({
   onCustomRange,
   businessTypeMode,
   businessType,
+  businessTypeLock,
   onBusinessType,
   dateBasis,
   dateBasisOptions,
@@ -72,7 +73,7 @@ export default function FilterBar({
       )}
 
       {businessTypeMode !== "disabled" && (
-        <BusinessTypeToggle mode={businessTypeMode} value={businessType} onChange={onBusinessType} />
+        <BusinessTypeToggle mode={businessTypeMode} value={businessType} lockedTo={businessTypeLock} onChange={onBusinessType} />
       )}
 
       <div className="dash-filterbar-spacer" />

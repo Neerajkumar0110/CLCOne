@@ -19,7 +19,7 @@ const histogramChart = (data) => ({
 
 const cohortCols = [
   { title: 'Candidate', dataIndex: 'name' },
-  { title: 'Course', dataIndex: 'course' },
+  { title: 'Internship', dataIndex: 'course' },
   { title: 'Batch', dataIndex: 'batch' },
   { title: 'Progress', dataIndex: 'progress', render: (v) => <Progress percent={v} size="small" style={{ width: 90 }} /> },
   { title: 'Attendance', dataIndex: 'attendancePct', render: (v) => `${v}%` },
@@ -55,7 +55,7 @@ export default function Analytics() {
   return (
     <div className="lms-portal lms-dashboard-shell" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><BarChartOutlined /> Analytics</h2><p>{d.scope?.students || 0} candidates · {d.scope?.courses || 0} courses · {d.scope?.batches || 0} batches</p></div>
+        <div><h2><BarChartOutlined /> Analytics</h2><p>{d.scope?.students || 0} candidates · {d.scope?.courses || 0} internships · {d.scope?.batches || 0} batches</p></div>
       </div>
 
       <Row gutter={[14, 14]}>
@@ -71,7 +71,7 @@ export default function Analytics() {
 
       <Row gutter={[14, 14]} style={{ marginTop: 12 }} key={isDark ? 'an-charts-d' : 'an-charts-l'}>
         <Col xs={24} lg={8}>
-          <ChartCard def={{ key: 'courseCompletion', kind: 'bar', title: 'Course completion' }} raw={histogramChart(ch.courseCompletion)} height={220} />
+          <ChartCard def={{ key: 'courseCompletion', kind: 'bar', title: 'Internship completion' }} raw={histogramChart(ch.courseCompletion)} height={220} />
         </Col>
         <Col xs={24} lg={8}>
           <ChartCard def={{ key: 'attendance', kind: 'bar', title: 'Attendance' }} raw={histogramChart(ch.attendance)} height={220} />

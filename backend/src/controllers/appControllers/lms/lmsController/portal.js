@@ -83,7 +83,7 @@ async function myCourses(req, res) {
     return {
       enrolmentId: e._id,
       moodleCourseId: e.moodleCourseId,
-      title: (mc && mc.fullname) || (e.crmCourse && e.crmCourse.title) || `Course ${e.moodleCourseId}`,
+      title: (mc && mc.fullname) || (e.crmCourse && e.crmCourse.title) || `Internship ${e.moodleCourseId}`,
       thumbnailUrl: (e.crmCourse && e.crmCourse.thumbnailUrl) || null,
       progressPct: mc && typeof mc.progress === 'number' ? mc.progress : e.progressPct || 0,
       completedOn: e.completedOn || null,
@@ -104,7 +104,7 @@ async function course(req, res) {
   const LmsEnrolment = mongoose.model('LmsEnrolment');
 
   const enr = await LmsEnrolment.findOne({ crmUser: admin._id, moodleCourseId }).lean();
-  if (!enr) return res.status(403).json({ success: false, message: 'Not enrolled in this course.' });
+  if (!enr) return res.status(403).json({ success: false, message: 'Not enrolled in this internship.' });
 
   const client = getMoodleClient();
   let contents = [];

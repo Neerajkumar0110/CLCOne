@@ -22,7 +22,7 @@ export default function Learner360() {
       const list = ((c && c.result) || []).map((x) => ({ value: x._id || x.id, label: x.title }));
       setCourses(list);
       if (list[0]) setCourseId(list[0].value);
-    }).catch(() => message.error('Could not load courses')).finally(() => setLoading(false));
+    }).catch(() => message.error('Could not load internships')).finally(() => setLoading(false));
   }, []);
 
   const load = useCallback(async () => {
@@ -47,7 +47,7 @@ export default function Learner360() {
       <div className="lms-portal-head">
         <div><h2><ProfileOutlined /> Learner 360 Report</h2><p>Attendance, curriculum, assessments, project, policies and eligibility — one row per candidate.</p></div>
         <Space>
-          <Select style={{ minWidth: 220 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
+          <Select style={{ minWidth: 220 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Internship" />
           <Button icon={<ReloadOutlined />} loading={refreshing} onClick={load}>Refresh</Button>
           <Button icon={<DownloadOutlined />} onClick={() => lmsApi.learner360Export(courseId, 'csv')}>CSV</Button>
           <Button icon={<DownloadOutlined />} onClick={() => lmsApi.learner360Export(courseId, 'xlsx')}>Excel</Button>

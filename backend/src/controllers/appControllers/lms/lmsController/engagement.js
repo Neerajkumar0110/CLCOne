@@ -66,10 +66,10 @@ async function canTeachCourse(admin, courseId) {
 async function askDoubt(req, res) {
   if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Candidates only.');
   const b = req.body || {};
-  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A course is required.');
+  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'An internship is required.');
   if (!isManager(req.admin)) {
     const ids = await studentCourseIds(req.admin);
-    if (!ids.includes(String(b.course))) return bad(res, 403, 'You are not enrolled in this course.');
+    if (!ids.includes(String(b.course))) return bad(res, 403, 'You are not enrolled in this internship.');
   }
   const Doubt = mongoose.model('Doubt');
   const doc = await Doubt.create({
@@ -195,7 +195,7 @@ async function pinDoubt(req, res) {
   const Doubt = mongoose.model('Doubt');
   const d = await Doubt.findOne({ _id: req.params.id, removed: false });
   if (!d) return bad(res, 404, 'Not found.');
-  if (!(await canTeachCourse(req.admin, d.course))) return bad(res, 403, 'Instructors only.');
+  if (!(await canTeachCourse(req.admin, d.course))) return bad(res, 403, 'Project Managers only.');
   d.pinned = !d.pinned;
   d.updated = new Date();
   await d.save();
@@ -225,11 +225,11 @@ async function createAnnouncement(req, res) {
   let course = null;
   if (audience !== 'all') {
     if (audience === 'course') {
-      if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'Pick a course.');
+      if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'Pick an internship.');
       course = await Course.findById(b.course).lean();
-      if (!course) return bad(res, 404, 'Course not found.');
+      if (!course) return bad(res, 404, 'Internship not found.');
       if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course)))
-        return bad(res, 403, 'Not your course.');
+        return bad(res, 403, 'Not your internship.');
     }
     if (audience === 'batch') {
       if (!b.batch) return bad(res, 400, 'Pick a batch.');

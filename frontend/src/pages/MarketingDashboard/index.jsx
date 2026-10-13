@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { request } from "@/request";
 import { NotificationOutlined, SettingOutlined, DollarOutlined, ReloadOutlined, DeleteOutlined, TableOutlined } from "@ant-design/icons";
 import ChartCanvas, { Gauge, PALETTE, fillRgba } from "@/pages/SalesDashboard/ChartCanvas";
+import useBusinessLock from "@/hooks/useBusinessLock";
 
 const BUSINESS_FILTERS = [
   { key: "all", label: "All Business" },
@@ -47,6 +48,14 @@ function barOpts({ horizontal = false, pct = false, mny = false, max } = {}) {
 
 export default function MarketingDashboard() {
   const [biz, setBiz] = useState("all");
+  // A B2B/B2C-locked user (hooks/useBusinessLock) only gets their own
+  // segment's systems, and none of the cross-segment admin tools.
+  const businessLock = useBusinessLock();
+  const bizFilters = businessLock ? BUSINESS_FILTERS.filter((b) => b.businessType === businessLock) : BUSINESS_FILTERS;
+  useEffect(() => {
+    if (businessLock && bizFilters.length) setBiz(bizFilters[0].key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessLock]);
   const [sys, setSys] = useState("combined");
   const [range, setRange] = useState("90D");
   const [data, setData] = useState(null);
@@ -100,11 +109,15 @@ export default function MarketingDashboard() {
             </select>
             <button type="button" className="hub-btn" onClick={load}><ReloadOutlined /> Refresh</button>
             <button type="button" className={`hub-btn ${numbers ? "hub-btn-primary" : ""}`} onClick={() => setNumbers((v) => !v)}><TableOutlined /> Numbers</button>
-            <button type="button" className={`hub-btn ${showCfg ? "hub-btn-primary" : ""}`} onClick={() => setShowCfg((v) => !v)}><SettingOutlined /> Systems</button>
-            <button type="button" className={`hub-btn ${showCost ? "hub-btn-primary" : ""}`} onClick={() => setShowCost((v) => !v)}><DollarOutlined /> Costs</button>
+            {!businessLock && (
+              <>
+                <button type="button" className={`hub-btn ${showCfg ? "hub-btn-primary" : ""}`} onClick={() => setShowCfg((v) => !v)}><SettingOutlined /> Systems</button>
+                <button type="button" className={`hub-btn ${showCost ? "hub-btn-primary" : ""}`} onClick={() => setShowCost((v) => !v)}><DollarOutlined /> Costs</button>
+              </>
+            )}
           </div>
         </div>
-        <ChipRow value={biz} onChange={setBiz} items={BUSINESS_FILTERS} tone={PALETTE.blue} />
+        <ChipRow value={biz} onChange={setBiz} items={bizFilters} tone={PALETTE.blue} />
         <div style={{ marginTop: 8 }}><ChipRow value={sys} onChange={setSys} items={SYSTEM_FILTERS} tone={PALETTE.purple} /></div>
         <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 10 }}>
           {loading ? "Loading…" : data ? `${data.system} · ${t.leads || 0} leads · ${money(t.cost?.marketing)} marketing spend · ${range}` : ""}
@@ -113,8 +126,8 @@ export default function MarketingDashboard() {
       </div>
 
       {error && <div className="hub-card"><div className="hub-empty">{error}</div></div>}
-      {showCfg && <SystemConfig cfg={cfg} onSaved={() => { loadCfg(); load(); }} />}
-      {showCost && <CostEditor cfg={cfg} onSaved={() => { loadCfg(); load(); }} />}
+      {showCfg && !businessLock && <SystemConfig cfg={cfg} onSaved={() => { loadCfg(); load(); }} />}
+      {showCost && !businessLock && <CostEditor cfg={cfg} onSaved={() => { loadCfg(); load(); }} />}
 
       {!loading && data && (
         <>

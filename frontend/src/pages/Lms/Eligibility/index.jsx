@@ -121,10 +121,10 @@ function ManageEligibility({ canEdit }) {
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div><h2><SafetyCertificateOutlined /> Eligibility / Placement Readiness</h2><p>Configure the criteria, weights and threshold — every candidate's status is computed live, never hand-tracked.</p></div>
-        <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
+        <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Internship" />
       </div>
 
-      {!courseId ? <Card><Empty description="No courses." /></Card> : (
+      {!courseId ? <Card><Empty description="No internships." /></Card> : (
         <Row gutter={[12, 12]}>
           <Col xs={24} lg={14}>
             <Card size="small" title="Criteria (mandatory gate + weighted score)">
@@ -192,7 +192,7 @@ function MyEligibility() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="elig-empty"><Empty description="Not enrolled in any course yet." /></div>
+        <div className="elig-empty"><Empty description="Not enrolled in any internship yet." /></div>
       ) : rows.map((r) => {
         const badge = STATE_BADGE[r.state] || STATE_BADGE['Not Yet Eligible'];
         return (

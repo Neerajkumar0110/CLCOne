@@ -3,6 +3,12 @@ const { createLinkForRequest } = require('../../../../services/payments/createLi
 const { lookupCourseFee } = require('../../../../services/payments/courseCatalog');
 const { paymentsConfig } = require('../../../../config/payments');
 
+// A new payment request is the candidate's registration payment — never
+// below this. Later EMI installments (nextInstallment.js) are exempt: a
+// plan's final installment can legitimately be smaller. Mirrored in
+// frontend/src/pages/Payments/index.jsx.
+const MIN_REGISTRATION_AMOUNT = 5000;
+
 // POST /api/payments — admin creates a fee-collection request: a Razorpay
 // Payment Link, a QR encoding it (returned inline for the admin tab), and a
 // best-effort email to the student with both. When `course` matches a known
@@ -25,6 +31,9 @@ async function create(req, res) {
   if (!studentName) return res.status(400).json({ success: false, message: 'Candidate name is required.' });
   if (!/.+@.+\..+/.test(studentEmail)) return res.status(400).json({ success: false, message: 'A valid candidate email is required.' });
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Enter a valid amount.' });
+  if (amount < MIN_REGISTRATION_AMOUNT) {
+    return res.status(400).json({ success: false, message: `Registration amount must be at least ₹${MIN_REGISTRATION_AMOUNT}.` });
+  }
 
   const fee = lookupCourseFee(course);
 

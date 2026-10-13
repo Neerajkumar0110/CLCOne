@@ -117,7 +117,7 @@ function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect
           <div className="material-file-meta">
             <span>{m.sourceType === 'link' ? 'Link' : (KIND_LABEL[m.kind] || 'Other')}</span>
             {m.subject ? <span>· {m.subject}</span> : null}
-            <span>· {m.course ? `${m.courseTitle} (whole course)` : m.batch}</span>
+            <span>· {m.course ? `${m.courseTitle} (whole internship)` : m.batch}</span>
             <span>· {m.teacherName}</span>
             <span>· {dayjs(m.uploadedAt).format('D MMM, HH:mm')}</span>
             {m.sourceType === 'file' ? <span>· {fmtSize(m.sizeBytes)}</span> : null}
@@ -385,13 +385,13 @@ function TeacherStudyMaterial() {
                 className={`hub-btn${uploadScope === 'course' ? ' selected' : ''}`}
                 onClick={() => setUploadScope('course')}
               >
-                <BookOutlined /> Course
+                <BookOutlined /> Internship
               </button>
             </div>
           )}
           {uploadScope === 'course' ? (
             <select className="material-select" value={uploadCourse || ''} onChange={(e) => setUploadCourse(e.target.value || undefined)}>
-              <option value="" disabled>Upload to course…</option>
+              <option value="" disabled>Upload to internship…</option>
               {courses.map((c) => (
                 <option key={c.value} value={c.value} title={c.label}>{c.label}</option>
               ))}
@@ -413,7 +413,7 @@ function TeacherStudyMaterial() {
         </div>
         {uploadScope === 'course' && (
           <p style={{ fontSize: 12, color: '#667085', margin: '-10px 0 14px' }}>
-            Uploaded once here, this reaches every batch of this course — including one added later — not just candidates currently enrolled.
+            Uploaded once here, this reaches every batch of this internship — including one added later — not just candidates currently enrolled.
           </p>
         )}
 
@@ -499,7 +499,7 @@ function TeacherStudyMaterial() {
               </select>
               {courses.length > 1 && (
                 <select className="material-select-sm" value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}>
-                  <option value="all">All Courses</option>
+                  <option value="all">All Internships</option>
                   {courses.map((c) => <option key={c.value} value={c.value} title={c.label}>{c.label}</option>)}
                 </select>
               )}
@@ -583,7 +583,7 @@ function TeacherStudyMaterial() {
               <TeamOutlined /> Will be added to {uploadScope === 'course' ? 'course' : 'batch'}:{' '}
               <b>
                 {uploadScope === 'course'
-                  ? (courses.find((c) => c.value === uploadCourse)?.label || `— pick a course above first —`)
+                  ? (courses.find((c) => c.value === uploadCourse)?.label || `— pick an internship above first —`)
                   : (uploadBatch || '— pick a batch above first —')}
               </b>
             </div>
@@ -620,7 +620,7 @@ function StudentStudyMaterial() {
       <div className="study-material-header">
         <div>
           <h2 className="study-material-title"><FolderOpenOutlined /> Study Material</h2>
-          <p className="study-material-subtitle">Resources shared by your instructor.</p>
+          <p className="study-material-subtitle">Resources shared by your project manager.</p>
         </div>
       </div>
 

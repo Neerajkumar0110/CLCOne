@@ -37,7 +37,7 @@ async function assertOwnsCourse(admin, courseId) {
 
 async function getRule(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const CertificateRule = mongoose.model('CertificateRule');
   const rule = await CertificateRule.findOne({ course: course._id, removed: { $ne: true } }).lean();
   return ok(res, rule ? { ...rule, id: String(rule._id) } : null);
@@ -45,7 +45,7 @@ async function getRule(req, res) {
 
 async function upsertRule(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const CertificateRule = mongoose.model('CertificateRule');
   const b = req.body || {};
   const set = {
@@ -78,7 +78,7 @@ function clamp(v, lo, hi, dflt) {
 async function issue(req, res) {
   const b = req.body || {};
   const course = await assertOwnsCourse(req.admin, b.course);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const Admin = mongoose.model('Admin');
   const user = b.studentEmail
     ? await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id').lean()
@@ -92,7 +92,7 @@ async function issue(req, res) {
 
 async function runForCourse(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return bad(res, 403, 'Not your course.');
+  if (!course) return bad(res, 403, 'Not your internship.');
   const Student = mongoose.model('Student');
   const Admin = mongoose.model('Admin');
   const roster = await Student.find({ course: rxEq(course.title), removed: false }).select('email').lean();
@@ -263,7 +263,7 @@ async function downloadMine(req, res) {
     student: rxEq(req.admin.name || ''),
     status: { $in: ['Issued', 'Sent'] },
   }).lean();
-  if (!cert) return bad(res, 404, 'Certificate not found — finish the course to earn one.');
+  if (!cert) return bad(res, 404, 'Certificate not found — finish the internship to earn one.');
   await streamCertificatePdf(res, cert);
 }
 
@@ -275,12 +275,12 @@ async function downloadMine(req, res) {
 async function previewMine(req, res) {
   const Student = mongoose.model('Student');
   const Course = mongoose.model('Course');
-  if (!mongoose.isValidObjectId(req.query.course)) return bad(res, 400, 'Course required.');
+  if (!mongoose.isValidObjectId(req.query.course)) return bad(res, 400, 'Internship required.');
   const course = await Course.findOne({ _id: req.query.course, removed: false }).select('title durationHours').lean();
-  if (!course) return bad(res, 404, 'Course not found.');
+  if (!course) return bad(res, 404, 'Internship not found.');
   const roster = await Student.findOne({ removed: false, email: rxEq(req.admin.email || ''), course: rxEq(course.title) })
     .select('batch').lean();
-  if (!roster) return bad(res, 403, 'Not enrolled in this course.');
+  if (!roster) return bad(res, 403, 'Not enrolled in this internship.');
 
   const existing = await findIssuedCertificate(req.admin.name, course.title);
   const cert = existing || { student: req.admin.name, course: course.title, batch: roster.batch, certificateId: 'PREVIEW', issuedOn: null };
@@ -297,7 +297,7 @@ async function downloadForManager(req, res) {
   if (!isManager(req.admin)) {
     const Course = mongoose.model('Course');
     const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).select('instructor').lean();
-    if (!course || !(await isTeacherOfCourse(req.admin, course))) return bad(res, 403, 'Not your course.');
+    if (!course || !(await isTeacherOfCourse(req.admin, course))) return bad(res, 403, 'Not your internship.');
   }
   await streamCertificatePdf(res, cert);
 }

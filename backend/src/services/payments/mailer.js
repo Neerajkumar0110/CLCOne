@@ -34,7 +34,7 @@ function paymentLinkEmailHtml({ name, course, amount, shortUrl, installmentNo = 
       <tr><td style="padding:2px 0">GST (18%)</td><td style="padding:2px 0;text-align:right">${esc(fmtInr(gst))}</td></tr>
       <tr style="font-weight:700;color:#17202c"><td style="padding:4px 0 0;border-top:1px solid #e3e8ef">Total payable</td><td style="padding:4px 0 0;border-top:1px solid #e3e8ef;text-align:right">${esc(fmtInr(total))}</td></tr>
     </table>
-    ${course ? `<p style="margin:0;color:#334"><b>Course:</b> ${esc(course)}</p>` : ''}
+    ${course ? `<p style="margin:0;color:#334"><b>Internship:</b> ${esc(course)}</p>` : ''}
   </div>
   <p style="margin:0 0 18px">
     <a href="${esc(shortUrl)}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Pay Now</a>
@@ -73,12 +73,12 @@ function emiReminderEmailHtml({ name, course, amount, dueAt, daysUntilDue, short
     <p style="margin:0 0 6px;color:#889;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px">Amount due</p>
     <p style="margin:0 0 6px;font-size:26px;font-weight:800;color:#17202c">${esc(fmtInr(amount))}</p>
     <p style="margin:0;color:#334">Due date: <b>${esc(fmtDate(dueAt))}</b></p>
-    ${course ? `<p style="margin:6px 0 0;color:#334"><b>Course:</b> ${esc(course)}</p>` : ''}
+    ${course ? `<p style="margin:6px 0 0;color:#334"><b>Internship:</b> ${esc(course)}</p>` : ''}
   </div>
   <p style="margin:0 0 18px">
     <a href="${esc(shortUrl)}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Pay Now</a>
   </p>
-  <p style="color:#889;font-size:13px;margin:0">If your payment is already made, please ignore this reminder — it can take a few minutes to reflect. Missing the due date by more than a day pauses your course access until payment is received.</p>
+  <p style="color:#889;font-size:13px;margin:0">If your payment is already made, please ignore this reminder — it can take a few minutes to reflect. Missing the due date by more than a day pauses your internship access until payment is received.</p>
 </div>`;
 }
 

@@ -4,7 +4,7 @@ const FEE_STATUSES = ["Paid", "Partial", "Unpaid", "Waived"];
 export default {
   module: "customers",
   title: "Customers Analytics",
-  subtitle: "Enrolled candidates as customers — fee realisation, retention and course value",
+  subtitle: "Enrolled candidates as customers — fee realisation, retention and internship value",
   businessTypeMode: "disabled",
   dateBasis: {
     default: "created",
@@ -31,7 +31,7 @@ export default {
   charts: [
     { key: "trend", title: "Enrolments Trend", kind: "area", span: 2 },
     { key: "feeByMonth", title: "Fee Collected vs Outstanding", kind: "stackedBar" },
-    { key: "byCourse", title: "Candidates by Course", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Course: ${label}` }) },
+    { key: "byCourse", title: "Candidates by Internship", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Internship: ${label}` }) },
     { key: "byStatus", title: "Candidates by Status", kind: "donut", onSegmentDrill: (i, label) => ({ field: "status", op: "eq", value: label, label: `Status: ${label}` }) },
     { key: "byCounsellor", title: "Candidates by Counsellor", kind: "bar", onSegmentDrill: (i, label) => ({ field: "counselor", op: "eq", value: label, label: `Counsellor: ${label}` }) },
   ],
@@ -43,7 +43,7 @@ export default {
     mode: "client",
     columns: [
       { key: "name", label: "Customer", type: "text" },
-      { key: "course", label: "Course", type: "text" },
+      { key: "course", label: "Internship", type: "text" },
       { key: "batch", label: "Batch", type: "text" },
       { key: "status", label: "Status", type: "badge" },
       { key: "feePaid", label: "Fee paid", type: "number" },
@@ -57,7 +57,7 @@ export default {
   },
   filterDrawer: [
     { key: "status", label: "Status", kind: "multiselect", options: STATUSES },
-    { key: "course", label: "Course", kind: "multiselect", options: "@courses" },
+    { key: "course", label: "Internship", kind: "multiselect", options: "@courses" },
     { key: "feeStatus", label: "Fee status", kind: "multiselect", options: FEE_STATUSES },
     { key: "counselor", label: "Counsellor", kind: "multiselect", options: "@counsellors" },
   ],

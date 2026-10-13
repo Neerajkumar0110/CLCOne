@@ -90,7 +90,7 @@ async function syncUser(req, res) {
 async function syncCourse(req, res) {
   const Course = mongoose.model('Course');
   const course = await Course.findById(req.params.id);
-  if (!course) return res.status(404).json({ success: false, message: 'CRM course not found.' });
+  if (!course) return res.status(404).json({ success: false, message: 'CRM internship not found.' });
   const map = await syncService.mirrorCourse(course);
   return res.status(200).json({
     success: true,
@@ -117,12 +117,12 @@ async function enrol(req, res) {
   const user = await Admin.findById(crmUserId);
   const course = await Course.findById(crmCourseId);
   if (!user) return res.status(404).json({ success: false, message: 'CRM user not found.' });
-  if (!course) return res.status(404).json({ success: false, message: 'CRM course not found.' });
+  if (!course) return res.status(404).json({ success: false, message: 'CRM internship not found.' });
 
   const userMap = await syncService.provisionUser(user);
   const courseMap = await syncService.mirrorCourse(course);
   if (!courseMap.moodleId) {
-    return res.status(502).json({ success: false, message: 'Course could not be created in Moodle.', result: { courseMap } });
+    return res.status(502).json({ success: false, message: 'Internship could not be created in Moodle.', result: { courseMap } });
   }
   const enrolment = await syncService.enrolUser({
     crmUserId,

@@ -80,12 +80,12 @@ function Dashboard({ role }) {
       </Row>
 
       <Space wrap className="lms-toolbar" style={{ marginBottom: 12 }}>
-        <Select allowClear placeholder="Course" style={{ width: 190 }} value={f.courseTitle || undefined}
+        <Select allowClear placeholder="Internship" style={{ width: 190 }} value={f.courseTitle || undefined}
           onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))} options={courses.map((c) => ({ value: c, label: c }))} />
         <Select allowClear placeholder="Batch" style={{ width: 170 }} value={f.batchName || undefined}
           onChange={(v) => setF((x) => ({ ...x, batchName: v || '' }))} options={batches.map((c) => ({ value: c, label: c }))} />
         {role === 'admin' && (
-          <Input placeholder="Instructor" style={{ width: 150 }} value={f.teacherName}
+          <Input placeholder="Project Manager" style={{ width: 150 }} value={f.teacherName}
             onChange={(e) => setF((x) => ({ ...x, teacherName: e.target.value }))} onPressEnter={load} />
         )}
         <Input placeholder="Candidate name / email" style={{ width: 190 }} value={f.student}
@@ -110,7 +110,7 @@ function Dashboard({ role }) {
           { title: 'Candidate', dataIndex: 'studentName', fixed: 'left', width: 150 },
           { title: 'Email', dataIndex: 'email', width: 190 },
           { title: 'Batch', dataIndex: 'batch', width: 130 },
-          { title: 'Course', dataIndex: 'course', width: 150 },
+          { title: 'Internship', dataIndex: 'course', width: 150 },
           { title: 'Class', dataIndex: 'className', width: 150 },
           { title: 'Date', dataIndex: 'date', width: 110, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
           {
@@ -331,7 +331,7 @@ function MyAttendance() {
           <div className="attendance-select-wrap">
             <BookOutlined />
             <select className="attendance-select" value={course} onChange={(e) => setCourse(e.target.value)}>
-              <option value="">Course</option>
+              <option value="">Internship</option>
               {courses.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -366,7 +366,7 @@ function MyAttendance() {
               <tr>
                 <th>DATE</th>
                 <th>CLASS</th>
-                <th>COURSE</th>
+                <th>INTERNSHIP</th>
                 <th>DURATION</th>
                 <th>ATTENDED</th>
                 <th>%</th>

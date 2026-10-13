@@ -113,7 +113,7 @@ export default function TeacherDashboard() {
     <div className="lms-portal lms-dashboard-shell">
       <div className="lms-portal-head">
         <div>
-          <h2><ReadOutlined /> Instructor Dashboard</h2>
+          <h2><ReadOutlined /> Project Manager Dashboard</h2>
           <p>Welcome back, {d.teacher?.name}. Here's your teaching at a glance.</p>
         </div>
         <Button type="primary" icon={<VideoCameraOutlined />} onClick={() => navigate('/teacher/classes')}>
@@ -122,7 +122,7 @@ export default function TeacherDashboard() {
       </div>
 
       <Row gutter={[16, 16]} className="lms-kpi-row">
-        <KPI index={0} title="Courses" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
+        <KPI index={0} title="Internships" value={k.totalCourses} tone="blue" icon={<ReadOutlined />} />
         <KPI index={1} title="Published" value={k.publishedCourses} tone="green" icon={<CheckCircleOutlined />} />
         <KPI index={2} title="Drafts" value={k.draftCourses} tone="amber" icon={<EditOutlined />} />
         <KPI index={3} title="Candidates" value={k.totalStudents} tone="blue" icon={<TeamOutlined />} />
@@ -152,7 +152,7 @@ export default function TeacherDashboard() {
           />
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
-          <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Course status' }} raw={courseStatusChart} />
+          <ChartCard def={{ key: 'courseStatus', kind: 'donut', title: 'Internship status' }} raw={courseStatusChart} />
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
           <ChartCard def={{ key: 'studentProgress', kind: 'bar', title: 'Candidate progress' }} raw={progressChart} />
@@ -195,7 +195,7 @@ export default function TeacherDashboard() {
               locale={{ emptyText: 'Nothing scheduled' }}
               columns={[
                 { title: 'Class', dataIndex: 'title' },
-                { title: 'Course', dataIndex: 'course' },
+                { title: 'Internship', dataIndex: 'course' },
                 { title: 'Starts', dataIndex: 'scheduledStart', render: fmtTime },
               ]}
             />
@@ -219,15 +219,15 @@ export default function TeacherDashboard() {
           </Card>
         </Col>
         <Col xs={24} lg={12} className="lms-card-col">
-          <Card size="small" title="My courses" bordered className="lms-table-card">
+          <Card size="small" title="My internships" bordered className="lms-table-card">
             <Table
               size="small"
               rowKey="id"
               dataSource={d.courses || []}
               pagination={false}
-              locale={{ emptyText: 'No courses assigned' }}
+              locale={{ emptyText: 'No internships assigned' }}
               columns={[
-                { title: 'Course', dataIndex: 'title' },
+                { title: 'Internship', dataIndex: 'title' },
                 { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={s === 'Published' ? 'green' : s === 'Draft' ? 'orange' : 'default'}>{s}</Tag> },
                 { title: 'Enrolled', dataIndex: 'enrolled' },
               ]}

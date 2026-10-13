@@ -414,7 +414,7 @@ async function updateSchedule(id, admin, patch = {}) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
-  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can edit the time.' };
+  if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can edit the time.' };
   if (!['scheduled', 'upcoming'].includes(session.status)) {
     return { error: 409, message: `Cannot reschedule a class that is ${DISPLAY[session.status] || session.status}.` };
   }
@@ -518,7 +518,7 @@ async function setCountsTowardSyllabus(id, admin, counts) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
-  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor or a manager can change this.' };
+  if (role !== 'teacher') return { error: 403, message: 'Only the class project manager or a manager can change this.' };
 
   session.countsTowardSyllabus = !!counts;
   session.updated = new Date();
@@ -542,7 +542,7 @@ async function cancelSession(id, admin, { reason } = {}) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
-  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can cancel it.' };
+  if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can cancel it.' };
   if (!String(reason || '').trim()) return { error: 400, message: 'A cancellation reason is required.' };
   if (!['scheduled', 'upcoming'].includes(session.status)) {
     return { error: 409, message: `Cannot cancel a class that is ${DISPLAY[session.status] || session.status}.` };
@@ -615,7 +615,7 @@ async function postponeSession(id, admin, { days } = {}) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
-  if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can postpone it.' };
+  if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can postpone it.' };
   if (!['scheduled', 'upcoming'].includes(session.status)) {
     return { error: 409, message: `Cannot postpone a class that is ${DISPLAY[session.status] || session.status}.` };
   }
@@ -1114,7 +1114,7 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
   if (!session) return { error: 404, message: 'Live class not found.' };
   if (!auto) {
     const role = await resolveRole(session, admin);
-    if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can start it.' };
+    if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can start it.' };
   }
   // Spec §4 (the Zoom "no license"/capacity analogue) — every session of a
   // batch shares one persistent meeting room (batchRoom/meetingId, see
@@ -1249,7 +1249,7 @@ async function endSession(id, admin, { auto = false } = {}) {
   if (!session) return { error: 404, message: 'Live class not found.' };
   if (!auto) {
     const role = await resolveRole(session, admin);
-    if (role !== 'teacher') return { error: 403, message: 'Only the class instructor can end it.' };
+    if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can end it.' };
   }
   if (['ended', 'recording_processing', 'recording_available'].includes(session.status)) {
     return { result: safeView(session, 'teacher') };
@@ -1507,7 +1507,7 @@ async function issueJoin(id, admin) {
   const resumableStatuses = ['ended', 'recording_processing', 'recording_available'];
   if (resumableStatuses.includes(session.status) && withinScheduledWindow(session)) {
     if (role !== 'teacher') {
-      return { error: 409, message: 'Waiting for the instructor to rejoin the class.' };
+      return { error: 409, message: 'Waiting for the project manager to rejoin the class.' };
     }
     const started = await startSession(id, admin, { auto: true });
     if (started.error) return started;

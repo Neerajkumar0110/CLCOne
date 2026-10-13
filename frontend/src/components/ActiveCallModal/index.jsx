@@ -1052,7 +1052,7 @@ export default function ActiveCallModal() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div>
                   <label className="incall-field-label">
-                    Interested Course / Program
+                    Interested Internship / Program
                   </label>
                   <Input
                     value={requirement}

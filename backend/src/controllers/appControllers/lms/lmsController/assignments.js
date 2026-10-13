@@ -53,7 +53,7 @@ async function assertOwnsAssignmentCourse(admin, assignment) {
 // and the course is derived from the batch instead of asking them to know
 // which Course document backs it.
 async function create(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Project Managers only.');
   const Batch = mongoose.model('Batch');
   const Course = mongoose.model('Course');
   const b = req.body || {};
@@ -66,13 +66,13 @@ async function create(req, res) {
     if (!isManager(req.admin) && !trainerIncludes(batchDoc.trainer, req.admin.name))
       return bad(res, 403, 'You can only add assignments to your own batches.');
     course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }) : null;
-    if (!course) return bad(res, 404, 'This batch has no matching course set up yet.');
+    if (!course) return bad(res, 404, 'This batch has no matching internship set up yet.');
   } else if (mongoose.isValidObjectId(b.course)) {
     // manager / legacy direct-course path (no batch involved)
     course = await Course.findOne({ _id: b.course, removed: false });
-    if (!course) return bad(res, 404, 'Course not found.');
+    if (!course) return bad(res, 404, 'Internship not found.');
     if (!isManager(req.admin) && !(course.instructor && rxEq(course.instructor).test(req.admin.name || '')))
-      return bad(res, 403, 'You can only add assignments to your own courses.');
+      return bad(res, 403, 'You can only add assignments to your own internships.');
   } else {
     return bad(res, 400, 'A valid batch is required.');
   }
@@ -305,7 +305,7 @@ async function submit(req, res) {
   // enrollment check
   if (!isManager(req.admin)) {
     const ids = await enrolledCourseIdsForStudent(req.admin);
-    if (!ids.includes(String(a.course))) return bad(res, 403, 'You are not enrolled in this course.');
+    if (!ids.includes(String(a.course))) return bad(res, 403, 'You are not enrolled in this internship.');
   }
 
   const AS = mongoose.model('AssignmentSubmission');

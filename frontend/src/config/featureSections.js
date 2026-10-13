@@ -730,7 +730,7 @@ export const FEATURE_SECTIONS = [
     module: 'LMS',
     route: '/lms',
     Icon: ReadOutlined,
-    blurb: 'Courses, batches, candidates, live classes, attendance and certificates.',
+    blurb: 'Internships, batches, candidates, live classes, attendance and certificates.',
     tabs: [
       {
         key: 'overview',
@@ -742,11 +742,11 @@ export const FEATURE_SECTIONS = [
       },
       {
         key: 'courses',
-        label: 'Courses',
+        label: 'Internships',
         Icon: ReadOutlined,
         entity: 'course',
         fields: [
-          ...grp('Course', [
+          ...grp('Internship', [
             T('title', 'Title', { required: true }),
             // Self-generated from the title (e.g. AI101) — never shown as an input.
             T('code', 'Code', { table: false, hidden: true }),
@@ -755,7 +755,7 @@ export const FEATURE_SECTIONS = [
             SEL('mode', 'Mode', ['Self-paced', 'Cohort', 'Live', 'Blended'], { table: false }),
             SEL('language', 'Language', ['English', 'Hindi', 'Bilingual'], { table: false }),
             SEL('status', 'Status', ['Draft', 'Published', 'Archived']),
-            T('instructor', 'Instructor'),
+            T('instructor', 'Project Manager'),
           ]),
           ...grp('Structure', [
             NUM('durationHours', 'Duration (months)'),
@@ -825,7 +825,7 @@ export const FEATURE_SECTIONS = [
               refFilter: (a) => a.role === 'Teacher',
               refDisplay: (a) => `${a.name}${a.email ? ' — ' + a.email : ''}`,
               multiple: true,
-              hint: 'Pick every instructor account this batch belongs to — each one’s dashboard shows exactly this batch.',
+              hint: 'Pick every project manager account this batch belongs to — each one’s dashboard shows exactly this batch.',
             }),
             // Every Support account — the Batches tab's own equivalent of
             // Project Manager, but for Support rather than Teacher logins.
@@ -921,11 +921,11 @@ export const FEATURE_SECTIONS = [
             T('enrollmentId', 'Enrollment ID', {
               table: false,
               placeholder: 'Auto-generated if left blank',
-              hint: 'Leave blank to auto-generate (e.g. AI101) from the course.',
+              hint: 'Leave blank to auto-generate (e.g. AI101) from the internship.',
             }),
           ]),
           ...grp('Enrollment', [
-            REF('course', 'Course', 'course', {
+            REF('course', 'Internship', 'course', {
               refLabel: 'title',
               refFilter: (c) => c.status !== 'Archived',
               refDisplay: (c) => `${c.code ? c.code + ' — ' : ''}${c.title}`,
@@ -950,10 +950,10 @@ export const FEATURE_SECTIONS = [
             NUM('avgScore', 'Avg score', { table: false, hidden: true }),
           ]),
           ...grp('Fees', [
-            NUM('feeTotal', 'Course fee (before GST)', { table: false }),
+            NUM('feeTotal', 'Internship fee (before GST)', { table: false }),
             NUM('feeGrandTotal', 'Total (incl. 18% GST)', {
               table: false,
-              hint: 'Course fee × 1.18 — GST is fixed at 18%.',
+              hint: 'Internship fee × 1.18 — GST is fixed at 18%.',
               compute: (values) => {
                 const base = Number(values.feeTotal);
                 return Number.isFinite(base) && base >= 0 ? Math.round(base * 1.18 * 100) / 100 : undefined;
@@ -1164,7 +1164,7 @@ export const FEATURE_SECTIONS = [
         fields: [
           ...grp('Certificate', [
             T('student', 'Candidate', { required: true }),
-            T('course', 'Course'),
+            T('course', 'Internship'),
             T('batch', 'Batch', { table: false }),
             T('certificateId', 'Certificate ID'),
             T('title', 'Title', { table: false }),

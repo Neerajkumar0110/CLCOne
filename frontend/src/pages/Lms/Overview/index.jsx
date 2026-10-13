@@ -133,13 +133,13 @@ export default function LearnerOverview() {
           <div className="ov-section-heading">
             <div>
               <h2>Overall Eligibility</h2>
-              <span>{elig ? elig.course?.title || '' : 'No active course'}</span>
+              <span>{elig ? elig.course?.title || '' : 'No active internship'}</span>
             </div>
             {elig && elig.course?.title && <span className="ov-plan-badge">{elig.course.title}</span>}
           </div>
 
           {!elig ? (
-            <Empty style={{ padding: 40 }} description="No eligibility rule configured for your course yet." />
+            <Empty style={{ padding: 40 }} description="No eligibility rule configured for your internship yet." />
           ) : (
             <div className="ov-eligibility-body">
               <div className="ov-score-container">
@@ -344,7 +344,7 @@ export default function LearnerOverview() {
                 <thead>
                   <tr>
                     <th>TITLE</th>
-                    <th>MENTOR</th>
+                    <th>PROJECT MANAGER</th>
                     <th>STATUS</th>
                   </tr>
                 </thead>

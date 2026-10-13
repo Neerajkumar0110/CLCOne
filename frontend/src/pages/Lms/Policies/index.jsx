@@ -188,12 +188,12 @@ function ManagePolicies() {
               <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
             </Form.Item>
             <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Applies to</Lbl>}>
-              <Select options={[{ value: 'all', label: 'All candidates' }, { value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }]} />
+              <Select options={[{ value: 'all', label: 'All candidates' }, { value: 'course', label: 'An internship' }, { value: 'batch', label: 'A batch' }]} />
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
               {({ getFieldValue }) => {
                 const a = getFieldValue('audience');
-                if (a === 'course') return <Form.Item name="course" label={<Lbl icon={<AppstoreOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Pick a course' }]}><Select options={courses} showSearch optionFilterProp="label" /></Form.Item>;
+                if (a === 'course') return <Form.Item name="course" label={<Lbl icon={<AppstoreOutlined />}>Internship</Lbl>} rules={[{ required: true, message: 'Pick an internship' }]}><Select options={courses} showSearch optionFilterProp="label" /></Form.Item>;
                 if (a === 'batch') return <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch name</Lbl>} rules={[{ required: true, message: 'Batch name is required' }]}><Input placeholder="Exact batch name" /></Form.Item>;
                 return <div />;
               }}

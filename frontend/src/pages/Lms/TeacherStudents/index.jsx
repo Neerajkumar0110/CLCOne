@@ -100,7 +100,7 @@ export default function TeacherStudents() {
           { title: 'Email', dataIndex: 'email', width: 210 },
           { title: 'Enrollment ID', dataIndex: 'enrollmentId', width: 120 },
           { title: 'Batch', dataIndex: 'batch', width: 160 },
-          { title: 'Course', dataIndex: 'course', width: 160 },
+          { title: 'Internship', dataIndex: 'course', width: 160 },
           { title: 'Phone', dataIndex: 'phone', width: 120 },
           { title: 'Progress', dataIndex: 'progress', width: 120, render: (v) => <Progress percent={v || 0} size="small" /> },
           { title: 'Attendance', dataIndex: 'attendancePct', width: 120, render: (v) => <Progress percent={v || 0} size="small" strokeColor="#0e7490" /> },

@@ -32,6 +32,33 @@ const schema = new mongoose.Schema({
   // trusted from the request body (see ticketController/create.js).
   createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
   raisedByName: String,
+  raisedByEmail: String,
+  raisedByPhone: String,
+
+  // 'crm' = raised from the CRM Support page; 'student' = raised from the
+  // LMS student panel (lmsController/supportTickets.js), where `category`
+  // is one of config/supportTickets.js's STUDENT_TICKET_CATEGORIES.
+  source: { type: String, enum: ['crm', 'student'], default: 'crm' },
+
+  // Payment / Invoice tickets: the student's own PaymentRequest it's about,
+  // plus a snapshot taken when the ticket was raised (what the student saw).
+  payment: { type: mongoose.Schema.ObjectId, ref: 'PaymentRequest' },
+  paymentSnapshot: {
+    amount: Number,
+    status: String,
+    course: String,
+    installmentNo: Number,
+    installmentCount: Number,
+    razorpayPaymentId: String,
+    paidAt: Date,
+    created: Date,
+  },
+
+  // Written by Support when resolving — goes to the raiser in the
+  // "resolved" email and shows on their ticket.
+  resolutionNote: String,
+  resolvedAt: Date,
+  resolvedByName: String,
 
   created: {
     type: Date,

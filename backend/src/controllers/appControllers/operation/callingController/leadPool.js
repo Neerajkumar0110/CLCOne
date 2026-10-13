@@ -1,8 +1,14 @@
 const mongoose = require('mongoose');
-const { getOrCreateLeadPoolCampaign } = require('../../../../services/calling/callingShared');
+const {
+  getOrCreateLeadPoolCampaign,
+  callReachedCustomer,
+  CALL_REACHED,
+  CALL_NOT_REACHED,
+} = require('../../../../services/calling/callingShared');
 const { NON_SALES_ROLES } = require('../../../../config/roles');
 const shiftSchedule = require('../../../../config/shiftSchedule');
 const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 // POST /api/calling/lead-pool/toggle { on: boolean }
 // Joins/leaves the one system-managed Instant Lead Pool campaign — Sales
@@ -218,13 +224,19 @@ const usedLeads = async (req, res) => {
   const CallCampaign = mongoose.model('CallCampaign');
   const CallLead = mongoose.model('CallLead');
 
+  const page = parseInt(req.query.page) || 1;
+  const items = Math.min(parseInt(req.query.items) || 30, 100);
+
+  // Pool-wide list is management-only (FULL_ACCESS_ROLES). Everyone else
+  // gets every call of their own (pool, dialer, callbacks — see
+  // myUsedLeads below), pool or no pool.
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) return myUsedLeads(req, res, page, items);
+
   const camp = await CallCampaign.findOne({ isLeadPool: true, removed: false }).select('_id').lean();
   if (!camp) {
     return res.status(200).json({ success: true, result: [], pagination: { page: 1, pages: 0, count: 0 }, message: 'ok' });
   }
 
-  const page = parseInt(req.query.page) || 1;
-  const items = Math.min(parseInt(req.query.items) || 30, 100);
   const filter = { campaign: camp._id, removed: false, status: { $nin: ['New', 'Queued'] } };
 
   const [rows, count] = await Promise.all([
@@ -263,5 +275,67 @@ const usedLeads = async (req, res) => {
     message: 'ok',
   });
 };
+
+// The agent's own view of Used Leads: EVERY call of theirs that has
+// finished — auto-dialer pool, manual dialer, callbacks, any campaign — in
+// the last ?days= (7 | 15 | 30, default 7), narrowed by ?outcome=:
+//   connected → the customer answered
+//   notpicked → they dialed, the customer never answered
+//   missed    → routed to them, they never picked up (CallRecord.missedByAgent)
+//   callback  → a callback was requested on it (disposition CALLBACK)
+// Same row shape as the pool-wide list, plus `outcome`.
+const MY_USED_DAYS = [7, 15, 30];
+const IN_PROGRESS = ['queued', 'dialing', 'ringing'];
+const OUTCOME_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by me' };
+
+function outcomeOf(r) {
+  if (r.missedByAgent) return 'missed';
+  if (callReachedCustomer(r)) return 'connected';
+  return 'notpicked';
+}
+
+async function myUsedLeads(req, res, page, items) {
+  const CallRecord = mongoose.model('CallRecord');
+  const days = MY_USED_DAYS.includes(Number(req.query.days)) ? Number(req.query.days) : 7;
+  const since = new Date(Date.now() - days * 86400000);
+
+  const filter = { agent: req.admin._id, removed: false, created: { $gte: since }, status: { $nin: IN_PROGRESS } };
+  const and = [];
+  if (req.query.outcome === 'connected') and.push({ missedByAgent: { $ne: true } }, CALL_REACHED);
+  else if (req.query.outcome === 'notpicked') and.push({ missedByAgent: { $ne: true } }, CALL_NOT_REACHED);
+  else if (req.query.outcome === 'missed') filter.missedByAgent = true;
+  else if (req.query.outcome === 'callback') filter.disposition = 'CALLBACK';
+  if (and.length) filter.$and = and;
+
+  const [rows, count] = await Promise.all([
+    CallRecord.find(filter)
+      .sort({ created: -1 })
+      .skip((page - 1) * items)
+      .limit(items)
+      .select('contactName phone status disposition agentName duration missedByAgent created endedAt')
+      .lean(),
+    CallRecord.countDocuments(filter),
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    result: rows.map((r) => {
+      const outcome = outcomeOf(r);
+      return {
+        _id: r._id,
+        name: r.contactName,
+        phone: r.phone,
+        outcome,
+        response: OUTCOME_LABEL[outcome],
+        disposition: r.disposition || null,
+        agentName: r.agentName || null,
+        lastAttemptAt: r.endedAt || r.created,
+      };
+    }),
+    pagination: { page, pages: Math.ceil(count / items) || 0, count },
+    scope: 'mine',
+    message: 'ok',
+  });
+}
 
 module.exports = { toggle, status, breakStart, usedLeads };

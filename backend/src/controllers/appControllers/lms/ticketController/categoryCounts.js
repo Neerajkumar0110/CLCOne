@@ -21,6 +21,10 @@ const categoryCounts = async (req, res) => {
   rows.forEach((r) => {
     byCategory[r._id] = r.count;
   });
+  // Open student-raised tickets, for the Support page's "Candidate Tickets"
+  // tab badge — a separate key (not a category), so it is not part of any
+  // per-category sum.
+  byCategory.__candidates = await Model.countDocuments({ ...match, source: 'student' });
 
   return res.status(200).json({
     success: true,

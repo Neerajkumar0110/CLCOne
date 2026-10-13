@@ -109,7 +109,7 @@ export default function StudentPortal() {
       <div className="lms-portal-head lms-student-hero">
         <div>
           <h2>Welcome back, {name.split(' ')[0]}</h2>
-          <p>Your courses, progress and upcoming sessions in one place.</p>
+          <p>Your internships, progress and upcoming sessions in one place.</p>
         </div>
         <div className="lms-portal-actions">
           <Button icon={<ReloadOutlined />} onClick={load}>
@@ -131,7 +131,7 @@ export default function StudentPortal() {
           showIcon
           style={{ marginBottom: 16 }}
           message="The learning platform is not connected yet"
-          description="Once Moodle is wired up (see the LMS Build Blueprint, Phase 0–1) your courses and live classes will appear here automatically."
+          description="Once Moodle is wired up (see the LMS Build Blueprint, Phase 0–1) your internships and live classes will appear here automatically."
         />
       )}
 
@@ -147,7 +147,7 @@ export default function StudentPortal() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={8}>
-          <StatCard icon={<ReadOutlined />} label="Active courses" value={counts.activeCourses ?? 0} />
+          <StatCard icon={<ReadOutlined />} label="Active internships" value={counts.activeCourses ?? 0} />
         </Col>
         <Col xs={24} sm={8}>
           <StatCard icon={<CheckCircleOutlined />} label="Completed" value={counts.completedCourses ?? 0} />
@@ -160,7 +160,7 @@ export default function StudentPortal() {
       <div className="lms-section-title">
         <h3>Continue learning</h3>
         {coursesDegraded && (
-          <Tooltip title="Live course data from Moodle is temporarily unavailable — showing the last known state.">
+          <Tooltip title="Live internship data from Moodle is temporarily unavailable — showing the last known state.">
             <Tag>offline data</Tag>
           </Tooltip>
         )}
@@ -172,8 +172,8 @@ export default function StudentPortal() {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               notConfigured
-                ? 'No courses yet — they will show up once enrolments sync.'
-                : "You're not enrolled in any courses yet."
+                ? 'No internships yet — they will show up once enrolments sync.'
+                : "You're not enrolled in any internships yet."
             }
           />
         </Card>

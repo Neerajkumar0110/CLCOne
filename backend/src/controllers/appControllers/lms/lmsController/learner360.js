@@ -75,7 +75,7 @@ async function buildRows(course) {
 // GET /api/lms/admin/learner-360/:courseId
 async function courseReport(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return res.status(403).json({ success: false, message: 'Not your course.' });
+  if (!course) return res.status(403).json({ success: false, message: 'Not your internship.' });
   const rows = await buildRows(course);
   return res.status(200).json({ success: true, result: { course: course.title, rows } });
 }
@@ -83,7 +83,7 @@ async function courseReport(req, res) {
 // GET /api/lms/admin/learner-360/:courseId/export?format=csv|xlsx
 async function courseReportExport(req, res) {
   const course = await assertOwnsCourse(req.admin, req.params.courseId);
-  if (!course) return res.status(403).json({ success: false, message: 'Not your course.' });
+  if (!course) return res.status(403).json({ success: false, message: 'Not your internship.' });
   const rows = await buildRows(course);
   const format = (req.query.format || 'csv').toLowerCase();
 

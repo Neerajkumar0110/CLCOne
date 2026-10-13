@@ -87,12 +87,12 @@ async function assign(req, res) {
     return bad(res, 403, 'You can only assign projects to your own batches.');
 
   const course = batchDoc.course ? await Course.findOne({ title: batchDoc.course, removed: false }).lean() : null;
-  if (!course) return bad(res, 404, 'This batch has no matching course set up yet.');
+  if (!course) return bad(res, 404, 'This batch has no matching internship set up yet.');
 
   let mentor = null;
   if (b.mentorEmail) {
     mentor = await Admin.findOne({ email: rxEq(b.mentorEmail), role: 'Teacher', removed: false }).select('_id name email').lean();
-    if (!mentor) return bad(res, 404, 'Mentor not found (must be an Instructor account).');
+    if (!mentor) return bad(res, 404, 'Project Manager not found (must be a Project Manager account).');
   } else {
     // No mentor picked — default to the batch's first Project Manager.
     const primaryTrainerName = trainerNames(batchDoc.trainer)[0];
@@ -155,14 +155,14 @@ async function assign(req, res) {
       throw e;
     }
   }
-  if (!created.length) return bad(res, 409, 'Every selected candidate already has a project for this course.');
+  if (!created.length) return bad(res, 409, 'Every selected candidate already has a project for this internship.');
 
   for (const project of created) {
     // eslint-disable-next-line no-await-in-loop
     await realtime.notify([project.student], {
       type: 'lms.project.assigned',
       title: `📁 New project assigned: ${title}`,
-      body: `Course: ${course.title}${mentor ? ` · Mentor: ${mentor.name}` : ''}`,
+      body: `Internship: ${course.title}${mentor ? ` · Project Manager: ${mentor.name}` : ''}`,
       link: '/learn/projects',
       actorName: req.admin.name,
     });
@@ -296,7 +296,7 @@ async function submit(req, res) {
     await realtime.notify([p.mentor], {
       type: 'lms.project.submitted',
       title: `📤 ${p.studentName} submitted "${p.title}" (v${version})`,
-      body: `Course: ${p.courseTitle}`,
+      body: `Internship: ${p.courseTitle}`,
       link: '/teacher/projects',
       actorName: req.admin.name,
     });

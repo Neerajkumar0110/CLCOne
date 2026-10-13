@@ -4,6 +4,7 @@
 const { LEAF_BY_KEY } = require('../../../../config/marketingDashboards');
 const { windowFromQuery } = require('../../core/analyticsController/shared');
 const { buildPremium } = require('./premium');
+const { lockedBusinessType } = require('../../../../services/access/businessScope');
 
 const DIMENSIONS = {
   region: { param: 'region', slices: [{ label: 'India', region: 'India' }, { label: 'USA', region: 'USA' }] },
@@ -30,8 +31,13 @@ module.exports = ({ computeFor, computeMaster }) => {
     }
     const { from, to, prevFrom, prevTo } = windowFromQuery(req.query);
 
+    // A B2B/B2C-locked user only gets their own segment's slice — every
+    // other dimension already carries their forced ?businessType=.
+    const locked = lockedBusinessType(req.admin);
+    const dimSlices = locked && dim.param === 'businessType' ? dim.slices.filter((sl) => sl.businessType === locked) : dim.slices;
+
     const slices = await Promise.all(
-      dim.slices.map(async (sl) => {
+      dimSlices.map(async (sl) => {
         const q = { ...req.query };
         Object.keys(dim.slices[0]).forEach((k) => k !== 'label' && delete q[k]);
         if (sl[dim.param] !== undefined) q[dim.param] = sl[dim.param];

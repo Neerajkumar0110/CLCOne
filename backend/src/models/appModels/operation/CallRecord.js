@@ -26,6 +26,10 @@ const schema = new mongoose.Schema({
 
   campaign: { type: mongoose.Schema.ObjectId, ref: 'CallCampaign', index: true },
   callLead: { type: mongoose.Schema.ObjectId, ref: 'CallLead', index: true },
+  // Which attempt on its CallLead this call was (1 = first dial, 2+ = a
+  // retry). The Instant Lead Pool uses it to keep its retry share in check
+  // (CloudCallProvider.dialLeadPoolNext).
+  attempt: Number,
   agent: { type: mongoose.Schema.ObjectId, ref: 'Admin', index: true },
   agentName: String,
 

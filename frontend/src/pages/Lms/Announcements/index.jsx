@@ -66,7 +66,7 @@ function TeacherAnnouncements() {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
-        <div><h2><SoundOutlined /> Announcements</h2><p>Broadcast to a course, a batch, or everyone.</p></div>
+        <div><h2><SoundOutlined /> Announcements</h2><p>Broadcast to an internship, a batch, or everyone.</p></div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setOpen(true); setTimeout(() => form.setFieldsValue({ audience: 'course', priority: 'general', channels: ['in_app'] }), 0); }}>
           New announcement
         </Button>
@@ -122,15 +122,15 @@ function TeacherAnnouncements() {
               <Select options={[{ value: 'general', label: 'General' }, { value: 'important', label: 'Important' }]} />
             </Form.Item>
             <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Audience</Lbl>} className="crud-form-full">
-              <Select options={[{ value: 'course', label: 'A course' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All candidates' }]} />
+              <Select options={[{ value: 'course', label: 'An internship' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All candidates' }]} />
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
               {({ getFieldValue }) => {
                 const a = getFieldValue('audience');
                 if (a === 'course') {
                   return (
-                    <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Course</Lbl>} rules={[{ required: true, message: 'Course is required' }]} className="crud-form-full">
-                      <Select options={courses} showSearch optionFilterProp="label" placeholder="Select a course…" />
+                    <Form.Item name="course" label={<Lbl icon={<ReadOutlined />}>Internship</Lbl>} rules={[{ required: true, message: 'Internship is required' }]} className="crud-form-full">
+                      <Select options={courses} showSearch optionFilterProp="label" placeholder="Select an internship…" />
                     </Form.Item>
                   );
                 }
@@ -205,7 +205,7 @@ function ReadOnlyAnnouncements({ isTeacher }) {
           <div>
             <span className="announcement-kicker">Stay Informed</span>
             <h1>Announcements</h1>
-            <p>{isTeacher ? 'Sent to your batches and courses.' : 'Updates from your instructors.'}</p>
+            <p>{isTeacher ? 'Sent to your batches and internships.' : 'Updates from your project managers.'}</p>
           </div>
         </div>
         <div className="stay-updated">Stay<br />Updated</div>

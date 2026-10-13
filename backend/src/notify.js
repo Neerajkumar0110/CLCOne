@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MANAGEMENT_ROLES } = require('./config/roles');
+const { MANAGEMENT_ROLES, CRM_ADMIN_ROLES, LMS_PANEL_ROLES } = require('./config/roles');
 const { emitNotification } = require('./socket');
 
 // Who sees a given notification, mirroring the same role-tier access rule
@@ -16,13 +16,19 @@ const { emitNotification } = require('./socket');
 //   'team'       — MANAGEMENT_ROLES plus everyone on `teamName`. For
 //                   modules a team lead/member also has real access to
 //                   (Leads).
-//   'everyone'   — every enabled admin. For modules with no access
-//                   restriction at all (Support).
+//   'everyone'   — every enabled CRM-side account. For modules with no
+//                   access restriction at all (Support). LMS panel accounts
+//                   (Teacher/Student) never see the CRM Support board, so
+//                   they're left out — a student must never get another
+//                   student's ticket.
+//   'support'    — the Support role plus owner/Super Admin/Admin: whoever
+//                   actually works tickets (a student-raised ticket).
 async function resolveRecipients({ audience, teamName, excludeAdminId }) {
   const Admin = mongoose.model('Admin');
 
-  if (audience === 'everyone') {
-    const all = await Admin.find({ removed: false, enabled: true }).select('_id').lean();
+  if (audience === 'everyone' || audience === 'support') {
+    const role = audience === 'support' ? { $in: ['Support', ...CRM_ADMIN_ROLES] } : { $nin: LMS_PANEL_ROLES };
+    const all = await Admin.find({ removed: false, enabled: true, role }).select('_id').lean();
     return all.map((a) => String(a._id)).filter((id) => id !== String(excludeAdminId));
   }
 

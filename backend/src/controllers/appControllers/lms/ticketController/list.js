@@ -15,6 +15,7 @@ const list = async (req, res) => {
 
   const match = { removed: false };
   if (req.query.category) match.category = req.query.category;
+  if (req.query.source === 'student' || req.query.source === 'crm') match.source = req.query.source === 'crm' ? { $ne: 'student' } : 'student';
   if (req.query.status && req.query.status !== 'All') match.status = req.query.status;
   // Row-level visibility — only the Support role (plus management) sees
   // every module's tickets from every raiser; everyone else only ever sees

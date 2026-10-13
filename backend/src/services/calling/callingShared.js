@@ -253,13 +253,55 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
 // back onto the ORIGINAL Lead's own stage, exactly the way a manually
 // dialled Lead advances from the Dialer screen — otherwise it would just
 // sit at "New Lead" forever and get re-queued next sync.
-async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
+// Did a finished call actually reach the customer? One rule for every
+// call list (admin Used Leads, the agent's My Calls). Talk time is the
+// signal — not answeredAt, which cloudWebhook.js also fills from a call's
+// start_stamp — and a no-contact disposition (Switch off, Wrong Number, …)
+// always means not reached.
+const REACHED_STATUSES = ['connected', 'onhold', 'transferred'];
+const NO_CONTACT_CODES = Object.keys(BY_CODE).filter((c) => BY_CODE[c].category === 'no-contact');
+function callReachedCustomer(r) {
+  if (r.disposition && NO_CONTACT_CODES.includes(r.disposition)) return false;
+  return r.duration > 0 || REACHED_STATUSES.includes(r.status);
+}
+// The same rule as Mongo filter fragments.
+const CALL_REACHED = {
+  disposition: { $nin: NO_CONTACT_CODES },
+  $or: [{ duration: { $gt: 0 } }, { status: { $in: REACHED_STATUSES } }],
+};
+const CALL_NOT_REACHED = {
+  $or: [
+    { disposition: { $in: NO_CONTACT_CODES } },
+    { duration: { $not: { $gt: 0 } }, status: { $nin: REACHED_STATUSES } },
+  ],
+};
+
+// Which "No Response" sub-status an unanswered call gets, read from the
+// provider's hangup reason (Plivo HangupCause / HangupCauseName, kept on the
+// CallRecord as providerRaw, and in notes by cloudWebhook.js):
+//   phone switched off / out of coverage  → 'Switch off'
+//   rang but nobody answered, busy, cut   → 'Ringing'
+//   anything else (bad number, network…)  → 'Not Reachable'
+function noResponseSubStatus(callRecord) {
+  const raw = (callRecord && callRecord.providerRaw) || {};
+  const text = [
+    raw.HangupCause, raw.HangupCauseName, raw.hangup_cause, raw.hangup_cause_name,
+    raw.DialHangupCause, raw.reason, raw.CallStatus, raw.call_status, callRecord && callRecord.notes,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  if (/SUBSCRIBER_ABSENT|switch(ed)?.?off|power(ed)?.?off|out.?of.?coverage|absent/i.test(text)) return 'Switch off';
+  if (/NO_ANSWER|NO_USER_RESPONSE|no.?answer|ALLOTTED_TIMEOUT|ORIGINATOR_CANCEL|USER_BUSY|busy|CALL_REJECTED|reject|ring/i.test(text)) return 'Ringing';
+  return 'Not Reachable';
+}
+
+async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord, fromStages = ['New Lead', 'Connected Leads', 'No Response']) {
   const Lead = mongoose.model('Lead');
   const lead = await Lead.findOne({ _id: leadId, removed: false });
   // Only ever move it forward from wherever the auto-dialer itself left it
   // last time — never overwrite progress a human has since made (e.g. it's
   // already in Demo Booking because someone worked it by hand).
-  if (!lead || !['New Lead', 'Connected Leads', 'No Response'].includes(lead.stage)) return;
+  if (!lead || !fromStages.includes(lead.stage)) return;
 
   const d = dispositionCode && BY_CODE[dispositionCode];
   let stage, subStatus;
@@ -272,10 +314,10 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
     subStatus = '1st Discussion Done - Qualified';
   } else {
     stage = 'No Response';
-    subStatus = 'Not Reachable';
+    subStatus = noResponseSubStatus(callRecord);
   }
 
-  const outcomeLabel = d ? d.label : rawOutcome || 'No Answer';
+  const outcomeLabel = d ? d.label : stage === 'No Response' ? subStatus : rawOutcome || 'No Answer';
   const fromStage = lead.stage;
   lead.stage = stage;
   lead.subStatus = subStatus;
@@ -285,32 +327,58 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord) {
     toStage: stage,
     toSubStatus: subStatus,
     changedByName: callRecord.agentName || undefined,
-    remarks: `Instant Lead Pool call outcome: ${outcomeLabel}`,
+    remarks: `${callRecord.callLead ? 'Instant Lead Pool' : 'Dialer'} call outcome: ${outcomeLabel}`,
     at: new Date(),
   });
   await lead.save();
 }
 
+// A call with no CallLead behind it — a "call this lead" dial from the
+// Dialer, Leads page or Callbacks, which carries only a phone number. Once
+// it ends, the CRM Lead on that number leaves "New Lead" the same way an
+// auto-dialer call moves it (advanceCrmLead), so a dialed lead never keeps
+// counting as unused. Only ever from New Lead: anything a human already
+// moved it to is left alone (the in-call modal's own stage pick wins).
+async function advanceLeadByPhone(callRecord, dispositionCode, rawOutcome) {
+  const phoneNorm = last10(callRecord && callRecord.phone);
+  if (!phoneNorm) return;
+  const lead = await mongoose
+    .model('Lead')
+    .findOne({ phoneNormalized: phoneNorm, removed: false, stage: 'New Lead' })
+    .select('_id')
+    .lean();
+  if (lead) await advanceCrmLead(lead._id, dispositionCode, rawOutcome, callRecord, ['New Lead']);
+}
+
 // Roll the linked CallLead forward from a disposition code or a raw outcome,
 // bridging it into the Sales pipeline when the outcome shows real interest.
 async function resolveLead(callRecord, dispositionCode, rawOutcome) {
-  if (!callRecord || !callRecord.callLead) return;
+  if (!callRecord) return;
+  if (!callRecord.callLead) return advanceLeadByPhone(callRecord, dispositionCode, rawOutcome);
   const CallLead = mongoose.model('CallLead');
   const callLead = await CallLead.findById(callRecord.callLead);
   if (!callLead) return;
   const preLinkedLeadId = callLead.crmLead || null;
 
+  // An unreached lead lands on a retryable status ('No Answer' / 'Busy' /
+  // 'Voicemail' / 'Failed' — see CloudCallProvider.dialLeadPoolNext), never
+  // 'Completed': that covers a non-final no-contact disposition (Switch off,
+  // Not Reachable, Ringing) and a call that ended without ever reaching the
+  // customer (no raw outcome, zero talk time).
   let status = 'Completed';
   const d = dispositionCode && BY_CODE[dispositionCode];
   if (d) {
     if (d.category === 'callback') status = 'Callback';
     else if (d.category === 'dnc') status = 'DNC';
+    else if (d.category === 'no-contact' && !d.final) status = 'No Answer';
     else status = 'Completed';
   } else if (rawOutcome) {
     status =
       { 'no-answer': 'No Answer', busy: 'Busy', failed: 'Failed', voicemail: 'Voicemail', connected: 'Connected' }[
         rawOutcome
       ] || 'Completed';
+  } else if (!callReachedCustomer(callRecord)) {
+    status = 'No Answer';
   }
   callLead.status = status;
   callLead.lastDisposition = dispositionCode || callLead.lastDisposition;
@@ -451,6 +519,11 @@ module.exports = {
   setAgent,
   wrapupAgent,
   resolveLead,
+  advanceLeadByPhone,
+  noResponseSubStatus,
+  callReachedCustomer,
+  CALL_REACHED,
+  CALL_NOT_REACHED,
   recountCampaign,
   withinCallingHours,
   getOrCreateLeadPoolCampaign,

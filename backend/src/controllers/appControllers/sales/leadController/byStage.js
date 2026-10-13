@@ -80,14 +80,26 @@ const byStage = async (req, res) => {
   const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
 
   const [result, count] = await Promise.all([
-    Lead.find(query)
-      .sort({ [sortBy]: sortDir })
-      .skip(skip)
-      .limit(limit)
-      .populate('assignedUser', 'name surname email')
-      .lean(),
+    Lead.find(query).sort({ [sortBy]: sortDir }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(query),
   ]);
+
+  // Lead (salesDb) and Admin (coreDb) live on different connections under
+  // config/multiDb.js, and .populate() can't cross that boundary — it throws
+  // "Schema hasn't been registered for model Admin". Resolve assignedUser
+  // with a plain second lookup instead, keeping populate's output shape.
+  const userIds = [...new Set(result.filter((l) => l.assignedUser).map((l) => String(l.assignedUser)))];
+  if (userIds.length) {
+    const users = await mongoose
+      .model('Admin')
+      .find({ _id: { $in: userIds } })
+      .select('name surname email')
+      .lean();
+    const byId = new Map(users.map((u) => [String(u._id), u]));
+    for (const l of result) {
+      if (l.assignedUser) l.assignedUser = byId.get(String(l.assignedUser)) || null;
+    }
+  }
 
   return res.status(200).json({
     success: true,

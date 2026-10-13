@@ -4,6 +4,7 @@ import { useTheme } from "@/context/themeContext";
 import ChartCard from "@/components/dashboard/ChartCard";
 import { applyChartTheme, SERIES } from "@/components/dashboard/chartTheme";
 import { formatValue, trendMeta } from "@/components/dashboard/formatters";
+import useBusinessLock from "@/hooks/useBusinessLock";
 
 const DIMS = [
   { key: "region", label: "India vs USA" },
@@ -16,6 +17,9 @@ export default function ComparePanel({ compareKey = "master", query }) {
   const { isDark } = useTheme();
   applyChartTheme(isDark);
   const [dimension, setDimension] = useState("region");
+  // "B2B vs B2C" is meaningless (and off-limits) for a segment-locked user.
+  const businessLock = useBusinessLock();
+  const dims = businessLock ? DIMS.filter((d) => d.key !== "business") : DIMS;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -73,7 +77,7 @@ export default function ComparePanel({ compareKey = "master", query }) {
         <div className="hub-card-header" style={{ flexWrap: "wrap", gap: 10 }}>
           <h3>Comparison</h3>
           <div className="hub-pill-filter">
-            {DIMS.map((d) => (
+            {dims.map((d) => (
               <button
                 key={d.key}
                 type="button"

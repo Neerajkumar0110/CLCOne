@@ -64,7 +64,7 @@ async function unblockIfClear(studentEmail) {
       module: 'LMS',
       type: 'finance.unblocked',
       title: 'Access restored',
-      body: 'Your payment was received — course access is active again.',
+      body: 'Your payment was received — internship access is active again.',
       link: '/learn',
     });
   } catch (e) {

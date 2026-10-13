@@ -19,35 +19,79 @@ function fmtClock(v) {
 // Pool is Sales-only, so Support/Finance/LMS accounts never see the toggle.
 const NON_SALES_ROLES = ["Support", "Finance", "Teacher", "Student"];
 
-// Every lead the pool has already attempted, pool-wide (every agent) — the
-// system-recorded response (never blank: resolveLead sets CallLead.status
-// the moment a call ends) plus whatever disposition the agent picked.
+const MY_OUTCOMES = [
+  { key: "", label: "All calls" },
+  { key: "connected", label: "Connected" },
+  { key: "notpicked", label: "Not picked up" },
+  { key: "missed", label: "Missed by me" },
+  { key: "callback", label: "Callback" },
+];
+const MY_RANGES = [
+  { key: 7, label: "1 Week" },
+  { key: 15, label: "15 Days" },
+  { key: 30, label: "1 Month" },
+];
+const OUTCOME_BADGE = { connected: "hub-badge-green", notpicked: "hub-badge-yellow", missed: "hub-badge-red" };
+
+// Management (backend FULL_ACCESS_ROLES) gets every lead the pool has
+// already attempted, pool-wide — the system-recorded response plus whatever
+// disposition the agent picked. Everyone else gets every finished call of
+// their own — auto-dialer, manual dialer, callbacks (server decides; the
+// response says scope: "mine"), filterable by outcome and by the last
+// week / 15 days / month.
 function UsedLeads() {
   const [data, setData] = useState(null);
+  const [mine, setMine] = useState(false);
+  const [outcome, setOutcome] = useState("");
+  const [days, setDays] = useState(7);
   usePoll(async () => {
-    const r = await request.get({ entity: "calling/lead-pool/used-leads?items=50" });
-    if (r?.success) setData(r.result);
-  }, 8000, []);
+    const qs = new URLSearchParams({ items: "50", days: String(days), ...(outcome ? { outcome } : {}) });
+    const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
+    if (r?.success) {
+      setData(r.result);
+      setMine(r.scope === "mine");
+    }
+  }, 8000, [outcome, days]);
 
   return (
     <div className="hub-card">
       <div className="hub-card-header">
-        <h3>Used Leads</h3>
+        <h3>{mine ? "My Calls" : "Used Leads"}</h3>
       </div>
       <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
-        Every lead the Instant Lead Pool has already dialed, and the response recorded for it.
+        {mine
+          ? "Every call of yours — auto-dialer, dialer and callbacks: connected, not picked up, or missed by you."
+          : "Every lead the Instant Lead Pool has already dialed, and the response recorded for it."}
       </div>
+      {mine && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <select className="hub-select" style={{ width: 170 }} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+            {MY_OUTCOMES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+          <select className="hub-select" style={{ width: 130 }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+            {MY_RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+        </div>
+      )}
       <div className="hub-table-wrapper">
         <table className="hub-table">
-          <thead><tr><th>Contact</th><th>Response</th><th>Disposition</th><th>Agent</th><th>Last Attempt</th></tr></thead>
+          <thead>
+            <tr><th>Contact</th><th>Response</th><th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th></tr>
+          </thead>
           <tbody>
-            {(!data || data.length === 0) && <tr><td colSpan={5}><div className="hub-empty">No leads dialed yet.</div></td></tr>}
+            {(!data || data.length === 0) && (
+              <tr><td colSpan={mine ? 4 : 5}><div className="hub-empty">{mine ? "No calls in this range." : "No leads dialed yet."}</div></td></tr>
+            )}
             {data && data.map((l) => (
               <tr key={l._id}>
                 <td>{l.name}<div style={{ fontSize: 11, color: "#94a3b8" }}>{l.phone}</div></td>
-                <td><span className={`hub-badge ${CALL_STATUS_BADGE[l.response] || "hub-badge-gray"}`}>{l.response}</span></td>
+                <td>
+                  <span className={`hub-badge ${(mine ? OUTCOME_BADGE[l.outcome] : CALL_STATUS_BADGE[l.response]) || "hub-badge-gray"}`}>
+                    {l.response}
+                  </span>
+                </td>
                 <td>{l.disposition || "—"}</td>
-                <td>{l.agentName || "—"}</td>
+                {!mine && <td>{l.agentName || "—"}</td>}
                 <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
               </tr>
             ))}

@@ -66,13 +66,13 @@ const QUIZ_FIELDS = [
 ];
 
 async function createQuiz(req, res) {
-  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Instructors only.');
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Project Managers only.');
   const b = req.body || {};
-  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A valid course is required.');
+  if (!mongoose.isValidObjectId(b.course)) return bad(res, 400, 'A valid internship is required.');
   const course = await mongoose.model('Course').findOne({ _id: b.course, removed: false });
-  if (!course) return bad(res, 404, 'Course not found.');
+  if (!course) return bad(res, 404, 'Internship not found.');
   if (!isManager(req.admin) && !(await isTeacherOfCourse(req.admin, course)))
-    return bad(res, 403, 'You can only add quizzes to your own courses.');
+    return bad(res, 403, 'You can only add quizzes to your own internships.');
 
   const Quiz = mongoose.model('Quiz');
   const doc = { course: course._id, teacherCrmUser: req.admin._id, teacherName: req.admin.name, title: (b.title || 'Untitled quiz').trim() };
@@ -296,7 +296,7 @@ async function startAttempt(req, res) {
   if (!quiz) return bad(res, 404, 'Quiz not found.');
   if (!isManager(req.admin)) {
     const ids = await enrolledCourseIds(req.admin);
-    if (!ids.includes(String(quiz.course))) return bad(res, 403, 'You are not enrolled in this course.');
+    if (!ids.includes(String(quiz.course))) return bad(res, 403, 'You are not enrolled in this internship.');
   }
   const now = new Date();
   if (quiz.startAt && now < new Date(quiz.startAt)) return bad(res, 409, 'This quiz has not opened yet.');
@@ -401,7 +401,7 @@ async function submitAttempt(req, res) {
       ? { percent: attempt.percent, passed: attempt.passed, totalScore: attempt.totalScore, maxScore: attempt.maxScore }
       : null,
     pendingManual: attempt.status === 'submitted',
-  }, attempt.status === 'submitted' ? 'Submitted — awaiting instructor evaluation.' : 'Submitted.');
+  }, attempt.status === 'submitted' ? 'Submitted — awaiting project manager evaluation.' : 'Submitted.');
 }
 
 async function attemptResult(req, res) {

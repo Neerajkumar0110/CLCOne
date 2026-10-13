@@ -115,7 +115,7 @@ function enrollmentEmailHtml(studentDoc, { crmLink, rawPassword, plan, brand = '
   <div style="border:1px solid #e3e8ef;border-top:none;border-radius:0 0 14px 14px;padding:26px">
     <p style="font-size:15px;color:#17202c;margin:0 0 6px">Hi ${esc(name)},</p>
     <p style="font-size:15px;color:#17202c;margin:0 0 20px;line-height:1.55">
-      Welcome to <b>${esc(studentDoc.course || 'your course')}</b>${studentDoc.batch ? ` (batch ${esc(studentDoc.batch)})` : ''} —
+      Welcome to <b>${esc(studentDoc.course || 'your internship')}</b>${studentDoc.batch ? ` (batch ${esc(studentDoc.batch)})` : ''} —
       you're officially enrolled. Your full fee receipt${plan ? ' and EMI schedule' : ''} is attached as a PDF.
     </p>
 
@@ -183,7 +183,7 @@ async function sendEnrollmentEmail(studentDoc, { rawPassword } = {}) {
   }
 
   return mailer.sendMail([email], {
-    subject: `Welcome to ${studentDoc.course || 'your course'} — enrollment confirmed`,
+    subject: `Welcome to ${studentDoc.course || 'your internship'} — enrollment confirmed`,
     html: enrollmentEmailHtml(studentDoc, { crmLink, rawPassword, plan }),
     attachments,
   });

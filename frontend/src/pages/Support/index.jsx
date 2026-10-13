@@ -47,16 +47,32 @@ function truncateWords(text, limit) {
 function mapTicket(t) {
   return {
     id: t._id,
-    code: `TCK-${t._id.slice(-6).toUpperCase()}`,
+    // Same number the ticket emails and the student panel show
+    // (backend config/supportTickets.js ticketNo).
+    code: `TKT-${t._id.slice(-6).toUpperCase()}`,
     subject: t.subject,
     description: t.description || "",
     category: t.category,
     priority: t.priority,
     status: t.status,
     raisedBy: t.raisedByName || "—",
+    raisedByEmail: t.raisedByEmail || "",
+    raisedByPhone: t.raisedByPhone || "",
+    fromStudent: t.source === "student",
+    payment: t.payment ? t.paymentSnapshot || null : null,
+    resolutionNote: t.resolutionNote || "",
+    resolvedBy: t.resolvedByName || "",
+    resolvedAt: t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : "",
     date: t.created ? new Date(t.created).toLocaleString() : "",
   };
 }
+
+const inr = (n) => (typeof n === "number" ? `₹${n.toLocaleString("en-IN")}` : "—");
+
+// Tickets raised by candidates from the LMS panel (Help & Support) — their
+// categories (Payment / Fees, Live Class, …) aren't CRM modules, so they get
+// their own tab instead of one per category.
+const CANDIDATE_TAB = "Candidate Tickets";
 
 // Same icon each module uses in the sidebar (NavigationContainer.jsx) — kept
 // in sync manually so a ticket's tab here is instantly recognizable.
@@ -102,9 +118,14 @@ const TICKET_PRIORITY_META = {
 // shared ticketsContext's full unpaginated fetch, so this stays fast no
 // matter how many tickets pile up over time.
 function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
-  const isAll = category === ALL_TAB;
+  const isCandidates = category === CANDIDATE_TAB;
+  const isAll = category === ALL_TAB || isCandidates;
   const [statusFilter, setStatusFilter] = useState("All");
   const [viewTicket, setViewTicket] = useState(null);
+  // Resolving asks for an optional note — it goes to the raiser in the
+  // "resolved" email and shows on their ticket.
+  const [resolving, setResolving] = useState(null);
+  const [resolutionNote, setResolutionNote] = useState("");
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -118,7 +139,8 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
   const loadPage = async (targetPage) => {
     setLoading(true);
     const options = { page: targetPage, items: PAGE_SIZE, status: statusFilter };
-    if (!isAll) options.category = category;
+    if (isCandidates) options.source = "student";
+    else if (!isAll) options.category = category;
     const query = new URLSearchParams(options).toString();
     const res = await request.get({ entity: `ticket/list?${query}` });
     if (res?.success) {
@@ -133,7 +155,7 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
   };
 
   const loadStats = async () => {
-    const query = isAll ? "" : `?category=${encodeURIComponent(category)}`;
+    const query = isCandidates ? "?source=student" : isAll ? "" : `?category=${encodeURIComponent(category)}`;
     const res = await request.get({ entity: `ticket/stats${query}` });
     if (res?.success) setStats(res.result);
   };
@@ -144,9 +166,15 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, statusFilter]);
 
-  const updateStatus = async (ticketId, newStatus) => {
-    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)));
-    await request.update({ entity: "ticket", id: ticketId, jsonData: { status: newStatus } });
+  const updateStatus = async (ticketId, newStatus, extra = {}) => {
+    if (newStatus === "Resolved" && !extra.confirmed) {
+      setResolutionNote("");
+      setResolving(tickets.find((t) => t.id === ticketId) || null);
+      return;
+    }
+    const jsonData = { status: newStatus, ...(extra.resolutionNote ? { resolutionNote: extra.resolutionNote } : {}) };
+    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus, ...jsonData } : t)));
+    await request.update({ entity: "ticket", id: ticketId, jsonData });
     loadStats();
     onStatusChange?.();
   };
@@ -170,7 +198,7 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>{isAll ? "All" : category} Tickets</h3>
+          <h3>{isCandidates ? CANDIDATE_TAB : `${isAll ? "All" : category} Tickets`}</h3>
           <div className="hub-row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div className="hub-pill-filter">
               {statuses.map((s) => (
@@ -224,7 +252,11 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
                       <td>
                         <span className={`hub-badge ${TICKET_PRIORITY_META[t.priority]}`}>{t.priority}</span>
                       </td>
-                      <td>{t.raisedBy}</td>
+                      <td>
+                        {t.raisedBy}
+                        {t.fromStudent && <span className="hub-badge hub-badge-blue" style={{ marginLeft: 6 }}>Candidate</span>}
+                        {t.payment && <span className="hub-badge hub-badge-gray" style={{ marginLeft: 6 }}>{inr(t.payment.amount)}</span>}
+                      </td>
                       <td>{t.date}</td>
                       <td>
                         {canManage ? (
@@ -293,14 +325,91 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
             </div>
             <div className="hub-form-row">
               <label>Raised By</label>
-              <div>{viewTicket.raisedBy} · {viewTicket.date}</div>
+              <div>
+                {viewTicket.raisedBy}
+                {viewTicket.fromStudent ? " (Candidate)" : ""} · {viewTicket.date}
+                {(viewTicket.raisedByEmail || viewTicket.raisedByPhone) && (
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    {[viewTicket.raisedByEmail, viewTicket.raisedByPhone].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="hub-form-row">
               <label>Message</label>
               <div>{viewTicket.description || "No additional details provided."}</div>
             </div>
+            {viewTicket.payment && (
+              <div className="hub-form-row">
+                <label>Payment</label>
+                <div>
+                  {inr(viewTicket.payment.amount)}
+                  {viewTicket.payment.installmentCount > 1
+                    ? ` · installment ${viewTicket.payment.installmentNo} of ${viewTicket.payment.installmentCount}`
+                    : ""}{" "}
+                  · {viewTicket.payment.status}
+                  {viewTicket.payment.course ? ` · ${viewTicket.payment.course}` : ""}
+                  {viewTicket.payment.paidAt ? ` · paid ${new Date(viewTicket.payment.paidAt).toLocaleString()}` : ""}
+                  {viewTicket.payment.razorpayPaymentId && (
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>Razorpay ID: {viewTicket.payment.razorpayPaymentId}</div>
+                  )}
+                </div>
+              </div>
+            )}
+            {viewTicket.status === "Resolved" && (viewTicket.resolutionNote || viewTicket.resolvedBy) && (
+              <div className="hub-form-row">
+                <label>Resolution</label>
+                <div>
+                  {viewTicket.resolutionNote || "—"}
+                  {viewTicket.resolvedBy && (
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                      {viewTicket.resolvedBy}
+                      {viewTicket.resolvedAt ? ` · ${viewTicket.resolvedAt}` : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
+      </HubModal>
+
+      <HubModal
+        open={!!resolving}
+        onClose={() => setResolving(null)}
+        title={`Resolve ${resolving?.code || ""}`}
+        subtitle={resolving?.subject}
+        width={480}
+        footer={
+          <>
+            <button type="button" className="hub-btn" onClick={() => setResolving(null)}>Cancel</button>
+            <button
+              type="button"
+              className="hub-btn hub-btn-primary"
+              onClick={() => {
+                const t = resolving;
+                setResolving(null);
+                updateStatus(t.id, "Resolved", { confirmed: true, resolutionNote: resolutionNote.trim() });
+              }}
+            >
+              Mark Resolved
+            </button>
+          </>
+        }
+      >
+        <div className="hub-form-row">
+          <label>Resolution note (sent to {resolving?.raisedBy || "the raiser"})</label>
+          <textarea
+            className="hub-input"
+            rows={4}
+            value={resolutionNote}
+            onChange={(e) => setResolutionNote(e.target.value)}
+            placeholder="e.g. Your payment of ₹5,000 is confirmed and your fee status is updated."
+          />
+          <span style={{ fontSize: 11.5, color: "#8c8c8c" }}>
+            They get an email and a live notification once you mark it resolved.
+          </span>
+        </div>
       </HubModal>
     </div>
   );
@@ -330,7 +439,7 @@ export default function Support() {
     loadCategoryCounts();
   }, []);
 
-  const allOpenCount = Object.values(categoryCounts).reduce((sum, n) => sum + n, 0);
+  const allOpenCount = Object.entries(categoryCounts).reduce((sum, [k, n]) => (k === "__candidates" ? sum : sum + n), 0);
 
   return (
     <>
@@ -580,6 +689,9 @@ export default function Support() {
         <HubTabs
           tabs={[
             { key: ALL_TAB, label: ALL_TAB, icon: <AppstoreOutlined />, count: allOpenCount },
+            ...(canManage
+              ? [{ key: CANDIDATE_TAB, label: CANDIDATE_TAB, icon: <CustomerServiceOutlined />, count: categoryCounts.__candidates || 0 }]
+              : []),
             ...visibleCategoryModules.map((mod) => ({
               key: mod,
               label: mod,

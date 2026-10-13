@@ -125,12 +125,12 @@ function TeacherQuizzes() {
       <PageHeading
         icon={<FormOutlined />}
         title="Quizzes & Exams"
-        description="Build, publish, and grade your course quizzes and exams."
+        description="Build, publish, and grade your internship quizzes and exams."
         actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => openQuizEditor(null)} disabled={!courses.length}>New quiz</Button>}
       />
 
       {rows.length === 0 ? (
-        <Card><Empty description={courses.length ? 'No quizzes yet.' : 'You have no courses assigned.'} /></Card>
+        <Card><Empty description={courses.length ? 'No quizzes yet.' : 'You have no internships assigned.'} /></Card>
       ) : (
         <Table
           rowKey="id"
@@ -163,7 +163,7 @@ function TeacherQuizzes() {
       {/* quiz settings */}
       <Modal open={!!editing} title={editing?.id ? 'Edit quiz' : 'New quiz'} onCancel={() => setEditing(null)} onOk={saveQuiz} okText="Save" destroyOnClose width={560}>
         <Form form={quizForm} layout="vertical" preserve={false}>
-          <Form.Item name="course" label="Course" rules={[{ required: true }]}><Select options={courses} disabled={!!editing?.id} /></Form.Item>
+          <Form.Item name="course" label="Internship" rules={[{ required: true }]}><Select options={courses} disabled={!!editing?.id} /></Form.Item>
           <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
           <Space size="large" wrap>
             <Form.Item name="type" label="Type"><Select options={[{ value: 'quiz', label: 'Quiz' }, { value: 'exam', label: 'Exam' }]} /></Form.Item>
@@ -393,7 +393,7 @@ function StudentQuizzes() {
       const r = (res && res.result) || {};
       setRunner(null);
       if (r.result) setResult({ ...r.result, instant: true });
-      else message.success('Submitted — awaiting instructor evaluation.');
+      else message.success('Submitted — awaiting project manager evaluation.');
       load();
     } catch (e) {
       message.error('Submit failed.');
@@ -421,7 +421,7 @@ function StudentQuizzes() {
             showIcon
             icon={<WarningOutlined />}
             style={{ marginBottom: 10 }}
-            message={`Tab switch detected (${violations}) — this is flagged for the instructor.`}
+            message={`Tab switch detected (${violations}) — this is flagged for the project manager.`}
           />
         )}
         {runner.questions.map((q, i) => (

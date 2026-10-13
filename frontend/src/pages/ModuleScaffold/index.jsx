@@ -268,7 +268,7 @@ function TabBody({ section, tab }) {
               allowClear
               showSearch
               optionFilterProp="label"
-              placeholder="Filter by course…"
+              placeholder="Filter by internship…"
               style={{ minWidth: 220 }}
               value={studentCourseFilter}
               onChange={(v) => {
@@ -281,7 +281,7 @@ function TabBody({ section, tab }) {
               allowClear
               showSearch
               optionFilterProp="label"
-              placeholder={studentCourseFilter ? 'Filter by batch…' : 'Select a course first'}
+              placeholder={studentCourseFilter ? 'Filter by batch…' : 'Select an internship first'}
               style={{ minWidth: 220 }}
               value={studentBatchFilter}
               disabled={!studentCourseFilter || unassignedOnly}
@@ -316,7 +316,7 @@ function TabBody({ section, tab }) {
               { title: 'Name', dataIndex: 'name' },
               { title: 'Email', dataIndex: 'email' },
               { title: 'Phone', dataIndex: 'phone', render: (v) => v || '—' },
-              { title: 'Course', dataIndex: 'course', render: (v) => v || <Tag color="warning">Not set</Tag> },
+              { title: 'Internship', dataIndex: 'course', render: (v) => v || <Tag color="warning">Not set</Tag> },
               {
                 title: 'Enrolled on',
                 dataIndex: 'enrolledOn',

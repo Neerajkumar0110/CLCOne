@@ -200,7 +200,7 @@ export default function AssessmentRunner({ testType, onExit }) {
         <Result
           status="warning"
           title="Test Suspended"
-          subTitle="Your test was automatically suspended after 3 proctoring warnings. Please contact your instructor."
+          subTitle="Your test was automatically suspended after 3 proctoring warnings. Please contact your project manager."
           extra={<Button type="primary" onClick={onExit}>Back</Button>}
         />
       </div>

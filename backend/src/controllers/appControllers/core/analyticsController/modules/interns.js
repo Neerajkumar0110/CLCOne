@@ -7,7 +7,7 @@ const SELECT =
 
 const TABLE_COLUMNS = [
   { key: 'name', label: 'Intern' },
-  { key: 'course', label: 'Course' },
+  { key: 'course', label: 'Internship' },
   { key: 'batch', label: 'Batch' },
   { key: 'status', label: 'Status' },
   { key: 'progress', label: 'Progress %' },

@@ -9,6 +9,7 @@ const liveclass = require('./liveclass');
 const scope = require('./liveScope');
 const bbbWebhook = require('./bbbWebhook');
 const panel = require('./panel');
+const supportTickets = require('./supportTickets');
 const curriculum = require('./curriculum');
 const learning = require('./learning');
 const assignments = require('./assignments');
@@ -107,6 +108,9 @@ module.exports = {
   studentDashboard: panel.studentDashboard,
   lmsMyUpdates: panel.myUpdates,
   lmsMyFees: panel.myFees,
+  lmsMyTickets: supportTickets.mine,
+  lmsMyTicketPayments: supportTickets.payments,
+  lmsMyTicketCreate: supportTickets.create,
   teacherLiveAnalytics: panel.teacherLiveAnalytics,
 
   // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager

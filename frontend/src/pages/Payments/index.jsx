@@ -40,6 +40,10 @@ const STATUS_META = {
   failed: { color: 'red', label: 'Failed' },
 };
 
+// New payment requests are registration payments — never below this.
+// Mirrored server-side in paymentsController/create.js.
+const MIN_REGISTRATION_AMOUNT = 5000;
+
 const fmtInr = (n) => {
   try {
     return Number(n).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
@@ -74,7 +78,7 @@ export default function Payments() {
       const res = await paymentsApi.courseFee(val);
       const fee = (res && res.result) || null;
       setFeeHint(fee);
-      if (fee) form.setFieldsValue({ amount: fee.installmentAmount });
+      if (fee) form.setFieldsValue({ amount: Math.max(fee.installmentAmount, MIN_REGISTRATION_AMOUNT) });
     } catch (e) {
       setFeeHint(null);
     }
@@ -298,7 +302,7 @@ export default function Payments() {
       ),
     },
     {
-      title: 'Course',
+      title: 'Internship',
       dataIndex: 'course',
       width: 180,
       render: (v) =>
@@ -400,7 +404,13 @@ export default function Payments() {
       <Row gutter={[20, 20]}>
         <Col xs={24} lg={9}>
           <Card className="pay-form-card" title="New payment request">
-            <Form form={form} layout="vertical" onFinish={onCreate} requiredMark={false}>
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={onCreate}
+              requiredMark={false}
+              initialValues={{ amount: MIN_REGISTRATION_AMOUNT }}
+            >
               <Form.Item name="studentName" label="Candidate name" rules={[{ required: true, message: 'Enter the candidate name.' }]}>
                 <Input placeholder="Full name" />
               </Form.Item>
@@ -417,18 +427,25 @@ export default function Payments() {
               <Form.Item name="studentPhone" label="Candidate phone (optional)">
                 <Input placeholder="For future WhatsApp reminders" />
               </Form.Item>
-              <Form.Item name="course" label="Course">
+              <Form.Item name="course" label="Internship">
                 <Select
                   showSearch
                   allowClear
-                  placeholder="Select a course (optional)"
+                  placeholder="Select an internship (optional)"
                   optionFilterProp="label"
                   options={courses.map((c) => ({ value: c.title, label: `${c.code ? c.code + ' — ' : ''}${c.title}` }))}
                   onChange={onCourseChange}
                 />
               </Form.Item>
-              <Form.Item name="amount" label="Amount (INR)" rules={[{ required: true, message: 'Enter an amount.' }]}>
-                <InputNumber style={{ width: '100%' }} min={1} step={100} placeholder="e.g. 15000" />
+              <Form.Item
+                name="amount"
+                label="Registration Amount (INR)"
+                rules={[
+                  { required: true, message: 'Enter the registration amount.' },
+                  { type: 'number', min: MIN_REGISTRATION_AMOUNT, message: `Registration amount must be at least ₹${MIN_REGISTRATION_AMOUNT}.` },
+                ]}
+              >
+                <InputNumber style={{ width: '100%' }} min={MIN_REGISTRATION_AMOUNT} step={500} placeholder="e.g. 5000" />
               </Form.Item>
               {feeHint && (
                 <div className="pay-fee-hint">
@@ -562,7 +579,7 @@ export default function Payments() {
               <div className="pay-kyc-modal-who">
                 <div className="pay-kyc-modal-name">{(kycFor.kyc && kycFor.kyc.name) || kycFor.studentName}</div>
                 <div className="pay-kyc-modal-meta">
-                  {kycFor.course || 'No course'} {kycFor.amount ? `· ${fmtInr(kycFor.amount)}` : ''}
+                  {kycFor.course || 'No internship'} {kycFor.amount ? `· ${fmtInr(kycFor.amount)}` : ''}
                 </div>
               </div>
               {kycFor.kycSubmitted ? (

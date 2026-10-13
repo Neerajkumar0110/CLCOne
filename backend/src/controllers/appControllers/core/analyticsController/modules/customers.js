@@ -9,7 +9,7 @@ const SELECT =
 
 const TABLE_COLUMNS = [
   { key: 'name', label: 'Customer' },
-  { key: 'course', label: 'Course' },
+  { key: 'course', label: 'Internship' },
   { key: 'batch', label: 'Batch' },
   { key: 'status', label: 'Status' },
   { key: 'feePaid', label: 'Fee paid' },

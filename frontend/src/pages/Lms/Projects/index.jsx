@@ -140,9 +140,9 @@ function ManageProjects() {
             { title: 'Project ID', dataIndex: 'code', render: (v) => v || '—' },
             { title: 'Candidate', dataIndex: 'student' },
             { title: 'Batch', dataIndex: 'batch', render: (v) => v || '—' },
-            { title: 'Course', dataIndex: 'course' },
+            { title: 'Internship', dataIndex: 'course' },
             { title: 'Title', dataIndex: 'title' },
-            { title: 'Mentor', dataIndex: 'mentor' },
+            { title: 'Project Manager', dataIndex: 'mentor' },
             { title: 'Status', dataIndex: 'status', render: (v) => <Tag color={STATUS_COLOR[v]}>{STATUS_LABEL[v] || v}</Tag> },
             { title: 'Due', dataIndex: 'dueDate', render: (v) => (v ? dayjs(v).format('D MMM') : '—') },
             { title: 'Score', dataIndex: 'finalScore', render: (v, r) => (v != null ? `${v}% (${r.finalGrade})` : '—') },
@@ -225,8 +225,8 @@ function ManageProjects() {
               }
             </Form.Item>
             {isMgr && (
-              <Form.Item name="mentorEmail" label={<Lbl icon={<UserOutlined />}>Mentor email</Lbl>} extra="Optional — defaults to the batch's trainer" className="crud-form-full">
-                <Input placeholder="mentor@example.com" />
+              <Form.Item name="mentorEmail" label={<Lbl icon={<UserOutlined />}>Project Manager email</Lbl>} extra="Optional — defaults to the batch's trainer" className="crud-form-full">
+                <Input placeholder="projectmanager@example.com" />
               </Form.Item>
             )}
             <Form.Item name="title" label={<Lbl icon={<TagOutlined />}>Project title</Lbl>} className="crud-form-full" rules={[{ required: true, message: 'Title is required' }]}>
@@ -459,13 +459,13 @@ function MyProjects() {
 
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><ProjectOutlined /> My Projects</h2><p>Only you, your mentor and admin can see your project.</p></div></div>
+      <div className="lms-portal-head"><div><h2><ProjectOutlined /> My Projects</h2><p>Only you, your project manager and admin can see your project.</p></div></div>
       {rows.length === 0 ? <Card><Empty description="No project assigned yet." /></Card> : rows.map((p) => (
         <Card key={p.id} style={{ marginBottom: 16 }}
           title={<Space>{p.code && <Tag color="purple">{p.code}</Tag>}<b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
           extra={p.status !== 'approved' && <Button type="primary" icon={<SendOutlined />} onClick={() => { setSubmitOpen(p); setTimeout(() => form.setFieldsValue({ githubUrl: p.githubUrl, deploymentUrl: p.deploymentUrl }), 0); }}>Submit</Button>}>
           <Paragraph type="secondary">{p.problemStatement}</Paragraph>
-          {p.mentor && <Text type="secondary">Mentor: {p.mentor}</Text>}
+          {p.mentor && <Text type="secondary">Project Manager: {p.mentor}</Text>}
           <Divider style={{ margin: '10px 0' }} />
           <List size="small" header={<b>Milestones</b>} dataSource={p.milestones || []} renderItem={(m, idx) => (
             <List.Item>
@@ -515,7 +515,7 @@ function MyProjects() {
             <Form.Item name="deploymentUrl" label={<Lbl icon={<LinkOutlined />}>Deployment / live URL</Lbl>} className="crud-form-full">
               <Input placeholder="https://..." />
             </Form.Item>
-            <Form.Item name="note" label={<Lbl icon={<FileTextOutlined />}>Notes for your mentor</Lbl>} className="crud-form-full">
+            <Form.Item name="note" label={<Lbl icon={<FileTextOutlined />}>Notes for your project manager</Lbl>} className="crud-form-full">
               <Input.TextArea rows={3} />
             </Form.Item>
           </div>

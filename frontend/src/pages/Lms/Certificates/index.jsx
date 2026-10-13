@@ -157,14 +157,14 @@ function TeacherCertificates({ isManagerRole }) {
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
         <div><h2><TrophyOutlined /> Certificates</h2><p>Set the criteria — the system issues them automatically.</p></div>
-        <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Course" />
+        <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Internship" />
       </div>
 
       <Card size="small" title={<Space><TeamOutlined /> Batch roster — who's in which batch, who's completed</Space>} style={{ marginBottom: 12 }}>
         <BatchRoster />
       </Card>
 
-      {!courseId ? <Card><Empty description="No courses assigned." /></Card> : (
+      {!courseId ? <Card><Empty description="No internships assigned." /></Card> : (
         <Row gutter={[12, 12]}>
           <Col xs={24} lg={10}>
             <Card size="small" title="Issue criteria">
@@ -172,7 +172,7 @@ function TeacherCertificates({ isManagerRole }) {
                 <Form.Item name="title" label="Certificate title"><Input /></Form.Item>
                 <Form.Item name="type" label="Type"><Select options={['Completion', 'Participation', 'Merit', 'Achievement'].map((v) => ({ value: v, label: v }))} /></Form.Item>
                 <Space wrap>
-                  <Form.Item name="minCoursePercent" label="Min course %"><InputNumber min={0} max={100} /></Form.Item>
+                  <Form.Item name="minCoursePercent" label="Min internship %"><InputNumber min={0} max={100} /></Form.Item>
                   <Form.Item name="minAttendancePercent" label="Min attendance %"><InputNumber min={0} max={100} /></Form.Item>
                   <Form.Item name="minQuizPercent" label="Min quiz %"><InputNumber min={0} max={100} /></Form.Item>
                   <Form.Item name="validMonths" label="Valid (months, 0=∞)"><InputNumber min={0} /></Form.Item>
@@ -201,7 +201,7 @@ function TeacherCertificates({ isManagerRole }) {
                 locale={{ emptyText: 'None yet' }}
                 columns={[
                   { title: 'Candidate', dataIndex: 'student' },
-                  { title: 'Course', dataIndex: 'course' },
+                  { title: 'Internship', dataIndex: 'course' },
                   { title: 'ID', dataIndex: 'certificateId' },
                   { title: 'Grade', dataIndex: 'grade', width: 70 },
                   { title: 'Issued', dataIndex: 'issuedOn', render: (v) => (v ? dayjs(v).format('D MMM YY') : '—') },
@@ -257,7 +257,7 @@ function StudentCertificates() {
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head"><div><h2><TrophyOutlined /> My Certificates</h2><p>Your program certificates — unlocks once your duration is complete and your project is submitted.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="Not enrolled in any course yet." /></Card> : (
+      {rows.length === 0 ? <Card><Empty description="Not enrolled in any internship yet." /></Card> : (
         <Row gutter={[16, 16]}>
           {rows.map((c) => (
             <Col xs={24} sm={12} lg={8} key={c.course}>

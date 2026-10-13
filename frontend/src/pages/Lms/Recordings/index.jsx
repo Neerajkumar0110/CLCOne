@@ -358,7 +358,7 @@ export default function Recordings() {
             </div>
             <div>
               <h1>Recordings</h1>
-              <p>{isManager ? 'All class recordings.' : 'Recordings for your classes / enrolled courses.'}</p>
+              <p>{isManager ? 'All class recordings.' : 'Recordings for your classes / enrolled internships.'}</p>
             </div>
           </div>
 
@@ -387,14 +387,14 @@ export default function Recordings() {
           <div className="rec-search-box">
             <SearchOutlined />
             <input
-              placeholder="Search by course, batch or instructor..."
+              placeholder="Search by internship, batch or project manager..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <Select
             className="rec-filter-box"
-            allowClear placeholder="Course" style={{ width: 200 }} value={f.courseTitle || undefined}
+            allowClear placeholder="Internship" style={{ width: 200 }} value={f.courseTitle || undefined}
             onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))}
             options={courses.map((c) => ({ value: c, label: c }))}
           />
@@ -423,7 +423,7 @@ export default function Recordings() {
             <thead>
               <tr>
                 <th>CLASS</th>
-                <th>INSTRUCTOR</th>
+                <th>PROJECT MANAGER</th>
                 <th>DATE</th>
                 <th>DURATION</th>
                 <th>SIZE</th>

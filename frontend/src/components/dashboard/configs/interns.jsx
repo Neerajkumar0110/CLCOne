@@ -31,7 +31,7 @@ export default {
   charts: [
     { key: "trend", title: "Interns Onboarded", kind: "area", span: 2 },
     { key: "byStatus", title: "Interns by Status", kind: "donut", onSegmentDrill: (i, label) => ({ field: "status", op: "eq", value: label, label: `Status: ${label}` }) },
-    { key: "byCourse", title: "Interns by Course", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Course: ${label}` }) },
+    { key: "byCourse", title: "Interns by Internship", kind: "bar", onSegmentDrill: (i, label) => ({ field: "course", op: "eq", value: label, label: `Internship: ${label}` }) },
     { key: "byBatch", title: "Interns by Batch", kind: "bar", onSegmentDrill: (i, label) => ({ field: "batch", op: "eq", value: label, label: `Batch: ${label}` }) },
     { key: "progressDist", title: "Progress Distribution", kind: "bar" },
     { key: "attendanceDist", title: "Attendance Distribution", kind: "bar" },
@@ -49,7 +49,7 @@ export default {
     mode: "client",
     columns: [
       { key: "name", label: "Intern", type: "text" },
-      { key: "course", label: "Course", type: "text" },
+      { key: "course", label: "Internship", type: "text" },
       { key: "batch", label: "Batch", type: "text" },
       { key: "status", label: "Status", type: "badge" },
       { key: "progress", label: "Progress %", type: "number" },
@@ -61,7 +61,7 @@ export default {
   },
   filterDrawer: [
     { key: "status", label: "Status", kind: "multiselect", options: STATUSES },
-    { key: "course", label: "Course", kind: "multiselect", options: "@courses" },
+    { key: "course", label: "Internship", kind: "multiselect", options: "@courses" },
     { key: "batch", label: "Batch", kind: "multiselect", options: "@batches" },
     { key: "counselor", label: "Counsellor", kind: "multiselect", options: "@counsellors" },
   ],

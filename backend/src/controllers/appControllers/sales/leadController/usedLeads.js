@@ -1,51 +1,80 @@
 const mongoose = require('mongoose');
-const { leadScopeFilter } = require('./scope');
+const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
+const { last10, callReachedCustomer } = require('../../../../services/calling/callingShared');
+const { BY_CODE } = require('../../../../services/calling/dispositions');
 
-// GET /api/lead/used?team=&agent=&teamView=1
-// Every lead that's genuinely been DIALLED through this CRM's own calling
-// system — the Instant Lead Pool or the manual Dialer screen — in one flat
-// list instead of having to add up several rows of the stage funnel by
-// hand. Deliberately NOT "any lead whose stage isn't New Lead": a lead can
-// land on a later stage without ever being called here (bulk-imported
-// already-Interested, a stage set by hand in the edit modal, an ad-platform
-// webhook, ...), and those don't belong in a "who did we actually call"
-// list. `callHistory` is the one field only a real CRM-placed call ever
-// pushes to (see services/calling/callingShared.js's advanceCrmLead and
-// manualDial.js's end handler), so it's the source of truth here — paired
-// with stage != "New Lead" so a lead that's been called always also drops
-// out of the New Lead count the moment it lands in this list.
+// GET /api/lead/used?caller=<adminId>&outcome=connected|notpicked
+// Every number that's genuinely been DIALLED through this CRM's own calling
+// system — auto-dialer pool, Dialer screen, Leads page, Callbacks — one row
+// per number, showing its most recent call (by `caller`, when one is
+// picked). Built from CallRecord, the one place every placed call is logged;
+// Lead.callHistory misses calls (a cloud Dialer call never wrote to it, nor
+// did a re-dial of a lead already past the auto-dialer's stages), which is
+// why a sales user's connected calls used to go missing from this list.
+// Lead details (name, assignee, team) are joined by phone number.
+const IN_PROGRESS = ['queued', 'dialing', 'ringing'];
+const SCAN_LIMIT = 3000;
+
+// connected → the customer answered; notpicked → they never did
+// (callingShared.callReachedCustomer — the same rule as My Calls).
+const outcomeOf = (r) => (callReachedCustomer(r) ? 'connected' : 'notpicked');
+
 const usedLeads = async (req, res) => {
+  // Management-only (the Leads page hides the tab for everyone else).
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: [], message: 'Used Leads is available to management only.' });
+  }
+  const CallRecord = mongoose.model('CallRecord');
   const Lead = mongoose.model('Lead');
-  const filter = { removed: false, stage: { $ne: 'New Lead' }, 'callHistory.0': { $exists: true } };
 
-  // Same row-level visibility as every other Lead read path.
-  const scopeFilter = await leadScopeFilter(req.admin, req);
-  const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
+  const caller = String(req.query.caller || '').trim();
+  const outcome = ['connected', 'notpicked'].includes(req.query.outcome) ? req.query.outcome : '';
 
-  const leads = await Lead.find(query)
-    .sort({ stageUpdatedAt: -1 })
-    .limit(500)
-    .select('name phone stage subStatus assignedUserName team lastContactAt stageUpdatedAt callHistory')
+  const filter = { removed: false, status: { $nin: IN_PROGRESS } };
+  if (caller && mongoose.isValidObjectId(caller)) filter.agent = caller;
+
+  const calls = await CallRecord.find(filter)
+    .sort({ created: -1 })
+    .limit(SCAN_LIMIT)
+    .select('contactName phone status disposition answeredAt duration agentName created endedAt')
     .lean();
 
-  return res.status(200).json({
-    success: true,
-    result: leads.map((l) => {
-      const lastCall = Array.isArray(l.callHistory) && l.callHistory.length ? l.callHistory[l.callHistory.length - 1] : null;
-      return {
-        _id: l._id,
-        name: l.name,
-        phone: l.phone,
-        stage: l.stage,
-        subStatus: l.subStatus,
-        response: (lastCall && lastCall.outcome) || l.stage,
-        assignedUserName: l.assignedUserName || null,
-        team: l.team || null,
-        lastContactAt: l.lastContactAt || l.stageUpdatedAt,
-      };
-    }),
-    message: 'ok',
-  });
+  // Most recent call per number (calls are newest-first).
+  const latest = new Map();
+  for (const c of calls) {
+    const key = last10(c.phone);
+    if (key && !latest.has(key)) latest.set(key, c);
+  }
+
+  const leads = latest.size
+    ? await Lead.find({ removed: false, phoneNormalized: { $in: [...latest.keys()] } })
+        .select('name phone phoneNormalized stage subStatus assignedUserName team')
+        .lean()
+    : [];
+  const leadByPhone = new Map(leads.map((l) => [l.phoneNormalized, l]));
+
+  const rows = [];
+  for (const [key, c] of latest) {
+    const callOutcome = outcomeOf(c);
+    if (outcome && callOutcome !== outcome) continue;
+    const lead = leadByPhone.get(key);
+    const d = c.disposition && BY_CODE[c.disposition];
+    rows.push({
+      _id: lead ? lead._id : c._id,
+      name: (lead && lead.name) || c.contactName || 'Unknown Number',
+      phone: (lead && lead.phone) || c.phone,
+      stage: lead ? lead.stage : null,
+      subStatus: lead ? lead.subStatus : null,
+      response: d ? d.label : callOutcome === 'connected' ? 'Connected' : 'Not picked up',
+      outcome: callOutcome,
+      calledBy: c.agentName || null,
+      assignedUserName: (lead && lead.assignedUserName) || null,
+      team: (lead && lead.team) || null,
+      lastContactAt: c.endedAt || c.created,
+    });
+  }
+
+  return res.status(200).json({ success: true, result: rows, message: 'ok' });
 };
 
 module.exports = usedLeads;
