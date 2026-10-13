@@ -84,7 +84,7 @@ async function autoAdvance(batchId) {
     batch: batchId,
     status: { $ne: 'cancelled' },
   })
-    .select('scheduledStart actualStart scheduledDurationMin status countsTowardSyllabus')
+    .select('scheduledStart actualStart scheduledDurationMin status countsTowardSyllabus syllabusAnchorChapter')
     .sort({ scheduledStart: 1 })
     .lean();
   if (!allSessions.length) return { chapters, sessionTopics: {} };
@@ -94,6 +94,12 @@ async function autoAdvance(batchId) {
 
   let deliveredHours = 0;
   const sessionTopics = {};
+  const chapterIndex = new Map(chapters.map((c, i) => [String(c._id), i]));
+  // Set once an anchored class is reached: chapters from the anchor on that
+  // were marked DELIVERED by a class BEFORE it were never really taught —
+  // the projection had simply run ahead of the batch.
+  let anchor = null;
+  const sessionsBefore = [];
 
   for (const cls of allSessions) {
     // A class that doesn't deliver syllabus (orientation, doubt-clearing,
@@ -104,6 +110,15 @@ async function autoAdvance(batchId) {
     // actually going to teach. `!== false` so the thousands of sessions
     // written before this field existed keep counting, as they did.
     if (cls.countsTowardSyllabus === false) continue;
+
+    // An anchored class restarts the walk at its chapter (LmsLiveSession.
+    // syllabusAnchorChapter); everything after follows on from there.
+    const anchorIdx = cls.syllabusAnchorChapter != null ? chapterIndex.get(String(cls.syllabusAnchorChapter)) : undefined;
+    if (anchorIdx !== undefined) {
+      deliveredHours = ranges[anchorIdx].start;
+      anchor = { idx: anchorIdx, before: sessionsBefore.slice() };
+    }
+    sessionsBefore.push(cls._id);
 
     const isCompleted = COMPLETED_STATUSES.includes(cls.status);
     const classStart = deliveredHours;
@@ -170,6 +185,14 @@ async function autoAdvance(batchId) {
       }
     }
     if (covered.length) sessionTopics[String(cls._id)] = covered;
+  }
+
+  if (anchor && anchor.before.length) {
+    await BatchChapterProgress.deleteMany({
+      batch: batchId,
+      chapter: { $in: chapters.slice(anchor.idx).map((c) => c._id) },
+      sessionId: { $in: anchor.before },
+    }).catch(() => {});
   }
 
   return { chapters, sessionTopics };
