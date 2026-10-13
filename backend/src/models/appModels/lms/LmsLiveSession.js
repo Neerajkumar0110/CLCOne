@@ -97,11 +97,6 @@ const schema = new mongoose.Schema({
   // consumes no chapter hours, and its recording keeps the session's own
   // title instead of borrowing a curriculum topic.
   countsTowardSyllabus: { type: Boolean, default: true },
-  // Re-aligns the curriculum walk: this class starts at the beginning of
-  // this Chapter, and every later class carries on from there. For a batch
-  // whose real teaching drifted from the hour-based projection (extra
-  // revision, a slower pace) — see chapterProgress.autoAdvance.
-  syllabusAnchorChapter: { type: mongoose.Schema.ObjectId, ref: 'Chapter' },
 
   // denormalised for the card
   title: { type: String, required: true },

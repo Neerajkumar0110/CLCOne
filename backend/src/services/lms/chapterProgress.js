@@ -84,7 +84,7 @@ async function autoAdvance(batchId) {
     batch: batchId,
     status: { $ne: 'cancelled' },
   })
-    .select('scheduledStart actualStart scheduledDurationMin status countsTowardSyllabus syllabusAnchorChapter')
+    .select('scheduledStart actualStart scheduledDurationMin status countsTowardSyllabus')
     .sort({ scheduledStart: 1 })
     .lean();
   if (!allSessions.length) return { chapters, sessionTopics: {} };
@@ -94,13 +94,6 @@ async function autoAdvance(batchId) {
 
   let deliveredHours = 0;
   const sessionTopics = {};
-  const chapterIndex = new Map(chapters.map((c, i) => [String(c._id), i]));
-  let anchor = null;
-  // Chapters this walk actually completes. Anything else marked DELIVERED
-  // is left over from an earlier walk (a class since turned into induction
-  // or revision, or a projection an anchor has corrected) and is retracted
-  // below — the calendar is the source of truth.
-  const deliveredNow = new Set();
 
   for (const cls of allSessions) {
     // A class that doesn't deliver syllabus (orientation, doubt-clearing,
@@ -112,23 +105,13 @@ async function autoAdvance(batchId) {
     // written before this field existed keep counting, as they did.
     if (cls.countsTowardSyllabus === false) continue;
 
-    // An anchored class restarts the walk at its chapter (LmsLiveSession.
-    // syllabusAnchorChapter); everything after follows on from there.
-    const anchorIdx = cls.syllabusAnchorChapter != null ? chapterIndex.get(String(cls.syllabusAnchorChapter)) : undefined;
-    if (anchorIdx !== undefined) {
-      deliveredHours = ranges[anchorIdx].start;
-      anchor = { idx: anchorIdx };
-    }
-
     const isCompleted = COMPLETED_STATUSES.includes(cls.status);
     const classStart = deliveredHours;
     deliveredHours += (cls.scheduledDurationMin || defaultDurationMin) / 60;
     const classEnd = deliveredHours;
 
     const covered = [];
-    // After an anchor, nothing before its chapter is in play — not even a
-    // zero-hour chapter (an assessment) sitting at the same hour mark.
-    for (let i = anchor ? anchor.idx : 0; i < chapters.length; i += 1) {
+    for (let i = 0; i < chapters.length; i += 1) {
       const { start, end } = ranges[i];
       // A zero-hour chapter (no duration set) has a zero-width range — bundle
       // it into whichever class's window reaches that position at all.
@@ -160,7 +143,6 @@ async function autoAdvance(batchId) {
       // spanning two classes shows on both days but only completes on the
       // second, and an upcoming class never writes anything, only labels.
       if (isCompleted && classEnd >= end - 1e-6) {
-        deliveredNow.add(String(ch._id));
         // eslint-disable-next-line no-await-in-loop
         const prev = await BatchChapterProgress.findOneAndUpdate(
           { batch: batchId, chapter: ch._id },
@@ -189,11 +171,6 @@ async function autoAdvance(batchId) {
     }
     if (covered.length) sessionTopics[String(cls._id)] = covered;
   }
-
-  await BatchChapterProgress.deleteMany({
-    batch: batchId,
-    chapter: { $in: chapters.filter((c) => !deliveredNow.has(String(c._id))).map((c) => c._id) },
-  }).catch(() => {});
 
   return { chapters, sessionTopics };
 }
