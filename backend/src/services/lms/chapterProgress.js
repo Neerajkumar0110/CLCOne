@@ -95,11 +95,23 @@ async function autoAdvance(batchId) {
   let deliveredHours = 0;
   const sessionTopics = {};
   const chapterIndex = new Map(chapters.map((c, i) => [String(c._id), i]));
-  // Set once an anchored class is reached: chapters from the anchor on that
-  // were marked DELIVERED by a class BEFORE it were never really taught —
-  // the projection had simply run ahead of the batch.
   let anchor = null;
-  const sessionsBefore = [];
+  // Chapters this walk actually completes. Anything else marked DELIVERED
+  // is left over from an earlier walk (a class since turned into induction
+  // or revision, or a projection an anchor has corrected) and is retracted
+  // below — the calendar is the source of truth.
+  const deliveredNow = new Set();
+
+  // A class before an anchor cannot have delivered the anchor chapter or
+  // anything after it — that is exactly what the anchor says was not taught
+  // yet. Nearest later anchor per session, walking backwards.
+  const capFor = new Map();
+  let cap = Infinity;
+  for (let k = allSessions.length - 1; k >= 0; k -= 1) {
+    capFor.set(String(allSessions[k]._id), cap);
+    const a = allSessions[k].syllabusAnchorChapter;
+    if (a != null && chapterIndex.has(String(a)) && allSessions[k].countsTowardSyllabus !== false) cap = chapterIndex.get(String(a));
+  }
 
   for (const cls of allSessions) {
     // A class that doesn't deliver syllabus (orientation, doubt-clearing,
@@ -116,9 +128,8 @@ async function autoAdvance(batchId) {
     const anchorIdx = cls.syllabusAnchorChapter != null ? chapterIndex.get(String(cls.syllabusAnchorChapter)) : undefined;
     if (anchorIdx !== undefined) {
       deliveredHours = ranges[anchorIdx].start;
-      anchor = { idx: anchorIdx, before: sessionsBefore.slice() };
+      anchor = { idx: anchorIdx };
     }
-    sessionsBefore.push(cls._id);
 
     const isCompleted = COMPLETED_STATUSES.includes(cls.status);
     const classStart = deliveredHours;
@@ -159,7 +170,8 @@ async function autoAdvance(batchId) {
       // contribution reaches the chapter's full cumulative end — a chapter
       // spanning two classes shows on both days but only completes on the
       // second, and an upcoming class never writes anything, only labels.
-      if (isCompleted && classEnd >= end - 1e-6) {
+      if (isCompleted && classEnd >= end - 1e-6 && i < capFor.get(String(cls._id))) {
+        deliveredNow.add(String(ch._id));
         // eslint-disable-next-line no-await-in-loop
         const prev = await BatchChapterProgress.findOneAndUpdate(
           { batch: batchId, chapter: ch._id },
@@ -189,13 +201,10 @@ async function autoAdvance(batchId) {
     if (covered.length) sessionTopics[String(cls._id)] = covered;
   }
 
-  if (anchor && anchor.before.length) {
-    await BatchChapterProgress.deleteMany({
-      batch: batchId,
-      chapter: { $in: chapters.slice(anchor.idx).map((c) => c._id) },
-      sessionId: { $in: anchor.before },
-    }).catch(() => {});
-  }
+  await BatchChapterProgress.deleteMany({
+    batch: batchId,
+    chapter: { $in: chapters.filter((c) => !deliveredNow.has(String(c._id))).map((c) => c._id) },
+  }).catch(() => {});
 
   return { chapters, sessionTopics };
 }
