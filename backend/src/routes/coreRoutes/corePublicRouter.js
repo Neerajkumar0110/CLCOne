@@ -6,6 +6,7 @@ const path = require('path');
 const { isPathInside } = require('../../utils/is-path-inside');
 const { submitWebsiteLead } = require('../../controllers/corePublicControllers/websiteLead');
 const { renderLeadFormPage, leadFormConfig } = require('../../controllers/corePublicControllers/leadFormPage');
+const { renderDataDeletionPage } = require('../../controllers/corePublicControllers/dataDeletionPage');
 const facebookController = require('../../controllers/appControllers/marketing/facebookController/index');
 const googleController = require('../../controllers/appControllers/marketing/googleController/index');
 const linkedinController = require('../../controllers/appControllers/marketing/linkedinController/index');
@@ -27,6 +28,9 @@ router.route('/leads/website').post(websiteLeadLimiter, catchErrors(submitWebsit
 router.route('/lead-form/:platform/config').get(catchErrors(leadFormConfig));
 router.route('/lead-form/:platform').get(catchErrors(renderLeadFormPage));
 router.route('/lead-form').get(catchErrors(renderLeadFormPage));
+
+// Meta's required "Data Deletion Instructions URL" for the Facebook app.
+router.route('/data-deletion').get(renderDataDeletionPage);
 
 const webhookLimiter = rateLimit({ windowMs: 60 * 1000, max: 300 });
 router.route('/webhooks/facebook').get(catchErrors(facebookController.verifyWebhook));
