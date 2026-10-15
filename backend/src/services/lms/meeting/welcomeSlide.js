@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
-// The single-page "title slide" BBB shows in the whiteboard the moment a
+// The "title slide" BBB shows in the whiteboard the moment a
 // meeting opens — replaces BBB's generic bundled "Welcome To BigBlueButton"
 // demo deck (which otherwise shows because no presentation was uploaded)
 // with a branded one that names the class's trainer instead. BBB's
@@ -14,6 +14,11 @@ const TEAL = '#0e7490';
 const TEAL_DARK = '#0b5b70';
 const INK = '#17202c';
 const MUTED = '#5b6674';
+
+// Blank whiteboard pages appended after the title slide — BBB can't add a
+// page to a presentation mid-class, so the teacher (or whoever presents)
+// just moves to the next slide for a fresh, empty board.
+const BLANK_PAGES = Math.max(0, Math.min(100, parseInt(process.env.LMS_WHITEBOARD_BLANK_PAGES, 10) || 30));
 
 let LOGO_BUFFER = null;
 let LOGO_ASPECT = 1489 / 367;
@@ -89,6 +94,16 @@ function renderWelcomeSlidePdf({ courseTitle, batchName, teacherName, brand = 'C
         .font('Helvetica')
         .fontSize(10.5)
         .text(brand, 0, H - 34, { width: W, align: 'center' });
+
+      for (let i = 1; i <= BLANK_PAGES; i += 1) {
+        doc.addPage({ size: [W, H], margin: 0 });
+        doc.rect(0, 0, W, H).fill('#ffffff');
+        doc
+          .fillColor('#c3cad3')
+          .font('Helvetica')
+          .fontSize(9)
+          .text(`${i + 1}`, W - 60, H - 24, { width: 40, align: 'right', lineBreak: false });
+      }
 
       doc.end();
     } catch (e) {

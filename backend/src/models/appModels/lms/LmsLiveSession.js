@@ -49,6 +49,13 @@ const participantSchema = new mongoose.Schema(
     // transient: is the participant currently "in" (a session with no leftAt)
     online: { type: Boolean, default: false },
 
+    // Actually present INSIDE the BBB room — stamped by the live tick from
+    // BBB's own getMeetingInfo attendee list (liveClassService's
+    // stampBbbPresence). `sessions` above only proves Join was clicked in the
+    // CRM; these prove the browser really got into the meeting.
+    bbbFirstSeenAt: { type: Date },
+    bbbLastSeenAt: { type: Date },
+
     // manual admin correction (spec §5/§2 — "authorized admin can correct
     // attendance only with reason, timestamp and audit log"; the audit log
     // entry itself lives in AuditLog, this is the quick on-row trace).

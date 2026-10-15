@@ -66,6 +66,13 @@ const schema = new mongoose.Schema({
   // Set the moment the pool runs dry (so participating agents get notified
   // once, not every tick); cleared as soon as new leads are queued again.
   leadsExhaustedNotifiedAt: Date,
+  // Which Sales pipeline stage the Instant Lead Pool dials from — picked by
+  // management on the Calls page (leadPool.js's setStage). Changing it
+  // stamps leadPoolStageSetAt so leadPoolSyncTick re-queues leads in that
+  // stage even if the pool already dialed them under an earlier pick.
+  leadPoolStage: { type: String, default: 'New Lead' },
+  leadPoolStageSetAt: Date,
+  leadPoolStageSetByName: String,
 
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },

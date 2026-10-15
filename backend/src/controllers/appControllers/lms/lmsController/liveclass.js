@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 const { liveClassService, batchRename } = require('../../../../services/lms');
 const { trainerNames } = require('../../../../services/lms/teacherCourseAccess');
+const { recordJoinAttempt } = require('../../../../services/lms/joinAttemptLog');
+
+// Every join entry point goes through here so each Join click (and why it
+// was refused) lands in LmsJoinAttempt — see the Candidates detail modal.
+async function joinAndLog(req, sessionId, admin, via) {
+  const out = await liveClassService.issueJoin(sessionId, admin);
+  recordJoinAttempt({ req, sessionId, user: admin, step: 'join', via, ok: !out.error, errorCode: out.error, error: out.error ? out.message : undefined });
+  return out;
+}
 
 // HTTP layer for live classes. Thin — all logic is in
 // services/lms/liveClassService.js. The real meeting URL is never in a
@@ -138,7 +147,7 @@ async function end(req, res) {
 
 // POST /api/lms/liveclasses/:id/join  -> { url: ticket redirect, expiresInSec }
 async function join(req, res) {
-  return send(res, await liveClassService.issueJoin(req.params.id, req.admin));
+  return send(res, await joinAndLog(req, req.params.id, req.admin, 'app'));
 }
 
 // POST /api/lms/liveclasses/:id/leave
@@ -172,7 +181,7 @@ async function regenerate(req, res) {
 // mirror row's joinUrl) — bearer-gated; bounces to the ticket flow via a
 // tiny auto-submit page so it works from a plain link too.
 async function openEntry(req, res) {
-  const out = await liveClassService.issueJoin(req.params.id, req.admin);
+  const out = await joinAndLog(req, req.params.id, req.admin, 'link');
   if (out.error) return res.status(out.error).type('text/plain').send(out.message);
   return res.redirect(302, out.result.url);
 }
@@ -208,7 +217,7 @@ async function openPublic(req, res) {
   const admin = await mongoose2.model('Admin').findOne({ _id: decoded.id, removed: false });
   if (!admin) return page('Sign in required', 'Open the CRM &rarr; <b>LMS &rarr; Live Classes</b> and click <b>Join</b>.');
 
-  const out = await liveClassService.issueJoin(req.params.id, admin);
+  const out = await joinAndLog(req, req.params.id, admin, 'link');
   if (out.error) {
     return page(
       out.error === 409 ? 'Class not started' : 'Cannot join',
@@ -222,6 +231,10 @@ async function openPublic(req, res) {
 // GET /api/lms/live/t/:ticket  -> 302 to the real meeting URL (one-time)
 async function ticket(req, res) {
   const out = await liveClassService.redeemTicket(req.params.ticket);
+  if (out.crmUser || out.user) {
+    const user = out.user || (await mongoose.model('Admin').findById(out.crmUser).select('name surname email').lean());
+    recordJoinAttempt({ req, sessionId: out.sessionId, user, step: 'ticket', via: 'ticket', ok: !out.error, errorCode: out.error, error: out.error ? out.message : undefined });
+  }
   if (out.error) return res.status(out.error).type('text/plain').send(out.message);
   return res.redirect(302, out.result.url);
 }

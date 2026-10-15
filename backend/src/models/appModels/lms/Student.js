@@ -38,6 +38,24 @@ const studentSchema = featureSchema([
 // the fixed snapshot fields above. Blank for a roster row added by hand.
 studentSchema.add({ paymentRequest: { type: mongoose.Schema.ObjectId, ref: 'PaymentRequest' } });
 
+// When the current batch was given, plus every batch change (from → to,
+// when, by whom) — kept by the save/findOneAndUpdate hooks below so the
+// Candidates detail modal can answer "kab batch mila". Rows that got their
+// batch before this existed have neither; the detail endpoint falls back
+// to the LMS enrolment date for them, flagged as approximate.
+studentSchema.add({
+  batchAssignedAt: Date,
+  batchHistory: [
+    {
+      _id: false,
+      from: String,
+      to: String,
+      at: { type: Date, default: Date.now },
+      by: String,
+    },
+  ],
+});
+
 // Additive: remember whether this save is an insert, then (best-effort)
 // auto-provision the student a real CRM login. Never blocks the roster row.
 // Also fills in an Enrollment ID when none was typed, and keeps the GST
@@ -84,6 +102,13 @@ studentSchema.pre('save', async function (next) {
   if (!this.isNew && this.isModified('batch')) {
     const prev = await mongoose.model('Student').findById(this._id).select('batch').lean();
     this.$locals.prevBatch = prev && prev.batch;
+  }
+  if (this.$locals.batchTouched && (this.batch || '') !== (this.$locals.prevBatch || '')) {
+    const now = new Date();
+    if (this.batch) this.batchAssignedAt = now;
+    // Callers that know who did it set doc.$locals.actorName before save
+    // (see services/lms/liveClassService.js's addStudentToBatch).
+    this.batchHistory.push({ from: this.$locals.prevBatch || '', to: this.batch || '', at: now, by: this.$locals.actorName || '' });
   }
 
   next();
@@ -160,6 +185,24 @@ studentSchema.pre('findOneAndUpdate', async function (next) {
   // controller passing `actor: req.admin` as a query option (see
   // createCRUDController/update.js) — a harmless no-op for every other model.
   this._actor = this.getOptions().actor;
+
+  // Batch history — same record the save hook keeps, for the generic CRUD
+  // Edit path (an admin changing the Batch field on the Candidates tab).
+  if (hasUpdateField(update, 'batch')) {
+    const nextBatch = (update.$set && update.$set.batch !== undefined ? update.$set.batch : update.batch) || '';
+    if (nextBatch !== (this._prevBatch || '')) {
+      const now = new Date();
+      if (nextBatch) {
+        if (update.$set) update.$set.batchAssignedAt = now;
+        else update.batchAssignedAt = now;
+      }
+      update.$push = {
+        ...(update.$push || {}),
+        batchHistory: { from: this._prevBatch || '', to: nextBatch, at: now, by: (this._actor && this._actor.name) || '' },
+      };
+      this.setUpdate(update);
+    }
+  }
   next();
 });
 studentSchema.post('findOneAndUpdate', function (doc) {

@@ -11,6 +11,7 @@ import { DASH_CONFIGS } from '@/components/dashboard/configs';
 import BatchStudentsPanel from '@/pages/Lms/components/BatchStudentsPanel';
 import CurriculumViewer from '@/pages/Lms/components/CurriculumViewer';
 import AssignStudentModal from '@/pages/Lms/components/AssignStudentModal';
+import CandidateDetailModal from '@/pages/Lms/components/CandidateDetailModal';
 import lmsApi from '@/pages/Lms/api';
 import { request } from '@/request';
 
@@ -176,6 +177,7 @@ function TabBody({ section, tab }) {
   // after an assignment since CrudTab owns its own data with no exposed
   // refresh handle — remounting it (via key) is the simplest way in.
   const [assignStudent, setAssignStudent] = useState(null); // true | { name, email } | null
+  const [detailStudentId, setDetailStudentId] = useState(null); // Candidates row click → CandidateDetailModal
   const [studentsRefreshTick, setStudentsRefreshTick] = useState(0);
   // Students only — Course → Batch cascading filter bar above the list.
   // Only one of these is ever sent to the backend (CrudTab's fixedFilter
@@ -312,6 +314,7 @@ function TabBody({ section, tab }) {
             dataSource={unassignedRows}
             pagination={unassignedRows.length > 20 ? { pageSize: 20 } : false}
             locale={{ emptyText: 'No unassigned candidates right now.' }}
+            onRow={(row) => ({ onClick: () => setDetailStudentId(row.id), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Name', dataIndex: 'name' },
               { title: 'Email', dataIndex: 'email' },
@@ -330,7 +333,7 @@ function TabBody({ section, tab }) {
                     type="button"
                     className="hub-icon-btn"
                     title="Assign to a batch"
-                    onClick={() => setAssignStudent({ name: row.name, email: row.email })}
+                    onClick={(e) => { e.stopPropagation(); setAssignStudent({ name: row.name, email: row.email }); }}
                   >
                     <UsergroupAddOutlined />
                   </button>
@@ -347,6 +350,7 @@ function TabBody({ section, tab }) {
           fixedFilter={tab.entity === 'student' ? studentFixedFilter : tab.fixedFilter}
           title={tab.label}
           icon={tab.Icon}
+          onRowClick={tab.entity === 'student' ? (row) => setDetailStudentId(row._id) : undefined}
           renderRowExtra={
             tab.entity === 'batch'
               ? (row) => (
@@ -419,6 +423,9 @@ function TabBody({ section, tab }) {
           presetStudent={assignStudent && assignStudent !== true ? assignStudent : null}
           onAssigned={() => setStudentsRefreshTick((n) => n + 1)}
         />
+      )}
+      {tab.entity === 'student' && (
+        <CandidateDetailModal open={!!detailStudentId} studentId={detailStudentId} onClose={() => setDetailStudentId(null)} />
       )}
     </>
   ) : tab.stats ? (

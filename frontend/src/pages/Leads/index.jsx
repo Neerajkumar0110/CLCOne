@@ -4,6 +4,7 @@ import axios from "axios";
 import { Tooltip, Collapse, ConfigProvider, message } from "antd";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
+import TeamActivity from "./TeamActivity";
 import { request } from "@/request";
 import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
@@ -65,6 +66,9 @@ const HUB_ANTD_TOKENS = { colorPrimary: "var(--hub-blue)", borderRadius: 10 };
 // salesScope.js's FULL_ACCESS_ROLES (Team Manager added on top of the
 // shared FULL_ACCESS_ROLES constant, same as Support's own tier).
 const LEAD_ADMIN_TAB_ROLES = [...FULL_ACCESS_ROLES, "Team Manager"];
+// Team Activity — mirrors backend FULL_ACCESS_ROLES (callingController/
+// teamActivity.js), which also lets Sales Manager in.
+const TEAM_ACTIVITY_ROLES = [...FULL_ACCESS_ROLES, "Sales Manager", "Team Manager"];
 
 
 // Shows up to `max` team badges, collapsing the rest into a "+N" badge whose
@@ -251,7 +255,6 @@ export function LeadDetailModal({ lead, onClose }) {
   );
 }
 
-const POSITIONS = ["SDR", "Account Executive", "Senior Agent", "Team Lead", "Manager"];
 
 const AVATAR_COLORS = ["#2563EB", "#722ED1", "#13C2C2", "#FA8C16", "#EB2F96", "#52C41A"];
 
@@ -296,14 +299,32 @@ async function downloadLeadsExport(format, team) {
   URL.revokeObjectURL(url);
 }
 
+// Where a hand-entered lead came from. Imports, ad-platform pollers and the
+// website capture form set their own source — this list is for the manual
+// "Add Lead" form only.
+const MANUAL_LEAD_SOURCES = [
+  "Manual",
+  "Calling",
+  "Website",
+  "Facebook Ads",
+  "Instagram",
+  "Google Ads",
+  "LinkedIn",
+  "Referral",
+  "Walk-in",
+  "WhatsApp",
+  "Other",
+];
+
+// onAdd(lead) resolves to { ok } — the modal stays open (form intact) on a
+// validation error or a duplicate, and resets only after a real save.
 function AddLeadModal({ open, onClose, onAdd, teamNames, admins }) {
   const blank = () => ({
     name: "",
     phone: "",
     email: "",
-    source: "Website",
-    team: teamNames[0] || "",
-    position: POSITIONS[0],
+    source: "Manual",
+    team: "",
     stage: "New Lead",
     subStatus: defaultSubStatus("New Lead"),
     callBackAt: null,
@@ -318,33 +339,42 @@ function AddLeadModal({ open, onClose, onAdd, teamNames, admins }) {
   });
   const [form, setForm] = useState(blank);
   const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
 
+  // Fresh form every time the modal opens.
   useEffect(() => {
-    setForm((f) => ({ ...f, team: f.team || teamNames[0] || "" }));
+    if (open) {
+      setForm(blank());
+      setErr("");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamNames.length]);
+  }, [open]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const submit = () => {
-    if (!form.name.trim()) {
-      setErr("Client name is required.");
-      return;
-    }
+  const submit = async () => {
+    if (saving) return;
+    if (!form.name.trim()) return setErr("Client name is required.");
+    if (String(form.phone || "").replace(/\D/g, "").length < 10) return setErr("Enter a valid phone number (at least 10 digits).");
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setErr("Enter a valid email address.");
     const pErr = pipelineFormError(form);
-    if (pErr) {
-      setErr(pErr);
-      return;
-    }
-    onAdd({
+    if (pErr) return setErr(pErr);
+
+    setErr("");
+    setSaving(true);
+    const r = await onAdd({
       ...form,
-      image: null,
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
       color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
     });
-    setForm(blank());
-    setErr("");
-    onClose();
+    setSaving(false);
+    if (r?.ok) onClose();
+    else if (r?.message) setErr(r.message);
   };
+
+  const unassignedToPool = !form.assignedUser && form.stage === "New Lead";
 
   return (
     <HubModal
@@ -356,55 +386,53 @@ function AddLeadModal({ open, onClose, onAdd, teamNames, admins }) {
       footer={
         <>
           <button type="button" className="hub-btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="hub-btn hub-btn-primary" onClick={submit}>
-            Add Lead
+          <button type="button" className="hub-btn hub-btn-primary" onClick={submit} disabled={saving}>
+            {saving ? "Adding…" : "Add Lead"}
           </button>
         </>
       }
     >
       <div className="hub-grid-2">
         <div className="hub-form-row">
-          <label>Client Name</label>
-          <input className="hub-input" value={form.name} onChange={set("name")} placeholder="e.g. Rohan Malhotra" />
+          <label>Client Name <span style={{ color: "#ef4444" }}>*</span></label>
+          <input className="hub-input" value={form.name} onChange={set("name")} placeholder="e.g. Rohan Malhotra" autoFocus />
         </div>
         <div className="hub-form-row">
-          <label>Phone</label>
-          <input className="hub-input" value={form.phone} onChange={set("phone")} placeholder="+91 90000 00000" />
+          <label>Phone <span style={{ color: "#ef4444" }}>*</span></label>
+          <input className="hub-input" type="tel" value={form.phone} onChange={set("phone")} placeholder="+91 90000 00000" />
         </div>
       </div>
 
       <div className="hub-grid-2">
         <div className="hub-form-row">
           <label>Email</label>
-          <input className="hub-input" value={form.email} onChange={set("email")} placeholder="name@example.com" />
+          <input className="hub-input" type="email" value={form.email} onChange={set("email")} placeholder="name@example.com" />
         </div>
         <div className="hub-form-row">
           <label>Source</label>
           <select className="hub-select" value={form.source} onChange={set("source")}>
-            {["Website", "Facebook Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+            {MANUAL_LEAD_SOURCES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="hub-grid-2">
-        <div className="hub-form-row">
-          <label>Team</label>
-          <select className="hub-select" value={form.team} onChange={set("team")}>
-            {teamNames.length === 0 && <option value="">No teams yet</option>}
-            {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div className="hub-form-row">
-          <label>Position</label>
-          <select className="hub-select" value={form.position} onChange={set("position")}>
-            {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
+      <div className="hub-form-row">
+        <label>Team</label>
+        <select className="hub-select" value={form.team} onChange={set("team")} disabled={teamNames.length === 0}>
+          <option value="">{teamNames.length === 0 ? "No teams created yet" : "No team"}</option>
+          {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
       </div>
 
       <PipelineFields form={form} setForm={setForm} admins={admins} />
+
+      {unassignedToPool && (
+        <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: -4 }}>
+          Left unassigned, a New Lead is picked up by the Instant Lead Pool and dialed automatically.
+        </div>
+      )}
 
       {err && (
         <div style={{ marginTop: 8 }}>
@@ -432,6 +460,12 @@ function pipelineFormError(form) {
 // date/link fields the chosen stage needs + assigned user, follow-up and
 // remarks. Reads/writes `form` via `setForm`.
 function PipelineFields({ form, setForm, admins = [], showChangeReason = false }) {
+  // Assigned To lists only active Sales-department users — plus whoever the
+  // lead is already assigned to, so editing an older lead never silently
+  // drops a non-Sales owner from the picker.
+  const assignableAdmins = admins.filter(
+    (a) => (a.enabled !== false && DEPARTMENT_ROLES.Sales.includes(a.role)) || String(a._id) === String(form.assignedUser || "")
+  );
   const cfg = stageConfig(form.stage) || {};
   const subs = subStatusesFor(form.stage);
   const patch = (p) => setForm((f) => ({ ...f, ...p }));
@@ -459,19 +493,24 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
 
   return (
     <>
-      <div className="hub-grid-2">
-        <div className="hub-form-row">
+      {/* Equal columns + minWidth 0 so a long sub-status (e.g. "Assigned to
+          BDE After Connecting with Candidate (By Auto Dialer)") truncates
+          inside its box instead of pushing out past the modal edge. */}
+      <div className="hub-grid-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div className="hub-form-row" style={{ minWidth: 0 }}>
           <label>Lead Stage</label>
-          <select className="hub-select" value={form.stage} onChange={onStage}>
+          <select className="hub-select" style={{ width: "100%" }} value={form.stage} onChange={onStage}>
             {STAGE_NAMES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
-        <div className="hub-form-row">
+        <div className="hub-form-row" style={{ minWidth: 0 }}>
           <label>Sub-Status</label>
           <select
             className="hub-select"
+            style={{ width: "100%", minWidth: 0, textOverflow: "ellipsis" }}
+            title={form.subStatus}
             value={form.subStatus}
             onChange={(e) => patch({ subStatus: e.target.value })}
           >
@@ -586,7 +625,7 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
             onChange={(e) => patch({ assignedUser: e.target.value || null })}
           >
             <option value="">Unassigned</option>
-            {admins.map((a) => (
+            {assignableAdmins.map((a) => (
               <option key={a._id} value={a._id}>
                 {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
               </option>
@@ -700,17 +739,15 @@ function EditLeadModal({ lead, onClose, onSave, teamNames, admins }) {
 
       <div className="hub-grid-2">
         <div className="hub-form-row">
-          <label>Team</label>
-          <select className="hub-select" value={form.team || ""} onChange={set("team")}>
-            {teamNames.length === 0 && <option value="">No teams yet</option>}
-            <option value="">Unassigned</option>
-            {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <label>Email</label>
+          <input className="hub-input" value={form.email || ""} onChange={set("email")} placeholder="name@example.com" />
         </div>
         <div className="hub-form-row">
-          <label>Position</label>
-          <select className="hub-select" value={form.position || POSITIONS[0]} onChange={set("position")}>
-            {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          <label>Team</label>
+          <select className="hub-select" value={form.team || ""} onChange={set("team")} disabled={teamNames.length === 0 && !form.team}>
+            <option value="">{teamNames.length === 0 ? "No teams created yet" : "No team"}</option>
+            {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
+            {form.team && !teamNames.includes(form.team) && <option value={form.team}>{form.team}</option>}
           </select>
         </div>
       </div>
@@ -873,20 +910,32 @@ function DuplicateWarningModal({ duplicate, onCancel, onAddAnyway }) {
       {duplicate && (
         <div className="hub-card" style={{ boxShadow: "none", padding: 14 }}>
           <div className="hub-person" style={{ marginBottom: 10 }}>
-            <div className="hub-avatar" style={{ background: duplicate.color }}>
-              {duplicate.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+            <div className="hub-avatar" style={{ background: stageConfig(duplicate.stage)?.color || "#2563EB" }}>
+              {String(duplicate.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{duplicate.name}</div>
-              <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{duplicate.phone}</div>
+              <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>
+                {duplicate.phone}{duplicate.email ? ` · ${duplicate.email}` : ""}
+              </div>
             </div>
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
-            Team: <strong style={{ color: "var(--hub-text)" }}>{duplicate.team}</strong> · Position:{" "}
-            <strong style={{ color: "var(--hub-text)" }}>{duplicate.position}</strong> · Status:{" "}
-            <span className={`hub-badge ${STATUS_META[duplicate.status]}`} style={{ marginLeft: 2 }}>
-              {duplicate.status}
-            </span>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", display: "grid", gap: 4 }}>
+            <div>
+              Stage:{" "}
+              <span className={`hub-badge ${STATUS_META[duplicate.stage] || "hub-badge-gray"}`} style={{ marginLeft: 2 }}>
+                {duplicate.stage}
+              </span>
+              {duplicate.subStatus ? ` · ${duplicate.subStatus}` : ""}
+            </div>
+            <div>
+              Assigned to: <strong style={{ color: "var(--hub-text)" }}>{duplicate.assignedUserName || "Unassigned"}</strong>
+              {duplicate.team ? <> · Team: <strong style={{ color: "var(--hub-text)" }}>{duplicate.team}</strong></> : null}
+            </div>
+            <div>
+              Source: <strong style={{ color: "var(--hub-text)" }}>{duplicate.source || "—"}</strong>
+              {duplicate.created ? ` · added ${new Date(duplicate.created).toLocaleDateString("en-IN")}` : ""}
+            </div>
           </div>
         </div>
       )}
@@ -1263,7 +1312,6 @@ function AllLeads() {
     !!filters.quick ||
     Object.entries(filters).some(([k, v]) => k !== "quick" && k !== "teamView" && v);
 
-  const normalizePhone = (p) => (p || "").replace(/\D/g, "");
 
   const loadStageStats = async (teamViewOverride) => {
     setStageLoading(true);
@@ -1394,29 +1442,31 @@ function AllLeads() {
     if (listActive) await loadLeadList(drill.page);
   };
 
-  const createLead = async (lead) => {
-    const res = await request.create({ entity: "lead", jsonData: lead });
-    if (res?.success) await refreshAfterMutation();
-  };
-
+  // Duplicate detection is server-side now (POST /api/lead/create answers
+  // 409 + `duplicate` when the phone already exists) — the old version
+  // downloaded every lead to compare phones in the browser.
   const handleAddLead = async (lead) => {
-    const allRes = await request.listAll({ entity: "lead" });
-    const all = allRes?.success ? allRes.result : [];
-    const existing = all.find(
-      (l) => normalizePhone(l.phone) === normalizePhone(lead.phone) && normalizePhone(lead.phone)
-    );
-    if (existing) {
-      setPendingLead(lead);
-      setDuplicateOf(existing);
-    } else {
-      await createLead(lead);
+    const res = await request.create({ entity: "lead", jsonData: lead });
+    if (res?.success) {
+      await refreshAfterMutation();
+      return { ok: true };
     }
+    if (res?.duplicate) {
+      setPendingLead(lead);
+      setDuplicateOf(res.duplicate);
+      return { ok: false };
+    }
+    return { ok: false, message: res?.message || "Could not add the lead." };
   };
 
   const confirmAddAnyway = async () => {
-    await createLead(pendingLead);
+    const res = await request.create({ entity: "lead", jsonData: { ...pendingLead, allowDuplicate: true } });
     setPendingLead(null);
     setDuplicateOf(null);
+    if (res?.success) {
+      setAddOpen(false);
+      await refreshAfterMutation();
+    }
   };
 
   const cancelDuplicate = () => {
@@ -3147,6 +3197,7 @@ function UsedLeadsBoard() {
 export default function Leads() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const isLeadAdmin = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
+  const isTeamActivityAdmin = TEAM_ACTIVITY_ROLES.includes(currentAdmin?.role);
   const [tab, setTab] = useState("all");
 
   // Import/Export only ever shows for owner/Super Admin/Admin/Sales
@@ -3159,10 +3210,12 @@ export default function Leads() {
   const tabs = [
     { key: "all", label: "Lead Stages" },
     ...(isLeadAdmin ? [{ key: "used", label: "Used Leads" }, { key: "io", label: "Import / Export" }] : []),
+    ...(isTeamActivityAdmin ? [{ key: "team", label: "Team Activity" }] : []),
   ];
 
   useEffect(() => {
     if (!isLeadAdmin && (tab === "io" || tab === "used")) setTab("all");
+    if (!isTeamActivityAdmin && tab === "team") setTab("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeadAdmin]);
 
@@ -3180,6 +3233,7 @@ export default function Leads() {
       {tab === "all" && <AllLeads />}
       {isLeadAdmin && tab === "used" && <UsedLeadsBoard />}
       {isLeadAdmin && tab === "io" && <ImportExport />}
+      {isTeamActivityAdmin && tab === "team" && <TeamActivity />}
     </div>
   );
 }

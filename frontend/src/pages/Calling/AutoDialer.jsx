@@ -112,6 +112,7 @@ function InstantLeadPool() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [breakBusy, setBreakBusy] = useState(false);
+  const [stageBusy, setStageBusy] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [callsPage, setCallsPage] = useState(1);
@@ -190,6 +191,18 @@ function InstantLeadPool() {
     setBusy(false);
   };
 
+  // Management only (backend decides via canSetStage): which Sales stage the
+  // whole pool dials from — applies to every agent in the pool.
+  const changeStage = async (stage) => {
+    if (stageBusy || !stage || stage === data?.stage) return;
+    if (!window.confirm(`Switch the Instant Lead Pool to dial "${stage}" leads? Leads still waiting from "${data?.stage}" will be dropped from the queue.`)) return;
+    setStageBusy(true);
+    const r = await request.post({ entity: "calling/lead-pool/stage", jsonData: { stage } });
+    if (!r?.success) window.alert(r?.message || "Could not change the dialing stage.");
+    await load();
+    setStageBusy(false);
+  };
+
   const call = activeCall?.call;
   const lead = activeCall?.lead;
   const isRinging = !!call && !call.answeredAt;
@@ -206,6 +219,19 @@ function InstantLeadPool() {
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><ThunderboltOutlined /> Instant Lead Pool</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {data?.canSetStage && (
+            <select
+              className="hub-select"
+              style={{ width: 200 }}
+              value={data.stage || "New Lead"}
+              disabled={stageBusy}
+              title="Which stage's leads the pool dials — applies to every agent"
+              onChange={(e) => changeStage(e.target.value)}
+            >
+              {(data.stageOptions || []).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
           <button
             type="button"
             onClick={toggle}
@@ -230,9 +256,14 @@ function InstantLeadPool() {
             </span>
             {busy ? "…" : on ? "ON — receiving calls" : "OFF — join to start"}
           </button>
+          </div>
         </div>
         <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
-          Join and it dials straight from unassigned New Leads, sending you the next customer the moment you're free — no campaign setup needed.
+          Join and it dials straight from{" "}
+          <b style={{ color: "#475569" }}>
+            {(data?.stage || "New Lead") === "New Lead" ? "unassigned New Leads" : `${data.stage} leads`}
+          </b>
+          , sending you the next customer the moment you're free — no campaign setup needed.
         </div>
 
         {on && data?.shift && (

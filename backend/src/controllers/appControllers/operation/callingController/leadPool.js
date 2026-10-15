@@ -9,6 +9,11 @@ const { NON_SALES_ROLES } = require('../../../../config/roles');
 const shiftSchedule = require('../../../../config/shiftSchedule');
 const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
+const { STAGE_NAMES } = require('../../../../config/leadStages');
+
+// Who may point the Instant Lead Pool at a different Sales stage: full
+// access (owner/Super Admin/Admin/Sales Manager/Team Manager) + Team Leader.
+const POOL_STAGE_ROLES = [...FULL_ACCESS_ROLES, 'Team Leader'];
 
 // POST /api/calling/lead-pool/toggle { on: boolean }
 // Joins/leaves the one system-managed Instant Lead Pool campaign — Sales
@@ -20,20 +25,33 @@ const toggle = async (req, res) => {
   if (NON_SALES_ROLES.includes(req.admin.role)) {
     return res.status(403).json({ success: false, result: null, message: 'The Instant Lead Pool is Sales-only.' });
   }
+  const on = !!req.body.on;
+  await setPoolMembership(req.admin, on);
+
+  return res.status(200).json({
+    success: true,
+    result: { on },
+    message: on ? 'Joined the Instant Lead Pool' : 'Left the Instant Lead Pool',
+  });
+};
+
+// Joins/leaves `agent` (an Admin doc: _id, name, surname) — shared by the
+// agent's own toggle above and management's per-user toggle in
+// teamActivity.js.
+async function setPoolMembership(agent, on) {
   const camp = await getOrCreateLeadPoolCampaign();
   const CallCampaign = mongoose.model('CallCampaign');
   const AgentCallState = mongoose.model('AgentCallState');
 
-  const on = !!req.body.on;
   if (on) {
-    await CallCampaign.updateOne({ _id: camp._id }, { $addToSet: { agents: req.admin._id } });
+    await CallCampaign.updateOne({ _id: camp._id }, { $addToSet: { agents: agent._id } });
   }
 
   const now = new Date();
   const update = {
-    $setOnInsert: { agent: req.admin._id },
+    $setOnInsert: { agent: agent._id },
     $set: {
-      agentName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
+      agentName: `${agent.name} ${agent.surname || ''}`.trim(),
       status: on ? 'Available' : 'Offline',
       campaign: on ? camp._id : null,
       since: now,
@@ -49,7 +67,7 @@ const toggle = async (req, res) => {
     // breaks; a brief re-toggle later the SAME day (e.g. a tab reload
     // double-firing, or manually stepping away and back) must NOT reset
     // worked-hours math or let today's breaks be taken again.
-    const existing = await AgentCallState.findOne({ agent: req.admin._id }).select('shiftJoinedAt').lean();
+    const existing = await AgentCallState.findOne({ agent: agent._id }).select('shiftJoinedAt').lean();
     const joinedToday = existing && existing.shiftJoinedAt && istDateKey(existing.shiftJoinedAt) === istDateKey(now);
     if (!joinedToday) {
       update.$set.shiftJoinedAt = now;
@@ -58,14 +76,8 @@ const toggle = async (req, res) => {
     }
   }
 
-  await AgentCallState.updateOne({ agent: req.admin._id }, update, { upsert: true });
-
-  return res.status(200).json({
-    success: true,
-    result: { on },
-    message: on ? 'Joined the Instant Lead Pool' : 'Left the Instant Lead Pool',
-  });
-};
+  await AgentCallState.updateOne({ agent: agent._id }, update, { upsert: true });
+}
 
 // GET /api/calling/lead-pool/status — my own join state + the shared pool's
 // live numbers + my own recent calls (contact, duration, outcome) from it.
@@ -86,6 +98,9 @@ const status = async (req, res) => {
         leadsWaiting: 0,
         participants: 0,
         poolExhausted: false,
+        stage: 'New Lead',
+        stageOptions: STAGE_NAMES,
+        canSetStage: POOL_STAGE_ROLES.includes(req.admin.role),
         recentCalls: [],
         shift: {
           targetWorkMinutes: shiftSchedule.targetWorkMinutes,
@@ -148,6 +163,10 @@ const status = async (req, res) => {
       leadsWaiting,
       participants,
       poolExhausted: leadsWaiting === 0,
+      stage: camp.leadPoolStage || 'New Lead',
+      stageSetByName: camp.leadPoolStageSetByName || null,
+      stageOptions: STAGE_NAMES,
+      canSetStage: POOL_STAGE_ROLES.includes(req.admin.role),
       shift,
       recentCalls: recentCalls.map((c) => ({
         _id: c._id,
@@ -161,6 +180,47 @@ const status = async (req, res) => {
       })),
     },
     message: 'ok',
+  });
+};
+
+// POST /api/calling/lead-pool/stage { stage } — management points the whole
+// pool at one Sales pipeline stage. Leads still waiting from the previous
+// pick are dropped from the queue (their CRM Lead is untouched), and
+// leadPoolSyncTick starts queuing the new stage on its next tick — including
+// leads the pool already dialed under an earlier pick (leadPoolStageSetAt).
+const setStage = async (req, res) => {
+  if (!POOL_STAGE_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: null, message: 'Only management can change the dialing stage.' });
+  }
+  const stage = String((req.body && req.body.stage) || '');
+  if (!STAGE_NAMES.includes(stage)) {
+    return res.status(400).json({ success: false, result: null, message: 'Unknown stage.' });
+  }
+
+  const camp = await getOrCreateLeadPoolCampaign();
+  const CallCampaign = mongoose.model('CallCampaign');
+  const CallLead = mongoose.model('CallLead');
+
+  await CallLead.updateMany(
+    { campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } },
+    { $set: { removed: true, updated: new Date() } }
+  );
+  await CallCampaign.updateOne(
+    { _id: camp._id },
+    {
+      $set: {
+        leadPoolStage: stage,
+        leadPoolStageSetAt: new Date(),
+        leadPoolStageSetByName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
+        leadsExhaustedNotifiedAt: null,
+      },
+    }
+  );
+
+  return res.status(200).json({
+    success: true,
+    result: { stage },
+    message: `Instant Lead Pool now dials ${stage} leads.`,
   });
 };
 
@@ -338,4 +398,4 @@ async function myUsedLeads(req, res, page, items) {
   });
 }
 
-module.exports = { toggle, status, breakStart, usedLeads };
+module.exports = { toggle, status, setStage, breakStart, usedLeads, setPoolMembership };

@@ -750,6 +750,7 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
     if (studentDoc.batch !== batch.name) {
       studentDoc.batch = batch.name;
       studentDoc.course = batch.course || studentDoc.course;
+      studentDoc.$locals.actorName = (admin && admin.name) || '';
       await studentDoc.save();
     }
   } else if (cleanEmail) {
@@ -917,6 +918,7 @@ async function removeStudentFromBatch({ batchId, studentId, crmUserId, email } =
     : null;
   if (studentDoc && studentDoc.batch === batch.name) {
     studentDoc.batch = '';
+    studentDoc.$locals.actorName = (admin && admin.name) || '';
     await studentDoc.save();
     removed = true;
   }
@@ -1594,7 +1596,9 @@ async function redeemTicket(ticketStr) {
   );
   if (!session) return { error: 404, message: 'Invalid join link.' };
   const t = session.joinTickets.find((x) => x.ticket === ticketStr);
-  if (!t || t.used || t.exp < now) return { error: 410, message: 'This join link has expired — click Join again.' };
+  if (!t || t.used || t.exp < now) {
+    return { error: 410, message: 'This join link has expired — click Join again.', sessionId: session._id, crmUser: t && t.crmUser };
+  }
   t.used = true;
   await session.save();
 
@@ -1622,7 +1626,7 @@ async function redeemTicket(ticketStr) {
   };
 
   const url = await provider.getJoinUrl(session, opts);
-  return { result: { url } };
+  return { result: { url }, sessionId: session._id, crmUser: t.crmUser, user };
 }
 
 async function recordLeave(id, crmUserId, source = 'crm') {
@@ -1844,10 +1848,28 @@ async function autoLifecycleTick() {
     for (const d of liveNeedingModCheck) {
       const participants = await provider.getParticipants(d).catch(() => null);
       if (!participants || participants.length === 0) continue; // covered by the isRunning check above
+      await stampBbbPresence(d._id, participants, now).catch(() => {});
       const hasModerator = participants.some((p) => p.role === 'MODERATOR');
       if (!hasModerator) await endSession(d._id, null, { auto: true }).catch(() => {});
     }
   }
+}
+
+// Marks every CRM participant BBB currently lists as in the room (BBB's
+// userID is the CRM Admin _id — see BigBlueButtonProvider.getJoinUrl).
+// A targeted update, not session.save(), so it can't clobber a concurrent
+// join/leave write to the same document.
+async function stampBbbPresence(sessionId, attendees, now = new Date()) {
+  const ids = attendees
+    .map((a) => a.userId)
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(String(id)));
+  if (!ids.length) return;
+  await mongoose.model('LmsLiveSession').updateOne(
+    { _id: sessionId },
+    { $set: { 'participants.$[p].bbbLastSeenAt': now }, $min: { 'participants.$[p].bbbFirstSeenAt': now } },
+    { arrayFilters: [{ 'p.crmUser': { $in: ids } }] }
+  );
 }
 
 async function pollRecordings() {

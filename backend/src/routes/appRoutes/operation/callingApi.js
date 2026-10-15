@@ -42,8 +42,11 @@ router
 // ── instant lead pool (per-agent toggle, fed straight from Sales leads) ──
 router.route('/lead-pool/toggle').post(catchErrors(c.leadPoolToggle));
 router.route('/lead-pool/status').get(catchErrors(c.leadPoolStatus));
+router.route('/lead-pool/stage').post(catchErrors(c.leadPoolSetStage));
 router.route('/lead-pool/break/start').post(catchErrors(c.leadPoolBreakStart));
 router.route('/lead-pool/used-leads').get(catchErrors(c.leadPoolUsedLeads));
+router.route('/team-activity').get(catchErrors(c.teamActivityList));
+router.route('/team-activity/:id/pool').post(catchErrors(c.teamActivitySetPool));
 
 // ── agent calling screen ───────────────────────────────────────────────
 router.route('/agent/active').get(catchErrors(c.agentActive));

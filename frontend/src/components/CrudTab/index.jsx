@@ -114,7 +114,8 @@ function formatCell(field, value) {
  * entity, driven by a `fields` spec (config/featureSections.js). Uses the
  * generic IDURAR endpoints: /api/<entity>/{list,create,update,delete}.
  */
-export default function CrudTab({ entity, fields, fixedFilter, title, icon, renderRowExtra }) {
+// onRowClick (optional): clicking anywhere on a row except its Actions cell.
+export default function CrudTab({ entity, fields, fixedFilter, title, icon, renderRowExtra, onRowClick }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -430,7 +431,12 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                 )}
                 {!loading &&
                   rows.map((row) => (
-                    <tr key={row._id}>
+                    <tr
+                      key={row._id}
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      style={onRowClick ? { cursor: 'pointer' } : undefined}
+                      title={onRowClick ? 'Click for full details' : undefined}
+                    >
                       {tableFields.map((f) => (
                         <td key={f.name}>
                           {BADGE_FIELDS.has(f.name) && row[f.name] ? (
@@ -440,7 +446,10 @@ export default function CrudTab({ entity, fields, fixedFilter, title, icon, rend
                           )}
                         </td>
                       ))}
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{ textAlign: 'right', whiteSpace: 'nowrap', cursor: 'default' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {renderRowExtra && renderRowExtra(row)}
                         <button type="button" className="hub-icon-btn" title="Edit" onClick={() => openEdit(row)}>
                           <EditOutlined />

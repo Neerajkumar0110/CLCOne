@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import HubModal from "@/components/HubModal";
+import UserDetailModal from "./UserDetailModal";
+import CandidateDetailModal from "@/pages/Lms/components/CandidateDetailModal";
 import { request } from "@/request";
 import { usePermission } from "@/context/permissionContext";
 import {
@@ -394,6 +396,9 @@ function ReportsToField({ role, value, onChange, allUsers, excludeEmail }) {
 }
 
 const isSalesDept = (role) => ROLE_DEPARTMENT[role] === "Sales";
+// Row click opens a detail modal only for Sales users (UserDetailModal) and
+// Candidates (the LMS CandidateDetailModal) — no detail view for other roles.
+const hasDetail = (u) => isSalesDept(u.role) || u.role === "Student";
 
 // Business line picker (BUSINESS_NAMES), plus a Business Segment picker that
 // only appears for Sales-department roles. Shared by AddUserModal/
@@ -1074,6 +1079,7 @@ export default function Users({
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [permUserEmail, setPermUserEmail] = useState(null);
   const [editUserEmail, setEditUserEmail] = useState(null);
+  const [detailUser, setDetailUser] = useState(null);
   // Only meaningful on the unfiltered "All Users" view — a roleFilter tab
   // (Instructors/Candidates) already pins to one role, which is itself a
   // single department, so the picker would be redundant there.
@@ -1120,6 +1126,7 @@ export default function Users({
         businessName: u.businessName,
         businessSegment: u.businessSegment,
         enabled: u.enabled,
+        created: u.created,
         init: initialsOf([u.name, u.surname].filter(Boolean).join(" ") || u.email),
         color: colorFor(u.email),
       };
@@ -1321,6 +1328,7 @@ export default function Users({
                 <th style={{ width: 190 }}>User</th>
                 <th style={{ width: 230 }}>Email</th>
                 <th style={{ width: 130 }}>Role</th>
+                <th style={{ width: 120 }}>Joined</th>
                 <th style={{ width: 150 }}>Status</th>
                 <th>Actions</th>
               </tr>
@@ -1328,7 +1336,7 @@ export default function Users({
             <tbody>
               {visibleUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="hub-empty">
                       {roleFilter === "Student"
                         ? "No candidates yet — candidates added from the LMS show up here automatically, or add one directly."
@@ -1344,7 +1352,12 @@ export default function Users({
                 </tr>
               )}
               {visibleUsers.map((u) => (
-                <tr key={u.email}>
+                <tr
+                  key={u.email}
+                  style={hasDetail(u) ? { cursor: "pointer" } : undefined}
+                  title={hasDetail(u) ? "Click for full details" : undefined}
+                  onClick={hasDetail(u) ? () => setDetailUser(u) : undefined}
+                >
                   <td>
                     <div className="hub-person">
                       <div className="hub-avatar" style={{ background: u.color }}>
@@ -1359,12 +1372,17 @@ export default function Users({
                       {roleDisplay(u.role)}{u.role === "Finance" && u.subRole ? ` · ${u.subRole}` : ""}
                     </span>
                   </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {u.created
+                      ? new Date(u.created).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                      : "—"}
+                  </td>
                   <td>
                     <span className={`hub-badge ${u.enabled ? "hub-badge-green" : "hub-badge-gray"}`}>
                       {u.enabled ? "Active — can log in" : "Disabled"}
                     </span>
                   </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
                     <div className="hub-row" style={{ gap: 8, flexWrap: "nowrap" }}>
                       {!NO_EDIT_ROLES.includes(u.role) && (
                         <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEditUserEmail(u.email)}>
@@ -1437,6 +1455,20 @@ export default function Users({
         onClose={() => setEditUserEmail(null)}
         onSave={saveUserEdit}
         roleOptions={effectiveRoleOptions}
+      />
+
+      <UserDetailModal
+        open={!!detailUser && isSalesDept(detailUser.role)}
+        userId={detailUser?._id}
+        color={detailUser?.color}
+        init={detailUser?.init}
+        onClose={() => setDetailUser(null)}
+      />
+
+      <CandidateDetailModal
+        open={!!detailUser && detailUser.role === "Student"}
+        email={detailUser?.email}
+        onClose={() => setDetailUser(null)}
       />
 
       <UserPermissionsModal

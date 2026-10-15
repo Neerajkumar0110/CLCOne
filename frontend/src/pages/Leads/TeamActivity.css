@@ -1,0 +1,241 @@
+/* Lead Management → Team Activity tab (TeamActivity.jsx). Colours come from
+   the app-wide --hub-* tokens, so light/dark both follow the theme switch. */
+
+.ta-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.ta-kpi {
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.ta-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--ta-accent, #2563eb);
+}
+.ta-kpi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hub-muted);
+}
+.ta-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--hub-text);
+  margin-top: 4px;
+  line-height: 1.1;
+}
+.ta-kpi-sub {
+  font-size: 12px;
+  color: var(--hub-muted);
+  margin-top: 2px;
+}
+
+.ta-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.ta-toolbar .hub-input {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.ta-table td {
+  vertical-align: middle;
+}
+.ta-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ta-row:hover {
+  background: rgba(37, 99, 235, 0.04);
+}
+.ta-row.open {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.ta-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+.ta-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: #fff;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+}
+.ta-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--hub-surface);
+  background: #94a3b8;
+}
+.ta-dot.on {
+  background: #22c55e;
+}
+.ta-name {
+  font-weight: 700;
+  color: var(--hub-text);
+  font-size: 13.5px;
+}
+.ta-sub {
+  font-size: 11.5px;
+  color: var(--hub-muted);
+}
+
+.ta-num {
+  font-weight: 700;
+  color: var(--hub-text);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+/* 7-day sparkbars (login hours per day) */
+.ta-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 30px;
+}
+.ta-bar {
+  width: 9px;
+  border-radius: 3px 3px 0 0;
+  background: #93c5fd;
+  min-height: 2px;
+}
+.ta-bar.today {
+  background: #2563eb;
+}
+.ta-bar.zero {
+  background: var(--hub-border);
+}
+
+.ta-pool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.ta-pool-label {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* expanded detail */
+.ta-detail td {
+  background: var(--hub-surface);
+  padding: 0 !important;
+}
+.ta-detail-inner {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 2fr) minmax(200px, 1fr);
+  gap: 18px;
+  padding: 16px 18px 20px;
+  border-bottom: 1px solid var(--hub-border);
+}
+@media (max-width: 1100px) {
+  .ta-detail-inner {
+    grid-template-columns: 1fr;
+  }
+}
+.ta-section-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--hub-muted);
+  margin-bottom: 8px;
+}
+.ta-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12.5px;
+}
+.ta-facts dt {
+  color: var(--hub-muted);
+}
+.ta-facts dd {
+  margin: 0;
+  color: var(--hub-text);
+  font-weight: 600;
+  word-break: break-word;
+}
+.ta-week {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.ta-week th,
+.ta-week td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--hub-border);
+  color: var(--hub-text);
+}
+.ta-week th:first-child,
+.ta-week td:first-child {
+  text-align: left;
+}
+.ta-week th {
+  color: var(--hub-muted);
+  font-weight: 700;
+  font-size: 11.5px;
+}
+.ta-week tr.today td {
+  font-weight: 800;
+}
+.ta-week tfoot td {
+  font-weight: 800;
+  border-bottom: none;
+}
+.ta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hub-border);
+  font-size: 12px;
+  color: var(--hub-text);
+  font-weight: 600;
+}
+.ta-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}

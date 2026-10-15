@@ -27,6 +27,7 @@ const learnerOverview = require('./learnerOverview');
 const communication = require('./communication');
 const studyMaterial = require('./studyMaterial');
 const studentAlerts = require('./studentAlerts');
+const candidateDetail = require('./candidateDetail');
 const holidays = require('./holidays');
 const curriculumAdmin = require('./curriculumAdmin');
 
@@ -293,4 +294,5 @@ module.exports = {
   // students-tab alerts
   studentsUnassignedCount: studentAlerts.unassignedCount,
   studentsUnassignedList: studentAlerts.unassignedList,
+  studentDetail: candidateDetail.candidateDetail,
 };

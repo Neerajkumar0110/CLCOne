@@ -35,6 +35,7 @@ const trimUploadedLogo = (req, res, next) => {
 router.route('/admin/create').post(catchErrors(adminController.create));
 router.route('/admin/list').get(catchErrors(adminController.list));
 router.route('/admin/read/:id').get(catchErrors(adminController.read));
+router.route('/admin/overview/:id').get(catchErrors(require('../../controllers/coreControllers/adminController/overview')));
 router.route('/admin/update/:id').patch(catchErrors(adminController.update));
 router.route('/admin/delete/:id').delete(catchErrors(adminController.delete));
 

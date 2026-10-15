@@ -72,6 +72,12 @@ router.route('/:subPath/:directory/:file').get(function (req, res) {
     }
 
     return res.sendFile(absolutePath, (error) => {
+      // A viewer closing the tab / stopping a recording download mid-stream
+      // also lands here (error.code 'ECONNABORTED'), AFTER headers went out.
+      // Answering again then throws ERR_HTTP_HEADERS_SENT outside any
+      // try/catch and takes the whole process down — on the VPS that is
+      // what kept restarting clccrm-api (e.g. 14 Oct 20:46–20:57, mid-class).
+      if (error && res.headersSent) return;
       if (error) {
         return res.status(404).json({
           success: false,

@@ -90,6 +90,7 @@ const DB_MAP = {
   LmsBatchRoom: 'lmsDb',
   LmsEnrolment: 'lmsDb',
   LmsLiveSession: 'lmsDb',
+  LmsJoinAttempt: 'lmsDb',
   LmsSetting: 'lmsDb',
   LmsSyncJob: 'lmsDb',
   LmsWebhookEvent: 'lmsDb',
