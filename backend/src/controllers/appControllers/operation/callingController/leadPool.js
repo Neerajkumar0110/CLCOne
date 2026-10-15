@@ -10,6 +10,7 @@ const shiftSchedule = require('../../../../config/shiftSchedule');
 const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
+const { fillLeadPoolNow } = require('../../../../jobs/leadPoolSyncTick');
 
 // Who may point the Instant Lead Pool at a different Sales stage: full
 // access (owner/Super Admin/Admin/Sales Manager/Team Manager) + Team Leader.
@@ -217,10 +218,18 @@ const setStage = async (req, res) => {
     }
   );
 
+  // Fill the queue right away rather than waiting for the next 30s tick.
+  const queued = await fillLeadPoolNow().catch((e) => {
+    console.error('lead pool immediate fill failed:', e && e.message);
+    return 0;
+  });
+
   return res.status(200).json({
     success: true,
-    result: { stage },
-    message: `Instant Lead Pool now dials ${stage} leads.`,
+    result: { stage, queued },
+    message: queued
+      ? `Instant Lead Pool now dials ${stage} leads — ${queued} queued.`
+      : `Instant Lead Pool now dials ${stage} leads — none to dial in this stage right now.`,
   });
 };
 

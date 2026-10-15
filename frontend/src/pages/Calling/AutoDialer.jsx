@@ -348,7 +348,7 @@ function InstantLeadPool() {
 
         {data && data.poolExhausted && (
           <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, marginBottom: 12 }}>
-            <PoweroffOutlined /> No New leads left to dial right now — it'll pick up automatically as fresh leads come in.
+            <PoweroffOutlined /> No {data.stage || "New Lead"} leads left to dial right now — it'll pick up automatically as new ones come in.
           </div>
         )}
 
