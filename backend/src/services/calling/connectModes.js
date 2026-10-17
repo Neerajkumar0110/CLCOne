@@ -143,10 +143,20 @@ async function ensureBrowserEndpoint(admin) {
   const res = await fetch(`${p().apiBase}/v1/Account/${p().authId}/Endpoint/`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ username: wanted, password, alias: `${admin.name || 'Agent'} ${admin.surname || ''}`.trim() }),
+    // Plivo alias: letters, numbers and . + @ - _ only (no spaces).
+    body: JSON.stringify({
+      username: wanted,
+      password,
+      alias: `${admin.name || 'Agent'} ${admin.surname || ''}`.trim().replace(/[^A-Za-z0-9.+@_-]+/g, '_').slice(0, 40) || 'Agent',
+    }),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.username) throw new Error(json.error || `Plivo endpoint create failed (HTTP ${res.status})`);
+  if (!res.ok || !json.username) {
+    const e = json.error;
+    throw new Error(
+      `Plivo endpoint create failed (HTTP ${res.status}): ${typeof e === 'string' ? e : JSON.stringify(e || json)}`
+    );
+  }
   await AgentCallState.updateOne(
     { agent: admin._id },
     {

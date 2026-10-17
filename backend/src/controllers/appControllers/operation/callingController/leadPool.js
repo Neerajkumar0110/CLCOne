@@ -164,15 +164,25 @@ const browserCredentials = async (req, res) => {
   if ((await connectModes.getConnectMode()) !== 'browser') {
     return res.status(400).json({ success: false, result: null, message: 'Browser phone is not switched on.' });
   }
+  if (NON_SALES_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: null, message: 'Calling is Sales-only.' });
+  }
   const creds = await connectModes.ensureBrowserEndpoint(req.admin);
   return res.status(200).json({ success: true, result: creds, message: 'ok' });
 };
 
 // POST /api/calling/browser-phone/ready { ready } — the tab's heartbeat.
 const browserReady = async (req, res) => {
-  await mongoose
-    .model('AgentCallState')
-    .updateOne({ agent: req.admin._id }, { $set: { browserReadyAt: req.body && req.body.ready === false ? null : new Date() } });
+  // Upsert: a user who never joined the pool has no presence row yet, but
+  // their Dialer / callback calls still ring the browser in this mode.
+  await mongoose.model('AgentCallState').updateOne(
+    { agent: req.admin._id },
+    {
+      $setOnInsert: { agent: req.admin._id, agentName: `${req.admin.name} ${req.admin.surname || ''}`.trim(), status: 'Offline' },
+      $set: { browserReadyAt: req.body && req.body.ready === false ? null : new Date() },
+    },
+    { upsert: true }
+  );
   return res.status(200).json({ success: true, result: null, message: 'ok' });
 };
 

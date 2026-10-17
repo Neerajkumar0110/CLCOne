@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import { request } from "@/request";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
 
-// Browser phone for the Instant Lead Pool's "browser" connect mode (backend
-// services/calling/connectModes.js). While the agent is in the pool and the
-// mode is on, this logs into the agent's Plivo SIP endpoint in the CRM tab,
-// AUTO-ANSWERS every pool call (headset), and heartbeats "ready" to the
-// server every 30s — the dialer only routes customers to agents whose tab
-// is ready. Off / other modes → logged out, nothing rendered.
+// Same list as backend config/roles.js NON_SALES_ROLES — they never call.
+const NON_CALLING_ROLES = ["Support", "Finance", "Teacher", "Student"];
+
+// Browser phone for the "browser" connect mode (backend services/calling/
+// connectModes.js). While the mode is on, every calling user's CRM tab logs
+// into their Plivo SIP endpoint, AUTO-ANSWERS their calls (pool, Dialer,
+// callbacks, Facebook leads — headset), and heartbeats "ready" every 30s;
+// a user whose tab isn't ready gets their mobile rung instead. Other modes
+// → logged out, nothing rendered.
 const SDK_URL = "https://cdn.plivo.com/sdk/browser/v2/plivo.min.js";
 
 function loadSdk() {
@@ -30,7 +35,9 @@ const silentGet = async (entity) => {
 };
 
 export default function BrowserPhone() {
-  const [wanted, setWanted] = useState(false); // in pool + browser mode
+  const me = useSelector(selectCurrentAdmin);
+  const canCall = !!me && !NON_CALLING_ROLES.includes(me.role);
+  const [wanted, setWanted] = useState(false); // browser mode on (any calling user)
   const [state, setState] = useState("off"); // off | starting | ready | oncall | error
   const [err, setErr] = useState("");
   const sdkRef = useRef(null);
@@ -38,11 +45,12 @@ export default function BrowserPhone() {
 
   // Is browser mode on for me right now?
   useEffect(() => {
+    if (!canCall) return undefined;
     let alive = true;
     const check = async () => {
       const r = await silentGet("calling/lead-pool/status");
       if (!alive || !r?.success) return;
-      setWanted(!!r.result?.on && r.result?.connectMode === "browser");
+      setWanted(r.result?.connectMode === "browser");
     };
     check();
     const t = setInterval(check, 20000);
@@ -50,7 +58,7 @@ export default function BrowserPhone() {
       alive = false;
       clearInterval(t);
     };
-  }, []);
+  }, [canCall]);
 
   useEffect(() => {
     if (!wanted) {

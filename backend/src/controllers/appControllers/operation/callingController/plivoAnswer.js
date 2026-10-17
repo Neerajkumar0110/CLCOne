@@ -548,14 +548,16 @@ const plivoAnswer = async (req, res) => {
     return respondXml(res, HOLD_XML);
   }
 
-  // Instant Lead Pool / instant Facebook-lead calls follow the pool's
-  // connect mode (services/calling/connectModes.js); everything else rings
-  // the agent's mobile exactly as before.
+  // Every agent-bridged outbound call — pool, instant Facebook lead, Dialer,
+  // callback — follows the connect mode Admin picked
+  // (services/calling/connectModes.js), as long as THIS agent is ready for
+  // it (line live / browser phone registered); otherwise it rings their
+  // mobile exactly as before, so no call is ever lost to the mode.
   const isPoolCall = !!(rec && rec.campaign && (await mongoose
     .model('CallCampaign')
     .exists({ _id: rec.campaign, isLeadPool: true, removed: false })));
   const modes = require('../../../../services/calling/connectModes');
-  const mode = isPoolCall ? await modes.getConnectMode() : 'classic';
+  const mode = rec && rec.agent ? await modes.getConnectMode() : 'classic';
 
   if (mode === 'alwaysOn' && rec && rec.agent) {
     const st = await mongoose.model('AgentCallState').findOne({ agent: rec.agent }).select('agentLineLive').lean();
@@ -576,9 +578,10 @@ const plivoAnswer = async (req, res) => {
   }
 
   if (mode === 'browser' && rec && rec.agent) {
-    const st = await mongoose.model('AgentCallState').findOne({ agent: rec.agent }).select('plivoEndpoint').lean();
+    const st = await mongoose.model('AgentCallState').findOne({ agent: rec.agent }).select('plivoEndpoint browserReadyAt').lean();
     const user = st && st.plivoEndpoint && st.plivoEndpoint.username;
-    if (user) {
+    const ready = st && st.browserReadyAt && Date.now() - new Date(st.browserReadyAt).getTime() < 75 * 1000;
+    if (user && ready) {
       rec.connectMode = 'browser';
       await rec.save();
       // No greeting: the browser auto-answers in about a second.
@@ -586,7 +589,7 @@ const plivoAnswer = async (req, res) => {
     }
   }
 
-  if (rec && isPoolCall && !rec.connectMode) {
+  if (rec && (isPoolCall || rec.agent) && !rec.connectMode) {
     rec.connectMode = 'classic';
     await rec.save();
   }
