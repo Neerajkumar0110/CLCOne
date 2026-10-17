@@ -553,7 +553,59 @@ async function myUsedLeads(req, res, page, items) {
   });
 }
 
+// GET /api/calling/my-calls/:id/detail — My Calls row click: the full lead
+// behind one of MY calls (looked up by its number) + every call I made to
+// that number. Keyed on my own CallRecord, so an agent sees the lead even
+// when it isn't assigned to them (a pool lead), and nobody else's calls.
+const myCallDetail = async (req, res) => {
+  const id = req.params.id;
+  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, result: null, message: 'Bad id' });
+  const CallRecord = mongoose.model('CallRecord');
+  const call = await CallRecord.findOne({ _id: id, removed: false }).lean();
+  const mineOnly = !FULL_ACCESS_ROLES.includes(req.admin.role);
+  if (!call || (mineOnly && String(call.agent) !== String(req.admin._id))) {
+    return res.status(404).json({ success: false, result: null, message: 'Call not found' });
+  }
+  const p10 = last10(call.phone);
+  const lead = p10
+    ? await mongoose
+        .model('Lead')
+        .findOne({ removed: false, phoneNormalized: p10 })
+        .select('-rawMetaData -rawGoogleData -rawLinkedInData')
+        .lean()
+    : null;
+  const calls = p10
+    ? await CallRecord.find({
+        removed: false,
+        phone: { $in: phoneVariants(p10) },
+        ...(mineOnly ? { agent: req.admin._id } : {}),
+      })
+        .sort({ created: -1 })
+        .limit(30)
+        .select('status disposition duration missedByAgent agentLegAnswered agentName created endedAt notes recording.url recording.status')
+        .lean()
+    : [];
+  return res.status(200).json({
+    success: true,
+    result: {
+      lead,
+      calls: calls.map((c) => ({
+        _id: c._id,
+        at: c.endedAt || c.created,
+        outcome: OUTCOME_LABEL[outcomeOf(c)],
+        disposition: c.disposition || null,
+        durationSec: c.duration || 0,
+        agentName: c.agentName || null,
+        notes: c.notes || null,
+        recordingUrl: c.recording && c.recording.status === 'available' ? c.recording.url : null,
+      })),
+    },
+    message: 'ok',
+  });
+};
+
 module.exports = {
+  myCallDetail,
   toggle,
   status,
   setStage,

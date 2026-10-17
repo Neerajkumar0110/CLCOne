@@ -275,7 +275,18 @@ const cloudWebhook = async (req, res) => {
     await resolveLead(
       rec,
       rec.disposition,
-      rec.status === 'transferred' ? 'connected' : rec.status === 'completed' ? (rec.duration > 0 ? 'connected' : null) : 'failed'
+      // 'connected' only if the customer actually spoke to someone: talk
+      // time on the customer's leg AND the agent's leg picked up. A customer
+      // who hung up during the greeting while the agent's phone was still
+      // ringing (or with no agent at all) used to count as a 1st discussion
+      // and land in Connected Leads — it's a No Response.
+      rec.status === 'transferred'
+        ? 'connected'
+        : rec.status === 'completed'
+        ? rec.duration > 0 && rec.agentLegAnswered
+          ? 'connected'
+          : null
+        : 'failed'
     );
     if (rec.campaign) await recountCampaign(rec.campaign);
   } else if (rec.callLead && rec.status === 'connected') {

@@ -5,6 +5,10 @@ import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutli
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
+import CallerDetailModal from "./CallerDetailModal";
+
+// My Calls: the call-again button shows only for leads worth calling back.
+const CALLABLE_STAGES = ["Interested Leads", "Demo Booking"];
 
 const CONNECT_MODES = [
   { key: "classic", label: "Ring mobile per call" },
@@ -55,6 +59,7 @@ function UsedLeads() {
   const [outcome, setOutcome] = useState("");
   const [days, setDays] = useState(7);
   const [dialingId, setDialingId] = useState(null);
+  const [openCall, setOpenCall] = useState(null); // { id, name }
   // One-click call back to any number in My Calls — the same manual dial as
   // the Dialer screen; the in-call modal opens by itself once it connects.
   const callAgain = async (l) => {
@@ -95,6 +100,7 @@ function UsedLeads() {
           </select>
         </div>
       )}
+      {mine && <CallerDetailModal callId={openCall?.id} title={openCall?.name} onClose={() => setOpenCall(null)} />}
       <div className="hub-table-wrapper">
         <table className="hub-table">
           <thead>
@@ -105,7 +111,12 @@ function UsedLeads() {
               <tr><td colSpan={mine ? 6 : 5}><div className="hub-empty">{mine ? "No calls in this range." : "No leads dialed yet."}</div></td></tr>
             )}
             {data && data.map((l) => (
-              <tr key={l._id}>
+              <tr
+                key={l._id}
+                style={mine ? { cursor: "pointer" } : undefined}
+                title={mine ? "Open full customer detail" : undefined}
+                onClick={mine ? () => setOpenCall({ id: l._id, name: l.name }) : undefined}
+              >
                 <td>{l.name}<div style={{ fontSize: 11, color: "#94a3b8" }}>{l.phone}</div></td>
                 <td>
                   <span className={`hub-badge ${(mine ? OUTCOME_BADGE[l.outcome] : CALL_STATUS_BADGE[l.response]) || "hub-badge-gray"}`}>
@@ -122,7 +133,8 @@ function UsedLeads() {
                 {!mine && <td>{l.agentName || "—"}</td>}
                 <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
                 {mine && (
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {CALLABLE_STAGES.includes(l.stage) && (
                     <button
                       type="button"
                       className="hub-btn"
@@ -133,6 +145,7 @@ function UsedLeads() {
                     >
                       {dialingId === l._id ? "…" : <PhoneOutlined />}
                     </button>
+                    )}
                   </td>
                 )}
               </tr>

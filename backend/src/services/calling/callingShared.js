@@ -264,16 +264,21 @@ async function bridgeToCrmLead(callLead, callRecord, dispositionCode) {
 const REACHED_STATUSES = ['connected', 'onhold', 'transferred'];
 const NO_CONTACT_CODES = Object.keys(BY_CODE).filter((c) => BY_CODE[c].category === 'no-contact');
 function callReachedCustomer(r) {
+  // Routed to an agent who never picked up: the customer only ever heard
+  // the greeting — not a conversation, however long they stayed on.
+  if (r.missedByAgent) return false;
   if (r.disposition && NO_CONTACT_CODES.includes(r.disposition)) return false;
   return r.duration > 0 || REACHED_STATUSES.includes(r.status);
 }
 // The same rule as Mongo filter fragments.
 const CALL_REACHED = {
+  missedByAgent: { $ne: true },
   disposition: { $nin: NO_CONTACT_CODES },
   $or: [{ duration: { $gt: 0 } }, { status: { $in: REACHED_STATUSES } }],
 };
 const CALL_NOT_REACHED = {
   $or: [
+    { missedByAgent: true },
     { disposition: { $in: NO_CONTACT_CODES } },
     { duration: { $not: { $gt: 0 } }, status: { $nin: REACHED_STATUSES } },
   ],
