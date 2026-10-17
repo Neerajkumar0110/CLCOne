@@ -136,8 +136,12 @@ const assignOwner = async (req, res) => {
   // from the Instant Lead Pool queue while the pool is dialing unassigned New
   // Leads (see jobs/leadPoolSyncTick.js).
   if (!unassign) {
-    const camp = await mongoose.model('CallCampaign').findOne({ isLeadPool: true, removed: false }).select('_id leadPoolStage').lean();
-    if (camp && (camp.leadPoolStage || 'New Lead') === 'New Lead') {
+    const camp = await mongoose
+      .model('CallCampaign')
+      .findOne({ isLeadPool: true, removed: false })
+      .select('_id leadPoolStage leadPoolStages')
+      .lean();
+    if (camp && require('../../../../jobs/leadPoolSyncTick').stagesOf(camp).includes('New Lead')) {
       await mongoose.model('CallLead').updateMany(
         { campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] }, crmLead: { $in: leads.map((l) => l._id) } },
         { $set: { removed: true, updated: now } }

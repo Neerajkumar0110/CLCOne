@@ -10,7 +10,8 @@ const shiftSchedule = require('../../../../config/shiftSchedule');
 const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
-const { fillLeadPoolNow } = require('../../../../jobs/leadPoolSyncTick');
+const { fillLeadPoolNow, stageQueueSummary, stagesOf } = require('../../../../jobs/leadPoolSyncTick');
+const MAX_POOL_STAGES = 5;
 
 // Who may point the Instant Lead Pool at a different Sales stage: full
 // access (owner/Super Admin/Admin/Sales Manager/Team Manager) + Team Leader.
@@ -100,6 +101,9 @@ const status = async (req, res) => {
         participants: 0,
         poolExhausted: false,
         stage: 'New Lead',
+        stages: ['New Lead'],
+        stageQueue: [],
+        maxStages: MAX_POOL_STAGES,
         stageOptions: STAGE_NAMES,
         canSetStage: POOL_STAGE_ROLES.includes(req.admin.role),
         recentCalls: [],
@@ -165,6 +169,9 @@ const status = async (req, res) => {
       participants,
       poolExhausted: leadsWaiting === 0,
       stage: camp.leadPoolStage || 'New Lead',
+      stages: stagesOf(camp),
+      stageQueue: await stageQueueSummary(camp).catch(() => []),
+      maxStages: MAX_POOL_STAGES,
       stageSetByName: camp.leadPoolStageSetByName || null,
       stageOptions: STAGE_NAMES,
       canSetStage: POOL_STAGE_ROLES.includes(req.admin.role),
@@ -193,10 +200,17 @@ const setStage = async (req, res) => {
   if (!POOL_STAGE_ROLES.includes(req.admin.role)) {
     return res.status(403).json({ success: false, result: null, message: 'Only management can change the dialing stage.' });
   }
-  const stage = String((req.body && req.body.stage) || '');
-  if (!STAGE_NAMES.includes(stage)) {
+  // { stages: [...] } in priority order (1-5), or the older { stage }.
+  const body = req.body || {};
+  const raw = Array.isArray(body.stages) ? body.stages : [body.stage];
+  const stages = [...new Set(raw.map((s) => String(s || '')).filter(Boolean))];
+  if (!stages.length || stages.some((s) => !STAGE_NAMES.includes(s))) {
     return res.status(400).json({ success: false, result: null, message: 'Unknown stage.' });
   }
+  if (stages.length > MAX_POOL_STAGES) {
+    return res.status(400).json({ success: false, result: null, message: `Pick at most ${MAX_POOL_STAGES} stages.` });
+  }
+  const stage = stages[0];
 
   const camp = await getOrCreateLeadPoolCampaign();
   const CallCampaign = mongoose.model('CallCampaign');
@@ -211,6 +225,8 @@ const setStage = async (req, res) => {
     {
       $set: {
         leadPoolStage: stage,
+        leadPoolStages: stages,
+        leadPoolStageActiveAt: new Date(),
         leadPoolStageSetAt: new Date(),
         leadPoolStageSetByName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
         leadsExhaustedNotifiedAt: null,
@@ -226,10 +242,10 @@ const setStage = async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    result: { stage, queued },
+    result: { stage, stages, queued },
     message: queued
-      ? `Instant Lead Pool now dials ${stage} leads — ${queued} queued.`
-      : `Instant Lead Pool now dials ${stage} leads — none to dial in this stage right now.`,
+      ? `Instant Lead Pool now dials ${stages.join(' → ')} — ${queued} lead(s) queued.`
+      : `Instant Lead Pool now dials ${stages.join(' → ')} — no leads to dial in these stages right now.`,
   });
 };
 

@@ -71,6 +71,13 @@ const schema = new mongoose.Schema({
   // stamps leadPoolStageSetAt so leadPoolSyncTick re-queues leads in that
   // stage even if the pool already dialed them under an earlier pick.
   leadPoolStage: { type: String, default: 'New Lead' },
+  // Up to 5 stages in priority order (the Calls page multi-pick). The pool
+  // dials leadPoolStages[0] first; once its leads run out it moves on to the
+  // next, and falls back to an earlier one the moment new leads land there.
+  // leadPoolStage above is always the stage dialing RIGHT NOW. Empty = just
+  // [leadPoolStage] (older single-stage picks).
+  leadPoolStages: { type: [String], default: undefined },
+  leadPoolStageActiveAt: Date,
   leadPoolStageSetAt: Date,
   leadPoolStageSetByName: String,
 

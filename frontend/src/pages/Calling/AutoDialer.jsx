@@ -4,6 +4,7 @@ import { request } from "@/request";
 import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import PoolStagesModal from "./PoolStagesModal";
 
 function fmtHm(totalMinutes) {
   const m = Math.max(0, Math.round(totalMinutes || 0));
@@ -113,6 +114,7 @@ function InstantLeadPool() {
   const [busy, setBusy] = useState(false);
   const [breakBusy, setBreakBusy] = useState(false);
   const [stageBusy, setStageBusy] = useState(false);
+  const [stagesOpen, setStagesOpen] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [callsPage, setCallsPage] = useState(1);
@@ -191,17 +193,20 @@ function InstantLeadPool() {
     setBusy(false);
   };
 
-  // Management only (backend decides via canSetStage): which Sales stage the
-  // whole pool dials from — applies to every agent in the pool.
-  const changeStage = async (stage) => {
-    if (stageBusy || !stage || stage === data?.stage) return;
-    if (!window.confirm(`Switch the Instant Lead Pool to dial "${stage}" leads? Leads still waiting from "${data?.stage}" will be dropped from the queue.`)) return;
+  // Management only (backend decides via canSetStage): which Sales stages
+  // the whole pool dials, in priority order (up to 5) — applies to every agent.
+  const saveStages = async (stages) => {
+    if (stageBusy || !stages.length) return;
     setStageBusy(true);
-    const r = await request.post({ entity: "calling/lead-pool/stage", jsonData: { stage } });
-    if (!r?.success) window.alert(r?.message || "Could not change the dialing stage.");
+    const r = await request.post({ entity: "calling/lead-pool/stage", jsonData: { stages } });
+    if (!r?.success) window.alert(r?.message || "Could not change the dialing stages.");
+    else setStagesOpen(false);
     await load();
     setStageBusy(false);
   };
+  const stageQueue = data?.stageQueue?.length
+    ? data.stageQueue
+    : (data?.stages || [data?.stage || "New Lead"]).map((s) => ({ stage: s, left: null, active: s === (data?.stage || "New Lead") }));
 
   const call = activeCall?.call;
   const lead = activeCall?.lead;
@@ -216,21 +221,31 @@ function InstantLeadPool() {
 
   return (
     <div className="hub-stack">
+      {data?.canSetStage && (
+        <PoolStagesModal
+          open={stagesOpen}
+          onClose={() => setStagesOpen(false)}
+          onSave={saveStages}
+          options={data.stageOptions || []}
+          current={data.stages || [data.stage || "New Lead"]}
+          max={data.maxStages || 5}
+          saving={stageBusy}
+        />
+      )}
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><ThunderboltOutlined /> Instant Lead Pool</h3>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {data?.canSetStage && (
-            <select
-              className="hub-select"
-              style={{ width: 200 }}
-              value={data.stage || "New Lead"}
+            <button
+              type="button"
+              className="hub-btn"
               disabled={stageBusy}
-              title="Which stage's leads the pool dials — applies to every agent"
-              onChange={(e) => changeStage(e.target.value)}
+              title="Which stages the pool dials, in order — applies to every agent"
+              onClick={() => setStagesOpen(true)}
             >
-              {(data.stageOptions || []).map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              Dialing stages ({(data.stages || []).length || 1}) ✎
+            </button>
           )}
           <button
             type="button"
@@ -258,12 +273,32 @@ function InstantLeadPool() {
           </button>
           </div>
         </div>
-        <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
-          Join and it dials straight from{" "}
-          <b style={{ color: "#475569" }}>
-            {(data?.stage || "New Lead") === "New Lead" ? "unassigned New Leads" : `${data.stage} leads`}
-          </b>
-          , sending you the next customer the moment you're free — no campaign setup needed.
+        <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 8 }}>
+          Join and it dials straight from the stages below, in order, sending you the next customer the moment you're free — no campaign setup needed.
+        </div>
+        {/* Which stage is dialing right now, and what's next — shown to everyone. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 12 }}>
+          {stageQueue.map((q, i) => (
+            <React.Fragment key={q.stage}>
+              {i > 0 && <span style={{ color: "#94a3b8", fontWeight: 700 }}>→</span>}
+              <span
+                title={q.active ? "Dialing now" : q.left === 0 ? "No leads left in this stage" : "Waiting its turn"}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+                  border: `1px solid ${q.active ? "#16a34a" : "#e2e8f0"}`,
+                  background: q.active ? "#f0fdf4" : "#f8fafc",
+                  color: q.active ? "#15803d" : q.left === 0 ? "#94a3b8" : "#475569",
+                  textDecoration: !q.active && q.left === 0 ? "line-through" : "none",
+                }}
+              >
+                <span style={{ fontSize: 11, opacity: 0.7 }}>{i + 1}</span>
+                {q.active && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#16a34a" }} />}
+                {q.stage === "New Lead" ? "New Lead (unassigned)" : q.stage}
+                {q.left != null && <span style={{ fontWeight: 600, opacity: 0.8 }}>· {q.left}</span>}
+                {q.active && <span style={{ fontSize: 11, fontWeight: 800 }}>DIALING NOW</span>}
+              </span>
+            </React.Fragment>
+          ))}
         </div>
 
         {on && data?.shift && (
@@ -348,7 +383,7 @@ function InstantLeadPool() {
 
         {data && data.poolExhausted && (
           <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, marginBottom: 12 }}>
-            <PoweroffOutlined /> No {data.stage || "New Lead"} leads left to dial right now — it'll pick up automatically as new ones come in.
+            <PoweroffOutlined /> No leads left in {(data.stages || [data.stage || "New Lead"]).join(", ")} right now — it'll pick up automatically as new ones come in.
           </div>
         )}
 
