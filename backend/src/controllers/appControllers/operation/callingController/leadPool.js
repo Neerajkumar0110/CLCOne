@@ -173,6 +173,9 @@ const browserCredentials = async (req, res) => {
 
 // POST /api/calling/browser-phone/ready { ready } — the tab's heartbeat.
 const browserReady = async (req, res) => {
+  if (req.body && req.body.event) {
+    console.log(`[browser-phone] ${req.admin.name} ${req.admin.surname || ''}: ${String(req.body.event).slice(0, 40)} ${String(req.body.detail || '').slice(0, 300)}`);
+  }
   // Upsert: a user who never joined the pool has no presence row yet, but
   // their Dialer / callback calls still ring the browser in this mode.
   await mongoose.model('AgentCallState').updateOne(

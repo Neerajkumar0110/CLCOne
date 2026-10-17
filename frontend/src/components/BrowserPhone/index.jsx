@@ -87,9 +87,19 @@ export default function BrowserPhone() {
         const cr = await request.get({ entity: "calling/browser-phone/credentials" });
         if (!cr?.success) throw new Error(cr?.message || "No browser phone login");
         if (cancelled) return;
-        const sdk = new window.Plivo({ debug: "ERROR", permOnClick: false, enableTracking: false, closeProtection: true });
+        // permOnClick: true → answer() asks for AUDIO ONLY. With false the SDK
+        // answered with its default constraints (audio + video), which fails
+        // on a laptop without a usable camera — the call just rang out
+        // ("No Answer") even though the phone was registered.
+        const sdk = new window.Plivo({ debug: "ERROR", permOnClick: true, enableTracking: false, closeProtection: true, audioConstraints: true });
         sdkRef.current = sdk;
         const beat = () => request.post({ entity: "calling/browser-phone/ready", jsonData: { ready: true } }).catch(() => {});
+        // Every phone event goes to the server log, so a call that didn't
+        // pick up can be traced (VPS: pm2 logs → [browser-phone]).
+        const report = (event, detail) =>
+          request
+            .post({ entity: "calling/browser-phone/ready", jsonData: { ready: true, event, detail: String(detail || "").slice(0, 300) } })
+            .catch(() => {});
         sdk.client.on("onLogin", () => {
           setState("ready");
           beat();
@@ -101,16 +111,35 @@ export default function BrowserPhone() {
           setErr(`Phone login failed${cause ? `: ${cause}` : ""}`);
         });
         sdk.client.on("onIncomingCall", (callerName, extraHeaders, callInfo) => {
-          // Pool calls only reach this endpoint — pick up at once.
+          // Only CRM calls reach this endpoint — pick up at once.
+          const uuid = callInfo && callInfo.callUUID;
+          report("incoming", uuid);
+          let ok = false;
           try {
-            sdk.client.answer(callInfo && callInfo.callUUID, "reject");
-          } catch {
-            sdk.client.answer();
+            ok = sdk.client.answer(uuid, "reject");
+          } catch (e) {
+            report("answer-error", e && e.message);
           }
+          if (!ok) {
+            try {
+              ok = sdk.client.answer();
+            } catch (e) {
+              report("answer-error-2", e && e.message);
+            }
+          }
+          report(ok ? "answer-sent" : "answer-refused", uuid);
         });
-        sdk.client.on("onCallAnswered", () => setState("oncall"));
+        sdk.client.on("onIncomingCallCanceled", (info) => report("incoming-canceled", info && (info.reason || JSON.stringify(info))));
+        sdk.client.on("onMediaPermission", (ev) => report("media-permission", ev && JSON.stringify(ev)));
+        sdk.client.on("onCallAnswered", () => {
+          setState("oncall");
+          report("answered");
+        });
         sdk.client.on("onCallTerminated", () => setState("ready"));
-        sdk.client.on("onCallFailed", () => setState("ready"));
+        sdk.client.on("onCallFailed", (cause) => {
+          setState("ready");
+          report("call-failed", cause);
+        });
         sdk.client.on("onLogout", () => setState("off"));
         sdk.client.login(cr.result.username, cr.result.password);
       } catch (e) {
