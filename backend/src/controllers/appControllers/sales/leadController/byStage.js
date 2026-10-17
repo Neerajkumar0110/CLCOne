@@ -19,14 +19,10 @@ const endOfDay = (d) => {
   return x;
 };
 
-const byStage = async (req, res) => {
-  const Lead = mongoose.model('Lead');
-  const q = req.query;
-
-  const page = parseInt(q.page) || 1;
-  const limit = Math.min(parseInt(q.items) || 20, 200);
-  const skip = page * limit - limit;
-
+// The Lead List filter from query-style params — shared with assignOwner.js
+// so a bulk "assign every lead in this view" hits exactly the rows the list
+// shows (scope is applied separately, by the caller).
+function buildLeadListFilter(q) {
   const filter = { removed: false };
 
   if (q.stage && q.stage !== 'All') {
@@ -34,7 +30,8 @@ const byStage = async (req, res) => {
     else filter.stage = q.stage;
   }
   if (q.subStatus) filter.subStatus = q.subStatus;
-  if (q.assignedUser) filter.assignedUser = q.assignedUser;
+  if (q.assignedUser === 'none') filter.assignedUser = null; // unassigned only
+  else if (q.assignedUser) filter.assignedUser = q.assignedUser;
   if (q.source) filter.source = q.source;
   if (q.team) filter.team = q.team;
   if (q.position) filter.position = q.position;
@@ -65,6 +62,18 @@ const byStage = async (req, res) => {
   if (!filter.callBackAt) range('callBackAt', q.callbackFrom, q.callbackTo);
   range('nextFollowUpAt', q.followUpFrom, q.followUpTo);
   range('created', q.createdFrom, q.createdTo);
+  return filter;
+}
+
+const byStage = async (req, res) => {
+  const Lead = mongoose.model('Lead');
+  const q = req.query;
+
+  const page = parseInt(q.page) || 1;
+  const limit = Math.min(parseInt(q.items) || 20, 200);
+  const skip = page * limit - limit;
+
+  const filter = buildLeadListFilter(q);
 
   const sortBy = q.sortBy || 'stageUpdatedAt';
   const sortDir = Number(q.sortValue) === 1 ? 1 : -1;
@@ -110,3 +119,4 @@ const byStage = async (req, res) => {
 };
 
 module.exports = byStage;
+module.exports.buildLeadListFilter = buildLeadListFilter;

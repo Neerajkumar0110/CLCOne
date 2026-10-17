@@ -11,6 +11,7 @@ const stageStats = require('./stageStats');
 const byStage = require('./byStage');
 const usedLeads = require('./usedLeads');
 const myContacts = require('./myContacts');
+const assignOwner = require('./assignOwner');
 const { leadScopeFilter } = require('./scope');
 const {
   scopedPaginatedList,
@@ -31,6 +32,7 @@ methods.stageStats = stageStats;
 methods.byStage = byStage;
 methods.usedLeads = usedLeads;
 methods.myContacts = myContacts;
+methods.assignOwner = assignOwner;
 
 // Row-level visibility — a Sales Executive/Intern only ever sees their own
 // (or their team's) leads; only Admin/owner/Super Admin/Sales Manager/Team

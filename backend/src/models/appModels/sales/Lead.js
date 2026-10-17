@@ -89,6 +89,21 @@ const schema = new mongoose.Schema({
   // Ownership + free-text.
   assignedUser: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   assignedUserName: String,
+  // Every owner change made through Lead Owner (leadController/
+  // assignOwner.js): who it moved from/to, who did it, when.
+  ownerHistory: {
+    type: [
+      {
+        _id: false,
+        fromName: String,
+        to: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+        toName: String,
+        byName: String,
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
   remarks: String,
 
   stageHistory: { type: [stageHistorySchema], default: [] },

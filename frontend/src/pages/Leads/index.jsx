@@ -5,6 +5,7 @@ import { Tooltip, Collapse, ConfigProvider, message } from "antd";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import TeamActivity from "./TeamActivity";
+import LeadOwnerModal from "./LeadOwnerModal";
 import { request } from "@/request";
 import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
@@ -27,6 +28,7 @@ import {
 } from "@/config/leadStages";
 import {
   UserAddOutlined,
+  UserSwitchOutlined,
   EditOutlined,
   ImportOutlined,
   ExportOutlined,
@@ -1262,6 +1264,11 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
 function AllLeads() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
+  // Lead Owner (assign / bulk-assign) — same management set as the backend
+  // (leadController/assignOwner.js FULL_ACCESS_ROLES, incl. Sales Manager).
+  const canAssignOwner = TEAM_ACTIVITY_ROLES.includes(currentAdmin?.role);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [ownerModal, setOwnerModal] = useState(null); // null | { single?: lead }
   const { teamNames } = useTeams();
   const [teamStats, setTeamStats] = useState([]);
   const [teamStatsLoading, setTeamStatsLoading] = useState(true);
@@ -1333,6 +1340,9 @@ function AllLeads() {
     const stage = over.stage !== undefined ? over.stage : drillStage;
     const sub = over.sub !== undefined ? over.sub : drillSub;
     const f = { ...filters, ...(over.filters || {}) };
+    // A different stage/filter is a different set of leads — drop the ticks.
+    // Plain page-to-page navigation (no overrides) keeps them.
+    if (Object.keys(over).length) setSelectedIds([]);
     setDrill((d) => ({ ...d, loading: true }));
 
     const params = new URLSearchParams({ page: String(targetPage), items: "12" });
@@ -1388,7 +1398,26 @@ function AllLeads() {
     if ("teamView" in patch) loadStageStats(patch.teamView);
   };
 
+  // The Lead List's current by-stage params — "All in this list" in Lead
+  // Owner sends exactly these, so the backend assigns the rows shown here.
+  const listViewFilter = () => {
+    const out = {};
+    if (drillStage) out.stage = drillStage;
+    if (drillSub) out.subStatus = drillSub;
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v) out[k] = v;
+    });
+    return out;
+  };
+  const pageIds = drill.leads.map((l) => l._id);
+  const allPageTicked = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+  const toggleTick = (id) =>
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  const togglePageTicks = () =>
+    setSelectedIds((ids) => (allPageTicked ? ids.filter((x) => !pageIds.includes(x)) : [...new Set([...ids, ...pageIds])]));
+
   const clearList = () => {
+    setSelectedIds([]);
     setDrillStage(null);
     setDrillSub(null);
     setFilters(BLANK_FILTERS);
@@ -1506,6 +1535,17 @@ function AllLeads() {
         <div className="hub-card-header">
           <h3>Lead List</h3>
           <div className="hub-row" style={{ gap: 8 }}>
+            {canAssignOwner && listActive && (
+              <button
+                type="button"
+                className="hub-btn hub-btn-primary"
+                onClick={() => setOwnerModal({})}
+                disabled={!drill.count}
+                title="Give the ticked leads — or every lead in this list — to one or more Sales users"
+              >
+                <UserSwitchOutlined /> Lead Owner{selectedIds.length ? ` (${selectedIds.length})` : ""}
+              </button>
+            )}
             <button
               type="button"
               className="hub-btn"
@@ -1614,6 +1654,7 @@ function AllLeads() {
                   onChange={(e) => updateFilter({ assignedUser: e.target.value })}
                 >
                   <option value="">Anyone</option>
+                  <option value="none">Unassigned (no owner)</option>
                   {admins.map((a) => (
                     <option key={a._id} value={a._id}>
                       {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
@@ -1711,11 +1752,31 @@ function AllLeads() {
               {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}
               {drillStage ? ` · ${drillStage}` : ""}
               {drillSub ? ` · ${drillSub}` : ""}
+              {canAssignOwner && selectedIds.length > 0 && (
+                <>
+                  {" · "}
+                  <b style={{ color: "var(--hub-text)" }}>{selectedIds.length} selected</b>{" "}
+                  <button type="button" className="hub-link-btn" style={{ fontSize: 12 }} onClick={() => setSelectedIds([])}>
+                    clear
+                  </button>
+                </>
+              )}
             </div>
             <div className="hub-table-wrapper">
               <table className="hub-table">
                 <thead>
                   <tr>
+                    {canAssignOwner && (
+                      <th style={{ width: 36 }}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select every lead on this page"
+                          checked={allPageTicked}
+                          onChange={togglePageTicks}
+                          disabled={!pageIds.length}
+                        />
+                      </th>
+                    )}
                     <th>Client Name</th>
                     <th>Phone</th>
                     <th>Stage / Sub-Status</th>
@@ -1727,10 +1788,10 @@ function AllLeads() {
                 </thead>
                 <tbody>
                   {drill.loading && (
-                    <tr><td colSpan={7}><div className="hub-empty">Loading…</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 8 : 7}><div className="hub-empty">Loading…</div></td></tr>
                   )}
                   {!drill.loading && drill.leads.length === 0 && (
-                    <tr><td colSpan={7}><div className="hub-empty">No leads match these filters.</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 8 : 7}><div className="hub-empty">No leads match these filters.</div></td></tr>
                   )}
                   {!drill.loading &&
                     drill.leads.map((l) => {
@@ -1738,6 +1799,16 @@ function AllLeads() {
                         l.stage === "Callback" && l.callBackAt && new Date(l.callBackAt) < new Date();
                       return (
                         <tr key={l._id}>
+                          {canAssignOwner && (
+                            <td>
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${l.name}`}
+                                checked={selectedIds.includes(l._id)}
+                                onChange={() => toggleTick(l._id)}
+                              />
+                            </td>
+                          )}
                           <td>
                             <div className="hub-person" style={{ cursor: "pointer" }} onClick={() => setViewLead(l)}>
                               <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
@@ -1774,6 +1845,25 @@ function AllLeads() {
                             >
                               <EditOutlined /> Edit
                             </button>
+                            {canAssignOwner && (
+                              <button
+                                type="button"
+                                className="hub-btn"
+                                style={{ padding: "5px 12px", marginLeft: 6 }}
+                                title="Change this lead's owner"
+                                onClick={() =>
+                                  setOwnerModal({
+                                    single: {
+                                      _id: l._id,
+                                      name: l.name,
+                                      assignedUserName: l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "",
+                                    },
+                                  })
+                                }
+                              >
+                                <UserSwitchOutlined /> Owner
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1996,6 +2086,23 @@ function AllLeads() {
           </ConfigProvider>
         )}
       </div>
+
+      {canAssignOwner && (
+        <LeadOwnerModal
+          open={!!ownerModal}
+          onClose={() => setOwnerModal(null)}
+          onDone={async () => {
+            setSelectedIds([]);
+            await refreshAfterMutation();
+          }}
+          admins={admins}
+          selectedIds={selectedIds}
+          single={ownerModal?.single || null}
+          viewCount={drill.count}
+          viewFilter={listViewFilter()}
+          viewLabel={[drillStage, drillSub].filter(Boolean).join(" · ")}
+        />
+      )}
 
       <AddLeadModal
         open={addOpen}
