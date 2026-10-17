@@ -102,8 +102,6 @@ async function processWebhookLog(log) {
                 metaFormId: log.formId,
                 metaFormName: formName,
                 metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
-      metaFormName: formName,
-      facebookCreatedAt: fbCreatedAt,
                 facebookCreatedAt: fbCreatedAt,
               },
             }
@@ -133,6 +131,8 @@ async function processWebhookLog(log) {
       metaFormId: log.formId,
       adAccountId: conn.adAccountId,
       metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
+      metaFormName: formName,
+      facebookCreatedAt: fbCreatedAt,
       rawMetaData: leadData,
     });
 
