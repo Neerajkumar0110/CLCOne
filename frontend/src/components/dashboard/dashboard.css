@@ -285,6 +285,12 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* KPI grid ------------------------------------------------------------------*/
+.dash-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hub-text);
+  margin: 6px 2px -4px;
+}
 .dash-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

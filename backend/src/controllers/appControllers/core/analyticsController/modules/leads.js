@@ -182,6 +182,28 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     { key: 'enrolled', label: 'Enrolled', value: cur.enrolled },
   ];
 
+  // Calling activity for the same window + B2B/B2C + person scope (the
+  // Calls dashboard's own numbers; the lead filter drawer doesn't apply).
+  const callsMod = require('./calls');
+  const callQuery = { businessType: query.businessType };
+  const [callCur, callPrev] = await Promise.all([
+    callsMod.loadWindow(from, to, callQuery, req),
+    callsMod.loadWindow(prevFrom, prevTo, callQuery, req),
+  ]);
+  const cc = callsMod.stats(callCur);
+  const cp = callsMod.stats(callPrev);
+  const callSeries = (pred) => bucketCounts(callCur.filter(pred), 'when', bkt);
+  const callKpis = [
+    kpi('callsTotal', 'Total Calls', cc.total, cp.total, callSeries(() => true)),
+    kpi('callsConnected', 'Connected', cc.connected, cp.connected, callSeries((r) => r.connected)),
+    kpi('callsMissed', 'Missed / No Answer', cc.missed, cp.missed, callSeries((r) => r.missed), { positiveWhenDown: true }),
+    kpi('callsFailed', 'Failed', cc.failed, cp.failed, callSeries((r) => r.failed), { positiveWhenDown: true }),
+    kpi('callsConnectRate', 'Connect Rate', cc.connectRate.value * 100, cp.connectRate.value * 100, [], { fmt: 'pct' }),
+    kpi('callsTalk', 'Total Talk Time', cc.talk, cp.talk, [], { fmt: 'sec' }),
+    kpi('callsAvg', 'Avg Call Duration', cc.avgDuration, cp.avgDuration, [], { fmt: 'sec' }),
+    kpi('callsUniqueLeads', 'Unique Leads Called', cc.uniqueLeads, cp.uniqueLeads, []),
+  ];
+
   const scopeOpts = await scopeFacets(scope);
 
   return {
@@ -189,6 +211,7 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
     businessType: query.businessType || 'all',
     totals: { leads: total, ...cur },
     kpis,
+    callKpis,
     ratios,
     charts,
     funnel,

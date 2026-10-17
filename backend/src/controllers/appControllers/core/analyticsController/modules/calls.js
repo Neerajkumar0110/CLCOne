@@ -14,9 +14,8 @@ const {
   mergeScope,
 } = require('../shared');
 const { applyDrawer, drillToMongo, paginate } = require('./_util');
+const { callReachedCustomer } = require('../../../../../services/calling/callingShared');
 
-const CONNECTED_CR = ['connected', 'completed', 'onhold', 'transferred'];
-const MISSED_CR = ['no-answer', 'busy', 'cancelled'];
 const FAILED_CR = ['failed'];
 
 const DRAWER = {
@@ -26,11 +25,14 @@ const DRAWER = {
   disposition: { field: 'disposition', kind: 'in' },
 };
 
-// Normalise a CallRecord or legacy Call into one shape.
+// Normalise a CallRecord or legacy Call into one shape. "Connected" = the
+// customer was actually reached (callingShared.callReachedCustomer — talk
+// time, or a live status, and not a no-contact disposition like RINGING); a
+// 'completed' record with 0s talk time is a missed call, not a connect.
 function normRecord(r) {
-  const connected = CONNECTED_CR.includes(r.status) || !!r.answeredAt;
-  const missed = MISSED_CR.includes(r.status);
   const failed = FAILED_CR.includes(r.status);
+  const connected = !failed && callReachedCustomer(r);
+  const missed = !connected && !failed && r.status !== 'voicemail' && !['initiated', 'ringing', 'queued'].includes(r.status);
   return {
     id: String(r._id),
     when: r.created,
@@ -229,4 +231,4 @@ async function rows({ from, to, query, req }) {
   };
 }
 
-module.exports = { summary, rows };
+module.exports = { summary, rows, loadWindow, stats };

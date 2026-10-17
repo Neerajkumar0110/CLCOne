@@ -80,7 +80,10 @@ export default function DashboardShell({ module, config, extraActions, live = fa
 
   const facets = (data && data.facets) || {};
   const allZero =
-    data && data.kpis && data.kpis.length > 0 && data.kpis.every((k) => !k.value && !k.prev);
+    data &&
+    data.kpis &&
+    data.kpis.length > 0 &&
+    [...data.kpis, ...(data.callKpis || [])].every((k) => !k.value && !k.prev);
 
   return (
     <div className="hub-stack dash-shell" style={{ minWidth: 0 }}>
@@ -131,6 +134,13 @@ export default function DashboardShell({ module, config, extraActions, live = fa
         activeDrill={tableFilter}
         onDrill={setTableFilter}
       />
+
+      {config.callKpis && (
+        <>
+          <div className="dash-section-title">{config.callKpisTitle || "Calling"}</div>
+          <KpiGrid defs={config.callKpis} kpis={(data && data.callKpis) || []} loading={loading} />
+        </>
+      )}
 
       {allZero && !loading && (
         <div className="hub-card">

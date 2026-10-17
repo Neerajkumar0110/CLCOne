@@ -29,6 +29,18 @@ export default {
     { key: "invalid", label: "Invalid / Junk", fmt: "int", positiveWhenDown: true, drill: { field: "stage", op: "eq", value: "Invalid Leads", label: "Invalid" } },
     { key: "convPct", label: "Lead → Enrolled", fmt: "pct" },
   ],
+  // Second KPI row — the caller's own calling (same scope as the Calls dashboard).
+  callKpisTitle: "Calling Activity",
+  callKpis: [
+    { key: "callsTotal", label: "Total Calls", fmt: "int" },
+    { key: "callsConnected", label: "Connected", fmt: "int" },
+    { key: "callsMissed", label: "Missed / No Answer", fmt: "int", positiveWhenDown: true },
+    { key: "callsFailed", label: "Failed", fmt: "int", positiveWhenDown: true },
+    { key: "callsConnectRate", label: "Connect Rate", fmt: "pct" },
+    { key: "callsTalk", label: "Total Talk Time", fmt: "sec" },
+    { key: "callsAvg", label: "Avg Call Duration", fmt: "sec" },
+    { key: "callsUniqueLeads", label: "Unique Leads Called", fmt: "int" },
+  ],
   ratios: [
     { key: "leadQualification", label: "Qualification" },
     { key: "firstResponse", label: "First Response" },
