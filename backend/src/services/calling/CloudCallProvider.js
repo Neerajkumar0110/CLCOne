@@ -609,6 +609,15 @@ class CloudCallProvider extends CallingProvider {
     // the dialer silently stops calling them for the rest of the shift.
     advanced += await reapStaleAgentReservations();
 
+    // 2d. Fresh Facebook leads get an instant call first — one free pool
+    // agent each, round-robin (services/calling/instantLeads.js). Runs before
+    // the campaign dialing below so a new inquiry never waits behind it.
+    try {
+      advanced += await require('./instantLeads').dispatchInstantLeads(this);
+    } catch (err) {
+      console.error('[instantLeads] dispatch failed:', err.message);
+    }
+
     // 3. Auto-dial Available agents on Active auto-dial campaigns.
     const campaigns = await CallCampaign.find({
       removed: false,

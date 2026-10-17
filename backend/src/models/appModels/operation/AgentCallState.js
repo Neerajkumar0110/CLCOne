@@ -16,6 +16,9 @@ const schema = new mongoose.Schema({
     index: true,
   },
   campaign: { type: mongoose.Schema.ObjectId, ref: 'CallCampaign' },
+  // Round-robin for instant Facebook leads: whoever got one longest ago
+  // (or never) is next — everyone active gets one before anyone gets two.
+  lastInstantLeadAt: Date,
   currentCall: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
 
   since: { type: Date, default: Date.now },

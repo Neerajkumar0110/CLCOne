@@ -186,6 +186,18 @@ const schema = new mongoose.Schema({
   // when the CRM pulled it) and which form. Set on new Facebook leads and on
   // an existing lead a Facebook submission was linked to (same phone).
   facebookCreatedAt: { type: Date, index: true },
+  // Instant call for a fresh Facebook lead (services/calling/instantLeads.js):
+  // pending → waiting for a free active agent; calling → one was given it
+  // and the call is on; done → call over (owner kept only if they spoke);
+  // expired → nobody active for 24h, left to the normal pipeline.
+  instantDispatch: {
+    status: { type: String, enum: ['pending', 'calling', 'done', 'expired'], index: true },
+    agent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    agentName: String,
+    at: Date,
+    callRecord: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
+    attempts: { type: Number, default: 0 },
+  },
   metaFormName: String,
   rawMetaData: mongoose.Schema.Types.Mixed,
 

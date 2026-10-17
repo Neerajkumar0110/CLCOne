@@ -81,6 +81,8 @@ const schema = new mongoose.Schema({
   // Plivo request_uuid of the agent's leg (plivoAnswer.js placeBridgeLeg) —
   // lets the customer's hangup cancel an agent phone that is still ringing.
   agentLegRequestId: String,
+  // Placed by the instant Facebook-lead dispatcher (services/calling/instantLeads.js).
+  instantLead: { type: Boolean, default: false },
   // Last time the dialer asked Plivo whether this 'connected' call is still
   // live (CloudCallProvider.tick step 1a).
   liveCheckedAt: Date,

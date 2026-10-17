@@ -30,7 +30,9 @@ const stagesOf = (camp) => {
 
 // The Lead filter for "not yet queued under the current pick" in one stage.
 function stageLeadFilter(camp, stage) {
-  const and = [];
+  // A fresh Facebook lead waiting for / on its instant call
+  // (services/calling/instantLeads.js) is not the pool's to dial.
+  const and = [{ 'instantDispatch.status': { $nin: ['pending', 'calling'] } }];
   if (stage === 'New Lead') {
     and.push({ $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }] });
   }

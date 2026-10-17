@@ -395,6 +395,11 @@ async function resolveLead(callRecord, dispositionCode, rawOutcome) {
   if (preLinkedLeadId) {
     await advanceCrmLead(preLinkedLeadId, dispositionCode, rawOutcome, callRecord);
   }
+
+  // Instant Facebook-lead call: keep the owner only if they actually spoke.
+  if (callRecord.instantLead) {
+    await require('./instantLeads').settleInstantLead(callRecord);
+  }
 }
 
 // Lazily finds (or creates, once) the single system campaign behind the

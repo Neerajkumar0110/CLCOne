@@ -51,7 +51,7 @@ const capturedLeads = async (req, res) => {
       .sort({ facebookCreatedAt: -1, created: -1 })
       .skip((page - 1) * items)
       .limit(items)
-      .select('name email phone stage subStatus status source assignedUserName metaFormName metaFormId facebookCreatedAt created')
+      .select('name email phone stage subStatus status source assignedUserName metaFormName metaFormId facebookCreatedAt created instantDispatch')
       .lean(),
     Lead.countDocuments(filter),
   ]);

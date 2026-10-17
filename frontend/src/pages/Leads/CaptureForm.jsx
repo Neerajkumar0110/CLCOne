@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { message } from "antd";
 import { request } from "@/request";
@@ -360,6 +360,19 @@ function CaptureForm() {
     setCapturedPage(targetPage);
     setCapturedLoading(false);
   };
+
+  const loadCapturedLeadsRef = useRef(null);
+  loadCapturedLeadsRef.current = () => loadCapturedLeads(capturedPage, fbRange);
+
+  // Facebook Ads: refresh the captured list every 30s so a fresh lead (and
+  // who it went to) shows up without a reload.
+  useEffect(() => {
+    if (platform !== "Facebook Ads") return undefined;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") loadCapturedLeadsRef.current?.();
+    }, 30000);
+    return () => clearInterval(t);
+  }, [platform]);
 
   useEffect(() => {
     loadConfig(platform);
@@ -1310,7 +1323,15 @@ function CaptureForm() {
                         <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
                         {l.subStatus && <div style={{ color: "var(--hub-muted)" }}>{l.subStatus}</div>}
                       </td>
-                      <td>{l.assignedUserName || "Unassigned"}</td>
+                      <td>
+                        <div>{l.assignedUserName || "Unassigned"}</div>
+                        {l.instantDispatch?.status === "pending" && (
+                          <span className="hub-badge hub-badge-yellow" style={{ fontSize: 11 }}>Waiting for an active user</span>
+                        )}
+                        {l.instantDispatch?.status === "calling" && (
+                          <span className="hub-badge hub-badge-green" style={{ fontSize: 11 }}>Calling now</span>
+                        )}
+                      </td>
                       <td>
                         <div style={{ fontWeight: 700 }}>{new Date(at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
                         <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{new Date(at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>

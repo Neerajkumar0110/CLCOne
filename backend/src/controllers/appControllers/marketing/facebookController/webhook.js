@@ -133,6 +133,12 @@ async function processWebhookLog(log) {
       metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
       metaFormName: formName,
       facebookCreatedAt: fbCreatedAt,
+      // A FRESH inquiry gets an instant call from the next free active agent
+      // (services/calling/instantLeads.js). Old leads pulled in by a backfill
+      // don't — they go to the normal pipeline.
+      ...(!fbCreatedAt || Date.now() - fbCreatedAt.getTime() < 2 * 60 * 60 * 1000
+        ? { instantDispatch: { status: 'pending', at: new Date() } }
+        : {}),
       rawMetaData: leadData,
     });
 

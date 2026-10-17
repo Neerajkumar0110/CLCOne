@@ -20,6 +20,7 @@ import AppRouter from '@/router/AppRouter';
 import useResponsive from '@/hooks/useResponsive';
 import storePersist from '@/redux/storePersist';
 import ActiveCallModal from '@/components/ActiveCallModal';
+import InstantLeadAlert from '@/components/InstantLeadAlert';
 
 export default function ErpCrmApp() {
   const { Content } = Layout;
@@ -55,6 +56,7 @@ export default function ErpCrmApp() {
             call follows the agent across every page (and stays up as a
             floating pill while they work elsewhere in the CRM). */}
         <ActiveCallModal />
+        <InstantLeadAlert />
 
         <Navigation />
 

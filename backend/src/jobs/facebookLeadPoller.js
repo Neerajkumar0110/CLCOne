@@ -17,7 +17,9 @@ const mongoose = require('mongoose');
 // looks back FACEBOOK_POLL_BACKFILL_DAYS), and hand each one not already
 // in the CRM to processWebhookLog via a FacebookWebhookLog row — so a
 // failure is retried by jobs/facebookWebhookRetry.js like a webhook one.
-const POLL_INTERVAL_MS = Number(process.env.FACEBOOK_POLL_INTERVAL_MS) || 5 * 60 * 1000;
+// 1 min: a fresh lead gets an instant call (services/calling/instantLeads.js),
+// so it has to land fast. Only ACTIVE forms are read each tick.
+const POLL_INTERVAL_MS = Number(process.env.FACEBOOK_POLL_INTERVAL_MS) || 60 * 1000;
 const BACKFILL_DAYS = Number(process.env.FACEBOOK_POLL_BACKFILL_DAYS) || 30;
 // Re-read a little before the watermark so a lead that landed while the
 // previous tick was mid-run is never skipped (duplicates are dropped).
@@ -41,7 +43,9 @@ async function pollConnection(conn) {
     : new Date(Date.now() - BACKFILL_DAYS * 86400000);
   const sinceUnix = Math.floor(since.getTime() / 1000);
 
-  const forms = await graph.listLeadForms({ pageId: conn.pageId, pageAccessToken });
+  const forms = (await graph.listLeadForms({ pageId: conn.pageId, pageAccessToken })).filter(
+    (f) => !f.status || f.status === 'ACTIVE'
+  );
   let created = 0;
   for (const form of forms) {
     const leads = await graph.listFormLeads({ formId: form.id, pageAccessToken, sinceUnix });
