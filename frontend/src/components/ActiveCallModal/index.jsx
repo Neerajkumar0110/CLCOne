@@ -437,13 +437,28 @@ export default function ActiveCallModal() {
   // being torn down and recreated each time the modal opens.
   const isOpenRef = useRef(false);
   isOpenRef.current = isOpen;
+  const callDataRef = useRef(null);
+  callDataRef.current = callData;
 
   useEffect(() => {
     if (!hasCalling) return undefined;
 
     const checkActive = async () => {
       const res = await silentGet("calling/agent/active");
-      if (!res?.success || !res.result?.call) return;
+      if (!res?.success) return;
+      if (!res.result?.call) {
+        // The server has no live call for me any more, but the modal still
+        // shows one as live — the call:ended socket event was missed (socket
+        // dropped / reconnecting after a network blip). Flip it to ended so
+        // the agent isn't left staring at "Live Call Connected" with a timer
+        // that keeps running.
+        const cur = callDataRef.current;
+        if (isOpenRef.current && cur && ["connected", "onhold", "ringing", "dialing"].includes(cur.status)) {
+          setCallData((prev) => (prev ? { ...prev, status: "completed", endedAt: prev.endedAt || new Date().toISOString() } : prev));
+          message.info("Call ended. Please review & submit lead details.");
+        }
+        return;
+      }
 
       const { call, lead, crmLead } = res.result;
       setCallData(call);
