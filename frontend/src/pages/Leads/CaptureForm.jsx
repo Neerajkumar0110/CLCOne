@@ -434,8 +434,19 @@ function CaptureForm() {
       popup?.close();
       return;
     }
+    const win = popup || window.open(res.result.url, "fb-oauth", "width=620,height=720");
     if (popup) popup.location.href = res.result.url;
-    else window.open(res.result.url, "fb-oauth", "width=620,height=720");
+    // Backstop for a result message that never arrives (Meta's pages can cut
+    // the popup's link back to this window): once the popup closes, re-read
+    // the connection so a successful connect still shows up.
+    if (win) {
+      const t = setInterval(() => {
+        if (win.closed) {
+          clearInterval(t);
+          loadConnection();
+        }
+      }, 1000);
+    }
   };
 
   const disconnectFacebook = async () => {

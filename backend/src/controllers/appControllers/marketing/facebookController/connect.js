@@ -31,7 +31,9 @@ const connect = async (req, res) => {
     });
   }
 
-  const state = jwt.sign({ adminId: req.admin._id, purpose: 'fb-oauth' }, process.env.JWT_SECRET, {
+  // redirectUri rides along so callback.js exchanges the code with exactly
+  // the URI this dialog was opened with, whichever deploy serves the callback.
+  const state = jwt.sign({ adminId: req.admin._id, purpose: 'fb-oauth', redirectUri: process.env.META_REDIRECT_URI }, process.env.JWT_SECRET, {
     expiresIn: '10m',
   });
 

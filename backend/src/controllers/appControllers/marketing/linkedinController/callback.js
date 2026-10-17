@@ -7,7 +7,10 @@ const tokenCrypto = require('../../../../utils/linkedinTokenCrypto');
 // window that opened this OAuth popup via postMessage, then closes itself.
 // Mirrors facebookController/callback.js's popupResponsePage exactly.
 function popupResponsePage(res, payload) {
-  const appUrl = process.env.APP_URL || '*';
+  // '*': the payload is only success / an error message (no token), and the
+  // CRM runs on more than one origin (VPS domain + Vercel) — a fixed APP_URL
+  // that didn't match the opener made the browser silently drop the result.
+  const appUrl = '*';
   const html = `<!doctype html><html><body>
 <script>
   if (window.opener) {

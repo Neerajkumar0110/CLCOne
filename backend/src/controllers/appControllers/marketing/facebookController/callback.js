@@ -6,7 +6,10 @@ const tokenCrypto = require('../../../../utils/metaTokenCrypto');
 // Renders a tiny self-closing page that hands the result back to the SPA
 // window that opened this OAuth popup via postMessage, then closes itself.
 function popupResponsePage(res, payload) {
-  const appUrl = process.env.APP_URL || '*';
+  // '*': the payload is only success / an error message (no token), and the
+  // CRM runs on more than one origin (VPS domain + Vercel) — a fixed APP_URL
+  // that didn't match the opener made the browser silently drop the result.
+  const appUrl = '*';
   const html = `<!doctype html><html><body>
 <script>
   if (window.opener) {
@@ -39,6 +42,12 @@ const callback = async (req, res) => {
   if (decoded.purpose !== 'fb-oauth') {
     return popupResponsePage(res, { type: 'fb-oauth-error', message: 'Invalid OAuth state.' });
   }
+  // The code must be exchanged with the SAME redirect_uri the dialog was
+  // opened with. connect.js (on whichever deploy minted it) puts it in the
+  // state; this deploy's own META_REDIRECT_URI may differ (VPS vs Vercel),
+  // which Meta rejects ("domain of this URL isn't included in the app's
+  // domains") and no account ever got connected.
+  const redirectUri = decoded.redirectUri || process.env.META_REDIRECT_URI;
 
   try {
     const Admin = mongoose.model('Admin');
@@ -49,7 +58,7 @@ const callback = async (req, res) => {
 
     const shortLived = await graph.exchangeCodeForToken({
       code,
-      redirectUri: process.env.META_REDIRECT_URI,
+      redirectUri,
     });
     const longLived = await graph.exchangeForLongLivedToken(shortLived.access_token);
     const me = await graph.getMe(longLived.access_token);
@@ -87,6 +96,7 @@ const callback = async (req, res) => {
 
     return popupResponsePage(res, { type: 'fb-oauth-success' });
   } catch (err) {
+    console.error('[facebook callback] connect failed:', err.message);
     return popupResponsePage(res, { type: 'fb-oauth-error', message: err.message });
   }
 };
