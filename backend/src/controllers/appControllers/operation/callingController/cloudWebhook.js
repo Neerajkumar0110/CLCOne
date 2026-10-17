@@ -265,6 +265,9 @@ const cloudWebhook = async (req, res) => {
     await notifyAgentCallEvent(rec.agent, 'call:connected', rec);
   }
   if (nowDone) {
+    if (rec.agentLegRequestId && !rec.agentLegAnswered) {
+      require('./plivoAnswer').cancelAgentLeg(rec).catch(() => {});
+    }
     if (rec.agent) {
       await wrapupAgent(rec);
       await notifyAgentCallEvent(rec.agent, 'call:ended', rec);

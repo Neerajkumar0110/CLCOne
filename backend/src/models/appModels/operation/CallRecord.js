@@ -78,6 +78,12 @@ const schema = new mongoose.Schema({
   // pair of fields rather than overloading `status` — cloudWebhook.js's
   // rank-based status merge (customer-leg events) would otherwise race it.
   agentLegAnswered: { type: Boolean, default: false },
+  // Plivo request_uuid of the agent's leg (plivoAnswer.js placeBridgeLeg) —
+  // lets the customer's hangup cancel an agent phone that is still ringing.
+  agentLegRequestId: String,
+  // Last time the dialer asked Plivo whether this 'connected' call is still
+  // live (CloudCallProvider.tick step 1a).
+  liveCheckedAt: Date,
   missedByAgent: { type: Boolean, default: false },
   missedByAgentAt: Date,
 

@@ -55,7 +55,10 @@ async function reserveAgent({ agentIds, campaignId }) {
     {
       $set: {
         status: 'Ringing',
-        campaign: campaignId || null,
+        // Only overwrite with a real campaign: AgentCallState.campaign is
+        // also the agent's Instant Lead Pool membership, and nulling it for a
+        // callback / manual dial silently dropped them out of the pool.
+        ...(campaignId ? { campaign: campaignId } : {}),
         currentCall: null,
         since: new Date(),
         lastSeenAt: new Date(),

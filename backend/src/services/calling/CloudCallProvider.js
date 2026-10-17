@@ -248,7 +248,9 @@ class CloudCallProvider extends CallingProvider {
     await setAgent(agent._id, {
       status: 'Ringing',
       currentCall: rec._id,
-      campaign: campaign || null,
+      // Keep the pool membership (AgentCallState.campaign) on a no-campaign
+      // call — see reserveAgent in callingShared.js.
+      ...(campaign ? { campaign } : {}),
       since: new Date(),
       agentName: rec.agentName,
     });
@@ -522,6 +524,34 @@ class CloudCallProvider extends CallingProvider {
       await setAgent(rec.agent, { status: 'Wrapup', currentCall: null, since: new Date() });
       if (rec.campaign) touched.add(String(rec.campaign));
       advanced++;
+    }
+
+    // 1a. A 'connected' call older than 10 min: ask Plivo if it's really
+    // still live (checked at most every 5 min each). Calls are now marked
+    // connected the moment the customer answers (plivoAnswer.js), so a lost
+    // hangup webhook would otherwise park the agent as busy for up to 3h
+    // (step 1b). Not live any more → age it so 1b closes it right below.
+    const p = this._cfg.plivo;
+    if (p.authId && p.authToken) {
+      const liveCheck = await CallRecord.find({
+        provider: 'cloud',
+        status: { $in: ['connected', 'onhold'] },
+        providerCallId: { $exists: true, $ne: null },
+        phaseAt: { $lte: new Date(now - 10 * 60 * 1000) },
+        $or: [{ liveCheckedAt: null }, { liveCheckedAt: { $lte: new Date(now - 5 * 60 * 1000) } }],
+      })
+        .select('_id providerCallId')
+        .limit(20)
+        .lean();
+      for (const rec of liveCheck) {
+        const r = await fetch(`${p.apiBase}/v1/Account/${p.authId}/Call/${rec.providerCallId}/?status=live`, {
+          headers: { Authorization: `Basic ${Buffer.from(`${p.authId}:${p.authToken}`).toString('base64')}`, Accept: 'application/json' },
+        }).catch(() => null);
+        if (!r) continue; // network blip — try again next pass
+        const set = { liveCheckedAt: new Date() };
+        if (r.status === 404) set.phaseAt = new Date(0); // not live
+        await CallRecord.updateOne({ _id: rec._id }, { $set: set });
+      }
     }
 
     // 1b. Orphaned "connected" calls: the provider's hangup webhook can

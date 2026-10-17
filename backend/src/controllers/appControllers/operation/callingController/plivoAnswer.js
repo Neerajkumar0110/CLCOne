@@ -102,6 +102,33 @@ async function placeBridgeLeg({ cfg, dialNumber, callerId, crmCallId, secretQs }
     const text = await res.text().catch(() => '');
     throw new Error(`Plivo bridge-leg call failed (HTTP ${res.status}): ${text}`);
   }
+  const json = await res.json().catch(() => null);
+  const requestId = json && (Array.isArray(json.request_uuid) ? json.request_uuid[0] : json.request_uuid);
+  if (requestId && mongoose.isValidObjectId(crmCallId)) {
+    await mongoose
+      .model('CallRecord')
+      .updateOne({ _id: crmCallId }, { $set: { agentLegRequestId: String(requestId) } })
+      .catch(() => {});
+  }
+}
+
+// The customer hung up while the agent's phone was still ringing (or before
+// the agent joined): cancel that ringing leg so the agent doesn't pick up
+// into dead air — that "call drops ~5s after I answer" was exactly this
+// (customer gone during the greeting, agent answering ~10-20s later).
+// Plivo: DELETE /Request/{request_uuid}/ cancels a not-yet-answered call.
+async function cancelAgentLeg(rec) {
+  if (!rec || !rec.agentLegRequestId || rec.agentLegAnswered) return;
+  const p = callingConfig.cloud.plivo;
+  if (!p.authId || !p.authToken) return;
+  const res = await fetch(`${p.apiBase}/v1/Account/${p.authId}/Request/${rec.agentLegRequestId}/`, {
+    method: 'DELETE',
+    headers: plivoAuthHeaders(p),
+  }).catch(() => null);
+  // 404 = it already ended / was answered meanwhile — nothing to cancel.
+  if (res && !res.ok && res.status !== 404) {
+    console.error('[plivoAnswer] cancel agent leg failed:', res.status);
+  }
 }
 
 // The instant the far end's leg answers, redirect the first party's
@@ -366,8 +393,17 @@ const plivoAnswer = async (req, res) => {
       // leg=agent-hangup branch below checks before flagging a miss.
       rec.agentLegAnswered = true;
       await rec.save();
+      // The customer already hung up (e.g. during the greeting) — tell the
+      // agent instead of dropping them into a silent, empty conference.
+      if (['completed', 'failed', 'cancelled'].includes(rec.status)) {
+        return respondXml(
+          res,
+          '<Response><Speak voice="WOMAN" language="en-IN">The customer has already disconnected.</Speak><Hangup/></Response>'
+        );
+      }
       if (rec.agent) {
-        const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
+        const { notifyAgentCallEvent, setAgent } = require('../../../../services/calling/callingShared');
+        await setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id, since: new Date() });
         notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
       }
       if (rec.providerCallId) {
@@ -422,6 +458,17 @@ const plivoAnswer = async (req, res) => {
     rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
     if (rec) {
       callerId = rec.callerId || callerId;
+      // The customer just picked up — record it now. Plivo only calls our
+      // hangup_url at the END, so without this a live call sat on 'dialing'
+      // for its whole length and the dialer's 120s "stuck dial" sweep marked
+      // it failed mid-conversation, freed the agent and rang them with a
+      // second customer while they were still talking.
+      if (['queued', 'dialing', 'ringing'].includes(rec.status)) {
+        rec.status = 'connected';
+        if (!rec.answeredAt) rec.answeredAt = new Date();
+        rec.phaseAt = new Date();
+        await rec.save();
+      }
       if (rec.agent) {
         const Admin = mongoose.model('Admin');
         const admin = await Admin.findById(rec.agent).select('phone mobile contactNumber').lean();
@@ -473,4 +520,4 @@ const plivoAnswer = async (req, res) => {
   return bridgeToNumber({ cfg, res, crmCallId, dialNumber, callerId, secretQs, speakXml: GREETING_XML });
 };
 
-module.exports = { plivoAnswer };
+module.exports = { plivoAnswer, cancelAgentLeg };
