@@ -14,7 +14,7 @@ import {
 } from "@ant-design/icons";
 import { PERMISSION_MODULES } from "@/config/permissionModules";
 import { buildDefaultMatrix, fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
-import {
+import { permissionKeyFor,
   ROLES,
   KNOWN_NON_SELECTABLE_ROLES,
   FINANCE_SUB_ROLES,
@@ -1131,7 +1131,10 @@ export default function Users({
         color: colorFor(u.email),
       };
 
-      const existing = byEmail[u.email];
+      // One email can hold an LMS + a department account — each has its own
+      // permission record (config/roles.js permissionKeyFor).
+      const permKey = permissionKeyFor({ role: resolvedRole, email: u.email });
+      const existing = byEmail[permKey];
       if (existing) {
         const { matrix: filled, changed } = fillMatrixDefaults(existing.matrix, displayUser.role);
         let permRecordId = existing._id;
@@ -1139,7 +1142,7 @@ export default function Users({
           const saved = await savePermissionRecord({
             id: existing._id,
             scope: "user",
-            key: u.email,
+            key: permKey,
             matrix: filled,
           });
           if (saved?.success) permRecordId = saved.result._id;
@@ -1152,7 +1155,7 @@ export default function Users({
           : base[displayUser.role];
         const saved = await savePermissionRecord({
           scope: "user",
-          key: u.email,
+          key: permKey,
           matrix: defaultForRole,
         });
         loaded.push({
@@ -1172,24 +1175,26 @@ export default function Users({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const togglePermission = async (email, mod, permType) => {
-    const target = users.find((u) => u.email === email);
+  // Rows are identified by account _id, never email — one email can have
+  // two accounts (LMS + department).
+  const togglePermission = async (id, mod, permType) => {
+    const target = users.find((u) => u._id === id);
     if (!target) return;
 
     const updatedMatrix = {
       ...target.permissions,
       [mod]: { ...target.permissions[mod], [permType]: !target.permissions[mod][permType] },
     };
-    setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, permissions: updatedMatrix } : u)));
+    setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, permissions: updatedMatrix } : u)));
 
     const saved = await savePermissionRecord({
       id: target.permRecordId,
       scope: "user",
-      key: email,
+      key: permissionKeyFor(target),
       matrix: updatedMatrix,
     });
     if (saved?.success) {
-      setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, permRecordId: saved.result._id } : u)));
+      setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, permRecordId: saved.result._id } : u)));
     }
   };
 
@@ -1197,35 +1202,35 @@ export default function Users({
   // "Reset" should put a user back on their role's real current permissions,
   // not the original static out-of-the-box ones if an admin has since
   // customized that role via Roles & Permissions.
-  const resetPermissions = async (email) => {
-    const target = users.find((u) => u.email === email);
+  const resetPermissions = async (id) => {
+    const target = users.find((u) => u._id === id);
     if (!target) return;
 
     const roleRecords = await fetchPermissionRecords("role");
     const roleRecord = roleRecords.find((r) => r.key === target.role);
     const defaults = roleRecord ? fillMatrixDefaults(roleRecord.matrix, target.role).matrix : defaultMatrix()[target.role];
-    setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, permissions: defaults } : u)));
+    setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, permissions: defaults } : u)));
 
     const saved = await savePermissionRecord({
       id: target.permRecordId,
       scope: "user",
-      key: email,
+      key: permissionKeyFor(target),
       matrix: defaults,
     });
     if (saved?.success) {
-      setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, permRecordId: saved.result._id } : u)));
+      setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, permRecordId: saved.result._id } : u)));
     }
   };
 
-  const permUser = users.find((u) => u.email === permUserEmail) ?? null;
-  const editUser = users.find((u) => u.email === editUserEmail) ?? null;
+  const permUser = users.find((u) => u._id === permUserEmail) ?? null;
+  const editUser = users.find((u) => u._id === editUserEmail) ?? null;
 
   // Role changed → their permissions should reflect the NEW position, not
   // stay frozen on the old one, so reset the override to the new role's default.
   const saveUserEdit = async (user, newRole, teamInfo) => {
     if (newRole !== user.role) {
       const defaults = defaultMatrix()[newRole];
-      await savePermissionRecord({ id: user.permRecordId, scope: "user", key: user.email, matrix: defaults });
+      await savePermissionRecord({ id: user.permRecordId, scope: "user", key: permissionKeyFor({ ...user, role: newRole }), matrix: defaults });
     }
     onAssignTeam(user.name, teamInfo.teamChoice, teamInfo.newTeamName);
     await loadUsers();
@@ -1237,7 +1242,7 @@ export default function Users({
     if (!window.confirm(`Delete ${user.name}? They'll be moved to Deleted Users and can be restored later.`)) return;
     const res = await request.delete({ entity: "admin", id: user._id });
     if (res?.success) {
-      setUsers((prev) => prev.filter((u) => u.email !== user.email));
+      setUsers((prev) => prev.filter((u) => u._id !== user._id));
     }
   };
 
@@ -1353,7 +1358,7 @@ export default function Users({
               )}
               {visibleUsers.map((u) => (
                 <tr
-                  key={u.email}
+                  key={u._id}
                   style={hasDetail(u) ? { cursor: "pointer" } : undefined}
                   title={hasDetail(u) ? "Click for full details" : undefined}
                   onClick={hasDetail(u) ? () => setDetailUser(u) : undefined}
@@ -1385,7 +1390,7 @@ export default function Users({
                   <td onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
                     <div className="hub-row" style={{ gap: 8, flexWrap: "nowrap" }}>
                       {!NO_EDIT_ROLES.includes(u.role) && (
-                        <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEditUserEmail(u.email)}>
+                        <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEditUserEmail(u._id)}>
                           <EditOutlined /> Edit
                         </button>
                       )}
@@ -1401,7 +1406,7 @@ export default function Users({
                             <TeamOutlined /> Create Team
                           </button>
                         )}
-                      <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u.email)}>
+                      <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u._id)}>
                         <SafetyCertificateOutlined /> Permissions
                       </button>
                       <button

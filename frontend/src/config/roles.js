@@ -27,6 +27,13 @@ export const LMS_TEACHER_ROLES = ["Teacher"];
 export const LMS_STUDENT_ROLES = ["Student"];
 export const LMS_PANEL_ROLES = [...LMS_TEACHER_ROLES, ...LMS_STUDENT_ROLES];
 
+// Per-user permission record key. One email can hold an LMS account AND a
+// department account (backend services/auth/accounts.js), so they can't
+// share one key: the department account keeps the plain email (every
+// existing staff record), the LMS account uses "lms:<email>".
+export const permissionKeyFor = (user) =>
+  user && LMS_PANEL_ROLES.includes(user.role) ? `lms:${user.email}` : user && user.email;
+
 // Roles that see every batch in the LMS, not just the ones they teach.
 // Mirrors backend/src/config/roles.js LMS_FULL_ACCESS_ROLES (CRM admin
 // roles + Support) — keep the two in step by hand, same as the lists

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
+import { permissionKeyFor } from '@/config/roles';
 import { PERMISSION_MODULES, FULL_ACCESS_ROLES } from '@/config/permissionModules';
 import { defaultMatrixForRole, fillMatrixDefaults } from '@/config/defaultPermissionMatrix';
 
@@ -55,7 +56,7 @@ export function PermissionProvider({ children }) {
         // real Permission record just for it instead of short-circuiting.
         const res = await request.listAll({ entity: 'permission' });
         const all = res?.success ? res.result : [];
-        const userRecord = all.find((p) => p.scope === 'user' && p.key === current.email);
+        const userRecord = all.find((p) => p.scope === 'user' && p.key === permissionKeyFor(current));
         const roleRecord = all.find((p) => p.scope === 'role' && p.key === current.role);
         const codeEditorGrant =
           userRecord?.matrix?.['Code Editor'] || roleRecord?.matrix?.['Code Editor'] || {
@@ -74,7 +75,7 @@ export function PermissionProvider({ children }) {
       const res = await request.listAll({ entity: 'permission' });
       const all = res?.success ? res.result : [];
 
-      const userRecord = all.find((p) => p.scope === 'user' && p.key === current.email);
+      const userRecord = all.find((p) => p.scope === 'user' && p.key === permissionKeyFor(current));
       const roleRecord = all.find((p) => p.scope === 'role' && p.key === current.role);
       const found = userRecord || roleRecord;
 
