@@ -109,6 +109,9 @@ export default function Dialer() {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("All");
+  const [ownerFilter, setOwnerFilter] = useState(""); // "" | given | pool
+  const [stageCounts, setStageCounts] = useState({});
+  const [ownerCounts, setOwnerCounts] = useState({ all: 0, given: 0, pool: 0 });
   const [dialNumber, setDialNumber] = useState("");
   const dialInputRef = useRef(null);
   // Real elapsed talk time — only ever computed from `callAnsweredAt`, a
@@ -160,10 +163,18 @@ export default function Dialer() {
   // equal share of my team's pooled (team-assigned, no individual owner)
   // leads — the backend splits that pool evenly across the team so a
   // team-assigned lead shows to exactly one member, not everyone.
+  // Stage / owner / search filters run server-side over the whole list —
+  // filtering only the 5 rows on screen hid matches sitting on other pages.
   const loadContacts = async (targetPage = 1) => {
     setContactsLoading(true);
-    const res = await request.get({ entity: `lead/my-contacts?page=${targetPage}&items=5` });
+    const qs = new URLSearchParams({ page: String(targetPage), items: "5" });
+    if (tagFilter !== "All") qs.set("stage", tagFilter);
+    if (ownerFilter) qs.set("owner", ownerFilter);
+    if (search.trim()) qs.set("q", search.trim());
+    const res = await request.get({ entity: `lead/my-contacts?${qs}` });
     setContacts(res?.success ? res.result : []);
+    setStageCounts(res?.stageCounts || {});
+    setOwnerCounts(res?.ownerCounts || { all: 0, given: 0, pool: 0 });
     setContactsPages(res?.pagination?.pages || 1);
     setContactsCount(res?.pagination?.count || 0);
     setContactsPage(targetPage);
@@ -171,8 +182,9 @@ export default function Dialer() {
   };
 
   useEffect(() => {
-    loadContacts(1);
-  }, []);
+    const t = setTimeout(() => loadContacts(1), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [tagFilter, ownerFilter, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadRecentCalls();
@@ -215,11 +227,8 @@ export default function Dialer() {
   const callSeconds = callAnsweredAt ? (now - new Date(callAnsweredAt).getTime()) / 1000 : 0;
   const isRinging = isCalling && !callAnsweredAt;
 
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      (contact.name.toLowerCase().includes(search.toLowerCase()) || (contact.phone || "").includes(search)) &&
-      (tagFilter === "All" || contact.stage === tagFilter)
-  );
+  const filteredContacts = contacts;
+  const stageTotal = Object.values(stageCounts).reduce((t, n) => t + n, 0);
 
   const startCall = async (contact) => {
     if (dialing || isCalling) return;
@@ -338,11 +347,22 @@ export default function Dialer() {
             </div>
           </div>
 
+          <div className="hub-form-row" style={{ marginBottom: 10 }}>
+            <label>Lead owner</label>
+            <select className="hub-select" value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
+              <option value="">All my contacts ({ownerCounts.all})</option>
+              <option value="given">Given to me by admin ({ownerCounts.given})</option>
+              {ownerCounts.pool > 0 && <option value="pool">Team pool ({ownerCounts.pool})</option>}
+            </select>
+          </div>
+
           <div className="hub-form-row" style={{ marginBottom: 14 }}>
             <label>Filter by stage</label>
             <select className="hub-select" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
               {LEAD_STATUS_FILTERS.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t} ({t === "All" ? stageTotal : stageCounts[t] || 0})
+                </option>
               ))}
             </select>
           </div>
@@ -367,6 +387,15 @@ export default function Dialer() {
                     <div className="contact-info">
                       <strong>{contact.name}</strong>
                       <span>{contact.phone}</span>
+                      <span style={{ fontSize: 11 }}>
+                        {contact.stage}
+                        {contact.givenByName && (
+                          <b style={{ color: "var(--hub-blue, #2563eb)" }}>
+                            {" · "}Given by {contact.givenByName}
+                            {contact.givenAt ? ` · ${new Date(contact.givenAt).toLocaleDateString()}` : ""}
+                          </b>
+                        )}
+                      </span>
                     </div>
                     <button className="small-call-btn" onClick={(e) => { e.stopPropagation(); startCall(contact); }}>
                       <PhoneIcon size={16} />
