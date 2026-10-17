@@ -49,12 +49,17 @@ const timingSafeEq = (a, b) => {
 };
 
 // Map a provider call state → our CallRecord.status.
+// Order matters: the not-reached states are checked FIRST — "no-answer"
+// contains "answer" and "disconnect"/"not connected" contain "connect", so
+// checking those words first turned Plivo's final CallStatus "no-answer" into
+// 'connected': the missed call never closed (no resolveLead, CallLead stuck
+// on Connected) and showed as Connected in Used Leads and the dashboards.
 function mapStatus(raw) {
   const s = String(raw || '').toLowerCase();
   if (/transfer/.test(s)) return 'transferred';
-  if (/answer|bridge|connect|inprogress|in-progress|ongoing/.test(s)) return 'connected';
-  if (/complete|hangup|end|completed|disconnect/.test(s)) return 'completed';
   if (/miss|no.?answer|noanswer|cancel|abandon|fail|busy|reject|not.?connect/.test(s)) return 'failed';
+  if (/complete|hangup|end|completed|disconnect/.test(s)) return 'completed';
+  if (/answer|bridge|connect|inprogress|in-progress|ongoing/.test(s)) return 'connected';
   if (/ring|dial|originate|initiat|start|incoming|inbound/.test(s)) return 'dialing';
   return undefined;
 }

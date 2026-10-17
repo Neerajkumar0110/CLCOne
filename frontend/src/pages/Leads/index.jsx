@@ -3286,7 +3286,10 @@ function UsedLeadsBoard() {
                         </span>
                       </td>
                       <td>{l.calledBy || "—"}</td>
-                      <td>{l.assignedUserName || "—"}</td>
+                      <td title={l.assignedFromCall ? "No owner yet — this is who spoke to them" : undefined}>
+                        {l.assignedUserName || "—"}
+                        {l.assignedFromCall && <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 500 }}>talked</div>}
+                      </td>
                       <td>{l.team || "Unassigned"}</td>
                       <td>{l.lastContactAt ? new Date(l.lastContactAt).toLocaleString() : "—"}</td>
                     </tr>

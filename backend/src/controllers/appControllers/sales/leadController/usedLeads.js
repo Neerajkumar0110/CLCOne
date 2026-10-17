@@ -39,11 +39,16 @@ const usedLeads = async (req, res) => {
     .select('contactName phone status disposition answeredAt duration agentName created endedAt')
     .lean();
 
-  // Most recent call per number (calls are newest-first).
+  // Most recent call per number (calls are newest-first), and the most
+  // recent rep who actually spoke to that number — shown under "Assigned"
+  // when the lead has no owner (Instant Lead Pool calls don't assign one).
   const latest = new Map();
+  const talkedBy = new Map();
   for (const c of calls) {
     const key = last10(c.phone);
-    if (key && !latest.has(key)) latest.set(key, c);
+    if (!key) continue;
+    if (!latest.has(key)) latest.set(key, c);
+    if (!talkedBy.has(key) && c.agentName && callReachedCustomer(c)) talkedBy.set(key, c.agentName);
   }
 
   const leads = latest.size
@@ -68,7 +73,9 @@ const usedLeads = async (req, res) => {
       response: d ? d.label : callOutcome === 'connected' ? 'Connected' : 'Not picked up',
       outcome: callOutcome,
       calledBy: c.agentName || null,
-      assignedUserName: (lead && lead.assignedUserName) || null,
+      assignedUserName: (lead && lead.assignedUserName) || talkedBy.get(key) || null,
+      // true = no owner on the lead; the name is the rep who spoke to them.
+      assignedFromCall: !(lead && lead.assignedUserName) && talkedBy.has(key),
       team: (lead && lead.team) || null,
       lastContactAt: c.endedAt || c.created,
     });
