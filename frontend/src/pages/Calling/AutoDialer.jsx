@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { request } from "@/request";
-import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
+import { ThunderboltOutlined, PoweroffOutlined, CoffeeOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined, PhoneOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
@@ -32,6 +32,9 @@ const MY_OUTCOMES = [
   { key: "notpicked", label: "Not picked up" },
   { key: "missed", label: "Missed by me" },
   { key: "callback", label: "Callback" },
+  { key: "interested", label: "Interested" },
+  { key: "demo", label: "Demo Booking" },
+  { key: "enrolled", label: "Enrolled" },
 ];
 const MY_RANGES = [
   { key: 7, label: "1 Week" },
@@ -51,6 +54,18 @@ function UsedLeads() {
   const [mine, setMine] = useState(false);
   const [outcome, setOutcome] = useState("");
   const [days, setDays] = useState(7);
+  const [dialingId, setDialingId] = useState(null);
+  // One-click call back to any number in My Calls — the same manual dial as
+  // the Dialer screen; the in-call modal opens by itself once it connects.
+  const callAgain = async (l) => {
+    if (dialingId) return;
+    const phone = String(l.phone || "").replace(/[^d+]/g, "");
+    if (phone.replace(/D/g, "").length < 8) return window.alert("No valid number on this call.");
+    setDialingId(l._id);
+    const r = await request.post({ entity: "calling/manual/dial", jsonData: { phone, contactName: l.name } });
+    setDialingId(null);
+    if (!r?.success) window.alert(r?.message || "Could not place the call.");
+  };
   usePoll(async () => {
     const qs = new URLSearchParams({ items: "50", days: String(days), ...(outcome ? { outcome } : {}) });
     const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
@@ -83,11 +98,11 @@ function UsedLeads() {
       <div className="hub-table-wrapper">
         <table className="hub-table">
           <thead>
-            <tr><th>Contact</th><th>Response</th><th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th></tr>
+            <tr><th>Contact</th><th>Response</th>{mine && <th>Stage</th>}<th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th>{mine && <th>Call</th>}</tr>
           </thead>
           <tbody>
             {(!data || data.length === 0) && (
-              <tr><td colSpan={mine ? 4 : 5}><div className="hub-empty">{mine ? "No calls in this range." : "No leads dialed yet."}</div></td></tr>
+              <tr><td colSpan={mine ? 6 : 5}><div className="hub-empty">{mine ? "No calls in this range." : "No leads dialed yet."}</div></td></tr>
             )}
             {data && data.map((l) => (
               <tr key={l._id}>
@@ -97,9 +112,29 @@ function UsedLeads() {
                     {l.response}
                   </span>
                 </td>
+                {mine && (
+                  <td style={{ fontSize: 12 }}>
+                    <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
+                    {l.subStatus && <div style={{ color: "#94a3b8" }}>{l.subStatus}</div>}
+                  </td>
+                )}
                 <td>{l.disposition || "—"}</td>
                 {!mine && <td>{l.agentName || "—"}</td>}
                 <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
+                {mine && (
+                  <td>
+                    <button
+                      type="button"
+                      className="hub-btn"
+                      title={`Call ${l.name || l.phone} now`}
+                      disabled={!!dialingId}
+                      onClick={() => callAgain(l)}
+                      style={{ borderRadius: "50%", width: 36, height: 36, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#16a34a", borderColor: "#bbf7d0" }}
+                    >
+                      {dialingId === l._id ? "…" : <PhoneOutlined />}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

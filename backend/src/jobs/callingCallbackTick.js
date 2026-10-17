@@ -139,29 +139,37 @@ async function runCallbackTick() {
   return placed;
 }
 
+// One lock for both callers: the 30s interval below AND CloudCallProvider.
+// tick(), which runs this FIRST every pass (before instant leads and the
+// pool) so a due callback goes out the moment its agent is free again —
+// e.g. the second their current call ends — instead of the pool grabbing
+// them for the next customer.
+let running = false;
+let quietUntil = 0;
+async function runCallbackTickSafe() {
+  if (callingConfig.isMock) return 0;
+  if (running || mongoose.connection.readyState !== 1) return 0;
+  running = true;
+  try {
+    return await runCallbackTick();
+  } catch (err) {
+    if (Date.now() > quietUntil) {
+      console.error('callingCallbackTick job error:', err.message);
+      quietUntil = Date.now() + 60 * 1000;
+    }
+    return 0;
+  } finally {
+    running = false;
+  }
+}
+
 function startCallingCallbackTick() {
   // The mock provider doesn't place real calls, and its own tick already
   // drives the simulation from the read endpoints.
   if (callingConfig.isMock) return;
-
-  let running = false;
-  let quietUntil = 0;
-  setInterval(async () => {
-    if (running) return;
-    if (mongoose.connection.readyState !== 1) return;
-    running = true;
-    try {
-      await runCallbackTick();
-    } catch (err) {
-      if (Date.now() > quietUntil) {
-        console.error('callingCallbackTick job error:', err.message);
-        quietUntil = Date.now() + 60 * 1000;
-      }
-    } finally {
-      running = false;
-    }
-  }, TICK_MS);
+  setInterval(runCallbackTickSafe, TICK_MS);
 }
 
 module.exports = startCallingCallbackTick;
+module.exports.runCallbackTickSafe = runCallbackTickSafe;
 module.exports.runCallbackTick = runCallbackTick;

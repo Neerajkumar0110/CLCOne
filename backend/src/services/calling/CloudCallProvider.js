@@ -615,13 +615,28 @@ class CloudCallProvider extends CallingProvider {
     // the dialer silently stops calling them for the rest of the shift.
     advanced += await reapStaleAgentReservations();
 
-    // 2d. Fresh Facebook leads get an instant call first — one free pool
-    // agent each, round-robin (services/calling/instantLeads.js). Runs before
+    // Only the process that runs the background jobs (the VPS) places these
+    // — tick() is also called from read endpoints, and a laptop backend on
+    // the same DB (RUN_BACKGROUND_JOBS=false) must never dial them too.
+    const backgroundJobsOn = String(process.env.RUN_BACKGROUND_JOBS ?? 'true').toLowerCase() !== 'false';
+
+    // 2d. Due callbacks first — a promise to a customer: the moment the
+    // agent who owes it is free (their call just ended), it goes out before
+    // the pool or a new lead can take them (jobs/callingCallbackTick.js).
+    // 2e. Then fresh Facebook leads get an instant call — one free pool
+    // agent each, round-robin (services/calling/instantLeads.js) — before
     // the campaign dialing below so a new inquiry never waits behind it.
-    try {
-      advanced += await require('./instantLeads').dispatchInstantLeads(this);
-    } catch (err) {
-      console.error('[instantLeads] dispatch failed:', err.message);
+    if (backgroundJobsOn) {
+      try {
+        advanced += await require('../../jobs/callingCallbackTick').runCallbackTickSafe();
+      } catch (err) {
+        console.error('[callbacks] tick failed:', err.message);
+      }
+      try {
+        advanced += await require('./instantLeads').dispatchInstantLeads(this);
+      } catch (err) {
+        console.error('[instantLeads] dispatch failed:', err.message);
+      }
     }
 
     // 3. Auto-dial Available agents on Active auto-dial campaigns.

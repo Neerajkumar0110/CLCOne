@@ -467,10 +467,16 @@ const usedLeads = async (req, res) => {
 //   notpicked → they dialed, the customer never answered
 //   missed    → routed to them, they never picked up (CallRecord.missedByAgent)
 //   callback  → a callback was requested on it (disposition CALLBACK)
+//   interested / demo / enrolled → the agent's response put the lead in
+//              Interested Leads / Demo Booking / Enrolled (disposition), or
+//              the lead on that number is in that stage right now
+// Each row also carries the lead's current `stage` (looked up by phone).
 // Same row shape as the pool-wide list, plus `outcome`.
 const MY_USED_DAYS = [7, 15, 30];
 const IN_PROGRESS = ['queued', 'dialing', 'ringing'];
 const OUTCOME_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by me' };
+const STAGE_OUTCOMES = { interested: 'Interested Leads', demo: 'Demo Booking', enrolled: 'Enrolled' };
+const phoneVariants = (p10) => [p10, `91${p10}`, `+91${p10}`, `0${p10}`];
 
 function outcomeOf(r) {
   if (r.missedByAgent) return 'missed';
@@ -489,6 +495,18 @@ async function myUsedLeads(req, res, page, items) {
   else if (req.query.outcome === 'notpicked') and.push({ missedByAgent: { $ne: true } }, CALL_NOT_REACHED);
   else if (req.query.outcome === 'missed') filter.missedByAgent = true;
   else if (req.query.outcome === 'callback') filter.disposition = 'CALLBACK';
+  else if (STAGE_OUTCOMES[req.query.outcome]) {
+    const stage = STAGE_OUTCOMES[req.query.outcome];
+    const { BY_CODE } = require('../../../../services/calling/dispositions');
+    const codes = Object.keys(BY_CODE).filter((c) => BY_CODE[c].crmStage && BY_CODE[c].crmStage.stage === stage);
+    // Numbers I called in the range whose lead sits in that stage now.
+    const phones = await CallRecord.distinct('phone', { agent: req.admin._id, removed: false, created: { $gte: since } });
+    const p10 = [...new Set(phones.map((p) => String(p || '').replace(/D/g, '').slice(-10)).filter((p) => p.length === 10))];
+    const inStage = p10.length
+      ? await mongoose.model('Lead').distinct('phoneNormalized', { removed: false, stage, phoneNormalized: { $in: p10 } })
+      : [];
+    and.push({ $or: [{ disposition: { $in: codes } }, { phone: { $in: inStage.flatMap(phoneVariants) } }] });
+  }
   if (and.length) filter.$and = and;
 
   const [rows, count] = await Promise.all([
@@ -501,14 +519,26 @@ async function myUsedLeads(req, res, page, items) {
     CallRecord.countDocuments(filter),
   ]);
 
+  // Current pipeline stage of each row's lead (by phone).
+  const rowP10 = [...new Set(rows.map((r) => String(r.phone || '').replace(/D/g, '').slice(-10)).filter(Boolean))];
+  const leadsByPhone = new Map(
+    (rowP10.length
+      ? await mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: rowP10 } }).select('phoneNormalized stage subStatus').lean()
+      : []
+    ).map((l) => [l.phoneNormalized, l])
+  );
+
   return res.status(200).json({
     success: true,
     result: rows.map((r) => {
       const outcome = outcomeOf(r);
+      const lead = leadsByPhone.get(String(r.phone || '').replace(/D/g, '').slice(-10));
       return {
         _id: r._id,
         name: r.contactName,
         phone: r.phone,
+        stage: lead ? lead.stage : null,
+        subStatus: lead ? lead.subStatus : null,
         outcome,
         response: OUTCOME_LABEL[outcome],
         disposition: r.disposition || null,
