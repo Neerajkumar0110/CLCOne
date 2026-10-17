@@ -354,6 +354,29 @@ function InstantLeadPool() {
         <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 8 }}>
           Join and it dials straight from the stages below, in order, sending you the next customer the moment you're free — no campaign setup needed.
         </div>
+        {/* How calls reach the agent right now (Admin / Super Admin pick it
+            above) — shown to everyone so agents know how to take calls. */}
+        {data && (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 12.5 }}>
+            <span style={{ color: "#64748b", fontWeight: 600 }}>Calls connect by:</span>
+            <span
+              style={{
+                padding: "3px 10px", borderRadius: 999, fontWeight: 700,
+                background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8",
+              }}
+            >
+              {connectMode === "alwaysOn" ? "📞 " : connectMode === "browser" ? "🎧 " : "📱 "}
+              {CONNECT_MODES.find((m) => m.key === connectMode)?.label || "Ring mobile per call"}
+            </span>
+            <span style={{ color: "#94a3b8" }}>
+              {connectMode === "alwaysOn"
+                ? "— we call your phone once when you join; stay on the line, customers join you with a beep."
+                : connectMode === "browser"
+                ? "— calls ring in this browser tab and pick up by themselves; keep the tab open with your headset on."
+                : "— your mobile rings for every customer who picks up."}
+            </span>
+          </div>
+        )}
         {/* Which stage is dialing right now, and what's next — shown to everyone. */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 12 }}>
           {stageQueue.map((q, i) => (
