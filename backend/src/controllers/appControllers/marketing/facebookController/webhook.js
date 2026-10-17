@@ -83,6 +83,28 @@ async function processWebhookLog(log) {
     const leadData = await graph.getLeadData({ leadgenId: log.leadgenId, pageAccessToken: pageToken });
     const mapped = mapFieldData(leadData.field_data);
 
+    // Same person already in the CRM (most often an earlier Excel import of
+    // this very Facebook lead): don't create a second copy — tag the existing
+    // lead with the Facebook ids and leave its stage/owner/history alone.
+    const phoneKey = Lead.normalizePhone ? Lead.normalizePhone(mapped.phone) : '';
+    if (phoneKey && phoneKey.length >= 10) {
+      const samePerson = await Lead.findOne({ removed: false, phoneNormalized: phoneKey }).exec();
+      if (samePerson) {
+        if (!samePerson.facebookLeadId) {
+          await Lead.updateOne(
+            { _id: samePerson._id, facebookLeadId: { $exists: false } },
+            { $set: { facebookLeadId: log.leadgenId, pageId: log.pageId, metaFormId: log.formId, metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined } }
+          ).catch(() => {});
+        }
+        log.processingStatus = 'processed';
+        log.leadId = samePerson._id;
+        log.processedAt = Date.now();
+        log.errorMessage = 'Already in CRM (same phone) — linked, not duplicated.';
+        await log.save();
+        return;
+      }
+    }
+
     const lead = new Lead({
       name: mapped.name || 'Facebook Lead',
       phone: mapped.phone,
@@ -97,7 +119,7 @@ async function processWebhookLog(log) {
       pageId: log.pageId,
       metaFormId: log.formId,
       adAccountId: conn.adAccountId,
-      adId: leadData.ad_id,
+      metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
       rawMetaData: leadData,
     });
 

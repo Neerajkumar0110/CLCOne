@@ -262,7 +262,40 @@ async function getLeadData({ leadgenId, pageAccessToken }) {
   });
 }
 
+// Follows Graph cursor pagination (paging.cursors.after) until there's no
+// next page, collecting every `data` row. `maxPages` is a safety stop.
+async function graphPaged(path, params, maxPages = 50) {
+  const rows = [];
+  let after;
+  for (let i = 0; i < maxPages; i += 1) {
+    const json = await graphRequest(path, { params: { ...params, ...(after ? { after } : {}) } });
+    rows.push(...(json.data || []));
+    after = json.paging && json.paging.next && json.paging.cursors && json.paging.cursors.after;
+    if (!after) break;
+  }
+  return rows;
+}
+
+// Every lead form on a Page — the ones made in Meta Ads Manager too, not
+// just ones this CRM created (jobs/facebookLeadPoller.js).
+async function listLeadForms({ pageId, pageAccessToken }) {
+  return graphPaged(`/${pageId}/leadgen_forms`, { fields: 'id,name,status', limit: 100, access_token: pageAccessToken });
+}
+
+// A form's leads submitted after `sinceUnix` (seconds), oldest pages first
+// as Graph returns them.
+async function listFormLeads({ formId, pageAccessToken, sinceUnix }) {
+  return graphPaged(`/${formId}/leads`, {
+    fields: 'id,created_time,form_id,ad_id',
+    limit: 100,
+    filtering: JSON.stringify([{ field: 'time_created', operator: 'GREATER_THAN', value: sinceUnix }]),
+    access_token: pageAccessToken,
+  });
+}
+
 module.exports = {
+  listLeadForms,
+  listFormLeads,
   MetaApiError,
   buildOAuthDialogUrl,
   exchangeCodeForToken,

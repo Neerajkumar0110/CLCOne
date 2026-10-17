@@ -45,6 +45,11 @@ const schema = new mongoose.Schema({
     default: false,
   },
 
+  // jobs/facebookLeadPoller.js watermark: leads created before this have
+  // already been pulled from this Page's lead forms.
+  leadsPolledAt: Date,
+  leadsPollError: String,
+
   status: {
     type: String,
     enum: ['pending', 'connected', 'disconnected', 'error'],

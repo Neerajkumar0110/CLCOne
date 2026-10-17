@@ -104,6 +104,12 @@ if (!RUN_BACKGROUND_JOBS) {
   const startFacebookWebhookRetryJob = require('./jobs/facebookWebhookRetry');
   startFacebookWebhookRetryJob();
 
+  // Pulls Facebook Lead Ads leads from every lead form on each connected
+  // Page — works while the Meta app is unpublished, which blocks the
+  // webhook (see jobs/facebookLeadPoller.js).
+  const startFacebookLeadPoller = require('./jobs/facebookLeadPoller');
+  startFacebookLeadPoller();
+
   // Retries failed Google Ads lead webhook deliveries — same shape as Facebook's.
   const startGoogleWebhookRetryJob = require('./jobs/googleWebhookRetry');
   startGoogleWebhookRetryJob();

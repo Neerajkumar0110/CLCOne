@@ -179,6 +179,9 @@ const schema = new mongoose.Schema({
   campaignId: { type: mongoose.Schema.ObjectId, ref: 'FacebookCampaign' },
   adsetId: { type: mongoose.Schema.ObjectId, ref: 'FacebookAdSet' },
   adId: { type: mongoose.Schema.ObjectId, ref: 'FacebookAd' },
+  // Meta's own ad id (a long number, not a CRM FacebookAd _id — putting it
+  // in adId above failed the cast and the whole lead save).
+  metaAdId: String,
   rawMetaData: mongoose.Schema.Types.Mixed,
 
   // Google Ads lead-ads tracing.
