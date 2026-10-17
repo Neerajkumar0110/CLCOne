@@ -419,6 +419,12 @@ class CloudCallProvider extends CallingProvider {
     if (notes != null) callRecord.notes = notes;
 
     if (!['completed', 'transferred', 'cancelled', 'failed'].includes(callRecord.status)) {
+      // alwaysOn / browser: the agent can't end it from their own phone, so
+      // Hang Up really ends the customer's call at Plivo. (classic is left
+      // exactly as it was.)
+      if (['alwaysOn', 'browser'].includes(callRecord.connectMode)) {
+        await require('./connectModes').hangupCustomer(callRecord);
+      }
       callRecord.status = 'completed';
       callRecord.endedAt = callRecord.endedAt || new Date();
       if (callRecord.answeredAt && !callRecord.duration) {
@@ -641,7 +647,14 @@ class CloudCallProvider extends CallingProvider {
         // dialLeadPoolNext / plivoAnswer.js's claimLeadPoolAgent), so this
         // still self-corrects for no-answers: an unanswered line never ties
         // up an agent's slot, only a truly in-flight (dialing/ringing) one does.
-        const poolStates = await AgentCallState.find({ campaign: camp._id, status: 'Available' })
+        // Only agents who can take a customer in the pool's connect mode
+        // (line up for alwaysOn / browser phone ready) — connectModes.js.
+        const { getConnectMode, eligibleAgentFilter } = require('./connectModes');
+        const poolStates = await AgentCallState.find({
+          campaign: camp._id,
+          status: 'Available',
+          ...eligibleAgentFilter(await getConnectMode()),
+        })
           .select('agent')
           .lean();
         if (!poolStates.length) continue;

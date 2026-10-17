@@ -6,6 +6,12 @@ import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
 
+const CONNECT_MODES = [
+  { key: "classic", label: "Ring mobile per call" },
+  { key: "alwaysOn", label: "Always-on agent line" },
+  { key: "browser", label: "Browser phone" },
+];
+
 function fmtHm(totalMinutes) {
   const m = Math.max(0, Math.round(totalMinutes || 0));
   const h = Math.floor(m / 60);
@@ -115,6 +121,8 @@ function InstantLeadPool() {
   const [breakBusy, setBreakBusy] = useState(false);
   const [stageBusy, setStageBusy] = useState(false);
   const [stagesOpen, setStagesOpen] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [lineBusy, setLineBusy] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [callsPage, setCallsPage] = useState(1);
@@ -204,6 +212,27 @@ function InstantLeadPool() {
     await load();
     setStageBusy(false);
   };
+  // Admin / Super Admin only (backend: canSetConnectMode) — how a pool
+  // customer who answers reaches the agent. See backend connectModes.js.
+  const changeConnectMode = async (mode) => {
+    if (modeBusy || !mode || mode === data?.connectMode) return;
+    const label = CONNECT_MODES.find((m) => m.key === mode)?.label || mode;
+    if (!window.confirm(`Switch every agent in the pool to "${label}"?`)) return;
+    setModeBusy(true);
+    const r = await request.post({ entity: "calling/lead-pool/connect-mode", jsonData: { mode } });
+    if (!r?.success) window.alert(r?.message || "Could not change the connect mode.");
+    await load();
+    setModeBusy(false);
+  };
+  const reconnectLine = async () => {
+    setLineBusy(true);
+    const r = await request.post({ entity: "calling/lead-pool/line/connect", jsonData: {} });
+    if (!r?.success) window.alert(r?.message || "Could not call your phone.");
+    await load();
+    setLineBusy(false);
+  };
+  const connectMode = data?.connectMode || "classic";
+
   const stageQueue = data?.stageQueue?.length
     ? data.stageQueue
     : (data?.stages || [data?.stage || "New Lead"]).map((s) => ({ stage: s, left: null, active: s === (data?.stage || "New Lead") }));
@@ -236,6 +265,20 @@ function InstantLeadPool() {
         <div className="hub-card-header">
           <h3><ThunderboltOutlined /> Instant Lead Pool</h3>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {data?.canSetConnectMode && (
+            <select
+              className="hub-select"
+              style={{ width: 230 }}
+              value={connectMode}
+              disabled={modeBusy}
+              title="How a customer who answers reaches the agent — Admin / Super Admin only"
+              onChange={(e) => changeConnectMode(e.target.value)}
+            >
+              {CONNECT_MODES.map((m) => (
+                <option key={m.key} value={m.key}>Connect: {m.label}</option>
+              ))}
+            </select>
+          )}
           {data?.canSetStage && (
             <button
               type="button"
@@ -300,6 +343,41 @@ function InstantLeadPool() {
             </React.Fragment>
           ))}
         </div>
+
+        {on && connectMode === "alwaysOn" && (
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, fontSize: 13, fontWeight: 600,
+              borderRadius: 10, padding: "8px 12px",
+              background: data?.myLineLive ? "#f0fdf4" : "#fff7ed",
+              border: `1px solid ${data?.myLineLive ? "#bbf7d0" : "#fed7aa"}`,
+              color: data?.myLineLive ? "#15803d" : "#9a3412",
+            }}
+          >
+            {data?.myLineLive
+              ? "🎧 Your line is connected — keep your phone on, customers join you with a beep. Don't hang up between calls."
+              : "📞 Your line isn't connected — pick up when we call your phone, or tap Reconnect."}
+            {!data?.myLineLive && (
+              <button type="button" className="hub-btn" disabled={lineBusy} onClick={reconnectLine}>
+                {lineBusy ? "Calling…" : "Reconnect my line"}
+              </button>
+            )}
+          </div>
+        )}
+        {on && connectMode === "browser" && (
+          <div
+            style={{
+              marginBottom: 12, fontSize: 13, fontWeight: 600, borderRadius: 10, padding: "8px 12px",
+              background: data?.myBrowserReady ? "#f0fdf4" : "#fff7ed",
+              border: `1px solid ${data?.myBrowserReady ? "#bbf7d0" : "#fed7aa"}`,
+              color: data?.myBrowserReady ? "#15803d" : "#9a3412",
+            }}
+          >
+            {data?.myBrowserReady
+              ? "🎧 Browser phone ready — calls pick up here automatically. Keep this tab open with your headset on."
+              : "🎙 Starting the browser phone… allow microphone access if your browser asks."}
+          </div>
+        )}
 
         {on && data?.shift && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 12.5, color: "#475569" }}>

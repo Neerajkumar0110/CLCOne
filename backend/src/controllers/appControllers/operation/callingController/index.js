@@ -70,6 +70,10 @@ module.exports = {
   leadPoolSetStage: leadPool.setStage,
   leadPoolBreakStart: leadPool.breakStart,
   leadPoolUsedLeads: leadPool.usedLeads,
+  leadPoolSetConnectMode: leadPool.setConnectMode,
+  leadPoolLineConnect: leadPool.lineConnect,
+  browserPhoneCredentials: leadPool.browserCredentials,
+  browserPhoneReady: leadPool.browserReady,
   teamActivityList: teamActivity.list,
   teamActivitySetPool: teamActivity.setPool,
 

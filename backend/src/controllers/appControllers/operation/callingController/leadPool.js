@@ -12,6 +12,8 @@ const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
 const { fillLeadPoolNow, stageQueueSummary, stagesOf } = require('../../../../jobs/leadPoolSyncTick');
 const MAX_POOL_STAGES = 5;
+const connectModes = require('../../../../services/calling/connectModes');
+const { CRM_ADMIN_ROLES } = require('../../../../config/roles');
 
 // Who may point the Instant Lead Pool at a different Sales stage: full
 // access (owner/Super Admin/Admin/Sales Manager/Team Manager) + Team Leader.
@@ -79,7 +81,99 @@ async function setPoolMembership(agent, on) {
   }
 
   await AgentCallState.updateOne({ agent: agent._id }, update, { upsert: true });
+
+  // alwaysOn: joining calls the agent's mobile once (their standing line);
+  // leaving hangs it up. Other modes: nothing to do here.
+  if ((await connectModes.getConnectMode({ fresh: true })) === 'alwaysOn') {
+    if (on) {
+      const full = await mongoose.model('Admin').findById(agent._id).select('name surname phone mobile contactNumber').lean();
+      if (full) await connectModes.startAgentLine(full).catch((e) => console.error('[pool] agent line:', e.message));
+    } else {
+      await connectModes.stopAgentLine(agent._id).catch(() => {});
+    }
+  } else if (!on) {
+    await connectModes.stopAgentLine(agent._id).catch(() => {});
+  }
 }
+
+// POST /api/calling/lead-pool/connect-mode { mode } — Admin / Super Admin
+// only. Switching INTO alwaysOn calls every agent already in the pool;
+// switching OUT of it hangs their standing lines up.
+const setConnectMode = async (req, res) => {
+  if (!CRM_ADMIN_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: null, message: 'Only Admin / Super Admin can change how calls connect.' });
+  }
+  const mode = String((req.body && req.body.mode) || '');
+  if (!connectModes.MODES.includes(mode)) {
+    return res.status(400).json({ success: false, result: null, message: 'Unknown mode.' });
+  }
+  const camp = await getOrCreateLeadPoolCampaign();
+  const prev = camp.leadPoolConnectMode || 'classic';
+  await mongoose.model('CallCampaign').updateOne(
+    { _id: camp._id },
+    { $set: { leadPoolConnectMode: mode, leadPoolConnectModeSetByName: `${req.admin.name} ${req.admin.surname || ''}`.trim() } }
+  );
+  connectModes.clearModeCache();
+
+  const inPool = await mongoose
+    .model('AgentCallState')
+    .find({ campaign: camp._id, status: { $ne: 'Offline' } })
+    .select('agent')
+    .lean();
+  if (prev === 'alwaysOn' && mode !== 'alwaysOn') {
+    for (const st of inPool) await connectModes.stopAgentLine(st.agent).catch(() => {});
+  }
+  let called = 0;
+  if (mode === 'alwaysOn' && prev !== 'alwaysOn') {
+    const admins = await mongoose
+      .model('Admin')
+      .find({ _id: { $in: inPool.map((x) => x.agent) } })
+      .select('name surname phone mobile contactNumber')
+      .lean();
+    for (const a of admins) {
+      const r = await connectModes.startAgentLine(a).catch(() => ({ ok: false }));
+      if (r.ok) called += 1;
+    }
+  }
+  const label = { classic: 'Ring the mobile for each call', alwaysOn: 'Always-on agent line', browser: 'Browser phone' }[mode];
+  return res.status(200).json({
+    success: true,
+    result: { mode },
+    message: mode === 'alwaysOn' && called ? `${label} — calling ${called} agent(s) in the pool now.` : `Calls now connect by: ${label}.`,
+  });
+};
+
+// POST /api/calling/lead-pool/line/connect — alwaysOn: (re)call my own line.
+const lineConnect = async (req, res) => {
+  const full = await mongoose.model('Admin').findById(req.admin._id).select('name surname phone mobile contactNumber').lean();
+  const st = await mongoose.model('AgentCallState').findOne({ agent: req.admin._id }).select('campaign status').lean();
+  if (!st || !st.campaign || st.status === 'Offline') {
+    return res.status(400).json({ success: false, result: null, message: 'Join the pool first.' });
+  }
+  const r = await connectModes.startAgentLine(full);
+  return res.status(r.ok ? 200 : 400).json({
+    success: r.ok,
+    result: null,
+    message: r.ok ? 'Calling your phone — pick up and stay on the line.' : r.error,
+  });
+};
+
+// GET /api/calling/browser-phone/credentials — browser mode: my SIP login.
+const browserCredentials = async (req, res) => {
+  if ((await connectModes.getConnectMode()) !== 'browser') {
+    return res.status(400).json({ success: false, result: null, message: 'Browser phone is not switched on.' });
+  }
+  const creds = await connectModes.ensureBrowserEndpoint(req.admin);
+  return res.status(200).json({ success: true, result: creds, message: 'ok' });
+};
+
+// POST /api/calling/browser-phone/ready { ready } — the tab's heartbeat.
+const browserReady = async (req, res) => {
+  await mongoose
+    .model('AgentCallState')
+    .updateOne({ agent: req.admin._id }, { $set: { browserReadyAt: req.body && req.body.ready === false ? null : new Date() } });
+  return res.status(200).json({ success: true, result: null, message: 'ok' });
+};
 
 // GET /api/calling/lead-pool/status — my own join state + the shared pool's
 // live numbers + my own recent calls (contact, duration, outcome) from it.
@@ -173,6 +267,11 @@ const status = async (req, res) => {
       stageQueue: await stageQueueSummary(camp).catch(() => []),
       maxStages: MAX_POOL_STAGES,
       stageSetByName: camp.leadPoolStageSetByName || null,
+      connectMode: camp.leadPoolConnectMode || 'classic',
+      connectModeSetByName: camp.leadPoolConnectModeSetByName || null,
+      canSetConnectMode: CRM_ADMIN_ROLES.includes(req.admin.role),
+      myLineLive: !!(myState && myState.agentLineLive),
+      myBrowserReady: !!(myState && myState.browserReadyAt && Date.now() - new Date(myState.browserReadyAt).getTime() < 75000),
       stageOptions: STAGE_NAMES,
       canSetStage: POOL_STAGE_ROLES.includes(req.admin.role),
       shift,
@@ -423,4 +522,15 @@ async function myUsedLeads(req, res, page, items) {
   });
 }
 
-module.exports = { toggle, status, setStage, breakStart, usedLeads, setPoolMembership };
+module.exports = {
+  toggle,
+  status,
+  setStage,
+  breakStart,
+  usedLeads,
+  setPoolMembership,
+  setConnectMode,
+  lineConnect,
+  browserCredentials,
+  browserReady,
+};

@@ -78,6 +78,15 @@ const schema = new mongoose.Schema({
   // [leadPoolStage] (older single-stage picks).
   leadPoolStages: { type: [String], default: undefined },
   leadPoolStageActiveAt: Date,
+  // How a pool customer who answers reaches the agent (services/calling/
+  // connectModes.js) — switched by Admin / Super Admin on the Calls page:
+  //   classic  — ring the agent's mobile for every call (the original flow)
+  //   alwaysOn — the agent's mobile is called ONCE when they join and stays
+  //              on the line; each customer drops straight into it
+  //   browser  — the agent takes calls in the CRM tab (Plivo browser SDK),
+  //              auto-answered
+  leadPoolConnectMode: { type: String, enum: ['classic', 'alwaysOn', 'browser'], default: 'classic' },
+  leadPoolConnectModeSetByName: String,
   leadPoolStageSetAt: Date,
   leadPoolStageSetByName: String,
 

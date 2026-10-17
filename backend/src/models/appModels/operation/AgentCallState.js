@@ -19,6 +19,19 @@ const schema = new mongoose.Schema({
   // Round-robin for instant Facebook leads: whoever got one longest ago
   // (or never) is next — everyone active gets one before anyone gets two.
   lastInstantLeadAt: Date,
+  // alwaysOn mode: the agent's own standing line (services/calling/connectModes.js).
+  agentLineLive: { type: Boolean, default: false },
+  agentLineRequestId: String,
+  agentLineCallUuid: String,
+  agentLineAt: Date,
+  // browser mode: the agent's Plivo SIP endpoint + the CRM tab's last
+  // "phone registered and ready" heartbeat.
+  plivoEndpoint: {
+    id: String,
+    username: String,
+    passwordEnc: String,
+  },
+  browserReadyAt: Date,
   currentCall: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
 
   since: { type: Date, default: Date.now },

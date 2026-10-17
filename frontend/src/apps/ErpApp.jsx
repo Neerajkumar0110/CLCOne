@@ -21,6 +21,7 @@ import useResponsive from '@/hooks/useResponsive';
 import storePersist from '@/redux/storePersist';
 import ActiveCallModal from '@/components/ActiveCallModal';
 import InstantLeadAlert from '@/components/InstantLeadAlert';
+import BrowserPhone from '@/components/BrowserPhone';
 
 export default function ErpCrmApp() {
   const { Content } = Layout;
@@ -57,6 +58,7 @@ export default function ErpCrmApp() {
             floating pill while they work elsewhere in the CRM). */}
         <ActiveCallModal />
         <InstantLeadAlert />
+        <BrowserPhone />
 
         <Navigation />
 

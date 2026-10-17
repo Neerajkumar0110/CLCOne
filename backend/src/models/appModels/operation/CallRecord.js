@@ -83,6 +83,9 @@ const schema = new mongoose.Schema({
   agentLegRequestId: String,
   // Placed by the instant Facebook-lead dispatcher (services/calling/instantLeads.js).
   instantLead: { type: Boolean, default: false },
+  // How this call reached the agent (classic | alwaysOn | browser) — set
+  // when the customer answers (plivoAnswer.js).
+  connectMode: String,
   // Last time the dialer asked Plivo whether this 'connected' call is still
   // live (CloudCallProvider.tick step 1a).
   liveCheckedAt: Date,

@@ -80,7 +80,8 @@ async function dispatchInstantLeads(provider) {
 
   for (const lead of pending) {
     // Free pool agents, round-robin order.
-    const states = await AgentCallState.find({ campaign: camp._id, status: 'Available' })
+    const { getConnectMode, eligibleAgentFilter } = require('./connectModes');
+    const states = await AgentCallState.find({ campaign: camp._id, status: 'Available', ...eligibleAgentFilter(await getConnectMode()) })
       .select('agent lastInstantLeadAt since')
       .lean();
     if (!states.length) break; // nobody active — wait

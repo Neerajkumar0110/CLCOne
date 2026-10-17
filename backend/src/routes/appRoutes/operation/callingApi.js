@@ -45,6 +45,10 @@ router.route('/lead-pool/status').get(catchErrors(c.leadPoolStatus));
 router.route('/lead-pool/stage').post(catchErrors(c.leadPoolSetStage));
 router.route('/lead-pool/break/start').post(catchErrors(c.leadPoolBreakStart));
 router.route('/lead-pool/used-leads').get(catchErrors(c.leadPoolUsedLeads));
+router.route('/lead-pool/connect-mode').post(catchErrors(c.leadPoolSetConnectMode));
+router.route('/lead-pool/line/connect').post(catchErrors(c.leadPoolLineConnect));
+router.route('/browser-phone/credentials').get(catchErrors(c.browserPhoneCredentials));
+router.route('/browser-phone/ready').post(catchErrors(c.browserPhoneReady));
 router.route('/team-activity').get(catchErrors(c.teamActivityList));
 router.route('/team-activity/:id/pool').post(catchErrors(c.teamActivitySetPool));
 

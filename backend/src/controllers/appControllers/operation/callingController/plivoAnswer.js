@@ -222,7 +222,8 @@ async function claimLeadPoolAgent(campaignId, callRecordId) {
   const skip = [];
 
   for (let i = 0; i < 10; i++) {
-    const query = { campaign: campaignId, status: 'Available' };
+    const { getConnectMode, eligibleAgentFilter } = require('../../../../services/calling/connectModes');
+    const query = { campaign: campaignId, status: 'Available', ...eligibleAgentFilter(await getConnectMode()) };
     if (skip.length) query.agent = { $nin: skip };
 
     const state = await AgentCallState.findOneAndUpdate(
@@ -416,6 +417,37 @@ const plivoAnswer = async (req, res) => {
     return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl, false)}</Response>`);
   }
 
+  // ── alwaysOn: the agent's own standing line answered — park them in
+  // their room; every pool customer who answers is dropped in here. ──
+  if (leg === 'agent-line') {
+    const agentId = req.query.agentId;
+    if (!agentId || !mongoose.isValidObjectId(agentId)) return respondXml(res, '<Response><Hangup/></Response>');
+    const st = await mongoose.model('AgentCallState').findOne({ agent: agentId }).select('campaign status').lean();
+    if (!st || !st.campaign || st.status === 'Offline') {
+      return respondXml(res, '<Response><Speak voice="WOMAN" language="en-IN">You are not in the lead pool. Goodbye.</Speak><Hangup/></Response>');
+    }
+    await mongoose.model('AgentCallState').updateOne(
+      { agent: agentId },
+      { $set: { agentLineLive: true, agentLineCallUuid: req.body?.CallUUID || req.query.CallUUID || null, agentLineAt: new Date() } }
+    );
+    const { agentRoom } = require('../../../../services/calling/connectModes');
+    return respondXml(
+      res,
+      `<Response><Speak voice="WOMAN" language="en-IN">You are connected to the lead pool. Stay on the line, customers will join you here with a beep.</Speak><Conference startConferenceOnEnter="true" endConferenceOnExit="true" enterSound="beep:1" exitSound="beep:2" waitSound="">${escapeXml(agentRoom(agentId))}</Conference></Response>`
+    );
+  }
+  if (leg === 'agent-line-hangup') {
+    const agentId = req.query.agentId;
+    if (agentId && mongoose.isValidObjectId(agentId)) {
+      await mongoose
+        .model('AgentCallState')
+        .updateOne({ agent: agentId }, { $set: { agentLineLive: false, agentLineCallUuid: null, agentLineRequestId: null } });
+      const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
+      notifyAgentCallEvent(agentId, 'pool:line-dropped', { agent: agentId }).catch(() => {});
+    }
+    return respondXml(res, '<Response></Response>');
+  }
+
   // ── far-end leg's hangup notification — fires whether it was ever
   // answered or not. If leg=agent's answer_url never fired for this
   // CallRecord (agentLegAnswered still false), the agent's phone rang out
@@ -516,6 +548,48 @@ const plivoAnswer = async (req, res) => {
     return respondXml(res, HOLD_XML);
   }
 
+  // Instant Lead Pool / instant Facebook-lead calls follow the pool's
+  // connect mode (services/calling/connectModes.js); everything else rings
+  // the agent's mobile exactly as before.
+  const isPoolCall = !!(rec && rec.campaign && (await mongoose
+    .model('CallCampaign')
+    .exists({ _id: rec.campaign, isLeadPool: true, removed: false })));
+  const modes = require('../../../../services/calling/connectModes');
+  const mode = isPoolCall ? await modes.getConnectMode() : 'classic';
+
+  if (mode === 'alwaysOn' && rec && rec.agent) {
+    const st = await mongoose.model('AgentCallState').findOne({ agent: rec.agent }).select('agentLineLive').lean();
+    if (st && st.agentLineLive) {
+      rec.connectMode = 'alwaysOn';
+      rec.agentLegAnswered = true; // the agent is already on their line
+      await rec.save();
+      const { notifyAgentCallEvent, setAgent } = require('../../../../services/calling/callingShared');
+      await setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id, since: new Date() });
+      notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
+      setTimeout(() => modes.recordCustomerCall(rec).catch(() => {}), 1500);
+      return respondXml(
+        res,
+        `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" waitSound="">${escapeXml(modes.agentRoom(rec.agent))}</Conference></Response>`
+      );
+    }
+    // Line dropped since they were picked — fall back to ringing the mobile.
+  }
+
+  if (mode === 'browser' && rec && rec.agent) {
+    const st = await mongoose.model('AgentCallState').findOne({ agent: rec.agent }).select('plivoEndpoint').lean();
+    const user = st && st.plivoEndpoint && st.plivoEndpoint.username;
+    if (user) {
+      rec.connectMode = 'browser';
+      await rec.save();
+      // No greeting: the browser auto-answers in about a second.
+      return bridgeToNumber({ cfg, res, crmCallId, dialNumber: `sip:${user}@phone.plivo.com`, callerId, secretQs, speakXml: '' });
+    }
+  }
+
+  if (rec && isPoolCall && !rec.connectMode) {
+    rec.connectMode = 'classic';
+    await rec.save();
+  }
   const dialNumber = `${cfg.plivo.countryCode}${agentNumber}`;
   return bridgeToNumber({ cfg, res, crmCallId, dialNumber, callerId, secretQs, speakXml: GREETING_XML });
 };
