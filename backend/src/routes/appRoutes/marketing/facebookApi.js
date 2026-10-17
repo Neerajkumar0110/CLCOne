@@ -11,6 +11,7 @@ const controller = require('../../../controllers/appControllers/marketing/facebo
 // token arrives on those requests) and live in corePublicRouter.js instead.
 
 router.route('/connect').get(catchErrors(controller.connect));
+router.route('/captured-leads').get(catchErrors(controller.capturedLeads));
 router.route('/connection').get(catchErrors(controller.getConnection));
 router.route('/connection').patch(catchErrors(controller.updateConnection));
 router.route('/connection').delete(catchErrors(controller.disconnectConnection));

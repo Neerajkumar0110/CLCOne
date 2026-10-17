@@ -182,6 +182,11 @@ const schema = new mongoose.Schema({
   // Meta's own ad id (a long number, not a CRM FacebookAd _id — putting it
   // in adId above failed the cast and the whole lead save).
   metaAdId: String,
+  // When the person submitted the Facebook form (Meta's created_time — not
+  // when the CRM pulled it) and which form. Set on new Facebook leads and on
+  // an existing lead a Facebook submission was linked to (same phone).
+  facebookCreatedAt: { type: Date, index: true },
+  metaFormName: String,
   rawMetaData: mongoose.Schema.Types.Mixed,
 
   // Google Ads lead-ads tracing.

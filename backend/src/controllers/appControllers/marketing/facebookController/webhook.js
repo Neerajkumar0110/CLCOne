@@ -82,6 +82,8 @@ async function processWebhookLog(log) {
 
     const leadData = await graph.getLeadData({ leadgenId: log.leadgenId, pageAccessToken: pageToken });
     const mapped = mapFieldData(leadData.field_data);
+    const fbCreatedAt = leadData.created_time ? new Date(leadData.created_time) : undefined;
+    const formName = (log.payload && log.payload.form_name) || undefined;
 
     // Same person already in the CRM (most often an earlier Excel import of
     // this very Facebook lead): don't create a second copy — tag the existing
@@ -93,7 +95,18 @@ async function processWebhookLog(log) {
         if (!samePerson.facebookLeadId) {
           await Lead.updateOne(
             { _id: samePerson._id, facebookLeadId: { $exists: false } },
-            { $set: { facebookLeadId: log.leadgenId, pageId: log.pageId, metaFormId: log.formId, metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined } }
+            {
+              $set: {
+                facebookLeadId: log.leadgenId,
+                pageId: log.pageId,
+                metaFormId: log.formId,
+                metaFormName: formName,
+                metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
+      metaFormName: formName,
+      facebookCreatedAt: fbCreatedAt,
+                facebookCreatedAt: fbCreatedAt,
+              },
+            }
           ).catch(() => {});
         }
         log.processingStatus = 'processed';

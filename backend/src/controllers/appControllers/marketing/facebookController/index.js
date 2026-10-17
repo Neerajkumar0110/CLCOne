@@ -17,7 +17,10 @@ const { listCreatives, createCreative } = require('./creatives');
 const { listAds, createAd, updateAd, publishAd } = require('./ads');
 const { verifyWebhook, receiveWebhook } = require('./webhook');
 
+const capturedLeads = require('./capturedLeads');
+
 module.exports = {
+  capturedLeads,
   connect,
   callback,
   getConnection,

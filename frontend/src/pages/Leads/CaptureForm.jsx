@@ -262,6 +262,9 @@ function CaptureForm() {
   const [savingOrg, setSavingOrg] = useState(false);
 
   const [capturedLeads, setCapturedLeads] = useState([]);
+  // Facebook Ads only: when the form was submitted (IST) — see
+  // backend facebookController/capturedLeads.js.
+  const [fbRange, setFbRange] = useState("all");
   const [capturedLoading, setCapturedLoading] = useState(true);
   const [capturedPage, setCapturedPage] = useState(1);
   const [capturedPages, setCapturedPages] = useState(1);
@@ -331,8 +334,19 @@ function CaptureForm() {
     setLinkedinAdAccounts(res?.success ? res.result : []);
   };
 
-  const loadCapturedLeads = async (targetPage = 1) => {
+  const loadCapturedLeads = async (targetPage = 1, range = fbRange) => {
     setCapturedLoading(true);
+    if (platform === "Facebook Ads") {
+      // Every Facebook lead — new ones and existing CRM leads a Facebook
+      // submission was linked to — by Facebook's own submit time.
+      const res = await request.get({ entity: `facebook/captured-leads?range=${range}&page=${targetPage}&items=10` });
+      setCapturedLeads(res?.success ? res.result : []);
+      setCapturedPages(res?.pagination?.pages || 1);
+      setCapturedCount(res?.pagination?.count || 0);
+      setCapturedPage(targetPage);
+      setCapturedLoading(false);
+      return;
+    }
     const options = {
       page: targetPage,
       items: 10,
@@ -1203,33 +1217,109 @@ function CaptureForm() {
           <span className="hub-badge hub-badge-blue">{capturedCount} lead{capturedCount === 1 ? "" : "s"}</span>
         </div>
 
+        {platform === "Facebook Ads" && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            {[
+              ["today", "Today"],
+              ["yesterday", "Yesterday"],
+              ["7d", "1 Week"],
+              ["15d", "15 Days"],
+              ["30d", "30 Days"],
+              ["all", "All"],
+            ].map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setFbRange(k);
+                  loadCapturedLeads(1, k);
+                }}
+                style={{
+                  padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                  border: `1px solid ${fbRange === k ? "var(--hub-blue, #2563eb)" : "var(--hub-border)"}`,
+                  background: fbRange === k ? "var(--hub-blue, #2563eb)" : "var(--hub-surface)",
+                  color: fbRange === k ? "#fff" : "var(--hub-text-soft)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="hub-table-wrapper">
           <table className="hub-table">
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Captured</th>
-              </tr>
+              {platform === "Facebook Ads" ? (
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Form</th>
+                  <th>Stage</th>
+                  <th>Owner</th>
+                  <th>Came in (Facebook)</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                  <th>Captured</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {capturedLoading && (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={7}>
                     <div className="hub-empty">Loading captured leads…</div>
                   </td>
                 </tr>
               )}
               {!capturedLoading && capturedLeads.length === 0 && (
                 <tr>
-                  <td colSpan={5}>
-                    <div className="hub-empty">No leads captured from {platform} yet.</div>
+                  <td colSpan={7}>
+                    <div className="hub-empty">
+                      {platform === "Facebook Ads" && fbRange !== "all"
+                        ? "No Facebook leads in this period."
+                        : `No leads captured from ${platform} yet.`}
+                    </div>
                   </td>
                 </tr>
               )}
               {!capturedLoading &&
+                platform === "Facebook Ads" &&
+                capturedLeads.map((l) => {
+                  const at = l.facebookCreatedAt || l.created;
+                  return (
+                    <tr key={l._id} style={{ cursor: "pointer" }} onClick={() => setViewLead(l)}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{l.name}</div>
+                        {!l.newFromFacebook && (
+                          <div style={{ fontSize: 11, color: "var(--hub-muted)" }} title="This person was already in the CRM — the Facebook submission was linked, not duplicated">
+                            Already in CRM ({l.source || "—"})
+                          </div>
+                        )}
+                      </td>
+                      <td>{l.phone || "—"}</td>
+                      <td>{l.email || "—"}</td>
+                      <td style={{ fontSize: 12 }}>{l.metaFormName || "—"}</td>
+                      <td style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
+                        {l.subStatus && <div style={{ color: "var(--hub-muted)" }}>{l.subStatus}</div>}
+                      </td>
+                      <td>{l.assignedUserName || "Unassigned"}</td>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{new Date(at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                        <div style={{ fontSize: 12, color: "var(--hub-muted)" }}>{new Date(at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {!capturedLoading &&
+                platform !== "Facebook Ads" &&
                 capturedLeads.map((l) => (
                   <tr key={l._id} style={{ cursor: "pointer" }} onClick={() => setViewLead(l)}>
                     <td>{l.name}</td>
