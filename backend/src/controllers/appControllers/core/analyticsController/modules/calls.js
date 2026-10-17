@@ -7,7 +7,7 @@ const {
   ratio,
   chart,
   groupBy,
-  teamNamesForBiz,
+  bizRowFilter,
   resolveDashboardScope,
   scopeFacets,
   teamFieldScopeFilter,
@@ -75,14 +75,13 @@ function normLegacy(r) {
 async function loadWindow(from, to, query, req) {
   const CallRecord = mongoose.model('CallRecord');
   const Call = mongoose.model('Call');
-  const teamNames = await teamNamesForBiz(query.businessType);
+  const biz = await bizRowFilter(query.businessType, 'team', 'agentName');
+  const legacyBiz = await bizRowFilter(query.businessType, 'team', 'calledBy');
 
   const crFilter = { removed: false, created: { $gte: from, $lte: to } };
   const legacyFilter = { removed: false, created: { $gte: from, $lte: to } };
-  if (teamNames) {
-    crFilter.team = { $in: teamNames };
-    legacyFilter.team = { $in: teamNames };
-  }
+  mergeScope(crFilter, biz);
+  mergeScope(legacyFilter, legacyBiz);
   applyDrawer(crFilter, query, DRAWER);
   // Row-level visibility — same rule as every other Sales dashboard (see
   // shared.js). Merged via $and (not a flat overwrite) because DRAWER above
@@ -200,9 +199,8 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
 // rows are folded into the aggregates above but not the paginated table.
 async function rows({ from, to, query, req }) {
   const CallRecord = mongoose.model('CallRecord');
-  const teamNames = await teamNamesForBiz(query.businessType);
   const filter = { removed: false, created: { $gte: from, $lte: to } };
-  if (teamNames) filter.team = { $in: teamNames };
+  mergeScope(filter, await bizRowFilter(query.businessType, 'team', 'agentName'));
   applyDrawer(filter, query, DRAWER);
   Object.assign(filter, drillToMongo(query));
   // Row-level visibility (see the summary() comment above for why $and).

@@ -7,7 +7,7 @@ const {
   ratio,
   chart,
   groupBy,
-  teamNamesForBiz,
+  bizRowFilter,
   resolveDashboardScope,
   scopeFacets,
   teamFieldScopeFilter,
@@ -49,8 +49,7 @@ function everStages(l) {
 async function baseFilter(query, req) {
   const dateField = DATE_FIELDS[query.dateBasis] || 'created';
   const filter = { removed: false };
-  const teamNames = await teamNamesForBiz(query.businessType);
-  if (teamNames) filter.team = { $in: teamNames };
+  mergeScope(filter, await bizRowFilter(query.businessType, 'team', 'assignedUserName'));
   applyDrawer(filter, query, DRAWER_SPEC);
   // Row-level visibility — same rule as every other Sales dashboard (see
   // shared.js). Merged via $and (not a flat overwrite) because DRAWER_SPEC
@@ -111,10 +110,11 @@ async function summary({ from, to, prevFrom, prevTo, query, req }) {
   ]);
 
   // Calls in the window scoped to the same teams — for the Lead → Calling ratio.
-  const callFilter = { removed: false, created: { $gte: from, $lte: to } };
-  if (filter.team) callFilter.team = filter.team;
+  const callWindow = () => ({ removed: false, created: { $gte: from, $lte: to } });
+  const legacyCallFilter = mergeScope(callWindow(), await bizRowFilter(query.businessType, 'team', 'calledBy'));
+  const callFilter = mergeScope(callWindow(), await bizRowFilter(query.businessType, 'team', 'agentName'));
   const [calls, callRecs] = await Promise.all([
-    Call.find(callFilter).select('lead').limit(100000).lean(),
+    Call.find(legacyCallFilter).select('lead').limit(100000).lean(),
     CallRecord.find(callFilter).select('callLead').limit(100000).lean(),
   ]);
   const calledLeadIds = new Set([

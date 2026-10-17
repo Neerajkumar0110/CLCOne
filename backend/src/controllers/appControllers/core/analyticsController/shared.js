@@ -301,23 +301,39 @@ function normBiz(v) {
   return BIZ_MAP[v] || null;
 }
 
-let _teamCache = { at: 0, byName: new Map(), byMember: new Map() };
+let _teamCache = { at: 0, byName: new Map(), byMember: new Map(), bizOwners: { B2B: [], B2C: [] } };
+const SEGMENT_BIZ = { 'B2B Segment': 'B2B', 'B2C Segment': 'B2C' };
 async function teamContext() {
   const now = Date.now();
-  if (now - _teamCache.at < 60000 && _teamCache.byName.size) return _teamCache;
+  if (_teamCache.at && now - _teamCache.at < 60000) return _teamCache;
   const Team = mongoose.model('Team');
-  const teams = await Team.find({ removed: false })
-    .select('name businessType region systemType members')
-    .lean();
+  const Admin = mongoose.model('Admin');
+  const [teams, segUsers] = await Promise.all([
+    Team.find({ removed: false }).select('name businessType region systemType members').lean(),
+    // A user's own Business Segment (Add/Edit User) counts too — without it a
+    // company with no Teams set up had no B2B/B2C rows at all, so every
+    // segment-locked rep saw an all-zero dashboard.
+    Admin.find({ removed: false, businessSegment: { $in: Object.keys(SEGMENT_BIZ) } }).select('name surname businessSegment').lean(),
+  ]);
   const byName = new Map();
   const byMember = new Map();
+  const bizOwners = { B2B: new Set(), B2C: new Set() };
+  for (const u of segUsers) {
+    const full = `${u.name || ''} ${u.surname || ''}`.trim();
+    const biz = SEGMENT_BIZ[u.businessSegment];
+    if (!full || !biz) continue;
+    byMember.set(full.toLowerCase(), biz);
+    bizOwners[biz].add(full);
+  }
   for (const t of teams) {
     byName.set(t.name, t);
     for (const m of t.members || []) {
-      if (m && !byMember.has(m.toLowerCase())) byMember.set(m.toLowerCase(), t.businessType || null);
+      if (!m) continue;
+      if (!byMember.has(m.toLowerCase())) byMember.set(m.toLowerCase(), t.businessType || null);
+      if (bizOwners[t.businessType]) bizOwners[t.businessType].add(m);
     }
   }
-  _teamCache = { at: now, teams, byName, byMember };
+  _teamCache = { at: now, teams, byName, byMember, bizOwners: { B2B: [...bizOwners.B2B], B2C: [...bizOwners.B2C] } };
   return _teamCache;
 }
 
@@ -327,6 +343,23 @@ async function teamNamesForBiz(bizRaw) {
   if (!biz) return null;
   const ctx = await teamContext();
   return (ctx.teams || []).filter((t) => t.businessType === biz).map((t) => t.name);
+}
+
+// Row filter for a model with a team string + an owner-name string (Lead:
+// team/assignedUserName, CallRecord: team/agentName): a row is in the
+// segment when its team is a B2B/B2C team OR its owner is a B2B/B2C person
+// (own Business Segment, or member of such a team). null = no constraint.
+// Merge it with mergeScope() — never assign it flat.
+async function bizRowFilter(bizRaw, teamField, ownerField) {
+  const biz = normBiz(bizRaw);
+  if (!biz) return null;
+  const ctx = await teamContext();
+  const teamNames = (ctx.teams || []).filter((t) => t.businessType === biz).map((t) => t.name);
+  const owners = (ctx.bizOwners && ctx.bizOwners[biz]) || [];
+  const or = [];
+  if (teamNames.length) or.push({ [teamField]: { $in: teamNames } });
+  if (owners.length && ownerField) or.push({ [ownerField]: { $in: owners } });
+  return or.length ? { $or: or } : { [teamField]: '__no_segment__' };
 }
 
 // For "derived" modules: does this owner string belong to a B2B/B2C team?
@@ -352,6 +385,7 @@ module.exports = {
   normBiz,
   teamContext,
   teamNamesForBiz,
+  bizRowFilter,
   ownerBizFilter,
   resolveDashboardScope,
   scopeFacets,
