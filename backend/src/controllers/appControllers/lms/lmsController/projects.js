@@ -106,7 +106,7 @@ async function assign(req, res) {
   if (b.studentEmail) {
     const roster = await Student.findOne({ email: rxEq(b.studentEmail), batch: batchDoc.name, removed: false }).lean();
     if (!roster) return bad(res, 404, 'That candidate is not on this batch\'s roster.');
-    const student = await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id name email').lean();
+    const student = await Admin.findOne({ email: rxEq(b.studentEmail), removed: false, role: 'Student' }).select('_id name email').lean();
     if (!student) return bad(res, 404, 'Candidate has no login account yet.');
     targets = [student];
   } else {

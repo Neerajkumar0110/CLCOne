@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { accountForLogin } = require('../../../services/auth/accounts');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const { issueSession } = require('./issueSession');
@@ -32,7 +33,7 @@ const verifyOtp = async (req, res, { userModel }) => {
     });
   }
 
-  const user = await UserModel.findOne({ email, removed: false });
+  const user = await accountForLogin(email, 'otp', UserModel); // same pick as login.js
   if (!user)
     return res.status(404).json({
       success: false,

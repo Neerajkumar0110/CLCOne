@@ -44,7 +44,7 @@ async function candidateDetail(req, res) {
   if (s.paymentRequest) payOr.push({ _id: s.paymentRequest });
 
   const [account, batch, payments, attendance, certificates, statusChanges] = await Promise.all([
-    Admin.findOne({ email: rxEq(s.email), removed: false })
+    Admin.findOne({ email: rxEq(s.email), removed: false, role: 'Student' })
       .select('created lastSeenAt enabled rosterHold rosterHoldReason financeHold financeHoldAt')
       .lean(),
     s.batch ? Batch.findOne({ name: s.batch, removed: false }).lean() : null,

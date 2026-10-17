@@ -1,6 +1,7 @@
 const Joi = require('joi');
 
 const mongoose = require('mongoose');
+const { accountForLogin } = require('../../../services/auth/accounts');
 
 const { issueOtp } = require('./issueOtp');
 
@@ -30,7 +31,9 @@ const login = async (req, res, { userModel }) => {
     });
   }
 
-  const user = await UserModel.findOne({ email: value.email, removed: false });
+  // One email can have an LMS + a department account — OTP signs into the
+  // department one (services/auth/accounts.js).
+  const user = await accountForLogin(value.email, 'otp', UserModel);
 
   if (!user)
     return res.status(404).json({

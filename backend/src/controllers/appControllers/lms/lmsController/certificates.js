@@ -81,7 +81,7 @@ async function issue(req, res) {
   if (!course) return bad(res, 403, 'Not your internship.');
   const Admin = mongoose.model('Admin');
   const user = b.studentEmail
-    ? await Admin.findOne({ email: rxEq(b.studentEmail), removed: false }).select('_id').lean()
+    ? await Admin.findOne({ email: rxEq(b.studentEmail), removed: false, role: 'Student' }).select('_id').lean()
     : mongoose.isValidObjectId(b.studentId)
       ? await Admin.findById(b.studentId).select('_id').lean()
       : null;

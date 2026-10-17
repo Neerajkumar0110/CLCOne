@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { accountForLogin } = require('../../../services/auth/accounts');
 const Joi = require('joi');
 const { issueSession } = require('./issueSession');
 const { recordFailure } = require('../../../services/security/loginFailureTracker');
@@ -33,7 +34,9 @@ const loginWithPassword = async (req, res, { userModel }) => {
     });
   }
 
-  const user = await UserModel.findOne({ email: value.email, removed: false });
+  // One email can have an LMS + a department account — the password signs
+  // into the LMS one (services/auth/accounts.js).
+  const user = await accountForLogin(value.email, 'password', UserModel);
   if (!user)
     return res.status(404).json({
       success: false,

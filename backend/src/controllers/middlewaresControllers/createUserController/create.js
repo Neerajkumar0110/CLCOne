@@ -101,13 +101,11 @@ const create = async (userModel, req, res) => {
     });
   }
 
-  const existing = await User.findOne({ email: email.toLowerCase(), removed: false });
-  if (existing) {
-    return res.status(409).json({
-      success: false,
-      result: null,
-      message: 'A user with this email already exists.',
-    });
+  // One email may hold one LMS account + one department account
+  // (services/auth/accounts.js) — only a second one on the SAME side clashes.
+  const clashMsg = await require('../../../services/auth/accounts').emailClash(email, role, { Model: User });
+  if (clashMsg) {
+    return res.status(409).json({ success: false, result: null, message: clashMsg });
   }
 
   let newUser;
@@ -174,12 +172,17 @@ const create = async (userModel, req, res) => {
   // email + the login URL (login is OTP-only, see login.js — no password to
   // send). Best-effort, same as the Moodle provisioning above: never blocks
   // or fails account creation.
+  // Every DEPARTMENT account (not LMS — students/teachers get their own
+  // LMS emails) gets its department's login details; if the email also has
+  // an LMS account, the email explains password → LMS, code → department.
   try {
-    if (userModel === 'Admin' && SALES_ROLES.includes(newUser.role)) {
-      await require('../../../services/sales/salesWelcomeEmail').sendSalesWelcomeEmail(newUser);
+    const { isLmsRole, LMS_PANEL_ROLES } = require('../../../config/roles');
+    if (userModel === 'Admin' && !isLmsRole(newUser.role)) {
+      const hasLms = !!(await User.exists({ email: newUser.email, removed: false, role: { $in: LMS_PANEL_ROLES } }));
+      await require('../../../services/auth/departmentWelcomeEmail').sendDepartmentWelcomeEmail(newUser, { hasLms });
     }
   } catch (e) {
-    console.error('sales welcome email failed:', e.message);
+    console.error('department welcome email failed:', e.message);
   }
 
   return res.status(200).json({

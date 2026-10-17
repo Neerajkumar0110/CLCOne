@@ -131,6 +131,7 @@ const LoginPage = () => {
             ) : mode === 'password' ? (
               <div className="auth-step" key="password-step">
                 <span className="auth-subtitle">{translate('Enter your email and password')}</span>
+                <span style={{ display: 'block', fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>{translate('Password opens your LMS (learning) account.')}</span>
                 <Loading isLoading={isLoading}>
                   <Form
                     layout="vertical"
@@ -164,6 +165,7 @@ const LoginPage = () => {
                 <span className="auth-subtitle">
                   {translate('Enter your email — we will send you a login code')}
                 </span>
+                <span style={{ display: 'block', fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>{translate('Code opens your department account (Sales, Support, Finance…). For the LMS, use a password.')}</span>
                 <Loading isLoading={isLoading}>
                   <Form
                     layout="vertical"

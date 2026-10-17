@@ -446,7 +446,7 @@ async function grantUnlockOverride(req, res) {
     if (!email) return res.status(400).json({ success: false, message: 'studentEmail is required.' });
     const Admin = mongoose.model('Admin');
     const rxEq = (s) => new RegExp(`^${String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-    const student = await Admin.findOne({ email: rxEq(email), removed: false }).select('_id name email').lean();
+    const student = await Admin.findOne({ email: rxEq(email), removed: false, role: 'Student' }).select('_id name email').lean();
     if (!student) return res.status(404).json({ success: false, message: 'No candidate account with that email.' });
     doc.student = student._id;
     doc.studentName = student.name;

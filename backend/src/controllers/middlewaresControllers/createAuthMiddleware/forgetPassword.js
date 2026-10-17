@@ -1,6 +1,7 @@
 const Joi = require('joi');
 
 const mongoose = require('mongoose');
+const { accountForLogin } = require('../../../services/auth/accounts');
 
 const checkAndCorrectURL = require('./checkAndCorrectURL');
 const sendMail = require('./sendMail');
@@ -32,7 +33,8 @@ const forgetPassword = async (req, res, { userModel }) => {
     });
   }
 
-  const user = await User.findOne({ email: email, removed: false });
+  // Only the LMS account has a real password (services/auth/accounts.js).
+  const user = await accountForLogin(email, 'password', User);
   const databasePassword = await UserPassword.findOne({ user: user._id, removed: false });
 
   // console.log(user);

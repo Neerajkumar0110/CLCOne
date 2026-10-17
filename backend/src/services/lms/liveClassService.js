@@ -738,7 +738,11 @@ async function addStudentToBatch({ batchId, email, name, crmUserId } = {}, admin
   let crmUser = null;
 
   if (crmUserId) crmUser = await Admin.findById(crmUserId);
-  if (!crmUser && cleanEmail) crmUser = await Admin.findOne({ email: cleanEmail, removed: false });
+  // The LMS account on this email (one email may also have a department
+  // account — services/auth/accounts.js).
+  if (!crmUser && cleanEmail) {
+    crmUser = await Admin.findOne({ email: cleanEmail, removed: false, role: { $in: require('../../config/roles').LMS_PANEL_ROLES } });
+  }
 
   // roster row (Student model) — find by email (not batch+email, so a
   // student who already has a different batch gets MOVED, not duplicated),

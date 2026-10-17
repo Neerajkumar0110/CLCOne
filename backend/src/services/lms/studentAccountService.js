@@ -59,7 +59,12 @@ async function provisionLogin(studentDoc) {
   // Already has a login — from User Management, or an earlier roster row
   // with the same email. Leave it alone rather than creating a duplicate
   // (and never reset an existing password on a later re-save/edit).
-  const existing = await Admin.findOne({ email, removed: false });
+  // Already has an LMS login under this email — leave it. A DEPARTMENT
+  // account on the same email (e.g. a Sales user who is also a candidate)
+  // doesn't count: one email may hold one LMS + one department account
+  // (services/auth/accounts.js), so the Student login is still created.
+  const { LMS_PANEL_ROLES } = require('../../config/roles');
+  const existing = await Admin.findOne({ email, removed: false, role: { $in: LMS_PANEL_ROLES } });
   if (existing) return { user: existing };
 
   const newUser = await new Admin({
@@ -290,7 +295,7 @@ async function syncAccountIdentity(studentDoc, { prevEmail, prevName } = {}) {
     // roster row added before this student ever had a usable address) or it
     // already moved. Provision one now rather than leaving it missing,
     // unless the new address is already claimed by some other account.
-    if (newEmail && !(await Admin.findOne({ email: newEmail, removed: false }))) {
+    if (newEmail && !(await Admin.findOne({ email: newEmail, removed: false, role: { $in: require('../../config/roles').LMS_PANEL_ROLES } }))) {
       const { rawPassword } = await provisionLogin(studentDoc);
       await sendEnrollmentEmail(studentDoc, { rawPassword });
     }
@@ -298,7 +303,12 @@ async function syncAccountIdentity(studentDoc, { prevEmail, prevName } = {}) {
   }
 
   if (emailChanged) {
-    const clash = await Admin.findOne({ email: newEmail, removed: false, _id: { $ne: admin._id } });
+    const clash = await Admin.findOne({
+      email: newEmail,
+      removed: false,
+      _id: { $ne: admin._id },
+      role: { $in: require('../../config/roles').LMS_PANEL_ROLES },
+    });
     if (clash) {
       console.error(`[lms] syncAccountIdentity: ${newEmail} already belongs to another account — left ${admin.email} as-is.`);
       return;

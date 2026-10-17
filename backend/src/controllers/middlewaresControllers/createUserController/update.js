@@ -108,15 +108,18 @@ const update = async (userModel, req, res) => {
     }
   }
 
-  if (email !== undefined) {
-    const normalizedEmail = email.toLowerCase().trim();
-    const clash = await User.findOne({ email: normalizedEmail, removed: false, _id: { $ne: req.params.id } });
-    if (clash) {
-      return res.status(409).json({
-        success: false,
-        result: null,
-        message: 'A user with this email already exists.',
-      });
+  if (email !== undefined || role !== undefined) {
+    // Same rule as create: one LMS + one department account per email. The
+    // role may be changing in this very update, so check the side it ends on.
+    const current = await User.findById(req.params.id).select('email role').lean();
+    const effEmail = email !== undefined ? email.toLowerCase().trim() : current && current.email;
+    const effRole = role !== undefined ? role : current && current.role;
+    const clashMsg = await require('../../../services/auth/accounts').emailClash(effEmail, effRole, {
+      exceptId: req.params.id,
+      Model: User,
+    });
+    if (clashMsg) {
+      return res.status(409).json({ success: false, result: null, message: clashMsg });
     }
   }
 

@@ -106,7 +106,24 @@ const SALES_ROLE_PARENT = {
   'Sales Intern': 'Executive',
 };
 
+// Which department a role belongs to (mirror of frontend DEPARTMENT_ROLES).
+// Used for the "one email, two accounts" rule (services/auth/accounts.js)
+// and the department welcome email.
+const DEPARTMENT_ROLES = {
+  Sales: ['Sales Manager', 'Team Manager', 'Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'],
+  Finance: ['Finance'],
+  Support: ['Support'],
+  Admin: ['Admin', 'Super Admin', 'owner'],
+  LMS: ['Teacher', 'Student'],
+};
+const departmentOfRole = (role) =>
+  Object.keys(DEPARTMENT_ROLES).find((d) => DEPARTMENT_ROLES[d].includes(role)) || 'CRM';
+const isLmsRole = (role) => LMS_PANEL_ROLES.includes(role);
+
 module.exports = {
+  DEPARTMENT_ROLES,
+  departmentOfRole,
+  isLmsRole,
   ROLES,
   FINANCE_SUB_ROLES,
   BUSINESS_NAMES,
