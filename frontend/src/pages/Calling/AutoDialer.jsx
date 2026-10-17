@@ -59,8 +59,8 @@ function UsedLeads() {
   // the Dialer screen; the in-call modal opens by itself once it connects.
   const callAgain = async (l) => {
     if (dialingId) return;
-    const phone = String(l.phone || "").replace(/[^d+]/g, "");
-    if (phone.replace(/D/g, "").length < 8) return window.alert("No valid number on this call.");
+    const phone = String(l.phone || "").replace(/[^\d+]/g, "");
+    if (phone.replace(/\D/g, "").length < 8) return window.alert("No valid number on this call.");
     setDialingId(l._id);
     const r = await request.post({ entity: "calling/manual/dial", jsonData: { phone, contactName: l.name } });
     setDialingId(null);

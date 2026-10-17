@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const {
   getOrCreateLeadPoolCampaign,
   callReachedCustomer,
+  last10,
   CALL_REACHED,
   CALL_NOT_REACHED,
 } = require('../../../../services/calling/callingShared');
@@ -501,7 +502,7 @@ async function myUsedLeads(req, res, page, items) {
     const codes = Object.keys(BY_CODE).filter((c) => BY_CODE[c].crmStage && BY_CODE[c].crmStage.stage === stage);
     // Numbers I called in the range whose lead sits in that stage now.
     const phones = await CallRecord.distinct('phone', { agent: req.admin._id, removed: false, created: { $gte: since } });
-    const p10 = [...new Set(phones.map((p) => String(p || '').replace(/D/g, '').slice(-10)).filter((p) => p.length === 10))];
+    const p10 = [...new Set(phones.map((p) => last10(p)).filter((p) => p.length === 10))];
     const inStage = p10.length
       ? await mongoose.model('Lead').distinct('phoneNormalized', { removed: false, stage, phoneNormalized: { $in: p10 } })
       : [];
@@ -520,7 +521,7 @@ async function myUsedLeads(req, res, page, items) {
   ]);
 
   // Current pipeline stage of each row's lead (by phone).
-  const rowP10 = [...new Set(rows.map((r) => String(r.phone || '').replace(/D/g, '').slice(-10)).filter(Boolean))];
+  const rowP10 = [...new Set(rows.map((r) => last10(r.phone)).filter(Boolean))];
   const leadsByPhone = new Map(
     (rowP10.length
       ? await mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: rowP10 } }).select('phoneNormalized stage subStatus').lean()
@@ -532,7 +533,7 @@ async function myUsedLeads(req, res, page, items) {
     success: true,
     result: rows.map((r) => {
       const outcome = outcomeOf(r);
-      const lead = leadsByPhone.get(String(r.phone || '').replace(/D/g, '').slice(-10));
+      const lead = leadsByPhone.get(last10(r.phone));
       return {
         _id: r._id,
         name: r.contactName,
