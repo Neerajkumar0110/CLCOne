@@ -303,6 +303,19 @@ h1, h2, h3, h4, h5, h6,
 }
 @media (max-width: 560px) {
   .dash-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .dash-kpi {
+    padding: 12px;
+  }
+  .dash-kpi-value,
+  .sales-dashboard-ui .dash-kpi-value {
+    font-size: 20px;
+  }
+}
+@media (max-width: 330px) {
+  .dash-kpi-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -441,7 +441,6 @@ function MobileSidebar() {
         size="large"
         onClick={showDrawer}
         className="mobile-sidebar-btn"
-        style={{ ['marginLeft']: 25 }}
       >
         <MenuOutlined style={{ fontSize: 18 }} />
       </Button>

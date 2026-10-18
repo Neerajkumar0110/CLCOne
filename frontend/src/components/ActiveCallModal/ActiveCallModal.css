@@ -608,6 +608,10 @@
     max-width: none;
     max-height: 100vh;
     height: 100vh;
+    /* Phone browsers count the URL bar in 100vh — the footer's Save button
+       ended up under it. dvh is the visible height (ignored where unknown). */
+    max-height: 100dvh;
+    height: 100dvh;
     border-radius: 0;
   }
 

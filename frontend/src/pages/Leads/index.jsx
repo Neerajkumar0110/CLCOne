@@ -1105,7 +1105,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
             </div>
           </div>
 
-          <div style={{ flex: "1 1 340px", minWidth: 300 }}>
+          <div style={{ flex: "1 1 340px", minWidth: "min(300px, 100%)" }}>
             <div
               style={{
                 display: "grid",

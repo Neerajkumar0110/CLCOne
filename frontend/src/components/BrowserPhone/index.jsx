@@ -166,7 +166,7 @@ export default function BrowserPhone() {
       style={{
         position: "fixed", left: 16, bottom: 16, zIndex: 1100, background: "#fff", color,
         border: `1px solid ${color}`, borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 700,
-        boxShadow: "0 4px 14px rgba(0,0,0,.12)", maxWidth: 420,
+        boxShadow: "0 4px 14px rgba(0,0,0,.12)", maxWidth: "min(420px, calc(100vw - 32px))",
       }}
     >
       {text}

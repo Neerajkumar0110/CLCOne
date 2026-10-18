@@ -1,0 +1,220 @@
+/* Phone / tablet pass for the whole CRM shell + the shared hub-* building
+   blocks every Sales / Calls page is made of. Imported LAST in app.css so it
+   wins over the desktop rules; nothing here applies above 768px, so the
+   desktop layout is untouched. */
+
+/* ---------- App shell ---------- */
+@media (max-width: 767px) {
+  /* The ☰ button used to sit in the layout's flex row and push every page
+     ~70px to the right. Pin it over the header's left corner instead. */
+  .ant-btn.mobile-sidebar-btn {
+    position: fixed !important;
+    top: 12px;
+    left: 8px;
+    margin: 0 !important;
+    z-index: 102;
+    color: #e2e8f0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+  .app-header {
+    padding: 0 12px 0 56px !important;
+    gap: 10px !important;
+  }
+  .app-header .theme-picker {
+    max-width: 140px;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .app-header .theme-toggle {
+    --tt-w: 50px;
+  }
+  .ant-layout-content {
+    margin: 8px !important;
+    width: calc(100% - 16px) !important;
+    min-width: 0;
+  }
+}
+@media (max-width: 380px) {
+  /* Tiny phones: colour palette lives in the profile page instead. */
+  .app-header .theme-picker {
+    max-width: 110px;
+  }
+}
+
+/* ---------- Page + card spacing ---------- */
+@media (max-width: 767px) {
+  .hub-page {
+    padding: 14px 10px 32px !important;
+  }
+  .hub-card,
+  .dash-header {
+    padding: 16px 14px !important;
+  }
+  .hub-kpi {
+    padding: 14px 14px !important;
+  }
+  .section-head {
+    padding: 16px 14px !important;
+    gap: 12px;
+  }
+  .hub-stack {
+    gap: 14px;
+  }
+  .hub-header {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .hub-tabbar {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hub-tabbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hub-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  /* Pill filter groups (All / Open / …) scroll sideways instead of being
+     cut off by the card. */
+  .hub-pill-filter {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hub-pill-filter::-webkit-scrollbar {
+    display: none;
+  }
+  .hub-pill-filter > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .hub-kpi-value {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+  .hub-kpi-row {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  /* Any flex child is allowed to shrink below its content width — the
+     default min-width:auto is what makes long names push cards wider. */
+  .hub-row > *,
+  .hub-card-header > *,
+  .hub-header > * {
+    min-width: 0;
+  }
+  .hub-row > input,
+  .hub-row > select,
+  .hub-row > .hub-input,
+  .hub-row > .hub-select {
+    max-width: 100%;
+  }
+  .hub-input,
+  .hub-select,
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  /* Tables always scroll inside their own box. */
+  .hub-table-wrapper,
+  .ant-table-content,
+  .ant-table-body {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hub-table th,
+  .hub-table td {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  /* Modals: full width, tight padding, buttons wrap. */
+  .hub-modal-overlay {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .hub-modal {
+    max-width: 100% !important;
+    max-height: 94vh;
+    max-height: 94dvh;
+  }
+  .hub-modal-header {
+    padding: 14px 16px !important;
+  }
+  .hub-modal-body {
+    padding: 14px 16px !important;
+  }
+  .hub-modal-footer {
+    padding: 12px 16px !important;
+    flex-wrap: wrap;
+  }
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+  }
+  .ant-modal .ant-modal-content {
+    padding: 16px 14px;
+  }
+  .ant-drawer-content-wrapper {
+    max-width: 100vw;
+  }
+
+  /* antd page header (Profile, ERP list pages): stack the action buttons. */
+  .ant-page-header-heading {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .ant-page-header-heading-extra {
+    margin-left: 0 !important;
+    white-space: normal !important;
+    max-width: 100%;
+  }
+  .ant-page-header-heading-extra .ant-space {
+    flex-wrap: wrap;
+  }
+  .ant-form-item .ant-form-item-label {
+    padding-bottom: 4px;
+  }
+
+  /* Inline-styled multi-column grids collapse on phones. */
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns: repeat(6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  [style*="grid-template-columns: 1fr 1fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns: 1.4fr 1fr"],
+  [style*="grid-template-columns: 1.5fr 1fr"],
+  [style*="grid-template-columns: 1fr 340px"],
+  [style*="grid-template-columns: 1fr 360px"],
+  [style*="grid-template-columns: 1fr 380px"],
+  [style*="grid-template-columns: 340px 1fr"],
+  [style*="grid-template-columns: 360px 1fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .hub-kpi-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .hub-grid-2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
