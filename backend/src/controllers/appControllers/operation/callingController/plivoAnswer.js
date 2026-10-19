@@ -466,6 +466,16 @@ const plivoAnswer = async (req, res) => {
         rec.missedByAgent = true;
         rec.missedByAgentAt = new Date();
         await rec.save();
+        // Browser phone didn't pick up (stuck SDK answers "Busy" to every
+        // call): take this agent off browser routing until their tab
+        // rebuilds its phone, so the pool stops sending customers into
+        // silence. Meanwhile their calls ring the mobile (classic).
+        if (rec.connectMode === 'browser') {
+          await mongoose
+            .model('AgentCallState')
+            .updateOne({ agent: rec.agent }, { $set: { browserReadyAt: null, browserResetNeeded: true } });
+          console.log(`[browser-phone] ${rec.agentName || rec.agent}: leg not answered (${req.body?.HangupCauseName || req.query.HangupCauseName || 'no answer'}) — reset requested`);
+        }
         const { notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
         notifyAgentCallEvent(rec.agent, 'call:missed', rec).catch(() => {});
       }

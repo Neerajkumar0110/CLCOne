@@ -32,6 +32,10 @@ const schema = new mongoose.Schema({
     passwordEnc: String,
   },
   browserReadyAt: Date,
+  // Set when a browser-phone leg came back unanswered (e.g. the SDK stuck
+  // "in a call" and answering every new call Busy). The tab must rebuild its
+  // phone before it counts as ready again — until then calls ring the mobile.
+  browserResetNeeded: { type: Boolean, default: false },
   currentCall: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
 
   since: { type: Date, default: Date.now },

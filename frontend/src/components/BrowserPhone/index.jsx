@@ -42,6 +42,10 @@ export default function BrowserPhone() {
   const [err, setErr] = useState("");
   const sdkRef = useRef(null);
   const beatRef = useRef(null);
+  // Bumped to throw the SDK away and build a fresh one — the server asks for
+  // it after a call this phone didn't pick up (a stuck SDK answers "Busy").
+  const [gen, setGen] = useState(0);
+  const resettingRef = useRef(false);
 
   // Is browser mode on for me right now?
   useEffect(() => {
@@ -93,7 +97,30 @@ export default function BrowserPhone() {
         // ("No Answer") even though the phone was registered.
         const sdk = new window.Plivo({ debug: "ERROR", permOnClick: true, enableTracking: false, closeProtection: true, audioConstraints: true });
         sdkRef.current = sdk;
-        const beat = () => request.post({ entity: "calling/browser-phone/ready", jsonData: { ready: true } }).catch(() => {});
+        const rebuild = () => {
+          if (resettingRef.current) return;
+          resettingRef.current = true;
+          clearInterval(beatRef.current);
+          try {
+            sdk.client.hangup();
+          } catch {
+            /* no call */
+          }
+          try {
+            sdk.client.logout();
+          } catch {
+            /* already out */
+          }
+          sdkRef.current = null;
+          setGen((g) => g + 1);
+        };
+        const beat = () =>
+          request
+            .post({ entity: "calling/browser-phone/ready", jsonData: { ready: true } })
+            .then((r) => {
+              if (r?.result?.reset) rebuild();
+            })
+            .catch(() => {});
         // Every phone event goes to the server log, so a call that didn't
         // pick up can be traced (VPS: pm2 logs → [browser-phone]).
         const report = (event, detail) =>
@@ -102,7 +129,10 @@ export default function BrowserPhone() {
             .catch(() => {});
         sdk.client.on("onLogin", () => {
           setState("ready");
-          beat();
+          if (resettingRef.current) {
+            resettingRef.current = false;
+            report("reset-done");
+          } else beat();
           clearInterval(beatRef.current);
           beatRef.current = setInterval(beat, 30000);
         });
@@ -151,7 +181,7 @@ export default function BrowserPhone() {
     return () => {
       cancelled = true;
     };
-  }, [wanted]);
+  }, [wanted, gen]);
 
   if (state === "off") return null;
   const color = { starting: "#d97706", ready: "#16a34a", oncall: "#2563eb", error: "#dc2626" }[state];

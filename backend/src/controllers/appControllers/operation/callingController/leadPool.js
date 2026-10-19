@@ -176,13 +176,24 @@ const browserReady = async (req, res) => {
   if (req.body && req.body.event) {
     console.log(`[browser-phone] ${req.admin.name} ${req.admin.surname || ''}: ${String(req.body.event).slice(0, 40)} ${String(req.body.detail || '').slice(0, 300)}`);
   }
+  const AgentCallState = mongoose.model('AgentCallState');
+  const goingOff = req.body && req.body.ready === false;
+  const resetDone = req.body && req.body.event === 'reset-done';
+  // A missed browser leg flagged this tab's phone as stuck (plivoAnswer.js
+  // leg=agent-hangup): ignore its "ready" until it has rebuilt the phone.
+  if (!goingOff && !resetDone) {
+    const st = await AgentCallState.findOne({ agent: req.admin._id }).select('browserResetNeeded').lean();
+    if (st && st.browserResetNeeded) {
+      return res.status(200).json({ success: true, result: { reset: true }, message: 'reset' });
+    }
+  }
   // Upsert: a user who never joined the pool has no presence row yet, but
   // their Dialer / callback calls still ring the browser in this mode.
-  await mongoose.model('AgentCallState').updateOne(
+  await AgentCallState.updateOne(
     { agent: req.admin._id },
     {
       $setOnInsert: { agent: req.admin._id, agentName: `${req.admin.name} ${req.admin.surname || ''}`.trim(), status: 'Offline' },
-      $set: { browserReadyAt: req.body && req.body.ready === false ? null : new Date() },
+      $set: { browserReadyAt: goingOff ? null : new Date(), ...(resetDone ? { browserResetNeeded: false } : {}) },
     },
     { upsert: true }
   );
