@@ -407,7 +407,11 @@ const plivoAnswer = async (req, res) => {
         await setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id, since: new Date() });
         notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
       }
-      if (rec.providerCallId) {
+      // Browser mode has no greeting — the customer is ALREADY in the room.
+      // Redirecting them would make them leave it (endConferenceOnExit), which
+      // ends the conference and drops the browser leg ~1s after it answers:
+      // customer hears silence, agent hears nothing.
+      if (rec.providerCallId && rec.connectMode !== 'browser') {
         interruptGreeting({ cfg, liveCallUuid: rec.providerCallId, crmCallId, secretQs }).catch((err) =>
           console.error('[plivoAnswer] failed to interrupt greeting:', err.message)
         );
