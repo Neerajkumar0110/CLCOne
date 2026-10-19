@@ -18,6 +18,11 @@ const paymentsApi = {
   refresh: (id) => request.post({ entity: `payments/${id}/refresh`, jsonData: {} }),
   courseFee: (course) => request.get({ entity: `payments/course-fee${qs({ course })}` }),
   nextInstallment: (id, amount) => request.post({ entity: `payments/${id}/next-installment`, jsonData: { amount } }),
+  // Finance (EMI) applications — backend paymentsController/finance.js
+  financeCreate: (payload) => request.post({ entity: 'payments/finance', jsonData: payload }),
+  financeList: (params) => request.get({ entity: `payments/finance${qs(params)}` }),
+  financeGet: (id) => request.get({ entity: `payments/finance/${id}` }),
+  financeResend: (id) => request.post({ entity: `payments/finance/${id}/resend`, jsonData: {} }),
 };
 
 export default paymentsApi;

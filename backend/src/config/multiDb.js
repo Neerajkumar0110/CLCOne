@@ -109,6 +109,7 @@ const DB_MAP = {
   Payment: 'financeDb',
   PaymentRequest: 'financeDb',
   PaymentKyc: 'financeDb',
+  FinanceApplication: 'financeDb',
 
   // ---- hrmsDb ----
   Announcement: 'hrmsDb',

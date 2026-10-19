@@ -22,6 +22,7 @@ const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
 // isLoggedIn branch below entirely, the one architectural spot that can
 // render something regardless of auth state.
 const PublicKycForm = lazy(() => import('@/pages/Payments/PublicKycForm'));
+const FinanceKycForm = lazy(() => import('@/pages/Payments/FinanceKycForm'));
 
 const DefaultApp = () => {
   const current = useSelector(selectCurrentAdmin);
@@ -91,12 +92,13 @@ export default function IdurarOs() {
   //   };
   // }, [navigator.onLine]);
 
-  if (location.pathname.startsWith('/kyc/')) {
+  if (location.pathname.startsWith('/kyc/') || location.pathname.startsWith('/finance-kyc/')) {
     return (
       <Localization>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/kyc/:token" element={<PublicKycForm />} />
+            <Route path="/finance-kyc/:token" element={<FinanceKycForm />} />
           </Routes>
         </Suspense>
       </Localization>

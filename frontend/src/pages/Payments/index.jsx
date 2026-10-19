@@ -16,6 +16,7 @@ import {
   Tooltip,
   Image,
   Space,
+  Segmented,
 } from 'antd';
 import {
   WalletOutlined,
@@ -26,6 +27,7 @@ import {
   EyeOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
+  BankOutlined,
 } from '@ant-design/icons';
 import { request } from '@/request';
 import { getSocket } from '@/socket';
@@ -54,6 +56,11 @@ const fmtInr = (n) => {
 
 export default function Payments() {
   const [form] = Form.useForm();
+  // "payment" = Razorpay registration payment (unchanged). "finance" = the
+  // candidate pays through a finance partner: no payment link, they get the
+  // finance KYC form by email (backend paymentsController/finance.js).
+  const [reqType, setReqType] = useState('payment');
+  const [listType, setListType] = useState('payment');
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState(null); // { shortUrl, qrDataUrl, emailSent, emailError }
 
@@ -78,7 +85,7 @@ export default function Payments() {
       const res = await paymentsApi.courseFee(val);
       const fee = (res && res.result) || null;
       setFeeHint(fee);
-      if (fee) form.setFieldsValue({ amount: Math.max(fee.installmentAmount, MIN_REGISTRATION_AMOUNT) });
+      if (fee) form.setFieldsValue({ amount: Math.max(fee.installmentAmount, MIN_REGISTRATION_AMOUNT), courseFee: fee.totalFee, financeAmount: fee.totalFee });
     } catch (e) {
       setFeeHint(null);
     }
@@ -105,6 +112,21 @@ export default function Payments() {
     load();
   }, [load]);
 
+  const [finRows, setFinRows] = useState([]);
+  const [finLoading, setFinLoading] = useState(true);
+  const loadFinance = useCallback(async () => {
+    setFinLoading(true);
+    try {
+      const res = await paymentsApi.financeList({ teamView: teamView ? 1 : undefined });
+      setFinRows((res && res.result) || []);
+    } finally {
+      setFinLoading(false);
+    }
+  }, [teamView]);
+  useEffect(() => {
+    loadFinance();
+  }, [loadFinance]);
+
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   useEffect(() => {
@@ -126,6 +148,10 @@ export default function Payments() {
   useEffect(() => {
     const socket = getSocket();
     const onUpdate = (evt) => {
+      if (evt && evt.kind === 'finance') {
+        loadFinance();
+        return;
+      }
       load();
       if (evt && resultRef.current && evt.id === resultRef.current.id && evt.status === 'paid') {
         setResult((r) => (r && r.status !== 'paid' ? { ...r, status: 'paid' } : r));
@@ -133,7 +159,7 @@ export default function Payments() {
     };
     socket?.on('payments:updated', onUpdate);
     return () => socket?.off('payments:updated', onUpdate);
-  }, [load]);
+  }, [load, loadFinance]);
 
   // Fallback for when no socket is available (serverless deploys have none —
   // see backend/src/socket.js) — keeps the just-created QR panel honest by
@@ -163,9 +189,31 @@ export default function Payments() {
     return () => clearTimeout(t);
   }, [result?.status]);
 
+  const [finResult, setFinResult] = useState(null);
   const onCreate = async (values) => {
     setCreating(true);
     setResult(null);
+    setFinResult(null);
+    if (reqType === 'finance') {
+      try {
+        const res = await paymentsApi.financeCreate(values);
+        if (res && res.success) {
+          setFinResult(res.result);
+          message.success(res.result.emailSent ? 'Finance KYC form emailed to the candidate.' : 'Finance request saved — email not sent.');
+          form.resetFields();
+          setFeeHint(null);
+          setListType('finance');
+          loadFinance();
+        } else {
+          message.error((res && res.message) || 'Could not create the finance request.');
+        }
+      } catch (e) {
+        message.error('Could not create the finance request.');
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
     try {
       const res = await paymentsApi.create(values);
       if (res && res.success) {
@@ -390,6 +438,88 @@ export default function Payments() {
     },
   ];
 
+  // ── Finance (EMI) applications ─────────────────────────────────────────
+  const [finFor, setFinFor] = useState(null);
+  const [finBusy, setFinBusy] = useState(null);
+  const openFinance = async (row) => {
+    setFinFor({ ...row, loading: true });
+    const res = await paymentsApi.financeGet(row.id);
+    setFinFor(res?.result ? res.result : null);
+  };
+  const finResend = async (id) => {
+    setFinBusy(id);
+    try {
+      const res = await paymentsApi.financeResend(id);
+      if (res && res.success) message.success('Email re-sent.');
+      else message.error((res && res.message) || 'Could not send the email.');
+    } finally {
+      setFinBusy(null);
+      loadFinance();
+    }
+  };
+  const finColumns = [
+    columns[0],
+    columns[1],
+    {
+      title: 'Finance',
+      key: 'fin',
+      width: 140,
+      render: (_, r) => (
+        <div>
+          <span className="pay-row-amount">{r.financeAmount ? fmtInr(r.financeAmount) : '—'}</span>
+          {r.tenureMonths && <div className="pay-row-inst">{r.tenureMonths} months</div>}
+        </div>
+      ),
+    },
+    {
+      title: 'KYC form',
+      dataIndex: 'status',
+      width: 150,
+      render: (v, r) =>
+        v === 'submitted' ? (
+          <span className="pay-pill pay-pill--green pay-pill--clickable" onClick={() => openFinance(r)}>
+            <CheckCircleFilled /> Received
+          </span>
+        ) : (
+          <span className={`pay-pill pay-pill--${r.emailSent ? 'orange' : 'red'}`}>
+            <ClockCircleOutlined /> {r.emailSent ? 'Sent — pending' : 'Email not sent'}
+          </span>
+        ),
+    },
+    {
+      title: 'By',
+      dataIndex: 'createdByName',
+      width: 110,
+      render: (v, r) => (
+        <div>
+          <div>{v || '—'}</div>
+          <div className="pay-row-inst">{r.created ? new Date(r.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}</div>
+        </div>
+      ),
+    },
+    {
+      title: '',
+      key: 'actions',
+      render: (_, r) => (
+        <Space size={4}>
+          <Tooltip title="Copy KYC form link">
+            <Button className="pay-row-action" type="text" icon={<CopyOutlined />} onClick={() => copyLink(r.kycLink)} />
+          </Tooltip>
+          {r.status !== 'submitted' && (
+            <Tooltip title="Re-send email">
+              <Button className="pay-row-action" type="text" icon={<MailOutlined />} loading={finBusy === r.id} onClick={() => finResend(r.id)} />
+            </Tooltip>
+          )}
+          <Tooltip title="View details">
+            <Button className="pay-row-action" type="text" icon={<EyeOutlined />} onClick={() => openFinance(r)} />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+  const pendingFin = finRows.filter((r) => r.status !== 'submitted').length;
+  const receivedFin = finRows.length - pendingFin;
+
   return (
     <div className="lms-portal pay-hub">
       <div className="lms-portal-head">
@@ -403,7 +533,27 @@ export default function Payments() {
 
       <Row gutter={[20, 20]}>
         <Col xs={24} lg={9}>
-          <Card className="pay-form-card" title="New payment request">
+          <Card className="pay-form-card" title={reqType === 'finance' ? 'New finance request' : 'New payment request'}>
+            <Segmented
+              block
+              value={reqType}
+              onChange={(v) => {
+                setReqType(v);
+                setResult(null);
+                setFinResult(null);
+              }}
+              options={[
+                { value: 'payment', label: 'Payment', icon: <QrcodeOutlined /> },
+                { value: 'finance', label: 'Finance (EMI)', icon: <BankOutlined /> },
+              ]}
+              style={{ marginBottom: 16 }}
+            />
+            {reqType === 'finance' && (
+              <div className="pay-fee-hint" style={{ marginBottom: 14 }}>
+                No payment link — the candidate gets an email with the <b>finance KYC form</b> (Aadhaar, PAN, full bank details,
+                WhatsApp number). You'll see it under <b>Finance KYC</b> on the right once they submit.
+              </div>
+            )}
             <Form
               form={form}
               layout="vertical"
@@ -424,19 +574,36 @@ export default function Payments() {
               >
                 <Input placeholder="name@example.com" />
               </Form.Item>
-              <Form.Item name="studentPhone" label="Candidate phone (optional)">
-                <Input placeholder="For future WhatsApp reminders" />
+              <Form.Item
+                name="studentPhone"
+                label={reqType === 'finance' ? 'Candidate phone' : 'Candidate phone (optional)'}
+                rules={reqType === 'finance' ? [{ required: true, message: 'Enter the candidate phone.' }, { pattern: /^\+?[\d\s-]{10,15}$/, message: 'Enter a valid phone.' }] : []}
+              >
+                <Input placeholder={reqType === 'finance' ? '10-digit mobile' : 'For future WhatsApp reminders'} />
               </Form.Item>
-              <Form.Item name="course" label="Internship">
+              <Form.Item name="course" label="Internship" rules={reqType === 'finance' ? [{ required: true, message: 'Select the internship.' }] : []}>
                 <Select
                   showSearch
                   allowClear
-                  placeholder="Select an internship (optional)"
+                  placeholder={reqType === 'finance' ? 'Select an internship' : 'Select an internship (optional)'}
                   optionFilterProp="label"
                   options={courses.map((c) => ({ value: c.title, label: `${c.code ? c.code + ' — ' : ''}${c.title}` }))}
                   onChange={onCourseChange}
                 />
               </Form.Item>
+              {reqType === 'finance' ? (
+                <>
+                  <Form.Item name="courseFee" label="Total course fee (INR, incl. GST)">
+                    <InputNumber style={{ width: '100%' }} min={0} step={500} placeholder="e.g. 60000" />
+                  </Form.Item>
+                  <Form.Item name="financeAmount" label="Amount to finance (INR)" rules={[{ required: true, message: 'Enter the amount to finance.' }]}>
+                    <InputNumber style={{ width: '100%' }} min={1} step={500} placeholder="e.g. 60000" />
+                  </Form.Item>
+                  <Form.Item name="tenureMonths" label="Tenure" rules={[{ required: true, message: 'Select the tenure.' }]}>
+                    <Select placeholder="Select months" options={[3, 6, 9, 12, 18, 24].map((m) => ({ value: m, label: `${m} months` }))} />
+                  </Form.Item>
+                </>
+              ) : (
               <Form.Item
                 name="amount"
                 label="Registration Amount (INR)"
@@ -447,6 +614,7 @@ export default function Payments() {
               >
                 <InputNumber style={{ width: '100%' }} min={MIN_REGISTRATION_AMOUNT} step={500} placeholder="e.g. 5000" />
               </Form.Item>
+              )}
               {feeHint && (
                 <div className="pay-fee-hint">
                   <b>{fmtInr(feeHint.totalFee)}</b> total ({fmtInr(feeHint.baseFee)} + 18% GST) · {feeHint.durationMonths} monthly
@@ -456,10 +624,26 @@ export default function Payments() {
               <Form.Item name="notes" label="Notes (optional)">
                 <Input.TextArea rows={2} placeholder="Internal note — not shown to the candidate" />
               </Form.Item>
-              <Button type="primary" htmlType="submit" block loading={creating} icon={<QrcodeOutlined />}>
-                Generate payment link + QR
+              <Button type="primary" htmlType="submit" block loading={creating} icon={reqType === 'finance' ? <MailOutlined /> : <QrcodeOutlined />}>
+                {reqType === 'finance' ? 'Send finance KYC form' : 'Generate payment link + QR'}
               </Button>
             </Form>
+
+            {finResult && (
+              <div className="pay-result">
+                <div className="pay-result-info" style={{ width: '100%' }}>
+                  <div className="pay-result-link">
+                    <Input readOnly value={finResult.kycLink} />
+                    <Button icon={<CopyOutlined />} onClick={() => copyLink(finResult.kycLink)}>
+                      Copy
+                    </Button>
+                  </div>
+                  <div className={`pay-result-email ${finResult.emailSent ? 'is-ok' : 'is-warn'}`}>
+                    <MailOutlined /> {finResult.emailSent ? 'Finance KYC form emailed to the candidate.' : `Email not sent${finResult.emailError ? ` — ${finResult.emailError}` : '.'}`}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {result && result.status === 'paid' && (
               <div className="pay-success">
@@ -537,14 +721,31 @@ export default function Payments() {
 
           <Card
             className="pay-list-card"
-            title="Payment requests"
+            title={
+              <Segmented
+                value={listType}
+                onChange={setListType}
+                options={[
+                  { value: 'payment', label: `Payments (${rows.length})` },
+                  { value: 'finance', label: `Finance KYC (${receivedFin} received${pendingFin ? ` · ${pendingFin} pending` : ''})` },
+                ]}
+              />
+            }
             extra={
-              <Button size="small" icon={<ReloadOutlined />} onClick={load}>
+              <Button size="small" icon={<ReloadOutlined />} onClick={listType === 'finance' ? loadFinance : load}>
                 Refresh
               </Button>
             }
           >
-            {loading ? (
+            {listType === 'finance' ? (
+              finLoading ? (
+                <Skeleton active paragraph={{ rows: 5 }} />
+              ) : finRows.length === 0 ? (
+                <Empty description="No finance requests yet." />
+              ) : (
+                <Table className="pay-table" rowKey="id" dataSource={finRows} columns={finColumns} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} />
+              )
+            ) : loading ? (
               <Skeleton active paragraph={{ rows: 5 }} />
             ) : rows.length === 0 ? (
               <Empty description="No payment requests yet." />
@@ -736,6 +937,120 @@ export default function Payments() {
                 ))}
               </div>
             </Image.PreviewGroup>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!finFor} title={null} footer={null} onCancel={() => setFinFor(null)} width={760} className="pay-kyc-modal">
+        {!finFor || finFor.loading ? (
+          <Skeleton active avatar paragraph={{ rows: 6 }} style={{ padding: 28 }} />
+        ) : (
+          <div className="pay-kyc-modal-body">
+            <div className="pay-kyc-modal-head">
+              <div className="pay-kyc-modal-avatar">{initialsOf((finFor.kyc && finFor.kyc.name) || finFor.studentName)}</div>
+              <div className="pay-kyc-modal-who">
+                <div className="pay-kyc-modal-name">{(finFor.kyc && finFor.kyc.name) || finFor.studentName}</div>
+                <div className="pay-kyc-modal-meta">
+                  Finance · {finFor.course || 'No internship'}
+                  {finFor.financeAmount ? ` · ${fmtInr(finFor.financeAmount)}` : ''}
+                  {finFor.tenureMonths ? ` · ${finFor.tenureMonths} months` : ''}
+                </div>
+              </div>
+              {finFor.status === 'submitted' ? (
+                <span className="pay-pill pay-pill--green pay-kyc-modal-status">
+                  <CheckCircleFilled /> KYC received
+                </span>
+              ) : (
+                <span className="pay-pill pay-pill--orange pay-kyc-modal-status">
+                  <ClockCircleOutlined /> KYC pending
+                </span>
+              )}
+            </div>
+            {!finFor.kyc ? (
+              <Empty description="The candidate hasn't submitted the finance KYC form yet." style={{ padding: '20px 0 4px' }} />
+            ) : (
+              <>
+                {[
+                  [
+                    'Personal details',
+                    [
+                      ['Date of birth', finFor.kyc.dob],
+                      ['Gender', finFor.kyc.gender],
+                      ["Father's name", finFor.kyc.fatherName],
+                      ["Mother's name", finFor.kyc.motherName],
+                      ['Mobile', finFor.kyc.mobile],
+                      ['WhatsApp', finFor.kyc.whatsapp],
+                      ['Alternate mobile', finFor.kyc.alternateMobile],
+                      ['Email', finFor.kyc.email],
+                      ['Occupation', finFor.kyc.occupation],
+                      ['Monthly income', finFor.kyc.monthlyIncome],
+                      ['Aadhaar no.', finFor.kyc.aadharNumber],
+                      ['PAN no.', finFor.kyc.panNumber],
+                    ],
+                  ],
+                  [
+                    'Address',
+                    [
+                      ['State', finFor.kyc.state],
+                      ['District', finFor.kyc.district],
+                      ['City', finFor.kyc.city],
+                      ['Pincode', finFor.kyc.pincode],
+                    ],
+                  ],
+                  [
+                    'Bank details',
+                    [
+                      ['Account holder', finFor.kyc.bank?.accountHolder],
+                      ['Bank', finFor.kyc.bank?.bankName],
+                      ['Account no.', finFor.kyc.bank?.accountNumber],
+                      ['IFSC', finFor.kyc.bank?.ifsc],
+                      ['Branch', finFor.kyc.bank?.branch],
+                      ['Account type', finFor.kyc.bank?.accountType],
+                      ['Bank-registered mobile', finFor.kyc.bank?.registeredMobile],
+                    ],
+                  ],
+                ].map(([label, fields]) => (
+                  <React.Fragment key={label}>
+                    <div className="pay-kyc-modal-section-label">{label}</div>
+                    <div className="pay-kyc-modal-grid">
+                      {fields.map(([k, v]) => (
+                        <div className="pay-kyc-modal-field" key={k}>
+                          <span>{k}</span>
+                          <b>{v || '—'}</b>
+                        </div>
+                      ))}
+                    </div>
+                    {label === 'Address' && (
+                      <div className="pay-kyc-modal-field pay-kyc-modal-field--full">
+                        <span>Full address</span>
+                        <b>{finFor.kyc.address || '—'}</b>
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
+                <div className="pay-kyc-modal-section-label">Documents</div>
+                <Image.PreviewGroup>
+                  <div className="pay-kyc-modal-docs">
+                    {[
+                      ['Aadhaar — front', finFor.kyc.aadharFront],
+                      ['Aadhaar — back', finFor.kyc.aadharBack],
+                      ['PAN — front', finFor.kyc.panFront],
+                      ['Photo', finFor.kyc.photo],
+                      ['Cheque / passbook', finFor.kyc.bankProof],
+                    ]
+                      .filter(([, p], i) => i < 3 || p)
+                      .map(([label, path]) => (
+                        <div className="pay-kyc-modal-doc" key={label}>
+                          <div className="pay-kyc-modal-doc-frame">
+                            {path ? <Image src={`${BASE_URL}${path}`} /> : <span className="pay-row-muted">No file</span>}
+                          </div>
+                          <div className="pay-kyc-modal-doc-label">{label}</div>
+                        </div>
+                      ))}
+                  </div>
+                </Image.PreviewGroup>
               </>
             )}
           </div>

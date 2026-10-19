@@ -21,6 +21,15 @@ router.route('/return').get(limiter, catchErrors(payments.returnHandler));
 // since Razorpay (not a browser) is the caller and can burst-retry.
 router.route('/webhook').post(rateLimit({ windowMs: 60 * 1000, max: 600 }), catchErrors(payments.webhookHandler));
 
+// Finance KYC form (paymentsPublicController/finance.js) — before /:token.
+router.route('/finance/:token').get(limiter, catchErrors(payments.financeStatus));
+router.route('/finance/:token/upload').post(
+  limiter,
+  singleStorageUpload({ entity: 'financekyc', fieldName: 'file', fileType: 'image' }),
+  catchErrors(payments.financeUpload)
+);
+router.route('/finance/:token/kyc').post(limiter, catchErrors(payments.financeSubmit));
+
 router.route('/:token').get(limiter, catchErrors(payments.status));
 router.route('/:token/upload').post(
   limiter,

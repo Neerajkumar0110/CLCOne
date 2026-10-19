@@ -16,6 +16,14 @@ const paymentsPublicApi = {
     return client.post(`payments/public/${token}/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
   },
   submitKyc: (token, payload) => client.post(`payments/public/${token}/kyc`, payload).then((r) => r.data),
+  // Finance (EMI) KYC form — pages/Payments/FinanceKycForm.jsx
+  financeStatus: (token) => client.get(`payments/public/finance/${token}`).then((r) => r.data),
+  financeUpload: (token, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return client.post(`payments/public/finance/${token}/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+  },
+  financeSubmit: (token, payload) => client.post(`payments/public/finance/${token}/kyc`, payload).then((r) => r.data),
 };
 
 export default paymentsPublicApi;

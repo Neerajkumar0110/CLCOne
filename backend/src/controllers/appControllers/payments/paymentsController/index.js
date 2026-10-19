@@ -7,5 +7,6 @@ const courseFee = require('./courseFee');
 const nextInstallment = require('./nextInstallment');
 const stats = require('./stats');
 const roster = require('./roster');
+const finance = require('./finance');
 
-module.exports = { create, list, get, refreshStatus, resend, courseFee, nextInstallment, stats, roster };
+module.exports = { create, list, get, refreshStatus, resend, courseFee, nextInstallment, stats, roster, ...finance };

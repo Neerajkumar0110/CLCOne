@@ -23,7 +23,7 @@ const DOC_FIELDS = [
   ['panFront', 'PAN card', 'Front side'],
 ];
 
-function Header() {
+function Header({ logo }) {
   return (
     <div className="pay-kyc-brand">
       <img src={logo} alt="Career Lab Consulting" />
@@ -155,7 +155,7 @@ export default function PublicKycForm() {
   if (loading) {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Header />
+        <Header logo={logo} />
         <Spin size="large" />
       </div>
     );
@@ -163,7 +163,7 @@ export default function PublicKycForm() {
   if (notFound) {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Header />
+        <Header logo={logo} />
         <div className="pay-kyc-card pay-kyc-card--narrow">
           <Result status="404" title="Link not found" subTitle="This payment link is invalid or has expired." />
         </div>
@@ -181,7 +181,7 @@ export default function PublicKycForm() {
     const isLaterInstallment = !done && info.installmentNo > 1;
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Header />
+        <Header logo={logo} />
         <div className="pay-kyc-card pay-kyc-card--narrow">
           <Result
             icon={<CheckCircleFilled style={{ color: '#22c55e' }} />}
@@ -199,7 +199,7 @@ export default function PublicKycForm() {
   if (info.status !== 'paid') {
     return (
       <div className="pay-kyc-shell pay-kyc-center">
-        <Header />
+        <Header logo={logo} />
         <div className="pay-kyc-waitcard">
           <ClockCircleOutlined className="pay-kyc-wait-icon" />
           <h2>Complete your payment</h2>
@@ -219,7 +219,7 @@ export default function PublicKycForm() {
 
   return (
     <div className="pay-kyc-shell">
-      <Header />
+      <Header logo={logo} />
       <div className="pay-kyc-card">
         <div className="pay-kyc-head">
           <SafetyCertificateOutlined className="pay-kyc-head-icon" />

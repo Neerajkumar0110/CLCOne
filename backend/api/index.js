@@ -153,6 +153,7 @@ try {
     Payment: unwrap(require('../src/models/appModels/finance/Payment')),
     PaymentRequest: unwrap(require('../src/models/appModels/finance/PaymentRequest')),
     PaymentKyc: unwrap(require('../src/models/appModels/finance/PaymentKyc')),
+    FinanceApplication: unwrap(require('../src/models/appModels/finance/FinanceApplication')),
 
     // ---- hrms (hrmsDb) ----
     LoginActivity: unwrap(require('../src/models/appModels/hrms/LoginActivity')),
