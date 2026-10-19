@@ -23,6 +23,7 @@ const lmsBrowserGuard = require('./middlewares/lmsBrowserGuard');
 const financeHoldGuard = require('./middlewares/financeHoldGuard');
 const rosterHoldGuard = require('./middlewares/rosterHoldGuard');
 const paymentsPublicRouter = require('./routes/appRoutes/payments/paymentsPublicApi');
+const demoPublicRouter = require('./routes/appRoutes/demoPublicApi');
 const paymentsApiRouter = require('./routes/appRoutes/payments/paymentsApi');
 const facebookApiRouter = require('./routes/appRoutes/marketing/facebookApi');
 const googleApiRouter = require('./routes/appRoutes/marketing/googleApi');
@@ -90,6 +91,10 @@ app.use('/api/lms/webhooks', lmsBbbWebhookRouter);
 // before the bearer gate; the unguessable publicToken in the URL (and, for
 // /return, Razorpay's own HMAC signature) stands in for a CRM login.
 app.use('/api/payments/public', paymentsPublicRouter);
+
+// Live-demo join links from the booking email (services/sales/demoBookings.js)
+// — before the bearer gate; the per-person unguessable token is the access.
+app.use('/api/demo', demoPublicRouter);
 
 // Serverless-cron safety net (see routes/appRoutes/cronApi.js) — before the
 // bearer gate; its own CRON_SECRET check stands in for a CRM login.

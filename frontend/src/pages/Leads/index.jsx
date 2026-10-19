@@ -12,6 +12,8 @@ import storePersist from "@/redux/storePersist";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import { DEPARTMENT_ROLES } from "@/config/roles";
+import dayjs from "dayjs";
+import { DEMO_TIME_LABEL, disabledDemoDate, toDemoSlot } from "@/utils/demoDay";
 import {
   STAGE_NAMES,
   QUICK_FILTERS,
@@ -548,16 +550,27 @@ function PipelineFields({ form, setForm, admins = [], showChangeReason = false }
       {cfg.meetingSubStatuses && (
         <div className="hub-form-row">
           <label>
-            Date &amp; Time {needMeeting && <span style={{ color: "#ef4444" }}>*</span>}
+            Live Demo Day · {DEMO_TIME_LABEL} {needMeeting && <span style={{ color: "#ef4444" }}>*</span>}
           </label>
+          {/* Demo runs Mon–Sat 6–7 PM: pick the day, the time is fixed. A
+              Sunday or an already-finished day is pushed to the next demo
+              day by the server (services/sales/demoBookings.js). */}
           <input
-            type="datetime-local"
+            type="date"
             className="hub-input"
-            value={toDatetimeLocal(form.meetingAt)}
-            onChange={(e) =>
-              patch({ meetingAt: e.target.value ? new Date(e.target.value).toISOString() : null })
-            }
+            min={dayjs(new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10)).format("YYYY-MM-DD")}
+            value={form.meetingAt ? dayjs(new Date(new Date(form.meetingAt).getTime() + 330 * 60000).toISOString().slice(0, 10)).format("YYYY-MM-DD") : ""}
+            onChange={(e) => {
+              const v = e.target.value ? dayjs(e.target.value) : null;
+              const d = v && disabledDemoDate(v) && v.day() === 0 ? v.add(1, "day") : v;
+              patch({ meetingAt: d ? toDemoSlot(d).toISOString() : null });
+            }}
           />
+          {needMeeting && (
+            <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 4 }}>
+              Mon–Sat only (Sunday moves to Monday). The join link is emailed to the customer, you and your Team Leader.
+            </div>
+          )}
         </div>
       )}
 

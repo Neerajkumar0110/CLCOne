@@ -50,6 +50,12 @@ router.route('/lead-pool/connect-mode').post(catchErrors(c.leadPoolSetConnectMod
 router.route('/lead-pool/line/connect').post(catchErrors(c.leadPoolLineConnect));
 router.route('/browser-phone/credentials').get(catchErrors(c.browserPhoneCredentials));
 router.route('/browser-phone/ready').post(catchErrors(c.browserPhoneReady));
+
+// Live demo (Mon–Sat 6–7 PM) — admin list + host join. See callingController/demos.js.
+const demos = require('../../../controllers/appControllers/operation/callingController/demos');
+router.route('/demos').get(catchErrors(demos.list));
+router.route('/demos/status').get(catchErrors(demos.status));
+router.route('/demos/join').get(catchErrors(demos.join));
 router.route('/team-activity').get(catchErrors(c.teamActivityList));
 router.route('/team-activity/:id/pool').post(catchErrors(c.teamActivitySetPool));
 

@@ -24,6 +24,7 @@ import {
   ReconciliationOutlined,
   TrophyOutlined,
   BarChartOutlined,
+  VideoCameraOutlined,
   TeamOutlined,
   FundOutlined,
   QuestionCircleOutlined,
@@ -49,7 +50,7 @@ const NAV_KEY_MODULE = Object.fromEntries(
 // pages/Calling/index.jsx), not separate routes — so the sidebar's synthetic
 // "current path" for /calling folds the query param in, the same way
 // "sales/leads" folds a real route segment in for feature sections.
-const CALLING_TABS = ['dashboard', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports'];
+const CALLING_TABS = ['dashboard', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports', 'demos'];
 function pathKeyFor(loc) {
   if (loc.pathname === '/') return 'dashboard';
   const base = loc.pathname.slice(1);
@@ -140,6 +141,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     'calling-callbacks': '/calling?tab=callbacks',
     'calling-recordings': '/calling?tab=recordings',
     'calling-reports': '/calling?tab=reports',
+    'calling-demos': '/calling?tab=demos',
     communication: '/communication',
     // Analytics
     performance: '/performance',
@@ -237,6 +239,10 @@ function Sidebar({ collapsible, isMobile = false }) {
         { key: 'calling-callbacks', label: 'Callbacks', icon: <ClockCircleOutlined /> },
         { key: 'calling-recordings', label: 'Recordings', icon: <PlayCircleOutlined /> },
         { key: 'calling-reports', label: 'Reports', icon: <BarChartOutlined /> },
+        // Live demo bookings + host join — Admin / Super Admin only.
+        ...(['owner', 'Super Admin', 'Admin'].includes(role)
+          ? [{ key: 'calling-demos', label: 'Live Demos', icon: <VideoCameraOutlined /> }]
+          : []),
       ],
     },
 

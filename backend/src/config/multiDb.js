@@ -142,6 +142,8 @@ const DB_MAP = {
   CallLead: 'operationDb',
   CallRecord: 'operationDb',
   CodeEditorTicket: 'operationDb',
+  DemoBooking: 'operationDb',
+  DemoRoom: 'operationDb',
   GitConnection: 'operationDb',
   IvrFlow: 'operationDb',
   Message: 'operationDb',

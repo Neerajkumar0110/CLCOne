@@ -309,6 +309,11 @@ const logDetails = async (req, res) => {
     crmLead = await Lead.findOne({ removed: false, phoneNormalized });
   }
 
+  // For the live-demo hook below: only a NEW "Demo Booked" or a changed day
+  // books/emails — re-saving an old booked lead must not mail anyone.
+  const prevDemoSub = crmLead ? crmLead.subStatus : null;
+  const prevMeetingMs = crmLead && crmLead.meetingAt ? new Date(crmLead.meetingAt).getTime() : null;
+
   // Only spawn a NEW pipeline lead when the call earned one — either the
   // disposition shows real interest (same rule as callingShared's
   // CRM_BRIDGE_CATEGORIES, so an auto-dialled and a hand-dialled call
@@ -417,6 +422,22 @@ const logDetails = async (req, res) => {
     await crmLead.save();
   }
 
+  // Live demo: "Demo Booked" with a day → seat the customer in that day's
+  // 6–7 PM demo and email the join links to customer, agent and Team Leader
+  // (services/sales/demoBookings.js). Mail goes out in the background.
+  let demo = null;
+  if (
+    crmLead &&
+    meetingAt &&
+    crmLead.stage === 'Demo Booking' &&
+    crmLead.subStatus === 'Demo Booked' &&
+    (prevDemoSub !== 'Demo Booked' || new Date(meetingAt).getTime() !== prevMeetingMs)
+  ) {
+    const demoBookings = require('../../../../services/sales/demoBookings');
+    demo = { date: demoBookings.demoDateFor(meetingAt), noCustomerEmail: !crmLead.email };
+    demoBookings.bookDemoSafe({ leadId: crmLead._id, meetingAt, actor: req.admin, callRecordId: rec._id });
+  }
+
   // Scheduled callback — one pending CallCallback per call record, updated
   // in place, so saving the form twice doesn't queue the same follow-up
   // twice.
@@ -471,7 +492,7 @@ const logDetails = async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    result: { call: updatedRec, lead: callLead, crmLead },
+    result: { call: updatedRec, lead: callLead, crmLead, demo },
     message: isEnded ? 'Call ended and details saved!' : 'Call details updated successfully!',
   });
 };

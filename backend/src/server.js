@@ -130,6 +130,10 @@ if (!RUN_BACKGROUND_JOBS) {
   const startCallingCallbackTick = require('./jobs/callingCallbackTick');
   startCallingCallbackTick();
 
+  // Live demo no-shows → moved once to the next demo day (and re-emailed).
+  const startDemoBookingTick = require('./jobs/demoBookingTick');
+  startDemoBookingTick();
+
   // Pulls call-recording links from the provider's Recording API for any
   // recently completed call that isn't marked available yet — the provider's
   // own push callback isn't reliably reaching this server (see the job file

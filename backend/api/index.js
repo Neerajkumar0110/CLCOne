@@ -132,6 +132,8 @@ try {
     CallRecord: unwrap(require('../src/models/appModels/operation/CallRecord')),
     CallCallback: unwrap(require('../src/models/appModels/operation/CallCallback')),
     AgentCallState: unwrap(require('../src/models/appModels/operation/AgentCallState')),
+    DemoBooking: unwrap(require('../src/models/appModels/operation/DemoBooking')),
+    DemoRoom: unwrap(require('../src/models/appModels/operation/DemoRoom')),
     IvrFlow: unwrap(require('../src/models/appModels/operation/IvrFlow')),
     CodeEditorTicket: unwrap(require('../src/models/internal/CodeEditorTicket')),
     Message: unwrap(require('../src/models/appModels/operation/Message')),

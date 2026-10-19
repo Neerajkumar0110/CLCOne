@@ -12,6 +12,9 @@ import CallHistory from "./CallHistory";
 import Callbacks from "./Callbacks";
 import Recordings from "./Recordings";
 import Reports from "./Reports";
+import Demos from "./Demos";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { useCallingMeta } from "./shared";
 
 const BASE_TABS = [
@@ -24,13 +27,31 @@ const BASE_TABS = [
   { key: "callbacks", label: "Callbacks", C: Callbacks },
   { key: "recordings", label: "Recordings", C: Recordings },
   { key: "reports", label: "Reports", C: Reports },
+  { key: "demos", label: "Live Demos", C: Demos, adminOnly: true },
 ];
+const ADMIN_ROLES = ["owner", "Super Admin", "Admin"];
 
 export default function Calling() {
   const [params] = useSearchParams();
   const meta = useCallingMeta();
   const isManager = meta.tier === "manager" || meta.tier === "admin";
-  const TABS = BASE_TABS.filter((t) => !t.managerOnly || isManager);
+  const me = useSelector(selectCurrentAdmin);
+  const isAdmin = ADMIN_ROLES.includes(me?.role);
+  const TABS = BASE_TABS.filter((t) => (!t.managerOnly || isManager) && (!t.adminOnly || isAdmin));
+  // Team Manager / Sales Manager: "Join live demo" while today's demo is open.
+  const [demoJoin, setDemoJoin] = useState(false);
+  useEffect(() => {
+    if (!["Team Manager", "Sales Manager"].includes(me?.role)) return undefined;
+    const check = () =>
+      request.get({ entity: "calling/demos/status" }).then((r) => setDemoJoin(!!(r?.success && r.result?.canJoin && r.result?.window === "open")));
+    check();
+    const t = setInterval(check, 120000);
+    return () => clearInterval(t);
+  }, [me?.role]);
+  const joinDemo = async () => {
+    const r = await request.get({ entity: "calling/demos/join" });
+    if (r?.success && r.result?.url) window.open(r.result.url, "_blank", "noopener");
+  };
   const initial = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "dashboard";
   const [tab, setTab] = useState(initial);
   const [provider, setProvider] = useState(null);
@@ -78,6 +99,11 @@ export default function Calling() {
             {provider.testMode ? "TEST MODE — simulated calls" : "Live calling"}
             <span style={{ opacity: 0.7, fontWeight: 500 }}>· {provider.label}</span>
           </div>
+        )}
+        {demoJoin && (
+          <button type="button" className="hub-btn hub-btn-primary" onClick={joinDemo}>
+            🎥 Join live demo
+          </button>
         )}
       </div>
 

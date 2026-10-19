@@ -34,6 +34,7 @@ import { getSocket } from "@/socket";
 import { startPoll } from "@/utils/poll";
 import { usePermission } from "@/context/permissionContext";
 import { STAGE_NAMES, subStatusesFor, defaultSubStatus, stageConfig } from "@/config/leadStages";
+import { DEMO_TIME_LABEL, disabledDemoDate, toDemoSlot } from "@/utils/demoDay";
 import {
   PERSONAS,
   AGE_RANGES,
@@ -529,6 +530,12 @@ export default function ActiveCallModal() {
 
       if (res?.success) {
         message.success(res.message || "Lead details saved successfully!");
+        const demo = res.result?.demo;
+        if (demo) {
+          const day = dayjs(demo.date).format("ddd, DD MMM");
+          if (demo.noCustomerEmail) message.warning(`Demo booked for ${day}, 6 PM — no customer email, so only you and your Team Leader got the link.`, 6);
+          else message.success(`Demo booked for ${day}, 6 PM — join link emailed to the customer, you and your Team Leader.`, 6);
+        }
         if (res.result?.call) setCallData(res.result.call);
         if (res.result?.lead) setLeadData(res.result.lead);
         if (res.result?.crmLead) setCrmLeadData(res.result.crmLead);
@@ -1008,17 +1015,22 @@ export default function ActiveCallModal() {
                 {(stageConfig(stage)?.meetingSubStatuses || []).includes(subStatus) && (
                   <div>
                     <label className="incall-field-label">
-                      <CalendarOutlined /> Demo Date & Time
+                      <CalendarOutlined /> Live Demo Day · {DEMO_TIME_LABEL}
                     </label>
                     <DatePicker
-                      showTime={{ format: "hh:mm A", use12Hours: true, minuteStep: 5 }}
                       popupClassName="incall-popup"
                       style={{ width: "100%" }}
                       value={meetingAt}
-                      onChange={(date) => setMeetingAt(date)}
-                      format="DD MMM YYYY, hh:mm A"
-                      placeholder="Pick demo date and time"
+                      onChange={(date) => setMeetingAt(toDemoSlot(date))}
+                      disabledDate={disabledDemoDate}
+                      format="ddd, DD MMM YYYY · [6:00 PM]"
+                      placeholder="Pick demo day (Mon–Sat)"
                     />
+                    <div className="incall-callback-echo" style={{ color: email ? undefined : "#b45309" }}>
+                      {email
+                        ? "Join link goes by email to the customer, you and your Team Leader."
+                        : "Add the customer's email above — without it only you and your Team Leader get the link."}
+                    </div>
                   </div>
                 )}
 
