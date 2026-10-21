@@ -6,6 +6,7 @@ import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
 import CallerDetailModal from "./CallerDetailModal";
+import { STAGE_NAMES } from "@/config/leadStages";
 
 // My Calls: the call-again button shows only for leads worth calling back.
 const CALLABLE_STAGES = ["Interested Leads", "Demo Booking"];
@@ -60,6 +61,19 @@ function UsedLeads() {
   const [days, setDays] = useState(7);
   const [dialingId, setDialingId] = useState(null);
   const [openCall, setOpenCall] = useState(null); // { id, name }
+  // Management filters (pool-wide list) — backend leadPool.js usedLeads.
+  const [f, setF] = useState({ response: "", stage: "", agent: "", disposition: "", from: "", to: "", q: "" });
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ facets: null, pagination: null });
+  const setFilter = (k, v) => {
+    setF((p) => ({ ...p, [k]: v }));
+    setPage(1);
+  };
+  useEffect(() => {
+    const t = setTimeout(() => setFilter("q", qInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [qInput]); // eslint-disable-line react-hooks/exhaustive-deps
   // One-click call back to any number in My Calls — the same manual dial as
   // the Dialer screen; the in-call modal opens by itself once it connects.
   const callAgain = async (l) => {
@@ -72,13 +86,18 @@ function UsedLeads() {
     if (!r?.success) window.alert(r?.message || "Could not place the call.");
   };
   usePoll(async () => {
-    const qs = new URLSearchParams({ items: "50", days: String(days), ...(outcome ? { outcome } : {}) });
+    const extra = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
+    const qs = new URLSearchParams({ items: "50", page: String(page), days: String(days), ...(outcome ? { outcome } : {}), ...extra });
     const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
     if (r?.success) {
       setData(r.result);
       setMine(r.scope === "mine");
+      setMeta({ facets: r.facets || null, pagination: r.pagination || null });
     }
-  }, 8000, [outcome, days]);
+  }, 8000, [outcome, days, f, page]);
+  const facets = meta.facets;
+  const pg = meta.pagination;
+  const anyFilter = Object.values(f).some(Boolean);
 
   return (
     <div className="hub-card">
@@ -100,15 +119,65 @@ function UsedLeads() {
           </select>
         </div>
       )}
+      {!mine && (
+        <div style={{ marginBottom: 12 }}>
+          {facets && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {[["", `All · ${facets.total}`], ...Object.entries(facets.response).sort((a, b) => b[1] - a[1]).map(([k, n]) => [k, `${k} · ${n}`])].map(([k, label]) => (
+                <button
+                  key={k || "all"}
+                  type="button"
+                  className={`hub-btn ${f.response === k ? "hub-btn-primary" : ""}`}
+                  style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12.5 }}
+                  onClick={() => setFilter("response", k)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <input className="hub-input" style={{ width: 190 }} placeholder="Search name or phone" value={qInput} onChange={(e) => setQInput(e.target.value)} />
+            <select className="hub-select" style={{ width: 170 }} value={f.stage} onChange={(e) => setFilter("stage", e.target.value)}>
+              <option value="">All stages</option>
+              {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select className="hub-select" style={{ width: 160 }} value={f.agent} onChange={(e) => setFilter("agent", e.target.value)}>
+              <option value="">All agents</option>
+              {(facets?.agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <select className="hub-select" style={{ width: 170 }} value={f.disposition} onChange={(e) => setFilter("disposition", e.target.value)}>
+              <option value="">All dispositions</option>
+              <option value="none">No disposition</option>
+              {(facets?.dispositions || []).map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <input type="date" className="hub-input" style={{ width: 150 }} value={f.from} onChange={(e) => setFilter("from", e.target.value)} title="From" />
+            <input type="date" className="hub-input" style={{ width: 150 }} value={f.to} onChange={(e) => setFilter("to", e.target.value)} title="To" />
+            {anyFilter && (
+              <button
+                type="button"
+                className="hub-btn"
+                onClick={() => {
+                  setF({ response: "", stage: "", agent: "", disposition: "", from: "", to: "", q: "" });
+                  setQInput("");
+                  setPage(1);
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {mine && <CallerDetailModal callId={openCall?.id} title={openCall?.name} onClose={() => setOpenCall(null)} />}
       <div className="hub-table-wrapper">
         <table className="hub-table">
           <thead>
-            <tr><th>Contact</th><th>Response</th>{mine && <th>Stage</th>}<th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th>{mine && <th>Call</th>}</tr>
+            <tr><th>Contact</th><th>Response</th><th>Stage</th><th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th>{mine && <th>Call</th>}</tr>
           </thead>
           <tbody>
             {(!data || data.length === 0) && (
-              <tr><td colSpan={mine ? 6 : 5}><div className="hub-empty">{mine ? "No calls in this range." : "No leads dialed yet."}</div></td></tr>
+              <tr><td colSpan={6}><div className="hub-empty">{mine ? "No calls in this range." : anyFilter ? "No leads match these filters." : "No leads dialed yet."}</div></td></tr>
             )}
             {data && data.map((l) => (
               <tr
@@ -123,12 +192,10 @@ function UsedLeads() {
                     {l.response}
                   </span>
                 </td>
-                {mine && (
-                  <td style={{ fontSize: 12 }}>
-                    <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
-                    {l.subStatus && <div style={{ color: "#94a3b8" }}>{l.subStatus}</div>}
-                  </td>
-                )}
+                <td style={{ fontSize: 12 }}>
+                  <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
+                  {mine && l.subStatus && <div style={{ color: "#94a3b8" }}>{l.subStatus}</div>}
+                </td>
                 <td>{l.disposition || "—"}</td>
                 {!mine && <td>{l.agentName || "—"}</td>}
                 <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
@@ -153,6 +220,19 @@ function UsedLeads() {
           </tbody>
         </table>
       </div>
+      {!mine && pg && pg.pages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 10, fontSize: 13 }}>
+          <span style={{ color: "var(--hub-muted)" }}>
+            {pg.count} leads · page {pg.page} of {pg.pages}
+          </span>
+          <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <LeftOutlined />
+          </button>
+          <button type="button" className="hub-btn" disabled={page >= pg.pages} onClick={() => setPage((p) => p + 1)}>
+            <RightOutlined />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

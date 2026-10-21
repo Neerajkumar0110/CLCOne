@@ -200,4 +200,5 @@ module.exports = startLeadPoolSyncTick;
 module.exports.fillLeadPoolNow = fillLeadPoolNow;
 module.exports.stageQueueSummary = stageQueueSummary;
 module.exports.stagesOf = stagesOf;
+module.exports.stageLeadFilter = stageLeadFilter;
 module.exports.advanceAndQueue = advanceAndQueue;

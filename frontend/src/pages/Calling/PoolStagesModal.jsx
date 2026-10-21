@@ -1,16 +1,53 @@
 import React, { useEffect, useState } from "react";
 import HubModal from "@/components/HubModal";
+import { request } from "@/request";
 import { ArrowUpOutlined, ArrowDownOutlined, CloseOutlined } from "@ant-design/icons";
 
 // Calls page → Instant Lead Pool → "Dialing stages". Management picks up to
 // `max` stages IN ORDER: the pool dials #1 first, moves to #2 once #1's leads
 // run out, and so on (backend: jobs/leadPoolSyncTick.js advanceAndQueue).
 // Click a stage to add it at the end of the order; arrows reorder; × removes.
+const RESULT_LABEL = { Connected: "connected", Completed: "completed", Callback: "callback", "No Answer": "no answer", Busy: "busy", Failed: "failed", Dialing: "dialing now", Voicemail: "voicemail", DNC: "DNC" };
+
+// One stage's progress under the saved order: "Finished" / "Dialing now",
+// dialed vs left, and what the dialed ones came to.
+function StageLine({ st }) {
+  if (!st) return null;
+  if (!st.order) {
+    return <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>{st.available} leads to dial</div>;
+  }
+  const res = Object.entries(st.results || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${n} ${RESULT_LABEL[k] || k}`)
+    .join(" · ");
+  return (
+    <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 2 }}>
+      {st.finished ? (
+        <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Finished</span>
+      ) : st.active ? (
+        <span style={{ color: "#2563eb", fontWeight: 700 }}>● Dialing now</span>
+      ) : (
+        <span style={{ fontWeight: 700 }}>Waiting</span>
+      )}
+      {" · "}
+      <b>{st.dialed}</b> dialed · <b>{st.left}</b> left
+      {res && <div style={{ marginTop: 1 }}>{res}</div>}
+    </div>
+  );
+}
+
 export default function PoolStagesModal({ open, onClose, onSave, options = [], current = [], max = 5, saving }) {
   const [picked, setPicked] = useState([]);
+  // Per stage: leads the pool can dial, and for the stages in the saved
+  // order how this round went (backend leadPool.js stageStats).
+  const [stats, setStats] = useState({});
 
   useEffect(() => {
-    if (open) setPicked(current.length ? [...current] : ["New Lead"]);
+    if (!open) return;
+    setPicked(current.length ? [...current] : ["New Lead"]);
+    request.get({ entity: "calling/lead-pool/stage-stats" }).then((r) => {
+      if (r?.success) setStats(Object.fromEntries((r.result?.stages || []).map((x) => [x.stage, x])));
+    });
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (s) =>
@@ -66,7 +103,10 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
               }}>
                 {i + 1}
               </span>
-              <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>{s}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{s}</span>
+                <StageLine st={stats[s]} />
+              </span>
               <button type="button" className="hub-btn" style={{ padding: "2px 8px" }} disabled={i === 0} onClick={() => move(i, -1)} title="Move up"><ArrowUpOutlined /></button>
               <button type="button" className="hub-btn" style={{ padding: "2px 8px" }} disabled={i === picked.length - 1} onClick={() => move(i, 1)} title="Move down"><ArrowDownOutlined /></button>
               <button type="button" className="hub-btn" style={{ padding: "2px 8px" }} onClick={() => toggle(s)} title="Remove"><CloseOutlined /></button>
@@ -92,13 +132,15 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
               }}
             >
               + {s}
+              {stats[s] && <span style={{ marginLeft: 6, color: "var(--hub-muted)", fontWeight: 600 }}>({stats[s].available})</span>}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{ fontSize: 12, color: "var(--hub-muted)", lineHeight: 1.5 }}>
-        Saving restarts the queue: leads still waiting from the current order are dropped and re-picked from #1.
+        Counts under each stage are for this round (since the order was last saved). Saving restarts the queue: leads
+        still waiting from the current order are dropped and re-picked from #1.
         New Lead dials only unassigned leads. If new leads land in an earlier stage, the pool goes back to it first.
       </div>
     </HubModal>

@@ -11,9 +11,10 @@ const shiftSchedule = require('../../../../config/shiftSchedule');
 const { istDateKey, isWithinJoinWindow, activeBreakWindow } = require('../../../../services/calling/shiftHelpers');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
-const { fillLeadPoolNow, stageQueueSummary, stagesOf } = require('../../../../jobs/leadPoolSyncTick');
+const { fillLeadPoolNow, stageQueueSummary, stagesOf, stageLeadFilter } = require('../../../../jobs/leadPoolSyncTick');
 const MAX_POOL_STAGES = 5;
 const connectModes = require('../../../../services/calling/connectModes');
+const { fixMojibake } = require('../../../../utils/fixMojibake');
 const { CRM_ADMIN_ROLES } = require('../../../../config/roles');
 
 // Who may point the Instant Lead Pool at a different Sales stage: full
@@ -446,7 +447,42 @@ const usedLeads = async (req, res) => {
     return res.status(200).json({ success: true, result: [], pagination: { page: 1, pages: 0, count: 0 }, message: 'ok' });
   }
 
-  const filter = { campaign: camp._id, removed: false, status: { $nin: ['New', 'Queued'] } };
+  // Filters (management view): ?response= CallLead.status, ?disposition=,
+  // ?agent=<admin id>, ?stage=<pipeline stage the pool picked it from>,
+  // ?from=&to= (YYYY-MM-DD, IST, on the last attempt), ?q= name / phone.
+  const base = { campaign: camp._id, removed: false, status: { $nin: ['New', 'Queued'] } };
+  const q = req.query;
+  const and = [];
+  if (q.stage) and.push({ source: q.stage === 'New Lead' ? 'CRM Lead Pool' : `CRM Lead Pool (${q.stage})` });
+  // The agent who took a pool call is on its CallRecord (claimed when the
+  // customer answered), not on the CallLead — filter through the records.
+  const CallRecord = mongoose.model('CallRecord');
+  if (q.agent && mongoose.isValidObjectId(q.agent)) {
+    const ids = await CallRecord.distinct('callLead', { campaign: camp._id, agent: new mongoose.Types.ObjectId(q.agent) });
+    and.push({ $or: [{ _id: { $in: ids } }, { assignedAgent: new mongoose.Types.ObjectId(q.agent) }] });
+  }
+  if (q.disposition) and.push({ lastDisposition: q.disposition === 'none' ? null : q.disposition });
+  const day = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  if (day(q.from) || day(q.to)) {
+    const at = {};
+    if (day(q.from)) at.$gte = new Date(`${q.from}T00:00:00+05:30`);
+    if (day(q.to)) at.$lte = new Date(`${q.to}T23:59:59.999+05:30`);
+    and.push({ lastAttemptAt: at });
+  }
+  if (q.q && String(q.q).trim()) {
+    const rx = new RegExp(String(q.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    and.push({ $or: [{ name: rx }, { phone: rx }, { phoneNormalized: rx }] });
+  }
+  const scoped = and.length ? { ...base, $and: and } : base;
+  const filter = q.response ? { ...scoped, status: q.response } : scoped;
+
+  // Counts per response for the filter chips (everything but ?response=).
+  const facetRows = await CallLead.aggregate([{ $match: scoped }, { $group: { _id: '$status', n: { $sum: 1 } } }]);
+  const facets = { total: 0, response: {} };
+  for (const f of facetRows) {
+    facets.response[f._id] = f.n;
+    facets.total += f.n;
+  }
 
   const [rows, count] = await Promise.all([
     CallLead.find(filter)
@@ -461,26 +497,49 @@ const usedLeads = async (req, res) => {
   // connections under this app's multi-database routing, and Mongoose's
   // own .populate() can't cross that boundary — so resolve agent names
   // with a plain second lookup instead.
+  // Every agent / disposition the pool has ever recorded — for the filter
+  // dropdowns, not just this page's rows.
+  const [leadAgentIds, callAgentIds, allDispositions, rowCalls] = await Promise.all([
+    CallLead.distinct('assignedAgent', base),
+    CallRecord.distinct('agent', { campaign: camp._id }),
+    CallLead.distinct('lastDisposition', base),
+    // Latest call per row → who took it.
+    CallRecord.find({ callLead: { $in: rows.map((l) => l._id) }, agent: { $ne: null } })
+      .sort({ created: -1 })
+      .select('callLead agent')
+      .lean(),
+  ]);
+  const allAgentIds = [...new Set([...leadAgentIds, ...callAgentIds].filter(Boolean).map(String))];
   const Admin = mongoose.model('Admin');
-  const agentIds = [...new Set(rows.filter((l) => l.assignedAgent).map((l) => String(l.assignedAgent)))];
-  const agents = agentIds.length
-    ? await Admin.find({ _id: { $in: agentIds } }).select('name surname').lean()
-    : [];
+  const agents = allAgentIds.length ? await Admin.find({ _id: { $in: allAgentIds } }).select('name surname').lean() : [];
   const agentNameById = new Map(agents.map((a) => [String(a._id), `${a.name} ${a.surname || ''}`.trim()]));
+  const callAgentByLead = new Map();
+  for (const c of rowCalls) if (!callAgentByLead.has(String(c.callLead))) callAgentByLead.set(String(c.callLead), String(c.agent));
+  const stageOfSource = (s) => {
+    if (s === 'CRM Lead Pool') return 'New Lead';
+    const m = /^CRM Lead Pool \((.+)\)$/.exec(s || '');
+    return m ? m[1] : s || null;
+  };
 
   return res.status(200).json({
     success: true,
     result: rows.map((l) => ({
       _id: l._id,
-      name: l.name,
+      name: fixMojibake(l.name),
       phone: l.phone,
       response: l.status,
       disposition: l.lastDisposition || null,
-      agentName: l.assignedAgent ? agentNameById.get(String(l.assignedAgent)) || null : null,
+      agentName: agentNameById.get(callAgentByLead.get(String(l._id)) || String(l.assignedAgent || '')) || null,
+      stage: stageOfSource(l.source),
       attempts: l.attempts,
       lastAttemptAt: l.lastAttemptAt,
     })),
     pagination: { page, pages: Math.ceil(count / items) || 0, count },
+    facets: {
+      ...facets,
+      agents: agents.map((a) => ({ id: String(a._id), name: agentNameById.get(String(a._id)) })).sort((a, b) => a.name.localeCompare(b.name)),
+      dispositions: allDispositions.filter(Boolean).sort(),
+    },
     message: 'ok',
   });
 };
@@ -560,7 +619,7 @@ async function myUsedLeads(req, res, page, items) {
       const lead = leadsByPhone.get(last10(r.phone));
       return {
         _id: r._id,
-        name: r.contactName,
+        name: fixMojibake(r.contactName),
         phone: r.phone,
         stage: lead ? lead.stage : null,
         subStatus: lead ? lead.subStatus : null,
@@ -628,7 +687,50 @@ const myCallDetail = async (req, res) => {
   });
 };
 
+// GET /api/calling/lead-pool/stage-stats — for the "Dialing stages" picker:
+// per pipeline stage, how many leads the pool could dial from it, and for
+// the stages in the current order how far this round has got (dialed / still
+// left / finished) and what came of the dialed ones. A "round" starts every
+// time the order is saved (leadPoolStageSetAt).
+const stageStats = async (req, res) => {
+  if (!POOL_STAGE_ROLES.includes(req.admin.role)) {
+    return res.status(403).json({ success: false, result: null, message: 'Not allowed.' });
+  }
+  const Lead = mongoose.model('Lead');
+  const CallLead = mongoose.model('CallLead');
+  const camp = await mongoose.model('CallCampaign').findOne({ isLeadPool: true, removed: false }).lean();
+  if (!camp) return res.status(200).json({ success: true, result: { stages: [] }, message: 'ok' });
+
+  const picked = stagesOf(camp);
+  const active = camp.leadPoolStage || 'New Lead';
+  const roundStart = camp.leadPoolStageSetAt || new Date(0);
+  const pending = await CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } });
+  const tag = (s) => (s === 'New Lead' ? 'CRM Lead Pool' : `CRM Lead Pool (${s})`);
+
+  const stages = [];
+  for (const stage of STAGE_NAMES) {
+    const dialable = { removed: false, stage, 'instantDispatch.status': { $nin: ['pending', 'calling'] } };
+    if (stage === 'New Lead') dialable.$or = [{ assignedUser: null }, { assignedUser: { $exists: false } }];
+    const row = { stage, available: await Lead.countDocuments(dialable), order: picked.indexOf(stage) + 1 || null };
+    if (row.order) {
+      const notQueued = await Lead.countDocuments(stageLeadFilter(camp, stage));
+      const results = await CallLead.aggregate([
+        { $match: { campaign: camp._id, removed: false, source: tag(stage), created: { $gte: new Date(roundStart) }, status: { $nin: ['New', 'Queued'] } } },
+        { $group: { _id: '$status', n: { $sum: 1 } } },
+      ]);
+      row.left = notQueued + (stage === active ? pending : 0);
+      row.dialed = results.reduce((a, r) => a + r.n, 0);
+      row.results = Object.fromEntries(results.map((r) => [r._id, r.n]));
+      row.active = stage === active;
+      row.finished = row.left === 0;
+    }
+    stages.push(row);
+  }
+  return res.status(200).json({ success: true, result: { stages, roundStart: camp.leadPoolStageSetAt || null }, message: 'ok' });
+};
+
 module.exports = {
+  stageStats,
   myCallDetail,
   toggle,
   status,
