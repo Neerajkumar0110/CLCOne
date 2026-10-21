@@ -38,6 +38,7 @@ router.route('/admin/read/:id').get(catchErrors(adminController.read));
 router.route('/admin/overview/:id').get(catchErrors(require('../../controllers/coreControllers/adminController/overview')));
 router.route('/admin/update/:id').patch(catchErrors(adminController.update));
 router.route('/admin/delete/:id').delete(catchErrors(adminController.delete));
+router.route('/admin/set-enabled/:id').patch(catchErrors(adminController.setEnabled));
 
 router.route('/admin/password-update/:id').patch(catchErrors(adminController.updatePassword));
 

@@ -7,6 +7,7 @@ const create = require('./create');
 const list = require('./list');
 const update = require('./update');
 const remove = require('./remove');
+const setEnabled = require('./setEnabled');
 
 const createUserController = (userModel) => {
   let userController = {};
@@ -20,6 +21,7 @@ const createUserController = (userModel) => {
   userController.list = (req, res) => list(userModel, req, res);
   userController.update = (req, res) => update(userModel, req, res);
   userController.delete = (req, res) => remove(userModel, req, res);
+  userController.setEnabled = (req, res) => setEnabled(userModel, req, res);
 
   return userController;
 };

@@ -35,6 +35,12 @@ const resendOtp = async (req, res, { userModel }) => {
       result: null,
       message: 'No account with this email has been registered.',
     });
+  if (!user.enabled)
+    return res.status(409).json({
+      success: false,
+      result: null,
+      message: 'Your account is disabled, contact your account adminstrator',
+    });
 
   const databasePassword = await UserPasswordModel.findOne({ user: user._id, removed: false });
   if (!databasePassword?.otpCode) {

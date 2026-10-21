@@ -35,6 +35,14 @@ const forgetPassword = async (req, res, { userModel }) => {
 
   // Only the LMS account has a real password (services/auth/accounts.js).
   const user = await accountForLogin(email, 'password', User);
+  if (!user)
+    return res.status(404).json({ success: false, result: null, message: 'No account with this email has been registered.' });
+  if (!user.enabled)
+    return res.status(409).json({
+      success: false,
+      result: null,
+      message: 'Your account is disabled, contact your account adminstrator',
+    });
   const databasePassword = await UserPassword.findOne({ user: user._id, removed: false });
 
   // console.log(user);

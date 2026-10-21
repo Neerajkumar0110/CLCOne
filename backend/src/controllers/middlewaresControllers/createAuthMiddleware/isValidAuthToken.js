@@ -42,6 +42,15 @@ const isValidAuthToken = async (req, res, next, { userModel, jwtSecret = 'JWT_SE
         jwtExpired: true,
       });
 
+    // Deactivated from User Management → logged out everywhere at once.
+    if (user.enabled === false)
+      return res.status(401).json({
+        success: false,
+        result: null,
+        message: 'Your account has been deactivated — contact your administrator.',
+        jwtExpired: true,
+      });
+
     const { loggedSessions } = userPassword;
 
     if (!loggedSessions.includes(token))

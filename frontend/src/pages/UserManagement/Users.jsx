@@ -11,6 +11,8 @@ import {
   EditOutlined,
   DeleteOutlined,
   TeamOutlined,
+  StopOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import { PERMISSION_MODULES } from "@/config/permissionModules";
 import { buildDefaultMatrix, fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
@@ -1236,6 +1238,18 @@ export default function Users({
     await loadUsers();
   };
 
+  // Deactivate / Activate (PATCH /api/admin/set-enabled/:id) — a deactivated
+  // user gets no login OTP, can't log in, and is logged out everywhere.
+  const [enablingId, setEnablingId] = useState(null);
+  const toggleEnabled = async (user) => {
+    const next = !user.enabled;
+    if (!next && !window.confirm(`Deactivate ${user.name}? They'll be logged out everywhere and won't get a login code until you activate them again.`)) return;
+    setEnablingId(user._id);
+    const res = await request.patch({ entity: `admin/set-enabled/${user._id}`, jsonData: { enabled: next } });
+    setEnablingId(null);
+    if (res?.success) setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, enabled: next } : u)));
+  };
+
   // Soft delete (DELETE /api/admin/delete/:id) — the user stops showing here
   // but stays visible, and restorable, under the "Deleted Users" tab.
   const deleteUser = async (user) => {
@@ -1384,7 +1398,7 @@ export default function Users({
                   </td>
                   <td>
                     <span className={`hub-badge ${u.enabled ? "hub-badge-green" : "hub-badge-gray"}`}>
-                      {u.enabled ? "Active — can log in" : "Disabled"}
+                      {u.enabled ? "Active — can log in" : "Deactivated"}
                     </span>
                   </td>
                   <td onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
@@ -1408,6 +1422,16 @@ export default function Users({
                         )}
                       <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u._id)}>
                         <SafetyCertificateOutlined /> Permissions
+                      </button>
+                      <button
+                        type="button"
+                        className="hub-btn"
+                        disabled={enablingId === u._id}
+                        style={{ whiteSpace: "nowrap", ...(u.enabled ? { color: "#b45309", borderColor: "#fde68a" } : { color: "#16a34a", borderColor: "#bbf7d0" }) }}
+                        title={u.enabled ? "Block login — no OTP, logged out everywhere" : "Allow login again"}
+                        onClick={() => toggleEnabled(u)}
+                      >
+                        {u.enabled ? <StopOutlined /> : <CheckCircleOutlined />} {u.enabled ? "Deactivate" : "Activate"}
                       </button>
                       <button
                         type="button"
