@@ -603,11 +603,17 @@ class CloudCallProvider extends CallingProvider {
     // 2b. Instant Lead Pool scheduled break (Paused) → Available once its
     // fixed duration passes (see leadPool.js's breakStart, config/
     // shiftSchedule.js) — the agent never has to remember to toggle back on.
-    const br = await AgentCallState.updateMany(
-      { status: 'Paused', pausedUntil: { $lte: new Date(now) } },
-      { $set: { status: 'Available', since: new Date() }, $unset: { pausedUntil: '', breakKey: '' } }
-    );
+    const breakOver = { status: 'Paused', pausedUntil: { $lte: new Date(now) } };
+    const ending = await AgentCallState.find(breakOver).select('agent agentName breakKey').lean();
+    const br = await AgentCallState.updateMany(breakOver, {
+      $set: { status: 'Available', since: new Date() },
+      $unset: { pausedUntil: '', breakKey: '' },
+    });
     advanced += br.modifiedCount || 0;
+    if (ending.length) {
+      const { logActivity } = require('../activity/agentActivity');
+      for (const s of ending) logActivity({ _id: s.agent, agentName: s.agentName }, 'break_end', { detail: s.breakKey || '' });
+    }
 
     // 2c. Free agents still flagged Ringing/OnCall for a call that is
     // already over — a reservation whose dial threw, or a hangup webhook

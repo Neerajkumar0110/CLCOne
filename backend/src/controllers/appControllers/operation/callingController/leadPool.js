@@ -15,6 +15,7 @@ const { fillLeadPoolNow, stageQueueSummary, stagesOf, stageLeadFilter } = requir
 const MAX_POOL_STAGES = 5;
 const connectModes = require('../../../../services/calling/connectModes');
 const { fixMojibake } = require('../../../../utils/fixMojibake');
+const { logActivity } = require('../../../../services/activity/agentActivity');
 const { CRM_ADMIN_ROLES } = require('../../../../config/roles');
 
 // Who may point the Instant Lead Pool at a different Sales stage: full
@@ -32,7 +33,7 @@ const toggle = async (req, res) => {
     return res.status(403).json({ success: false, result: null, message: 'The Instant Lead Pool is Sales-only.' });
   }
   const on = !!req.body.on;
-  await setPoolMembership(req.admin, on);
+  await setPoolMembership(req.admin, on, req.admin);
 
   return res.status(200).json({
     success: true,
@@ -43,11 +44,13 @@ const toggle = async (req, res) => {
 
 // Joins/leaves `agent` (an Admin doc: _id, name, surname) — shared by the
 // agent's own toggle above and management's per-user toggle in
-// teamActivity.js.
-async function setPoolMembership(agent, on) {
+// teamActivity.js. `by` = who did it, for the activity log.
+async function setPoolMembership(agent, on, by = null) {
   const camp = await getOrCreateLeadPoolCampaign();
   const CallCampaign = mongoose.model('CallCampaign');
   const AgentCallState = mongoose.model('AgentCallState');
+  const prev = await AgentCallState.findOne({ agent: agent._id }).select('status campaign').lean();
+  const wasOn = !!(prev && prev.status !== 'Offline' && String(prev.campaign) === String(camp._id));
 
   if (on) {
     await CallCampaign.updateOne({ _id: camp._id }, { $addToSet: { agents: agent._id } });
@@ -83,6 +86,10 @@ async function setPoolMembership(agent, on) {
   }
 
   await AgentCallState.updateOne({ agent: agent._id }, update, { upsert: true });
+  if (wasOn !== on) {
+    const self = by && String(by._id) === String(agent._id);
+    logActivity(agent, on ? 'pool_on' : 'pool_off', { by, detail: by ? (self ? 'self' : 'by manager') : 'system' });
+  }
 
   // alwaysOn: joining calls the agent's mobile once (their standing line);
   // leaving hangs it up. Other modes: nothing to do here.
@@ -416,6 +423,7 @@ const breakStart = async (req, res) => {
       $inc: { breakMinutesToday: def.durationMin },
     }
   );
+  logActivity(req.admin, 'break_start', { by: req.admin, detail: `${def.label} · ${def.durationMin} min` });
 
   return res.status(200).json({
     success: true,

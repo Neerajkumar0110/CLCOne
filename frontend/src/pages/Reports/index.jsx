@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import UserActivity from "./UserActivity";
 import { Select } from "antd";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
@@ -1140,6 +1141,7 @@ export default function Reports() {
           { key: "talktime", label: "Talk Time Report" },
           { key: "usercalls", label: "User Call Report" },
           { key: "lookup", label: "Number Lookup" },
+          { key: "useractivity", label: "User Activity" },
         ]}
         active={tab}
         onChange={setTab}
@@ -1149,6 +1151,7 @@ export default function Reports() {
       {tab === "talktime" && <TalkTimeReport />}
       {tab === "usercalls" && <UserCallReport />}
       {tab === "lookup" && <NumberLookup />}
+      {tab === "useractivity" && <UserActivity />}
     </div>
   );
 }

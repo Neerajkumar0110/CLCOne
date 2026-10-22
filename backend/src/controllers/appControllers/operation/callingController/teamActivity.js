@@ -183,7 +183,7 @@ const setPool = async (req, res) => {
       message: `${agent.name} has no phone number on their profile — add one before switching them on.`,
     });
   }
-  await setPoolMembership(agent, on);
+  await setPoolMembership(agent, on, req.admin);
 
   return res.status(200).json({
     success: true,

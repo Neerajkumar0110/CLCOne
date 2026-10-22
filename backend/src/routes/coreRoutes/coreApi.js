@@ -40,6 +40,12 @@ router.route('/admin/update/:id').patch(catchErrors(adminController.update));
 router.route('/admin/delete/:id').delete(catchErrors(adminController.delete));
 router.route('/admin/set-enabled/:id').patch(catchErrors(adminController.setEnabled));
 
+// Advanced Reporting → User Activity (screen + PDF) — controllers/appControllers/core/userActivityReport.js
+const userActivityReport = require('../../controllers/appControllers/core/userActivityReport');
+router.route('/reports/user-activity/users').get(catchErrors(userActivityReport.users));
+router.route('/reports/user-activity/pdf').get(catchErrors(userActivityReport.pdf));
+router.route('/reports/user-activity').get(catchErrors(userActivityReport.report));
+
 router.route('/admin/password-update/:id').patch(catchErrors(adminController.updatePassword));
 
 //_______________________________ Admin Profile _______________________________

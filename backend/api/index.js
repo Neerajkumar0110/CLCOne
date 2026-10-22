@@ -134,6 +134,7 @@ try {
     AgentCallState: unwrap(require('../src/models/appModels/operation/AgentCallState')),
     DemoBooking: unwrap(require('../src/models/appModels/operation/DemoBooking')),
     DemoRoom: unwrap(require('../src/models/appModels/operation/DemoRoom')),
+    AgentActivity: unwrap(require('../src/models/appModels/operation/AgentActivity')),
     IvrFlow: unwrap(require('../src/models/appModels/operation/IvrFlow')),
     CodeEditorTicket: unwrap(require('../src/models/internal/CodeEditorTicket')),
     Message: unwrap(require('../src/models/appModels/operation/Message')),
