@@ -48,6 +48,151 @@ const MY_RANGES = [
 ];
 const OUTCOME_BADGE = { connected: "hub-badge-green", notpicked: "hub-badge-yellow", missed: "hub-badge-red" };
 
+// Management's "All calls" view (backend leadPool.js allCalls): every
+// finished call by every user — pool, Dialer, callbacks, Facebook leads,
+// inbound — with the response the agent saved and the lead's stage now.
+const ALL_OUTCOMES = [
+  { key: "", label: "All" },
+  { key: "connected", label: "Connected" },
+  { key: "notpicked", label: "Not picked up" },
+  { key: "missed", label: "Missed by agent" },
+  { key: "callback", label: "Callback" },
+  { key: "interested", label: "Interested" },
+  { key: "demo", label: "Demo Booking" },
+  { key: "enrolled", label: "Enrolled" },
+];
+const ALL_TYPES = [
+  { key: "", label: "All call types" },
+  { key: "pool", label: "Lead pool" },
+  { key: "dialer", label: "Dialer / callbacks" },
+  { key: "facebook", label: "Facebook leads" },
+  { key: "inbound", label: "Inbound" },
+];
+const ALL_RANGES = [
+  { key: 7, label: "Last 7 days" },
+  { key: 30, label: "Last 30 days" },
+  { key: 90, label: "Last 90 days" },
+  { key: 0, label: "All time" },
+];
+const EMPTY_CALL_FILTERS = { outcome: "", type: "", agent: "", disposition: "", from: "", to: "", q: "" };
+
+function AllCallsList() {
+  const [rows, setRows] = useState(null);
+  const [f, setF] = useState(EMPTY_CALL_FILTERS);
+  const [days, setDays] = useState(30);
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ facets: null, pagination: null });
+  const setFilter = (k, v) => {
+    setF((p) => ({ ...p, [k]: v }));
+    setPage(1);
+  };
+  useEffect(() => {
+    const t = setTimeout(() => setFilter("q", qInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [qInput]); // eslint-disable-line react-hooks/exhaustive-deps
+  usePoll(async () => {
+    const extra = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
+    const qs = new URLSearchParams({ view: "calls", items: "50", page: String(page), days: String(days), ...extra });
+    const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
+    if (r?.success) {
+      setRows(r.result);
+      setMeta({ facets: r.facets || null, pagination: r.pagination || null });
+    }
+  }, 15000, [f, page, days]);
+
+  const facets = meta.facets;
+  const pg = meta.pagination;
+  const anyFilter = Object.values(f).some(Boolean);
+  const countFor = (k) => (!facets ? null : k === "" ? facets.total : facets.outcome?.[k]);
+
+  return (
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        {ALL_OUTCOMES.map((o) => {
+          const n = countFor(o.key);
+          return (
+            <button
+              key={o.key || "all"}
+              type="button"
+              className={`hub-btn ${f.outcome === o.key ? "hub-btn-primary" : ""}`}
+              style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12.5 }}
+              onClick={() => setFilter("outcome", o.key)}
+            >
+              {o.label}
+              {n != null ? ` · ${n}` : ""}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input className="hub-input" style={{ width: 200 }} placeholder="Search name, phone or notes" value={qInput} onChange={(e) => setQInput(e.target.value)} />
+        <select className="hub-select" style={{ width: 170 }} value={f.type} onChange={(e) => setFilter("type", e.target.value)}>
+          {ALL_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+        <select className="hub-select" style={{ width: 160 }} value={f.agent} onChange={(e) => setFilter("agent", e.target.value)}>
+          <option value="">All agents</option>
+          {(facets?.agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <select className="hub-select" style={{ width: 170 }} value={f.disposition} onChange={(e) => setFilter("disposition", e.target.value)}>
+          <option value="">All dispositions</option>
+          <option value="none">No disposition</option>
+          {(facets?.dispositions || []).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        {!f.from && !f.to && (
+          <select className="hub-select" style={{ width: 140 }} value={days} onChange={(e) => { setDays(Number(e.target.value)); setPage(1); }}>
+            {ALL_RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+        )}
+        <input type="date" className="hub-input" style={{ width: 150 }} value={f.from} onChange={(e) => setFilter("from", e.target.value)} title="From" />
+        <input type="date" className="hub-input" style={{ width: 150 }} value={f.to} onChange={(e) => setFilter("to", e.target.value)} title="To" />
+        {anyFilter && (
+          <button type="button" className="hub-btn" onClick={() => { setF(EMPTY_CALL_FILTERS); setQInput(""); setPage(1); }}>
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="hub-table-wrapper">
+        <table className="hub-table">
+          <thead>
+            <tr><th>Contact</th><th>Type</th><th>Response</th><th>Stage now</th><th>Disposition / notes</th><th>Agent</th><th>Talk</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            {(!rows || rows.length === 0) && (
+              <tr><td colSpan={8}><div className="hub-empty">{rows ? (anyFilter ? "No calls match these filters." : "No calls in this range.") : "Loading…"}</div></td></tr>
+            )}
+            {rows && rows.map((l) => (
+              <tr key={l._id}>
+                <td>{l.name || "—"}<div style={{ fontSize: 11, color: "#94a3b8" }}>{l.phone}</div></td>
+                <td style={{ fontSize: 12 }}>{l.type}</td>
+                <td><span className={`hub-badge ${OUTCOME_BADGE[l.outcome] || "hub-badge-gray"}`}>{l.response}</span></td>
+                <td style={{ fontSize: 12 }}>
+                  <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
+                  {l.subStatus && <div style={{ color: "#94a3b8" }}>{l.subStatus}</div>}
+                </td>
+                <td style={{ fontSize: 12, maxWidth: 260 }}>
+                  <div style={{ fontWeight: 700 }}>{l.disposition || "—"}</div>
+                  {l.notes && <div style={{ color: "#64748b", whiteSpace: "pre-wrap" }}>{l.notes}</div>}
+                </td>
+                <td>{l.agentName || "—"}</td>
+                <td>{l.durationSec ? fmtDuration(l.durationSec) : "—"}</td>
+                <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pg && pg.pages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 10, fontSize: 13 }}>
+          <span style={{ color: "var(--hub-muted)" }}>{pg.count} calls · page {pg.page} of {pg.pages}</span>
+          <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><LeftOutlined /></button>
+          <button type="button" className="hub-btn" disabled={page >= pg.pages} onClick={() => setPage((p) => p + 1)}><RightOutlined /></button>
+        </div>
+      )}
+    </>
+  );
+}
+
 // Management (backend FULL_ACCESS_ROLES) gets every lead the pool has
 // already attempted, pool-wide — the system-recorded response plus whatever
 // disposition the agent picked. Everyone else gets every finished call of
@@ -57,6 +202,8 @@ const OUTCOME_BADGE = { connected: "hub-badge-green", notpicked: "hub-badge-yell
 function UsedLeads() {
   const [data, setData] = useState(null);
   const [mine, setMine] = useState(false);
+  // Management: "pool" = Instant Lead Pool leads, "calls" = every call by every user.
+  const [view, setView] = useState("calls");
   const [outcome, setOutcome] = useState("");
   const [days, setDays] = useState(7);
   const [dialingId, setDialingId] = useState(null);
@@ -86,6 +233,8 @@ function UsedLeads() {
     if (!r?.success) window.alert(r?.message || "Could not place the call.");
   };
   usePoll(async () => {
+    // Management on the "All calls" tab: that list polls itself.
+    if (view === "calls" && data && !mine) return;
     const extra = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
     const qs = new URLSearchParams({ items: "50", page: String(page), days: String(days), ...(outcome ? { outcome } : {}), ...extra });
     const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
@@ -94,7 +243,7 @@ function UsedLeads() {
       setMine(r.scope === "mine");
       setMeta({ facets: r.facets || null, pagination: r.pagination || null });
     }
-  }, 8000, [outcome, days, f, page]);
+  }, 8000, [outcome, days, f, page, view]);
   const facets = meta.facets;
   const pg = meta.pagination;
   const anyFilter = Object.values(f).some(Boolean);
@@ -103,12 +252,33 @@ function UsedLeads() {
     <div className="hub-card">
       <div className="hub-card-header">
         <h3>{mine ? "My Calls" : "Used Leads"}</h3>
+        {!mine && data && (
+          <div className="hub-pill-filter">
+            {[["calls", "All calls — every user"], ["pool", "Lead pool"]].map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                className={`hub-btn ${view === k ? "hub-btn-primary" : ""}`}
+                style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12.5, border: "none" }}
+                onClick={() => setView(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 12 }}>
         {mine
           ? "Every call of yours — auto-dialer, dialer and callbacks: connected, not picked up, or missed by you."
+          : view === "calls"
+          ? "Every call made by every user — lead pool, Dialer, callbacks, Facebook leads — with the response they saved."
           : "Every lead the Instant Lead Pool has already dialed, and the response recorded for it."}
       </div>
+      {!mine && data && view === "calls" ? (
+        <AllCallsList />
+      ) : (
+      <>
       {mine && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
           <select className="hub-select" style={{ width: 170 }} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
@@ -232,6 +402,8 @@ function UsedLeads() {
             <RightOutlined />
           </button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

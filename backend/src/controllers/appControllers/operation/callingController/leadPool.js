@@ -443,6 +443,7 @@ const usedLeads = async (req, res) => {
   if (!FULL_ACCESS_ROLES.includes(req.admin.role)) return myUsedLeads(req, res, page, items);
 
   const camp = await CallCampaign.findOne({ isLeadPool: true, removed: false }).select('_id').lean();
+  if (req.query.view === 'calls') return allCalls(req, res, page, items, camp ? camp._id : null);
   if (!camp) {
     return res.status(200).json({ success: true, result: [], pagination: { page: 1, pages: 0, count: 0 }, message: 'ok' });
   }
@@ -632,6 +633,117 @@ async function myUsedLeads(req, res, page, items) {
     }),
     pagination: { page, pages: Math.ceil(count / items) || 0, count },
     scope: 'mine',
+    message: 'ok',
+  });
+}
+
+// Management's "All calls" view of Used Leads (?view=calls): every finished
+// call by EVERY user — lead pool, Dialer, callbacks, Facebook instant leads,
+// inbound — with the response the agent saved (disposition + notes) and the
+// lead's current stage. Filters: ?agent= ?outcome= (same keys as My Calls)
+// ?disposition= (or "none") ?type= pool|facebook|dialer|inbound ?q=
+// ?from=&to= (YYYY-MM-DD IST) — or ?days= 7|15|30|90|0 (0 = all time).
+const ALL_DAYS = [7, 15, 30, 90, 0];
+async function allCalls(req, res, page, items, poolId) {
+  const CallRecord = mongoose.model('CallRecord');
+  const q = req.query;
+  const day = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  const base = { removed: false, status: { $nin: IN_PROGRESS } };
+  if (day(q.from) || day(q.to)) {
+    base.created = {};
+    if (day(q.from)) base.created.$gte = new Date(`${q.from}T00:00:00+05:30`);
+    if (day(q.to)) base.created.$lte = new Date(`${q.to}T23:59:59.999+05:30`);
+  } else {
+    const days = ALL_DAYS.includes(Number(q.days)) ? Number(q.days) : 30;
+    if (days) base.created = { $gte: new Date(Date.now() - days * 86400000) };
+  }
+  const and = [];
+  if (q.agent && mongoose.isValidObjectId(q.agent)) base.agent = new mongoose.Types.ObjectId(q.agent);
+  if (q.disposition) base.disposition = q.disposition === 'none' ? null : q.disposition;
+  if (q.type === 'pool') base.campaign = poolId;
+  else if (q.type === 'facebook') base.instantLead = true;
+  else if (q.type === 'inbound') base.direction = 'Inbound';
+  else if (q.type === 'dialer') and.push({ instantLead: { $ne: true }, direction: { $ne: 'Inbound' }, campaign: { $ne: poolId } });
+  if (q.q && String(q.q).trim()) {
+    const rx = new RegExp(String(q.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    and.push({ $or: [{ contactName: rx }, { phone: rx }, { notes: rx }] });
+  }
+  const scoped = and.length ? { ...base, $and: [...and] } : { ...base };
+
+  // ?outcome= narrows further (the chips' counts ignore it).
+  const filter = { ...scoped, $and: [...(scoped.$and || [])] };
+  if (q.outcome === 'connected') filter.$and.push({ missedByAgent: { $ne: true } }, CALL_REACHED);
+  else if (q.outcome === 'notpicked') filter.$and.push({ missedByAgent: { $ne: true } }, CALL_NOT_REACHED);
+  else if (q.outcome === 'missed') filter.missedByAgent = true;
+  else if (q.outcome === 'callback') filter.disposition = 'CALLBACK';
+  else if (STAGE_OUTCOMES[q.outcome]) {
+    const stage = STAGE_OUTCOMES[q.outcome];
+    const { BY_CODE } = require('../../../../services/calling/dispositions');
+    const codes = Object.keys(BY_CODE).filter((c) => BY_CODE[c].crmStage && BY_CODE[c].crmStage.stage === stage);
+    filter.$and.push({ disposition: { $in: codes } });
+  }
+  if (!filter.$and.length) delete filter.$and;
+
+  const and2 = (extra) => ({ ...scoped, $and: [...(scoped.$and || []), ...extra] });
+  const [rows, count, nConnected, nNotPicked, nMissed, nAll, agentIds, dispositions] = await Promise.all([
+    CallRecord.find(filter)
+      .sort({ created: -1 })
+      .skip((page - 1) * items)
+      .limit(items)
+      .select('contactName phone status disposition notes agent agentName duration missedByAgent created endedAt campaign instantLead direction')
+      .lean(),
+    CallRecord.countDocuments(filter),
+    CallRecord.countDocuments(and2([{ missedByAgent: { $ne: true } }, CALL_REACHED])),
+    CallRecord.countDocuments(and2([{ missedByAgent: { $ne: true } }, CALL_NOT_REACHED])),
+    CallRecord.countDocuments({ ...scoped, missedByAgent: true }),
+    CallRecord.countDocuments(scoped),
+    CallRecord.distinct('agent', { removed: false }),
+    CallRecord.distinct('disposition', { removed: false }),
+  ]);
+
+  const agents = agentIds.filter(Boolean).length
+    ? await mongoose.model('Admin').find({ _id: { $in: agentIds.filter(Boolean) } }).select('name surname').lean()
+    : [];
+  const rowP10 = [...new Set(rows.map((r) => last10(r.phone)).filter(Boolean))];
+  const leadsByPhone = new Map(
+    (rowP10.length
+      ? await mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: rowP10 } }).select('phoneNormalized stage subStatus').lean()
+      : []
+    ).map((l) => [l.phoneNormalized, l])
+  );
+  const typeOf = (r) =>
+    r.instantLead ? 'Facebook lead' : r.direction === 'Inbound' ? 'Inbound' : poolId && String(r.campaign) === String(poolId) ? 'Lead pool' : 'Dialer';
+  const ANY_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by agent' };
+
+  return res.status(200).json({
+    success: true,
+    result: rows.map((r) => {
+      const outcome = outcomeOf(r);
+      const lead = leadsByPhone.get(last10(r.phone));
+      return {
+        _id: r._id,
+        name: fixMojibake(r.contactName),
+        phone: r.phone,
+        type: typeOf(r),
+        stage: lead ? lead.stage : null,
+        subStatus: lead ? lead.subStatus : null,
+        outcome,
+        response: ANY_LABEL[outcome],
+        disposition: r.disposition || null,
+        notes: r.notes ? String(r.notes).slice(0, 300) : null,
+        durationSec: r.duration || 0,
+        agentName: r.agentName || null,
+        lastAttemptAt: r.endedAt || r.created,
+      };
+    }),
+    pagination: { page, pages: Math.ceil(count / items) || 0, count },
+    facets: {
+      total: nAll,
+      outcome: { connected: nConnected, notpicked: nNotPicked, missed: nMissed },
+      agents: agents.map((a) => ({ id: String(a._id), name: `${a.name} ${a.surname || ''}`.trim() })).sort((a, b) => a.name.localeCompare(b.name)),
+      dispositions: dispositions.filter(Boolean).sort(),
+    },
+    scope: 'all',
     message: 'ok',
   });
 }
