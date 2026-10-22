@@ -5,6 +5,7 @@ import { request } from "@/request";
 import { API_BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import ChartCanvas, { PALETTE, fillRgba } from "@/components/dashboard/ChartCanvas";
+import "./userActivity.css";
 import {
   DownloadOutlined,
   PhoneOutlined,
@@ -48,15 +49,66 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const initials = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
 const OUTCOME_BADGE = { Connected: "hub-badge-green", "Not picked up": "hub-badge-yellow", "Missed by agent": "hub-badge-red" };
 const EVENT_META = {
-  login: { icon: <LoginOutlined />, color: "#2563eb", label: "Login" },
-  logout: { icon: <LogoutOutlined />, color: "#64748b", label: "Logout" },
-  pool_on: { icon: <ThunderboltOutlined />, color: "#16a34a", label: "Pool ON" },
-  pool_off: { icon: <ThunderboltOutlined />, color: "#dc2626", label: "Pool OFF" },
-  break_start: { icon: <CoffeeOutlined />, color: "#d97706", label: "Break" },
-  break_end: { icon: <CoffeeOutlined />, color: "#d97706", label: "Break end" },
-  call: { icon: <PhoneOutlined />, color: "#7c3aed", label: "Call" },
-  stage: { icon: <SwapOutlined />, color: "#0891b2", label: "Stage" },
+  login: { icon: <LoginOutlined />, color: "#2563eb", soft: "#eff6ff", label: "Login" },
+  logout: { icon: <LogoutOutlined />, color: "#64748b", soft: "#f1f5f9", label: "Logout" },
+  pool_on: { icon: <ThunderboltOutlined />, color: "#16a34a", soft: "#ecfdf5", label: "Pool ON" },
+  pool_off: { icon: <ThunderboltOutlined />, color: "#dc2626", soft: "#fef2f2", label: "Pool OFF" },
+  break_start: { icon: <CoffeeOutlined />, color: "#d97706", soft: "#fffbeb", label: "Break" },
+  break_end: { icon: <CoffeeOutlined />, color: "#d97706", soft: "#fffbeb", label: "Back" },
+  call: { icon: <PhoneOutlined />, color: "#7c3aed", soft: "#f5f3ff", label: "Call" },
+  stage: { icon: <SwapOutlined />, color: "#0891b2", soft: "#ecfeff", label: "Stage" },
 };
+const OUTCOME_CHIP = { Connected: "is-green", "Not picked up": "is-amber", "Missed by agent": "is-red" };
+
+// One timeline entry: node on the rail + a card whose body depends on kind.
+function TimelineEvent({ e }) {
+  const meta = EVENT_META[e.kind] || { icon: <ClockCircleOutlined />, color: "#64748b", soft: "#f1f5f9", label: e.kind };
+  let body;
+  if (e.kind === "call") {
+    body = (
+      <>
+        <span className="ua-tl-name">{e.name || "—"}</span>
+        {e.phone && e.phone !== e.name && <span className="ua-tl-phone">{e.phone}</span>}
+        <span className={`ua-tl-chip ${OUTCOME_CHIP[e.outcome] || ""}`}>{e.outcome}</span>
+        {e.durationSec > 0 && <span className="ua-tl-chip">{fmtDur(e.durationSec)}</span>}
+        {e.disposition && <span className="ua-tl-chip is-blue">{e.disposition}</span>}
+        {e.callType && <span className="ua-tl-phone">· {e.callType}</span>}
+      </>
+    );
+  } else if (e.kind === "stage") {
+    body = (
+      <>
+        <span className="ua-tl-name">{e.name || "—"}</span>
+        <span className="ua-tl-move">
+          <span className="ua-tl-chip">{e.from || "—"}</span>
+          <span className="ua-tl-arrow">→</span>
+          <span className="ua-tl-chip is-blue">{e.to}</span>
+          {e.sub && <span className="ua-tl-phone">{e.sub}</span>}
+        </span>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <span className="ua-tl-text">{e.by ? e.text.replace(` — by ${e.by}`, "") : e.text}</span>
+        {e.kind === "logout" && e.durationSec > 0 && <span className="ua-tl-chip">{fmtDur(e.durationSec)} session</span>}
+        {e.by && <span className="ua-tl-chip is-amber">by {e.by}</span>}
+      </>
+    );
+  }
+  return (
+    <div className="ua-tl-row">
+      <div className="ua-tl-time">{fmtTime(e.at)}</div>
+      <div className="ua-tl-rail">
+        <span className="ua-tl-node" style={{ background: meta.color }}>{meta.icon}</span>
+      </div>
+      <div className="ua-tl-card">
+        <span className="ua-tl-kind" style={{ color: meta.color, background: meta.soft }}>{meta.label}</span>
+        {body}
+      </div>
+    </div>
+  );
+}
 
 function Kpi({ label, value, hint, tone }) {
   return (
@@ -543,25 +595,26 @@ function OneView({ data, loading, onBack }) {
               ))}
             </div>
             {eventsByDay.length === 0 && <div className="hub-empty">Nothing recorded.</div>}
-            <div style={{ display: "grid", gap: 16, maxHeight: 640, overflowY: "auto" }}>
-              {eventsByDay.map(([day, evs]) => (
-                <div key={day}>
-                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8 }}>{day}</div>
-                  <div style={{ borderLeft: "2px solid var(--hub-border)", marginLeft: 8, paddingLeft: 14, display: "grid", gap: 8 }}>
-                    {evs.map((e, i) => {
-                      const meta = EVENT_META[e.kind] || { icon: <ClockCircleOutlined />, color: "#64748b", label: e.kind };
-                      return (
-                        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 12.5 }}>
-                          <span style={{ color: meta.color, marginLeft: -24, background: "var(--hub-surface)", padding: 1 }}>{meta.icon}</span>
-                          <span style={{ color: "var(--hub-muted)", width: 64, flexShrink: 0 }}>{fmtTime(e.at)}</span>
-                          <span style={{ fontWeight: 700, color: meta.color, width: 70, flexShrink: 0 }}>{meta.label}</span>
-                          <span style={{ minWidth: 0, wordBreak: "break-word" }}>{e.text}</span>
-                        </div>
-                      );
-                    })}
+            <div className="ua-tl">
+              {eventsByDay.map(([day, evs]) => {
+                const n = (k) => evs.filter((e) => e.kind === k).length;
+                const pl = (c, one, many) => `${c} ${c === 1 ? one : many}`;
+                const connected = evs.filter((e) => e.kind === "call" && e.outcome === "Connected").length;
+                return (
+                  <div key={day} className="ua-tl-day">
+                    <div className="ua-tl-dayhead">
+                      <b>{day}</b>
+                      {n("call") > 0 && <span className="ua-tl-count">📞 {pl(n("call"), "call", "calls")} · {connected} connected</span>}
+                      {n("stage") > 0 && <span className="ua-tl-count">⇄ {pl(n("stage"), "stage move", "stage moves")}</span>}
+                      {n("login") > 0 && <span className="ua-tl-count">🔑 {pl(n("login"), "login", "logins")}</span>}
+                      {n("pool_on") + n("pool_off") > 0 && <span className="ua-tl-count">⚡ pool {n("pool_on")} ON · {n("pool_off")} OFF</span>}
+                    </div>
+                    <div className="ua-tl-rows">
+                      {evs.map((e, i) => <TimelineEvent key={i} e={e} />)}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

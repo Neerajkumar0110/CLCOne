@@ -1,0 +1,191 @@
+/* Advanced Reporting → User Activity → Details → Timeline */
+.ua-tl {
+  max-height: 680px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+.ua-tl-day + .ua-tl-day {
+  margin-top: 18px;
+}
+.ua-tl-dayhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: var(--hub-bg-soft, #f5f7fb);
+  border: 1px solid var(--hub-border);
+  font-size: 13px;
+}
+.ua-tl-dayhead b {
+  font-weight: 800;
+  margin-right: auto;
+}
+.ua-tl-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hub-surface, #fff);
+  border: 1px solid var(--hub-border);
+  color: var(--hub-text-soft, #475569);
+  white-space: nowrap;
+}
+
+.ua-tl-row {
+  display: grid;
+  grid-template-columns: 74px 34px minmax(0, 1fr);
+  align-items: stretch;
+}
+.ua-tl-time {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hub-muted);
+  text-align: right;
+  padding: 12px 10px 0 0;
+  white-space: nowrap;
+}
+/* the rail: one continuous line through every node of the day */
+.ua-tl-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.ua-tl-rail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--hub-border);
+}
+.ua-tl-row:first-of-type .ua-tl-rail::before {
+  top: 18px;
+}
+.ua-tl-row:last-of-type .ua-tl-rail::before {
+  bottom: calc(100% - 18px);
+}
+.ua-tl-node {
+  position: relative;
+  z-index: 1;
+  margin-top: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--hub-surface, #fff);
+}
+
+.ua-tl-card {
+  margin: 4px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface, #fff);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ua-tl-card:hover {
+  border-color: var(--hub-border-strong, #cbd5e1);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+.ua-tl-kind {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.ua-tl-name {
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ua-tl-phone {
+  font-size: 11.5px;
+  color: var(--hub-muted);
+}
+.ua-tl-chip {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-bg-soft, #f5f7fb);
+  color: var(--hub-text-soft, #475569);
+  white-space: nowrap;
+}
+.ua-tl-chip.is-green {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+.ua-tl-chip.is-amber {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.ua-tl-chip.is-red {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.ua-tl-chip.is-blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+.ua-tl-move {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.ua-tl-arrow {
+  color: var(--hub-muted);
+  font-weight: 800;
+}
+.ua-tl-text {
+  font-size: 13px;
+  color: var(--hub-text);
+}
+
+:root[data-theme="dark"] .ua-tl-chip.is-green { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: #6ee7b7; }
+:root[data-theme="dark"] .ua-tl-chip.is-amber { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); color: #fcd34d; }
+:root[data-theme="dark"] .ua-tl-chip.is-red { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35); color: #fca5a5; }
+:root[data-theme="dark"] .ua-tl-chip.is-blue { background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.35); color: #93c5fd; }
+
+@media (max-width: 560px) {
+  .ua-tl-row {
+    grid-template-columns: 54px 26px minmax(0, 1fr);
+  }
+  .ua-tl-time {
+    font-size: 11px;
+    padding-right: 6px;
+  }
+  .ua-tl-node {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+}

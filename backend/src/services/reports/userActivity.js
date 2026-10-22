@@ -345,21 +345,48 @@ async function buildOne(requester, userId, q) {
 
   // Day-by-day timeline: sessions, pool/breaks, calls, stage moves.
   const days = daysOf(from, to);
+  // Each event carries a plain `text` (PDF) plus structured fields the
+  // screen's timeline renders as chips.
+  const plain = (n) => (fixMojibake(n) || '').normalize('NFKC').trim();
   const events = [];
-  for (const x of s.sess.list) events.push({ at: x.start, kind: 'login', text: 'Opened the CRM' }, ...(x.end ? [{ at: x.end, kind: 'logout', text: `Closed the CRM (${Math.round(x.seconds / 60)} min)` }] : []));
+  for (const x of s.sess.list) {
+    events.push({ at: x.start, kind: 'login', text: 'Opened the CRM' });
+    if (x.end) events.push({ at: x.end, kind: 'logout', text: `Closed the CRM (${Math.round(x.seconds / 60)} min)`, durationSec: x.seconds });
+  }
   for (const a of f.activity.get(String(u._id)) || []) {
     const label = { pool_on: 'Joined the lead pool', pool_off: 'Left the lead pool', break_start: 'Started a break', break_end: 'Break ended' }[a.kind];
-    events.push({ at: a.at, kind: a.kind, text: `${label}${a.detail && a.kind.startsWith('break') ? ` (${a.detail})` : a.byName && a.detail === 'by manager' ? ` — by ${a.byName}` : ''}` });
+    const by = a.detail === 'by manager' ? a.byName : null;
+    const note = a.kind.startsWith('break') ? a.detail || null : null;
+    events.push({ at: a.at, kind: a.kind, text: `${label}${note ? ` (${note})` : by ? ` — by ${by}` : ''}`, by, note });
   }
   for (const c of f.calls.get(String(u._id)) || []) {
-    const out = c.missedByAgent ? 'missed' : callReachedCustomer(c) ? 'connected' : 'not picked up';
+    const out = c.missedByAgent ? 'Missed by agent' : callReachedCustomer(c) ? 'Connected' : 'Not picked up';
+    const name = plain(c.contactName) || c.phone;
     events.push({
       at: c.created,
       kind: 'call',
-      text: `Call ${fixMojibake(c.contactName) || c.phone} — ${out}${c.duration ? `, ${c.duration}s` : ''}${c.disposition ? ` · ${c.disposition}` : ''}`,
+      text: `Call ${name} — ${out.toLowerCase()}${c.duration ? `, ${c.duration}s` : ''}${c.disposition ? ` · ${c.disposition}` : ''}`,
+      name,
+      phone: c.phone,
+      outcome: out,
+      durationSec: c.duration || 0,
+      disposition: c.disposition || null,
+      callType: typeOf(c, f.poolId),
     });
   }
-  for (const m of s.moves) events.push({ at: m.h.at, kind: 'stage', text: `${fixMojibake(m.name) || m.phone}: ${m.h.fromStage || '—'} → ${m.h.toStage}${m.h.toSubStatus ? ` / ${m.h.toSubStatus}` : ''}` });
+  for (const m of s.moves) {
+    const name = plain(m.name) || m.phone;
+    events.push({
+      at: m.h.at,
+      kind: 'stage',
+      text: `${name}: ${m.h.fromStage || '—'} → ${m.h.toStage}${m.h.toSubStatus ? ` / ${m.h.toSubStatus}` : ''}`,
+      name,
+      phone: m.phone,
+      from: m.h.fromStage || null,
+      to: m.h.toStage,
+      sub: m.h.toSubStatus || null,
+    });
+  }
   events.sort((a, b) => new Date(a.at) - new Date(b.at));
 
   const timeline = days.map((d) => {
