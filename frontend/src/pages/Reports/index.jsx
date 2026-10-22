@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import UserActivity from "./UserActivity";
+import NumberProfile from "./NumberProfile";
 import { Select } from "antd";
 import HubTabs from "@/components/HubTabs";
 import { HubBarChart, HubBarChartLabels, HubDonut } from "@/components/HubCharts";
@@ -189,15 +190,21 @@ function NumberLookup() {
     [orgTree, individualAgent]
   );
 
-  const numberSelected = searched && !searched.notFound;
+  // A searched number now opens the full NumberProfile; this table only browses.
+  const numberSelected = false;
 
-  const runSearch = async () => {
-    const key = input.replace(/\s+/g, "");
-    if (!key) return;
+  // Phone (any format), email or name → backend services/reports/number360.js.
+  const runSearch = async (override) => {
+    const key = String(override || input).trim();
+    if (key.length < 3) return;
+    if (override) setInput(override);
     setSearching(true);
-    const res = await request.get({ entity: `report/number-lookup?phone=${encodeURIComponent(key)}` });
+    const res = await request.get({ entity: `reports/number-360?q=${encodeURIComponent(key)}` });
     setSearching(false);
-    setSearched(res?.success && res.result ? { key, ...res.result } : { key, notFound: true });
+    const r = res?.success ? res.result : null;
+    if (!r || r.notFound) setSearched({ key, notFound: true });
+    else if (r.candidates) setSearched(r.candidates.length ? { key, candidates: r.candidates } : { key, notFound: true });
+    else setSearched({ key, profile: r });
     setPage(1);
   };
 
@@ -256,12 +263,12 @@ function NumberLookup() {
           <input
             className="hub-input"
             style={{ minWidth: 220, flex: 1 }}
-            placeholder="Enter phone number, e.g. +91 98765 43210"
+            placeholder="Phone number (any format), email or name — e.g. 98765 43210"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && runSearch()}
           />
-          <button type="button" className="hub-btn hub-btn-primary" onClick={runSearch} disabled={searching}>
+          <button type="button" className="hub-btn hub-btn-primary" onClick={() => runSearch()} disabled={searching}>
             <SearchOutlined /> {searching ? "Searching…" : "Search"}
           </button>
           {searched && (
@@ -274,11 +281,37 @@ function NumberLookup() {
 
       {searched?.notFound && (
         <div className="hub-card">
-          <div className="hub-empty">No call history found for {searched.key}.</div>
+          <div className="hub-empty">Nothing in the CRM for "{searched.key}" — no lead, call, payment or ticket.</div>
         </div>
       )}
 
-      {!searched?.notFound && (
+      {searched?.candidates && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3 style={{ margin: 0 }}>{searched.candidates.length} matches for "{searched.key}" — pick one</h3>
+          </div>
+          <div className="hub-table-wrapper">
+            <table className="hub-table">
+              <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Stage</th><th>Owner</th></tr></thead>
+              <tbody>
+                {searched.candidates.map((c) => (
+                  <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => runSearch(c.phone)}>
+                    <td style={{ fontWeight: 700 }}>{c.name}</td>
+                    <td>{c.phone || "—"}</td>
+                    <td style={{ fontSize: 12 }}>{c.email || "—"}</td>
+                    <td style={{ fontSize: 12 }}>{c.stage}{c.subStatus ? <div style={{ color: "#94a3b8" }}>{c.subStatus}</div> : null}</td>
+                    <td>{c.owner || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {searched?.profile && <NumberProfile data={searched.profile} />}
+
+      {!searched && (
         <>
           <div className="hub-card">
             <div className="hub-card-header">

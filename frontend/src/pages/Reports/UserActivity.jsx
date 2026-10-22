@@ -293,7 +293,7 @@ function AllView({ data, loading, onOpen }) {
     if (k === "name")
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span className="hub-avatar" style={{ width: 30, height: 30, fontSize: 12 }}>{initials(v)}</span>
+          <span className="hub-avatar" style={{ width: 30, height: 30, fontSize: 12, borderRadius: "50%", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "#fff", fontWeight: 800 }}>{initials(v)}</span>
           <div>
             <div style={{ fontWeight: 700 }}>{v}</div>
             <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>
@@ -392,7 +392,7 @@ function OneView({ data, loading, onBack }) {
     <div className="hub-stack" style={{ opacity: loading ? 0.6 : 1 }}>
       <div className="hub-card" style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center" }}>
         <button type="button" className="hub-btn" onClick={onBack} title="Back to all users"><ArrowLeftOutlined /></button>
-        <span className="hub-avatar" style={{ width: 56, height: 56, fontSize: 20 }}>{initials(p.name)}</span>
+        <span className="hub-avatar" style={{ width: 56, height: 56, fontSize: 20, borderRadius: "50%", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "#fff", fontWeight: 800 }}>{initials(p.name)}</span>
         <div style={{ flex: "1 1 260px", minWidth: 0 }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <h2 style={{ margin: 0, fontSize: 22 }}>{p.name}</h2>

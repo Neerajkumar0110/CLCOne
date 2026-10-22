@@ -45,6 +45,7 @@ const userActivityReport = require('../../controllers/appControllers/core/userAc
 router.route('/reports/user-activity/users').get(catchErrors(userActivityReport.users));
 router.route('/reports/user-activity/pdf').get(catchErrors(userActivityReport.pdf));
 router.route('/reports/user-activity').get(catchErrors(userActivityReport.report));
+router.route('/reports/number-360').get(catchErrors(require('../../controllers/appControllers/core/number360Report').number360));
 
 router.route('/admin/password-update/:id').patch(catchErrors(adminController.updatePassword));
 
