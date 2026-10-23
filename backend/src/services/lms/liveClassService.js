@@ -1892,11 +1892,16 @@ async function pollRecordings() {
   const provider = getMeetingProvider();
   if (provider.name !== 'bigbluebutton') return;
   const LmsLiveSession = mongoose.model('LmsLiveSession');
+  // Newest first, so a backlog of old stuck sessions can never starve the
+  // class that just ended.
   const pending = await LmsLiveSession.find({
     removed: false,
     status: 'recording_processing',
     meetingId: { $exists: true },
-  }).select('+moderatorPW +attendeePW').limit(20);
+  })
+    .select('+moderatorPW +attendeePW')
+    .sort({ actualEnd: -1 })
+    .limit(40);
   const LiveRecording = mongoose.model('LiveRecording');
   for (const session of pending) {
     try {
@@ -1916,8 +1921,31 @@ async function pollRecordings() {
           (r) => r.recordingId
         )
       );
-      const candidates = recs.filter((r) => r.recordID && !claimedElsewhere.has(r.recordID) && (!r.startTime || r.startTime >= sessionStart - 60000));
+      // …and it must have started BEFORE this session ended. Without that
+      // upper bound a class whose own recording never existed grabbed the
+      // NEXT day's recording from the shared room, that day's class then
+      // grabbed the day after's, and so on — every class showing the
+      // following class's video and the newest one stuck "processing" for a
+      // day.
+      const sessionEnd = session.actualEnd ? new Date(session.actualEnd).getTime() : Date.now();
+      const candidates = recs.filter(
+        (r) =>
+          r.recordID &&
+          !claimedElsewhere.has(r.recordID) &&
+          r.startTime &&
+          r.startTime >= sessionStart - 10 * 60000 &&
+          r.startTime <= sessionEnd + 60000
+      );
       const ready = candidates.find((r) => r.state === 'published' || r.published);
+      // Nothing recorded for this class (recording never started) and BBB has
+      // had hours to publish — stop polling it instead of waiting forever.
+      if (!ready && !candidates.length && session.actualEnd && Date.now() - new Date(session.actualEnd).getTime() > 6 * 3600000) {
+        session.status = 'ended';
+        session.recordingStatus = 'FAILED';
+        await session.save();
+        await LiveRecording.updateOne({ liveSession: session._id, status: { $ne: 'AVAILABLE' } }, { $set: { status: 'FAILED', failReason: 'No recording was made for this class.', updated: new Date() } });
+        continue;
+      }
       if (ready) {
         await applyRecordingReady(session, {
           recordingId: ready.recordID,
