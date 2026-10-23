@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
+const { canChatWith } = require('./chatScope');
 const { emitRead } = require('../../../../socket');
 
 // GET /api/message/thread/:userId?before=<ISO date>&limit=<n> — the
@@ -13,6 +14,9 @@ const thread = async (req, res) => {
   const Admin = mongoose.model('Admin');
 
   const { userId } = req.params;
+  if (!(await canChatWith(req.admin, userId))) {
+    return res.status(403).json({ success: false, result: null, message: 'You can only chat with the Sales team.' });
+  }
   const other = await Admin.findOne({ _id: userId, removed: false })
     .select('name surname photo role')
     .lean();

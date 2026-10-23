@@ -11,7 +11,7 @@ const FRONTLINE_ROLES = ["Senior Executive", "Executive", "Sales Intern"];
 // she's the one expected to add Sales hires and set up their "Reports To"
 // chain. NOT the same as a true CRM admin (owner/Super Admin/Admin): no
 // LMS/HRMS/Finance/Marketing/Operations access.
-const SALES_MANAGER_MODULES = ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance", "User Management"];
+const SALES_MANAGER_MODULES = ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance", "User Management", "Communication"];
 // Team Manager gets the same User Management grant as Sales Manager — she
 // also needs to assign Sales people into a Team Leader's team. Scoped to
 // Sales-only users server-side (see createUserController/list.js, read.js,
@@ -64,7 +64,7 @@ export function defaultMatrixForRole(role) {
       // never company-wide, so there's no reason to hide the nav item itself.
       (LEAD_TIER_ROLES.includes(role) &&
         (mod !== "User Management" || (role === "Team Manager" && TEAM_MANAGER_EXTRA_MODULES.includes(mod)))) ||
-      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance"].includes(mod)) ||
+      (FRONTLINE_ROLES.includes(role) && ["Dashboard", "Sales", "Calling", "Payments", "Reports", "Performance", "Communication"].includes(mod)) ||
       (role === "Sales Manager" && SALES_MANAGER_MODULES.includes(mod)) ||
       (isFinance && ["Dashboard", "Invoices", "Payments", "Finance"].includes(mod));
 

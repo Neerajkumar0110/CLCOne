@@ -5,6 +5,12 @@ import { request } from '@/request';
 import { permissionKeyFor } from '@/config/roles';
 import { PERMISSION_MODULES, FULL_ACCESS_ROLES } from '@/config/permissionModules';
 import { defaultMatrixForRole, fillMatrixDefaults } from '@/config/defaultPermissionMatrix';
+import { DEPARTMENT_ROLES } from '@/config/roles';
+
+// Every Sales user gets Team Chat (Communication → Team Chat only; the
+// Email & WhatsApp tab stays management-only — see pages/Communication).
+const withSalesChat = (m, role) =>
+  DEPARTMENT_ROLES.Sales.includes(role) ? { ...m, Communication: { ...(m.Communication || {}), view: true, edit: true } } : m;
 
 const PermissionContext = createContext(null);
 
@@ -84,7 +90,7 @@ export function PermissionProvider({ children }) {
         // Support) is missing from it — backfill so canView() sees it too.
         const { matrix: filled, changed } = fillMatrixDefaults(found.matrix, current.role);
         if (!cancelled) {
-          setMatrix(filled);
+          setMatrix(withSalesChat(filled, current.role));
           setLoading(false);
         }
         if (changed) {
@@ -99,7 +105,7 @@ export function PermissionProvider({ children }) {
       // and save it so it's there next time too.
       const computed = defaultMatrixForRole(current.role);
       if (!cancelled) {
-        setMatrix(computed);
+        setMatrix(withSalesChat(computed, current.role));
         setLoading(false);
       }
       request.create({ entity: 'permission', jsonData: { scope: 'role', key: current.role, matrix: computed } });

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const conversationIdFor = require('./conversationIdFor');
+const { canChatWith } = require('./chatScope');
 const buildReplySnapshot = require('./buildReplySnapshot');
 const { emitMessage } = require('../../../../socket');
 
@@ -28,6 +29,9 @@ const uploadMessage = async (req, res) => {
     return res.status(400).json({ success: false, result: null, message: "Can't message yourself" });
   }
 
+  if (!(await canChatWith(req.admin, to))) {
+    return res.status(403).json({ success: false, result: null, message: 'You can only chat with the Sales team.' });
+  }
   const recipient = await Admin.findOne({ _id: to, removed: false }).select('_id').lean();
   if (!recipient) {
     return res.status(404).json({ success: false, result: null, message: 'Recipient not found' });

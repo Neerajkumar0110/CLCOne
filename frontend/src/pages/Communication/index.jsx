@@ -11,6 +11,7 @@ import { silentGet } from "@/request/silent";
 import { startPoll } from "@/utils/poll";
 import { BASE_URL } from "@/config/serverApiConfig";
 import { initials, colorForName, displayName } from "@/utils/adminDisplay";
+import { DEPARTMENT_ROLES, ROLE_COLORS } from "@/config/roles";
 import { PaperClipOutlined, SendOutlined, CloseOutlined, RollbackOutlined } from "@ant-design/icons";
 
 function fmtTime(iso) {
@@ -76,6 +77,13 @@ export function TeamChat() {
   const draftInputRef = useRef(null);
 
   const activeConversation = conversations.find((c) => c.user._id === activeUserId);
+  const [peopleQuery, setPeopleQuery] = useState("");
+  const q = peopleQuery.trim().toLowerCase();
+  const people = q
+    ? conversations.filter((c) =>
+        [displayName(c.user), c.user.role, c.user.team, c.user.reportsToName].some((v) => String(v || "").toLowerCase().includes(q))
+      )
+    : conversations;
 
   const openThread = async (userId) => {
     setActiveUserId(userId);
@@ -210,14 +218,23 @@ export function TeamChat() {
         {/* Contact list — every registered admin, not just a fixed team */}
         <div className="hub-chat-people-list" style={{ width: 240, flexShrink: 0, overflowY: "auto" }}>
           <div className="hub-chat-people-heading">
-            PEOPLE
+            PEOPLE <span style={{ fontWeight: 600, opacity: 0.7 }}>· {conversations.length}</span>
+          </div>
+          <div style={{ padding: "0 12px 8px" }}>
+            <input
+              className="hub-input"
+              style={{ width: "100%", height: 32, fontSize: 12.5 }}
+              placeholder="Search name, role or team…"
+              value={peopleQuery}
+              onChange={(e) => setPeopleQuery(e.target.value)}
+            />
           </div>
 
           {conversations.length === 0 && (
             <div className="hub-chat-people-empty">No other users yet.</div>
           )}
 
-          {conversations.map((c) => {
+          {people.map((c) => {
             const name = displayName(c.user);
             const online = onlineIds.has(c.user._id);
             const preview = c.lastMessage
@@ -256,6 +273,30 @@ export function TeamChat() {
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="hub-chat-person-name">{name}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, margin: "2px 0" }}>
+                    {c.user.role && (
+                      <span
+                        title={c.user.reportsToName ? `Reports to ${c.user.reportsToName}` : undefined}
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          padding: "1px 7px",
+                          borderRadius: 999,
+                          color: ROLE_COLORS[c.user.role] || "#475569",
+                          background: `${ROLE_COLORS[c.user.role] || "#475569"}14`,
+                          border: `1px solid ${ROLE_COLORS[c.user.role] || "#475569"}33`,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {c.user.role === "owner" ? "Owner" : c.user.role}
+                      </span>
+                    )}
+                    {c.user.team && (
+                      <span style={{ fontSize: 10.5, color: "var(--hub-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 110 }}>
+                        {c.user.team}
+                      </span>
+                    )}
+                  </div>
                   <div className="hub-chat-person-preview">
                     {preview}
                   </div>
@@ -290,6 +331,12 @@ export function TeamChat() {
                   <div style={{ fontSize: 13.5, fontWeight: 700 }}>{displayName(activeConversation.user)}</div>
                   <div style={{ fontSize: 11, color: onlineIds.has(activeConversation.user._id) ? "var(--hub-green)" : "var(--hub-muted)" }}>
                     {onlineIds.has(activeConversation.user._id) ? "Online" : "Offline"}
+                    <span style={{ color: "var(--hub-muted)" }}>
+                      {[activeConversation.user.role === "owner" ? "Owner" : activeConversation.user.role, activeConversation.user.team, activeConversation.user.reportsToName ? `reports to ${activeConversation.user.reportsToName}` : null]
+                        .filter(Boolean)
+                        .map((x) => ` · ${x}`)
+                        .join("")}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -670,6 +717,22 @@ function EmailWhatsapp() {
 
 export default function Communication() {
   const [tab, setTab] = useState("chat");
+  // Sales users get Team Chat only — Email & WhatsApp stays with management.
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const chatOnly = DEPARTMENT_ROLES.Sales.includes(currentAdmin?.role);
+  if (chatOnly) {
+    return (
+      <div className="hub-page">
+        <div className="hub-header">
+          <div>
+            <h2>Team Chat</h2>
+            <p>Chat with the Sales team — everyone's position is shown so you know whom to message</p>
+          </div>
+        </div>
+        <TeamChat />
+      </div>
+    );
+  }
 
   return (
     <div className="hub-page">
