@@ -624,3 +624,64 @@
     font-size: 15px;
   }
 }
+
+/* Curriculum-order headings (Unit → chapter) */
+.material-cur-unit {
+  margin: 22px 0 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.material-cur-unit:first-child {
+  margin-top: 4px;
+}
+.material-cur-unit.is-extra {
+  background: #f8fafc;
+  color: #475569;
+}
+.material-cur-unit.is-extra span {
+  font-weight: 600;
+  color: #94a3b8;
+}
+.material-cur-course {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+.material-cur-chapter {
+  margin: 12px 0 6px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.material-cur-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  white-space: nowrap;
+}
+.material-cur-chapter + .material-file-card,
+.material-cur-unit + .material-file-card {
+  margin-top: 0;
+}
+:root[data-theme="dark"] .material-cur-unit { background: rgba(99, 102, 241, 0.15); color: #c7d2fe; }
+:root[data-theme="dark"] .material-cur-unit.is-extra { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; }
+:root[data-theme="dark"] .material-cur-chapter { color: #e2e8f0; }
+:root[data-theme="dark"] .material-cur-label { background: rgba(14, 165, 233, 0.15); color: #7dd3fc; }

@@ -152,6 +152,53 @@ function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect
   );
 }
 
+// The list arrives in curriculum order (backend services/lms/
+// materialCurriculum.js): a Unit heading, then each chapter with its files,
+// then "Extra material" for files that match no chapter.
+function CurriculumList({ rows, renderCard }) {
+  if (!rows.some((m) => m.curriculum)) return rows.map(renderCard);
+  const multiCourse = new Set(rows.filter((m) => m.curriculum).map((m) => m.curriculum.courseId)).size > 1;
+  const out = [];
+  let unitKey = null;
+  let chapterKey = null;
+  let extras = false;
+  for (const m of rows) {
+    const c = m.curriculum;
+    if (c) {
+      const uk = `${c.courseId}|${c.unit}`;
+      if (uk !== unitKey) {
+        unitKey = uk;
+        chapterKey = null;
+        out.push(
+          <div key={`u-${uk}`} className="material-cur-unit">
+            {multiCourse && m.courseTitle ? <span className="material-cur-course">{m.courseTitle}</span> : null}
+            {c.unitTitle}
+          </div>
+        );
+      }
+      const ck = `${uk}|${c.order}`;
+      if (ck !== chapterKey) {
+        chapterKey = ck;
+        out.push(
+          <div key={`c-${ck}`} className="material-cur-chapter">
+            {c.label ? <span className="material-cur-label">{c.label}</span> : null}
+            {c.chapter}
+          </div>
+        );
+      }
+    } else if (!extras) {
+      extras = true;
+      out.push(
+        <div key="extras" className="material-cur-unit is-extra">
+          Extra material <span>— not linked to a curriculum topic</span>
+        </div>
+      );
+    }
+    out.push(renderCard(m));
+  }
+  return out;
+}
+
 function useFilteredRows(rows, search, typeFilter, courseFilter) {
   return useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -562,17 +609,20 @@ function TeacherStudyMaterial() {
           {filtered.length === 0 ? (
             <div className="material-empty-state"><p>No study material uploaded yet.</p></div>
           ) : (
-            filtered.map((m) => (
-              <FileCard
-                key={m.id}
-                m={m}
-                canManage
-                onDelete={onDelete}
-                selectable
-                selected={selectedIds.has(m.id)}
-                onToggleSelect={toggleSelect}
-              />
-            ))
+            <CurriculumList
+              rows={filtered}
+              renderCard={(m) => (
+                <FileCard
+                  key={m.id}
+                  m={m}
+                  canManage
+                  onDelete={onDelete}
+                  selectable
+                  selected={selectedIds.has(m.id)}
+                  onToggleSelect={toggleSelect}
+                />
+              )}
+            />
           )}
         </div>
       </div>
@@ -705,7 +755,7 @@ function StudentStudyMaterial() {
               ? <Empty description="No study material has been shared yet." />
               : <div className="material-empty-state"><p>No files match your search.</p></div>
           ) : (
-            filtered.map((m) => <FileCard key={m.id} m={m} canManage={false} />)
+            <CurriculumList rows={filtered} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} />} />
           )}
         </div>
       </div>

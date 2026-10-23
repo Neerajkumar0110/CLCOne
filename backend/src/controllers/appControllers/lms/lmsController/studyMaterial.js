@@ -169,6 +169,14 @@ async function addLink(req, res) {
   return ok(res, serialize(doc), 'Link added.');
 }
 
+async function arrangeByCurriculum(rows) {
+  try {
+    return await require('../../../../services/lms/materialCurriculum').arrange(rows);
+  } catch (e) {
+    return rows; // never fail the list over ordering
+  }
+}
+
 async function list(req, res) {
   const StudyMaterial = mongoose.model('StudyMaterial');
   const q = { removed: false };
@@ -180,7 +188,9 @@ async function list(req, res) {
   // title), so this naturally reconstructs the course's intended sequence —
   // same reasoning as Recordings sorting by class date instead of compression order.
   const rows = await StudyMaterial.find(q).sort({ title: 1 }).limit(500).lean();
-  return ok(res, rows.map(serialize));
+  // …then into curriculum order (Unit → chapter), matched by name; files
+  // matching no chapter keep A–Z after them. See services/lms/materialCurriculum.js.
+  return ok(res, await arrangeByCurriculum(rows.map(serialize)));
 }
 
 async function remove(req, res) {
@@ -217,7 +227,7 @@ async function mine(req, res) {
     .sort({ title: 1 })
     .limit(500)
     .lean();
-  return ok(res, rows.map(serialize));
+  return ok(res, await arrangeByCurriculum(rows.map(serialize)));
 }
 
 module.exports = { upload, addLink, list, remove, mine };
