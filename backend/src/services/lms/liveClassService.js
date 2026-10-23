@@ -415,7 +415,15 @@ async function updateSchedule(id, admin, patch = {}) {
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
   if (role !== 'teacher') return { error: 403, message: 'Only the class project manager can edit the time.' };
-  if (!['scheduled', 'upcoming'].includes(session.status)) {
+  // A class that already ran (live / ended / recorded) can still be renamed
+  // or re-described — only its TIME is frozen.
+  const timeEdit =
+    patch.scheduledStart !== undefined ||
+    patch.scheduledEnd !== undefined ||
+    patch.scheduledDurationMin !== undefined ||
+    patch.autoStartAt !== undefined;
+  const notYetStarted = ['scheduled', 'upcoming'].includes(session.status);
+  if (!notYetStarted && timeEdit) {
     return { error: 409, message: `Cannot reschedule a class that is ${DISPLAY[session.status] || session.status}.` };
   }
   if (patch.title !== undefined) session.title = String(patch.title).slice(0, 200) || session.title;
@@ -438,15 +446,16 @@ async function updateSchedule(id, admin, patch = {}) {
   if (patch.scheduledDurationMin !== undefined) {
     session.scheduledDurationMin = Math.max(5, Math.min(600, Number(patch.scheduledDurationMin) || 60));
   }
-  if (patch.scheduledEnd) {
-    const e = new Date(patch.scheduledEnd);
-    if (!Number.isNaN(e.getTime())) session.scheduledEnd = e;
-  } else if (start) {
-    session.scheduledEnd = new Date(new Date(start).getTime() + session.scheduledDurationMin * 60000);
+  if (notYetStarted) {
+    if (patch.scheduledEnd) {
+      const e = new Date(patch.scheduledEnd);
+      if (!Number.isNaN(e.getTime())) session.scheduledEnd = e;
+    } else if (start) {
+      session.scheduledEnd = new Date(new Date(start).getTime() + session.scheduledDurationMin * 60000);
+    }
+    const gap = start ? new Date(start).getTime() - Date.now() : 999999999;
+    session.status = gap <= 3600000 && gap > -60000 ? 'upcoming' : 'scheduled';
   }
-
-  const gap = start ? new Date(start).getTime() - Date.now() : 999999999;
-  session.status = gap <= 3600000 && gap > -60000 ? 'upcoming' : 'scheduled';
   session.updated = new Date();
   await session.save();
 
