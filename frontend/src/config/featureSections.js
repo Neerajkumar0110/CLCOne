@@ -1143,6 +1143,7 @@ export const FEATURE_SECTIONS = [
             children: [
               { key: 'python-sql', label: 'Python Programming Foundations & SQL Basics', Icon: FormOutlined, embed: 'lmsMajorTestPythonSql' },
               { key: 'nlp', label: 'NLP Fundamentals & Introduction to LLMs', Icon: FormOutlined, embed: 'lmsMajorTestNlp' },
+              { key: 'llm', label: 'LLM APIs & Prompt Engineering', Icon: FormOutlined, embed: 'lmsMajorTestLlm' },
             ],
           },
           {

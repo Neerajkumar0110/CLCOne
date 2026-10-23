@@ -25,7 +25,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '@/pages/Lms/api';
-import { BasicTest, MajorTestPythonSql, MajorTestNlp, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
+import { BasicTest, MajorTestPythonSql, MajorTestNlp, MajorTestLlm, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
 import './AssessmentDashboard.css';
 
 const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
@@ -59,6 +59,7 @@ const TESTS = [
   { key: 'micro-sql-db', testType: 'MICRO', path: 'tests/micro/sql-db', Component: MicroTestSqlDb, eyebrow: 'Applied Project', title: 'Micro Test — SQL-Backed Keyword Database', description: 'Design and query a SQL-backed keyword database.', duration: '~45 mins' },
   { key: 'micro-nlp-serp', testType: 'NLP_MICRO', path: 'tests/micro/nlp-serp', Component: MicroTestNlpSerp, eyebrow: 'Applied Project', title: 'Micro Test — NLP on a SERP Dataset', description: 'Given 20 scraped article titles: extract keywords, classify intent, output ranked report.', duration: '~60 mins' },
   { key: 'major-nlp', testType: 'NLP_MAJOR', path: 'tests/major/nlp', Component: MajorTestNlp, eyebrow: 'Comprehensive Assessment', title: 'NLP Fundamentals & Introduction to LLMs', description: 'Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals.', duration: '~90 mins' },
+  { key: 'major-llm', testType: 'LLM_MAJOR', path: 'tests/major/llm', Component: MajorTestLlm, eyebrow: 'Comprehensive Assessment', title: 'LLM APIs & Prompt Engineering', description: 'LLM API fundamentals, advanced prompt engineering, structured output & function calling, LangChain, LlamaIndex & RAG, and vector databases & semantic search.', duration: '~90 mins' },
 ];
 
 function hexToRgb(hex) {

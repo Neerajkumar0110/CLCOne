@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 // old cursor offsets were tied to the old (Postgres) question ordering.
 const schema = new mongoose.Schema({
   _id: { type: String },
-  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'], required: true },
+  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'], required: true },
   questionType: { type: String, enum: ['MCQ', 'OUTPUT_BASED', 'PROGRAMMING'], required: true },
   cursor: { type: Number, default: 0 },
 });

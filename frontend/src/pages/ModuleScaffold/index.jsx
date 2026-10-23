@@ -53,6 +53,7 @@ const LmsAssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboar
 const LmsBasicTest = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.BasicTest })));
 const LmsMajorTestPythonSql = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestPythonSql })));
 const LmsMajorTestNlp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestNlp })));
+const LmsMajorTestLlm = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestLlm })));
 const LmsMicroTestSqlDb = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestSqlDb })));
 const LmsMicroTestNlpSerp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestNlpSerp })));
 // HRMS "Users" tab — same login-account list/creation flow as Settings' User
@@ -90,6 +91,7 @@ const EMBED = {
   lmsBasicTest: LmsBasicTest,
   lmsMajorTestPythonSql: LmsMajorTestPythonSql,
   lmsMajorTestNlp: LmsMajorTestNlp,
+  lmsMajorTestLlm: LmsMajorTestLlm,
   lmsMicroTestSqlDb: LmsMicroTestSqlDb,
   lmsMicroTestNlpSerp: LmsMicroTestNlpSerp,
   hrmsUsers: HrmsUsers,

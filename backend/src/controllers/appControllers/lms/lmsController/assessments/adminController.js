@@ -413,7 +413,7 @@ async function updateAssessmentSettings(req, res) {
   return res.status(200).json({ success: true, result: s });
 }
 
-const OVERRIDE_TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'];
+const OVERRIDE_TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'];
 
 // Manual bypass of the curriculum-delivery % gate (see
 // services/lms/curriculumTracker.js's UNLOCK_THRESHOLD_PCT) — requested

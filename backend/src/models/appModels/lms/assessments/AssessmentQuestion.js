@@ -13,7 +13,7 @@ const schema = new mongoose.Schema({
   correctOption: { type: Number },
   expectedOutput: { type: String },
   starterCode: { type: String },
-  type: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'], required: true },
+  type: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'], required: true },
   difficulty: { type: String, required: true },
   partOrder: { type: Number, default: 0 },
   retired: { type: Boolean, default: false },

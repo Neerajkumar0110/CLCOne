@@ -8,7 +8,7 @@ const { Text } = Typography;
 // Wired to GET /api/lms/assessments/my-results and
 // GET /api/lms/assessments/:attemptId/breakdown (ported from the
 // python-test-platform reference project — see AssessmentRunner/TestIntro).
-const TEST_TYPE_LABELS = { BASIC: 'Basic Test', MAJOR: 'Major Test', MICRO: 'Micro Test', NLP_MICRO: 'NLP Micro Test', NLP_MAJOR: 'NLP Major Test' };
+const TEST_TYPE_LABELS = { BASIC: 'Basic Test', MAJOR: 'Major Test', MICRO: 'Micro Test', NLP_MICRO: 'NLP Micro Test', NLP_MAJOR: 'NLP Major Test', LLM_MAJOR: 'LLM Major Test' };
 const STATUS_COLOR = { SUBMITTED: 'green', SUSPENDED: 'red', IN_PROGRESS: 'gold' };
 
 export default function Results() {

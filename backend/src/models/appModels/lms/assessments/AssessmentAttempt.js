@@ -13,7 +13,7 @@ const { randomUUID } = require('crypto');
 // that no longer exists.
 const schema = new mongoose.Schema({
   _id: { type: String, default: () => randomUUID() },
-  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'], required: true },
+  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'], required: true },
   status: { type: String, enum: ['IN_PROGRESS', 'SUBMITTED', 'SUSPENDED'], default: 'IN_PROGRESS' },
   score: { type: Number },
   totalCount: { type: Number },

@@ -17,7 +17,7 @@ const { UNLOCK_THRESHOLD_PCT } = curriculumTracker;
 // see routes/appRoutes/lms/lmsApi.js's /admin/assessment-settings. These were
 // previously hardcoded constants independently duplicated in
 // adminController.js too (spec §10 "not admin-configurable").
-const TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'];
+const TEST_TYPES = ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'];
 
 // Cooldown lifts at midnight UTC on the Nth calendar day after submission,
 // not at the exact submission time — so a 3pm submission doesn't require

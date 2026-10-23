@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
   removed: { type: Boolean, default: false },
 
-  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR'], required: true },
+  testType: { type: String, enum: ['BASIC', 'MAJOR', 'MICRO', 'NLP_MICRO', 'NLP_MAJOR', 'LLM_MAJOR'], required: true },
   scope: { type: String, enum: ['batch', 'student'], required: true },
 
   batch: { type: String }, // set when scope === 'batch'

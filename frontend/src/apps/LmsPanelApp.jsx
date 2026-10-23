@@ -263,6 +263,12 @@ function quizzesGroup(base, label) {
             <FormOutlined />,
             <TestIntro testType="NLP_MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="NLP Fundamentals & Introduction to LLMs" description="Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals." />,
           ],
+          [
+            `${base}/tests/major/llm`,
+            'LLM APIs & Prompt Engineering',
+            <FormOutlined />,
+            <TestIntro testType="LLM_MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="LLM APIs & Prompt Engineering" description="LLM API fundamentals, advanced prompt engineering, structured output & function calling, LangChain, LlamaIndex & RAG, and vector databases & semantic search." />,
+          ],
         ],
       ],
       [

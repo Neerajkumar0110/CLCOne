@@ -10,6 +10,7 @@ const TYPE_MIX = {
   BASIC: { MCQ: 20, OUTPUT_BASED: 20, PROGRAMMING: 10 },
   MAJOR: { MCQ: 15, OUTPUT_BASED: 20, PROGRAMMING: 15 },
   NLP_MAJOR: { MCQ: 30, OUTPUT_BASED: 15, PROGRAMMING: 5 },
+  LLM_MAJOR: { MCQ: 30, OUTPUT_BASED: 15, PROGRAMMING: 5 },
 };
 
 async function pickFromPool(testType, questionType, count) {

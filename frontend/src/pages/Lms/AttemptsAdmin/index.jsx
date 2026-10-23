@@ -11,7 +11,7 @@ const { Text } = Typography;
 // Wired to GET /api/lms/assessments/admin/summary, GET .../admin/attempts and
 // GET .../admin/attempts/:id/report (ported from the python-test-platform
 // reference project).
-const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major' };
+const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major', LLM_MAJOR: 'LLM Major' };
 const STATUS_TONE = { SUBMITTED: 'success', SUSPENDED: 'danger', IN_PROGRESS: 'warning' };
 const BATCHES = ['4:00 PM - 5:30 PM', '6:00 PM - 7:30 PM', '8:00 PM - 9:30 PM'];
 

@@ -17,6 +17,10 @@ export const MajorTestNlp = () => (
   <TestIntro testType="NLP_MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="NLP Fundamentals & Introduction to LLMs" description="Text preprocessing, POS tagging & NER, TF-IDF/YAKE keyword extraction, embeddings, sentiment analysis, and LLM fundamentals." />
 );
 
+export const MajorTestLlm = () => (
+  <TestIntro testType="LLM_MAJOR" icon={<FormOutlined />} eyebrow="Comprehensive Assessment" title="LLM APIs & Prompt Engineering" description="LLM API fundamentals, advanced prompt engineering, structured output & function calling, LangChain, LlamaIndex & RAG, and vector databases & semantic search." />
+);
+
 export const MicroTestSqlDb = () => (
   <TestIntro testType="MICRO" icon={<ExperimentOutlined />} eyebrow="Applied Project" title="Micro Test — SQL-Backed Keyword Database" description="Design and query a SQL-backed keyword database." />
 );

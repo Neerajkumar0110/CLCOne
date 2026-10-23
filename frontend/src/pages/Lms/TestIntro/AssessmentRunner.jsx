@@ -13,7 +13,7 @@ const { Text, Paragraph } = Typography;
 // and proctoring rules. PROGRAMMING questions use a plain textarea, matching
 // the reference (it doesn't use a code-editor library either).
 const TIME_LIMITS = { MCQ: 45, OUTPUT_BASED: 60, PROGRAMMING: 210, DEFAULT: 60 };
-const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major' };
+const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major', LLM_MAJOR: 'LLM Major' };
 
 export default function AssessmentRunner({ testType, onExit }) {
   const [phase, setPhase] = useState('gate'); // gate | loading | testing | suspended | result | error
