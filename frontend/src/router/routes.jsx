@@ -2,7 +2,7 @@ import { lazy } from 'react';
 
 import { Navigate } from 'react-router-dom';
 import RequirePermission from './RequirePermission';
-import { FEATURE_SECTIONS, FEATURE_ROUTES } from '@/config/featureSections';
+import { FEATURE_SECTIONS, FEATURE_ROUTES, OPEN_TABS, isOpenTab } from '@/config/featureSections';
 
 const SectionHub = lazy(() => import('@/pages/ModuleScaffold'));
 
@@ -12,11 +12,13 @@ const SectionHub = lazy(() => import('@/pages/ModuleScaffold'));
 const featureRoutes = [
   ...FEATURE_SECTIONS.map((section) => ({
     path: section.route,
-    element: <Navigate to={`${section.route}/${section.tabs[0].key}`} replace />,
+    element: <Navigate to={`${section.route}/${(OPEN_TABS[section.key] || [])[0] || section.tabs[0].key}`} replace />,
   })),
   ...FEATURE_ROUTES.map(({ path, section, tab }) => ({
     path,
-    element: (
+    element: isOpenTab(section.key, tab.key) ? (
+      <SectionHub section={section} tab={tab} />
+    ) : (
       <RequirePermission module={section.module}>
         <SectionHub section={section} tab={tab} />
       </RequirePermission>

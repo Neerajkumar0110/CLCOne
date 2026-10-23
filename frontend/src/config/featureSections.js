@@ -1912,6 +1912,12 @@ function flattenTabRoutes(tabs, prefix = '') {
 // One route per leaf sub-tab: /<section>/<tab> or /<section>/<group>/<tab>
 // for a nested one. Consumed by router/routes.jsx, which also adds a
 // /<section> -> first-tab redirect.
+// Tabs every CRM user may open even without their section's permission —
+// Team Chat is for everyone; the rest of Messenger (WhatsApp, SMS, Email,
+// Broadcasts) still needs the Messenger permission.
+export const OPEN_TABS = { messenger: ['chat'] };
+export const isOpenTab = (sectionKey, tabKey) => (OPEN_TABS[sectionKey] || []).includes(tabKey);
+
 export const FEATURE_ROUTES = FEATURE_SECTIONS.flatMap((section) =>
   flattenTabRoutes(section.tabs).map(({ segment, tab }) => ({
     path: `${section.route}/${segment}`,

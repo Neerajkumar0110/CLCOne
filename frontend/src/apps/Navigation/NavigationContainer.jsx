@@ -8,7 +8,7 @@ import { useTickets } from '@/context/ticketsContext';
 import { useMessages } from '@/context/messagesContext';
 import { request } from '@/request';
 import { MODULE_NAV_KEY } from '@/config/permissionModules';
-import { FEATURE_SECTIONS } from '@/config/featureSections';
+import { FEATURE_SECTIONS, OPEN_TABS, isOpenTab } from '@/config/featureSections';
 
 import useLanguage from '@/locale/useLanguage';
 import useBrandLogo from '@/hooks/useBrandLogo';
@@ -183,6 +183,9 @@ function Sidebar({ collapsible, isMobile = false }) {
       role === 'Support' && section.key === 'lms'
         ? section.tabs.filter((t) => t.key !== 'overview')
         : section.tabs;
+    // No permission for the section, but some tabs are open to everyone
+    // (Messenger → Team Chat): show just those.
+    if (!canView(section.module) && OPEN_TABS[section.key]) tabs = tabs.filter((t) => isOpenTab(section.key, t.key));
     // Students needing a batch assigned — same badge treatment as Support's
     // open-ticket count and Messenger's unread count above.
     if (section.key === 'lms' && unassignedCount > 0) {
@@ -324,6 +327,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     )
     .filter((item) => {
       const mod = NAV_KEY_MODULE[item.key];
+      if (mod && OPEN_TABS[item.key]) return true; // has open tabs (Team Chat)
       if (mod) return canView(mod); // parent-gated (feature sections)
       if (item.children) return item.children.length > 0; // pure grouping node
       return true;

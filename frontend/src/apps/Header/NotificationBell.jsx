@@ -44,7 +44,7 @@ function CrmNotificationPanel({ navigate, closePopover }) {
         time: c.lastMessage.created,
         onClick: () => {
           closePopover();
-          navigate(`/communication?dm=${c.user._id}`);
+          navigate(`/messenger/chat?dm=${c.user._id}`); // Team Chat — open to every user
         },
       };
     });
