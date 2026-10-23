@@ -4,6 +4,7 @@ import {
   FolderOpenOutlined, CloudUploadOutlined, LinkOutlined, FilePdfOutlined, FileImageOutlined,
   PlayCircleOutlined, FileOutlined, EyeOutlined, DownloadOutlined, DeleteOutlined, TagOutlined,
   TeamOutlined, BookOutlined, SearchOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -25,13 +26,17 @@ const Lbl = ({ icon, children }) => (
 // manage view a teacher does rather than falling through to the student one.
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
-const KIND_LABEL = { pdf: 'PDF', video: 'Video', image: 'Image', other: 'Other' };
-const KIND_COLOR = { pdf: '#dc2626', video: '#7c3aed', image: '#059669', other: '#2563eb' };
+const KIND_LABEL = { pdf: 'PDF', video: 'Video', image: 'Image', text: 'Text', other: 'Other' };
+const KIND_COLOR = { pdf: '#dc2626', video: '#7c3aed', image: '#059669', text: '#0891b2', other: '#2563eb' };
+// .txt files are stored as kind 'other' — show them as their own "Text" type.
+const viewKind = (m) =>
+  m.kind === 'other' && m.sourceType !== 'link' && /\.txt$/i.test(String(m.fileUrl || m.title || '').split('?')[0]) ? 'text' : m.kind;
 const kindIcon = (m) => {
   if (m.sourceType === 'link') return <LinkOutlined />;
   if (m.kind === 'pdf') return <FilePdfOutlined />;
   if (m.kind === 'video') return <PlayCircleOutlined />;
   if (m.kind === 'image') return <FileImageOutlined />;
+  if (viewKind(m) === 'text') return <FileTextOutlined />;
   return <FileOutlined />;
 };
 
@@ -85,9 +90,17 @@ function fmtSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function StatCard({ icon, color, label, value }) {
+// Clicking a card filters the list to that type; clicking it again clears it.
+function StatCard({ icon, color, label, value, active, onClick }) {
   return (
-    <div style={{ flex: '1 1 150px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 18px rgba(15,23,42,.04)' }}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick && onClick()}
+      title={active ? 'Showing only these — click to show all' : `Show only ${label.toLowerCase()}`}
+      style={{ flex: '1 1 150px', background: active ? `${color}0f` : '#fff', border: `1px solid ${active ? color : '#e5e7eb'}`, boxShadow: active ? `0 0 0 2px ${color}33` : '0 4px 18px rgba(15,23,42,.04)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s' }}
+    >
       <div style={{ width: 42, height: 42, borderRadius: 11, background: `${color}1a`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .3 }}>{label}</div>
@@ -109,13 +122,13 @@ function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect
             onClick={(e) => e.stopPropagation()}
           />
         )}
-        <div className="material-pdf-icon" style={{ background: `${KIND_COLOR[m.kind]}1a`, color: KIND_COLOR[m.kind] }}>
+        <div className="material-pdf-icon" style={{ background: `${KIND_COLOR[viewKind(m)]}1a`, color: KIND_COLOR[viewKind(m)] }}>
           {kindIcon(m)}
         </div>
         <div className="material-file-details">
           <p className="material-file-name" title={m.title}>{m.title}</p>
           <div className="material-file-meta">
-            <span>{m.sourceType === 'link' ? 'Link' : (KIND_LABEL[m.kind] || 'Other')}</span>
+            <span>{m.sourceType === 'link' ? 'Link' : (KIND_LABEL[viewKind(m)] || 'Other')}</span>
             {m.subject ? <span>· {m.subject}</span> : null}
             <span>· {m.course ? `${m.courseTitle} (whole internship)` : m.batch}</span>
             <span>· {m.teacherName}</span>
@@ -143,7 +156,7 @@ function useFilteredRows(rows, search, typeFilter, courseFilter) {
   return useMemo(() => {
     const s = search.trim().toLowerCase();
     return rows.filter((m) => {
-      if (typeFilter !== 'all' && m.kind !== typeFilter) return false;
+      if (typeFilter !== 'all' && viewKind(m) !== typeFilter) return false;
       if (courseFilter !== 'all' && m.course !== courseFilter) return false;
       if (s && !`${m.title} ${m.subject}`.toLowerCase().includes(s)) return false;
       return true;
@@ -233,10 +246,11 @@ function TeacherStudyMaterial() {
   const filtered = useFilteredRows(rows, search, typeFilter, courseFilter);
   const stats = useMemo(() => ({
     total: rows.length,
-    pdf: rows.filter((r) => r.kind === 'pdf').length,
-    video: rows.filter((r) => r.kind === 'video').length,
-    image: rows.filter((r) => r.kind === 'image').length,
-    other: rows.filter((r) => r.kind === 'other').length,
+    pdf: rows.filter((r) => viewKind(r) === 'pdf').length,
+    video: rows.filter((r) => viewKind(r) === 'video').length,
+    image: rows.filter((r) => viewKind(r) === 'image').length,
+    text: rows.filter((r) => viewKind(r) === 'text').length,
+    other: rows.filter((r) => viewKind(r) === 'other').length,
   }), [rows]);
 
   // { batch: X } or { course: X } depending on the toggle — never both, see
@@ -362,11 +376,24 @@ function TeacherStudyMaterial() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard icon={<FolderOpenOutlined />} color="#2563eb" label="Total Files" value={stats.total} />
-        <StatCard icon={<FilePdfOutlined />} color="#dc2626" label="PDFs" value={stats.pdf} />
-        <StatCard icon={<PlayCircleOutlined />} color="#7c3aed" label="Videos" value={stats.video} />
-        <StatCard icon={<FileImageOutlined />} color="#059669" label="Images" value={stats.image} />
-        <StatCard icon={<LinkOutlined />} color="#d97706" label="Other Files" value={stats.other} />
+        {[
+          ['all', <FolderOpenOutlined />, '#2563eb', 'Total Files', stats.total],
+          ['pdf', <FilePdfOutlined />, '#dc2626', 'PDFs', stats.pdf],
+          ['text', <FileTextOutlined />, '#0891b2', 'Text Files', stats.text],
+          ['video', <PlayCircleOutlined />, '#7c3aed', 'Videos', stats.video],
+          ['image', <FileImageOutlined />, '#059669', 'Images', stats.image],
+          ['other', <LinkOutlined />, '#d97706', 'Other Files', stats.other],
+        ].map(([k, icon, color, label, value]) => (
+          <StatCard
+            key={k}
+            icon={icon}
+            color={color}
+            label={label}
+            value={value}
+            active={k !== 'all' && typeFilter === k}
+            onClick={() => setTypeFilter(k === 'all' || typeFilter === k ? 'all' : k)}
+          />
+        ))}
       </div>
 
       <div className="study-material-card">
@@ -493,6 +520,7 @@ function TeacherStudyMaterial() {
               <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 <option value="pdf">PDF</option>
+                <option value="text">Text (TXT)</option>
                 <option value="video">Video</option>
                 <option value="image">Image</option>
                 <option value="other">Other</option>
@@ -607,10 +635,11 @@ function StudentStudyMaterial() {
   const filtered = useFilteredRows(rows, search, typeFilter, 'all');
   const stats = useMemo(() => ({
     total: rows.length,
-    pdf: rows.filter((r) => r.kind === 'pdf').length,
-    video: rows.filter((r) => r.kind === 'video').length,
-    image: rows.filter((r) => r.kind === 'image').length,
-    other: rows.filter((r) => r.kind === 'other').length,
+    pdf: rows.filter((r) => viewKind(r) === 'pdf').length,
+    video: rows.filter((r) => viewKind(r) === 'video').length,
+    image: rows.filter((r) => viewKind(r) === 'image').length,
+    text: rows.filter((r) => viewKind(r) === 'text').length,
+    other: rows.filter((r) => viewKind(r) === 'other').length,
   }), [rows]);
 
   if (loading) return <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 24 }} />;
@@ -625,11 +654,24 @@ function StudentStudyMaterial() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard icon={<FolderOpenOutlined />} color="#2563eb" label="Total Files" value={stats.total} />
-        <StatCard icon={<FilePdfOutlined />} color="#dc2626" label="PDFs" value={stats.pdf} />
-        <StatCard icon={<PlayCircleOutlined />} color="#7c3aed" label="Videos" value={stats.video} />
-        <StatCard icon={<FileImageOutlined />} color="#059669" label="Images" value={stats.image} />
-        <StatCard icon={<LinkOutlined />} color="#d97706" label="Other Files" value={stats.other} />
+        {[
+          ['all', <FolderOpenOutlined />, '#2563eb', 'Total Files', stats.total],
+          ['pdf', <FilePdfOutlined />, '#dc2626', 'PDFs', stats.pdf],
+          ['text', <FileTextOutlined />, '#0891b2', 'Text Files', stats.text],
+          ['video', <PlayCircleOutlined />, '#7c3aed', 'Videos', stats.video],
+          ['image', <FileImageOutlined />, '#059669', 'Images', stats.image],
+          ['other', <LinkOutlined />, '#d97706', 'Other Files', stats.other],
+        ].map(([k, icon, color, label, value]) => (
+          <StatCard
+            key={k}
+            icon={icon}
+            color={color}
+            label={label}
+            value={value}
+            active={k !== 'all' && typeFilter === k}
+            onClick={() => setTypeFilter(k === 'all' || typeFilter === k ? 'all' : k)}
+          />
+        ))}
       </div>
 
       <div className="study-material-card">
@@ -649,6 +691,7 @@ function StudentStudyMaterial() {
               <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 <option value="pdf">PDF</option>
+                <option value="text">Text (TXT)</option>
                 <option value="video">Video</option>
                 <option value="image">Image</option>
                 <option value="other">Other</option>
