@@ -69,7 +69,12 @@ async function create(req, res) {
 
 // PATCH /api/lms/liveclasses/:id  { scheduledStart?, scheduledDurationMin?, scheduledEnd?, title?, description?, autoStartAt?, countsTowardSyllabus? }
 async function updateTime(req, res) {
-  return send(res, await liveClassService.updateSchedule(req.params.id, req.admin, req.body || {}));
+  const out = await liveClassService.updateSchedule(req.params.id, req.admin, req.body || {});
+  if (out.error) return send(res, out);
+  // A real message, or the UI falls back to "The server successfully returned the requested data."
+  const b = req.body || {};
+  const onlyText = b.scheduledStart === undefined && b.scheduledEnd === undefined && b.scheduledDurationMin === undefined;
+  return res.status(200).json({ success: true, result: out.result, message: onlyText && b.title !== undefined ? 'Class renamed.' : 'Class updated.' });
 }
 
 // POST /api/lms/liveclasses/:id/syllabus  { countsTowardSyllabus: boolean }
