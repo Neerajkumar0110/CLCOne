@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Select, Input, Button, Upload, Tabs, Tag, Tooltip, Space, message, Typography, Empty, Popconfirm } from 'antd';
+import { Card, Table, Select, Input, Button, Upload, Tag, Tooltip, Space, message, Typography, Empty, Popconfirm } from 'antd';
 import {
   DatabaseOutlined,
   InboxOutlined,
@@ -26,6 +26,29 @@ import './questionBank.css';
 const { Text } = Typography;
 const QT_LABEL = { MCQ: 'MCQ', OUTPUT_BASED: 'Output', PROGRAMMING: 'Programming' };
 const QT_COLOR = { MCQ: 'blue', OUTPUT_BASED: 'purple', PROGRAMMING: 'gold' };
+const QTYPES = ['MCQ', 'OUTPUT_BASED', 'PROGRAMMING'];
+const KIND_OF = (key) => (key === 'BASIC' ? 'BASIC' : /MICRO/.test(key) ? 'MICRO' : 'MAJOR');
+
+// MCQ / Output / Programming share of a test's active pool.
+function MixBar({ pool }) {
+  const n = QTYPES.map((k) => pool?.[k]?.active || 0);
+  const total = n.reduce((a, b) => a + b, 0) || 1;
+  return (
+    <span className="qb-mix">
+      <span className="qb-mix-bar">
+        {QTYPES.map((k, i) => (n[i] ? <span key={k} className={`qb-mix-seg is-${k.toLowerCase()}`} style={{ width: `${(n[i] / total) * 100}%` }} /> : null))}
+      </span>
+      <span className="qb-mix-legend">
+        {QTYPES.map((k, i) => (
+          <span key={k}>
+            <i className={`is-${k.toLowerCase()}`} />
+            {n[i]} {QT_LABEL[k]}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
 
 const SAMPLE = [
   {
@@ -96,6 +119,10 @@ function QuestionDetail({ q }) {
     </div>
   );
 }
+
+// A short label for the status pill — the full sentence is in the tooltip.
+const shortError = (e) =>
+  /correctOption/.test(e) ? 'Wrong correctOption' : /options/.test(e) ? 'Options missing' : /text/.test(e) ? 'No question text' : /Topic/.test(e) ? 'No topic' : /expectedOutput/.test(e) ? 'No expected output' : /questionType/.test(e) ? 'Unknown type' : 'Invalid';
 
 function PoolBar({ pool, adding = {}, perAttempt, fixedSet }) {
   if (!pool) return null;
@@ -225,11 +252,11 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
   const statusCell = (r) => {
     const c = checks[r.index];
     return (
-      <Space direction="vertical" size={4}>
+      <Space direction="vertical" size={4} className="qb-status">
         {r.errors.length ? (
           <Tooltip title={r.errors.join(' ')}>
             <StatusPill tone="danger">
-              <CloseCircleOutlined /> {r.errors[0]}
+              <CloseCircleOutlined /> {r.errors.length > 1 ? `${r.errors.length} problems` : shortError(r.errors[0])}
             </StatusPill>
           </Tooltip>
         ) : r.duplicate ? (
@@ -266,7 +293,7 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
       <Card size="small" className="qb-step">
         <div className="qb-step-head">
           <span className="qb-step-no">1</span>
-          <div>
+          <div className="qb-step-text">
             <b>Pick the test</b>
             <span>The questions go into this test's pool.</span>
           </div>
@@ -284,20 +311,38 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
       <Card size="small" className="qb-step">
         <div className="qb-step-head">
           <span className="qb-step-no">2</span>
-          <div>
+          <div className="qb-step-text">
             <b>Upload the JSON file</b>
             <span>An array of questions — MCQ, OUTPUT_BASED or PROGRAMMING.</span>
           </div>
-          <Button size="small" icon={<DownloadOutlined />} onClick={downloadSample} style={{ marginLeft: 'auto' }}>
-            Sample JSON
-          </Button>
+          <button type="button" className="qb-link-btn" onClick={downloadSample}>
+            <DownloadOutlined /> Sample JSON
+          </button>
         </div>
         <Upload.Dragger accept=".json,application/json" multiple={false} showUploadList={false} beforeUpload={readFile}>
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p className="ant-upload-text">{fileName ? `${fileName} — drop another file to replace` : 'Drop a .json file here, or click to choose'}</p>
-          <p className="ant-upload-hint">Each item: topic, text, questionType, options + correctOption (0-based) or expectedOutput, difficulty.</p>
+          <div className="qb-drop">
+            <span className="qb-drop-icon">
+              <InboxOutlined />
+            </span>
+            {fileName ? (
+              <>
+                <b>{fileName}</b>
+                <span>Drop another file to replace it</span>
+              </>
+            ) : (
+              <>
+                <b>Drop your .json file here</b>
+                <span>
+                  or <u>click to choose</u> · one file, up to 500 questions
+                </span>
+              </>
+            )}
+            <span className="qb-drop-fields">
+              {['topic', 'text', 'questionType', 'options', 'correctOption', 'expectedOutput', 'difficulty'].map((k) => (
+                <code key={k}>{k}</code>
+              ))}
+            </span>
+          </div>
         </Upload.Dragger>
       </Card>
 
@@ -305,7 +350,7 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
         <Card size="small" className="qb-step">
           <div className="qb-step-head">
             <span className="qb-step-no">3</span>
-            <div>
+            <div className="qb-step-text">
               <b>Check and select</b>
               <span>Untick anything you don't want. Rows with errors or duplicates can't be imported.</span>
             </div>
@@ -327,6 +372,7 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
           <Table
             rowKey="index"
             size="small"
+            scroll={{ x: 760 }}
             loading={busy}
             dataSource={shown}
             pagination={tablePagination({ defaultPageSize: 25 })}
@@ -336,13 +382,13 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
               getCheckboxProps: (r) => ({ disabled: !r.importable }),
             }}
             expandable={{ expandedRowRender: (r) => <QuestionDetail q={r} /> }}
-            rowClassName={(r) => (checks[r.index]?.status === 'mismatch' ? 'qb-row-bad' : '')}
+            rowClassName={(r) => (checks[r.index]?.status === 'mismatch' ? 'qb-row-bad' : !r.importable ? 'qb-row-off' : '')}
             columns={[
               { title: '#', dataIndex: 'index', width: 56, render: (v) => v + 1 },
               { title: 'Type', dataIndex: 'questionType', width: 110, render: (v) => <Tag color={QT_COLOR[v]}>{QT_LABEL[v] || v || '?'}</Tag> },
               { title: 'Topic', dataIndex: 'topic', width: 200, ellipsis: true },
               { title: 'Question', dataIndex: 'text', ellipsis: true, render: (v) => String(v || '').split('\n')[0] },
-              { title: 'Status', key: 'status', width: 210, render: (_, r) => statusCell(r) },
+              { title: 'Status', key: 'status', width: 200, render: (_, r) => statusCell(r) },
             ]}
           />
           <div className="qb-actions">
@@ -442,6 +488,7 @@ function BankTab({ tests, testType, setTestType, refreshKey, onChanged }) {
         <Table
           rowKey="id"
           size="small"
+          scroll={{ x: 720 }}
           loading={loading}
           dataSource={rows}
           pagination={tablePagination({ defaultPageSize: 25 })}
@@ -512,34 +559,63 @@ export default function QuestionBank() {
 
       <div className="qb-tests">
         {tests.map((t) => {
-          const short = t.perAttempt && ['MCQ', 'OUTPUT_BASED', 'PROGRAMMING'].some((k) => (t.pool[k]?.active || 0) < (t.perAttempt[k] || 0));
+          const kind = KIND_OF(t.key);
+          const shortBy = t.perAttempt
+            ? QTYPES.map((k) => [k, (t.perAttempt[k] || 0) - (t.pool[k]?.active || 0)]).filter(([, n]) => n > 0)
+            : [];
           return (
-            <button key={t.key} type="button" className={`qb-test-card ${testType === t.key ? 'is-on' : ''}`} onClick={() => setTestType(t.key)}>
-              <span className="qb-test-label">{t.label}</span>
-              <span className="qb-test-total">
-                <b>{t.total}</b> active
-                {short && (
-                  <Tooltip title="Not enough questions for one attempt">
-                    <WarningOutlined className="qb-warn" />
+            <button
+              key={t.key}
+              type="button"
+              className={`qb-test-card kind-${kind.toLowerCase()} ${testType === t.key ? 'is-on' : ''}`}
+              onClick={() => setTestType(t.key)}
+            >
+              <span className="qb-test-top">
+                <span className="qb-kind">{kind}</span>
+                {t.fixedSet ? (
+                  <span className="qb-ready is-neutral">Fixed set</span>
+                ) : shortBy.length ? (
+                  <Tooltip title={`Needs ${shortBy.map(([k, n]) => `${n} more ${QT_LABEL[k]}`).join(', ')} for one attempt`}>
+                    <span className="qb-ready is-warn">
+                      <WarningOutlined /> Short
+                    </span>
                   </Tooltip>
+                ) : (
+                  <span className="qb-ready is-ok">
+                    <CheckCircleOutlined /> Ready
+                  </span>
                 )}
               </span>
-              <span className="qb-test-mix">
-                {['MCQ', 'OUTPUT_BASED', 'PROGRAMMING'].map((k) => `${t.pool[k]?.active || 0} ${QT_LABEL[k]}`).join(' · ')}
+              <span className="qb-test-label">{t.label.replace(/^(Major|Micro) — /, '')}</span>
+              <span className="qb-test-total">
+                <b>{t.total}</b> active questions
+              </span>
+              <MixBar pool={t.pool} />
+              <span className="qb-test-foot">
+                {t.perAttempt
+                  ? `${QTYPES.reduce((a, k) => a + (t.perAttempt[k] || 0), 0)} per attempt · ${QTYPES.map((k) => t.perAttempt[k] || 0).join(' / ')}`
+                  : 'Every question is served'}
               </span>
             </button>
           );
         })}
       </div>
 
-      <Tabs
-        activeKey={tab}
-        onChange={setTab}
-        items={[
-          { key: 'upload', label: 'Upload JSON', children: <UploadTab tests={tests} testType={testType} setTestType={setTestType} onImported={changed} /> },
-          { key: 'bank', label: 'Questions in a test', children: <BankTab tests={tests} testType={testType} setTestType={setTestType} refreshKey={refreshKey} onChanged={changed} /> },
-        ]}
-      />
+      <div className="qb-tabs" role="tablist">
+        {[
+          ['upload', <CloudUploadOutlined key="i" />, 'Upload JSON'],
+          ['bank', <DatabaseOutlined key="i" />, 'Questions in a test'],
+        ].map(([k, icon, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`qb-tab ${tab === k ? 'is-on' : ''}`} onClick={() => setTab(k)}>
+            {icon} {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'upload' ? (
+        <UploadTab tests={tests} testType={testType} setTestType={setTestType} onImported={changed} />
+      ) : (
+        <BankTab tests={tests} testType={testType} setTestType={setTestType} refreshKey={refreshKey} onChanged={changed} />
+      )}
     </div>
   );
 }
