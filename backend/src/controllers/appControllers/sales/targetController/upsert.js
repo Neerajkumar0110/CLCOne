@@ -36,7 +36,9 @@ const upsert = async (req, res) => {
   }
 
   const hierarchy = await resolveHierarchyScope(req.admin);
-  const inScope = hierarchy.isFullAccess || (hierarchy.names || []).includes(target.name);
+  // A Team Leader with no team yet can SEE everyone, but sets targets only
+  // once they have a team.
+  const inScope = (hierarchy.isFullAccess && !hierarchy.leaderOpen) || (hierarchy.names || []).includes(target.name);
   if (!inScope) {
     return res.status(403).json({
       success: false,

@@ -31,10 +31,15 @@ const summary = async (req, res) => {
   const range = RANGE_DAYS[req.query.range] ? req.query.range : '1M';
   const since = new Date(Date.now() - RANGE_DAYS[range] * 24 * 60 * 60 * 1000);
 
-  const isManagement = FULL_ACCESS_ROLES.includes(req.admin.role);
+  // Team Leader with no team members yet sees everything (salesScope.js).
+  const leader = require('../../../../services/access/salesScope');
+  const leaderT = leader.LEADER_ROLES.includes(req.admin.role) ? await leader.leaderTeam(req.admin) : null;
+  const isManagement = FULL_ACCESS_ROLES.includes(req.admin.role) || !!(leaderT && leaderT.open);
 
   let myTeam = null;
-  if (!isManagement) {
+  if (leaderT && !leaderT.open) {
+    myTeam = { name: leaderT.teamName };
+  } else if (!isManagement) {
     myTeam = await Team.findOne({ removed: false, members: req.admin.name }).exec();
   }
 

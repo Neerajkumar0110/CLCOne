@@ -16,12 +16,33 @@ const { MANAGEMENT_ROLES } = require('../../config/roles');
 // they're not on any team.
 const FULL_ACCESS_ROLES = [...MANAGEMENT_ROLES, 'Team Manager'];
 
+// Team Leader rule (2026-10-23): until a team with members is set up for
+// them, a Team Leader sees EVERYONE's data; once their team has members,
+// only that team's. Returns { open: true } (see all) or the team.
+const LEADER_ROLES = ['Team Leader'];
+async function leaderTeam(admin) {
+  const Team = mongoose.model('Team');
+  const keys = [admin.name, `${admin.name || ''} ${admin.surname || ''}`.trim()].filter(Boolean);
+  const team =
+    (await Team.findOne({ removed: false, lead: { $in: keys } }).select('name lead members').lean()) ||
+    (await Team.findOne({ removed: false, members: { $in: keys } }).select('name lead members').lean());
+  const names = team ? [...new Set([team.lead, ...(team.members || [])].filter(Boolean))] : [];
+  const others = names.filter((n) => !keys.includes(n));
+  if (!team || !others.length) return { open: true };
+  return { open: false, teamName: team.name, names };
+}
+
 // { isFullAccess: bool, teamMemberNames: string[] | null }
 // teamMemberNames === null means "full access, no filter needed".
 // teamMemberNames === [admin.name] means "no team — self only".
 async function resolveScope(admin) {
   if (FULL_ACCESS_ROLES.includes(admin.role)) {
     return { isFullAccess: true, teamMemberNames: null, teamName: null };
+  }
+  if (LEADER_ROLES.includes(admin.role)) {
+    const t = await leaderTeam(admin);
+    if (t.open) return { isFullAccess: true, teamMemberNames: null, teamName: null, leaderOpen: true };
+    return { isFullAccess: false, teamMemberNames: t.names, teamName: t.teamName };
   }
 
   const Team = mongoose.model('Team');
@@ -64,4 +85,4 @@ function requestedNarrowing(req) {
   return { team, agent };
 }
 
-module.exports = { resolveScope, FULL_ACCESS_ROLES, namesForTeam, requestedNarrowing };
+module.exports = { resolveScope, FULL_ACCESS_ROLES, namesForTeam, requestedNarrowing, leaderTeam, LEADER_ROLES };

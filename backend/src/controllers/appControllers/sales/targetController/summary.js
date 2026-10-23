@@ -76,7 +76,7 @@ const summary = async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    result: { period, canSetTargets: hierarchy.isFullAccess || !!(hierarchy.people && hierarchy.people.length > 1), rows },
+    result: { period, canSetTargets: (hierarchy.isFullAccess && !hierarchy.leaderOpen) || !!(hierarchy.people && hierarchy.people.length > 1), rows },
     message: 'ok',
   });
 };

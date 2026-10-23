@@ -70,6 +70,24 @@ async function resolveHierarchyScope(admin) {
   }
 
   const Admin = mongoose.model('Admin');
+
+  // Team Leader: everyone until their team has members, then that team
+  // (same rule as salesScope.js's leaderTeam).
+  const { leaderTeam, LEADER_ROLES } = require('./salesScope');
+  if (LEADER_ROLES.includes(admin.role)) {
+    const t = await leaderTeam(admin);
+    if (t.open) return { isFullAccess: true, ids: null, names: null, people: null, legacy: false, leaderOpen: true };
+    const people = await Admin.find({ name: { $in: t.names }, removed: false }).select('name role').lean();
+    return {
+      isFullAccess: false,
+      ids: people.map((p) => String(p._id)),
+      names: t.names,
+      people: people.map((p) => ({ ...p, depth: roleDepth(admin.role, p.role) })),
+      teamName: t.teamName,
+      legacy: false,
+    };
+  }
+
   const hasManager = !!admin.reportsTo;
   const hasReports = !!(await Admin.exists({ reportsTo: admin._id, removed: false }));
 
