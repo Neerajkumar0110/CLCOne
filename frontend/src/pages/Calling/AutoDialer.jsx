@@ -6,6 +6,7 @@ import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
 import CallerDetailModal from "./CallerDetailModal";
+import IncomingCalls from "./IncomingCalls";
 import { STAGE_NAMES } from "@/config/leadStages";
 
 // My Calls: the call-again button shows only for leads worth calling back.
@@ -834,6 +835,8 @@ function InstantLeadPool() {
           </div>
         )}
       </div>
+
+      <IncomingCalls currentAdminId={currentAdmin?._id} />
 
       <UsedLeads />
     </div>

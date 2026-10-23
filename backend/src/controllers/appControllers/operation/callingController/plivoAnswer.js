@@ -50,6 +50,11 @@ const GREETING_XML =
 
 const roomName = (crmCallId) => `call-${crmCallId}`;
 
+const INBOUND_WELCOME = 'Thank you for calling Career Lab Consulting. Please stay on the line, we are connecting you to our team.';
+const INBOUND_SORRY_XML =
+  '<Response><Speak voice="WOMAN" language="en-IN">Sorry, all our team members are busy right now. We have noted your number and will call you back shortly. Thank you for calling Career Lab Consulting.</Speak><Hangup/></Response>';
+const isSmartInbound = (rec) => !!(rec && rec.direction === 'Inbound' && rec.inbound && rec.inbound.routedBy === 'smart');
+
 const plivoAuthHeaders = (p) => ({
   Authorization: `Basic ${Buffer.from(`${p.authId}:${p.authToken}`).toString('base64')}`,
   'Content-Type': 'application/json',
@@ -69,8 +74,8 @@ const connectingXml = (label) =>
 // identical record="true"/recordingCallbackUrl attributes, or a race means
 // recording silently never gets enabled depending on who joins first. Only
 // `startConferenceOnEnter` is meant to differ between the two.
-const conferenceXml = (crmCallId, recordingCallbackUrl, startConferenceOnEnter = true) =>
-  `<Conference startConferenceOnEnter="${startConferenceOnEnter}" endConferenceOnExit="true" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST">${escapeXml(roomName(crmCallId))}</Conference>`;
+const conferenceXml = (crmCallId, recordingCallbackUrl, startConferenceOnEnter = true, endConferenceOnExit = true) =>
+  `<Conference startConferenceOnEnter="${startConferenceOnEnter}" endConferenceOnExit="${endConferenceOnExit}" record="true" recordFileFormat="mp3" recordingCallbackUrl="${escapeXml(recordingCallbackUrl)}" recordingCallbackMethod="POST">${escapeXml(roomName(crmCallId))}</Conference>`;
 
 // Places the far end's own leg — a separate outbound Plivo call, fired the
 // instant the first party is live, so it rings in parallel instead of after
@@ -257,7 +262,19 @@ async function handleInboundCall(req, res, cfg, secretQs) {
 
   const IvrFlow = mongoose.model('IvrFlow');
   const flow = await IvrFlow.findOne({ removed: false, enabled: true, direction: 'Inbound' }).sort({ created: 1 });
-  if (!flow) return respondXml(res, HOLD_XML);
+  if (!flow) {
+    // No IVR menu → smart routing: the user they last spoke to, else a free
+    // user, else a Team Leader (services/calling/inboundRouting.js).
+    const inbound = require('../../../../services/calling/inboundRouting');
+    const rec = await inbound.start({ from: fromNumber, to: b.To || b.to, callUuid });
+    const holdUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${rec._id}&leg=inbound-hold&n=1${secretQs}`;
+    respondXml(
+      res,
+      `<Response><Speak voice="WOMAN" language="en-IN">${escapeXml(INBOUND_WELCOME)}</Speak><Redirect method="POST">${escapeXml(holdUrl)}</Redirect></Response>`
+    );
+    inbound.ringNext(rec._id).catch((err) => console.error('[inbound] routing failed:', err.message));
+    return undefined;
+  }
 
   const CallRecord = mongoose.model('CallRecord');
   const rec = await new CallRecord({
@@ -382,12 +399,55 @@ const plivoAnswer = async (req, res) => {
     return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl)}</Response>`);
   }
 
+  // ── smart inbound: the caller waiting while we ring someone ─────────────
+  if (leg === 'inbound-hold' || leg === 'inbound-sorry' || leg === 'inbound-room') {
+    const inbound = require('../../../../services/calling/inboundRouting');
+    const rec = crmCallId && mongoose.isValidObjectId(crmCallId) ? await mongoose.model('CallRecord').findOne({ _id: crmCallId, removed: false }) : null;
+    if (!rec || !['dialing', 'ringing', 'connected', 'onhold'].includes(rec.status)) return respondXml(res, '<Response><Hangup/></Response>');
+    if (leg === 'inbound-sorry' || rec.inbound?.exhausted) return respondXml(res, INBOUND_SORRY_XML);
+    if (leg === 'inbound-room') {
+      const { agentRoom } = require('../../../../services/calling/connectModes');
+      return respondXml(res, `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" waitSound="">${escapeXml(agentRoom(req.query.agentId))}</Conference></Response>`);
+    }
+    const recordingCallbackUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
+    // someone is already on it (the redirect raced this loop) — join them
+    if (rec.agentLegAnswered && rec.agentLegCallUuid) {
+      return respondXml(res, `<Response>${conferenceXml(crmCallId, recordingCallbackUrl)}</Response>`);
+    }
+    const n = parseInt(req.query.n || '1', 10) || 1;
+    if (n > inbound.MAX_HOLD_LOOPS) {
+      await inbound.giveUp(rec, 'nobody answered in time');
+      return respondXml(res, INBOUND_SORRY_XML);
+    }
+    // keep the stuck-dial sweep off a caller who is genuinely holding
+    await mongoose.model('CallRecord').updateOne({ _id: rec._id }, { $set: { phaseAt: new Date() } });
+    // safety net: nobody being rung (a lost hangup callback) → ring the next
+    if (!rec.inbound?.ringing?.kind) inbound.ringNext(rec._id).catch(() => {});
+    const nextUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${crmCallId}&leg=inbound-hold&n=${n + 1}${secretQs}`;
+    const line = n % 3 === 0 ? 'Thank you for waiting. Our team will be with you in a moment.' : 'Please stay on the line.';
+    return respondXml(
+      res,
+      `<Response><Wait length="6"/><Speak voice="WOMAN" language="en-IN">${line}</Speak><Redirect method="POST">${escapeXml(nextUrl)}</Redirect></Response>`
+    );
+  }
+
   // ── far-end leg: join the room and wait, then interrupt the first
   // party's greeting the instant we're here (i.e. the instant it answered) ──
   if (leg === 'agent') {
     if (!crmCallId || !mongoose.isValidObjectId(crmCallId)) return respondXml(res, '<Response><Hangup/></Response>');
     const CallRecord = mongoose.model('CallRecord');
     const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
+    if (isSmartInbound(rec)) {
+      const inbound = require('../../../../services/calling/inboundRouting');
+      const b = { ...req.query, ...(req.body || {}) };
+      const r = await inbound.answered(rec, req.query.agentId, b.CallUUID || b.call_uuid);
+      if (r === 'gone') {
+        return respondXml(res, '<Response><Speak voice="WOMAN" language="en-IN">The caller has already disconnected.</Speak><Hangup/></Response>');
+      }
+      if (r !== 'ok') return respondXml(res, '<Response><Hangup/></Response>');
+      const cb = `${cfg.plivo.publicBaseUrl}/api/cloud-call/webhook?crmCallId=${crmCallId}${secretQs}`;
+      return respondXml(res, `<Response>${conferenceXml(crmCallId, cb, false, false)}</Response>`);
+    }
     if (rec) {
       // The answer_url for this leg only ever fires once Plivo actually
       // connects it — this IS the "agent picked up" signal the
@@ -462,6 +522,13 @@ const plivoAnswer = async (req, res) => {
     if (crmCallId && mongoose.isValidObjectId(crmCallId)) {
       const CallRecord = mongoose.model('CallRecord');
       const rec = await CallRecord.findOne({ _id: crmCallId, removed: false });
+      if (isSmartInbound(rec)) {
+        const b = { ...req.query, ...(req.body || {}) };
+        await require('../../../../services/calling/inboundRouting')
+          .legEnded(rec, req.query.agentId, b.HangupCauseName || b.HangupCause)
+          .catch((err) => console.error('[inbound] leg end failed:', err.message));
+        return respondXml(res, '<Response></Response>');
+      }
       if (rec && rec.agent && !rec.agentLegAnswered && !rec.missedByAgent) {
         rec.missedByAgent = true;
         rec.missedByAgentAt = new Date();

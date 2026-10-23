@@ -272,7 +272,13 @@ const cloudWebhook = async (req, res) => {
       await wrapupAgent(rec);
       await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
     }
-    await resolveLead(
+    const smartInbound = rec.direction === 'Inbound' && rec.inbound && rec.inbound.routedBy === 'smart';
+    if (smartInbound) {
+      // free whoever was still ringing; nobody answered → missed + callback
+      await require('../../../../services/calling/inboundRouting').customerGone(rec).catch((err) => console.error('[inbound] end failed:', err.message));
+    }
+    // A missed inbound call says nothing about the lead — don't move it.
+    if (!(smartInbound && !rec.agentLegAnswered)) await resolveLead(
       rec,
       rec.disposition,
       // 'connected' only if the customer actually spoke to someone: talk

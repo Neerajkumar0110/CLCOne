@@ -19,7 +19,10 @@ async function loadCall(req, res) {
     return null;
   }
   // Agents may only act on their own call.
-  if (req.callingTier === 'agent' && String(rec.agent) !== String(req.admin._id)) {
+  // (An inbound call they answered and then forwarded still counts as theirs
+  // for saving the notes.)
+  const tookIt = (rec.inbound?.attempts || []).some((a) => String(a.agent) === String(req.admin._id) && a.result === 'answered');
+  if (req.callingTier === 'agent' && String(rec.agent) !== String(req.admin._id) && !tookIt) {
     res.status(403).json({ success: false, result: null, message: 'Not your call.' });
     return null;
   }

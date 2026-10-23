@@ -18,6 +18,7 @@ import {
   SendOutlined,
   TagOutlined,
   CustomerServiceOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 import {
   Input,
@@ -26,6 +27,7 @@ import {
   Tag,
   Tooltip,
   message,
+  notification,
 } from "antd";
 import dayjs from "dayjs";
 import { request } from "@/request";
@@ -407,10 +409,42 @@ export default function ActiveCallModal() {
     if (payload.call.onHold !== undefined) setOnHold(!!payload.call.onHold);
   }, []);
 
+  // Inbound smart routing (backend services/calling/inboundRouting.js):
+  // "your phone is ringing", "forward didn't go through", "you missed one".
+  const handleIncoming = useCallback((payload) => {
+    const c = payload?.call;
+    if (!c) return;
+    const who = payload.crmLead?.name || c.contactName || c.phone;
+    const why =
+      c.ringingKind === "forward"
+        ? `forwarded by ${c.forwardedBy || "a colleague"}`
+        : { previous: "you spoke to them before", owner: "their lead is yours", free: "you're free", leader: "nobody else was free" }[c.ringingKind] || "";
+    playCallChime();
+    notification.open({
+      key: `incoming-${c._id}`,
+      message: `📞 Incoming call — ${who}`,
+      description: `${c.phone}${why ? ` · ${why}` : ""}. Pick up your ${c.connectMode === "browser" ? "headset" : "phone"} now.`,
+      duration: 20,
+      placement: "topRight",
+    });
+  }, []);
+  const handleForwardFailed = useCallback((payload) => {
+    message.warning(`${payload?.call?.forwardTo || "They"} didn't pick up — the caller is still with you.`, 6);
+  }, []);
+  const handleInboundMissed = useCallback((payload) => {
+    const c = payload?.call;
+    if (!c) return;
+    message.warning(`Missed incoming call from ${c.contactName || c.phone} — a callback was added for you.`, 8);
+  }, []);
+
   // Setup WebSocket listeners
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
+
+    socket.on("call:incoming", handleIncoming);
+    socket.on("call:forward-failed", handleForwardFailed);
+    socket.on("call:inbound-missed", handleInboundMissed);
 
     socket.on("call:connected", handleCallConnected);
     socket.on("call:ringing", handleCallConnected);
@@ -424,8 +458,11 @@ export default function ActiveCallModal() {
       socket.off("call:updated", handleCallUpdated);
       socket.off("call:ended", handleCallEnded);
       socket.off("call:missed", handleCallMissed);
+      socket.off("call:incoming", handleIncoming);
+      socket.off("call:forward-failed", handleForwardFailed);
+      socket.off("call:inbound-missed", handleInboundMissed);
     };
-  }, [handleCallConnected, handleCallUpdated, handleCallEnded, handleCallMissed]);
+  }, [handleCallConnected, handleCallUpdated, handleCallEnded, handleCallMissed, handleIncoming, handleForwardFailed, handleInboundMissed]);
 
   // Socket events are the primary trigger; this poll is the fallback for
   // the serverless deploy (backend/src/socket.js is a no-op there, so no
@@ -584,6 +621,30 @@ export default function ActiveCallModal() {
     });
     setCallData((prev) => (prev ? { ...prev, status: "completed" } : null));
     message.info("Call ended. Please review & submit lead details.");
+  };
+
+  // Inbound calls: pass the caller to someone else (backend inbound.js).
+  const [fwdOpen, setFwdOpen] = useState(false);
+  const [fwdTargets, setFwdTargets] = useState(null);
+  const [fwdTo, setFwdTo] = useState(undefined);
+  const [fwdBusy, setFwdBusy] = useState(false);
+  const isSmartInbound = callData?.direction === "Inbound" && callData?.inbound?.routedBy === "smart";
+  const openForward = async () => {
+    setFwdOpen((v) => !v);
+    if (fwdTargets) return;
+    const r = await request.get({ entity: "calling/inbound/forward-targets" });
+    setFwdTargets(r?.success ? r.result : []);
+  };
+  const doForward = async () => {
+    if (!callData || !fwdTo || fwdBusy) return;
+    setFwdBusy(true);
+    const r = await request.post({ entity: `calling/inbound/${callData._id}/forward`, jsonData: { toAgent: fwdTo } });
+    setFwdBusy(false);
+    if (r?.success) {
+      message.success(r.message, 6);
+      setFwdOpen(false);
+      setFwdTo(undefined);
+    } else message.error(r?.message || "Could not forward the call.");
   };
 
   const selectedDisposition = dispositions.find((d) => d.code === disposition) || null;
@@ -766,6 +827,36 @@ export default function ActiveCallModal() {
                 >
                   <CloseCircleOutlined /> Hang Up
                 </button>
+                {isSmartInbound && isConnected && (
+                  <button type="button" className={`incall-ctrl-btn ${fwdOpen ? "active" : ""}`} onClick={openForward} title="Forward this caller to someone else">
+                    <SwapOutlined /> Forward
+                  </button>
+                )}
+              </div>
+            )}
+            {isSmartInbound && isConnected && fwdOpen && (
+              <div className="incall-card" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <Select
+                  popupClassName="incall-popup"
+                  style={{ flex: "1 1 220px" }}
+                  placeholder={fwdTargets ? "Forward to…" : "Loading…"}
+                  loading={!fwdTargets}
+                  value={fwdTo}
+                  onChange={setFwdTo}
+                  showSearch
+                  optionFilterProp="label"
+                  options={(fwdTargets || []).map((t) => ({
+                    value: t.id,
+                    label: `${t.name} — ${t.role} · ${t.state}`,
+                    disabled: t.state === "busy" || t.state === "break",
+                  }))}
+                />
+                <button type="button" className="incall-ctrl-btn" disabled={!fwdTo || fwdBusy} onClick={doForward}>
+                  {fwdBusy ? "Ringing…" : "Forward"}
+                </button>
+                <div style={{ flex: "1 1 100%", fontSize: 12, color: "#94a3b8" }}>
+                  Their phone rings; the moment they pick up you're dropped and they continue with the caller.
+                </div>
               </div>
             )}
 

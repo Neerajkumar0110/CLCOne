@@ -57,6 +57,11 @@ const demos = require('../../../controllers/appControllers/operation/callingCont
 router.route('/demos').get(catchErrors(demos.list));
 router.route('/demos/status').get(catchErrors(demos.status));
 router.route('/demos/join').get(catchErrors(demos.join));
+// Incoming calls (customers calling our number) — smart routing + forward.
+const inboundCalls = require('../../../controllers/appControllers/operation/callingController/inbound');
+router.route('/inbound').get(catchErrors(inboundCalls.list));
+router.route('/inbound/forward-targets').get(catchErrors(inboundCalls.forwardTargets));
+router.route('/inbound/:id/forward').post(catchErrors(inboundCalls.forward));
 router.route('/team-activity').get(catchErrors(c.teamActivityList));
 router.route('/team-activity/:id/pool').post(catchErrors(c.teamActivitySetPool));
 

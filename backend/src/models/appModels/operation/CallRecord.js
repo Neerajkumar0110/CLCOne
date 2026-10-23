@@ -117,6 +117,44 @@ const schema = new mongoose.Schema({
     },
   ],
 
+  // ── Inbound smart routing (services/calling/inboundRouting.js): a customer
+  // calling our number rings the user they last spoke to, else a free pool
+  // user, else a Team Leader — one phone at a time. Whoever takes it can
+  // forward it to someone else.
+  inbound: {
+    routedBy: String, // 'smart' | 'ivr'
+    stickyAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    stickyAgentName: String,
+    // the phone ringing right now (null while nobody is being rung)
+    ringing: {
+      agent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+      agentName: String,
+      kind: String, // previous | owner | free | leader | forward
+      prevStatus: String, // their AgentCallState status before we rang them
+      at: Date,
+    },
+    attempts: [
+      {
+        _id: false,
+        agent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+        agentName: String,
+        kind: String,
+        device: String, // mobile | browser | line
+        at: Date,
+        result: String, // ringing | answered | missed | cancelled
+        endedAt: Date,
+      },
+    ],
+    forwardedBy: String,
+    answeredBy: String,
+    answeredKind: String,
+    holdSince: Date,
+    exhausted: { type: Boolean, default: false },
+    missed: { type: Boolean, default: false },
+    callbackCreated: { type: Boolean, default: false },
+  },
+  agentLegCallUuid: String, // the answered agent leg — hung up on forward
+
   recording: { type: recordingSchema, default: () => ({}) },
 
   provider: { type: String, default: 'mock' }, // mock | cloud | manual
