@@ -426,7 +426,10 @@ async function updateSchedule(id, admin, patch = {}) {
   if (!notYetStarted && timeEdit) {
     return { error: 409, message: `Cannot reschedule a class that is ${DISPLAY[session.status] || session.status}.` };
   }
-  if (patch.title !== undefined) session.title = String(patch.title).slice(0, 200) || session.title;
+  if (patch.title !== undefined && String(patch.title).trim()) {
+    session.title = String(patch.title).trim().slice(0, 200);
+    session.titleCustom = true;
+  }
   if (patch.description !== undefined) session.description = String(patch.description).slice(0, 2000);
   if (patch.autoStartAt !== undefined) session.autoStartAt = !!patch.autoStartAt;
   // Marking a class as non-syllabus here shifts the curriculum topic of
@@ -469,7 +472,7 @@ async function updateSchedule(id, admin, patch = {}) {
   // startSession, rather than clobbering it back to the generic
   // "<batch> — Class <n>" placeholder on every reschedule.
   let recordingClassName = session.title;
-  if (patch.title === undefined) {
+  if (patch.title === undefined && !session.titleCustom) {
     const topic = await require('./chapterProgress').topicForSession(session.batch, session._id).catch(() => null);
     if (topic) recordingClassName = topic;
   }
@@ -498,7 +501,7 @@ async function resyncBatchRecordingNames(batchId) {
   const { autoAdvance, formatTopic } = require('./chapterProgress');
 
   const sessions = await LmsLiveSession.find({ removed: false, batch: batchId, status: { $ne: 'cancelled' } })
-    .select('_id title')
+    .select('_id title titleCustom')
     .lean();
 
   // ONE walk of the batch for the whole rename, not one per session.
@@ -511,7 +514,7 @@ async function resyncBatchRecordingNames(batchId) {
 
   let updated = 0;
   for (const s of sessions) {
-    const name = formatTopic(topics[String(s._id)]) || s.title;
+    const name = (s.titleCustom && s.title) || formatTopic(topics[String(s._id)]) || s.title;
     // eslint-disable-next-line no-await-in-loop
     const r = await LiveRecording.updateOne({ liveSession: s._id, className: { $ne: name } }, { $set: { className: name } });
     updated += r.modifiedCount || 0;
@@ -1245,7 +1248,7 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
           courseTitle: session.courseTitle,
           batchName: session.batchName,
           teacherName: session.teacherName,
-          className: topic || session.title,
+          className: (session.titleCustom && session.title) || topic || session.title,
           liveClass: session.liveClass,
         },
       },
@@ -2208,7 +2211,8 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
     const role = await resolveRole(sn, admin, cache);
     if (!role) continue;
     let topic = null;
-    if (chapterProgress && sn.batch) {
+    // a hand-renamed class shows its own name, not the curriculum topic
+    if (chapterProgress && sn.batch && !sn.titleCustom) {
       const key = String(sn.batch);
       if (!topicsByBatch.has(key)) {
         // eslint-disable-next-line no-await-in-loop

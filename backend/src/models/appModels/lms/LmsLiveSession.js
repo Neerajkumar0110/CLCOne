@@ -107,6 +107,9 @@ const schema = new mongoose.Schema({
 
   // denormalised for the card
   title: { type: String, required: true },
+  // Set when a teacher/manager renames the class by hand — from then on that
+  // name is what Calendar and the recording show, not the curriculum topic.
+  titleCustom: { type: Boolean, default: false },
   description: { type: String },
   courseTitle: { type: String },
   batchName: { type: String },
