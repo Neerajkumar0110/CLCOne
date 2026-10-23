@@ -146,8 +146,9 @@ const update = async (req, res) => {
   // Live demo: saved as "Demo Booked" with a day → book that day's 6–7 PM
   // demo and email the join links (same as the call modal; a re-save of the
   // same day sends nothing). See services/sales/demoBookings.js.
-  if (lead.stage === 'Demo Booking' && lead.subStatus === 'Demo Booked' && lead.meetingAt && (pipelineChanged || new Date(lead.meetingAt).getTime() !== prevMeetingAt)) {
-    require('../../../../services/sales/demoBookings').bookDemoSafe({ leadId: lead._id, meetingAt: lead.meetingAt, actor: req.admin });
+  // (No day picked → the next demo day.)
+  if (lead.stage === 'Demo Booking' && lead.subStatus === 'Demo Booked' && (pipelineChanged || (lead.meetingAt && new Date(lead.meetingAt).getTime() !== prevMeetingAt))) {
+    require('../../../../services/sales/demoBookings').bookDemoSafe({ leadId: lead._id, meetingAt: lead.meetingAt || null, actor: req.admin });
   }
 
   return res.status(200).json({ success: true, result: lead, message: 'Lead updated' });

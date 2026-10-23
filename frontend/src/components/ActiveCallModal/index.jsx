@@ -36,7 +36,7 @@ import { getSocket } from "@/socket";
 import { startPoll } from "@/utils/poll";
 import { usePermission } from "@/context/permissionContext";
 import { STAGE_NAMES, subStatusesFor, defaultSubStatus, stageConfig } from "@/config/leadStages";
-import { DEMO_TIME_LABEL, disabledDemoDate, toDemoSlot } from "@/utils/demoDay";
+import { DEMO_TIME_LABEL, disabledDemoDate, toDemoSlot, nextDemoSlot } from "@/utils/demoDay";
 import {
   PERSONAS,
   AGE_RANGES,
@@ -516,9 +516,20 @@ export default function ActiveCallModal() {
     return startPoll(checkActive, 5000);
   }, [initForm, hasCalling]);
 
+  // "Demo Booked" (by the dropdown or a disposition chip) with no day yet →
+  // pre-fill the next demo, so the booking + join-link emails always go out.
+  const needsDemoDay = (stageConfig(stage)?.meetingSubStatuses || []).includes(subStatus);
+  useEffect(() => {
+    if (needsDemoDay && !meetingAt) setMeetingAt(nextDemoSlot());
+  }, [needsDemoDay]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Save in-call log details
   const saveDetails = async ({ hangup = false, closeAfter = false } = {}) => {
     if (!callData) return;
+    if (needsDemoDay && !meetingAt) {
+      message.warning("Pick the live demo day (Mon–Sat, 6 PM).");
+      return;
+    }
 
     // A callback outcome without a time is a promise with no date on it —
     // it would never surface in the Callbacks queue and the auto-dialer

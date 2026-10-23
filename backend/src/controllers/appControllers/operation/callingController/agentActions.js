@@ -428,17 +428,18 @@ const logDetails = async (req, res) => {
   // Live demo: "Demo Booked" with a day → seat the customer in that day's
   // 6–7 PM demo and email the join links to customer, agent and Team Leader
   // (services/sales/demoBookings.js). Mail goes out in the background.
+  // No day picked → the next demo (today's if it hasn't ended, else the next
+  // Mon–Sat) — a "Demo Booked" without a booking used to send nothing.
   let demo = null;
   if (
     crmLead &&
-    meetingAt &&
     crmLead.stage === 'Demo Booking' &&
     crmLead.subStatus === 'Demo Booked' &&
-    (prevDemoSub !== 'Demo Booked' || new Date(meetingAt).getTime() !== prevMeetingMs)
+    (prevDemoSub !== 'Demo Booked' || (meetingAt && new Date(meetingAt).getTime() !== prevMeetingMs))
   ) {
     const demoBookings = require('../../../../services/sales/demoBookings');
-    demo = { date: demoBookings.demoDateFor(meetingAt), noCustomerEmail: !crmLead.email };
-    demoBookings.bookDemoSafe({ leadId: crmLead._id, meetingAt, actor: req.admin, callRecordId: rec._id });
+    demo = { date: demoBookings.demoDateFor(meetingAt || null), noCustomerEmail: !crmLead.email };
+    demoBookings.bookDemoSafe({ leadId: crmLead._id, meetingAt: meetingAt || null, actor: req.admin, callRecordId: rec._id });
   }
 
   // Scheduled callback — one pending CallCallback per call record, updated

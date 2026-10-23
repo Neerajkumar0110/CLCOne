@@ -17,5 +17,13 @@ export function disabledDemoDate(d) {
   return false;
 }
 
+// The next demo still to come: today if before 7 PM (and not Sunday), else
+// the next Mon–Sat — the default when "Demo Booked" is picked with no day.
+export function nextDemoSlot() {
+  let d = istToday();
+  while (disabledDemoDate(d)) d = d.add(1, "day");
+  return toDemoSlot(d);
+}
+
 // The picked day → that day's 6:00 PM IST.
 export const toDemoSlot = (d) => (d ? dayjs(`${d.format("YYYY-MM-DD")}T18:00:00+05:30`) : null);
