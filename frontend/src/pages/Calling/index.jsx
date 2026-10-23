@@ -26,7 +26,8 @@ const BASE_TABS = [
   { key: "history", label: "Call History", C: CallHistory },
   { key: "callbacks", label: "Callbacks", C: Callbacks },
   { key: "recordings", label: "Recordings", C: Recordings },
-  { key: "reports", label: "Reports", C: Reports },
+  // Reports are admins-only (company-wide decision, 2026-10-23).
+  { key: "reports", label: "Reports", C: Reports, adminOnly: true },
   { key: "demos", label: "Live Demos", C: Demos, adminOnly: true },
 ];
 const ADMIN_ROLES = ["owner", "Super Admin", "Admin"];

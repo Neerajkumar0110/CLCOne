@@ -9,8 +9,15 @@ import { DEPARTMENT_ROLES } from '@/config/roles';
 
 // Every Sales user gets Team Chat (Communication → Team Chat only; the
 // Email & WhatsApp tab stays management-only — see pages/Communication).
-const withSalesChat = (m, role) =>
-  DEPARTMENT_ROLES.Sales.includes(role) ? { ...m, Communication: { ...(m.Communication || {}), view: true, edit: true } } : m;
+//
+// The whole Reports area (Reports + Performance) is admins-only — turned off
+// for every other user on 2026-10-23, whatever their saved matrix says.
+const OFF = { view: false, edit: false, delete: false };
+const withSalesChat = (m, role) => {
+  const out = { ...m, Reports: OFF, Performance: OFF };
+  if (DEPARTMENT_ROLES.Sales.includes(role)) out.Communication = { ...(m.Communication || {}), view: true, edit: true };
+  return out;
+};
 
 const PermissionContext = createContext(null);
 

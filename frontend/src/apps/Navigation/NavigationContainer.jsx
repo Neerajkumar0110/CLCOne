@@ -241,10 +241,12 @@ function Sidebar({ collapsible, isMobile = false }) {
         { key: 'calling-history', label: 'Call History', icon: <HistoryOutlined /> },
         { key: 'calling-callbacks', label: 'Callbacks', icon: <ClockCircleOutlined /> },
         { key: 'calling-recordings', label: 'Recordings', icon: <PlayCircleOutlined /> },
-        { key: 'calling-reports', label: 'Reports', icon: <BarChartOutlined /> },
-        // Live demo bookings + host join — Admin / Super Admin only.
+        // Reports + live demo bookings — Admin / Super Admin only.
         ...(['owner', 'Super Admin', 'Admin'].includes(role)
-          ? [{ key: 'calling-demos', label: 'Live Demos', icon: <VideoCameraOutlined /> }]
+          ? [
+              { key: 'calling-reports', label: 'Reports', icon: <BarChartOutlined /> },
+              { key: 'calling-demos', label: 'Live Demos', icon: <VideoCameraOutlined /> },
+            ]
           : []),
       ],
     },

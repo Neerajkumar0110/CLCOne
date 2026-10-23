@@ -53,10 +53,10 @@ export function defaultMatrixForRole(role) {
       return;
     }
 
-    // Reports is off for everyone below the full-access tier (turned off
+    // Reports + Performance are off for everyone below the full-access tier (turned off
     // company-wide on 2026-10-23) — an admin can still grant it per role /
     // per user from Roles & Permissions.
-    if (mod === "Reports" && !fullAccess) {
+    if ((mod === "Reports" || mod === "Performance") && !fullAccess) {
       perModule[mod] = { view: false, edit: false, delete: false };
       return;
     }
