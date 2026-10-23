@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const { CRM_ADMIN_ROLES } = require('./config/roles');
 
 let io = null;
 // adminId (string) -> count of open sockets, so having the app open in two
@@ -36,6 +37,7 @@ function initSocket(server) {
   // today" forever (see the isToday && onlineIds.has(key) guard in
   // loginActivityController/summary.js, which is the other half of this).
   closeOrphanedLoginSessions();
+  startNotificationRelay();
 
   io.use(async (socket, next) => {
     try {
@@ -43,6 +45,7 @@ function initSocket(server) {
       if (!admin) return next(new Error('Authentication failed'));
       socket.adminId = String(admin._id);
       socket.adminName = admin.name;
+      socket.adminRole = admin.role;
       next();
     } catch (err) {
       next(new Error('Authentication failed'));
@@ -52,6 +55,8 @@ function initSocket(server) {
   io.on('connection', (socket) => {
     const { adminId, adminName } = socket;
     socket.join(`user:${adminId}`);
+    // Admins watch every user's notifications live (bell → "All users").
+    if (CRM_ADMIN_ROLES.includes(socket.adminRole)) socket.join('admins');
 
     const wasOffline = !onlineCounts.get(adminId);
     onlineCounts.set(adminId, (onlineCounts.get(adminId) || 0) + 1);
@@ -145,10 +150,48 @@ function emitRead({ conversationId, senderId, readerId, readAt }) {
   io.to(`user:${senderId}`).emit('message:read', { conversationId, readerId, readAt });
 }
 
-// Pushed to whichever admin the notification is for — see backend/src/notify.js.
+// Pushed to whichever admin the notification is for — see backend/src/notify.js
+// — and to every admin's "All users" feed. Each id goes out once: notify()
+// emits directly here, and the relay below catches the ones created by
+// another process (the Vercel backend, a webhook) that has no socket.
+const emittedIds = new Set();
 function emitNotification(notification) {
-  if (!io) return;
-  io.to(`user:${notification.recipient}`).emit('notification:new', notification);
+  if (!io || !notification) return;
+  const id = String(notification._id);
+  if (emittedIds.has(id)) return;
+  emittedIds.add(id);
+  if (emittedIds.size > 5000) emittedIds.delete(emittedIds.values().next().value);
+  const n = notification.toObject ? notification.toObject() : notification;
+  io.to(`user:${n.recipient}`).emit('notification:new', n);
+  io.to('admins').emit('notification:any', n);
+}
+
+// Notifications are also written by processes with no live socket (Vercel
+// serverless, the payment webhook). Every 2s pick up anything new and push
+// it, so "real time" doesn't depend on which server handled the event.
+let relayTimer = null;
+function startNotificationRelay() {
+  if (relayTimer) return;
+  let lastId = null;
+  const tick = async () => {
+    try {
+      const Notification = mongoose.model('Notification');
+      if (!lastId) {
+        const newest = await Notification.findOne({}).sort({ _id: -1 }).select('_id').lean();
+        lastId = newest ? newest._id : new mongoose.Types.ObjectId();
+        return;
+      }
+      const fresh = await Notification.find({ _id: { $gt: lastId } }).sort({ _id: 1 }).limit(500).lean();
+      for (const n of fresh) {
+        lastId = n._id;
+        emitNotification(n);
+      }
+    } catch (err) {
+      /* DB hiccup — next tick retries */
+    }
+  };
+  relayTimer = setInterval(tick, 2000);
+  tick();
 }
 
 // LMS real-time (services/lms/realtime.js). No-ops on Vercel serverless (no

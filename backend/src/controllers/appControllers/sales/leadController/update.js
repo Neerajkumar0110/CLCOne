@@ -87,10 +87,12 @@ const update = async (req, res) => {
   }
 
   // Assigned user (+ denormalised name).
+  let newOwnerId = null;
   if (b.assignedUser === '' || b.assignedUser === null) {
     lead.assignedUser = undefined;
     lead.assignedUserName = undefined;
   } else if (b.assignedUser !== undefined) {
+    if (String(lead.assignedUser || '') !== String(b.assignedUser)) newOwnerId = b.assignedUser;
     const Admin = mongoose.model('Admin');
     const a = await Admin.findById(b.assignedUser).select('name surname').lean();
     lead.assignedUser = b.assignedUser;
@@ -128,6 +130,18 @@ const update = async (req, res) => {
 
   lead.updated = new Date();
   await lead.save();
+  if (newOwnerId) {
+    require('../../../../notify').notifyUser({
+      recipient: newOwnerId,
+      actorId: req.admin._id,
+      actorName: `${req.admin.name} ${req.admin.surname || ''}`.trim(),
+      module: 'Leads',
+      type: 'lead.assigned',
+      title: `New lead assigned to you — ${lead.name || lead.phone || ''}`,
+      body: `${lead.stage || ''}${lead.phone ? ' · ' + lead.phone : ''}`,
+      link: '/leads',
+    });
+  }
 
   // Live demo: saved as "Demo Booked" with a day → book that day's 6–7 PM
   // demo and email the join links (same as the call modal; a re-save of the

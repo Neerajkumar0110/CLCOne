@@ -43,6 +43,7 @@ const routerApp = (entity, controller) => {
 
   if (entity === 'team') {
     router.route(`/${entity}/mine`).get(catchErrors(controller['mine']));
+    router.route(`/${entity}/all`).get(catchErrors(controller['all']));
   }
 
   if (entity === 'call') {

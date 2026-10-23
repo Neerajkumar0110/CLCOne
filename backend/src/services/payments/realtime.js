@@ -1,4 +1,4 @@
-const { notify } = require('../../notify');
+const { notify, notifyUser } = require('../../notify');
 
 let socket = {};
 try {
@@ -34,8 +34,21 @@ function broadcastUpdate(doc, extra) {
 // live instead of needing a manual refresh. Best-effort — never throws.
 async function notifyPaid(doc) {
   try {
+    // the user who sent this payment link — their own notification
+    if (doc.createdBy) {
+      await notifyUser({
+        recipient: doc.createdBy,
+        module: 'Payments',
+        type: 'payment.paid',
+        title: `💰 Payment received — ${fmtInr(doc.amount)}`,
+        body: `${doc.studentName} paid your link${doc.course ? ' · ' + doc.course : ''}${doc.installmentCount > 1 ? ` · installment ${doc.installmentNo}/${doc.installmentCount}` : ''}`,
+        link: '/sales/payments',
+      });
+    }
     await notify({
       audience: 'management',
+      actorId: doc.createdBy,
+      actorName: doc.createdByName || undefined,
       module: 'Payments',
       type: 'payment.paid',
       title: `Payment received — ${fmtInr(doc.amount)}`,
@@ -54,8 +67,20 @@ async function notifyPaid(doc) {
 // Pending to Submitted without a manual refresh.
 async function notifyKycSubmitted(doc) {
   try {
+    if (doc.createdBy) {
+      await notifyUser({
+        recipient: doc.createdBy,
+        module: 'Payments',
+        type: 'payment.kyc_submitted',
+        title: `KYC submitted — ${doc.studentName}`,
+        body: `Your customer filled the KYC form${doc.course ? ' · ' + doc.course : ''}`,
+        link: '/sales/payments',
+      });
+    }
     await notify({
       audience: 'management',
+      actorId: doc.createdBy,
+      actorName: doc.createdByName || undefined,
       module: 'Payments',
       type: 'payment.kyc_submitted',
       title: `KYC submitted — ${doc.studentName}`,
@@ -68,4 +93,33 @@ async function notifyKycSubmitted(doc) {
   broadcastUpdate(doc, { kycSubmitted: true });
 }
 
-module.exports = { notifyPaid, notifyKycSubmitted };
+// Finance (EMI) KYC form submitted by the customer.
+async function notifyFinanceKyc(app) {
+  try {
+    const amount = app.financeAmount ? ` · ${fmtInr(app.financeAmount)}` : '';
+    if (app.createdBy) {
+      await notifyUser({
+        recipient: app.createdBy,
+        module: 'Payments',
+        type: 'finance.kyc_submitted',
+        title: `Finance KYC submitted — ${app.studentName}`,
+        body: `Your customer sent their EMI documents${amount}`,
+        link: '/sales/payments',
+      });
+    }
+    await notify({
+      audience: 'management',
+      actorId: app.createdBy,
+      actorName: app.createdByName || undefined,
+      module: 'Payments',
+      type: 'finance.kyc_submitted',
+      title: `Finance KYC submitted — ${app.studentName}`,
+      body: `${app.course || 'EMI request'}${amount}`,
+      link: '/sales/payments',
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+}
+
+module.exports = { notifyPaid, notifyKycSubmitted, notifyFinanceKyc };

@@ -10,7 +10,23 @@ import { NotificationPanelView, NotificationBellShell } from "./NotificationPane
 // dropdown itself is the shared NotificationPanelView.
 function CrmNotificationPanel({ navigate, closePopover }) {
   const { conversations, markAllRead: markMessagesRead } = useMessages();
-  const { notifications, markOneRead, markAllRead: markNotificationsRead } = useNotifications();
+  const { notifications, markOneRead, markAllRead: markNotificationsRead, isAdmin, allNotifications } = useNotifications();
+
+  const everyoneItems = isAdmin
+    ? allNotifications.map((n) => ({
+        key: `all:${n._id}`,
+        unseen: false,
+        avatarName: n.actorName || n.module,
+        title: n.title,
+        subtitle: n.body,
+        category: `${n.module} → ${n.recipients.slice(0, 2).join(", ")}${n.recipients.length > 2 ? ` +${n.recipients.length - 2}` : ""} · ${n.readCount}/${n.recipients.length} read`,
+        time: n.created,
+        onClick: () => {
+          closePopover();
+          if (n.link) navigate(n.link);
+        },
+      }))
+    : null;
 
   const messageItems = conversations
     .filter((c) => c.lastMessage) // no history yet -> nothing to show as a notification
@@ -51,6 +67,7 @@ function CrmNotificationPanel({ navigate, closePopover }) {
   return (
     <NotificationPanelView
       items={[...messageItems, ...notificationItems]}
+      everyoneItems={everyoneItems}
       onMarkAllRead={() => {
         markMessagesRead();
         markNotificationsRead();

@@ -2,6 +2,7 @@ const createCRUDController = require('../../../middlewaresControllers/createCRUD
 const methods = createCRUDController('Notification');
 
 const mine = require('./mine');
+const all = require('./all');
 const markRead = require('./markRead');
 const markAllRead = require('./markAllRead');
 
@@ -19,6 +20,7 @@ const blocked = (req, res) =>
   });
 
 methods.mine = mine;
+methods.all = all;
 methods.markRead = markRead;
 methods.markAllRead = markAllRead;
 methods.create = blocked;

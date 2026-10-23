@@ -130,6 +130,7 @@ async function submit(req, res) {
       { new: true }
     );
   if (!app) return res.status(409).json({ success: false, message: 'This form has already been submitted.' });
+  require('../../../../services/payments/realtime').notifyFinanceKyc(app);
 
   try {
     const socket = require('../../../../socket');

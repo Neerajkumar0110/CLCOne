@@ -69,14 +69,16 @@ function NotificationRow({ item }) {
 }
 
 // Inbox = unseen only; General = everything, for browsing.
-export function NotificationPanelView({ items, onMarkAllRead }) {
+// `everyoneItems` (admins only) adds an "All users" tab: every user's
+// notifications, live.
+export function NotificationPanelView({ items, onMarkAllRead, everyoneItems = null }) {
   const [tab, setTab] = useState("inbox");
   const sorted = [...items].sort((a, b) => new Date(b.time) - new Date(a.time));
   const unseenCount = sorted.filter((i) => i.unseen).length;
-  const list = tab === "inbox" ? sorted.filter((i) => i.unseen) : sorted;
+  const list = tab === "everyone" ? everyoneItems || [] : tab === "inbox" ? sorted.filter((i) => i.unseen) : sorted;
 
   return (
-    <div style={{ width: 340, maxHeight: 480, display: "flex", flexDirection: "column" }}>
+    <div style={{ width: "min(360px, calc(100vw - 32px))", maxHeight: 480, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "14px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <strong style={{ fontSize: 15 }}>Notifications</strong>
         <button
@@ -98,6 +100,11 @@ export function NotificationPanelView({ items, onMarkAllRead }) {
           <button type="button" className={`hub-notif-tab${tab === "general" ? " active" : ""}`} onClick={() => setTab("general")}>
             General
           </button>
+          {everyoneItems && (
+            <button type="button" className={`hub-notif-tab${tab === "everyone" ? " active" : ""}`} onClick={() => setTab("everyone")}>
+              All users
+            </button>
+          )}
         </div>
         <SettingOutlined style={{ color: "#98a2b3" }} />
       </div>
@@ -105,7 +112,7 @@ export function NotificationPanelView({ items, onMarkAllRead }) {
       <div style={{ overflowY: "auto", flex: 1, padding: "0 8px 8px" }}>
         {list.length === 0 ? (
           <div className="hub-empty" style={{ padding: "24px 8px" }}>
-            {tab === "inbox" ? "You're all caught up." : "No notifications yet."}
+            {tab === "inbox" ? "You're all caught up." : tab === "everyone" ? "No one has any notifications yet." : "No notifications yet."}
           </div>
         ) : (
           list.map((item) => <NotificationRow key={item.key} item={item} />)

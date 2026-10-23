@@ -132,6 +132,22 @@ const assignOwner = async (req, res) => {
     await Lead.bulkWrite(ops.slice(i, i + 1000), { ordered: false });
   }
 
+  // Each new owner hears about it right away.
+  const { notifyUser } = require('../../../../notify');
+  for (const p of plan) {
+    if (!p.owner || !p.ids.length) continue;
+    notifyUser({
+      recipient: p.owner._id,
+      actorId: req.admin._id,
+      actorName: byName,
+      module: 'Leads',
+      type: 'lead.assigned',
+      title: `${p.ids.length} lead${p.ids.length === 1 ? '' : 's'} assigned to you`,
+      body: `by ${byName}`,
+      link: '/leads',
+    });
+  }
+
   // A New Lead that now has an owner is the rep's to work by hand — drop it
   // from the Instant Lead Pool queue while the pool is dialing unassigned New
   // Leads (see jobs/leadPoolSyncTick.js).
