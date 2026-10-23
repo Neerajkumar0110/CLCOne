@@ -451,7 +451,9 @@ export default function Recordings() {
                         >
                           <thumb.Icon />
                           <span className="rec-thumb-play"><PlayCircleOutlined /></span>
-                          <span className="rec-thumb-duration">{fmtDuration(r.durationMin)}</span>
+                          {r.status !== 'AWAITING_UPLOAD' && r.durationMin > 0 && (
+                            <span className="rec-thumb-duration">{fmtDuration(r.durationMin)}</span>
+                          )}
                         </div>
                         <div>
                           <div className="class-title">{r.className}</div>
@@ -466,9 +468,13 @@ export default function Recordings() {
                     </td>
                     <td>{r.date ? new Date(r.date).toLocaleDateString() : '—'}</td>
                     <td>
-                      <div className="duration-cell">
-                        <ClockCircleOutlined /> {fmtDuration(r.durationMin)}
-                      </div>
+                      {r.status === 'AWAITING_UPLOAD' || !r.durationMin ? (
+                        '—'
+                      ) : (
+                        <div className="duration-cell">
+                          <ClockCircleOutlined /> {fmtDuration(r.durationMin)}
+                        </div>
+                      )}
                     </td>
                     <td>{totalBytes(r.sizeBytes)}</td>
                     <td>
