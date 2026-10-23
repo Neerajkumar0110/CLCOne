@@ -48,6 +48,7 @@ const LmsSystemHealth = lazy(() => import('@/pages/Lms/SystemHealth'));
 const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
 const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
+const LmsQuestionBank = lazy(() => import('@/pages/Lms/QuestionBank'));
 const LmsAssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
 // Basic/Major/Micro Test entries from the reference nav's dropdown picker.
 const LmsBasicTest = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.BasicTest })));
@@ -87,6 +88,7 @@ const EMBED = {
   lmsLearner360: LmsLearner360,
   lmsCurriculum: LmsCurriculum,
   lmsAttemptsAdmin: LmsAttemptsAdmin,
+  lmsQuestionBank: LmsQuestionBank,
   lmsAssessmentDashboard: LmsAssessmentDashboard,
   lmsBasicTest: LmsBasicTest,
   lmsMajorTestPythonSql: LmsMajorTestPythonSql,

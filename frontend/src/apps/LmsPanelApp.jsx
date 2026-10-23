@@ -5,6 +5,7 @@ import lmsApi from '@/pages/Lms/api';
 import { getSocket } from '@/socket';
 import {
   DashboardOutlined,
+  DatabaseOutlined,
   ReadOutlined,
   VideoCameraOutlined,
   PlayCircleOutlined,
@@ -69,6 +70,7 @@ const Certificates = lazy(() => import('@/pages/Lms/Certificates'));
 const Analytics = lazy(() => import('@/pages/Lms/Analytics'));
 const Curriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const AttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
+const QuestionBank = lazy(() => import('@/pages/Lms/QuestionBank'));
 const Results = lazy(() => import('@/pages/Lms/Results'));
 const AssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
 const TestIntro = lazy(() => import('@/pages/Lms/TestIntro'));
@@ -331,6 +333,7 @@ const TEACHER_NAV = [
   ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
+  ['/teacher/question-bank', 'Question Bank', <DatabaseOutlined />, <QuestionBank />],
   ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],

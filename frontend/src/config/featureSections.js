@@ -23,6 +23,7 @@
 import dayjs from 'dayjs';
 import {
   RiseOutlined,
+  DatabaseOutlined,
   NotificationOutlined,
   DeploymentUnitOutlined,
   ReadOutlined,
@@ -1121,6 +1122,14 @@ export const FEATURE_SECTIONS = [
         // Stat tiles, filters, CSV export, per-topic breakdown, backed by
         // /api/lms/assessments/admin/{summary,attempts}. See pages/Lms/AttemptsAdmin.
         embed: 'lmsAttemptsAdmin',
+      },
+      {
+        key: 'question-bank',
+        label: 'Question Bank',
+        Icon: DatabaseOutlined,
+        // Upload JSON questions into a test, check + import, retire.
+        // See pages/Lms/QuestionBank (Admin / Support / Teacher).
+        embed: 'lmsQuestionBank',
       },
       {
         key: 'quizzes',

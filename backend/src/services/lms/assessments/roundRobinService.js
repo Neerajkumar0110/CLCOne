@@ -85,4 +85,4 @@ async function assignQuestions(testType) {
   return allSelected;
 }
 
-module.exports = { assignQuestions };
+module.exports = { assignQuestions, TYPE_MIX };

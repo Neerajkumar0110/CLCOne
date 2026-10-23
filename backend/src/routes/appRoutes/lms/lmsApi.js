@@ -252,6 +252,17 @@ router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTi
 // ── assessments (ported from the python-test-platform reference project) ──
 // Self-service, self-scoped by req.admin (no role check, matching that
 // project). Distinct from the generic /quizzes /attempts system above.
+// Question Bank — Admin / Support / Teacher upload JSON questions into a test
+// (controllers/.../assessments/questionBank.js checks the role itself).
+{
+  const bank = require('../../../controllers/appControllers/lms/lmsController/assessments/questionBank');
+  router.route('/assessments/bank/tests').get(catchErrors(bank.tests));
+  router.route('/assessments/bank/preview').post(catchErrors(bank.preview));
+  router.route('/assessments/bank/check').post(catchErrors(bank.check));
+  router.route('/assessments/bank/import').post(catchErrors(bank.importQuestions));
+  router.route('/assessments/bank/questions').get(catchErrors(bank.list));
+  router.route('/assessments/bank/questions/:id').patch(catchErrors(bank.setRetired));
+}
 router.route('/assessments/start/:testType').post(catchErrors(lms.assessmentStart));
 router.route('/assessments/run-code').post(catchErrors(lms.assessmentRunCode));
 router.route('/assessments/my-results').get(catchErrors(lms.assessmentMyResults));
