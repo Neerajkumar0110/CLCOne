@@ -157,6 +157,83 @@ function FinanceHoldScreen({ info }) {
   );
 }
 
+// Rendered in place of every route while the candidate's access is held —
+// deactivated from LMS → Candidates (or roster status not Active). One
+// button: raise a reactivation request (support ticket + email to Support,
+// backend services/lms/candidateAccess.js). Lifts itself on the next
+// /my/updates poll once they're reactivated.
+function AccessHoldScreen({ info, onRequested }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const sent = info?.ticket && ['Open', 'In Progress'].includes(info.ticket.status);
+  const ask = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await lmsApi.requestReactivation(note.trim() || undefined).catch(() => null);
+    setBusy(false);
+    if (r?.success) {
+      message.success(r.message || 'Request sent to Support.');
+      onRequested();
+    }
+  };
+  return (
+    <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div
+        style={{
+          maxWidth: 460,
+          width: '100%',
+          textAlign: 'center',
+          background: 'var(--hub-surface, #fff)',
+          border: '1px solid var(--hub-border, #e5e7eb)',
+          borderRadius: 18,
+          padding: '40px 32px',
+          boxShadow: '0 10px 30px rgba(15,23,42,.08)',
+        }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            margin: '0 auto 18px',
+            display: 'grid',
+            placeItems: 'center',
+            background: 'color-mix(in srgb, #dc2626 14%, transparent)',
+            color: '#dc2626',
+            fontSize: 26,
+          }}
+        >
+          <LockOutlined />
+        </div>
+        <h2 style={{ margin: '0 0 8px', fontSize: 19, fontWeight: 800 }}>{info?.deactivated ? 'Your access is deactivated' : 'Access on hold'}</h2>
+        <p style={{ color: '#667085', fontSize: 14, marginBottom: 16 }}>
+          {info?.reason || 'Your internship access has been paused.'} Classes, recordings, study material and tests are unavailable until it is turned back on.
+        </p>
+        {sent ? (
+          <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: 12, padding: '12px 14px', fontSize: 14, fontWeight: 600 }}>
+            Request {info.ticket.no} sent — Support will contact you soon.
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Anything you'd like Support to know? (optional)"
+              rows={3}
+              maxLength={1000}
+              style={{ width: '100%', borderRadius: 10, border: '1px solid var(--hub-border, #e5e7eb)', padding: '10px 12px', fontSize: 14, marginBottom: 14, resize: 'vertical', background: 'transparent', color: 'inherit' }}
+            />
+            <Button type="primary" size="large" block loading={busy} onClick={ask}>
+              Request reactivation
+            </Button>
+          </>
+        )}
+        <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 18 }}>This page updates automatically once your access is restored.</p>
+      </div>
+    </div>
+  );
+}
+
 // "Quizzes & Exams" as one dropdown group with 3 sub-tabs — Basic (flat),
 // Major and Micro (each its own dropdown of the reference nav's 2 variants).
 // [path, label, icon, element] — a group entry carries a 5th array of
@@ -439,9 +516,12 @@ export default function LmsPanelApp() {
   // absolute (e.g. "/teacher/courses"), never stripped down to a relative
   // fragment, or nothing below the sidebar will ever match a click.
   const financeHold = updates.finance && updates.finance.hold;
+  const accessHold = updates.access && updates.access.hold;
   const routes = (
     <Suspense fallback={<PageLoader />}>
-      {financeHold ? (
+      {accessHold ? (
+        <AccessHoldScreen info={updates.access} onRequested={pollUpdates} />
+      ) : financeHold ? (
         <FinanceHoldScreen info={updates.finance.outstanding} />
       ) : (
         <Routes>

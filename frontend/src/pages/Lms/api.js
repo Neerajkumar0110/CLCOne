@@ -282,6 +282,8 @@ const lmsApi = {
 
   // ── panel real-time poll ─────────────────────────────────────
   updates: () => request.get({ entity: 'lms/my/updates' }),
+  requestReactivation: (note) => request.post({ entity: 'lms/my/reactivation-request', jsonData: { note } }),
+  setCandidateAccess: (id, active, reason) => request.post({ entity: `lms/students/${id}/access`, jsonData: { active, reason } }),
   myFees: (f = {}) => request.get({ entity: `lms/my/fees${qs(f)}` }),
   // Help & Support tickets (backend lmsController/supportTickets.js)
   myTickets: () => request.get({ entity: 'lms/my/tickets' }),

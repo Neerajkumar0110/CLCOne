@@ -155,6 +155,21 @@ router.route('/students/unassigned-count').get(catchErrors(lms.studentsUnassigne
 router.route('/students/unassigned-list').get(catchErrors(lms.studentsUnassignedList));
 router.route('/students/detail-by-email').get(catchErrors(lms.studentDetail));
 router.route('/students/:id/detail').get(catchErrors(lms.studentDetail));
+// Candidates tab → Deactivate / Activate (services/lms/candidateAccess.js)
+{
+  const { LMS_FULL_ACCESS_ROLES } = require('../../../config/roles');
+  const access = require('../../../services/lms/candidateAccess');
+  const send = (res, out) =>
+    out.error ? res.status(out.error).json({ success: false, result: null, message: out.message }) : res.status(200).json({ success: true, result: out.result, message: out.message });
+  router.route('/students/:id/access').post(
+    catchErrors(async (req, res) => {
+      if (!LMS_FULL_ACCESS_ROLES.includes(req.admin.role)) return res.status(403).json({ success: false, result: null, message: 'Management role required.' });
+      return send(res, await access.setAccess(req.params.id, !!(req.body || {}).active, req.admin, (req.body || {}).reason));
+    })
+  );
+  // the locked candidate's one button — allowed through the hold guards
+  router.route('/my/reactivation-request').post(catchErrors(async (req, res) => send(res, await access.requestReactivation(req.admin, (req.body || {}).note))));
+}
 
 // ── certificates ───────────────────────────────────────────────────
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));

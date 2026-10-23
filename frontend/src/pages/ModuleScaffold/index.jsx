@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { message, Select, Table, Tag, Badge } from 'antd';
-import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined } from '@ant-design/icons';
+import { message, Select, Table, Tag, Badge, Modal, Input } from 'antd';
+import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
@@ -179,6 +179,21 @@ function TabBody({ section, tab }) {
   const [assignStudent, setAssignStudent] = useState(null); // true | { name, email } | null
   const [detailStudentId, setDetailStudentId] = useState(null); // Candidates row click → CandidateDetailModal
   const [studentsRefreshTick, setStudentsRefreshTick] = useState(0);
+  // Candidates → Deactivate / Activate LMS access (backend services/lms/candidateAccess.js)
+  const [accessFor, setAccessFor] = useState(null); // row being deactivated
+  const [accessReason, setAccessReason] = useState('');
+  const [accessBusy, setAccessBusy] = useState(false);
+  const setCandidateAccess = async (row, active, reason) => {
+    setAccessBusy(true);
+    const r = await lmsApi.setCandidateAccess(row._id, active, reason).catch(() => null);
+    setAccessBusy(false);
+    if (r?.success) {
+      message.success(r.message);
+      setAccessFor(null);
+      setAccessReason('');
+      setStudentsRefreshTick((t) => t + 1);
+    }
+  };
   // Students only — Course → Batch cascading filter bar above the list.
   // Only one of these is ever sent to the backend (CrudTab's fixedFilter
   // supports a single field/value pair) — Batch wins when both are set,
@@ -387,14 +402,52 @@ function TabBody({ section, tab }) {
                 )
               : tab.entity === 'student'
               ? (row) => (
-                  <button
-                    type="button"
-                    className="hub-icon-btn"
-                    title="Assign to another batch"
-                    onClick={() => setAssignStudent({ name: row.name, email: row.email })}
-                  >
-                    <UsergroupAddOutlined />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="hub-icon-btn"
+                      title="Assign to another batch"
+                      onClick={() => setAssignStudent({ name: row.name, email: row.email })}
+                    >
+                      <UsergroupAddOutlined />
+                    </button>
+                    {row.accessDisabled ? (
+                      <button
+                        type="button"
+                        className="hub-icon-btn"
+                        style={{ position: 'relative', color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2' }}
+                        title={`Deactivated${row.accessDisabledBy ? ` by ${row.accessDisabledBy}` : ''}${row.reactivationRequestedAt ? ' — candidate asked to reactivate' : ''}. Click to activate.`}
+                        disabled={accessBusy}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          Modal.confirm({
+                            title: `Activate ${row.name}?`,
+                            content: 'Their LMS access comes back immediately and they get an email.',
+                            okText: 'Activate',
+                            onOk: () => setCandidateAccess(row, true),
+                          });
+                        }}
+                      >
+                        <StopOutlined />
+                        {row.reactivationRequestedAt && <Badge dot style={{ position: 'absolute', top: 2, right: 2 }} />}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="hub-icon-btn"
+                        style={{ color: '#16a34a' }}
+                        title="Active — click to deactivate LMS access"
+                        disabled={accessBusy}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAccessReason('');
+                          setAccessFor(row);
+                        }}
+                      >
+                        <CheckCircleOutlined />
+                      </button>
+                    )}
+                  </>
                 )
               : undefined
           }
@@ -415,6 +468,28 @@ function TabBody({ section, tab }) {
           courseId={curriculumPanel && curriculumPanel.id}
           courseTitle={curriculumPanel && curriculumPanel.title}
         />
+      )}
+      {tab.entity === 'student' && (
+        <Modal
+          open={!!accessFor}
+          title={accessFor ? `Deactivate ${accessFor.name}?` : ''}
+          okText="Deactivate"
+          okButtonProps={{ danger: true, loading: accessBusy }}
+          onCancel={() => setAccessFor(null)}
+          onOk={() => setCandidateAccess(accessFor, false, accessReason)}
+        >
+          <p style={{ marginBottom: 10 }}>
+            Their whole LMS closes right away — classes, recordings, material and tests. They get an email, and their panel shows a
+            <b> Request reactivation</b> button that raises a support ticket.
+          </p>
+          <Input.TextArea
+            value={accessReason}
+            onChange={(e) => setAccessReason(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="Reason (optional — shown to the candidate and in their email)"
+          />
+        </Modal>
       )}
       {tab.entity === 'student' && (
         <AssignStudentModal

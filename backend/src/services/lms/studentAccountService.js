@@ -231,15 +231,25 @@ async function syncRosterHold(studentDoc) {
   const admin = await Admin.findOne({ email, removed: false, role: 'Student' });
   if (!admin) return;
 
-  const shouldHold = !!studentDoc.removed || (studentDoc.status && studentDoc.status !== 'Active');
-  if (!!admin.rosterHold === shouldHold) return; // already in sync
-
-  admin.rosterHold = shouldHold;
-  admin.rosterHoldReason = shouldHold
+  const shouldHold = !!studentDoc.removed || !!studentDoc.accessDisabled || (studentDoc.status && studentDoc.status !== 'Active');
+  const reason = shouldHold
     ? studentDoc.removed
       ? 'Your enrollment record has been archived.'
+      : studentDoc.accessDisabled
+      ? 'Your LMS access has been deactivated by the program team.'
       : `Your enrollment status is currently "${studentDoc.status}".`
     : undefined;
+  if (!!admin.rosterHold === shouldHold) {
+    // already held — just keep the reason current (e.g. On Hold → deactivated)
+    if (shouldHold && admin.rosterHoldReason !== reason) {
+      admin.rosterHoldReason = reason;
+      await admin.save();
+    }
+    return;
+  }
+
+  admin.rosterHold = shouldHold;
+  admin.rosterHoldReason = reason;
   await admin.save();
 
   try {

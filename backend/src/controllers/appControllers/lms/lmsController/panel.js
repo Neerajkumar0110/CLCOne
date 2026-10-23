@@ -420,6 +420,8 @@ async function myUpdates(req, res) {
       notifications: recent.map((n) => ({ id: String(n._id), type: n.type, title: n.title, body: n.body, link: n.link, at: n.created, read: !!n.readAt, actorName: n.actorName })),
       liveNow: live.map((s) => ({ id: String(s._id), title: s.title, course: s.courseTitle, batch: s.batchName })),
       finance,
+      // roster hold / deactivated — the panel shows only the reactivation screen
+      access: await require('../../../../services/lms/candidateAccess').accessState(admin).catch(() => ({ hold: !!admin.rosterHold })),
     },
   });
 }

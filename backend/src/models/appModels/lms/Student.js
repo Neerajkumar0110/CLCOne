@@ -56,6 +56,19 @@ studentSchema.add({
   ],
 });
 
+// Candidates tab → Deactivate / Activate (services/lms/candidateAccess.js).
+// Separate from `status` (an academic state): a deactivated candidate is
+// locked out of the whole LMS (Admin.rosterHold, see syncRosterHold) and
+// sees only a "request reactivation" screen.
+studentSchema.add({
+  accessDisabled: { type: Boolean, default: false },
+  accessDisabledAt: Date,
+  accessDisabledBy: String,
+  accessDisabledReason: String,
+  reactivationRequestedAt: Date,
+  reactivationTicket: { type: mongoose.Schema.ObjectId, ref: 'Ticket' },
+});
+
 // Additive: remember whether this save is an insert, then (best-effort)
 // auto-provision the student a real CRM login. Never blocks the roster row.
 // Also fills in an Enrollment ID when none was typed, and keeps the GST
@@ -93,7 +106,7 @@ studentSchema.pre('save', async function (next) {
   // Spec §7 "Archive/suspend/withdraw states must immediately affect access
   // rules" — a status change (Active -> On Hold/Dropped/Deferred/Completed,
   // or back) must flip the linked Admin login's rosterHold right away.
-  this.$locals.statusTouched = this.isNew || this.isModified('status');
+  this.$locals.statusTouched = this.isNew || this.isModified('status') || this.isModified('accessDisabled');
 
   // Batch.enrolled needs a recount whenever this student's batch changes —
   // capture the *previous* value here (before it's overwritten below) so
