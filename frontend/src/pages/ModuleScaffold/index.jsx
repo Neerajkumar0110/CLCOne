@@ -180,7 +180,7 @@ function TabBody({ section, tab }) {
   const [detailStudentId, setDetailStudentId] = useState(null); // Candidates row click → CandidateDetailModal
   const [studentsRefreshTick, setStudentsRefreshTick] = useState(0);
   // Candidates → Deactivate / Activate LMS access (backend services/lms/candidateAccess.js)
-  const [accessFor, setAccessFor] = useState(null); // row being deactivated
+  const [accessFor, setAccessFor] = useState(null); // { row, active } — the confirm modal
   const [accessReason, setAccessReason] = useState('');
   const [accessBusy, setAccessBusy] = useState(false);
   const setCandidateAccess = async (row, active, reason) => {
@@ -420,12 +420,7 @@ function TabBody({ section, tab }) {
                         disabled={accessBusy}
                         onClick={(e) => {
                           e.stopPropagation();
-                          Modal.confirm({
-                            title: `Activate ${row.name}?`,
-                            content: 'Their LMS access comes back immediately and they get an email.',
-                            okText: 'Activate',
-                            onOk: () => setCandidateAccess(row, true),
-                          });
+                          setAccessFor({ row, active: true });
                         }}
                       >
                         <StopOutlined />
@@ -441,7 +436,7 @@ function TabBody({ section, tab }) {
                         onClick={(e) => {
                           e.stopPropagation();
                           setAccessReason('');
-                          setAccessFor(row);
+                          setAccessFor({ row, active: false });
                         }}
                       >
                         <CheckCircleOutlined />
@@ -471,24 +466,73 @@ function TabBody({ section, tab }) {
       )}
       {tab.entity === 'student' && (
         <Modal
+          className="crud-modal access-modal"
           open={!!accessFor}
-          title={accessFor ? `Deactivate ${accessFor.name}?` : ''}
-          okText="Deactivate"
-          okButtonProps={{ danger: true, loading: accessBusy }}
+          width={500}
+          centered
+          destroyOnClose
+          title={
+            accessFor && (
+              <span className="crud-modal-title">
+                <span className={`crud-modal-title-icon ${accessFor.active ? 'is-green' : 'is-red'}`}>
+                  {accessFor.active ? <CheckCircleOutlined /> : <StopOutlined />}
+                </span>
+                <span>
+                  <span className="crud-modal-title-kicker">LMS access</span>
+                  <span className="crud-modal-title-main">
+                    {accessFor.active ? 'Activate' : 'Deactivate'} {accessFor.row.name}?
+                  </span>
+                </span>
+              </span>
+            )
+          }
+          okText={accessFor && accessFor.active ? 'Activate' : 'Deactivate'}
+          okButtonProps={{ danger: !(accessFor && accessFor.active), loading: accessBusy }}
           onCancel={() => setAccessFor(null)}
-          onOk={() => setCandidateAccess(accessFor, false, accessReason)}
+          onOk={() => setCandidateAccess(accessFor.row, accessFor.active, accessFor.active ? undefined : accessReason)}
         >
-          <p style={{ marginBottom: 10 }}>
-            Their whole LMS closes right away — classes, recordings, material and tests. They get an email, and their panel shows a
-            <b> Request reactivation</b> button that raises a support ticket.
-          </p>
-          <Input.TextArea
-            value={accessReason}
-            onChange={(e) => setAccessReason(e.target.value)}
-            rows={3}
-            maxLength={500}
-            placeholder="Reason (optional — shown to the candidate and in their email)"
-          />
+          {accessFor && (
+            <>
+              <div className="access-modal-who">
+                <div>
+                  <b>{accessFor.row.name}</b>
+                  <span>{accessFor.row.email}</span>
+                </div>
+                <div className="access-modal-tags">
+                  {accessFor.row.course && <Tag>{accessFor.row.course}</Tag>}
+                  {accessFor.row.batch && <Tag color="blue">{accessFor.row.batch}</Tag>}
+                </div>
+              </div>
+              {accessFor.active ? (
+                <ul className="access-modal-list is-green">
+                  <li>Classes, recordings, study material and tests open again right away.</li>
+                  <li>They get an email that their access is back.</li>
+                  {accessFor.row.reactivationRequestedAt && <li>Their reactivation ticket is marked resolved.</li>}
+                </ul>
+              ) : (
+                <>
+                  <ul className="access-modal-list">
+                    <li>Their whole LMS closes right away — classes, recordings, material and tests.</li>
+                    <li>They get an email saying their access is deactivated.</li>
+                    <li>
+                      Their panel shows only a <b>Request reactivation</b> button, which raises a support ticket.
+                    </li>
+                  </ul>
+                  <label className="access-modal-label">
+                    Reason <span>(optional — shown to the candidate and in their email)</span>
+                  </label>
+                  <Input.TextArea
+                    value={accessReason}
+                    onChange={(e) => setAccessReason(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    showCount
+                    placeholder="e.g. Fee installment overdue"
+                  />
+                </>
+              )}
+            </>
+          )}
         </Modal>
       )}
       {tab.entity === 'student' && (

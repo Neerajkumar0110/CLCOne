@@ -3489,3 +3489,52 @@
   .hub-logo-slot { flex-wrap: wrap; }
   .hub-logo-slot-main { flex-basis: 100%; order: 3; }
 }
+
+/* LMS Candidates → Activate / Deactivate confirm */
+.access-modal .crud-modal-title-icon.is-red { background: #fef2f2; color: #dc2626; }
+.access-modal .crud-modal-title-icon.is-green { background: #ecfdf5; color: #16a34a; }
+.access-modal-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--hub-border);
+  border-radius: 12px;
+  background: var(--hub-bg-soft);
+}
+.access-modal-who b { display: block; font-size: 14px; }
+.access-modal-who span { display: block; font-size: 12.5px; color: var(--hub-muted); }
+.access-modal-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.access-modal-tags .ant-tag { margin: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.access-modal-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.access-modal-list li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hub-text);
+}
+.access-modal-list li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+}
+.access-modal-list.is-green li::before { background: #16a34a; }
+.access-modal-label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.access-modal-label span { font-weight: 500; color: var(--hub-muted); }
+.access-modal .ant-modal-body { padding-bottom: 18px; }
