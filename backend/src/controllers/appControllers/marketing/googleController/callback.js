@@ -40,6 +40,18 @@ const callback = async (req, res) => {
     return popupResponsePage(res, { type: 'google-oauth-error', message: 'Invalid or expired OAuth state.' });
   }
 
+  // Same Google OAuth client + redirect URI, different purpose: the LMS
+  // connecting a Google account to import class recordings from Drive
+  // (lms/lmsController/driveFolderImport.js).
+  if (decoded.purpose === 'google-drive') {
+    try {
+      const email = await require('../../../../services/lms/driveFolder').saveConnection({ code, adminName: decoded.adminName });
+      return popupResponsePage(res, { type: 'google-drive-success', email });
+    } catch (err) {
+      return popupResponsePage(res, { type: 'google-drive-error', message: err.message });
+    }
+  }
+
   if (decoded.purpose !== 'google-oauth') {
     return popupResponsePage(res, { type: 'google-oauth-error', message: 'Invalid OAuth state.' });
   }

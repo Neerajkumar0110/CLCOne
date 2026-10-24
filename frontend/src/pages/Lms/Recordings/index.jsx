@@ -5,11 +5,12 @@ import {
   ReloadOutlined, PlaySquareOutlined, PlayCircleOutlined, DeleteOutlined, SearchOutlined, UploadOutlined,
   FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined,
   LockOutlined, ClockCircleOutlined, UserOutlined, MoreOutlined, CodeOutlined, DatabaseOutlined,
-  ExperimentOutlined, ApiOutlined, ThunderboltOutlined, FileTextOutlined,
+  ExperimentOutlined, ApiOutlined, ThunderboltOutlined, FileTextOutlined, CloudDownloadOutlined,
 } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
 import lmsApi from '../api';
+import DriveImportModal from './DriveImportModal';
 import './Recordings.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -75,6 +76,7 @@ export default function Recordings() {
   const [importingId, setImportingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [bulkImporting, setBulkImporting] = useState(false);
+  const [driveOpen, setDriveOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -364,6 +366,11 @@ export default function Recordings() {
 
           <div className="recordings-header-actions">
             {isManager && (
+              <button type="button" className="refresh-btn rec-drive-btn" onClick={() => setDriveOpen(true)}>
+                <CloudDownloadOutlined /> Import Drive folder
+              </button>
+            )}
+            {isManager && (
               <button type="button" className="refresh-btn" onClick={openBulk}>
                 <LinkOutlined /> Bulk attach links
               </button>
@@ -380,6 +387,7 @@ export default function Recordings() {
         </div>
 
         <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
+        {isManager && <DriveImportModal open={driveOpen} onClose={() => setDriveOpen(false)} onImported={load} />}
 
         {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} />}
 

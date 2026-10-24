@@ -83,6 +83,14 @@ const lmsApi = {
   // links: [{ date: 'YYYY-MM-DD', url }]
   batchBulkAttachRecordingLinks: (batchId, links) =>
     request.post({ entity: `lms/admin/batches/${batchId}/recording-links`, jsonData: { links } }),
+  // Import a whole Drive folder of class videos into a batch (Recordings →
+  // "Import from Drive").
+  driveStatus: () => request.get({ entity: 'lms/admin/drive/status' }),
+  driveConnect: () => request.get({ entity: 'lms/admin/drive/connect' }),
+  driveDisconnect: () => request.post({ entity: 'lms/admin/drive/disconnect', jsonData: {} }),
+  driveScan: (batchId, folderUrl) => request.post({ entity: 'lms/admin/drive/scan', jsonData: { batchId, folderUrl } }),
+  driveImport: (batchId, items) => request.post({ entity: 'lms/admin/drive/import', jsonData: { batchId, items } }),
+  driveProgress: (batchId) => request.get({ entity: `lms/admin/drive/progress${qs({ batchId })}` }),
 
   // ── attendance ────────────────────────────────────────────────────
   adminAttendance: (f = {}) => request.get({ entity: `lms/admin/attendance${qs(f)}` }),

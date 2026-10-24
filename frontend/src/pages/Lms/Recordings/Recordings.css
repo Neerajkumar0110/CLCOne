@@ -102,6 +102,17 @@
   transform: translateY(-1px);
 }
 
+.refresh-btn.rec-drive-btn {
+  background: #1d2433;
+  border-color: #1d2433;
+  color: #ffffff;
+}
+
+.refresh-btn.rec-drive-btn:hover {
+  background: #2b3448;
+  border-color: #2b3448;
+}
+
 .refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

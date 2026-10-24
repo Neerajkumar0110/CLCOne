@@ -966,6 +966,8 @@ module.exports = {
   playRecording,
   uploadRecording,
   importDriveRecording,
+  enqueueCompression,
+  RECORDING_STUDENT_DELAY_MS,
   deleteRecording,
   setBackupUrl,
   attachRecordingLink,

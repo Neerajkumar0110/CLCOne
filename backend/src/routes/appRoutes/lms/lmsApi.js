@@ -228,6 +228,14 @@ router.route('/admin/holidays').get(requireManager, catchErrors(lms.holidayList)
 router.route('/admin/holidays/:key').post(requireManager, catchErrors(lms.holidaySetYear));
 router.route('/admin/recordings/:id/delete').post(requireManager, catchErrors(lms.liveRecordingDelete));
 router.route('/admin/recordings/:id/import-drive').post(requireManager, catchErrors(lms.liveRecordingImportDrive));
+// Import a whole Drive folder of class videos into a batch (matched by the
+// date in each file name) — see driveFolderImport.js.
+router.route('/admin/drive/status').get(requireManager, catchErrors(lms.driveStatus));
+router.route('/admin/drive/connect').get(requireManager, catchErrors(lms.driveConnect));
+router.route('/admin/drive/disconnect').post(requireManager, catchErrors(lms.driveDisconnect));
+router.route('/admin/drive/scan').post(requireManager, catchErrors(lms.driveScan));
+router.route('/admin/drive/import').post(requireManager, catchErrors(lms.driveImport));
+router.route('/admin/drive/progress').get(requireManager, catchErrors(lms.driveProgress));
 router.route('/admin/recordings/:id/backup').post(requireManager, catchErrors(lms.liveRecordingSetBackup));
 router.route('/admin/live-monitor').get(requireManager, catchErrors(lms.liveMonitor));
 router.route('/admin/live-analytics').get(requireManager, catchErrors(lms.liveAnalytics));

@@ -84,6 +84,13 @@ const schema = new mongoose.Schema({
   // for an 'external' (pasted-link) row, since there's no local file to stat.
   sizeBytes: { type: Number },
 
+  // Set by the Drive-folder import (Recordings → "Import from Drive"): the
+  // Drive file this recording's video came from. Lets a re-scan of the same
+  // folder show it as already imported, and lets a job that was queued when
+  // the server restarted be picked up again (status still PROCESSING).
+  driveFileId: { type: String, index: true },
+  driveFileName: { type: String },
+
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
 });

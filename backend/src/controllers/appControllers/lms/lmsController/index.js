@@ -7,6 +7,7 @@ const admin = require('./admin');
 const pilot = require('./pilot');
 const liveclass = require('./liveclass');
 const scope = require('./liveScope');
+const driveFolder = require('./driveFolderImport');
 const bbbWebhook = require('./bbbWebhook');
 const panel = require('./panel');
 const supportTickets = require('./supportTickets');
@@ -204,6 +205,12 @@ module.exports = {
   liveRecordingSetBackup: scope.setBackupUrl,
   liveRecordingAttachLink: scope.attachRecordingLink,
   liveRecordingBulkAttachLinks: scope.bulkAttachRecordingLinks,
+  driveStatus: driveFolder.status,
+  driveConnect: driveFolder.connect,
+  driveDisconnect: driveFolder.disconnect,
+  driveScan: driveFolder.scan,
+  driveImport: driveFolder.importFiles,
+  driveProgress: driveFolder.progress,
   liveAttendanceDashboard: scope.attendanceDashboard,
   liveAttendanceExport: scope.attendanceExport,
   liveMonitor: scope.liveMonitor,
