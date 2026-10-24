@@ -22,7 +22,34 @@ const VIDEO_EXT = /\.(mp4|mkv|mov|webm|m4v|avi)$/i;
 // at another deployment; whichever is used must be listed under the OAuth
 // client's "Authorized redirect URIs" in Google Cloud.
 const redirectUri = () => process.env.DRIVE_OAUTH_REDIRECT_URI || process.env.GOOGLE_ADS_REDIRECT_URI;
-const isConfigured = () => !!(process.env.GOOGLE_ADS_CLIENT_ID && process.env.GOOGLE_ADS_CLIENT_SECRET && redirectUri());
+// A Drive-only OAuth client (DRIVE_OAUTH_CLIENT_ID/SECRET) takes precedence
+// over the Google Ads one, so Drive can live in its own Google Cloud project.
+const clientId = () => process.env.DRIVE_OAUTH_CLIENT_ID || process.env.GOOGLE_ADS_CLIENT_ID;
+const clientSecret = () => process.env.DRIVE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_ADS_CLIENT_SECRET;
+const isConfigured = () => !!(clientId() && clientSecret() && redirectUri());
+
+function authUrl(state) {
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', clientId());
+  url.searchParams.set('redirect_uri', redirectUri());
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', SCOPE);
+  url.searchParams.set('access_type', 'offline');
+  url.searchParams.set('prompt', 'consent');
+  url.searchParams.set('state', state);
+  return url.toString();
+}
+
+async function tokenRequest(params) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: clientId(), client_secret: clientSecret(), ...params }).toString(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error_description || json.error || `Google token request failed (HTTP ${res.status})`);
+  return json;
+}
 
 async function getConnection() {
   return mongoose.model('LmsDriveConnection').findOne({ removed: false }).sort({ updated: -1 });
@@ -31,7 +58,7 @@ async function getConnection() {
 // Saves the account that just finished the OAuth popup (called from the
 // shared /public/google/callback when state.purpose === 'google-drive').
 async function saveConnection({ code, adminName }) {
-  const tokens = await google.exchangeCodeForToken({ code, redirectUri: redirectUri() });
+  const tokens = await tokenRequest({ code, redirect_uri: redirectUri(), grant_type: 'authorization_code' });
   if (!tokens.refresh_token) {
     throw new Error("Google did not return a refresh token — remove this app at https://myaccount.google.com/permissions and connect again.");
   }
@@ -55,7 +82,7 @@ async function accessToken() {
   const fresh = conn.tokenExpiresAt && conn.tokenExpiresAt.getTime() - Date.now() > 5 * 60 * 1000;
   if (fresh && conn.accessToken) return tokenCrypto.decrypt(conn.accessToken);
   try {
-    const t = await google.refreshAccessToken({ refreshToken: tokenCrypto.decrypt(conn.refreshToken) });
+    const t = await tokenRequest({ refresh_token: tokenCrypto.decrypt(conn.refreshToken), grant_type: 'refresh_token' });
     conn.accessToken = tokenCrypto.encrypt(t.access_token);
     conn.tokenExpiresAt = new Date(Date.now() + (t.expires_in || 3600) * 1000);
     conn.lastError = undefined;
@@ -215,6 +242,7 @@ function dateKeyFromName(name) {
 module.exports = {
   SCOPE,
   redirectUri,
+  authUrl,
   isConfigured,
   getConnection,
   saveConnection,

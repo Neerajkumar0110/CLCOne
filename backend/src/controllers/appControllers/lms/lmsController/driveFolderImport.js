@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const google = require('../../../../utils/googleAdsClient');
 const drive = require('../../../../services/lms/driveFolder');
 const { compressVideo } = require('../../../../services/lms/recordingCompress');
 const { lmsConfig } = require('../../../../services/lms');
@@ -39,7 +38,7 @@ async function connect(req, res) {
     return res.status(400).json({ success: false, message: 'Google sign-in is not configured on the server (GOOGLE_ADS_CLIENT_ID / SECRET / REDIRECT_URI).' });
   }
   const state = jwt.sign({ adminId: req.admin._id, adminName: req.admin.name, purpose: 'google-drive' }, process.env.JWT_SECRET, { expiresIn: '10m' });
-  const url = google.buildOAuthDialogUrl({ redirectUri: drive.redirectUri(), state, scope: drive.SCOPE });
+  const url = drive.authUrl(state);
   return res.status(200).json({ success: true, result: { url } });
 }
 
