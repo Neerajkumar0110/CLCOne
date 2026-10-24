@@ -627,19 +627,22 @@ export default function LmsPanelApp() {
 
       <Layout style={{ marginLeft: sidebarGap, height: '100vh', overflowY: 'auto', transition: 'margin-left .2s ease-in-out' }}>
         <Header className="app-header" style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {isMobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} style={{ color: 'var(--nav-text)' }} />}
-            <span style={{ fontWeight: 600, color: 'var(--nav-text)' }}>{isTeacher ? 'Project Manager' : 'Candidate'} · {admin.name} {admin.surname || ''}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: isMobile ? '0 0 auto' : '1 1 auto' }}>
+            {isMobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} style={{ color: 'var(--nav-text)', flexShrink: 0 }} />}
+            {/* one line — on a phone a wrapped name spilled out of the header over the page */}
+            <span style={{ fontWeight: 600, color: 'var(--nav-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, lineHeight: '20px' }}>
+              {isMobile ? '' : `${isTeacher ? 'Project Manager' : 'Candidate'} · `}{admin.name} {admin.surname || ''}
+            </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8, minWidth: 0, flexShrink: isMobile ? 1 : 0, overflowX: isMobile ? 'auto' : 'visible' }}>
             <LmsNotificationBell
               notifications={updates.notifications || []}
               unread={updates.unread || 0}
               onOpenItem={openNotification}
               onMarkAllRead={markAllNotificationsRead}
             />
-            <Button type="text" icon={<UserOutlined />} onClick={() => go(base)} style={{ color: 'var(--nav-text)' }}>
-              {admin.email}
+            <Button type="text" icon={<UserOutlined />} onClick={() => go(base)} style={{ color: 'var(--nav-text)' }} title={admin.email}>
+              {isMobile ? null : admin.email}
             </Button>
             <button
               type="button"

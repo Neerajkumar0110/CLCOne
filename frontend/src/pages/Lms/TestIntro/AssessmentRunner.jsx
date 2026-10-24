@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, Button, Radio, Space, Typography, Alert, Spin, Result } from 'antd';
-import { LeftOutlined, RightOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Button, Typography, Alert, Spin, Result } from 'antd';
+import { LeftOutlined, RightOutlined, PlayCircleOutlined, ClockCircleOutlined, CheckCircleFilled } from '@ant-design/icons';
 import lmsApi from '@/pages/Lms/api';
 import AssessmentProctorGate from './AssessmentProctorGate';
 import useAssessmentProctor from './useAssessmentProctor';
+import './assessmentRunner.css';
 
-const { Text, Paragraph } = Typography;
+const { Paragraph } = Typography;
+const TYPE_LABELS = { MCQ: 'Multiple choice', OUTPUT_BASED: 'Predict the output', PROGRAMMING: 'Programming' };
 
 // Ported from python-test-platform's frontend/components/TestRunner.tsx
 // (Next.js/Tailwind -> this app's React Router/antd). Same phase machine
@@ -228,112 +230,112 @@ export default function AssessmentRunner({ testType, onExit }) {
   const isRunning = running[q.attemptQuestionId];
   const secondsLeft = timeLeft[q.attemptQuestionId] ?? 0;
 
+  const limit = TIME_LIMITS[q.questionType] ?? TIME_LIMITS.DEFAULT;
+  const urgent = secondsLeft <= 10;
+  const answeredCount = questions.filter((x) =>
+    x.questionType === 'PROGRAMMING' ? (code[x.attemptQuestionId] ?? '').trim() && (code[x.attemptQuestionId] ?? '') !== (x.starterCode || '') : answers[x.attemptQuestionId] != null
+  ).length;
+  const selected = answers[q.attemptQuestionId];
+
   return (
-    <div className="lms-portal" style={{ padding: 4, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ maxWidth: 720, width: '100%' }}>
+    <div className="lms-portal ar-wrap">
+      <div className="ar-shell">
         {lastWarning !== null && (
-          <Alert
-            type="error"
-            showIcon
-            banner
-            message={`Warning ${lastWarning}/3 — proctoring violation detected`}
-            style={{ marginBottom: 12 }}
-          />
+          <Alert type="error" showIcon banner message={`Warning ${lastWarning}/3 — proctoring violation detected`} className="ar-alert" />
         )}
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-          <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {TEST_TYPE_LABELS[testType] || testType} — {q.topic}
-          </Text>
-          <Space size="middle">
-            {warningCount > 0 && <Text type="danger" style={{ fontSize: 12, fontWeight: 600 }}>Warnings: {warningCount}/3</Text>}
-            <Text style={{ fontFamily: 'monospace', fontWeight: 600 }} type={secondsLeft <= 10 ? 'danger' : 'secondary'}>
+        <div className="ar-top">
+          <div className="ar-top-left">
+            <span className="ar-test">{TEST_TYPE_LABELS[testType] || testType}</span>
+            <span className="ar-topic" title={q.topic}>{q.topic}</span>
+          </div>
+          <div className="ar-top-right">
+            {warningCount > 0 && <span className="ar-warn">Warnings {warningCount}/3</span>}
+            <span className={`ar-timer${urgent ? ' urgent' : ''}`} title="Time left for this question">
+              <ClockCircleOutlined />
               {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 13 }}>Question {current + 1} of {questions.length}</Text>
-          </Space>
+            </span>
+          </div>
         </div>
 
-        <Card style={{ marginBottom: 16 }}>
-          <Paragraph style={{ fontSize: 15, whiteSpace: 'pre-wrap', marginBottom: 20 }}>{q.text}</Paragraph>
+        <div className="ar-progress">
+          <div className="ar-progress-meta">
+            <span>Question <b>{current + 1}</b> of {questions.length}</span>
+            <span>{answeredCount} answered</span>
+          </div>
+          <div className="ar-bar"><div style={{ width: `${((current + 1) / questions.length) * 100}%` }} /></div>
+        </div>
+
+        <div className="ar-card">
+          <div className="ar-qhead">
+            <span className={`ar-type t-${q.questionType.toLowerCase()}`}>{TYPE_LABELS[q.questionType] || q.questionType}</span>
+            <span className="ar-qtime"><span style={{ width: `${Math.max(0, Math.min(100, (secondsLeft / limit) * 100))}%` }} className={urgent ? 'urgent' : ''} /></span>
+          </div>
+          {(() => {
+            // "What does this print?\n\n<code>" — the part after the first blank line is a code snippet
+            const text = String(q.text || '');
+            const cut = text.indexOf('\n\n');
+            const head = cut > 0 ? text.slice(0, cut) : text;
+            const snippet = cut > 0 ? text.slice(cut + 2).replace(/^\n+|\s+$/g, '') : '';
+            return (
+              <>
+                <div className="ar-qtext">{head}</div>
+                {snippet && <pre className="ar-snippet">{snippet}</pre>}
+              </>
+            );
+          })()}
 
           {isProgramming ? (
-            <div>
-              <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-                Python Code
-              </Text>
+            <div className="ar-code">
+              <div className="ar-label">Python code</div>
               <textarea
+                className="ar-editor"
                 value={code[q.attemptQuestionId] ?? ''}
                 onChange={(e) => updateCode(q.attemptQuestionId, e.target.value)}
                 spellCheck={false}
-                style={{
-                  width: '100%',
-                  height: 220,
-                  background: '#0b1120',
-                  color: '#e5e7eb',
-                  border: '1px solid #23262f',
-                  borderRadius: 8,
-                  padding: 12,
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  resize: 'vertical',
-                }}
               />
-              <Button icon={<PlayCircleOutlined />} loading={isRunning} onClick={() => handleRunCode(q.attemptQuestionId)} style={{ marginTop: 10 }}>
-                Run Code
+              <Button icon={<PlayCircleOutlined />} loading={isRunning} onClick={() => handleRunCode(q.attemptQuestionId)} className="ar-run">
+                Run code
               </Button>
               {runResult && (
-                <div style={{ marginTop: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-                    Output
-                  </Text>
-                  <pre
-                    style={{
-                      background: '#000',
-                      color: runResult.error ? '#f87171' : '#e5e7eb',
-                      borderRadius: 8,
-                      padding: 12,
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      whiteSpace: 'pre-wrap',
-                      overflowX: 'auto',
-                      margin: 0,
-                    }}
-                  >
-                    {runResult.error ? runResult.error : runResult.output || '(no output)'}
-                  </pre>
+                <div className="ar-output">
+                  <div className="ar-label">Output</div>
+                  <pre className={runResult.error ? 'err' : ''}>{runResult.error ? runResult.error : runResult.output || '(no output)'}</pre>
                 </div>
               )}
             </div>
           ) : (
-            <Radio.Group
-              value={answers[q.attemptQuestionId]}
-              onChange={(e) => selectAnswer(q.attemptQuestionId, e.target.value)}
-              style={{ width: '100%' }}
-            >
-              <Space direction="vertical" style={{ width: '100%' }} size={10}>
-                {(q.options || []).map((opt, i) => (
-                  <Radio key={i} value={i} style={{ width: '100%', padding: '10px 12px', border: '1px solid #d9d9d9', borderRadius: 8 }}>
-                    {opt}
-                  </Radio>
-                ))}
-              </Space>
-            </Radio.Group>
+            <div className="ar-options" role="radiogroup">
+              {(q.options || []).map((opt, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected === i}
+                  className={`ar-option${selected === i ? ' on' : ''}`}
+                  onClick={() => selectAnswer(q.attemptQuestionId, i)}
+                >
+                  <span className="ar-letter">{String.fromCharCode(65 + i)}</span>
+                  <span className="ar-opt-text">{opt}</span>
+                  {selected === i && <CheckCircleFilled className="ar-check" />}
+                </button>
+              ))}
+            </div>
           )}
-        </Card>
+        </div>
 
-        {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+        {error && <Alert type="error" showIcon message={error} className="ar-alert" />}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button icon={<LeftOutlined />} disabled={current === 0} onClick={() => setCurrent((c) => Math.max(0, c - 1))}>
+        <div className="ar-nav">
+          <Button size="large" icon={<LeftOutlined />} disabled={current === 0} onClick={() => setCurrent((c) => Math.max(0, c - 1))}>
             Previous
           </Button>
           {isLast ? (
-            <Button type="primary" loading={submitting} onClick={handleSubmit}>
-              Submit Test
+            <Button size="large" type="primary" loading={submitting} onClick={handleSubmit} className="ar-primary">
+              Submit test
             </Button>
           ) : (
-            <Button type="primary" onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}>
+            <Button size="large" type="primary" onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))} className="ar-primary">
               Next <RightOutlined />
             </Button>
           )}
