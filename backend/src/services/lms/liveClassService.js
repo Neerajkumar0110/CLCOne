@@ -149,6 +149,12 @@ function closeInterval(p, at, source) {
   p.lastLeftAt = at;
   p.online = p.sessions.some((s) => !s.leftAt);
 }
+// Being in class for at least this much of its ACTUAL length counts as full
+// attendance — e.g. a 90-min slot the teacher ran for 60 min: 54+ min in
+// class = 100%. Below it the real percentage stands.
+const FULL_ATTENDANCE_PCT = 90;
+const fullCredit = (pct) => (pct >= FULL_ATTENDANCE_PCT ? 100 : pct);
+
 function recompute(p, session, s) {
   // merge overlapping intervals, then sum
   const iv = p.sessions
@@ -184,7 +190,7 @@ function recompute(p, session, s) {
     ? Math.round(((session.actualEnd ? +new Date(session.actualEnd) : Date.now()) - new Date(session.actualStart)) / 60000)
     : 0;
   const denom = actualDurationMin > 0 ? actualDurationMin : session.scheduledDurationMin || 60;
-  p.attendancePct = denom > 0 ? Math.min(100, Math.round((p.totalDurationMin / denom) * 100)) : 0;
+  p.attendancePct = fullCredit(denom > 0 ? Math.min(100, Math.round((p.totalDurationMin / denom) * 100)) : 0);
 
   // late = first join later than lateThreshold after actual/scheduled start
   const start = session.actualStart || session.scheduledStart;
@@ -2113,7 +2119,7 @@ async function correctAttendance(sessionId, { crmUserId, status, reason, admin }
   // the % in line with the corrected status so those averages reflect it.
   const s = await settingsService.get();
   if (status === 'PRESENT' || status === 'LATE') {
-    p.attendancePct = Math.max(p.attendancePct || 0, s.presentThresholdPct);
+    p.attendancePct = fullCredit(Math.max(p.attendancePct || 0, s.presentThresholdPct));
   } else if (status === 'ABSENT') {
     p.attendancePct = Math.min(p.attendancePct || 0, Math.max(0, (s.partialThresholdPct || 1) - 1));
   } else if (status === 'PARTIAL') {
