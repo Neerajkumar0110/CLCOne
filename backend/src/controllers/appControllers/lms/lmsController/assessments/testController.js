@@ -28,6 +28,29 @@ function getCooldownEnd(submittedAt, cooldownDays) {
   );
 }
 
+// Same shape startTest returns for a new attempt, rebuilt from the open
+// attempt's own question set (answer keys never included).
+async function resumePayload(attempt) {
+  const AssessmentAttemptQuestion = mongoose.model('AssessmentAttemptQuestion');
+  const AssessmentQuestion = mongoose.model('AssessmentQuestion');
+  const aqs = await AssessmentAttemptQuestion.find({ attemptId: attempt._id }).sort({ order: 1 }).lean();
+  const qs = await AssessmentQuestion.find({ _id: { $in: aqs.map((a) => a.questionId) } })
+    .select('text questionType options starterCode topic')
+    .lean();
+  const byId = new Map(qs.map((q) => [String(q._id), q]));
+  return {
+    attemptId: attempt._id,
+    testType: attempt.testType,
+    resumed: true,
+    questions: aqs
+      .filter((aq) => byId.has(String(aq.questionId)))
+      .map((aq) => {
+        const q = byId.get(String(aq.questionId));
+        return { attemptQuestionId: aq._id, order: aq.order, id: q._id, text: q.text, questionType: q.questionType, options: q.options, starterCode: q.starterCode, topic: q.topic };
+      }),
+  };
+}
+
 async function startTest(req, res) {
   try {
     const { testType } = req.params;
@@ -50,11 +73,10 @@ async function startTest(req, res) {
       testType,
       status: 'IN_PROGRESS',
     });
+    // An attempt left open (tab closed, refresh, network drop) is resumed
+    // with the same questions instead of locking the candidate out.
     if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: 'You already have an in-progress attempt for this test.',
-      });
+      return res.status(200).json({ success: true, result: await resumePayload(existing) });
     }
 
     const totalAttempts = await AssessmentAttempt.countDocuments({
@@ -133,10 +155,9 @@ async function startTest(req, res) {
       // same response the upfront "no existing IN_PROGRESS attempt" check
       // above already returns for the non-racing case.
       if (e.code === 11000) {
-        return res.status(409).json({
-          success: false,
-          message: 'You already have an in-progress attempt for this test.',
-        });
+        const raced = await AssessmentAttempt.findOne({ candidate: admin._id, testType, status: 'IN_PROGRESS' });
+        if (raced) return res.status(200).json({ success: true, result: await resumePayload(raced) });
+        return res.status(409).json({ success: false, message: 'You already have an in-progress attempt for this test.' });
       }
       throw e;
     }

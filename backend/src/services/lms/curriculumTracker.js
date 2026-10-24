@@ -191,8 +191,8 @@ const UNLOCK_THRESHOLD_PCT = {
   MICRO: 50,
   NLP_MAJOR: 70,
   NLP_MICRO: 80,
-  // Unit 03 (LLM APIs & Prompt Engineering) is 3 of 7 Foundation units.
-  LLM_MAJOR: 43,
+  // Open to every candidate without the curriculum gate (24 Oct 2026 exam).
+  LLM_MAJOR: 0,
 };
 
 // A manager can manually open a test for a whole batch or specific
