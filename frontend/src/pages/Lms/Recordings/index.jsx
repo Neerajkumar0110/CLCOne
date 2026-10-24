@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, List, Typography, Pagination, Dropdown } from 'antd';
+import { Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, Pagination, Dropdown } from 'antd';
 import {
   ReloadOutlined, PlaySquareOutlined, PlayCircleOutlined, DeleteOutlined, SearchOutlined, UploadOutlined,
   FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined,
@@ -11,6 +11,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
 import lmsApi from '../api';
 import DriveImportModal from './DriveImportModal';
+import './driveImport.css';
 import './Recordings.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -255,28 +256,30 @@ export default function Recordings() {
 
   const canImportFromDrive = (r) => r.provider === 'external' && r.status !== 'PROCESSING';
 
-  const importAllFromDrive = async () => {
+  // Confirm modal for "Import all from Drive" — lists the linked classes it
+  // will pull in before anything starts.
+  const [importAllTargets, setImportAllTargets] = useState(null);
+  const importAllFromDrive = () => {
     const targets = rows.filter(canImportFromDrive);
     if (!targets.length) return message.info('Nothing to import — no Drive-linked recordings here.');
-    Modal.confirm({
-      title: `Import ${targets.length} recording${targets.length > 1 ? 's' : ''} from Google Drive?`,
-      content: 'Each one downloads and compresses in the background on the server, one at a time — this can take a while for a lot of classes.',
-      onOk: async () => {
-        setBulkImporting(true);
-        let ok = 0;
-        for (const r of targets) {
-          try {
-            await lmsApi.recordingImportDrive(r.id);
-            ok += 1;
-          } catch (e) {
-            // keep going — report the tally at the end, per-row status still shows FAILED for any that don't make it
-          }
-        }
-        setBulkImporting(false);
-        message.success(`Started import for ${ok} of ${targets.length} recordings — watch the Status column.`);
-        load();
-      },
-    });
+    setImportAllTargets(targets);
+  };
+  const runImportAll = async () => {
+    const targets = importAllTargets || [];
+    setBulkImporting(true);
+    let ok = 0;
+    for (const r of targets) {
+      try {
+        await lmsApi.recordingImportDrive(r.id);
+        ok += 1;
+      } catch (e) {
+        // keep going — report the tally at the end, per-row status still shows FAILED for any that don't make it
+      }
+    }
+    setBulkImporting(false);
+    setImportAllTargets(null);
+    message.success(`Started import for ${ok} of ${targets.length} recordings — watch the Status column.`);
+    load();
   };
 
   // Backfill old recordings (Google Drive, etc.) a whole batch at a time —
@@ -310,14 +313,21 @@ export default function Recordings() {
         if (idx === -1) return { date: '', url: '', raw: line };
         return { date: line.slice(0, idx).trim(), url: line.slice(idx + 1).trim(), raw: line };
       });
+  const bulkLines = parseBulkLines();
+  const lineOk = (l) => /^\d{4}-\d{2}-\d{2}$/.test(l.date) && /^https?:\/\//i.test(l.url);
+  const bulkBad = bulkLines.filter((l) => !lineOk(l)).length;
   const submitBulk = async () => {
     if (!bulkBatchId) return message.warning('Pick a batch first.');
-    const links = parseBulkLines();
-    if (!links.length) return message.warning('Paste at least one "date, link" line.');
+    const all = parseBulkLines();
+    const links = all.filter(lineOk);
+    if (!links.length) return message.warning('Paste at least one "YYYY-MM-DD, link" line.');
+    const badResults = all
+      .filter((l) => !lineOk(l))
+      .map((l) => ({ date: l.date || l.raw, ok: false, message: 'Not sent — write it as YYYY-MM-DD, link' }));
     setBulkSaving(true);
     try {
       const res = await lmsApi.batchBulkAttachRecordingLinks(bulkBatchId, links);
-      const results = (res && res.result && res.result.results) || [];
+      const results = [...((res && res.result && res.result.results) || []), ...badResults];
       setBulkResults(results);
       const okCount = results.filter((r) => r.ok).length;
       if (okCount) load();
@@ -625,51 +635,109 @@ export default function Recordings() {
         )}
       </Modal>
 
-      <Modal
-        title="Bulk attach recording links"
-        open={bulkOpen}
-        onCancel={() => setBulkOpen(false)}
-        onOk={submitBulk}
-        okText="Attach"
-        confirmLoading={bulkSaving}
-        width={640}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="Batch"
-            showSearch
-            optionFilterProp="label"
-            value={bulkBatchId}
-            onChange={setBulkBatchId}
-            options={batchOptions}
-          />
-          <Input.TextArea
-            rows={10}
-            placeholder={'One class per line: YYYY-MM-DD, https://drive.google.com/...\n2026-07-01, https://drive.google.com/file/d/abc123/view\n2026-07-02, https://drive.google.com/file/d/def456/view'}
-            value={bulkText}
-            onChange={(e) => setBulkText(e.target.value)}
-          />
-          <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
-            Each date is matched to that batch's class scheduled on that calendar day. A date with no class
-            scheduled is reported below instead of silently skipped.
-          </Typography.Text>
-          {bulkResults && (
-            <List
-              size="small"
-              bordered
-              dataSource={bulkResults}
-              style={{ maxHeight: 240, overflowY: 'auto' }}
-              renderItem={(r) => (
-                <List.Item>
-                  {r.ok ? <CheckCircleOutlined style={{ color: '#389e0d' }} /> : <CloseCircleOutlined style={{ color: '#cf1322' }} />}
-                  <span style={{ marginLeft: 8 }}>{r.date || '(blank)'}</span>
-                  {!r.ok && <span style={{ marginLeft: 8, color: '#889' }}>{r.message}</span>}
-                </List.Item>
-              )}
+      <Modal open={bulkOpen} onCancel={() => setBulkOpen(false)} footer={null} width={680} className="di-modal" title={null} destroyOnClose>
+        <div className="di-head">
+          <div className="di-head-ic"><LinkOutlined /></div>
+          <div>
+            <h3>Bulk attach recording links</h3>
+            <p>Paste one class per line as a date and a link. Each date goes to the batch's class on that day.</p>
+          </div>
+        </div>
+
+        <div className="di-step">
+          <div className="di-step-no">1</div>
+          <div className="di-step-body">
+            <div className="di-step-title">Batch</div>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Pick a batch"
+              showSearch
+              optionFilterProp="label"
+              value={bulkBatchId}
+              onChange={setBulkBatchId}
+              options={batchOptions}
             />
-          )}
-        </Space>
+          </div>
+        </div>
+
+        <div className="di-step di-step-last">
+          <div className="di-step-no">2</div>
+          <div className="di-step-body">
+            <div className="di-results-head">
+              <div className="di-step-title">Links</div>
+              {bulkLines.length > 0 && (
+                <div className="di-chips">
+                  <span className="di-chip di-blue">{bulkLines.length - bulkBad} ready</span>
+                  {bulkBad > 0 && <span className="di-chip di-red">{bulkBad} need fixing</span>}
+                </div>
+              )}
+            </div>
+            <Input.TextArea
+              className="rb-text"
+              rows={8}
+              placeholder={'2026-07-01, https://drive.google.com/file/d/abc123/view\n2026-07-02, https://drive.google.com/file/d/def456/view'}
+              value={bulkText}
+              onChange={(e) => {
+                setBulkText(e.target.value);
+                setBulkResults(null);
+              }}
+            />
+            <div className="rb-format">
+              Format: <code>YYYY-MM-DD, link</code> — a date with no class in this batch is listed below, not skipped silently.
+            </div>
+
+            {bulkResults && (
+              <div className="rb-results">
+                {bulkResults.map((r, i) => (
+                  <div key={i} className={`rb-result ${r.ok ? 'ok' : 'bad'}`}>
+                    {r.ok ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                    <span className="rb-result-date">{r.date || '(blank)'}</span>
+                    <span className="rb-result-msg">{r.ok ? 'Attached' : r.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="di-foot">
+              <Button onClick={() => setBulkOpen(false)}>{bulkResults ? 'Close' : 'Cancel'}</Button>
+              <Button type="primary" icon={<LinkOutlined />} loading={bulkSaving} disabled={!bulkBatchId || !bulkLines.length} onClick={submitBulk}>
+                Attach {bulkLines.length ? bulkLines.length - bulkBad : ''} link{bulkLines.length - bulkBad === 1 ? '' : 's'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!importAllTargets} onCancel={() => !bulkImporting && setImportAllTargets(null)} footer={null} width={560} className="di-modal" title={null}>
+        <div className="di-head">
+          <div className="di-head-ic"><ExportOutlined /></div>
+          <div>
+            <h3>Import {importAllTargets ? importAllTargets.length : 0} recording{importAllTargets && importAllTargets.length === 1 ? '' : 's'} from Google Drive?</h3>
+            <p>These classes only have a Drive link. The server downloads each video and hosts it here, so it plays without Drive.</p>
+          </div>
+        </div>
+        <div className="ri-list">
+          {(importAllTargets || []).map((r) => (
+            <div key={r.id} className="ri-item">
+              <span className="ri-date">{r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</span>
+              <span className="ri-name" title={r.className}>{r.className}</span>
+              <span className="ri-batch">{r.batchName}</span>
+            </div>
+          ))}
+        </div>
+        <ul className="ri-notes">
+          <li>One video at a time, in the background — a lot of classes can take a while.</li>
+          <li>Each row shows <b>Processing</b>, then <b>Available</b>. You can keep working.</li>
+        </ul>
+        <div className="di-foot">
+          <span />
+          <Space>
+            <Button onClick={() => setImportAllTargets(null)} disabled={bulkImporting}>Cancel</Button>
+            <Button type="primary" icon={<ExportOutlined />} loading={bulkImporting} onClick={runImportAll}>
+              Import {importAllTargets ? importAllTargets.length : ''}
+            </Button>
+          </Space>
+        </div>
       </Modal>
     </div>
   );
