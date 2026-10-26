@@ -1015,12 +1015,10 @@ async function ensureBatchRoom(batchDoc) {
   });
   return room;
 }
-// `forceNoRecord` — set when a session is being auto-started by the
-// background lifecycle tick with no teacher behind it yet (see startSession)
-// so the room is opened WITHOUT autoStartRecording, instead of recording an
-// empty room nobody asked for. Once the teacher actually joins as
-// moderator, BBB's own "allowStartStopRecording" (always left on below)
-// gives them a Record button in the meeting UI if they want one.
+// `forceNoRecord` — opens the room with recording OFF. Note BBB fixes this
+// at create time for the whole meeting: a room opened with it can never be
+// recorded, even after a moderator joins. startSession no longer sets it
+// for auto-started classes (see the comment there).
 async function ensureProviderRoom(session, { forceNoRecord = false } = {}) {
   const provider = getMeetingProvider();
   if (session.meetingProvider !== provider.name) {
@@ -1179,13 +1177,19 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
     }
   }
   // The background lifecycle tick (autoLifecycleTick) can flip a session to
-  // 'live' purely on schedule, with no admin at all (admin is literally
-  // null there) so the batch's calendar slot goes live Mon-Fri on its own —
-  // that's intentional. But it means "live" no longer implies "the teacher
-  // is actually here", so recording must not auto-arm off that alone: only
-  // a real teacher action (the Start button, or a teacher's own resume-join
-  // — both pass a real `admin`) is allowed to start a recording.
-  const teacherPresent = !auto || !!admin;
+  // 'live' purely on schedule, with no admin at all (admin is null there) so
+  // the batch's calendar slot goes live Mon-Fri on its own.
+  //
+  // It used to open that room WITHOUT recording (forceNoRecord) to avoid
+  // recording an empty room before the teacher arrived, on the assumption
+  // the teacher could press BBB's Record button after joining. That doesn't
+  // work: BBB fixes `record` when the meeting is created, and a meeting
+  // created with record=false can never be recorded — the teacher's later
+  // join re-sends `create`, which BBB ignores for a running meeting. Every
+  // class the teacher joined even seconds after the scheduled start was
+  // lost (12, 16, 22 Oct 2026). So the auto-started room records too; the
+  // few empty minutes before the teacher joins are the cheaper failure.
+  const teacherPresent = true;
   // recording_processing/available is the normal post-end state (any class
   // with recording enabled — the default — goes through it, not 'ended';
   // see endSession). Still resumable for as long as the scheduled window is
