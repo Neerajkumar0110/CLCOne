@@ -7,10 +7,12 @@ const { compressVideo } = require('../../../../services/lms/recordingCompress');
 const { downloadDriveFileTo, extractDriveFileId } = require('../../../../services/lms/driveImport');
 const { LMS_FULL_ACCESS_ROLES } = require('../../../../config/roles');
 
-// Students never see a class's recording until this long after the class
-// actually ended — gives the teacher room to upload without a partial/
-// still-compressing file showing up mid-class.
-const RECORDING_STUDENT_DELAY_MS = 2 * 60 * 60 * 1000;
+// How long after a class ended its recording stays hidden from students.
+// 0 since 2026-10-26: recordings go to students as soon as they're ready
+// (BBB-processed, uploaded + compressed, or Drive-imported) — the 2-hour
+// hold made students wait even when the file was already there. Every
+// publish path still reads this one constant, so a hold can come back here.
+const RECORDING_STUDENT_DELAY_MS = 0;
 
 // Role-scoped read APIs for live classes / recordings / attendance.
 // Golden rule: course/batch/student ids from the client are NEVER trusted —

@@ -16,6 +16,9 @@ async function joinAndLog(req, sessionId, admin, via) {
 // response body; "join" returns a one-time ticket URL that redirects.
 
 function send(res, out) {
+  // "Wait for the trainer" isn't a failure the page should pop an error for —
+  // the Live Classes page polls on it until the host is in.
+  if (out.waitForHost) return res.status(200).json({ success: false, waitForHost: true, message: out.message });
   if (out.error) return res.status(out.error).json({ success: false, message: out.message });
   return res.status(200).json({ success: true, result: out.result });
 }

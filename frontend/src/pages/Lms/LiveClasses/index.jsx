@@ -172,6 +172,20 @@ export default function LiveClasses() {
 
   const openMeeting = (url) => url && window.open(url, '_blank', 'noopener');
 
+  // Students can't enter before the host (backend issueJoin → waitForHost):
+  // a waiting modal re-checks every 12s and offers Join the moment the
+  // trainer is in. The Join itself stays a click — a popup opened from a
+  // timer would be blocked by the browser.
+  const [waiting, setWaiting] = useState(null); // { id, url? }
+  useEffect(() => {
+    if (!waiting || waiting.url) return undefined;
+    const t = setInterval(async () => {
+      const res = await lmsApi.liveClassJoin(waiting.id).catch(() => null);
+      if (res && res.result && res.result.url) setWaiting((w) => (w && w.id === waiting.id ? { ...w, url: res.result.url } : w));
+    }, 12000);
+    return () => clearInterval(t);
+  }, [waiting]);
+
   const onJoin = async (id) => {
     setBusyId(id);
     try {
@@ -180,6 +194,7 @@ export default function LiveClasses() {
       // client; role-based toolbar/moderator controls come from the
       // provider itself, see BigBlueButtonProvider.getJoinUrl).
       if (res && res.result && res.result.url) openMeeting(res.result.url);
+      else if (res && res.waitForHost) setWaiting({ id });
       else message.warning((res && res.message) || 'Could not join.');
     } catch (e) {
       message.error('Could not join.');
@@ -566,6 +581,42 @@ export default function LiveClasses() {
           if (id) onJoin(id);
         }}
       />
+
+      <Modal
+        open={!!waiting}
+        onCancel={() => setWaiting(null)}
+        footer={null}
+        centered
+        width={420}
+        title={waiting && waiting.url ? 'Your trainer has joined' : 'Waiting for your trainer'}
+      >
+        <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+          {waiting && waiting.url ? (
+            <>
+              <CheckCircleOutlined style={{ fontSize: 44, color: '#16a34a' }} />
+              <p style={{ margin: '12px 0 18px', color: '#475569' }}>The class is open — you can go in now.</p>
+              <Button
+                type="primary"
+                size="large"
+                icon={<LoginOutlined />}
+                onClick={() => {
+                  openMeeting(waiting.url);
+                  setWaiting(null);
+                  load(true);
+                }}
+              >
+                Join class
+              </Button>
+            </>
+          ) : (
+            <>
+              <ClockCircleOutlined spin style={{ fontSize: 40, color: '#2563eb' }} />
+              <p style={{ margin: '12px 0 4px', color: '#475569' }}>The class opens for students once the trainer is in.</p>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: 12.5 }}>Keep this window open — we'll let you in automatically.</p>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

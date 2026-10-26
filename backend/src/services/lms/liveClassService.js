@@ -1579,6 +1579,20 @@ async function issueJoin(id, admin) {
     }
   }
 
+  // Students wait for the host. The lifecycle tick opens a class's room at
+  // its scheduled time whether or not anyone from staff is there yet, so
+  // 'live' alone doesn't mean the host is in. A student is only handed a
+  // join link once a moderator (the trainer, or a manager / support host) is
+  // actually in the BBB room. That also keeps a student from ever being the
+  // first person in the room — BBB makes the first arrival the Presenter.
+  // If BBB can't be asked (null), don't lock the class out over it.
+  if (role !== 'teacher' && session.meetingProvider === 'bigbluebutton') {
+    const people = await getMeetingProvider().getParticipants(session).catch(() => null);
+    if (Array.isArray(people) && !people.some((x) => x.role === 'MODERATOR')) {
+      return { error: 409, waitForHost: true, message: "Your trainer hasn't joined yet — you can enter as soon as they do." };
+    }
+  }
+
   const now = new Date();
   let p = session.participants.find((x) => String(x.crmUser) === String(admin._id));
   if (!p) {
@@ -1766,11 +1780,9 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
   const RecModel = mongoose.model('LiveRecording');
   session.recordingStatus = 'AVAILABLE';
   session.status = 'recording_available';
-  // Same "students see it 2h after the class ended" delay as the manual
-  // -upload path (liveScope.uploadRecording) — this was only ever wired
-  // into that path, so a BBB-recorded class (the common case now) was
-  // skipping it entirely and going straight to visible-immediately.
-  const RECORDING_STUDENT_DELAY_MS = 2 * 60 * 60 * 1000;
+  // Students see it the moment it's ready — the old "2h after the class
+  // ended" hold was dropped on request (see liveScope.RECORDING_STUDENT_DELAY_MS).
+  const { RECORDING_STUDENT_DELAY_MS } = require('../../controllers/appControllers/lms/lmsController/liveScope');
   const now = new Date();
   const earliestForStudents = session.actualEnd ? new Date(new Date(session.actualEnd).getTime() + RECORDING_STUDENT_DELAY_MS) : now;
   const publishedAt = earliestForStudents > now ? earliestForStudents : now;
