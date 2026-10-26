@@ -128,6 +128,7 @@ const DB_MAP = {
   LeaveRequest: 'hrmsDb',
   LoanAdvance: 'hrmsDb',
   LoginActivity: 'hrmsDb',
+  WorkSession: 'hrmsDb',
   Payslip: 'hrmsDb',
   Recognition: 'hrmsDb',
   Shift: 'hrmsDb',

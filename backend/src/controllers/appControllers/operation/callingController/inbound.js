@@ -15,10 +15,34 @@ const fullName = (a) => (a ? fixMojibake(`${a.name || ''} ${a.surname || ''}`.tr
 function scopeFor(req) {
   if (callingTier(req) === 'admin') return {};
   const me = req.admin._id;
-  return { $or: [{ agent: me }, { 'inbound.attempts.agent': me }, { 'inbound.stickyAgent': me }] };
+  return { $or: [{ agent: me }, { 'inbound.attempts.agent': me }, { 'inbound.stickyAgent': me }, { ownerAgent: me }] };
 }
 
-const rowOf = (r, leadsByPhone, cbByCall) => {
+// Whose call a row is: who answered it; else the user it's filed under
+// (CallRecord.ownerAgent, set at hangup), the lead's owner, the user who
+// last spoke to this number, or the first user it rang — same order as
+// callingShared.resolveCallOwner, computed here too so older calls show it.
+function whoseCall(r, lead, lastSpoke) {
+  if (r.agentLegAnswered && r.agentName) return { name: r.agentName, why: 'answered' };
+  if (r.ownerAgentName) return { name: r.ownerAgentName, why: lead && lead.assignedUserName === r.ownerAgentName ? 'lead owner' : 'their customer' };
+  if (lead && lead.assignedUserName) return { name: lead.assignedUserName, why: 'lead owner' };
+  const spoke = lastSpoke.get(last10(r.phone));
+  if (spoke) return { name: spoke, why: 'last spoke to them' };
+  const first = r.inbound && (r.inbound.stickyAgentName || ((r.inbound.attempts || [])[0] || {}).agentName);
+  if (first) return { name: first, why: 'rang first' };
+  return null;
+}
+
+// What happened in the IVR menu (calls answered by an IvrFlow, not smart routing).
+function ivrOutcome(r) {
+  if (!r.ivrFlow) return null;
+  const pressed = (r.ivrResponses || []).map((x) => `${x.digit}${x.label && x.label !== `Pressed ${x.digit}` ? ` (${x.label})` : ''}`);
+  if (!pressed.length) return 'Hung up in the IVR menu — pressed nothing';
+  if (r.agentLegAnswered) return `Pressed ${pressed.join(', ')}`;
+  return `Pressed ${pressed.join(', ')} — nobody available`;
+}
+
+const rowOf = (r, leadsByPhone, cbByCall, lastSpoke) => {
   const lead = leadsByPhone.get(last10(r.phone));
   const cb = cbByCall.get(String(r._id));
   const live = LIVE_CALL_STATUSES.includes(r.status);
@@ -47,8 +71,29 @@ const rowOf = (r, leadsByPhone, cbByCall) => {
     recordingUrl: r.recording && r.recording.status === 'available' ? r.recording.url : null,
     callback: cb ? { status: cb.status, agentName: cb.assignedAgentName, scheduledAt: cb.scheduledAt } : null,
     lead: lead ? { id: lead._id, stage: lead.stage, subStatus: lead.subStatus, owner: lead.assignedUserName } : null,
+    whose: whoseCall(r, lead, lastSpoke),
+    ivr: ivrOutcome(r),
   };
 };
+
+// last10 → name of the user who last actually spoke to that number.
+async function lastSpokeMap(phones) {
+  if (!phones.length) return new Map();
+  const { callReachedCustomer } = require('../../../../services/calling/callingShared');
+  const prev = await mongoose
+    .model('CallRecord')
+    .find({ removed: false, agent: { $ne: null }, phone: new RegExp(`(${phones.join('|')})$`) })
+    .select('phone agentName status duration answeredAt agentLegAnswered missedByAgent')
+    .sort({ created: -1 })
+    .limit(3000)
+    .lean();
+  const out = new Map();
+  for (const c of prev) {
+    const k = last10(c.phone);
+    if (!out.has(k) && c.agentName && callReachedCustomer(c)) out.set(k, c.agentName);
+  }
+  return out;
+}
 
 // GET /calling/inbound?days=1|7|30 &state=missed|answered
 const list = async (req, res) => {
@@ -69,22 +114,33 @@ const list = async (req, res) => {
   ]);
   const all = [...liveRows, ...rows];
   const phones = [...new Set(all.map((r) => last10(r.phone)).filter(Boolean))];
-  const [leads, cbs] = await Promise.all([
+  const [leads, cbs, lastSpoke] = await Promise.all([
     phones.length
       ? mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: phones } }).select('name phoneNormalized stage subStatus assignedUserName').lean()
       : [],
     mongoose.model('CallCallback').find({ removed: false, callRecord: { $in: all.map((r) => r._id) } }).select('callRecord status assignedAgentName scheduledAt').lean(),
+    lastSpokeMap(phones.filter((p) => /^\d{10}$/.test(p))),
   ]);
   const leadsByPhone = new Map(leads.map((l) => [l.phoneNormalized, l]));
   const cbByCall = new Map(cbs.map((c) => [String(c.callRecord), c]));
 
-  let recent = rows.map((r) => rowOf(r, leadsByPhone, cbByCall));
+  let recent = rows.map((r) => rowOf(r, leadsByPhone, cbByCall, lastSpoke));
   const summary = {
     total: recent.length,
     answered: recent.filter((r) => r.state === 'answered').length,
     missed: recent.filter((r) => r.state === 'missed').length,
     pendingCallbacks: recent.filter((r) => r.callback && r.callback.status === 'Pending').length,
     live: liveRows.length,
+    // Missed calls per user they belong to ("No user" = nobody to file it under).
+    missedByUser: Object.entries(
+      recent.filter((r) => r.state === 'missed').reduce((acc, r) => {
+        const k = (r.whose && r.whose.name) || 'No user';
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      }, {})
+    )
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count),
   };
   if (req.query.state === 'missed' || req.query.state === 'answered') recent = recent.filter((r) => r.state === req.query.state);
 
@@ -92,7 +148,7 @@ const list = async (req, res) => {
   const callerId = require('../../../../config/calling').callingConfig.cloud.callerId || null;
   return res.status(200).json({
     success: true,
-    result: { live: liveRows.map((r) => rowOf(r, leadsByPhone, cbByCall)), recent, summary, days, number: callerId, isAdmin: callingTier(req) === 'admin' },
+    result: { live: liveRows.map((r) => rowOf(r, leadsByPhone, cbByCall, lastSpoke)), recent, summary, days, number: callerId, isAdmin: callingTier(req) === 'admin' },
     message: 'ok',
   });
 };

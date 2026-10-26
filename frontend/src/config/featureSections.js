@@ -1239,6 +1239,8 @@ export const FEATURE_SECTIONS = [
           { label: 'Exits In Progress', entity: 'exitrecord', filter: 'status', equal: 'Notice Period' },
         ],
       },
+      // Live login / breaks / leave approvals (pages/WorkTracker, /api/workday/admin).
+      { key: 'work-tracker', label: 'Work & Leave Tracker', Icon: FieldTimeOutlined, embed: 'workTracker' },
       {
         key: 'users',
         label: 'Users',

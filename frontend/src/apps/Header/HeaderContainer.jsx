@@ -12,6 +12,7 @@ import useLanguage from '@/locale/useLanguage';
 import { useTheme } from '@/context/themeContext';
 
 import NotificationBell from './NotificationBell';
+import WorkdayWidget from '@/components/Workday';
 
 export default function HeaderContent() {
   const currentAdmin = useSelector(selectCurrentAdmin);
@@ -159,6 +160,9 @@ export default function HeaderContent() {
           </option>
         ))}
       </select>
+
+      {/* Leftmost (the header is row-reverse): Login / breaks / leave. */}
+      <WorkdayWidget />
 
       {/* <AppsButton /> */}
     </Header>

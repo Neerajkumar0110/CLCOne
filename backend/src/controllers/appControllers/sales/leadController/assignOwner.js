@@ -62,7 +62,7 @@ const assignOwner = async (req, res) => {
     if (!ids.length) return bad(res, 'No valid leads selected.');
     match = { removed: false, _id: { $in: ids } };
   } else if (b.filter && typeof b.filter === 'object') {
-    match = buildLeadListFilter(b.filter);
+    match = await buildLeadListFilter(b.filter);
   } else {
     return bad(res, 'Pick the leads to assign.');
   }

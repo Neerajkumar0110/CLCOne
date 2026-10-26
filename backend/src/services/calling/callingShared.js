@@ -518,9 +518,57 @@ async function notifyAgentCallEvent(agentId, event, callRecord) {
   }
 }
 
+// A call no agent ever took still belongs to someone, so its recording is
+// filed under a user (CallRecord.ownerAgent): the lead's owner, else the
+// user who last spoke to this number, else the first user an inbound call
+// rang. Idempotent; leaves calls with an agent alone.
+async function resolveCallOwner(callRecord) {
+  if (!callRecord || callRecord.agent || callRecord.ownerAgent) return null;
+  const CallRecord = mongoose.model('CallRecord');
+  const p10 = last10(callRecord.phone);
+  let owner = null;
+
+  if (p10) {
+    const lead = await mongoose
+      .model('Lead')
+      .findOne({ phoneNormalized: p10, removed: false, assignedUser: { $ne: null } })
+      .select('assignedUser assignedUserName')
+      .sort({ updated: -1 })
+      .lean();
+    if (lead) owner = { id: lead.assignedUser, name: lead.assignedUserName };
+  }
+  if (!owner && p10) {
+    const prev = await CallRecord.find({ _id: { $ne: callRecord._id }, removed: false, phone: new RegExp(`${p10}$`), agent: { $ne: null } })
+      .select('agent agentName status duration answeredAt agentLegAnswered missedByAgent')
+      .sort({ created: -1 })
+      .limit(15)
+      .lean();
+    const hit = prev.find((r) => callReachedCustomer(r));
+    if (hit) owner = { id: hit.agent, name: hit.agentName };
+  }
+  if (!owner && callRecord.inbound) {
+    const first = callRecord.inbound.stickyAgent
+      ? { agent: callRecord.inbound.stickyAgent, agentName: callRecord.inbound.stickyAgentName }
+      : (callRecord.inbound.attempts || []).find((x) => x.agent);
+    if (first) owner = { id: first.agent, name: first.agentName };
+  }
+  if (!owner) return null;
+
+  if (!owner.name) {
+    const a = await mongoose.model('Admin').findById(owner.id).select('name surname').lean();
+    owner.name = a ? `${a.name || ''} ${a.surname || ''}`.trim() : '';
+  }
+  await CallRecord.updateOne(
+    { _id: callRecord._id, agent: null, ownerAgent: null },
+    { $set: { ownerAgent: owner.id, ownerAgentName: owner.name } }
+  );
+  return owner;
+}
+
 module.exports = {
   digitsOnly,
   last10,
+  resolveCallOwner,
   secs,
   LIVE_CALL_STATUSES,
   BUSY_AGENT_STATUSES,

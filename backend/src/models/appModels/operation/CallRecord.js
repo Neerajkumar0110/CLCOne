@@ -32,6 +32,14 @@ const schema = new mongoose.Schema({
   attempt: Number,
   agent: { type: mongoose.Schema.ObjectId, ref: 'Admin', index: true },
   agentName: String,
+  // Whose call this is when no agent ever took it (missed inbound, a pool
+  // customer no agent was free for): the lead's owner, else the user who
+  // last spoke to this number, else the first user it rang. Set when the
+  // call ends (callingShared.resolveCallOwner). Recordings / history file the
+  // call under this user; `agent` stays empty so performance stats only
+  // count calls someone actually took.
+  ownerAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin', index: true },
+  ownerAgentName: String,
 
   contactName: String,
   phone: String,

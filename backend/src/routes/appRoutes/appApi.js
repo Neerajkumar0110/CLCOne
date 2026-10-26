@@ -37,6 +37,7 @@ const routerApp = (entity, controller) => {
     router.route(`/${entity}/stage-stats`).get(catchErrors(controller['stageStats']));
     router.route(`/${entity}/by-stage`).get(catchErrors(controller['byStage']));
     router.route(`/${entity}/used`).get(catchErrors(controller['usedLeads']));
+    router.route(`/${entity}/used/move`).post(catchErrors(controller['usedMove']));
     router.route(`/${entity}/my-contacts`).get(catchErrors(controller['myContacts']));
     router.route(`/${entity}/assign-owner`).post(catchErrors(controller['assignOwner']));
   }

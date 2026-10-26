@@ -227,6 +227,17 @@ export default function IncomingCalls({ currentAdminId }) {
         </div>
       )}
 
+      {s?.missedByUser?.length > 0 && (
+        <div className="ic-howto" style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <b style={{ marginRight: 4 }}>Missed, by whose call:</b>
+          {s.missedByUser.map((u) => (
+            <span key={u.name} className={`ic-chip ${u.name === "No user" ? "" : "is-red"}`}>
+              {u.name} <small>· {u.count}</small>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="hub-table-wrapper">
         <table className="hub-table ic-table">
           <thead>
@@ -234,7 +245,7 @@ export default function IncomingCalls({ currentAdminId }) {
               <th>Time</th>
               <th>Caller</th>
               <th>Result</th>
-              <th>Rang</th>
+              <th>Whose call / Rang</th>
               <th>Wait / Talk</th>
               <th>Follow-up</th>
               <th />
@@ -278,7 +289,14 @@ export default function IncomingCalls({ currentAdminId }) {
                   {c.disposition && <div className="ic-muted">{c.disposition}</div>}
                 </td>
                 <td>
-                  <Attempts list={c.attempts} />
+                  {c.whose ? (
+                    <div style={{ marginBottom: 4 }}>
+                      <b>{c.whose.name}</b> <span className="ic-muted">· {c.whose.why}</span>
+                    </div>
+                  ) : (
+                    <div className="ic-muted" style={{ marginBottom: 4 }}>No user — new caller</div>
+                  )}
+                  {c.ivr ? <span className="ic-muted">{c.ivr}</span> : <Attempts list={c.attempts} />}
                 </td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   {fmtDuration(c.waitSec)} wait

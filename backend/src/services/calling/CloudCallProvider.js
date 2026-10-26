@@ -462,16 +462,27 @@ class CloudCallProvider extends CallingProvider {
   // (see plivoAnswer.js's roomName()), so one targeted lookup per call is
   // enough — no need to guess at call_uuid, which for a conference
   // recording is Plivo's own conference_uuid, not either leg's call_uuid.
+  //
+  // A whole-leg recording (connectModes.recordCustomerCall — inbound calls,
+  // pool customers answered before an agent) has no conference, so it's
+  // looked up by the leg's call_uuid (kept in recording.reference) as well.
+  // The longest match wins, same rule as the webhook.
   async syncRecording(callRecord) {
     if (!this._ready) return false;
     const p = this._cfg.plivo;
-    const conferenceName = `call-${callRecord._id}`;
-    const r = await this._fetchJson(
-      `${p.apiBase}/v1/Account/${p.authId}/Recording/?conference_name=${encodeURIComponent(conferenceName)}`,
-      { method: 'GET', headers: { Authorization: `Basic ${Buffer.from(`${p.authId}:${p.authToken}`).toString('base64')}`, Accept: 'application/json' } }
-    );
-    const found = r.ok && Array.isArray(r.json?.objects) ? r.json.objects[0] : null;
-    if (!found || !found.recording_url) return false;
+    const headers = { Authorization: `Basic ${Buffer.from(`${p.authId}:${p.authToken}`).toString('base64')}`, Accept: 'application/json' };
+    const ref = callRecord.recording && callRecord.recording.reference;
+    const uuids = [...new Set([ref && String(ref).startsWith('call:') ? String(ref).slice(5) : null, callRecord.providerCallId])]
+      .filter((u) => u && !/^(cloud|manual)-/.test(String(u)));
+    const queries = [`conference_name=${encodeURIComponent(`call-${callRecord._id}`)}`, ...uuids.map((u) => `call_uuid=${encodeURIComponent(u)}`)];
+    let found = null;
+    for (const qs of queries) {
+      const r = await this._fetchJson(`${p.apiBase}/v1/Account/${p.authId}/Recording/?${qs}`, { method: 'GET', headers });
+      for (const o of (r.ok && Array.isArray(r.json?.objects) ? r.json.objects : [])) {
+        if (o.recording_url && (!found || Number(o.recording_duration_ms) > Number(found.recording_duration_ms))) found = o;
+      }
+    }
+    if (!found) return false;
 
     const CallRecord = mongoose.model('CallRecord');
     await CallRecord.updateOne(

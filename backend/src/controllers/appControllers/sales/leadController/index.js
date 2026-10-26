@@ -31,6 +31,7 @@ methods.teamStats = teamStats;
 methods.stageStats = stageStats;
 methods.byStage = byStage;
 methods.usedLeads = usedLeads;
+methods.usedMove = usedLeads.moveToStage;
 methods.myContacts = myContacts;
 methods.assignOwner = assignOwner;
 

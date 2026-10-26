@@ -19,8 +19,12 @@ const list = async (req, res) => {
 
   // scope
   const tier = callingTier(req);
+  // A user's calls = ones they took + ones nobody took that are filed under
+  // them (CallRecord.ownerAgent — missed inbound, unclaimed pool calls).
+  const callsOf = (id) => ({ $or: [{ agent: id }, { agent: null, ownerAgent: id }] });
+  const and = [];
   if (tier === 'agent') {
-    filter.agent = req.admin._id;
+    and.push(callsOf(req.admin._id));
   } else if (tier === 'manager') {
     const scope = await campaignScope(req);
     const camps = await CallCampaign.find({ removed: false, ...scope }).select('_id').lean();
@@ -28,14 +32,15 @@ const list = async (req, res) => {
   }
 
   if (q.campaign) filter.campaign = q.campaign;
-  if (q.agent) filter.agent = q.agent;
+  if (q.agent && mongoose.isValidObjectId(q.agent)) and.push(callsOf(new mongoose.Types.ObjectId(q.agent)));
   if (q.status && q.status !== 'All') filter.status = q.status;
   if (q.disposition) filter.disposition = q.disposition;
   if (q.direction) filter.direction = q.direction;
   if (q.q) {
     const rx = new RegExp(String(q.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ contactName: rx }, { phone: rx }, { agentName: rx }];
+    filter.$or = [{ contactName: rx }, { phone: rx }, { agentName: rx }, { ownerAgentName: rx }];
   }
+  if (and.length) filter.$and = and;
   if (q.from || q.to) {
     filter.created = {};
     if (q.from) filter.created.$gte = new Date(q.from);
@@ -59,7 +64,15 @@ const list = async (req, res) => {
   if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
     const me = String(req.admin._id);
     for (const r of result) {
-      if (r.recording && String(r.agent) !== me) r.recording = { ...r.recording, url: null };
+      const mine = String(r.agent) === me || (!r.agent && String(r.ownerAgent) === me);
+      if (r.recording && !mine) r.recording = { ...r.recording, url: null };
+    }
+  }
+  // A call nobody took shows the user it's filed under.
+  for (const r of result) {
+    if (!r.agentName && r.ownerAgentName) {
+      r.agentName = r.ownerAgentName;
+      r.ownerOnly = true;
     }
   }
 

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { callingConfig } = require('../../../../config/calling');
-const { setAgent, wrapupAgent, resolveLead, recountCampaign, notifyAgentCallEvent } = require('../../../../services/calling/callingShared');
+const { setAgent, wrapupAgent, resolveLead, recountCampaign, notifyAgentCallEvent, resolveCallOwner } = require('../../../../services/calling/callingShared');
 
 // POST /api/cloud-call/webhook — call-status + IVR callbacks from the cloud
 // calling provider (Plivo).
@@ -241,14 +241,22 @@ const cloudWebhook = async (req, res) => {
   // request's save and could silently drop this update depending on
   // interleaving. Write it as its own atomic $set instead, decoupled from
   // the mutation above, so it can never be lost regardless of ordering.
+  // A call can now carry two recordings — the whole customer leg (inbound /
+  // pool answer, connectModes.recordCustomerCall) and the agent conference —
+  // so the longer one wins rather than whichever callback lands last.
   if (recordingUrl) {
+    const recSec =
+      Math.round(Number(pick(b, 'recording_duration', 'RecordingDuration')) || Number(pick(b, 'recording_duration_ms', 'RecordingDurationMs')) / 1000 || durationSec) || 0;
     await CallRecord.updateOne(
-      { _id: rec._id },
+      {
+        _id: rec._id,
+        $or: [{ 'recording.status': { $ne: 'available' } }, { 'recording.durationSec': { $lte: recSec } }],
+      },
       {
         $set: {
           'recording.status': 'available',
           'recording.url': recordingUrl,
-          'recording.durationSec': Math.round(durationSec) || rec.recording?.durationSec || 0,
+          'recording.durationSec': recSec,
           'recording.readyAt': new Date(),
         },
       }
@@ -276,6 +284,11 @@ const cloudWebhook = async (req, res) => {
     if (smartInbound) {
       // free whoever was still ringing; nobody answered → missed + callback
       await require('../../../../services/calling/inboundRouting').customerGone(rec).catch((err) => console.error('[inbound] end failed:', err.message));
+    }
+    // Nobody took it — file it (and its recording) under the user it belongs to.
+    if (!rec.agent) {
+      const fresh = await CallRecord.findById(rec._id).select('phone agent ownerAgent inbound').lean();
+      await resolveCallOwner(fresh).catch((err) => console.error('[calling] owner lookup failed:', err.message));
     }
     // A missed inbound call says nothing about the lead — don't move it.
     if (!(smartInbound && !rec.agentLegAnswered)) await resolveLead(

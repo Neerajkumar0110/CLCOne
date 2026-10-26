@@ -89,6 +89,10 @@ const schema = new mongoose.Schema({
   // Ownership + free-text.
   assignedUser: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   assignedUserName: String,
+  // When management sent this used lead back to a pipeline stage from Used
+  // Leads (leadController/usedLeads.js moveToStage). Until a later call, it
+  // shows in Lead Stages again instead of Used Leads → "Not with any user".
+  usedReleasedAt: Date,
   // Every owner change made through Lead Owner (leadController/
   // assignOwner.js): who it moved from/to, who did it, when.
   ownerHistory: {

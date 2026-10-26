@@ -106,16 +106,29 @@ async function stopAgentLine(agentId) {
     .updateOne({ agent: agentId }, { $set: { agentLineLive: false, agentLineCallUuid: null, agentLineRequestId: null } });
 }
 
-// Plivo records the customer's own call (both sides mixed) — alwaysOn has
-// no per-call conference to record.
-async function recordCustomerCall(rec) {
-  if (!rec || !rec.providerCallId) return;
+// Plivo records the customer's own call (both sides mixed, IVR / hold
+// included). Used wherever no per-call conference would record it: alwaysOn,
+// inbound calls from the moment they're answered, and Instant Lead Pool
+// customers who answer before an agent is claimed. `callUuid` is the live
+// leg's CallUUID from Plivo's answer request — an outbound record's
+// providerCallId is the dial request_uuid. Started at most once per leg
+// (recording.reference); syncRecording() finds it by call_uuid if the
+// callback never arrives.
+async function recordCustomerCall(rec, callUuid) {
+  const uuid = callUuid || (rec && rec.providerCallId);
+  if (!rec || !uuid || /^(cloud|manual)-/.test(String(uuid))) return;
+  const ref = `call:${uuid}`;
+  const claim = await mongoose
+    .model('CallRecord')
+    .updateOne({ _id: rec._id, 'recording.reference': { $ne: ref } }, { $set: { 'recording.reference': ref } });
+  if (!claim.modifiedCount) return;
   const cb = `${p().publicBaseUrl}/api/cloud-call/webhook?crmCallId=${rec._id}${secretQs()}`;
-  await fetch(`${p().apiBase}/v1/Account/${p().authId}/Call/${rec.providerCallId}/Record/`, {
+  const res = await fetch(`${p().apiBase}/v1/Account/${p().authId}/Call/${uuid}/Record/`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: { ...authHeaders(), Connection: 'close' },
     body: JSON.stringify({ file_format: 'mp3', callback_url: cb, callback_method: 'POST' }),
-  }).catch(() => {});
+  }).catch((e) => ({ ok: false, status: e.message, text: async () => '' }));
+  if (!res.ok) console.error(`[calling] recording did not start for ${rec._id} (${res.status}): ${(await res.text()).slice(0, 200)}`);
 }
 
 // Actually end the customer's call (the in-call Hang Up button) — needed

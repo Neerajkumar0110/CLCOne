@@ -21,6 +21,7 @@ const TeamChat = lazy(() =>
 );
 // Sales' Leads / Customers sub-tabs reuse the existing full pages.
 const Leads = lazy(() => import('@/pages/Leads'));
+const WorkTracker = lazy(() => import('@/pages/WorkTracker'));
 const Customer = lazy(() => import('@/pages/Customer'));
 // Sales' Pipeline tab — live funnel computed from the Deals (salesdeal) list.
 const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
@@ -66,6 +67,7 @@ const Payments = lazy(() => import('@/pages/Payments'));
 const EMBED = {
   teamChat: TeamChat,
   leads: Leads,
+  workTracker: WorkTracker,
   customer: Customer,
   salesPipeline: SalesPipeline,
   salesDashboard: SalesDashboard,

@@ -25,4 +25,6 @@ module.exports = {
   callRecordController: blockedController('call record'),
   callCallbackController: blockedController('call callback'),
   agentCallStateController: blockedController('agent state'),
+  // Header Login / breaks — driven only through /api/workday (services/hr/workday.js).
+  workSessionController: blockedController('work session'),
 };

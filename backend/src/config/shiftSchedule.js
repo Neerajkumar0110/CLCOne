@@ -10,6 +10,13 @@ module.exports = {
 
   targetWorkMinutes: 8 * 60,
 
+  // Work-day frame for the header Login / leave flow (services/hr/workday.js).
+  // autoStartAt: anyone in Sales who hasn't logged in by then is put on the
+  // dialer anyway (jobs/workdayTick.js) — unless it's a holiday, their
+  // weekly off, or they're on approved leave. Half-day leave splits the day
+  // at halfSplit. weeklyOff uses JS day numbers (0 = Sunday).
+  workday: { start: '10:00', end: '19:30', halfSplit: '14:30', autoStartAt: '11:00', weeklyOff: [0] },
+
   // `key` must be stable (used to dedupe "already took this break today").
   // `start`/`end` is the window the break option is OFFERED in; `durationMin`
   // is how long the dialer actually pauses once the agent taps it — not

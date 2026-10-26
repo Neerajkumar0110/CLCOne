@@ -107,7 +107,11 @@ export default function CallHistory() {
                   <tr key={r._id}>
                     <td>{r.contactName || "—"}</td>
                     <td>{r.phone}</td>
-                    <td>{r.agentName || "—"}</td>
+                    <td>
+                      {r.agentName || "—"}
+                      {/* nobody took it — filed under the lead's owner / last user who spoke to them */}
+                      {r.ownerOnly && <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>not picked · their lead</div>}
+                    </td>
                     <td>{r.campaign?.name || "—"}</td>
                     <td>{fmtDateTime(r.endedAt || r.created)}</td>
                     <td>{r.duration ? fmtDuration(r.duration) : "—"}</td>

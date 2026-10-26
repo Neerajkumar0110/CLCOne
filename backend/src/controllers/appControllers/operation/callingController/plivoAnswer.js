@@ -260,6 +260,11 @@ async function handleInboundCall(req, res, cfg, secretQs) {
   const fromNumber = b.From || b.from;
   const callUuid = b.CallUUID || b.call_uuid;
 
+  // Record every inbound call from the moment it's answered — a caller who
+  // hangs up in the IVR / hold loop never reaches a recorded conference.
+  const { recordCustomerCall } = require('../../../../services/calling/connectModes');
+  const recordFromStart = (rec) => setTimeout(() => recordCustomerCall(rec, callUuid).catch(() => {}), 1500);
+
   const IvrFlow = mongoose.model('IvrFlow');
   const flow = await IvrFlow.findOne({ removed: false, enabled: true, direction: 'Inbound' }).sort({ created: 1 });
   if (!flow) {
@@ -267,6 +272,7 @@ async function handleInboundCall(req, res, cfg, secretQs) {
     // user, else a Team Leader (services/calling/inboundRouting.js).
     const inbound = require('../../../../services/calling/inboundRouting');
     const rec = await inbound.start({ from: fromNumber, to: b.To || b.to, callUuid });
+    recordFromStart(rec);
     const holdUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${rec._id}&leg=inbound-hold&n=1${secretQs}`;
     respondXml(
       res,
@@ -287,6 +293,7 @@ async function handleInboundCall(req, res, cfg, secretQs) {
     ivrFlow: flow._id,
     notes: 'Inbound IVR call',
   }).save();
+  recordFromStart(rec);
 
   const actionUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${rec._id}&leg=ivr-digits${secretQs}`;
   return respondXml(
@@ -581,6 +588,13 @@ const plivoAnswer = async (req, res) => {
         if (!rec.answeredAt) rec.answeredAt = new Date();
         rec.phaseAt = new Date();
         await rec.save();
+        // A pool customer has no agent yet and may never get one (hold,
+        // then re-queue) — record from the answer so that call is kept too.
+        if (!rec.agent) {
+          const answeredUuid = (req.body && (req.body.CallUUID || req.body.call_uuid)) || req.query.CallUUID;
+          const { recordCustomerCall } = require('../../../../services/calling/connectModes');
+          setTimeout(() => recordCustomerCall(rec, answeredUuid).catch(() => {}), 1500);
+        }
       }
       if (rec.agent) {
         const Admin = mongoose.model('Admin');
@@ -649,7 +663,8 @@ const plivoAnswer = async (req, res) => {
       const { notifyAgentCallEvent, setAgent } = require('../../../../services/calling/callingShared');
       await setAgent(rec.agent, { status: 'OnCall', currentCall: rec._id, since: new Date() });
       notifyAgentCallEvent(rec.agent, 'call:connected', rec).catch(() => {});
-      setTimeout(() => modes.recordCustomerCall(rec).catch(() => {}), 1500);
+      const answeredUuid = (req.body && (req.body.CallUUID || req.body.call_uuid)) || req.query.CallUUID;
+      setTimeout(() => modes.recordCustomerCall(rec, answeredUuid).catch(() => {}), 1500);
       return respondXml(
         res,
         `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" waitSound="">${escapeXml(modes.agentRoom(rec.agent))}</Conference></Response>`

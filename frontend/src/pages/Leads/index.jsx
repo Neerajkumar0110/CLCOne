@@ -70,6 +70,9 @@ const HUB_ANTD_TOKENS = { colorPrimary: "var(--hub-blue)", borderRadius: 10 };
 // salesScope.js's FULL_ACCESS_ROLES (Team Manager added on top of the
 // shared FULL_ACCESS_ROLES constant, same as Support's own tier).
 const LEAD_ADMIN_TAB_ROLES = [...FULL_ACCESS_ROLES, "Team Manager"];
+// Lead Stages bucket for leads a user called but never responded on
+// (backend leadController/scope.js NOT_ENTERED).
+const NOT_ENTERED = "Response Not Entered";
 // Team Activity — mirrors backend FULL_ACCESS_ROLES (callingController/
 // teamActivity.js), which also lets Sales Manager in.
 const TEAM_ACTIVITY_ROLES = [...FULL_ACCESS_ROLES, "Sales Manager", "Team Manager"];
@@ -1323,6 +1326,9 @@ function AllLeads() {
   const [filters, setFilters] = useState(BLANK_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [drill, setDrill] = useState({ leads: [], page: 1, pages: 1, count: 0, loading: false });
+  const [pageSize, setPageSize] = useState(20);
+  // "Assigned User" picks among Sales users only (same set Lead Owner can give leads to).
+  const salesAdmins = admins.filter((a) => a.enabled !== false && DEPARTMENT_ROLES.Sales.includes(a.role));
 
   // teamView toggles the SAME stage-board view between self/team scope — it
   // shouldn't, on its own, switch the page into the flat drilled-down list
@@ -1358,12 +1364,16 @@ function AllLeads() {
     if (Object.keys(over).length) setSelectedIds([]);
     setDrill((d) => ({ ...d, loading: true }));
 
-    const params = new URLSearchParams({ page: String(targetPage), items: "12" });
+    const size = over.size || pageSize;
+    const params = new URLSearchParams({ page: String(targetPage), items: String(size) });
     if (stage) params.set("stage", stage);
     if (sub) params.set("subStatus", sub);
     Object.entries(f).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
+    // A stage drilled from the board lists the same leads it counted — the
+    // caller's own responses (Team Leader: + team's), see stageStats.js.
+    if (stage && !f.teamView && !f.team && !f.assignedUser) params.set("teamView", "responses");
 
     const res = await request.get({ entity: `lead/by-stage?${params.toString()}` });
     setDrill({
@@ -1429,11 +1439,18 @@ function AllLeads() {
   const togglePageTicks = () =>
     setSelectedIds((ids) => (allPageTicked ? ids.filter((x) => !pageIds.includes(x)) : [...new Set([...ids, ...pageIds])]));
 
+  // "All Leads" — drop every stage/filter and list the whole pipeline.
   const clearList = () => {
     setSelectedIds([]);
     setDrillStage(null);
     setDrillSub(null);
     setFilters(BLANK_FILTERS);
+    loadLeadList(1, { stage: null, sub: null, filters: BLANK_FILTERS });
+  };
+
+  const changePageSize = (size) => {
+    setPageSize(size);
+    loadLeadList(1, { size });
   };
 
   const loadTeamStats = async () => {
@@ -1463,6 +1480,7 @@ function AllLeads() {
     loadTeamStats();
     loadStageStats();
     loadAdmins();
+    loadLeadList(1);
   }, []);
 
   const handlePanelChange = (key) => {
@@ -1481,7 +1499,7 @@ function AllLeads() {
     await loadTeamStats();
     await loadStageStats();
     if (activeTeam) await loadTeamLeads(activeTeam, 1);
-    if (listActive) await loadLeadList(drill.page);
+    await loadLeadList(drill.page);
   };
 
   // Duplicate detection is server-side now (POST /api/lead/create answers
@@ -1548,7 +1566,7 @@ function AllLeads() {
         <div className="hub-card-header">
           <h3>Lead List</h3>
           <div className="hub-row" style={{ gap: 8 }}>
-            {canAssignOwner && listActive && (
+            {canAssignOwner && (
               <button
                 type="button"
                 className="hub-btn hub-btn-primary"
@@ -1668,7 +1686,7 @@ function AllLeads() {
                 >
                   <option value="">Anyone</option>
                   <option value="none">Unassigned (no owner)</option>
-                  {admins.map((a) => (
+                  {salesAdmins.map((a) => (
                     <option key={a._id} value={a._id}>
                       {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
                     </option>
@@ -1755,12 +1773,7 @@ function AllLeads() {
           </div>
         )}
 
-        {!listActive ? (
-          <div className="hub-empty">
-            Pick a stage above, a quick filter, or open Filters to browse the lead list.
-          </div>
-        ) : (
-          <>
+        <>
             <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
               {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}
               {drillStage ? ` · ${drillStage}` : ""}
@@ -1832,12 +1845,44 @@ function AllLeads() {
                           </td>
                           <td>{l.phone || "—"}</td>
                           <td>
-                            <span className={`hub-badge ${STATUS_META[l.stage || l.status]}`}>
-                              {l.stage || stageForStatus(l.status)}
-                            </span>
-                            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>{l.subStatus || "—"}</div>
+                            {drillStage === NOT_ENTERED ? (
+                              // Called, but this user never recorded a response — the stage on
+                              // the lead was set by someone else or by the import, so say so.
+                              (() => {
+                                const last = [...(l.stageHistory || [])].reverse().find((h) => h.changedByName);
+                                return (
+                                  <>
+                                    <span className="hub-badge hub-badge-gray">Response not entered</span>
+                                    <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 3, lineHeight: 1.35 }}>
+                                      Now: {l.stage || stageForStatus(l.status)}
+                                      {l.subStatus ? ` · ${l.subStatus}` : ""}
+                                      <br />
+                                      set by {last ? last.changedByName : "lead import"}
+                                    </div>
+                                  </>
+                                );
+                              })()
+                            ) : (
+                              <>
+                                <span className={`hub-badge ${STATUS_META[l.stage || l.status]}`}>
+                                  {l.stage || stageForStatus(l.status)}
+                                </span>
+                                <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>{l.subStatus || "—"}</div>
+                              </>
+                            )}
                           </td>
-                          <td>{l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}</td>
+                          <td>
+                            {l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}
+                            {(() => {
+                              // Who last worked it — most leads have no owner, only responses.
+                              const last = [...(l.stageHistory || [])].reverse().find((h) => h.changedByName);
+                              return last ? (
+                                <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>
+                                  last response: {last.changedByName}
+                                </div>
+                              ) : null;
+                            })()}
+                          </td>
                           <td>{l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toLocaleDateString() : "—"}</td>
                           <td>
                             {l.callBackAt ? (
@@ -1885,12 +1930,23 @@ function AllLeads() {
               </table>
             </div>
 
-            {drill.pages > 1 && (
-              <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
+            {drill.count > 0 && (
+              <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14, flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
-                  Page {drill.page} of {drill.pages} · {drill.count} total
+                  Page {drill.page} of {drill.pages || 1} · {drill.count} total
                 </span>
                 <div className="hub-row" style={{ gap: 8 }}>
+                  <select
+                    className="hub-select"
+                    style={{ width: "auto" }}
+                    value={pageSize}
+                    onChange={(e) => changePageSize(Number(e.target.value))}
+                    aria-label="Leads per page"
+                  >
+                    {[10, 20, 50, 100, 200].map((n) => (
+                      <option key={n} value={n}>{n} / page</option>
+                    ))}
+                  </select>
                   <button type="button" className="hub-btn" disabled={drill.page <= 1} onClick={() => loadLeadList(drill.page - 1)}>
                     <LeftOutlined /> Prev
                   </button>
@@ -1900,8 +1956,7 @@ function AllLeads() {
                 </div>
               </div>
             )}
-          </>
-        )}
+        </>
       </div>
 
       {teamStats.length > 0 && (
@@ -2113,7 +2168,18 @@ function AllLeads() {
           single={ownerModal?.single || null}
           viewCount={drill.count}
           viewFilter={listViewFilter()}
-          viewLabel={[drillStage, drillSub].filter(Boolean).join(" · ")}
+          viewLabel={[
+            drillStage,
+            drillSub,
+            filters.assignedUser === "none"
+              ? "Unassigned"
+              : (() => {
+                  const u = admins.find((a) => a._id === filters.assignedUser);
+                  return u ? `${u.name || ""} ${u.surname || ""}`.trim() : "";
+                })(),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         />
       )}
 
@@ -3206,6 +3272,18 @@ function UsedLeadsBoard() {
   const [callers, setCallers] = useState([]);
   const [caller, setCaller] = useState("");
   const [outcome, setOutcome] = useState("");
+  // Chart + table filters are client-side over the loaded rows.
+  const [stageFilter, setStageFilter] = useState("");
+  const [respFilter, setRespFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [ownerFilter, setOwnerFilter] = useState(""); // "" | unassigned | assigned
+  const [showAllResp, setShowAllResp] = useState(false);
+  // Bulk "Move to stage" for leads no user has (backend usedLeads.moveToStage).
+  const [picked, setPicked] = useState([]);
+  const [moveStage, setMoveStage] = useState("");
+  const [moveSub, setMoveSub] = useState("");
+  const [moving, setMoving] = useState(false);
 
   useEffect(() => {
     request.list({ entity: "admin", options: { items: 500 } }).then((res) => {
@@ -3230,23 +3308,218 @@ function UsedLeadsBoard() {
 
   useEffect(() => {
     load();
+    setStageFilter("");
+    setRespFilter("");
+    setPage(1);
+    setPicked([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caller, outcome]);
+  useEffect(() => setPicked([]), [ownerFilter]);
+
+  const NOT_IN_CRM = "Not in CRM";
+  const stageOf = (l) => (l.stage ? (STAGE_NAMES.includes(l.stage) ? l.stage : "Other") : NOT_IN_CRM);
+
+  // "Not with any user" = no owner, no sales user connected, and not already
+  // sent back to a stage (those are in Lead Stages again).
+  const parked = (l) => !l.owned && !l.released;
+  // Owner filter is client-side, so it narrows the charts as well as the table.
+  const base = leads.filter((l) => (ownerFilter === "unassigned" ? parked(l) : ownerFilter === "assigned" ? l.owned : true));
+  const total = base.length;
+  const connected = base.filter((l) => l.outcome === "connected").length;
+  const notPicked = total - connected;
+  const noOwnerCount = leads.filter(parked).length;
+  const autoOnlyCount = base.filter((l) => l.noUser).length;
+  const stageCounts = {};
+  const respCounts = {};
+  for (const l of base) {
+    stageCounts[stageOf(l)] = (stageCounts[stageOf(l)] || 0) + 1;
+    respCounts[l.response] = (respCounts[l.response] || 0) + 1;
+  }
+  const stageBars = [...STAGE_NAMES, "Other", NOT_IN_CRM]
+    .filter((s) => stageCounts[s])
+    .map((s) => ({ key: s, count: stageCounts[s], color: s === NOT_IN_CRM || s === "Other" ? "#94a3b8" : stageColor(s) }));
+  // Responses coloured by what they mean, not one flat blue.
+  const RESP_GROUPS = [
+    { color: "#f59e0b", match: /not picked|ringing|not reachable|switch off|busy/i },
+    { color: "#ef4444", match: /not interested|do not call|price|joined|wrong number|language|did not inquire|invalid/i },
+    { color: "#10b981", match: /demo|prospect|qualified|callback|future|enrol/i },
+  ];
+  const respColor = (k) => (RESP_GROUPS.find((g) => g.match.test(k)) || { color: "#3b82f6" }).color;
+  const respBars = Object.entries(respCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, count]) => ({ key: k, count, color: respColor(k) }));
+
+  const shown = base.filter((l) => (!stageFilter || stageOf(l) === stageFilter) && (!respFilter || l.response === respFilter));
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const pageRows = shown.slice((page - 1) * pageSize, page * pageSize);
+
+  const pick = (setter, current, value) => {
+    setter(current === value ? "" : value);
+    setPage(1);
+  };
+
+  // Selection only applies in "Not with any user", and only to real CRM leads.
+  const selectable = ownerFilter === "unassigned";
+  const movable = (l) => l.isLead && parked(l);
+  const pageIds = pageRows.filter(movable).map((l) => String(l._id));
+  const shownIds = shown.filter(movable).map((l) => String(l._id));
+  const allPagePicked = pageIds.length > 0 && pageIds.every((id) => picked.includes(id));
+  const togglePick = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const togglePage = () =>
+    setPicked((p) => (allPagePicked ? p.filter((x) => !pageIds.includes(x)) : [...new Set([...p, ...pageIds])]));
+
+  const moveSelected = async () => {
+    if (!picked.length || !moveStage) return;
+    if (!window.confirm(`Move ${picked.length} lead${picked.length === 1 ? "" : "s"} to ${moveStage}${moveSub ? ` · ${moveSub}` : ""}? They'll show in Lead Stages again.`)) return;
+    setMoving(true);
+    const res = await request.post({ entity: "lead/used/move", jsonData: { leadIds: picked, stage: moveStage, subStatus: moveSub || undefined } });
+    setMoving(false);
+    if (res?.success) {
+      message.success(res.message);
+      setPicked([]);
+      setMoveStage("");
+      setMoveSub("");
+      load();
+    } else {
+      message.error(res?.message || "Could not move the leads.");
+    }
+  };
+  const pctOf = (n) => {
+    if (!total || !n) return "0%";
+    const p = (n / total) * 100;
+    return p < 1 ? "<1%" : `${Math.round(p)}%`;
+  };
+
+  // One horizontal-bar breakdown panel; each row toggles that value as a
+  // table filter. Long lists show the top `limit` rows until expanded.
+  const BarList = ({ title, subtitle, bars, active, onPick, limit, expanded, onToggle, legend }) => {
+    const max = Math.max(1, ...bars.map((b) => b.count));
+    const visible = limit && !expanded ? bars.slice(0, limit) : bars;
+    return (
+      <div style={{ flex: "1 1 340px", minWidth: 0, background: "var(--hub-surface)", border: "1px solid var(--hub-border)", borderRadius: 14, padding: "16px 14px 10px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "0 6px", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--hub-text)" }}>{title}</div>
+            <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 2 }}>{subtitle}</div>
+          </div>
+          {legend && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {legend.map((g) => (
+                <span key={g.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "var(--hub-muted)", fontWeight: 600 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: g.color }} />
+                  {g.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {visible.map((b) => {
+            const on = active === b.key;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => onPick(b.key)}
+                title={on ? "Click again to clear" : `Show only ${b.key}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(120px, 1.2fr) 2fr 48px 38px",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "7px 8px",
+                  borderRadius: 9,
+                  border: `1px solid ${on ? b.color : "transparent"}`,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  background: on ? "var(--hub-bg-soft)" : "transparent",
+                  opacity: active && !on ? 0.5 : 1,
+                  transition: "background 0.15s, opacity 0.15s",
+                }}
+                onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "var(--hub-bg-soft)"; }}
+                onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, color: "var(--hub-text)", minWidth: 0 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={b.key}>{b.key}</span>
+                </span>
+                <span style={{ height: 10, borderRadius: 999, background: "var(--hub-border)", overflow: "hidden" }}>
+                  <span style={{ display: "block", height: "100%", width: `${Math.max(2, (b.count / max) * 100)}%`, background: b.color, borderRadius: 999 }} />
+                </span>
+                <span style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: "var(--hub-text)", fontVariantNumeric: "tabular-nums" }}>{b.count}</span>
+                <span style={{ textAlign: "right", fontSize: 11, fontWeight: 600, color: "var(--hub-muted)", fontVariantNumeric: "tabular-nums" }}>{pctOf(b.count)}</span>
+              </button>
+            );
+          })}
+        </div>
+        {limit && bars.length > limit && (
+          <button type="button" className="hub-link-btn" style={{ fontSize: 12, margin: "8px 8px 2px" }} onClick={onToggle}>
+            {expanded ? "Show less" : `Show all ${bars.length}`}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // KPI tile — clicking one applies the matching filter (click again to clear).
+  const Tile = ({ label, value, color, sub, icon, active, onClick, hint }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={hint}
+      style={{
+        flex: "1 1 170px",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        textAlign: "left",
+        cursor: onClick ? "pointer" : "default",
+        background: "var(--hub-surface)",
+        border: `1px solid ${active ? color : "var(--hub-border)"}`,
+        boxShadow: active ? `0 0 0 3px ${color}22` : "none",
+        borderRadius: 14,
+        padding: "14px 16px",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+      }}
+    >
+      <span style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: `${color}1a`, color, fontSize: 18, flexShrink: 0 }}>
+        {icon}
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{ fontSize: 22, fontWeight: 700, color: "var(--hub-text)", fontVariantNumeric: "tabular-nums" }}>{value}</span>
+          {sub && <span style={{ fontSize: 11.5, fontWeight: 700, color }}>{sub}</span>}
+        </span>
+        <span style={{ display: "block", fontSize: 12, color: "var(--hub-muted)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+      </span>
+    </button>
+  );
 
   return (
     <div className="hub-stack">
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{leads.length}</span>}</h3>
+          <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{total}</span>}</h3>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select className="hub-select" style={{ width: 200 }} value={caller} onChange={(e) => setCaller(e.target.value)}>
               <option value="">All sales users</option>
+              <option value="none">No user (auto-dialer only)</option>
               {callers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <select className="hub-select" style={{ width: 160 }} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
               <option value="">All responses</option>
               <option value="connected">Connected</option>
               <option value="notpicked">Not picked up</option>
+            </select>
+            <select
+              className="hub-select"
+              style={{ width: 200 }}
+              value={ownerFilter}
+              onChange={(e) => { setOwnerFilter(e.target.value); setStageFilter(""); setRespFilter(""); setPage(1); }}
+            >
+              <option value="">Any owner</option>
+              <option value="unassigned">Not with any user</option>
+              <option value="assigned">With a user (owner / connected)</option>
             </select>
             <button type="button" className="hub-btn" onClick={load}>Refresh</button>
           </div>
@@ -3266,17 +3539,175 @@ function UsedLeadsBoard() {
         </div>
       )}
 
+      {!loading && !error && leads.length > 0 && (
+        <div className="hub-card">
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Tile
+              label="Used leads"
+              value={total}
+              color="#2563eb"
+              icon={<PhoneOutlined />}
+              hint="Show every used lead"
+              onClick={() => { setOutcome(""); setCaller(""); setOwnerFilter(""); }}
+            />
+            <Tile
+              label="Connected (spoke to customer)"
+              value={connected}
+              sub={pctOf(connected)}
+              color="#16a34a"
+              icon={<CheckCircleOutlined />}
+              active={outcome === "connected"}
+              onClick={() => setOutcome(outcome === "connected" ? "" : "connected")}
+            />
+            <Tile
+              label="Not picked up"
+              value={notPicked}
+              sub={pctOf(notPicked)}
+              color="#d97706"
+              icon={<DisconnectOutlined />}
+              active={outcome === "notpicked"}
+              onClick={() => setOutcome(outcome === "notpicked" ? "" : "notpicked")}
+            />
+            <Tile
+              label="Not with any user"
+              value={noOwnerCount}
+              color="#7c3aed"
+              icon={<UserSwitchOutlined />}
+              active={ownerFilter === "unassigned"}
+              hint="No Lead Owner and no sales user has connected with them yet"
+              onClick={() => { setOwnerFilter(ownerFilter === "unassigned" ? "" : "unassigned"); setStageFilter(""); setRespFilter(""); setPage(1); }}
+            />
+            <Tile
+              label="Auto-dialer only (no sales user)"
+              value={autoOnlyCount}
+              color="#64748b"
+              icon={<RocketOutlined />}
+              active={caller === "none"}
+              hint="Never went to a sales user — only the auto-dialer pool called them"
+              onClick={() => setCaller(caller === "none" ? "" : "none")}
+            />
+          </div>
+
+          {total > 0 && (
+            <div style={{ margin: "18px 0 20px" }}>
+              <div style={{ display: "flex", height: 12, borderRadius: 999, overflow: "hidden", background: "var(--hub-border)" }}>
+                <div style={{ width: `${(connected / total) * 100}%`, background: "#16a34a" }} title={`Connected: ${connected}`} />
+                <div style={{ width: `${(notPicked / total) * 100}%`, background: "#f59e0b" }} title={`Not picked up: ${notPicked}`} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--hub-muted)", marginTop: 6, fontWeight: 600 }}>
+                <span><span style={{ color: "#16a34a" }}>●</span> Connected {pctOf(connected)}</span>
+                <span><span style={{ color: "#f59e0b" }}>●</span> Not picked up {pctOf(notPicked)}</span>
+              </div>
+            </div>
+          )}
+
+          {total > 0 ? (
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <BarList
+                title="Current stage"
+                subtitle="Where these leads stand in the pipeline now"
+                bars={stageBars}
+                active={stageFilter}
+                onPick={(v) => pick(setStageFilter, stageFilter, v)}
+              />
+              <BarList
+                title="Response on last call"
+                subtitle="What was recorded on the most recent call"
+                bars={respBars}
+                active={respFilter}
+                onPick={(v) => pick(setRespFilter, respFilter, v)}
+                limit={8}
+                expanded={showAllResp}
+                onToggle={() => setShowAllResp((v) => !v)}
+                legend={[
+                  { label: "Positive", color: "#10b981" },
+                  { label: "Connected", color: "#3b82f6" },
+                  { label: "No answer", color: "#f59e0b" },
+                  { label: "Negative", color: "#ef4444" },
+                ]}
+              />
+            </div>
+          ) : (
+            <div className="hub-empty" style={{ marginTop: 16 }}>No used leads match these filters.</div>
+          )}
+        </div>
+      )}
+
       {!loading && !error && (
         <div className="hub-card">
-          {leads.length === 0 ? (
-            <div className="hub-empty">{caller || outcome ? "No leads match these filters." : "No leads have been called yet."}</div>
+          {(stageFilter || respFilter) && (
+            <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
+              {shown.length} of {total} · {[stageFilter, respFilter].filter(Boolean).join(" · ")}{" "}
+              <button type="button" className="hub-link-btn" style={{ fontSize: 12 }} onClick={() => { setStageFilter(""); setRespFilter(""); setPage(1); }}>
+                clear
+              </button>
+            </div>
+          )}
+          {selectable && shownIds.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                marginBottom: 12,
+                borderRadius: 12,
+                border: `1px solid ${picked.length ? "#7c3aed" : "var(--hub-border)"}`,
+                background: picked.length ? "#7c3aed0f" : "var(--hub-bg-soft)",
+              }}
+            >
+              <b style={{ fontSize: 13, color: "var(--hub-text)" }}>
+                {picked.length ? `${picked.length} selected` : "Tick leads to move them back into the pipeline"}
+              </b>
+              {picked.length < shownIds.length && (
+                <button type="button" className="hub-link-btn" style={{ fontSize: 12 }} onClick={() => setPicked(shownIds)}>
+                  Select all {shownIds.length}
+                </button>
+              )}
+              {picked.length > 0 && (
+                <button type="button" className="hub-link-btn" style={{ fontSize: 12 }} onClick={() => setPicked([])}>
+                  clear
+                </button>
+              )}
+              <span style={{ flex: 1 }} />
+              <select
+                className="hub-select"
+                style={{ width: 190 }}
+                value={moveStage}
+                onChange={(e) => { setMoveStage(e.target.value); setMoveSub(""); }}
+                aria-label="Move to stage"
+              >
+                <option value="">Move to stage…</option>
+                {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              {moveStage && subStatusesFor(moveStage).length > 0 && (
+                <select className="hub-select" style={{ width: 220 }} value={moveSub} onChange={(e) => setMoveSub(e.target.value)} aria-label="Sub-status">
+                  <option value="">Default sub-status</option>
+                  {subStatusesFor(moveStage).map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              <button type="button" className="hub-btn hub-btn-primary" disabled={!picked.length || !moveStage || moving} onClick={moveSelected}>
+                {moving ? "Moving…" : "Move"}
+              </button>
+            </div>
+          )}
+          {shown.length === 0 ? (
+            <div className="hub-empty">{caller || outcome || ownerFilter || stageFilter || respFilter ? "No leads match these filters." : "No leads have been called yet."}</div>
           ) : (
+            <>
             <div className="hub-table-wrapper">
               <table className="hub-table">
                 <thead>
                   <tr>
+                    {selectable && (
+                      <th style={{ width: 36 }}>
+                        <input type="checkbox" aria-label="Select every lead on this page" checked={allPagePicked} onChange={togglePage} disabled={!pageIds.length} />
+                      </th>
+                    )}
                     <th>Client</th>
                     <th>Phone</th>
+                    <th>Stage</th>
                     <th>Response</th>
                     <th>Called By</th>
                     <th>Assigned</th>
@@ -3285,10 +3716,32 @@ function UsedLeadsBoard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((l) => (
+                  {pageRows.map((l) => (
                     <tr key={l._id}>
+                      {selectable && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${l.name}`}
+                            checked={picked.includes(String(l._id))}
+                            onChange={() => togglePick(String(l._id))}
+                            disabled={!movable(l)}
+                            title={movable(l) ? undefined : "Not a CRM lead — can't be moved to a stage"}
+                          />
+                        </td>
+                      )}
                       <td>{l.name}</td>
                       <td>{l.phone || "—"}</td>
+                      <td>
+                        {l.stage ? (
+                          <>
+                            <span className={`hub-badge ${STATUS_META[l.stage] || "hub-badge-gray"}`}>{l.stage}</span>
+                            {l.subStatus && <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>{l.subStatus}</div>}
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>{NOT_IN_CRM}</span>
+                        )}
+                      </td>
                       <td>
                         <span
                           className={`hub-badge ${
@@ -3298,9 +3751,9 @@ function UsedLeadsBoard() {
                           {l.response}
                         </span>
                       </td>
-                      <td>{l.calledBy || "—"}</td>
+                      <td>{l.calledBy || (l.noUser ? "Auto-dialer" : "—")}</td>
                       <td title={l.assignedFromCall ? "No owner yet — this is who spoke to them" : undefined}>
-                        {l.assignedUserName || "—"}
+                        {l.assignedUserName || (l.noUser ? <span style={{ color: "var(--hub-muted)" }}>No user</span> : "—")}
                         {l.assignedFromCall && <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 500 }}>talked</div>}
                       </td>
                       <td>{l.team || "Unassigned"}</td>
@@ -3310,6 +3763,29 @@ function UsedLeadsBoard() {
                 </tbody>
               </table>
             </div>
+            <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14, flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
+                Page {page} of {pages} · {shown.length} total
+              </span>
+              <div className="hub-row" style={{ gap: 8 }}>
+                <select
+                  className="hub-select"
+                  style={{ width: "auto" }}
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  aria-label="Leads per page"
+                >
+                  {[10, 20, 50, 100, 200].map((n) => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+                <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  <LeftOutlined /> Prev
+                </button>
+                <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+                  Next <RightOutlined />
+                </button>
+              </div>
+            </div>
+            </>
           )}
         </div>
       )}

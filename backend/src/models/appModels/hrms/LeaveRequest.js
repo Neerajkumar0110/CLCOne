@@ -22,5 +22,16 @@ module.exports = mongoose.model(
     { name: 'contactDuringLeave', type: 'String' },
     { name: 'handoverTo', type: 'String' },
     { name: 'decisionNote', type: 'String' },
+    // Self-service leave from the header (services/hr/workday.js) — the
+    // applicant's Admin id, how long (1–2 hours / half day / day / days) and
+    // the exact window: fromDate/toDate carry the start/end TIME too, which
+    // is what pauses or keeps off their auto-dialer.
+    { name: 'adminId', type: 'String' },
+    { name: 'durationType', type: 'String', enum: ['hours', 'half', 'full', 'multi'] },
+    { name: 'hours', type: 'Number' },
+    { name: 'halfPart', type: 'String', enum: ['first', 'second'] },
+    { name: 'fromTime', type: 'String' },
+    { name: 'decisionToken', type: 'String' }, // one-click Approve/Reject link from the email
+    { name: 'decisionBy', type: 'String' },
   ])
 );

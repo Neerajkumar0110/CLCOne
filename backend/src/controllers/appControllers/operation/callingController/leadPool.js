@@ -267,7 +267,8 @@ const status = async (req, res) => {
   const shift = {
     targetWorkMinutes: shiftSchedule.targetWorkMinutes,
     workedMinutesToday,
-    shouldAutoJoin: !on && isWithinJoinWindow(now) && !joinedToday,
+    // Not on a holiday / weekly off / approved leave day (services/hr/workday.js).
+    shouldAutoJoin: !on && isWithinJoinWindow(now) && !joinedToday && !(await require('../../../../services/hr/workday').dayOff(req.admin, todayKey)),
     activeBreak,
     onBreak: !!(myState && myState.status === 'Paused' && myState.pausedUntil),
     breakUntil: myState && myState.status === 'Paused' ? myState.pausedUntil : null,

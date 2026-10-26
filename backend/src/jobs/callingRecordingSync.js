@@ -34,7 +34,7 @@ function startCallingRecordingSync() {
         'recording.status': { $ne: 'available' },
         endedAt: { $gte: new Date(Date.now() - WINDOW_MS) },
       })
-        .select('_id')
+        .select('_id providerCallId recording.reference')
         .limit(BATCH_LIMIT)
         .lean();
 

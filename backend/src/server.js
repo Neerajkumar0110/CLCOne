@@ -147,6 +147,11 @@ if (!RUN_BACKGROUND_JOBS) {
   const startLeadPoolSyncTick = require('./jobs/leadPoolSyncTick');
   startLeadPoolSyncTick();
 
+  // Work day: 11:00 auto-start of the dialer for Sales users who haven't hit
+  // Login, and approved leave pausing / stopping it (see jobs/workdayTick.js).
+  const startWorkdayTick = require('./jobs/workdayTick');
+  startWorkdayTick();
+
   // End-of-day email to every agent who missed at least one routed call today
   // (never picked up — see CallRecord.missedByAgent / plivoAnswer.js's
   // leg=agent-hangup branch). No-op unless CALLING_PROVIDER=cloud, since

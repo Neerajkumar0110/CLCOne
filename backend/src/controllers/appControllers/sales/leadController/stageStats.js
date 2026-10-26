@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { LEAD_STAGES, STAGE_NAMES, stageForStatus } = require('../../../../config/leadStages');
-const { leadScopeFilter } = require('./scope');
+const { leadScopeFilter, userLeadMatch, responseScopeUsers, NOT_ENTERED } = require('./scope');
+const { parkedPhones } = require('./usedLeads');
 
 // GET /api/lead/stage-stats?team=<optional>
 // Powers the Lead Stages dashboard card. Returns every stage in pipeline
@@ -16,12 +17,55 @@ const stageStats = async (req, res) => {
   // Row-level visibility — same rule as every other Lead read path (see
   // scope.js), so a non-management caller's dashboard totals only ever
   // reflect their own (or their team's) pipeline, not the whole company's.
-  const scopeFilter = await leadScopeFilter(req.admin, req);
-  const finalMatch = Object.keys(scopeFilter).length ? { $and: [match, scopeFilter] } : match;
+  // The board defaults to the caller's own responses (Team Leader: + their
+  // team's) unless a narrower view was picked explicitly.
+  const q = req.query || {};
+  const responsesView = !(q.teamView || q.team || q.agent) || q.teamView === 'responses';
+  let finalMatch = match;
+  let notEnteredExpr = null; // true for a lead the scoped users called but never responded on
+  if (responsesView) {
+    // Own leads = ones they responded on + ones they called. A called lead
+    // with no response of theirs goes to NOT_ENTERED, not its current stage.
+    const users = await responseScopeUsers(req.admin);
+    if (users) {
+      const m = await userLeadMatch(users);
+      finalMatch = { $and: [match, m.any] };
+      notEnteredExpr = {
+        $not: [
+          {
+            $anyElementTrue: [
+              {
+                $map: {
+                  input: { $ifNull: ['$stageHistory', []] },
+                  as: 'h',
+                  in: { $or: [{ $in: ['$$h.changedBy', m.ids] }, { $in: ['$$h.changedByName', m.names] }] },
+                },
+              },
+            ],
+          },
+        ],
+      };
+    }
+  }
+  if (!notEnteredExpr) {
+    if (!responsesView) {
+      const scopeFilter = await leadScopeFilter(req.admin, req);
+      if (Object.keys(scopeFilter).length) finalMatch = { $and: [match, scopeFilter] };
+    }
+    // Used leads no user has are counted in Used Leads → "Not with any user",
+    // not here, until they're sent back to a stage (usedLeads.parkedPhones).
+    const parked = await parkedPhones();
+    if (parked.length) match.phoneNormalized = { $nin: parked };
+  }
 
   const rows = await Lead.aggregate([
     { $match: finalMatch },
-    { $group: { _id: { stage: '$stage', subStatus: '$subStatus', status: '$status' }, count: { $sum: 1 } } },
+    {
+      $group: {
+        _id: { stage: '$stage', subStatus: '$subStatus', status: '$status', notEntered: notEnteredExpr || { $literal: false } },
+        count: { $sum: 1 },
+      },
+    },
   ]);
 
   const countByStage = {};
@@ -31,8 +75,13 @@ const stageStats = async (req, res) => {
     subByStage[s] = {};
   });
   let other = 0;
+  let notEntered = 0;
 
   for (const r of rows) {
+    if (r._id.notEntered) {
+      notEntered += r.count;
+      continue;
+    }
     // A lead always has `stage` now, but fall back through `status` for any
     // doc written before the migration.
     let stage = r._id.stage;
@@ -46,7 +95,7 @@ const stageStats = async (req, res) => {
     subByStage[stage][sub] = (subByStage[stage][sub] || 0) + r.count;
   }
 
-  const total = STAGE_NAMES.reduce((sum, s) => sum + countByStage[s], 0) + other;
+  const total = STAGE_NAMES.reduce((sum, s) => sum + countByStage[s], 0) + other + notEntered;
 
   const stages = LEAD_STAGES.map((cfg) => ({
     stage: cfg.stage,
@@ -68,6 +117,17 @@ const stageStats = async (req, res) => {
       description: 'Legacy values not yet migrated.',
       count: other,
       percentage: total ? Math.round((other / total) * 100) : 0,
+      subStatuses: [],
+    });
+  }
+
+  if (notEntered > 0) {
+    stages.push({
+      stage: NOT_ENTERED,
+      color: '#94A3B8',
+      description: 'Called, but no response was recorded by this user.',
+      count: notEntered,
+      percentage: total ? Math.round((notEntered / total) * 100) : 0,
       subStatuses: [],
     });
   }
