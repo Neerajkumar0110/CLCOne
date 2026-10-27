@@ -186,6 +186,7 @@ router.route('/teacher/live-classes').get(catchErrors(lms.liveList));
 router.route('/teacher/recordings').get(catchErrors(lms.liveRecordings));
 router.route('/teacher/attendance').get(catchErrors(lms.liveAttendanceDashboard));
 router.route('/teacher/attendance/export').get(catchErrors(lms.liveAttendanceExport));
+router.route('/teacher/attendance/student').get(catchErrors(lms.liveAttendanceStudent));
 
 // ── student portal (self-scoped) ─────────────────────────────────────
 router.route('/portal/config').get(catchErrors(lms.portalConfig));
@@ -212,6 +213,7 @@ router.route('/admin/provision-all').post(requireManager, catchErrors(lms.adminP
 // ── admin live-class management ────────────────────────────────────
 router.route('/admin/attendance').get(requireManager, catchErrors(lms.liveAttendanceDashboard));
 router.route('/admin/attendance/export').get(requireManager, catchErrors(lms.liveAttendanceExport));
+router.route('/admin/attendance/student').get(requireManager, catchErrors(lms.liveAttendanceStudent));
 router.route('/admin/recordings').get(requireManager, catchErrors(lms.liveRecordings));
 // Organisation-wide holiday calendar — the dates no batch gets a class on.
 // Rules, not a date list, so one entry covers every year; the lunar ones

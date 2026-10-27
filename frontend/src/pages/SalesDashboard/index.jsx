@@ -1,35 +1,38 @@
 import React, { useState } from "react";
 import { SettingOutlined } from "@ant-design/icons";
 import HubModal from "@/components/HubModal";
-import DashboardShell from "@/components/dashboard/DashboardShell";
-import { DASH_CONFIGS } from "@/components/dashboard/configs";
+import Sales360 from "@/pages/WorkTracker/Sales360";
 import SystemSettings from "./SystemSettings";
 import useBusinessLock from "@/hooks/useBusinessLock";
 
-// The Sales › "B2B / B2C Dashboard" tab — now the shared analytics shell
-// pointed at the `leads` module. The old Team-classification + monthly cost
-// editors live behind the "Systems & Costs" button (they still power the
-// ALL | B2B | B2C toggle and the legacy /sales-dashboard ratios).
+// The Sales › Dashboard tab: the Sales 360° report (every Sales user's login,
+// calls, talk time, responses, leads, sales and recordings — management sees
+// the team, everyone else themselves). It also took over everything the old
+// "Leads Analytics" view showed (lead KPIs, source / stage / team charts,
+// funnel, lead list). The Team-classification + monthly cost editors live
+// behind "Systems & Costs" (they still power the ALL | B2B | B2C toggle and
+// the legacy /sales-dashboard ratios).
 export default function SalesDashboard() {
   const [showSettings, setShowSettings] = useState(false);
   // Team classification spans both segments — not for a B2B/B2C-locked user.
   const businessLock = useBusinessLock();
 
-  // UI update: the shared Purple Gradient default and Sales dashboard styles
-  // are applied through this module wrapper; dashboard logic remains unchanged.
   return (
     <div className="sales-dashboard-ui">
-      <DashboardShell
-        module="leads"
-        config={DASH_CONFIGS.leads}
-        extraActions={
-          !businessLock && (
-          <button type="button" className="hub-btn" onClick={() => setShowSettings(true)}>
-            <SettingOutlined /> Systems &amp; Costs
-          </button>
-          )
-        }
-      />
+      <div className="hub-stack">
+        <div className="hub-card sd-head">
+          <div>
+            <h1>Sales 360° Performance</h1>
+            <p>Login to logout — calls, talk time, leads, demos, enrolments, payments and recordings for every Sales user</p>
+          </div>
+          {!businessLock && (
+            <button type="button" className="hub-btn" onClick={() => setShowSettings(true)}>
+              <SettingOutlined /> Systems &amp; Costs
+            </button>
+          )}
+        </div>
+        <Sales360 />
+      </div>
       <HubModal
         open={showSettings && !businessLock}
         onClose={() => setShowSettings(false)}

@@ -1,11 +1,11 @@
 const { windowFromQuery } = require('./shared');
 
-// One controller family for all 9 analytics dashboards. Each module file
+// One controller family for the analytics dashboards. Each module file
 // exports { summary({from,to,prevFrom,prevTo,query,req}) , rows?(...) } and
-// returns the uniform payload documented in the plan.
+// returns the uniform payload documented in the plan. (Leads Analytics was
+// folded into Sales 360° — hrms/sales360.js — on 2026-10-27.)
 const MODULES = {
   overview: require('./modules/overview'),
-  leads: require('./modules/leads'),
   customers: require('./modules/customers'),
   interns: require('./modules/interns'),
   calls: require('./modules/calls'),

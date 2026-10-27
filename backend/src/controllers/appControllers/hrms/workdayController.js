@@ -3,6 +3,7 @@ const wd = require('../../../services/hr/workday');
 const shiftSchedule = require('../../../config/shiftSchedule');
 const { FULL_ACCESS_ROLES } = require('../../../services/access/salesScope');
 const { SALES_ROLES } = require('../../../config/roles');
+const sales360 = require('./sales360');
 
 // /api/workday — the header Login / break / leave widget (any CRM user) and
 // the admin "Work & Leave Tracker" (management). Logic lives in
@@ -78,6 +79,16 @@ const leaveCancel = async (req, res) =>
 
 // ── admin ────────────────────────────────────────────────────────────────
 const guard = (fn) => async (req, res) => (isManager(req) ? fn(req, res) : bad(res, 'Management only.', 403));
+// Management sees anyone; everyone else only themselves (their own 360°,
+// day timeline and month report) — adminId is forced to the caller.
+const selfOrManager = (fn) => async (req, res) => {
+  if (!isManager(req)) {
+    req.query.adminId = String(req.admin._id);
+    req.query.team = '';
+    req.query.self = '1';
+  }
+  return fn(req, res);
+};
 const minutes = (a, b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
 
 // GET /workday/admin/board?date=YYYY-MM-DD&role=&team=&status=&q=
@@ -245,30 +256,39 @@ const decide = guard(async (req, res) => {
 });
 
 // GET /workday/admin/timeline?adminId=&date= — one user's day, event by event.
-const timeline = guard(async (req, res) => {
+const timeline = selfOrManager(async (req, res) => {
   const { adminId } = req.query;
   if (!mongoose.isValidObjectId(adminId)) return bad(res, 'Pick a user.');
   const dayKey = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : wd.todayKey();
   const { start, end } = wd.dayBounds(dayKey);
-  const [events, session, calls, user] = await Promise.all([
+  const [events, session, calls, user, responses] = await Promise.all([
     mongoose.model('AgentActivity').find({ agent: adminId, at: { $gte: start, $lte: end } }).sort({ at: 1 }).lean(),
     wd.getSession(adminId, dayKey),
     mongoose
       .model('CallRecord')
       .find({ removed: false, agent: adminId, created: { $gte: start, $lte: end } })
-      .select('contactName phone direction status duration answeredAt created disposition')
+      .select('contactName phone direction status duration answeredAt agentLegAnswered created endedAt disposition missedByAgent recording.status')
       .sort({ created: 1 })
       .lean(),
     mongoose.model('Admin').findById(adminId).select('name surname role email').lean(),
+    // lead responses this user entered that day
+    mongoose.model('Lead').aggregate([
+      { $match: { removed: false, stageHistory: { $elemMatch: { changedBy: new mongoose.Types.ObjectId(adminId), at: { $gte: start, $lte: end } } } } },
+      { $unwind: '$stageHistory' },
+      { $match: { 'stageHistory.changedBy': new mongoose.Types.ObjectId(adminId), 'stageHistory.at': { $gte: start, $lte: end } } },
+      { $project: { _id: 0, leadId: '$_id', name: 1, phone: 1, at: '$stageHistory.at', fromStage: '$stageHistory.fromStage', toStage: '$stageHistory.toStage', toSubStatus: '$stageHistory.toSubStatus', remarks: '$stageHistory.remarks' } },
+      { $sort: { at: 1 } },
+      { $limit: 500 },
+    ]),
   ]);
-  return ok(res, { dayKey, user: user ? { name: wd.fullName(user), role: user.role, email: user.email } : null, session, events, calls });
+  return ok(res, { dayKey, user: user ? { name: wd.fullName(user), role: user.role, email: user.email } : null, session, events, calls, responses });
 });
 
 // GET /workday/admin/report?month=YYYY-MM&adminId=  → .xlsx
 // A month of attendance for every Sales user (or one): Summary (one row per
 // person), Daily (person × day) and Leaves sheets. Days after today are left
 // out; a past day with no Logout is counted up to the shift end.
-const report = guard(async (req, res) => {
+const report = selfOrManager(async (req, res) => {
   const XLSX = require('xlsx');
   const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : wd.todayKey().slice(0, 7);
   const first = `${month}-01`;
@@ -521,5 +541,11 @@ module.exports = {
   decide,
   timeline,
   report,
+  sales360: selfOrManager(sales360.summary),
+  sales360Calls: selfOrManager(sales360.calls),
+  sales360Leads: selfOrManager(sales360.leads),
+  sales360LeadList: selfOrManager(sales360.leadList),
+  sales360LeadsReport: selfOrManager(sales360.leadsSection),
+  sales360Export: selfOrManager(sales360.exportXlsx),
   publicDecision,
 };

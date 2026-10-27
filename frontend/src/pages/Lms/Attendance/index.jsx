@@ -10,6 +10,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
+import StudentReport from './StudentReport';
 import './Attendance.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -27,6 +28,7 @@ function Dashboard({ role }) {
   const [correcting, setCorrecting] = useState(null); // row being corrected
   const [correctForm] = Form.useForm();
   const [correctBusy, setCorrectBusy] = useState(false);
+  const [report, setReport] = useState(null); // row whose candidate report is open
 
   const fetcher = role === 'admin' ? lmsApi.adminAttendance : lmsApi.teacherAttendance;
 
@@ -106,6 +108,8 @@ function Dashboard({ role }) {
         dataSource={rows}
         pagination={{ pageSize: 25, showSizeChanger: true }}
         scroll={{ x: 1100 }}
+        rowClassName={() => 'att-row-click'}
+        onRow={(r) => ({ onClick: () => setReport(r), title: 'Open full attendance report' })}
         columns={[
           { title: 'Candidate', dataIndex: 'studentName', fixed: 'left', width: 150 },
           { title: 'Email', dataIndex: 'email', width: 190 },
@@ -141,13 +145,15 @@ function Dashboard({ role }) {
                   <Button
                     size="small" type="text" icon={<EditOutlined />} disabled={!r.crmUser}
                     title={r.crmUser ? 'Correct attendance' : 'No login account for this row'}
-                    onClick={() => { setCorrecting(r); correctForm.setFieldsValue({ status: r.status, reason: '' }); }}
+                    onClick={(e) => { e.stopPropagation(); setCorrecting(r); correctForm.setFieldsValue({ status: r.status, reason: '' }); }}
                   />
                 ),
               }]
             : []),
         ]}
       />
+
+      {report && <StudentReport role={role} target={report} onClose={() => setReport(null)} />}
 
       <Modal
         className="crud-modal"

@@ -20,6 +20,12 @@ router.route('/admin/leaves').get(catchErrors(c.leaves));
 router.route('/admin/leave/:id/decide').post(catchErrors(c.decide));
 router.route('/admin/timeline').get(catchErrors(c.timeline));
 router.route('/admin/report').get(catchErrors(c.report));
+router.route('/admin/360').get(catchErrors(c.sales360));
+router.route('/admin/360/calls').get(catchErrors(c.sales360Calls));
+router.route('/admin/360/leads').get(catchErrors(c.sales360Leads));
+router.route('/admin/360/lead-list').get(catchErrors(c.sales360LeadList));
+router.route('/admin/360/leads-report').get(catchErrors(c.sales360LeadsReport));
+router.route('/admin/360/export').get(catchErrors(c.sales360Export));
 
 // Unauthenticated — the approver's one-click link from the leave email,
 // protected by the per-request token instead (see publicDecision).

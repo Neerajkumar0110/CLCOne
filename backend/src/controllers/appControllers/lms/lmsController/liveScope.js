@@ -836,6 +836,215 @@ async function attendanceExport(req, res) {
   return res.status(200).send([headers.join(','), ...rows.map(line)].join('\n'));
 }
 
+// GET /api/lms/(admin|teacher)/attendance/student?crmUser=&email=
+// One candidate's whole attendance story for the row-click modal: roster
+// profile, every class they were marked in (oldest first, with each join/leave
+// interval), totals, streaks, month-by-month, and an engagement verdict
+// (Active / At risk / Inactive) next to the roster status (Active / Dropped…).
+// Batch classes they have no attendance record for (before tracking or before
+// they got the batch) are counted separately, never as absences. A teacher
+// only sees their own classes.
+async function attendanceStudentReport(req, res) {
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const admin = req.admin;
+  const crmUser = mongoose.isValidObjectId(req.query.crmUser) ? new mongoose.Types.ObjectId(String(req.query.crmUser)) : null;
+  const email = String(req.query.email || '').trim().toLowerCase();
+  if (!crmUser && !email) return res.status(400).json({ success: false, message: 'crmUser or email is required.' });
+  const emailRx = email ? new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+
+  const who = [];
+  if (crmUser) who.push({ 'participants.crmUser': crmUser });
+  if (emailRx) who.push({ 'participants.email': emailRx });
+  const q = { removed: false, status: { $ne: 'cancelled' }, $or: who };
+  if (!isManager(admin)) q.$and = [{ $or: [{ teacherCrmUser: admin._id }, { teacherName: admin.name }] }];
+
+  const [sessions, account] = await Promise.all([
+    LmsLiveSession.find(q)
+      .select('title courseTitle batchName teacherName scheduledStart scheduledDurationMin status actualStartAt actualEndAt participants')
+      .sort({ scheduledStart: 1 })
+      .lean(),
+    mongoose
+      .model('Admin')
+      .findOne(crmUser ? { _id: crmUser } : { removed: false, email: emailRx })
+      .select('name surname email phone lastSeenAt')
+      .lean(),
+  ]);
+  const mail = email || String((account && account.email) || '').toLowerCase();
+  const mailRx = mail ? new RegExp(`^${mail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+  const roster = mailRx
+    ? await mongoose
+        .model('Student')
+        .find({ removed: false, email: mailRx })
+        .select('name email phone city course batch enrollmentId enrolledOn status progress avgScore batchAssignedAt batchHistory accessDisabled accessDisabledAt accessDisabledReason')
+        .sort({ updated: -1 })
+        .lean()
+    : [];
+
+  const isMe = (p) => (crmUser && p.crmUser && String(p.crmUser) === String(crmUser)) || (mailRx && mailRx.test(p.email || ''));
+  const done = (s) => ATTENDANCE_COUNTABLE_STATUSES.includes(s.status);
+  const classes = [];
+  for (const s of sessions) {
+    const p = (s.participants || []).find((x) => x.role === 'student' && isMe(x));
+    if (!p) continue;
+    classes.push({
+      sessionId: String(s._id),
+      date: s.scheduledStart,
+      className: s.title,
+      course: s.courseTitle,
+      batch: s.batchName,
+      teacher: s.teacherName,
+      scheduledDurationMin: s.scheduledDurationMin || 0,
+      classStatus: s.status,
+      counted: done(s),
+      status: done(s) ? p.attendanceStatus : s.status === 'live' ? 'LIVE' : 'UPCOMING',
+      joinTime: p.firstJoinAt,
+      leaveTime: p.lastLeftAt,
+      totalDurationMin: p.totalDurationMin || 0,
+      attendancePct: p.attendancePct || 0,
+      lateMin: p.lateBySec ? Math.round(p.lateBySec / 60) : 0,
+      joins: p.joinCount || 0,
+      leaves: p.leaveCount || 0,
+      intervals: (p.sessions || []).map((x) => ({ joinedAt: x.joinedAt, leftAt: x.leftAt, durationMin: x.durationMin || 0 })),
+      corrected: !!p.correctedAt,
+      correctedByName: p.correctedByName,
+      correctedReason: p.correctedReason,
+      excusedReason: p.excusedReason,
+    });
+  }
+
+  // totals over finished classes; EXCUSED stays out of the % (as everywhere)
+  const counted = classes.filter((c) => c.counted);
+  const graded = counted.filter((c) => c.status !== 'EXCUSED');
+  const by = (st) => counted.filter((c) => c.status === st).length;
+  const attended = (c) => c.status === 'PRESENT' || c.status === 'LATE';
+  const streaks = { currentAbsent: 0, longestAbsent: 0, currentPresent: 0, longestPresent: 0 };
+  let runA = 0;
+  let runP = 0;
+  for (const c of graded) {
+    if (c.status === 'ABSENT') {
+      runA += 1;
+      runP = 0;
+    } else {
+      runA = 0;
+      if (attended(c)) runP += 1;
+      else runP = 0;
+    }
+    streaks.longestAbsent = Math.max(streaks.longestAbsent, runA);
+    streaks.longestPresent = Math.max(streaks.longestPresent, runP);
+  }
+  streaks.currentAbsent = runA;
+  streaks.currentPresent = runP;
+  const lastPresent = [...graded].reverse().find((c) => c.status !== 'ABSENT');
+  const last5 = graded.slice(-5);
+
+  const months = new Map();
+  for (const c of graded) {
+    const k = new Date(c.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+    if (!months.has(k)) months.set(k, { month: k, classes: 0, present: 0, late: 0, partial: 0, absent: 0, minutes: 0, pctSum: 0 });
+    const m = months.get(k);
+    m.classes += 1;
+    m.minutes += c.totalDurationMin;
+    m.pctSum += c.attendancePct;
+    if (c.status === 'PRESENT') m.present += 1;
+    else if (c.status === 'LATE') m.late += 1;
+    else if (c.status === 'PARTIAL') m.partial += 1;
+    else m.absent += 1;
+  }
+
+  // Finished batch classes this candidate has no attendance row in, only
+  // while they were in that batch: an old batch from their first to their
+  // last record there, the current roster batch from their first record (or
+  // batch assignment) to now.
+  const current = roster[0] && roster[0].batch;
+  const batches = [...new Set([...classes.map((c) => c.batch), current].filter(Boolean))];
+  const windows = batches
+    .map((b) => {
+      const inB = classes.filter((c) => c.batch === b);
+      const from = inB.length ? inB[0].date : roster[0].batchAssignedAt || roster[0].enrolledOn;
+      if (!from) return null;
+      return { batchName: b, scheduledStart: b === current ? { $gte: from } : { $gte: from, $lte: inB[inB.length - 1].date } };
+    })
+    .filter(Boolean);
+  const seen = new Set(classes.map((c) => c.sessionId));
+  const unmarkedQ = {
+    removed: false,
+    status: { $in: ATTENDANCE_COUNTABLE_STATUSES },
+    _id: { $nin: [...seen].map((id) => new mongoose.Types.ObjectId(id)) },
+    $or: windows,
+  };
+  if (!isManager(admin)) unmarkedQ.$and = [{ $or: [{ teacherCrmUser: admin._id }, { teacherName: admin.name }] }];
+  const [unmarked, nextClass] = await Promise.all([
+    windows.length ? LmsLiveSession.find(unmarkedQ).select('title batchName scheduledStart').sort({ scheduledStart: 1 }).lean() : [],
+    batches.length
+      ? LmsLiveSession.findOne({ removed: false, batchName: { $in: current ? [current] : batches }, status: { $in: ['scheduled', 'live'] }, scheduledStart: { $gte: new Date(Date.now() - 3 * 3600e3) } })
+          .select('title batchName scheduledStart status')
+          .sort({ scheduledStart: 1 })
+          .lean()
+      : null,
+  ]);
+
+  const r0 = roster[0] || null;
+  const rosterStatus = r0 ? r0.status : null;
+  let engagement;
+  if (r0 && r0.accessDisabled) engagement = { key: 'deactivated', label: 'Deactivated', note: r0.accessDisabledReason || 'LMS access switched off' };
+  else if (rosterStatus && rosterStatus !== 'Active') engagement = { key: rosterStatus === 'Dropped' ? 'dropped' : 'roster', label: rosterStatus, note: 'Roster status' };
+  else if (!graded.length) engagement = { key: 'new', label: 'No classes yet', note: 'Nothing to judge on' };
+  else if (streaks.currentAbsent >= 5) engagement = { key: 'inactive', label: 'Inactive — likely drop', note: `Absent the last ${streaks.currentAbsent} classes in a row` };
+  else if (streaks.currentAbsent >= 3 || (last5.length >= 4 && last5.filter(attended).length <= 1)) engagement = { key: 'risk', label: 'At risk', note: `Attended ${last5.filter(attended).length} of the last ${last5.length} classes` };
+  else engagement = { key: 'active', label: 'Active', note: `Attended ${last5.filter(attended).length} of the last ${last5.length} classes` };
+
+  const sample = classes[classes.length - 1];
+  return res.status(200).json({
+    success: true,
+    result: {
+      profile: {
+        name: (r0 && r0.name) || (account && [account.name, account.surname].filter(Boolean).join(' ')) || req.query.name || mail,
+        email: (r0 && r0.email) || mail,
+        phone: (r0 && r0.phone) || (account && account.phone) || '',
+        city: r0 && r0.city,
+        course: (r0 && r0.course) || (sample && sample.course),
+        batch: (r0 && r0.batch) || (sample && sample.batch),
+        enrollmentId: r0 && r0.enrollmentId,
+        enrolledOn: r0 && r0.enrolledOn,
+        batchAssignedAt: r0 && r0.batchAssignedAt,
+        batchHistory: (r0 && r0.batchHistory) || [],
+        rosterStatus,
+        progress: r0 ? r0.progress : null,
+        avgScore: r0 ? r0.avgScore : null,
+        accessDisabled: !!(r0 && r0.accessDisabled),
+        lastSeenAt: account && account.lastSeenAt,
+        hasLogin: !!account,
+      },
+      engagement,
+      summary: {
+        classes: counted.length,
+        present: by('PRESENT'),
+        late: by('LATE'),
+        partial: by('PARTIAL'),
+        absent: by('ABSENT'),
+        excused: by('EXCUSED'),
+        attendedClasses: graded.filter(attended).length,
+        presentRate: graded.length ? Math.round((graded.filter(attended).length / graded.length) * 100) : 0,
+        avgAttendancePct: graded.length ? Math.round(graded.reduce((t, c) => t + c.attendancePct, 0) / graded.length) : 0,
+        totalMin: counted.reduce((t, c) => t + c.totalDurationMin, 0),
+        scheduledMin: graded.reduce((t, c) => t + c.scheduledDurationMin, 0),
+        lateMinTotal: graded.reduce((t, c) => t + c.lateMin, 0),
+        firstClass: classes.length ? classes[0].date : null,
+        lastClass: counted.length ? counted[counted.length - 1].date : null,
+        lastPresent: lastPresent ? lastPresent.date : null,
+        unmarked: unmarked.length,
+        unmarkedList: unmarked.slice(-50).map((u) => ({ title: u.title, batch: u.batchName, at: u.scheduledStart })),
+        unmarkedFrom: unmarked.length ? unmarked[0].scheduledStart : null,
+        unmarkedTo: unmarked.length ? unmarked[unmarked.length - 1].scheduledStart : null,
+        ...streaks,
+      },
+      months: [...months.values()].map(({ pctSum, ...m }) => ({ ...m, avgPct: m.classes ? Math.round(pctSum / m.classes) : 0 })),
+      classes,
+      nextClass: nextClass ? { title: nextClass.title, batch: nextClass.batchName, at: nextClass.scheduledStart, status: nextClass.status } : null,
+    },
+  });
+}
+
 /* ─────────────── ADMIN monitoring + analytics ─────────────── */
 
 async function liveMonitor(req, res) {
@@ -977,6 +1186,7 @@ module.exports = {
   attachLinkToSession,
   attendanceDashboard,
   attendanceExport,
+  attendanceStudentReport,
   liveMonitor,
   analytics,
   getSettings,

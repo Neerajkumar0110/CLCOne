@@ -96,6 +96,8 @@ const lmsApi = {
   adminAttendance: (f = {}) => request.get({ entity: `lms/admin/attendance${qs(f)}` }),
   teacherAttendance: (f = {}) => request.get({ entity: `lms/teacher/attendance${qs(f)}` }),
   studentAttendance: (f = {}) => request.get({ entity: `lms/student/attendance${qs(f)}` }),
+  // one candidate's full attendance report (row click on the dashboard)
+  attendanceStudentReport: (role, f = {}) => request.get({ entity: `lms/${role}/attendance/student${qs(f)}` }),
   // export -> fetch the file with the bearer, then trigger a client download
   attendanceExport: async (role, f = {}) => {
     let token = '';

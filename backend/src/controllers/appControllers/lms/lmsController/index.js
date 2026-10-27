@@ -213,6 +213,7 @@ module.exports = {
   driveProgress: driveFolder.progress,
   liveAttendanceDashboard: scope.attendanceDashboard,
   liveAttendanceExport: scope.attendanceExport,
+  liveAttendanceStudent: scope.attendanceStudentReport,
   liveMonitor: scope.liveMonitor,
   liveAnalytics: scope.analytics,
   liveSettingsGet: scope.getSettings,

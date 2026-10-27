@@ -26,6 +26,7 @@ import storePersist from "@/redux/storePersist";
 // Shared modal look (lv-close, wm-modal, keyframes) + this page's timeline styles.
 import "@/components/Workday/workday.css";
 import "./worktracker.css";
+import Sales360 from "./Sales360";
 
 // HRMS → Work & Leave Tracker (backend /api/workday/admin/*). Who's working,
 // on a break, on leave, auto-started or missing — for any day — with their
@@ -111,7 +112,7 @@ function Kpi({ label, value, color, icon, active, onClick }) {
 }
 
 // ── Day board ────────────────────────────────────────────────────────────
-function Board({ onTimeline }) {
+function Board({ onTimeline, on360 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [date, setDate] = useState(dayjs());
   const [f, setF] = useState({ team: "", role: "", status: "", q: "" });
@@ -244,7 +245,10 @@ function Board({ onTimeline }) {
                     <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>{r.connected} connected · {talk(r.talkSec)}</div>
                   </td>
                   <td>
-                    <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => onTimeline(r, date.format("YYYY-MM-DD"))}>Timeline</button>
+                    <div className="hub-row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                      <button type="button" className="hub-btn" style={{ padding: "4px 10px" }} onClick={() => onTimeline(r, date.format("YYYY-MM-DD"))}>Timeline</button>
+                      <button type="button" className="hub-btn hub-btn-primary" style={{ padding: "4px 10px" }} onClick={() => on360(r)}>360°</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -611,17 +615,29 @@ function TimelineModal({ target, onClose }) {
 export default function WorkTracker() {
   const [tab, setTab] = useState("board");
   const [timeline, setTimeline] = useState(null);
+  const [focusUser, setFocusUser] = useState("");
   return (
     <div className="hub-stack">
       <div className="hub-row" style={{ gap: 6 }}>
         {[
           ["board", "Day board"],
+          ["360", "360° Performance"],
           ["leaves", "Leave requests"],
         ].map(([k, l]) => (
           <button key={k} type="button" className={`hub-btn ${tab === k ? "hub-btn-primary" : ""}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
-      {tab === "board" ? <Board onTimeline={(row, date) => setTimeline({ row, date })} /> : <Leaves />}
+      {tab === "board" && (
+        <Board
+          onTimeline={(row, date) => setTimeline({ row, date })}
+          on360={(row) => {
+            setFocusUser(row.adminId);
+            setTab("360");
+          }}
+        />
+      )}
+      {tab === "360" && <Sales360 initialUser={focusUser} />}
+      {tab === "leaves" && <Leaves />}
       <TimelineModal target={timeline} onClose={() => setTimeline(null)} />
     </div>
   );
