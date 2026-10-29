@@ -117,7 +117,13 @@ export default function StudentDashboard() {
               pagination={false}
               locale={{ emptyText: 'No recordings yet' }}
               columns={[
-                { title: 'Class', dataIndex: 'className' },
+                {
+                  title: 'Class',
+                  render: (_, r) =>
+                    [r.batch, r.date && new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })]
+                      .filter(Boolean)
+                      .join(' — ') || r.className,
+                },
                 { title: 'Internship', dataIndex: 'course' },
                 { title: 'Min', dataIndex: 'durationMin', width: 60 },
               ]}

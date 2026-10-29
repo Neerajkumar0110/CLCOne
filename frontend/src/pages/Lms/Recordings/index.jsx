@@ -57,6 +57,16 @@ function hashText(text) {
   for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
   return h;
 }
+// Recordings are listed by batch + class date ("Sep266730PM — 21 Oct 2026")
+// rather than the curriculum topic stored in className — the topic is kept
+// in the database, just not shown.
+function recTitle(r) {
+  const date = r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  return [r.batchName, date].filter(Boolean).join(' — ') || r.className || 'Recording';
+}
+function fileNameFor(r) {
+  return `${recTitle(r).replace(/[^\w\- ]+/g, '').trim() || 'recording'}.mp4`;
+}
 function thumbFor(text) {
   const key = text || 'recording';
   const idx = hashText(key) % THUMB_PALETTE.length;
@@ -129,7 +139,7 @@ export default function Recordings() {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) =>
-      [r.className, r.courseTitle, r.batchName, r.teacherName].some((v) => (v || '').toLowerCase().includes(q))
+      [recTitle(r), r.courseTitle, r.teacherName].some((v) => (v || '').toLowerCase().includes(q))
     );
   }, [rows, search]);
 
@@ -172,7 +182,7 @@ export default function Recordings() {
       }
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(rec.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`;
+      a.download = fileNameFor(rec);
       a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
@@ -474,8 +484,8 @@ export default function Recordings() {
                           )}
                         </div>
                         <div>
-                          <div className="class-title">{r.className}</div>
-                          <div className="class-subtitle">{r.courseTitle} · {r.batchName}</div>
+                          <div className="class-title">{recTitle(r)}</div>
+                          <div className="class-subtitle">{r.courseTitle}</div>
                         </div>
                       </div>
                     </td>
@@ -568,9 +578,9 @@ export default function Recordings() {
             <span style={{ overflow: 'hidden', minWidth: 0 }}>
               <span
                 style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
-                title={playing ? playing.className : ''}
+                title={playing ? recTitle(playing) : ''}
               >
-                {playing ? playing.className : ''}
+                {playing ? recTitle(playing) : ''}
               </span>
               {playing && (
                 <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.75 }}>
@@ -592,7 +602,7 @@ export default function Recordings() {
                   </Tooltip>
                   {isManager && canDownload(playing) && (
                     <Tooltip title="Download this recording">
-                      <a href={playing.downloadUrl || playing.url} download={`${(playing.className || 'recording').replace(/[^\w\- ]+/g, '').trim()}.mp4`} rel="noopener">
+                      <a href={playing.downloadUrl || playing.url} download={fileNameFor(playing)} rel="noopener">
                         <Button size="small" icon={<DownloadOutlined />}>Download</Button>
                       </a>
                     </Tooltip>

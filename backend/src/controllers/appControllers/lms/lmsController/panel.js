@@ -298,8 +298,15 @@ async function studentDashboard(req, res) {
   const liveNow = sessions.filter((x) => ['live', 'starting'].includes(x.status));
 
   const recordings = courseNames.length
-    ? await LiveRecording.find({ removed: false, status: 'AVAILABLE', courseTitle: { $in: courseNames } })
-        .select('className courseTitle batchName durationMin publishedAt')
+    ? await LiveRecording.find({
+        removed: false,
+        status: 'AVAILABLE',
+        courseTitle: { $in: courseNames },
+        // same release gate as the Recordings page — nothing still inside
+        // its post-class delay
+        $or: [{ publishedAt: null }, { publishedAt: { $lte: new Date() } }],
+      })
+        .select('className courseTitle batchName durationMin publishedAt startedAt')
         .sort({ publishedAt: -1 })
         .limit(10)
         .lean()
@@ -348,6 +355,7 @@ async function studentDashboard(req, res) {
         batch: r.batchName,
         durationMin: r.durationMin,
         publishedAt: r.publishedAt,
+        date: r.startedAt,
       })),
       certificates: certs.map((c) => ({
         course: c.course,
