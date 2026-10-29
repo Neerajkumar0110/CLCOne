@@ -1004,17 +1004,39 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {userOptions && (
-            <Select
-              showSearch
-              allowClear
-              value={viewUser || undefined}
-              onChange={(v) => onViewUser(v || "")}
-              placeholder="All users"
-              optionFilterProp="label"
-              options={userOptions}
-              style={{ width: 220 }}
-              size="large"
-            />
+            <div
+              className="lead-user-pill"
+              style={{
+                display: "flex", alignItems: "center", gap: 10, borderRadius: 12, padding: "6px 6px 6px 12px",
+                background: viewUser ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
+                border: `1px solid ${viewUser ? "var(--hub-blue)" : "transparent"}`, transition: "all .15s",
+              }}
+            >
+              <div
+                style={{
+                  width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0,
+                  background: viewUser ? "var(--hub-blue)" : "var(--hub-card, #fff)", color: viewUser ? "#fff" : "var(--hub-blue)", fontSize: 14,
+                }}
+              >
+                <UserOutlined />
+              </div>
+              <div style={{ lineHeight: 1.1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4, paddingLeft: 1 }}>Viewing</div>
+                <Select
+                  showSearch
+                  allowClear
+                  variant="borderless"
+                  bordered={false}
+                  value={viewUser || undefined}
+                  onChange={(v) => onViewUser(v || "")}
+                  placeholder="All users"
+                  optionFilterProp="label"
+                  options={userOptions}
+                  popupMatchSelectWidth={240}
+                  style={{ width: 180, height: 22 }}
+                />
+              </div>
+            </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--hub-bg-soft)", borderRadius: 12, padding: "8px 14px" }}>
             <TeamOutlined style={{ color: "var(--hub-blue)" }} />
