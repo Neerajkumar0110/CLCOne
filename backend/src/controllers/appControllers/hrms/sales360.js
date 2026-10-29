@@ -1037,4 +1037,55 @@ async function calls(req, res) {
 }
 
 
-module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx };
+// GET /workday/admin/360/attendance?month=YYYY-MM&adminId=&team=
+// The Sales 360° attendance calendar: every day of the month (up to today)
+// with each user's status — same rules as the report's present / absent /
+// late (attendance() above) — plus per-day and per-user counts.
+async function attendanceMonth(req, res) {
+  const q = req.query;
+  const month = /^\d{4}-\d{2}$/.test(String(q.month || '')) ? q.month : wd.todayKey().slice(0, 7);
+  const today = wd.todayKey();
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const dayKeys = [];
+  for (let d = 1; d <= last; d += 1) {
+    const k = `${month}-${String(d).padStart(2, '0')}`;
+    if (k <= today) dayKeys.push(k);
+  }
+  const { users } = await salesUsers(q);
+  if (!dayKeys.length || !users.length) {
+    return res.status(200).json({ success: true, message: 'ok', result: { month, days: [], people: [] } });
+  }
+  const from = wd.dayBounds(dayKeys[0]).start;
+  const to = wd.dayBounds(dayKeys[dayKeys.length - 1]).end;
+  const att = await attendance(users, dayKeys, from, to);
+
+  const LATE_MIN = 15;
+  const blank = () => ({ present: 0, auto: 0, absent: 0, leave: 0, late: 0 });
+  const tally = (c, d) => {
+    if (d.status === 'present') c.present += 1;
+    else if (d.status === 'auto') c.auto += 1;
+    else if (d.status === 'absent') c.absent += 1;
+    else if (d.status === 'leave') c.leave += 1;
+    if (d.lateMin > LATE_MIN) c.late += 1;
+  };
+  const people = users.map((u) => {
+    const rows = att.get(String(u._id)) || [];
+    const c = blank();
+    rows.forEach((d) => tally(c, d));
+    return { adminId: String(u._id), name: wd.fullName(u) || u.email, role: u.role, team: u.team, ...c, workingDays: rows.filter((d) => d.workingDay).length };
+  });
+  const days = dayKeys.map((dk, i) => {
+    const c = blank();
+    const list = users.map((u) => {
+      const d = (att.get(String(u._id)) || [])[i] || {};
+      tally(c, d);
+      return { adminId: String(u._id), name: wd.fullName(u) || u.email, status: d.status, loginAt: d.loginAt || d.autoStartedAt || null, logoutAt: d.logoutAt || null, lateMin: d.lateMin || 0, activeMin: d.activeMin || 0, leave: d.leave || null };
+    });
+    const any = (att.get(String(users[0]._id)) || [])[i] || {};
+    return { dayKey: dk, workingDay: !!any.workingDay, holiday: any.holiday || null, ...c, people: list };
+  });
+  return res.status(200).json({ success: true, message: 'ok', result: { month, lateAfterMin: LATE_MIN, days, people } });
+}
+
+module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth };

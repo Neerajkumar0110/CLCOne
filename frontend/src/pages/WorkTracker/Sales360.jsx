@@ -398,6 +398,204 @@ function Pill({ color, children }) {
   return <span className="s3-pill" style={{ "--c": color }}>{children}</span>;
 }
 
+// ── attendance calendar (month grid — everyone, or the one picked user) ──
+// Data: /workday/admin/360/attendance — same present / absent / late rules
+// as the report above. Its own month, independent of the range picker.
+const ATT = {
+  present: ["Present", "#16A34A"],
+  auto: ["Auto-started", "#2563EB"],
+  absent: ["Absent", "#DC2626"],
+  leave: ["Leave", "#7C3AED"],
+  holiday: ["Holiday", "#DB2777"],
+  "weekly-off": ["Weekly off", "#94A3B8"],
+  upcoming: ["Not started", "#94A3B8"],
+};
+
+function AttendanceCalendar({ adminId, team, monthHint }) {
+  const [month, setMonth] = useState(() => dayjs(monthHint || undefined).startOf("month"));
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [hover, setHover] = useState(null);
+  useEffect(() => {
+    if (monthHint) setMonth(dayjs(monthHint).startOf("month"));
+  }, [monthHint]);
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    const p = new URLSearchParams({ month: month.format("YYYY-MM") });
+    if (adminId) p.set("adminId", adminId);
+    if (team && !adminId) p.set("team", team);
+    request.get({ entity: `workday/admin/360/attendance?${p}` }).then((r) => {
+      if (!live) return;
+      setData(r?.success ? r.result : { days: [], people: [] });
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, [month, adminId, team]);
+
+  const single = !!adminId && data?.people?.length === 1;
+  const byKey = new Map((data?.days || []).map((d) => [d.dayKey, d]));
+  const first = month.startOf("month");
+  const lead = (first.day() + 6) % 7; // Monday first
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: month.daysInMonth() }, (_, i) => first.add(i, "day"))];
+  const isFuture = (d) => d.isAfter(dayjs(), "day");
+  const sum = (k) => (data?.people || []).reduce((x, p) => x + (p[k] || 0), 0);
+  const me = single ? data.people[0] : null;
+  const pctOf = (p) => (p.workingDays ? Math.round(((p.present + p.auto) / p.workingDays) * 100) : 0);
+
+  const dayTip = (d) => {
+    if (!d) return null;
+    if (single) {
+      const u = d.people[0];
+      const st = ATT[u.status] || [u.status, "#64748B"];
+      return (
+        <>
+          <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b> · <span style={{ color: st[1] }}>{st[0]}</span>
+          {d.holiday && <div>{d.holiday}</div>}
+          {u.loginAt && <div>Login {dayjs(u.loginAt).format("h:mm A")}{u.logoutAt ? ` · logout ${dayjs(u.logoutAt).format("h:mm A")}` : ""}</div>}
+          {u.lateMin > (data.lateAfterMin || 15) && <div style={{ color: "#B45309" }}>Late by {hm(u.lateMin)}</div>}
+          {u.activeMin > 0 && <div>Active {hm(u.activeMin)}</div>}
+          {u.leave && <div>Leave: {u.leave}</div>}
+        </>
+      );
+    }
+    const groups = ["present", "auto", "leave", "absent"].map((k) => [k, d.people.filter((u) => u.status === k)]).filter(([, l]) => l.length);
+    return (
+      <>
+        <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b>
+        {d.holiday && <div>{d.holiday}</div>}
+        {groups.map(([k, l]) => (
+          <div key={k} style={{ marginTop: 5 }}>
+            <span style={{ color: ATT[k][1], fontWeight: 700 }}>{ATT[k][0]} · {l.length}</span>
+            <div className="s3-att-names">
+              {l.map((u) => `${u.name}${u.lateMin > (data.lateAfterMin || 15) ? ` (late ${hm(u.lateMin)})` : ""}`).join(", ")}
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  };
+
+  return (
+    <Panel
+      title={single ? `Attendance · ${me.name}` : "Attendance calendar"}
+      icon={<CalendarOutlined />}
+      extra={
+        <div className="s3-att-nav">
+          <button type="button" onClick={() => setMonth((m) => m.subtract(1, "month"))} aria-label="Previous month"><LeftOutlined /></button>
+          <b>{month.format("MMMM YYYY")}</b>
+          <button type="button" disabled={!month.isBefore(dayjs(), "month")} onClick={() => setMonth((m) => m.add(1, "month"))} aria-label="Next month"><RightOutlined /></button>
+        </div>
+      }
+    >
+      <div className="s3-att-top">
+        {single ? (
+          <div className="s3-att-chips">
+            <span style={{ "--c": ATT.present[1] }}><b>{me.present}</b> present</span>
+            <span style={{ "--c": ATT.auto[1] }}><b>{me.auto}</b> auto-started</span>
+            <span style={{ "--c": ATT.absent[1] }}><b>{me.absent}</b> absent</span>
+            <span style={{ "--c": ATT.leave[1] }}><b>{me.leave}</b> leave</span>
+            <span style={{ "--c": "#B45309" }}><b>{me.late}</b> late</span>
+            <span style={{ "--c": "#0F172A" }}><b>{pctOf(me)}%</b> of {me.workingDays} working days</span>
+          </div>
+        ) : (
+          <div className="s3-att-chips">
+            <span style={{ "--c": "#0F172A" }}><b>{data?.people?.length || 0}</b> people</span>
+            <span style={{ "--c": ATT.present[1] }}><b>{sum("present")}</b> present days</span>
+            <span style={{ "--c": ATT.auto[1] }}><b>{sum("auto")}</b> auto-started</span>
+            <span style={{ "--c": ATT.absent[1] }}><b>{sum("absent")}</b> absent</span>
+            <span style={{ "--c": ATT.leave[1] }}><b>{sum("leave")}</b> leave</span>
+            <span style={{ "--c": "#B45309" }}><b>{sum("late")}</b> late</span>
+          </div>
+        )}
+        <div className="s3-att-legend">
+          {["present", "auto", "absent", "leave", "holiday", "weekly-off"].map((k) => (
+            <span key={k}><i style={{ background: ATT[k][1] }} />{ATT[k][0]}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className={`s3-att-grid${loading ? " is-loading" : ""}`}>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => <div key={w} className="s3-att-wd">{w}</div>)}
+        {cells.map((c, i) => {
+          if (!c) return <div key={`b${i}`} className="s3-att-cell blank" />;
+          const d = byKey.get(c.format("YYYY-MM-DD"));
+          const future = isFuture(c) || !d;
+          const today = c.isSame(dayjs(), "day");
+          if (single && d) {
+            const u = d.people[0];
+            const st = ATT[u.status] || ["", "#94A3B8"];
+            const late = u.lateMin > (data.lateAfterMin || 15);
+            return (
+              <div key={i} className={`s3-att-cell one${today ? " today" : ""}`} style={{ "--c": st[1] }} onMouseEnter={() => setHover(d)} onMouseLeave={() => setHover(null)}>
+                <span className="s3-att-num">{c.date()}</span>
+                <span className="s3-att-status">{st[0]}</span>
+                {u.loginAt && <span className="s3-att-time">{dayjs(u.loginAt).format("h:mm A")}</span>}
+                {late && <span className="s3-att-late">late {hm(u.lateMin)}</span>}
+                {hover === d && <div className="s3-att-tip">{dayTip(d)}</div>}
+              </div>
+            );
+          }
+          const total = d ? d.people.length : 0;
+          const off = d && !d.workingDay;
+          return (
+            <div key={i} className={`s3-att-cell${future ? " future" : ""}${off ? " off" : ""}${today ? " today" : ""}`} onMouseEnter={() => d && setHover(d)} onMouseLeave={() => setHover(null)}>
+              <span className="s3-att-num">{c.date()}</span>
+              {d && !future && (off && !d.present && !d.auto ? (
+                <span className="s3-att-offlabel">{d.holiday || "Weekly off"}</span>
+              ) : !(d.present + d.auto + d.absent + d.leave) ? (
+                <span className="s3-att-offlabel">Not started yet</span>
+              ) : (
+                <>
+                  <div className="s3-att-bar">
+                    {["present", "auto", "leave", "absent"].map((k) => d[k] ? <i key={k} style={{ width: `${(d[k] / total) * 100}%`, background: ATT[k][1] }} /> : null)}
+                  </div>
+                  <div className="s3-att-counts">
+                    <span style={{ color: ATT.present[1] }}>{d.present + d.auto}</span>
+                    <span>/{total}</span>
+                    {d.absent > 0 && <em style={{ color: ATT.absent[1] }}>{d.absent} absent</em>}
+                  </div>
+                  {d.late > 0 && <span className="s3-att-late">{d.late} late</span>}
+                </>
+              ))}
+              {hover === d && d && <div className="s3-att-tip">{dayTip(d)}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      {!single && data?.people?.length > 0 && (
+        <div className="hub-table-wrapper" style={{ marginTop: 16 }}>
+          <table className="hub-table s3-table">
+            <thead>
+              <tr><th>User</th><th>Present</th><th>Auto-started</th><th>Absent</th><th>Leave</th><th>Late</th><th>Attendance</th></tr>
+            </thead>
+            <tbody>
+              {[...data.people].sort((a, b) => pctOf(b) - pctOf(a)).map((p) => (
+                <tr key={p.adminId}>
+                  <td><b>{p.name}</b><div className="s3-muted">{p.role}{p.team ? ` · ${p.team}` : ""}</div></td>
+                  <td style={{ color: ATT.present[1], fontWeight: 700 }}>{p.present}</td>
+                  <td style={{ color: ATT.auto[1] }}>{p.auto}</td>
+                  <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{p.absent}</td>
+                  <td>{p.leave}</td>
+                  <td>{p.late ? <span className="s3-warn">{p.late}</span> : 0}</td>
+                  <td>
+                    <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
+                    <span className="s3-muted">{pctOf(p)}% of {p.workingDays} days</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="s3-note">Present = logged in · Auto-started = the dialer started at 11:00 without a login · Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
+    </Panel>
+  );
+}
+
 // ── call list (table for the team, cards for one user) ───────────────────
 function CallLog({ base, title, cards, initial }) {
   const [f, setF] = useState({ q: "", outcome: "", direction: "", recorded: false, ...initial });
@@ -1354,6 +1552,9 @@ export default function Sales360({ initialUser }) {
       )}
 
       {/* KPI cards */}
+      <div className="s3-section"><CalendarOutlined /> Attendance <span>month calendar — {effectiveUser ? "this user" : "everyone"} · hover a day for who and when</span></div>
+      <AttendanceCalendar adminId={effectiveUser} team={team} monthHint={range[1].format("YYYY-MM")} />
+
       <div className="s3-section"><PhoneOutlined /> Calls &amp; time</div>
       <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
         {kpis.map((k, i) => <Kpi key={k.id} i={i} {...k} active={focus === k.id} onOpen={() => setFocus(focus === k.id ? null : k.id)} />)}

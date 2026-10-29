@@ -1867,3 +1867,53 @@ button.s3-kpi {
   font-weight: 800;
   color: var(--c);
 }
+
+/* ── attendance calendar ── */
+.s3-att-nav { display: flex; align-items: center; gap: 10px; }
+.s3-att-nav b { min-width: 120px; text-align: center; font-size: 14px; }
+.s3-att-nav button { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--hub-border, #e5e7eb); background: var(--hub-surface, #fff); cursor: pointer; display: grid; place-items: center; color: var(--hub-text, #0f172a); }
+.s3-att-nav button:disabled { opacity: .35; cursor: not-allowed; }
+.s3-att-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.s3-att-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.s3-att-chips span { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
+.s3-att-chips b { font-size: 14px; }
+.s3-att-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--hub-muted, #64748b); }
+.s3-att-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.s3-att-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.s3-att-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; transition: opacity .15s; }
+.s3-att-grid.is-loading { opacity: .45; }
+.s3-att-wd { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--hub-muted, #64748b); text-align: center; padding: 2px 0 4px; }
+.s3-att-cell { position: relative; min-height: 84px; border-radius: 12px; border: 1px solid var(--hub-border, #e5e7eb); background: var(--hub-surface, #fff); padding: 8px 9px; display: flex; flex-direction: column; gap: 4px; }
+.s3-att-cell.blank { border: 0; background: transparent; }
+.s3-att-cell.future { background: var(--hub-bg-soft, #f8fafc); opacity: .6; }
+.s3-att-cell.off { background: var(--hub-bg-soft, #f8fafc); }
+.s3-att-cell.today { box-shadow: 0 0 0 2px #4f46e5; }
+.s3-att-cell:not(.blank):not(.future):hover { border-color: #4f46e5; }
+.s3-att-num { font-size: 13px; font-weight: 800; color: var(--hub-text, #0f172a); }
+.s3-att-bar { display: flex; height: 7px; border-radius: 99px; overflow: hidden; background: var(--hub-bg-soft, #f1f5f9); }
+.s3-att-bar i { display: block; height: 100%; }
+.s3-att-counts { font-size: 12px; color: var(--hub-muted, #64748b); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; }
+.s3-att-counts span:first-child { font-size: 15px; font-weight: 800; }
+.s3-att-counts em { font-style: normal; font-weight: 700; font-size: 11px; width: 100%; }
+.s3-att-late { font-size: 10.5px; font-weight: 700; color: #b45309; }
+.s3-att-offlabel { font-size: 11px; color: var(--hub-muted, #64748b); }
+.s3-att-cell.one { border-color: color-mix(in srgb, var(--c) 35%, transparent); background: color-mix(in srgb, var(--c) 9%, var(--hub-surface, #fff)); }
+.s3-att-status { font-size: 11.5px; font-weight: 800; color: var(--c); }
+.s3-att-time { font-size: 11px; color: var(--hub-muted, #64748b); }
+.s3-att-tip {
+  position: absolute; z-index: 30; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
+  width: 240px; padding: 10px 12px; border-radius: 12px; font-size: 12px; line-height: 1.45;
+  background: #0f172a; color: #e2e8f0; box-shadow: 0 14px 34px rgba(15, 23, 42, .3); pointer-events: none;
+}
+.s3-att-tip b { color: #fff; }
+.s3-att-names { color: #cbd5e1; font-size: 11.5px; }
+.s3-att-grid > div:nth-child(7n) .s3-att-tip, .s3-att-grid > div:nth-child(7n - 1) .s3-att-tip { left: auto; right: 0; transform: none; }
+.s3-att-grid > div:nth-child(7n + 1) .s3-att-tip { left: 0; transform: none; }
+.s3-att-pct { height: 6px; width: 110px; border-radius: 99px; background: var(--hub-bg-soft, #f1f5f9); overflow: hidden; margin-bottom: 3px; }
+.s3-att-pct i { display: block; height: 100%; background: #16a34a; border-radius: 99px; }
+@media (max-width: 700px) {
+  .s3-att-cell { min-height: 58px; padding: 5px; border-radius: 9px; }
+  .s3-att-counts em, .s3-att-late, .s3-att-time, .s3-att-status { display: none; }
+  .s3-att-counts span:first-child { font-size: 13px; }
+  .s3-att-cell.one .s3-att-status { display: block; font-size: 9.5px; }
+}

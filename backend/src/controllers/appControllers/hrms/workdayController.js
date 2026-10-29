@@ -547,5 +547,6 @@ module.exports = {
   sales360LeadList: selfOrManager(sales360.leadList),
   sales360LeadsReport: selfOrManager(sales360.leadsSection),
   sales360Export: selfOrManager(sales360.exportXlsx),
+  sales360Attendance: selfOrManager(sales360.attendanceMonth),
   publicDecision,
 };
