@@ -190,6 +190,9 @@ const schema = new mongoose.Schema({
   // when the CRM pulled it) and which form. Set on new Facebook leads and on
   // an existing lead a Facebook submission was linked to (same phone).
   facebookCreatedAt: { type: Date, index: true },
+  // Set once when a Facebook lead nobody was assigned within 24h was moved
+  // to Fresh Leads (jobs/facebookLeadOwnerTick.js) — never moved twice.
+  facebookFreshAt: Date,
   // Instant call for a fresh Facebook lead (services/calling/instantLeads.js):
   // pending → waiting for a free active agent; calling → one was given it
   // and the call is on; done → call over (owner kept only if they spoke);
