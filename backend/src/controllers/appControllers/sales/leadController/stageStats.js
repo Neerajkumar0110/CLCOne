@@ -23,12 +23,14 @@ const stageStats = async (req, res) => {
   const responsesView = !(q.teamView || q.team || q.agent) || q.teamView === 'responses';
   let finalMatch = match;
   let notEnteredExpr = null; // true for a lead the scoped users called but never responded on
+  let scopeIds = null; // the board's users (Lead Quality counts only their calls)
   if (responsesView) {
     // Own leads = ones they responded on + ones they called. A called lead
     // with no response of theirs goes to NOT_ENTERED, not its current stage.
     const users = await responseScopeUsers(req.admin, q.user);
     if (users) {
       const m = await userLeadMatch(users);
+      scopeIds = m.ids;
       finalMatch = { $and: [match, m.any] };
       notEnteredExpr = {
         $not: [
@@ -134,9 +136,56 @@ const stageStats = async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    result: { stages, total },
+    // ?part=quality → only the Lead Quality card (slower: scans calls), asked for separately
+    result: q.part === 'quality' ? { quality: await leadQuality(finalMatch, scopeIds, countByStage, total) } : { stages, total },
     message: 'Successfully computed lead stage stats',
   });
 };
+
+// ── Lead Quality (the card under the donut) ──────────────────────────────
+// How much the leads on this board are actually helping: how many a user
+// spoke to (answered call an agent took), total talk time, and how many of
+// those ended Interested / Callback / Demo Booking / Enrolled.
+const POSITIVE = ['Interested Leads', 'Callback', 'Demo Booking', 'Enrolled'];
+const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+
+const _qualityCache = new Map();
+async function leadQuality(finalMatch, agentIds, countByStage, total) {
+  const key = JSON.stringify([finalMatch, agentIds]);
+  const hit = _qualityCache.get(key);
+  if (hit && Date.now() - hit.at < 60 * 1000) return { ...hit.value, ...positives(countByStage, hit.value.contacted, total) };
+
+  const Lead = mongoose.model('Lead');
+  const tails = new Set((await Lead.distinct('phoneNormalized', finalMatch)).filter(Boolean));
+  const callQ = { removed: { $ne: true }, answeredAt: { $ne: null }, agent: agentIds && agentIds.length ? { $in: agentIds } : { $ne: null } };
+  const calls = await mongoose.model('CallRecord').find(callQ).select('phone duration').lean();
+  const spoken = new Set();
+  let talkSec = 0;
+  let talkCalls = 0;
+  for (const c of calls) {
+    const t = tail(c.phone);
+    if (!tails.has(t)) continue;
+    spoken.add(t);
+    talkSec += c.duration || 0;
+    talkCalls += 1;
+  }
+  const value = { contacted: spoken.size, talkMinutes: Math.round(talkSec / 60), talkCalls };
+  _qualityCache.set(key, { at: Date.now(), value });
+  if (_qualityCache.size > 200) _qualityCache.delete(_qualityCache.keys().next().value);
+  return { ...value, ...positives(countByStage, value.contacted, total) };
+}
+
+function positives(countByStage, contacted, total) {
+  const byStage = Object.fromEntries(POSITIVE.map((s) => [s, countByStage[s] || 0]));
+  const positive = POSITIVE.reduce((n, s) => n + byStage[s], 0);
+  return {
+    total,
+    positive,
+    byStage,
+    // the headline: of the leads someone spoke to, how many turned positive
+    qualityPct: contacted ? Math.round((positive / contacted) * 1000) / 10 : 0,
+    contactedPct: total ? Math.round((contacted / total) * 1000) / 10 : 0,
+  };
+}
 
 module.exports = stageStats;

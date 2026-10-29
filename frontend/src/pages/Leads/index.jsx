@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { Tooltip, Collapse, ConfigProvider, message, Select } from "antd";
@@ -966,14 +966,134 @@ function DuplicateWarningModal({ duplicate, onCancel, onAddAnyway }) {
 // stroke-dasharray arcs on one circle, which stay crisp and keep an exact
 // click target. Every stage (donut arc, tile, or row) is a drill-in
 // trigger via onSelect.
-function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSelect, userOptions, viewUser, onViewUser }) {
+// "Lead Quality" card under the donut — of the leads a user actually spoke
+// to, how many turned Interested / Callback / Demo Booking / Enrolled; the
+// hover card breaks it down with talk time. Data: lead/stage-stats?part=quality.
+const QUALITY_ROWS = [
+  ["Interested Leads", "Interested", "#f97316"],
+  ["Callback", "Callback", "#ec4899"],
+  ["Demo Booking", "Demo booked", "#6366f1"],
+  ["Enrolled", "Enrolled", "#16a34a"],
+];
+const fmtMins = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+const pctOf = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : 0);
+
+function QualityBar({ value, color }) {
+  return (
+    <div style={{ height: 6, borderRadius: 99, background: "var(--hub-bg-soft, #f1f5f9)", overflow: "hidden" }}>
+      <div style={{ width: `${Math.min(100, value)}%`, height: "100%", borderRadius: 99, background: color }} />
+    </div>
+  );
+}
+
+function LeadQualityBreakdown({ q }) {
+  const row = { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "baseline", gap: 10 };
+  return (
+    <div style={{ width: 300, padding: 4, color: "var(--hub-text)" }}>
+      <div style={{ fontSize: 13.5, fontWeight: 800 }}>How the leads are doing</div>
+      <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 12 }}>Leads on this board, and the ones a user spoke to</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div style={{ background: "var(--hub-bg-soft, #f1f5f9)", borderRadius: 10, padding: "8px 10px" }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--hub-muted)" }}>Spoke to</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{q.contacted.toLocaleString("en-IN")}</div>
+          <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>of {q.total.toLocaleString("en-IN")} leads · {q.contactedPct}%</div>
+        </div>
+        <div style={{ background: "var(--hub-bg-soft, #f1f5f9)", borderRadius: 10, padding: "8px 10px" }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--hub-muted)" }}>Talk time</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{fmtMins(q.talkMinutes)}</div>
+          <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>
+            {q.contacted ? `~${(q.talkMinutes / q.contacted).toFixed(1)} min a lead` : "—"} · {q.talkCalls} calls
+          </div>
+        </div>
+      </div>
+
+      <div style={{ ...row, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--hub-muted)", marginBottom: 6 }}>
+        <span>Of the leads spoken to</span>
+        <span>Leads · ratio</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {QUALITY_ROWS.map(([stage, label, color]) => {
+          const n = q.byStage[stage] || 0;
+          const p = pctOf(n, q.contacted);
+          return (
+            <div key={stage}>
+              <div style={{ ...row, fontSize: 12.5, marginBottom: 4 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 600 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: color }} />
+                  {label}
+                </span>
+                <span>
+                  <b>{n.toLocaleString("en-IN")}</b> <span style={{ color: "var(--hub-muted)" }}>· {p}%</span>
+                </span>
+              </div>
+              <QualityBar value={p} color={color} />
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--hub-border)", ...row, fontSize: 12.5 }}>
+        <span style={{ fontWeight: 700 }}>Positive in total</span>
+        <span>
+          <b style={{ color: "var(--hub-purple)" }}>{q.positive.toLocaleString("en-IN")}</b>{" "}
+          <span style={{ color: "var(--hub-muted)" }}>· {q.qualityPct}% of spoken</span>
+        </span>
+      </div>
+      <div style={{ fontSize: 10.5, color: "var(--hub-muted)", marginTop: 6 }}>
+        Spoke to = an answered call a user took. Positive = Interested + Callback + Demo booked + Enrolled.
+      </div>
+    </div>
+  );
+}
+
+function LeadQualityCard({ quality }) {
+  const card = (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 12, background: "var(--hub-purple-soft)", borderRadius: 14,
+        padding: "12px 14px", cursor: quality ? "help" : "default",
+      }}
+    >
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--hub-surface)", display: "grid", placeItems: "center", color: "var(--hub-purple)", flexShrink: 0 }}>
+        <RiseOutlined />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Lead Quality</div>
+        {quality ? (
+          <>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-purple)", lineHeight: 1.2 }}>{quality.qualityPct}%</div>
+            <div style={{ fontSize: 11, color: "var(--hub-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {quality.positive.toLocaleString("en-IN")} positive of {quality.contacted.toLocaleString("en-IN")} spoken · {fmtMins(quality.talkMinutes)} talk
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--hub-muted)", marginTop: 2 }}>Calculating…</div>
+        )}
+      </div>
+      <RightOutlined style={{ color: "var(--hub-muted)", fontSize: 12 }} />
+    </div>
+  );
+  if (!quality) return card;
+  return (
+    <Tooltip
+      title={<LeadQualityBreakdown q={quality} />}
+      placement="rightBottom"
+      color="var(--hub-surface, #fff)"
+      overlayStyle={{ maxWidth: 360 }}
+      overlayInnerStyle={{ borderRadius: 14, padding: 14, width: 330, boxShadow: "0 18px 40px rgba(15,23,42,.18)", border: "1px solid var(--hub-border)" }}
+      mouseEnterDelay={0.15}
+    >
+      {card}
+    </Tooltip>
+  );
+}
+
+function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSelect, userOptions, viewUser, onViewUser, quality }) {
   const [expanded, setExpanded] = useState({});
   const pct = (n) => (total ? (n / total) * 100 : 0);
   const nonZero = stages.filter((s) => s.count > 0);
   const top2 = [...stages].sort((a, b) => b.count - a.count).slice(0, 2);
-  const newLead = stages.find((s) => s.stage === "New Lead")?.count || 0;
-  // "Converted" = anything that has moved past the New Lead stage.
-  const convRate = total ? ((total - newLead) / total) * 100 : 0;
 
   const SIZE = 260;
   const STROKE = 34;
@@ -1148,16 +1268,7 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
               ))}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--hub-purple-soft)", borderRadius: 14, padding: "12px 14px" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--hub-surface)", display: "grid", placeItems: "center", color: "var(--hub-purple)", flexShrink: 0 }}>
-                <RiseOutlined />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Lead Conversion Rate</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-purple)" }}>{convRate.toFixed(2)}%</div>
-              </div>
-              <RightOutlined style={{ color: "var(--hub-muted)", fontSize: 12 }} />
-            </div>
+            <LeadQualityCard quality={quality} />
           </div>
 
           <div style={{ flex: "1 1 340px", minWidth: "min(300px, 100%)" }}>
@@ -1381,6 +1492,8 @@ function AllLeads() {
   // Lead Stages "User" filter (management): one user's own board — the leads
   // they responded on or called — and the stage lists drilled from it.
   const [boardUser, setBoardUser] = useState("");
+  const [stageQuality, setStageQuality] = useState(null);
+  const qualityKeyRef = useRef("");
 
   const loadStageStats = async (teamViewOverride, userOverride) => {
     setStageLoading(true);
@@ -1391,6 +1504,15 @@ function AllLeads() {
     if (teamView) p.set("teamView", teamView);
     if (user && (!teamView || teamView === "responses")) p.set("user", user);
     const qs = p.toString() ? `?${p.toString()}` : "";
+    // Lead Quality is slower (it scans calls) — fetched alongside, filled in when ready.
+    setStageQuality(null);
+    const qp = new URLSearchParams(p);
+    qp.set("part", "quality");
+    const reqKey = qp.toString();
+    qualityKeyRef.current = reqKey;
+    request.get({ entity: `lead/stage-stats?${reqKey}` }).then((r) => {
+      if (qualityKeyRef.current === reqKey && r?.success) setStageQuality(r.result.quality || null);
+    });
     const res = await request.get({ entity: `lead/stage-stats${qs}` });
     if (res?.success) setStageData(res.result);
     else setStageError(true);
@@ -1617,6 +1739,7 @@ function AllLeads() {
           userOptions={isFullAccess ? salesAdmins.map((a) => ({ value: a._id, label: `${a.name || ""} ${a.surname || ""}`.trim() || a.email })) : null}
           viewUser={boardUser}
           onViewUser={changeBoardUser}
+          quality={stageQuality}
         />
       )}
 
