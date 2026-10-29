@@ -41,7 +41,7 @@ async function assignContacted() {
     done.add(t);
     const r = await Lead.updateOne(
       { _id: byTail.get(t), ...unowned },
-      { $set: { assignedUser: c.agent, assignedUserName: c.agentName || '' } }
+      { $set: { assignedUser: c.agent, assignedUserName: c.agentName || '' }, $max: { lastContactAt: c.answeredAt } }
     );
     n += r.modifiedCount || 0;
   }

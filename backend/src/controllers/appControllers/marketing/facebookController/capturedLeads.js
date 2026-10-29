@@ -75,7 +75,8 @@ const capturedLeads = async (req, res) => {
       .sort({ facebookCreatedAt: -1, created: -1 })
       .skip((page - 1) * items)
       .limit(items)
-      .select('name email phone phoneNormalized stage subStatus status source assignedUserName metaFormName metaFormId facebookCreatedAt created instantDispatch')
+      // the whole lead (the row opens LeadDetailModal) minus the heavy bits
+      .select('-rawMetaData -stageHistory -callHistory')
       .lean(),
     Lead.countDocuments(listFilter),
     Lead.countDocuments(filter),
@@ -110,13 +111,18 @@ const capturedLeads = async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    result: rows.map((l) => ({
-      ...l,
-      // 'Facebook Ads' = created from Facebook; anything else = it was
-      // already in the CRM (e.g. Import) and the submission was linked.
-      newFromFacebook: l.source === 'Facebook Ads',
-      calls: callSummary(l),
-    })),
+    result: rows.map((l) => {
+      const calls = callSummary(l);
+      return {
+        ...l,
+        // 'Facebook Ads' = created from Facebook; anything else = it was
+        // already in the CRM (e.g. Import) and the submission was linked.
+        newFromFacebook: l.source === 'Facebook Ads',
+        // the last time a user actually spoke to them, when not recorded on the lead
+        lastContactAt: l.lastContactAt || (calls.spokeWith ? calls.spokeWith.at : undefined),
+        calls,
+      };
+    }),
     pagination: { page, pages: Math.max(1, Math.ceil(count / items)), count },
     summary: { total, contacted: contactedCount, notContacted: total - contactedCount },
     message: 'ok',
