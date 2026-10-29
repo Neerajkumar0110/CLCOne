@@ -28,6 +28,18 @@ function rangeBounds(range) {
   }
 }
 
+const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+
+// Numbers a user has actually spoken to (answered call taken by an agent).
+// Cached briefly — the page polls every 30s and this scans every call.
+let _spoken = { at: 0, tails: [] };
+async function spokenPhoneTails(CallRecord) {
+  if (Date.now() - _spoken.at < 20000) return _spoken.tails;
+  const phones = await CallRecord.distinct('phone', { removed: { $ne: true }, answeredAt: { $ne: null }, agent: { $ne: null } });
+  _spoken = { at: Date.now(), tails: [...new Set(phones.map(tail).filter((t) => t.length === 10))] };
+  return _spoken.tails;
+}
+
 const capturedLeads = async (req, res) => {
   const Lead = mongoose.model('Lead');
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -46,15 +58,55 @@ const capturedLeads = async (req, res) => {
       : {}),
   };
 
-  const [rows, count] = await Promise.all([
-    Lead.find(filter)
+  // "Contacted" = a user actually spoke to this number (an answered call
+  // that an agent took). ?contact=yes|no narrows the list to either side.
+  const CallRecord = mongoose.model('CallRecord');
+  const spokenTails = await spokenPhoneTails(CallRecord);
+  const contact = String(req.query.contact || 'all');
+  const listFilter =
+    contact === 'yes'
+      ? { $and: [filter, { phoneNormalized: { $in: spokenTails } }] }
+      : contact === 'no'
+        ? { $and: [filter, { phoneNormalized: { $nin: spokenTails } }] }
+        : filter;
+
+  const [rows, count, total, contactedCount] = await Promise.all([
+    Lead.find(listFilter)
       .sort({ facebookCreatedAt: -1, created: -1 })
       .skip((page - 1) * items)
       .limit(items)
-      .select('name email phone stage subStatus status source assignedUserName metaFormName metaFormId facebookCreatedAt created instantDispatch')
+      .select('name email phone phoneNormalized stage subStatus status source assignedUserName metaFormName metaFormId facebookCreatedAt created instantDispatch')
       .lean(),
+    Lead.countDocuments(listFilter),
     Lead.countDocuments(filter),
+    Lead.countDocuments({ $and: [filter, { phoneNormalized: { $in: spokenTails } }] }),
   ]);
+
+  // Every call to this page's numbers: who spoke to them, and how many tries.
+  const tails = [...new Set(rows.map((l) => l.phoneNormalized || tail(l.phone)).filter((t) => t.length === 10))];
+  const calls = tails.length
+    ? await CallRecord.find({ removed: { $ne: true }, phone: { $regex: `(${tails.join('|')})$` } })
+        .select('phone agentName ownerAgentName status answeredAt duration created direction agent')
+        .sort({ created: -1 })
+        .lean()
+    : [];
+  const byTail = new Map();
+  calls.forEach((c) => {
+    const t = tail(c.phone);
+    if (!byTail.has(t)) byTail.set(t, []);
+    byTail.get(t).push(c);
+  });
+  const callSummary = (l) => {
+    const list = byTail.get(l.phoneNormalized || tail(l.phone)) || [];
+    const spoke = list.find((c) => c.answeredAt && c.agent);
+    const last = list[0];
+    return {
+      attempts: list.length,
+      contacted: !!spoke,
+      spokeWith: spoke ? { name: spoke.agentName || '—', at: spoke.answeredAt, durationSec: spoke.duration || 0, direction: spoke.direction } : null,
+      lastCall: last ? { name: last.agentName || last.ownerAgentName || null, at: last.created, status: last.status } : null,
+    };
+  };
 
   return res.status(200).json({
     success: true,
@@ -63,8 +115,10 @@ const capturedLeads = async (req, res) => {
       // 'Facebook Ads' = created from Facebook; anything else = it was
       // already in the CRM (e.g. Import) and the submission was linked.
       newFromFacebook: l.source === 'Facebook Ads',
+      calls: callSummary(l),
     })),
     pagination: { page, pages: Math.max(1, Math.ceil(count / items)), count },
+    summary: { total, contacted: contactedCount, notContacted: total - contactedCount },
     message: 'ok',
   });
 };

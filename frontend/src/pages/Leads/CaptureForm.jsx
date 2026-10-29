@@ -265,6 +265,9 @@ function CaptureForm() {
   // Facebook Ads only: when the form was submitted (IST) — see
   // backend facebookController/capturedLeads.js.
   const [fbRange, setFbRange] = useState("all");
+  // Facebook list: all | yes (a user spoke to them) | no (not contacted yet)
+  const [fbContact, setFbContact] = useState("all");
+  const [fbSummary, setFbSummary] = useState(null);
   const [capturedLoading, setCapturedLoading] = useState(true);
   const [capturedPage, setCapturedPage] = useState(1);
   const [capturedPages, setCapturedPages] = useState(1);
@@ -334,13 +337,14 @@ function CaptureForm() {
     setLinkedinAdAccounts(res?.success ? res.result : []);
   };
 
-  const loadCapturedLeads = async (targetPage = 1, range = fbRange) => {
+  const loadCapturedLeads = async (targetPage = 1, range = fbRange, contact = fbContact) => {
     setCapturedLoading(true);
     if (platform === "Facebook Ads") {
       // Every Facebook lead — new ones and existing CRM leads a Facebook
       // submission was linked to — by Facebook's own submit time.
-      const res = await request.get({ entity: `facebook/captured-leads?range=${range}&page=${targetPage}&items=10` });
+      const res = await request.get({ entity: `facebook/captured-leads?range=${range}&contact=${contact}&page=${targetPage}&items=10` });
       setCapturedLeads(res?.success ? res.result : []);
+      setFbSummary(res?.success ? res.summary || null : null);
       setCapturedPages(res?.pagination?.pages || 1);
       setCapturedCount(res?.pagination?.count || 0);
       setCapturedPage(targetPage);
@@ -362,7 +366,7 @@ function CaptureForm() {
   };
 
   const loadCapturedLeadsRef = useRef(null);
-  loadCapturedLeadsRef.current = () => loadCapturedLeads(capturedPage, fbRange);
+  loadCapturedLeadsRef.current = () => loadCapturedLeads(capturedPage, fbRange, fbContact);
 
   // Facebook Ads: refresh the captured list every 30s so a fresh lead (and
   // who it went to) shows up without a reload.
@@ -1257,6 +1261,34 @@ function CaptureForm() {
                 {label}
               </button>
             ))}
+            <span style={{ width: 1, background: "var(--hub-border)", margin: "2px 4px" }} />
+            {[
+              ["all", "All", fbSummary?.total, "#2563eb"],
+              ["yes", "Contacted", fbSummary?.contacted, "#16a34a"],
+              ["no", "Not contacted", fbSummary?.notContacted, "#dc2626"],
+            ].map(([k, label, n, color]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setFbContact(k);
+                  loadCapturedLeads(1, fbRange, k);
+                }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 7,
+                  padding: "6px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                  border: `1px solid ${fbContact === k ? color : "var(--hub-border)"}`,
+                  background: fbContact === k ? color : "var(--hub-surface)",
+                  color: fbContact === k ? "#fff" : "var(--hub-text-soft)",
+                }}
+              >
+                {k !== "all" && <span style={{ width: 7, height: 7, borderRadius: 99, background: fbContact === k ? "#fff" : color }} />}
+                {label}
+                {n != null && (
+                  <span style={{ fontSize: 11.5, padding: "0 7px", borderRadius: 99, background: fbContact === k ? "rgba(255,255,255,.25)" : "var(--hub-bg-soft, #f1f5f9)" }}>{n}</span>
+                )}
+              </button>
+            ))}
           </div>
         )}
 
@@ -1271,6 +1303,7 @@ function CaptureForm() {
                   <th>Form</th>
                   <th>Stage</th>
                   <th>Owner</th>
+                  <th>Call status</th>
                   <th>Came in (Facebook)</th>
                 </tr>
               ) : (
@@ -1286,14 +1319,14 @@ function CaptureForm() {
             <tbody>
               {capturedLoading && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="hub-empty">Loading captured leads…</div>
                   </td>
                 </tr>
               )}
               {!capturedLoading && capturedLeads.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="hub-empty">
                       {platform === "Facebook Ads" && fbRange !== "all"
                         ? "No Facebook leads in this period."
@@ -1330,6 +1363,27 @@ function CaptureForm() {
                         )}
                         {l.instantDispatch?.status === "calling" && (
                           <span className="hub-badge hub-badge-green" style={{ fontSize: 11 }}>Calling now</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 12, minWidth: 170 }}>
+                        {l.calls?.contacted ? (
+                          <>
+                            <span className="hub-badge hub-badge-green" style={{ fontSize: 11 }}>● Spoke</span>
+                            <div style={{ fontWeight: 700, marginTop: 4 }}>{l.calls.spokeWith.name}</div>
+                            <div style={{ color: "var(--hub-muted)" }}>
+                              {new Date(l.calls.spokeWith.at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              {l.calls.spokeWith.durationSec ? ` · ${Math.floor(l.calls.spokeWith.durationSec / 60)}m ${l.calls.spokeWith.durationSec % 60}s` : ""}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="hub-badge hub-badge-red" style={{ fontSize: 11 }}>● Not contacted</span>
+                            <div style={{ color: "var(--hub-muted)", marginTop: 4 }}>
+                              {l.calls?.attempts
+                                ? `${l.calls.attempts} attempt${l.calls.attempts > 1 ? "s" : ""}${l.calls.lastCall?.name ? ` · last by ${l.calls.lastCall.name}` : ""} (${l.calls.lastCall?.status || "—"})`
+                                : "Never called"}
+                            </div>
+                          </>
                         )}
                       </td>
                       <td>
