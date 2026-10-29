@@ -26,7 +26,7 @@ const stageStats = async (req, res) => {
   if (responsesView) {
     // Own leads = ones they responded on + ones they called. A called lead
     // with no response of theirs goes to NOT_ENTERED, not its current stage.
-    const users = await responseScopeUsers(req.admin);
+    const users = await responseScopeUsers(req.admin, q.user);
     if (users) {
       const m = await userLeadMatch(users);
       finalMatch = { $and: [match, m.any] };

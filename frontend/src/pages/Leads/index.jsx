@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
-import { Tooltip, Collapse, ConfigProvider, message } from "antd";
+import { Tooltip, Collapse, ConfigProvider, message, Select } from "antd";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import TeamActivity from "./TeamActivity";
@@ -966,7 +966,7 @@ function DuplicateWarningModal({ duplicate, onCancel, onAddAnyway }) {
 // stroke-dasharray arcs on one circle, which stay crisp and keep an exact
 // click target. Every stage (donut arc, tile, or row) is a drill-in
 // trigger via onSelect.
-function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSelect }) {
+function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSelect, userOptions, viewUser, onViewUser }) {
   const [expanded, setExpanded] = useState({});
   const pct = (n) => (total ? (n / total) * 100 : 0);
   const nonZero = stages.filter((s) => s.count > 0);
@@ -1002,11 +1002,28 @@ function LeadStageBoard({ stages, total, loading, activeStage, activeSub, onSele
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--hub-bg-soft)", borderRadius: 12, padding: "8px 14px" }}>
-          <TeamOutlined style={{ color: "var(--hub-blue)" }} />
-          <div style={{ lineHeight: 1.15 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--hub-text)" }}>{total}</div>
-            <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>Total Leads</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {userOptions && (
+            <Select
+              showSearch
+              allowClear
+              value={viewUser || undefined}
+              onChange={(v) => onViewUser(v || "")}
+              placeholder="All users"
+              optionFilterProp="label"
+              options={userOptions}
+              style={{ width: 220 }}
+              size="large"
+            />
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--hub-bg-soft)", borderRadius: 12, padding: "8px 14px" }}>
+            <TeamOutlined style={{ color: "var(--hub-blue)" }} />
+            <div style={{ lineHeight: 1.15 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--hub-text)" }}>{total}</div>
+              <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                {viewUser && userOptions ? `${(userOptions.find((o) => o.value === viewUser) || {}).label || "User"}'s leads` : "Total Leads"}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1339,11 +1356,19 @@ function AllLeads() {
     Object.entries(filters).some(([k, v]) => k !== "quick" && k !== "teamView" && v);
 
 
-  const loadStageStats = async (teamViewOverride) => {
+  // Lead Stages "User" filter (management): one user's own board — the leads
+  // they responded on or called — and the stage lists drilled from it.
+  const [boardUser, setBoardUser] = useState("");
+
+  const loadStageStats = async (teamViewOverride, userOverride) => {
     setStageLoading(true);
     setStageError(false);
     const teamView = teamViewOverride !== undefined ? teamViewOverride : filters.teamView;
-    const qs = teamView ? `?teamView=${teamView}` : "";
+    const user = userOverride !== undefined ? userOverride : boardUser;
+    const p = new URLSearchParams();
+    if (teamView) p.set("teamView", teamView);
+    if (user && (!teamView || teamView === "responses")) p.set("user", user);
+    const qs = p.toString() ? `?${p.toString()}` : "";
     const res = await request.get({ entity: `lead/stage-stats${qs}` });
     if (res?.success) setStageData(res.result);
     else setStageError(true);
@@ -1374,6 +1399,8 @@ function AllLeads() {
     // A stage drilled from the board lists the same leads it counted — the
     // caller's own responses (Team Leader: + team's), see stageStats.js.
     if (stage && !f.teamView && !f.team && !f.assignedUser) params.set("teamView", "responses");
+    const viewUser = over.boardUser !== undefined ? over.boardUser : boardUser;
+    if (viewUser && params.get("teamView") === "responses") params.set("user", viewUser);
 
     const res = await request.get({ entity: `lead/by-stage?${params.toString()}` });
     setDrill({
@@ -1410,6 +1437,12 @@ function AllLeads() {
     setDrillStage(qf.stage || (qf.quick ? "Callback" : null));
     setDrillSub(null);
     loadLeadList(1, { stage: qf.stage || (qf.quick ? "Callback" : null), sub: null, filters: nextFilters });
+  };
+
+  const changeBoardUser = (userId) => {
+    setBoardUser(userId);
+    loadStageStats(undefined, userId);
+    if (drillStage) loadLeadList(1, { boardUser: userId });
   };
 
   const updateFilter = (patch) => {
@@ -1559,6 +1592,9 @@ function AllLeads() {
           activeStage={drillStage}
           activeSub={drillSub}
           onSelect={selectStage}
+          userOptions={isFullAccess ? salesAdmins.map((a) => ({ value: a._id, label: `${a.name || ""} ${a.surname || ""}`.trim() || a.email })) : null}
+          viewUser={boardUser}
+          onViewUser={changeBoardUser}
         />
       )}
 

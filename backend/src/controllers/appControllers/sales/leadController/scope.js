@@ -26,8 +26,19 @@ async function userLeadMatch(users) {
 
 // The caller's scope for the Lead Stages board: their own leads (Team
 // Leader with a team: + the team's). null = full access, no filter.
-async function responseScopeUsers(admin) {
+// `viewUserId` (Lead Stages "User" filter): just that one user's board —
+// anyone for full-access callers, a Team Leader only for themself or a team
+// member; any other id is ignored and the caller's normal scope applies.
+async function responseScopeUsers(admin, viewUserId) {
   const { isFullAccess, teamMemberNames } = await resolveScope(admin);
+  if (viewUserId && mongoose.isValidObjectId(viewUserId)) {
+    const target = await mongoose.model('Admin').findOne({ _id: viewUserId, removed: false }).select('_id name surname').lean();
+    if (target) {
+      if (isFullAccess) return [target];
+      const mine = await responseScopeUsers(admin);
+      if (mine && mine.some((u) => String(u._id) === String(target._id))) return [target];
+    }
+  }
   if (isFullAccess) return null;
   const users = [admin];
   const memberKeys = admin.role === 'Team Leader' ? teamMemberNames || [] : [];

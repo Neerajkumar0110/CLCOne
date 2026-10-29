@@ -108,7 +108,7 @@ const byStage = async (req, res) => {
 
   // The Lead Stages "own leads" view (teamView=responses) is built into the
   // list filter itself, so stage drills match the board's counts.
-  const scopeUsers = q.teamView === 'responses' ? await responseScopeUsers(req.admin) : null;
+  const scopeUsers = q.teamView === 'responses' ? await responseScopeUsers(req.admin, q.user) : null;
   const filter = await buildLeadListFilter(q, scopeUsers);
 
   const sortBy = q.sortBy || 'stageUpdatedAt';
