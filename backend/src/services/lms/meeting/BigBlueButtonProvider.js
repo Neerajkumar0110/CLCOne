@@ -210,7 +210,7 @@ class BigBlueButtonProvider extends MeetingProvider {
         const sizeBytes = Number(xmlVal(rec, 'size')) || undefined;
         const recordID = xmlVal(rec, 'recordID');
 
-        let downloadUrl = downloadable && downloadable.url;
+        let downloadUrl = downloadable && (await this._videoFile(downloadable.url));
         if (!downloadUrl && recordID) {
           downloadUrl = await this._rawWebcamFallback(recordID);
         }
@@ -234,6 +234,31 @@ class BigBlueButtonProvider extends MeetingProvider {
     );
   }
 
+  // The "video" format's <url> is its folder/player page (…/playback/video/
+  // <recordID>/), not the file itself — the single composited mp4 (screen
+  // share + slides + webcams + audio) sits inside it as video-0.m4v (webm on
+  // some builds). Hand out the file so Download saves the whole class.
+  async _videoFile(url) {
+    if (!url || !url.endsWith('/')) return url;
+    for (const name of ['video-0.m4v', 'video-0.mp4', 'video-0.webm']) {
+      if (await this._exists(url + name)) return url + name;
+    }
+    return url;
+  }
+
+  async _exists(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const head = await fetch(url, { method: 'HEAD', signal: ctrl.signal });
+      return head.ok;
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // BBB publishes the raw webcam track the presentation player composites
   // from at this fixed path regardless of whether video-format export is
   // configured — checked with a HEAD request rather than assumed, since a
@@ -242,16 +267,7 @@ class BigBlueButtonProvider extends MeetingProvider {
     const origin = String(this.cfg.url || '').replace(/\/bigbluebutton\/?$/, '');
     if (!origin) return undefined;
     const candidate = `${origin}/presentation/${recordID}/video/webcams.webm`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
-    try {
-      const head = await fetch(candidate, { method: 'HEAD', signal: ctrl.signal });
-      return head.ok ? candidate : undefined;
-    } catch (e) {
-      return undefined;
-    } finally {
-      clearTimeout(timer);
-    }
+    return (await this._exists(candidate)) ? candidate : undefined;
   }
 
   // Verify an incoming BBB webhook payload's checksum (if configured to send one).
