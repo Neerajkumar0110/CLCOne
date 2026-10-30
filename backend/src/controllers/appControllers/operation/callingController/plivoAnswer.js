@@ -324,6 +324,31 @@ async function handleIvrDigits(req, res, cfg, crmCallId, secretQs) {
   let dialNumber = null;
   let label = 'our team';
 
+  // Smart routing (services/calling/inboundRouting.js) — rings the user they
+  // last spoke to, a free dialer user, then a Team Leader, on whatever
+  // device they use (Browser phone included). Used for Sales, a specific
+  // user, no / unknown digit, and any team with nobody free to take it.
+  const toSmart = async (spoken, prefer) => {
+    const inbound = require('../../../../services/calling/inboundRouting');
+    await inbound.adopt(rec, prefer || {});
+    const holdUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${rec._id}&leg=inbound-hold&n=1${secretQs}`;
+    respondXml(res, `<Response>${connectingXml(spoken)}<Redirect method="POST">${escapeXml(holdUrl)}</Redirect></Response>`);
+    inbound.ringNext(rec._id).catch((err) => console.error('[inbound] routing failed:', err.message));
+    return undefined;
+  };
+  const isSales = (t) => /sales/i.test(String(t || ''));
+
+  if (opt && opt.action === 'route_team' && opt.targetTeam && isSales(opt.targetTeam)) {
+    return toSmart(opt.label || opt.targetTeam);
+  }
+  if (opt && opt.action === 'route_agent' && opt.targetAgent) {
+    const target = await mongoose.model('Admin').findOne({ _id: opt.targetAgent, removed: false }).select('name surname').lean();
+    if (target) return toSmart(target.name || 'our team', { preferAgent: target._id, preferName: `${target.name} ${target.surname || ''}`.trim() });
+  }
+  if (!opt || !['route_team', 'route_agent', 'route_number'].includes(opt.action)) {
+    if (!(flow && flow.fallbackNumber)) return toSmart('our team');
+  }
+
   if (opt && opt.action === 'route_team' && opt.targetTeam) {
     const admin = await findAvailableAgentInTeam(opt.targetTeam);
     if (admin) {
@@ -352,27 +377,9 @@ async function handleIvrDigits(req, res, cfg, crmCallId, secretQs) {
     label = 'our team';
   }
 
-  // Genuinely nobody to take it — rather than just dropping the caller,
-  // log it as a real callback so the target team sees a missed call to
-  // work, instead of it vanishing with nothing but a CallRecord no one
-  // watches.
-  if (!dialNumber) {
-    await rec.save();
-    const CallCallback = mongoose.model('CallCallback');
-    await new CallCallback({
-      callRecord: rec._id,
-      contactName: rec.phone,
-      phone: rec.phone,
-      team: (opt && opt.targetTeam) || undefined,
-      scheduledAt: new Date(),
-      notes: `Missed inbound call — no agent was available${opt && opt.targetTeam ? ` in ${opt.targetTeam}` : ''} to take it.`,
-      createdByName: 'IVR (auto)',
-    }).save();
-    return respondXml(
-      res,
-      '<Response><Speak voice="WOMAN" language="en-IN">Sorry, no one is available to take your call right now. We have noted your number and our team will call you back shortly.</Speak><Hangup/></Response>'
-    );
-  }
+  // A team with nobody free (and no fallback number) → smart routing rather
+  // than dropping the caller.
+  if (!dialNumber) return toSmart(label === 'our team' && opt && opt.targetTeam ? opt.targetTeam : label);
 
   await rec.save();
   const fullDialNumber = `${cfg.plivo.countryCode}${dialNumber}`;

@@ -246,6 +246,35 @@ async function start({ from, to, callUuid }) {
   return rec;
 }
 
+// An IVR call (the caller already picked an option) handed to smart routing:
+// the same record becomes a smart inbound call. `preferAgent` = an IVR
+// option that points at one user — they're rung first.
+async function adopt(rec, { preferAgent = null, preferName = null } = {}) {
+  const p10 = last10(rec.phone);
+  const lead = p10
+    ? await mongoose.model('Lead').findOne({ phoneNormalized: p10, removed: false }).select('name').sort({ updated: -1 }).lean()
+    : null;
+  const sticky = preferAgent ? { id: preferAgent, name: preferName } : p10 ? await lastSpokeTo(p10) : null;
+  const now = new Date();
+  rec.status = 'ringing';
+  rec.phaseAt = now;
+  rec.ringingAt = rec.ringingAt || now;
+  rec.agent = null;
+  rec.agentName = null;
+  if (lead && (!rec.contactName || rec.contactName === 'Inbound caller')) rec.contactName = fixMojibake(lead.name);
+  if (!rec.contactName) rec.contactName = 'Inbound caller';
+  rec.inbound = {
+    routedBy: 'smart',
+    stickyAgent: sticky ? sticky.id : undefined,
+    stickyAgentName: sticky ? sticky.name : undefined,
+    holdSince: now,
+    attempts: [],
+  };
+  await rec.save();
+  broadcast(rec);
+  return rec;
+}
+
 // Ring the next person. Guarded so two triggers (a missed leg + the hold
 // loop's safety net) can't ring two phones at once.
 async function ringNext(recId) {
@@ -548,6 +577,7 @@ module.exports = {
   RING_SEC,
   MAX_HOLD_LOOPS,
   start,
+  adopt,
   ringNext,
   answered,
   legEnded,
