@@ -277,6 +277,17 @@ async function applyLeave(admin, b) {
   });
   logActivity(admin, 'leave_applied', { by: admin, detail: `${leave.leaveType} · ${durationLabel(leave)}` });
   sendLeaveEmail(admin, leave).catch((e) => console.error('[leave] email failed:', e.message));
+  // Real-time to management (bell + popup), alongside the approver email.
+  require('../../notify').notify({
+    audience: 'management',
+    actorId: admin._id,
+    actorName: fullName(admin),
+    module: 'HRMS',
+    type: 'leave.applied',
+    title: `${fullName(admin)} applied for leave`,
+    body: `${leave.leaveType} · ${durationLabel(leave)}${leave.reason ? ` — ${leave.reason.slice(0, 120)}` : ''}`,
+    link: '/hr/work-tracker',
+  });
   return { ok: true, leave };
 }
 
@@ -349,10 +360,21 @@ async function cancelLeave(admin, leaveId) {
   if (!leave) return { ok: false, error: 'Leave request not found.' };
   if (!['Pending', 'Approved'].includes(leave.status)) return { ok: false, error: `This leave is already ${leave.status.toLowerCase()}.` };
   if (leave.status === 'Approved' && leave.fromDate <= new Date()) return { ok: false, error: 'This leave has already started.' };
+  const wasApproved = leave.status === 'Approved';
   leave.status = 'Cancelled';
   leave.decisionToken = undefined;
   leave.updated = new Date();
   await leave.save();
+  require('../../notify').notify({
+    audience: 'management',
+    actorId: admin._id,
+    actorName: fullName(admin),
+    module: 'HRMS',
+    type: 'leave.cancelled',
+    title: `${fullName(admin)} cancelled a${wasApproved ? 'n approved' : ' pending'} leave`,
+    body: `${leave.leaveType} · ${durationLabel(leave)}`,
+    link: '/hr/work-tracker',
+  });
   return { ok: true, leave };
 }
 

@@ -1047,18 +1047,40 @@ async function attendanceMonth(req, res) {
   const today = wd.todayKey();
   const [y, m] = month.split('-').map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const dayKeys = [];
-  for (let d = 1; d <= last; d += 1) {
-    const k = `${month}-${String(d).padStart(2, '0')}`;
-    if (k <= today) dayKeys.push(k);
-  }
+  const allKeys = [];
+  for (let d = 1; d <= last; d += 1) allKeys.push(`${month}-${String(d).padStart(2, '0')}`);
+  const dayKeys = allKeys.filter((k) => k <= today); // attendance: up to today
   const { users } = await salesUsers(q);
-  if (!dayKeys.length || !users.length) {
-    return res.status(200).json({ success: true, message: 'ok', result: { month, days: [], people: [] } });
+  if (!users.length) {
+    return res.status(200).json({ success: true, message: 'ok', result: { month, days: [], upcoming: [], people: [] } });
   }
-  const from = wd.dayBounds(dayKeys[0]).start;
-  const to = wd.dayBounds(dayKeys[dayKeys.length - 1]).end;
-  const att = await attendance(users, dayKeys, from, to);
+  const from = wd.dayBounds(allKeys[0]).start;
+  const to = wd.dayBounds(allKeys[allKeys.length - 1]).end;
+  const att = dayKeys.length ? await attendance(users, dayKeys, from, wd.dayBounds(dayKeys[dayKeys.length - 1]).end) : new Map();
+
+  // Every leave request touching the month — approved, still pending or
+  // rejected — shown on its days (attendance() above only counts approved).
+  const SHOWN = ['Approved', 'Pending', 'Rejected'];
+  const leaveReqs = await mongoose
+    .model('LeaveRequest')
+    .find({ removed: false, status: { $in: SHOWN }, adminId: { $in: users.map((u) => String(u._id)) }, fromDate: { $lte: to }, toDate: { $gte: from } })
+    .select('adminId leaveType status fromDate toDate durationType reason decisionBy decisionNote appliedOn')
+    .lean();
+  const nameOf = new Map(users.map((u) => [String(u._id), wd.fullName(u) || u.email]));
+  const leavesOn = (dk) => {
+    const { start, end } = wd.dayBounds(dk);
+    return leaveReqs
+      .filter((l) => new Date(l.fromDate) <= end && new Date(l.toDate) >= start)
+      .map((l) => ({
+        adminId: l.adminId,
+        name: nameOf.get(l.adminId) || '—',
+        status: l.status,
+        type: l.leaveType,
+        when: wd.durationLabel(l),
+        reason: l.reason || null,
+        decisionBy: l.decisionBy || null,
+      }));
+  };
 
   const LATE_MIN = 15;
   const blank = () => ({ present: 0, auto: 0, absent: 0, leave: 0, late: 0 });
@@ -1083,9 +1105,16 @@ async function attendanceMonth(req, res) {
       return { adminId: String(u._id), name: wd.fullName(u) || u.email, status: d.status, loginAt: d.loginAt || d.autoStartedAt || null, logoutAt: d.logoutAt || null, lateMin: d.lateMin || 0, activeMin: d.activeMin || 0, leave: d.leave || null };
     });
     const any = (att.get(String(users[0]._id)) || [])[i] || {};
-    return { dayKey: dk, workingDay: !!any.workingDay, holiday: any.holiday || null, ...c, people: list };
+    const leaves = leavesOn(dk);
+    return { dayKey: dk, workingDay: !!any.workingDay, holiday: any.holiday || null, ...c, people: list, leaves };
   });
-  return res.status(200).json({ success: true, message: 'ok', result: { month, lateAfterMin: LATE_MIN, days, people } });
+  // days still to come this month: only the leave requests on them
+  const upcoming = allKeys.filter((k) => k > today).map((dk) => ({ dayKey: dk, leaves: leavesOn(dk) })).filter((d) => d.leaves.length);
+  people.forEach((p) => {
+    const mine = leaveReqs.filter((l) => l.adminId === p.adminId);
+    p.leaveRequests = { approved: mine.filter((l) => l.status === 'Approved').length, pending: mine.filter((l) => l.status === 'Pending').length, rejected: mine.filter((l) => l.status === 'Rejected').length };
+  });
+  return res.status(200).json({ success: true, message: 'ok', result: { month, lateAfterMin: LATE_MIN, days, upcoming, people } });
 }
 
 module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth };

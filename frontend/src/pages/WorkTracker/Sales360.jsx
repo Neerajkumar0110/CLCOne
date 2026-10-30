@@ -38,6 +38,7 @@ import {
   BellOutlined,
 } from "@ant-design/icons";
 import { request } from "@/request";
+import { getSocket } from "@/socket";
 import { API_BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
@@ -416,9 +417,19 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hover, setHover] = useState(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     if (monthHint) setMonth(dayjs(monthHint).startOf("month"));
   }, [monthHint]);
+  // Live: a leave applied / approved / rejected / cancelled reloads the month.
+  useEffect(() => {
+    const socket = getSocket();
+    const onNote = (doc) => {
+      if (String(doc?.type || "").startsWith("leave.")) setTick((t) => t + 1);
+    };
+    socket?.on("notification:new", onNote);
+    return () => socket?.off("notification:new", onNote);
+  }, []);
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -433,10 +444,43 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
     return () => {
       live = false;
     };
-  }, [month, adminId, team]);
+  }, [month, adminId, team, tick]);
 
   const single = !!adminId && data?.people?.length === 1;
   const byKey = new Map((data?.days || []).map((d) => [d.dayKey, d]));
+  const upKey = new Map((data?.upcoming || []).map((d) => [d.dayKey, d])); // days to come: leave requests only
+  const LEAVE_ST = { Approved: ["✓", "#7C3AED"], Pending: ["⏳", "#B45309"], Rejected: ["✕", "#64748B"] };
+  const leaveBadges = (leaves) =>
+    leaves && leaves.length ? (
+      <div className="s3-att-leaves">
+        {single
+          ? leaves.map((l, k) => (
+              <span key={k} style={{ "--c": LEAVE_ST[l.status][1] }} className={l.status === "Rejected" ? "rej" : ""}>
+                {LEAVE_ST[l.status][0]} Leave {l.status.toLowerCase()}
+              </span>
+            ))
+          : ["Approved", "Pending", "Rejected"].map((s) => {
+              const n = leaves.filter((l) => l.status === s).length;
+              return n ? (
+                <span key={s} style={{ "--c": LEAVE_ST[s][1] }} className={s === "Rejected" ? "rej" : ""}>
+                  {LEAVE_ST[s][0]} {n} {s === "Approved" ? "on leave" : s.toLowerCase()}
+                </span>
+              ) : null;
+            })}
+      </div>
+    ) : null;
+  const leaveTip = (leaves) =>
+    leaves && leaves.length ? (
+      <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,.12)" }}>
+        <span style={{ color: "#C4B5FD", fontWeight: 700 }}>Leave requests · {leaves.length}</span>
+        {leaves.map((l, k) => (
+          <div key={k} className="s3-att-names" style={{ marginTop: 2 }}>
+            <b style={{ color: "#fff" }}>{l.name}</b> · {l.type} · <span style={{ color: LEAVE_ST[l.status][1] === "#64748B" ? "#94A3B8" : l.status === "Pending" ? "#FCD34D" : "#C4B5FD" }}>{l.status}</span>
+            <div>{l.when}{l.reason ? ` — ${l.reason}` : ""}{l.decisionBy ? ` · by ${l.decisionBy}` : ""}</div>
+          </div>
+        ))}
+      </div>
+    ) : null;
   const first = month.startOf("month");
   const lead = (first.day() + 6) % 7; // Monday first
   const cells = [...Array(lead).fill(null), ...Array.from({ length: month.daysInMonth() }, (_, i) => first.add(i, "day"))];
@@ -447,6 +491,14 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
 
   const dayTip = (d) => {
     if (!d) return null;
+    if (!d.people) {
+      return (
+        <>
+          <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b>
+          {leaveTip(d.leaves)}
+        </>
+      );
+    }
     if (single) {
       const u = d.people[0];
       const st = ATT[u.status] || [u.status, "#64748B"];
@@ -457,7 +509,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           {u.loginAt && <div>Login {dayjs(u.loginAt).format("h:mm A")}{u.logoutAt ? ` · logout ${dayjs(u.logoutAt).format("h:mm A")}` : ""}</div>}
           {u.lateMin > (data.lateAfterMin || 15) && <div style={{ color: "#B45309" }}>Late by {hm(u.lateMin)}</div>}
           {u.activeMin > 0 && <div>Active {hm(u.activeMin)}</div>}
-          {u.leave && <div>Leave: {u.leave}</div>}
+          {leaveTip(d.leaves)}
         </>
       );
     }
@@ -474,6 +526,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
             </div>
           </div>
         ))}
+        {leaveTip(d.leaves)}
       </>
     );
   };
@@ -486,7 +539,8 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
         <div className="s3-att-nav">
           <button type="button" onClick={() => setMonth((m) => m.subtract(1, "month"))} aria-label="Previous month"><LeftOutlined /></button>
           <b>{month.format("MMMM YYYY")}</b>
-          <button type="button" disabled={!month.isBefore(dayjs(), "month")} onClick={() => setMonth((m) => m.add(1, "month"))} aria-label="Next month"><RightOutlined /></button>
+          {/* up to 2 months ahead — for leave already applied for */}
+          <button type="button" disabled={!month.isBefore(dayjs().add(2, "month"), "month")} onClick={() => setMonth((m) => m.add(1, "month"))} aria-label="Next month"><RightOutlined /></button>
         </div>
       }
     >
@@ -524,6 +578,16 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           const d = byKey.get(c.format("YYYY-MM-DD"));
           const future = isFuture(c) || !d;
           const today = c.isSame(dayjs(), "day");
+          const up = !d ? upKey.get(c.format("YYYY-MM-DD")) : null;
+          if (up) {
+            return (
+              <div key={i} className="s3-att-cell future has-leave" onMouseEnter={() => setHover(up)} onMouseLeave={() => setHover(null)}>
+                <span className="s3-att-num">{c.date()}</span>
+                {leaveBadges(up.leaves)}
+                {hover === up && <div className="s3-att-tip">{dayTip(up)}</div>}
+              </div>
+            );
+          }
           if (single && d) {
             const u = d.people[0];
             const st = ATT[u.status] || ["", "#94A3B8"];
@@ -534,6 +598,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                 <span className="s3-att-status">{st[0]}</span>
                 {u.loginAt && <span className="s3-att-time">{dayjs(u.loginAt).format("h:mm A")}</span>}
                 {late && <span className="s3-att-late">late {hm(u.lateMin)}</span>}
+                {leaveBadges(d.leaves)}
                 {hover === d && <div className="s3-att-tip">{dayTip(d)}</div>}
               </div>
             );
@@ -560,6 +625,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                   {d.late > 0 && <span className="s3-att-late">{d.late} late</span>}
                 </>
               ))}
+              {d && leaveBadges(d.leaves)}
               {hover === d && d && <div className="s3-att-tip">{dayTip(d)}</div>}
             </div>
           );
@@ -579,7 +645,16 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                   <td style={{ color: ATT.present[1], fontWeight: 700 }}>{p.present}</td>
                   <td style={{ color: ATT.auto[1] }}>{p.auto}</td>
                   <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{p.absent}</td>
-                  <td>{p.leave}</td>
+                  <td>
+                    {p.leave}
+                    {p.leaveRequests && (p.leaveRequests.pending > 0 || p.leaveRequests.rejected > 0) && (
+                      <div className="s3-muted">
+                        {p.leaveRequests.pending ? <span style={{ color: "#B45309" }}>{p.leaveRequests.pending} pending</span> : null}
+                        {p.leaveRequests.pending && p.leaveRequests.rejected ? " · " : ""}
+                        {p.leaveRequests.rejected ? `${p.leaveRequests.rejected} rejected` : null}
+                      </div>
+                    )}
+                  </td>
                   <td>{p.late ? <span className="s3-warn">{p.late}</span> : 0}</td>
                   <td>
                     <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
