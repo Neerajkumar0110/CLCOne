@@ -1931,7 +1931,7 @@ button.s3-kpi {
 .s3-sessions-head b { font-size: 13.5px; color: var(--hub-text); }
 .s3-sessions-head span { font-size: 12px; color: var(--hub-muted); }
 .s3-sessions-list { display: flex; flex-direction: column; gap: 6px; }
-.s3-sessions-list > div { display: grid; grid-template-columns: 150px 1fr 64px minmax(180px, auto); align-items: center; gap: 10px; font-size: 12.5px; }
+.s3-sessions-list > div { display: grid; grid-template-columns: 150px 1fr 64px 270px; align-items: center; gap: 10px; font-size: 12.5px; }
 .s3-sess-time { font-weight: 700; color: var(--hub-text); white-space: nowrap; }
 .s3-sess-bar { height: 7px; border-radius: 99px; background: var(--s3-soft); overflow: hidden; }
 .s3-sess-bar em { display: block; height: 100%; background: #2563eb; border-radius: 99px; }
@@ -1942,3 +1942,7 @@ button.s3-kpi {
   .s3-sess-bar { display: none; }
   .s3-sessions-list > div > span:last-child { grid-column: 1 / -1; }
 }
+.s3-sessions-list > div.is-break .s3-sess-bar em { background: #f59e0b; }
+.s3-sessions-list > div.is-break b { color: #d97706; }
+.s3-sessions-list > div.is-break > span:last-child { color: #b45309; font-weight: 600; }
+.s3-sessions-list > div.is-break { background: rgba(245, 158, 11, .06); border-radius: 8px; padding: 2px 0; }

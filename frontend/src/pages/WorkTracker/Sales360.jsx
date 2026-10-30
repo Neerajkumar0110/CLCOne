@@ -1036,25 +1036,41 @@ function DayModal({ target, onClose }) {
 
         {data && (
           <div className="s3-sessions">
-            <div className="s3-sessions-head">
-              <b>Dialer sessions</b>
-              <span>
-                {dialer.length ? `${dialer.length} · ${hm(spansMin(dialer))} on in total` : "The dialer was not switched on this day."}
-                {outsideCalls > 0 ? ` · ${outsideCalls} call${outsideCalls > 1 ? "s" : ""} made with the dialer off` : ""}
-              </span>
-            </div>
-            {sessions.length > 0 && (
-              <div className="s3-sessions-list">
-                {sessions.map((s, i) => (
-                  <div key={i}>
-                    <span className="s3-sess-time">{clock(s.startAt)} – {clock(s.endAt)}</span>
-                    <span className="s3-sess-bar"><em style={{ width: `${Math.min(100, (s.min / Math.max(1, ...sessions.map((x) => x.min))) * 100)}%` }} /></span>
-                    <b>{hm(s.min)}</b>
-                    <span>{s.n} call{s.n === 1 ? "" : "s"} · {s.conn} connected · {dur(s.talk)} talk</span>
+            {(() => {
+              // dialer stretches + every break, in time order
+              const brk = (day.breaks || []).map((b) => ({ kind: "break", startAt: b.startAt, endAt: b.endAt, min: b.minutes || spansMin([b]), label: b.label || "Break" }));
+              const rows = [...sessions.map((s) => ({ ...s, kind: "dialer" })), ...brk].sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+              const longest = Math.max(1, ...rows.map((r) => r.min));
+              const breakMin = brk.reduce((s, b) => s + b.min, 0);
+              return (
+                <>
+                  <div className="s3-sessions-head">
+                    <b>Dialer sessions &amp; breaks</b>
+                    <span>
+                      {dialer.length ? `${dialer.length} session${dialer.length > 1 ? "s" : ""} · ${hm(spansMin(dialer))} on` : "Dialer not switched on"}
+                      {` · ${brk.length ? `${brk.length} break${brk.length > 1 ? "s" : ""} · ${hm(breakMin)}` : "no break taken"}`}
+                      {outsideCalls > 0 ? ` · ${outsideCalls} call${outsideCalls > 1 ? "s" : ""} made with the dialer off` : ""}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
+                  {rows.length > 0 && (
+                    <div className="s3-sessions-list">
+                      {rows.map((r, i) => (
+                        <div key={i} className={r.kind === "break" ? "is-break" : ""}>
+                          <span className="s3-sess-time">{clock(r.startAt)} – {r.endAt ? clock(r.endAt) : "now"}</span>
+                          <span className="s3-sess-bar"><em style={{ width: `${Math.min(100, (r.min / longest) * 100)}%` }} /></span>
+                          <b>{hm(r.min)}</b>
+                          {r.kind === "break" ? (
+                            <span><CoffeeOutlined /> {r.label}</span>
+                          ) : (
+                            <span>{r.n} call{r.n === 1 ? "" : "s"} · {r.conn} connected · {dur(r.talk)} talk</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
