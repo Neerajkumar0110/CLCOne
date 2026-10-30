@@ -494,7 +494,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
   const pctOf = (p) => (p.workingDays ? Math.round(((p.present + p.auto + 0.5 * (p.halfDay || 0)) / p.workingDays) * 100) : 0);
 
   // hovering a count in the user table lists the dates behind it
-  const datesTip = (p, match, title, value) => {
+  const datesTip = (p, match, title, value, color = "#4F46E5") => {
     if (!value) return value;
     const hits = (data?.days || [])
       .map((d) => ({ d, u: d.people.find((x) => x.adminId === p.adminId) }))
@@ -504,20 +504,33 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
     return (
       <Tooltip
         placement="top"
-        overlayStyle={{ maxWidth: 380 }}
+        color="var(--hub-surface, #fff)"
+        overlayStyle={{ maxWidth: 400 }}
+        overlayInnerStyle={{ padding: 0, borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 40px rgba(15,23,42,.18)", border: "1px solid var(--hub-border, #e5e7eb)" }}
         title={
-          <div className="s3-dates-tip">
-            <b>{title} · {p.name}</b>
-            {hits.map(({ d, u }) => (
-              <div key={d.dayKey}>
-                <span>{dayjs(d.dayKey).format("ddd, D MMM")}</span>
-                <em>
-                  {[u.loginAt ? `login ${dayjs(u.loginAt).format("h:mm A")}` : null, u.lateMin > lateAfter ? `late ${hm(u.lateMin)}` : null, u.leave || null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </em>
-              </div>
-            ))}
+          <div className="s3-dates-tip" style={{ "--c": color }}>
+            <div className="s3-dates-head">
+              <i />
+              <b>{title}</b>
+              <span>{p.name}</span>
+              <em>{hits.length} day{hits.length > 1 ? "s" : ""}</em>
+            </div>
+            <div className="s3-dates-rows">
+              {hits.map(({ d, u }) => (
+                <div key={d.dayKey}>
+                  <span className="s3-dates-day">
+                    <b>{dayjs(d.dayKey).format("D")}</b>
+                    <small>{dayjs(d.dayKey).format("MMM")}</small>
+                  </span>
+                  <span className="s3-dates-wd">{dayjs(d.dayKey).format("dddd")}</span>
+                  <span className="s3-dates-tags">
+                    {u.loginAt && <em className="login">{dayjs(u.loginAt).format("h:mm A")}</em>}
+                    {u.lateMin > lateAfter && <em className="late">late {hm(u.lateMin)}</em>}
+                    {u.leave && <em className="leave">{u.leave}</em>}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         }
       >
@@ -685,12 +698,12 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
               {[...data.people].sort((a, b) => pctOf(b) - pctOf(a)).map((p) => (
                 <tr key={p.adminId}>
                   <td><b>{p.name}</b><div className="s3-muted">{p.role}{p.team ? ` · ${p.team}` : ""}</div></td>
-                  <td style={{ color: ATT.present[1], fontWeight: 700 }}>{datesTip(p, (u) => u.status === "present", "Present", p.present)}</td>
-                  <td style={{ color: ATT["half-day"][1], fontWeight: p.halfDay ? 700 : 400 }}>{datesTip(p, (u) => u.status === "half-day", "Half day", p.halfDay || 0)}</td>
-                  <td style={{ color: ATT.auto[1] }}>{datesTip(p, (u) => u.status === "auto", "Auto-started", p.auto)}</td>
-                  <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{datesTip(p, (u) => u.status === "absent", "Absent", p.absent)}</td>
+                  <td style={{ color: ATT.present[1], fontWeight: 700 }}>{datesTip(p, (u) => u.status === "present", "Present", p.present, ATT.present[1])}</td>
+                  <td style={{ color: ATT["half-day"][1], fontWeight: p.halfDay ? 700 : 400 }}>{datesTip(p, (u) => u.status === "half-day", "Half day", p.halfDay || 0, ATT["half-day"][1])}</td>
+                  <td style={{ color: ATT.auto[1] }}>{datesTip(p, (u) => u.status === "auto", "Auto-started", p.auto, ATT.auto[1])}</td>
+                  <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{datesTip(p, (u) => u.status === "absent", "Absent", p.absent, ATT.absent[1])}</td>
                   <td>
-                    {datesTip(p, (u) => u.status === "leave", "Leave", p.leave)}
+                    {datesTip(p, (u) => u.status === "leave", "Leave", p.leave, ATT.leave[1])}
                     {p.leaveRequests && (p.leaveRequests.pending > 0 || p.leaveRequests.rejected > 0) && (
                       <div className="s3-muted">
                         {p.leaveRequests.pending ? <span style={{ color: "#B45309" }}>{p.leaveRequests.pending} pending</span> : null}
@@ -699,8 +712,8 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                       </div>
                     )}
                   </td>
-                  <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{datesTip(p, (u) => u.status === "late-leave", "Leave (late login)", p.lateLeave || 0)}</td>
-                  <td>{p.late ? <span className="s3-warn">{datesTip(p, (u) => u.lateMin > (data.lateAfterMin || 15), "Late", p.late)}</span> : 0}</td>
+                  <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{datesTip(p, (u) => u.status === "late-leave", "Leave (late login)", p.lateLeave || 0, ATT["late-leave"][1])}</td>
+                  <td>{p.late ? <span className="s3-warn">{datesTip(p, (u) => u.lateMin > (data.lateAfterMin || 15), "Late", p.late, "#B45309")}</span> : 0}</td>
                   <td>
                     <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
                     <span className="s3-muted">{pctOf(p)}% of {p.workingDays} days</span>

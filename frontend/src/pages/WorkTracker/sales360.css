@@ -1949,8 +1949,21 @@ button.s3-kpi {
 
 /* attendance user table: hover a count → the dates behind it */
 .s3-dates-num { cursor: help; border-bottom: 1px dashed currentColor; padding-bottom: 1px; }
-.s3-dates-tip { min-width: 200px; font-size: 12px; }
-.s3-dates-tip b { display: block; margin-bottom: 6px; }
-.s3-dates-tip > div { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; border-top: 1px solid rgba(255, 255, 255, .1); }
-.s3-dates-tip span { font-weight: 600; white-space: nowrap; }
-.s3-dates-tip em { font-style: normal; color: #cbd5e1; white-space: nowrap; }
+.s3-dates-tip { min-width: 280px; color: var(--hub-text, #0f172a); font-size: 12.5px; }
+.s3-dates-head { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; padding: 11px 14px; background: color-mix(in srgb, var(--c) 9%, transparent); border-bottom: 1px solid var(--hub-border, #e5e7eb); }
+.s3-dates-head i { width: 9px; height: 9px; border-radius: 99px; background: var(--c); }
+.s3-dates-head b { font-size: 13px; color: var(--c); }
+.s3-dates-head span { color: var(--hub-muted, #64748b); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s3-dates-head em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--c); background: var(--hub-surface, #fff); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); padding: 1px 8px; border-radius: 99px; }
+.s3-dates-rows { padding: 6px 8px 8px; max-height: 280px; overflow-y: auto; }
+.s3-dates-rows > div { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; padding: 6px; border-radius: 10px; }
+.s3-dates-rows > div:hover { background: var(--hub-bg-soft, #f8fafc); }
+.s3-dates-day { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--c) 10%, transparent); color: var(--c); line-height: 1; }
+.s3-dates-day b { font-size: 15px; }
+.s3-dates-day small { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.s3-dates-wd { font-weight: 700; }
+.s3-dates-tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.s3-dates-tags em { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 7px; white-space: nowrap; }
+.s3-dates-tags em.login { color: #334155; background: #f1f5f9; }
+.s3-dates-tags em.late { color: #b45309; background: #fef3c7; }
+.s3-dates-tags em.leave { color: #7c3aed; background: #ede9fe; }
