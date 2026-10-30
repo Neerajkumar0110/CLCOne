@@ -24,7 +24,14 @@ const schema = new mongoose.Schema({
   loginAt: Date,
   logoutAt: Date,
   autoStartedAt: Date,
-  startSource: { type: String, enum: ['login', 'auto'] },
+  startSource: { type: String, enum: ['login', 'auto', 'manager'] },
+  // Management marked the day present from Sales 360° (no Login was pressed,
+  // the dialer was on / calls were made) — loginAt is then set to when the
+  // dialer first came on. Such a day is never turned into a half day.
+  markedPresentBy: String,
+  markedPresentAt: Date,
+  // The "you didn't log out" email went out (jobs/workdayTick.js).
+  logoutReminderAt: Date,
   breaks: { type: [breakSchema], default: [] },
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },

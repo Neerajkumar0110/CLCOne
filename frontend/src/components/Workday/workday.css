@@ -274,9 +274,8 @@
   background: #f59e0b;
 }
 .wm-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
+  line-height: 1.55;
   margin-top: 10px;
   padding: 11px 13px;
   border-radius: 12px;
@@ -1344,3 +1343,6 @@
   }
 }
 
+
+/* inline icon inside a note (block text, so bold words stay in the sentence) */
+.wm-note .anticon { margin-right: 6px; }

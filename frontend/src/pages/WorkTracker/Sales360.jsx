@@ -105,6 +105,7 @@ const EVENT = {
   leave_pause: ["Leave — dialer paused", "#7C3AED"],
   leave_applied: ["Leave applied", "#7C3AED"],
   leave_decided: ["Leave decided", "#7C3AED"],
+  marked_present: ["Marked present by management", "#15803D"],
 };
 const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HEAT_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
@@ -399,6 +400,152 @@ function Heatmap({ heat }) {
 
 function Pill({ color, children }) {
   return <span className="s3-pill" style={{ "--c": color }}>{children}</span>;
+}
+
+// ── missed login / logout (management) ───────────────────────────────────
+// Days someone worked without pressing Login (dialer on / auto-started /
+// calls made) — mark them present from here — and days they never pressed
+// Logout. Data: /workday/admin/360/exceptions for the page's range.
+function AttendanceExceptions({ base, people, canManage }) {
+  const [data, setData] = useState(null);
+  const [tab, setTab] = useState("login");
+  const [busy, setBusy] = useState(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setData(null);
+    request.get({ entity: `workday/admin/360/exceptions?${new URLSearchParams(base)}` }).then((r) => live && setData(r?.success ? r.result : { noLogin: [], noLogout: [] }));
+    return () => {
+      live = false;
+    };
+  }, [base, tick]);
+
+  const markPresent = (row) =>
+    Modal.confirm({
+      title: `Mark ${row.name} present on ${dayjs(row.dayKey).format("D MMM")}?`,
+      content: `They never pressed Login that day. Their start will be taken as ${row.dialerOnAt ? `${clock(row.dialerOnAt)}, when the dialer came on` : row.firstCallAt ? `${clock(row.firstCallAt)}, their first call` : "the 11:00 auto-start"}. It won't count as a half day.`,
+      okText: "Mark present",
+      onOk: async () => {
+        setBusy(`${row.adminId}|${row.dayKey}`);
+        const r = await request.post({ entity: "workday/admin/mark-present", jsonData: { adminId: row.adminId, dayKey: row.dayKey } });
+        setBusy(null);
+        if (r?.success) {
+          message.success(r.message);
+          setTick((t) => t + 1);
+        } else message.error(r?.message || "Could not mark present.");
+      },
+    });
+  const remind = async (adminId, name) => {
+    setBusy(`remind|${adminId}`);
+    const r = await request.post({ entity: "workday/admin/remind-login", jsonData: { adminId } });
+    setBusy(null);
+    if (r?.success) message.success(r.message);
+    else message.error(r?.message || `Could not remind ${name}.`);
+  };
+
+  const today = dayjs().format("YYYY-MM-DD");
+  const noLogin = data?.noLogin || [];
+  const noLogout = data?.noLogout || [];
+  const one = base.adminId && people?.find((p) => p.adminId === base.adminId);
+
+  return (
+    <Panel
+      title="Missed login / logout"
+      icon={<ScheduleOutlined />}
+      extra={
+        canManage && one ? (
+          <button type="button" className="hub-btn" disabled={busy === `remind|${one.adminId}`} onClick={() => remind(one.adminId, one.name)}>
+            <BellOutlined /> Send login reminder to {one.name.split(" ")[0]}
+          </button>
+        ) : null
+      }
+    >
+      <div className="s3-chips" style={{ marginBottom: 12 }}>
+        <button type="button" className={tab === "login" ? "on" : ""} onClick={() => setTab("login")}>No login <em>{noLogin.filter((x) => !x.markedPresentBy).length}</em></button>
+        <button type="button" className={tab === "logout" ? "on" : ""} onClick={() => setTab("logout")}>No logout <em>{noLogout.length}</em></button>
+      </div>
+      {!data && <div className="s3-skel-rows">{[0, 1, 2].map((i) => <i key={i} />)}</div>}
+      {data && tab === "login" && (
+        noLogin.length ? (
+          <div className="hub-table-wrapper">
+            <table className="hub-table s3-table">
+              <thead>
+                <tr><th>Date</th><th>User</th><th>Dialer came on</th><th>Auto-started</th><th>Calls</th><th /></tr>
+              </thead>
+              <tbody>
+                {noLogin.map((r) => (
+                  <tr key={`${r.adminId}|${r.dayKey}|${r.markedPresentBy ? "m" : ""}`}>
+                    <td style={{ whiteSpace: "nowrap" }}><b>{dayjs(r.dayKey).format("D MMM")}</b> <span className="s3-muted">{dayjs(r.dayKey).format("ddd")}</span></td>
+                    <td><b>{r.name}</b></td>
+                    <td>
+                      {r.dialerOnAt ? (
+                        <>
+                          {clock(r.dialerOnAt)}
+                          <div className="s3-muted">{!r.dialerOnBy || r.dialerOnBy === "System" ? "auto-start" : r.dialerOnBy === r.name ? "by self" : `by ${r.dialerOnBy}`}</div>
+                        </>
+                      ) : "—"}
+                    </td>
+                    <td>{r.autoStartedAt ? <span style={{ color: "#2563EB" }}>{clock(r.autoStartedAt)}</span> : "—"}</td>
+                    <td>{r.calls ? <><b>{r.calls}</b><div className="s3-muted">{r.connected} connected</div></> : "0"}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {r.markedPresentBy ? (
+                        <Pill color="#15803D">Present · by {r.markedPresentBy}</Pill>
+                      ) : canManage && !r.calls && r.dayKey !== today ? (
+                        <span className="s3-muted">No calls — absent</span>
+                      ) : canManage ? (
+                        <>
+                          {r.dayKey === today && (
+                            <button type="button" className="hub-btn" style={{ marginRight: 6 }} disabled={busy === `remind|${r.adminId}`} onClick={() => remind(r.adminId, r.name)}>
+                              <BellOutlined /> Remind
+                            </button>
+                          )}
+                          {r.calls > 0 && (
+                            <button type="button" className="hub-btn hub-btn-primary" disabled={busy === `${r.adminId}|${r.dayKey}`} onClick={() => markPresent(r)}>
+                              <CheckCircleOutlined /> Mark present
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <Pill color="#B45309">No login</Pill>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="s3-empty">Everyone who worked in this range pressed Login.</div>
+        )
+      )}
+      {data && tab === "logout" && (
+        noLogout.length ? (
+          <div className="hub-table-wrapper">
+            <table className="hub-table s3-table">
+              <thead>
+                <tr><th>Date</th><th>User</th><th>Login</th><th>Counted to</th><th>Calls</th><th>Email</th></tr>
+              </thead>
+              <tbody>
+                {noLogout.map((r) => (
+                  <tr key={`${r.adminId}|${r.dayKey}`}>
+                    <td style={{ whiteSpace: "nowrap" }}><b>{dayjs(r.dayKey).format("D MMM")}</b> <span className="s3-muted">{dayjs(r.dayKey).format("ddd")}</span></td>
+                    <td><b>{r.name}</b></td>
+                    <td>{clock(r.loginAt)}</td>
+                    <td><span className="s3-muted">{r.countedTo ? clock(r.countedTo) : "—"} (shift end)</span></td>
+                    <td>{r.calls || 0}</td>
+                    <td>{r.emailedAt ? <Pill color="#2563EB">Emailed {clock(r.emailedAt)}</Pill> : <span className="s3-muted">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="s3-empty">Everyone who logged in also logged out.</div>
+        )
+      )}
+      <p className="s3-note">No login = worked without pressing Login (the dialer was switched on, auto-started at 11:00, or calls were made). Mark present counts the day from when the dialer came on. No logout = logged in but never pressed Logout — they get an email at {"8:00 PM"}.</p>
+    </Panel>
+  );
 }
 
 // ── attendance calendar (month grid — everyone, or the one picked user) ──
@@ -1748,6 +1895,7 @@ export default function Sales360({ initialUser }) {
       {/* KPI cards */}
       <div className="s3-section"><CalendarOutlined /> Attendance <span>month calendar — {effectiveUser ? "this user" : "everyone"} · hover a day for who and when</span></div>
       <AttendanceCalendar adminId={effectiveUser} team={team} monthHint={range[1].format("YYYY-MM")} />
+      <AttendanceExceptions base={base} people={data?.people} canManage={manager} />
 
       <div className="s3-section"><PhoneOutlined /> Calls &amp; time</div>
       <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>

@@ -27,6 +27,9 @@ router.route('/admin/360/lead-list').get(catchErrors(c.sales360LeadList));
 router.route('/admin/360/leads-report').get(catchErrors(c.sales360LeadsReport));
 router.route('/admin/360/export').get(catchErrors(c.sales360Export));
 router.route('/admin/360/attendance').get(catchErrors(c.sales360Attendance));
+router.route('/admin/360/exceptions').get(catchErrors(c.sales360Exceptions));
+router.route('/admin/mark-present').post(catchErrors(c.markPresent));
+router.route('/admin/remind-login').post(catchErrors(c.remindLogin));
 
 // Unauthenticated — the approver's one-click link from the leave email,
 // protected by the per-request token instead (see publicDecision).

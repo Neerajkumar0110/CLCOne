@@ -182,7 +182,7 @@ async function attendance(users, dayKeys, from, to) {
       else if (s && s.autoStartedAt) status = 'auto';
       else status = dk === today && new Date() < ws ? 'upcoming' : 'absent';
       // late login → half day / full-day leave (shiftSchedule.workday.lateLogin)
-      const penalty = status === 'present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived, leaveDay }) : null;
+      const penalty = status === 'present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived || !!s.markedPresentBy, leaveDay }) : null;
       if (penalty) status = penalty.kind;
       rows.push({
         dayKey: dk,
@@ -193,6 +193,8 @@ async function attendance(users, dayKeys, from, to) {
         // approved leave + any late-login leave counted for this day
         leaveDay: leaveDay + (penalty ? penalty.leave : 0),
         lateLoginNote: penalty ? penalty.label : null,
+        markedPresentBy: (s && s.markedPresentBy) || null,
+        logoutReminderAt: (s && s.logoutReminderAt) || null,
         workingDay: !holiday && !weeklyOff,
         loginAt: s && s.loginAt,
         autoStartedAt: s && s.autoStartedAt,
@@ -1127,4 +1129,67 @@ async function attendanceMonth(req, res) {
   return res.status(200).json({ success: true, message: 'ok', result: { month, lateAfterMin: LATE_MIN, days, upcoming, people } });
 }
 
-module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth };
+// GET /workday/admin/360/exceptions?from=&to=&adminId=&team=
+// Days someone never pressed Login (dialer on / auto-started / calls made
+// anyway) and days they never pressed Logout — with when the dialer first
+// came on and how many calls they made, so management can mark them present.
+async function exceptions(req, res) {
+  const q = req.query;
+  const { from, to, dayKeys } = parseRange(q);
+  const { users } = await salesUsers(q);
+  if (!users.length) return res.status(200).json({ success: true, message: 'ok', result: { noLogin: [], noLogout: [] } });
+  const att = await attendance(users, dayKeys, from, to);
+  const ids = users.map((u) => u._id);
+  const start = wd.dayBounds(dayKeys[0]).start;
+  const [firstOn, callDays] = await Promise.all([
+    mongoose.model('AgentActivity').aggregate([
+      { $match: { agent: { $in: ids }, kind: 'pool_on', at: { $gte: start, $lte: to } } },
+      { $group: { _id: { a: '$agent', d: { $dateToString: { format: '%Y-%m-%d', date: '$at', timezone: TZ } } }, at: { $min: '$at' }, by: { $first: '$byName' } } },
+    ]),
+    mongoose.model('CallRecord').aggregate([
+      { $match: { removed: false, agent: { $in: ids }, created: { $gte: start, $lte: to } } },
+      { $group: { _id: { a: '$agent', d: { $dateToString: { format: '%Y-%m-%d', date: '$created', timezone: TZ } } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED), firstAt: { $min: '$created' } } },
+    ]),
+  ]);
+  const k = (a, d) => `${a}|${d}`;
+  const onBy = new Map(firstOn.map((x) => [k(x._id.a, x._id.d), x]));
+  const cBy = new Map(callDays.map((x) => [k(x._id.a, x._id.d), x]));
+  const today = wd.todayKey();
+  const shiftOver = new Date() > wd.istAt(today, wd.W.end);
+  const noLogin = [];
+  const noLogout = [];
+  for (const u of users) {
+    const uid = String(u._id);
+    const name = wd.fullName(u) || u.email;
+    for (const d of att.get(uid) || []) {
+      const on = onBy.get(k(uid, d.dayKey));
+      const c = cBy.get(k(uid, d.dayKey));
+      const realLogin = d.loginAt && !d.derived;
+      // worked without Login: auto-started, or dialer / calls with no session
+      if (!realLogin && d.workingDay && (d.autoStartedAt || on || c)) {
+        noLogin.push({
+          adminId: uid,
+          name,
+          dayKey: d.dayKey,
+          autoStartedAt: d.autoStartedAt || null,
+          dialerOnAt: on ? on.at : null,
+          dialerOnBy: on ? on.by || null : null,
+          calls: c ? c.calls : 0,
+          connected: c ? c.connected : 0,
+          firstCallAt: c ? c.firstAt : null,
+        });
+      }
+      if (d.markedPresentBy) {
+        noLogin.push({ adminId: uid, name, dayKey: d.dayKey, markedPresentBy: d.markedPresentBy, loginAt: d.loginAt, calls: c ? c.calls : 0, connected: c ? c.connected : 0, dialerOnAt: on ? on.at : null });
+      }
+      // logged in but never logged out (today only once the shift is over)
+      if (realLogin && !d.markedPresentBy && !d.logoutAt && (d.dayKey < today || shiftOver)) {
+        noLogout.push({ adminId: uid, name, dayKey: d.dayKey, loginAt: d.loginAt, countedTo: d.endAt, emailedAt: d.logoutReminderAt || null, calls: c ? c.calls : 0 });
+      }
+    }
+  }
+  const byDate = (a, b) => (a.dayKey < b.dayKey ? 1 : a.dayKey > b.dayKey ? -1 : a.name.localeCompare(b.name));
+  return res.status(200).json({ success: true, message: 'ok', result: { noLogin: noLogin.sort(byDate), noLogout: noLogout.sort(byDate) } });
+}
+
+module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth, exceptions };

@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
 //   auto_start — the 11:00 job put them on the dialer (not logged in)
 //   leave_pause — approved leave paused / stopped their dialer
 //   leave_applied / leave_decided
-const KINDS = ['pool_on', 'pool_off', 'break_start', 'break_end', 'shift_login', 'shift_logout', 'auto_start', 'leave_pause', 'leave_applied', 'leave_decided'];
+const KINDS = ['pool_on', 'pool_off', 'break_start', 'break_end', 'shift_login', 'shift_logout', 'auto_start', 'leave_pause', 'leave_applied', 'leave_decided', 'marked_present'];
 const schema = new mongoose.Schema({
   agent: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
   agentName: String,

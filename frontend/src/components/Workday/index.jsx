@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { Modal, message } from "antd";
 import { LoginOutlined, LogoutOutlined, CoffeeOutlined, CalendarOutlined, GiftOutlined, PlayCircleOutlined, PhoneOutlined, CloseOutlined } from "@ant-design/icons";
 import { request } from "@/request";
+import { getSocket } from "@/socket";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { DEPARTMENT_ROLES } from "@/config/roles";
 import LeaveModal from "./LeaveModal";
@@ -79,6 +80,9 @@ export default function WorkdayWidget() {
   const [now, setNow] = useState(Date.now());
   const [modal, setModal] = useState(null); // login | break | logout | leave
   const [busy, setBusy] = useState(false);
+  // dialer on but no Login today → the login prompt comes back every 5 minutes
+  const [nudge, setNudge] = useState(null); // null | { by }
+  const lastNudgeRef = useRef(0);
 
   const load = useCallback(async () => {
     const r = await request.get({ entity: "workday/me" });
@@ -96,6 +100,31 @@ export default function WorkdayWidget() {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!data?.loginReminder) {
+      if (nudge && data?.session?.loginAt) setNudge(null);
+      return;
+    }
+    if (Date.now() - lastNudgeRef.current < 5 * 60 * 1000) return;
+    lastNudgeRef.current = Date.now();
+    setNudge({ by: null });
+    setModal("login");
+  }, [data, now]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // management pressed Remind in Sales 360° → show it right away
+  useEffect(() => {
+    if (!admin || !forRole(admin.role)) return undefined;
+    const socket = getSocket();
+    const onRemind = (p) => {
+      lastNudgeRef.current = Date.now();
+      setNudge({ by: p?.by || null });
+      setModal("login");
+      load();
+    };
+    socket?.on("workday:remind-login", onRemind);
+    return () => socket?.off("workday:remind-login", onRemind);
+  }, [admin, load]);
 
   if (!admin || !forRole(admin.role) || !data) return null;
 
@@ -206,6 +235,12 @@ export default function WorkdayWidget() {
           ))}
         </div>
 
+        {nudge && (
+          <div className="wm-note amber" style={{ fontWeight: 600 }}>
+            ⚠️ {data.dialer.on ? "Your auto-dialer is on but you haven't logged in." : "You haven't logged in today."} Please press <b>Start my day</b>.
+            {nudge.by ? <> (Reminder from {nudge.by})</> : <> This reminder comes back every 5 minutes until you log in.</>}
+          </div>
+        )}
         {data.holiday && <div className="wm-note pink">🎉 Today is a holiday — <b>{data.holiday.name}</b>. You can still log in; the dialer stays off.</div>}
         {off?.kind === "leave" && <div className="wm-note amber">🌴 You're on approved leave today — the dialer stays off.</div>}
         {data.leaveNow && off?.kind !== "leave" && <div className="wm-note amber">⏳ You're on leave until <b>{clock(data.leaveNow.until)}</b> — the dialer starts after that.</div>}

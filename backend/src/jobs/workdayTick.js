@@ -20,6 +20,9 @@ function startWorkdayTick() {
       await wd.leaveEnforcementTick();
       const started = await wd.autoStartTick();
       if (started) console.log(`[workday] auto-started the dialer for ${started} user(s) not logged in`);
+      // after the shift: logged in, never logged out → one email each
+      const mailed = await wd.logoutReminderTick();
+      if (mailed) console.log(`[workday] emailed ${mailed} user(s) who didn't log out`);
     } catch (err) {
       if (Date.now() > quietUntil) {
         console.error('[workday] tick error:', err.message);

@@ -36,7 +36,19 @@ const me = async (req, res) => {
     mongoose.model('AgentCallState').findOne({ agent: a._id }).select('status campaign pausedUntil breakKey').lean(),
   ]);
   const openBreak = session && (session.breaks || []).find((b) => !b.endAt && now < wd.plannedEnd(b));
+  const dialerOn = !!(st && st.campaign && st.status !== 'Offline');
+  // On the dialer (switched on by hand or the 11:00 auto-start) but never
+  // pressed Login today → the header pops the login prompt every 5 minutes.
+  const loginReminder =
+    wd.isSales(a) &&
+    dialerOn &&
+    !(session && session.loginAt) &&
+    !off &&
+    !holiday &&
+    now >= wd.istAt(dayKey, shiftSchedule.joinWindow.start) &&
+    now <= wd.istAt(dayKey, wd.W.end);
   return ok(res, {
+    loginReminder,
     dayKey,
     now,
     session,
@@ -410,7 +422,7 @@ const report = selfOrManager(async (req, res) => {
       else if (s && s.autoStartedAt) status = 'Auto-started (not logged in)';
       else status = 'Absent';
       // late login → half day / full-day leave (shiftSchedule.workday.lateLogin)
-      const penalty = status === 'Present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived, leaveDay }) : null;
+      const penalty = status === 'Present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived || !!s.markedPresentBy, leaveDay }) : null;
       if (penalty) status = penalty.label;
 
       const workingDay = !holiday && !weeklyOff;
@@ -532,7 +544,31 @@ const publicDecision = async (req, res) => {
   return page(approved ? 'Leave approved' : 'Leave rejected', `${leave.employee} — ${wd.durationLabel(leave)}. They have been notified in CLC One.`, approved ? '#16a34a' : '#dc2626');
 };
 
+// POST /workday/admin/mark-present { adminId, dayKey } — a day with no Login
+// (dialer on / calls made) counted as present from when the dialer came on.
+const markPresent = guard(async (req, res) => {
+  const { adminId, dayKey } = req.body || {};
+  if (!mongoose.isValidObjectId(adminId) || !/^\d{4}-\d{2}-\d{2}$/.test(String(dayKey || ''))) return bad(res, 'Pick a user and a day.');
+  if (dayKey > wd.todayKey()) return bad(res, 'That day has not come yet.');
+  const r = await wd.markPresent(adminId, dayKey, { id: req.admin._id, name: `${req.admin.name || ''} ${req.admin.surname || ''}`.trim() });
+  return r.ok ? ok(res, r.session, 'Marked present.') : bad(res, r.error);
+});
+
+// POST /workday/admin/remind-login { adminId } — pops the "please log in"
+// prompt on that user's screen right now (also how to test it).
+const remindLogin = guard(async (req, res) => {
+  const { adminId } = req.body || {};
+  if (!mongoose.isValidObjectId(adminId)) return bad(res, 'Pick a user.');
+  const a = await mongoose.model('Admin').findOne({ _id: adminId, removed: false }).select('name').lean();
+  if (!a) return bad(res, 'User not found.', 404);
+  wd.remindLogin(adminId, { name: req.admin.name });
+  return ok(res, { sent: true }, `Login reminder shown to ${a.name} (if they have CLC One open).`);
+});
+
 module.exports = {
+  markPresent,
+  remindLogin,
+  sales360Exceptions: selfOrManager(sales360.exceptions),
   me: salesOnly(me),
   login: salesOnly(login),
   logout: salesOnly(logout),

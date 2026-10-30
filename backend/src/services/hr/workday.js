@@ -165,6 +165,88 @@ async function closeOpenBreak(s, now) {
   return open;
 }
 
+// When the user's dialer first came on that day (pool_on), else their first
+// call, else the 11:00 auto-start — the start of a day with no Login.
+async function firstActivityAt(adminId, dayKey) {
+  const { start, end } = dayBounds(dayKey);
+  const [on, call, s] = await Promise.all([
+    mongoose.model('AgentActivity').findOne({ agent: adminId, kind: 'pool_on', at: { $gte: start, $lte: end } }).sort({ at: 1 }).select('at').lean(),
+    mongoose.model('CallRecord').findOne({ removed: false, agent: adminId, created: { $gte: start, $lte: end } }).sort({ created: 1 }).select('created').lean(),
+    Session().findOne({ admin: adminId, dayKey }).select('autoStartedAt').lean(),
+  ]);
+  const cands = [on && on.at, call && call.created, s && s.autoStartedAt].filter(Boolean).map((d) => new Date(d));
+  return cands.length ? new Date(Math.min(...cands)) : null;
+}
+
+// Management (Sales 360°) marks a day present for someone who never pressed
+// Login — loginAt becomes when their dialer first came on that day.
+async function markPresent(adminId, dayKey, by) {
+  const admin = await mongoose.model('Admin').findOne({ _id: adminId, removed: false }).select('name surname role').lean();
+  if (!admin) return { ok: false, error: 'User not found.' };
+  const s = await Session().findOne({ admin: adminId, dayKey }).lean();
+  if (s && s.loginAt && !s.markedPresentBy) return { ok: false, error: 'They already logged in that day.' };
+  const at = (await firstActivityAt(adminId, dayKey)) || istAt(dayKey, W.start);
+  const now = new Date();
+  const session = await Session().findOneAndUpdate(
+    { admin: adminId, dayKey },
+    {
+      $setOnInsert: { admin: adminId, dayKey, created: now },
+      $set: { adminName: fullName(admin), role: admin.role, loginAt: at, startSource: 'manager', markedPresentBy: by.name, markedPresentAt: now, updated: now },
+    },
+    { upsert: true, new: true }
+  ).lean();
+  logActivity(admin, 'marked_present', { by: by.id ? { _id: by.id, name: by.name } : null, detail: `${dayKey} marked present by ${by.name} — start ${fmtTime(at)}` });
+  require('../../notify').notifyUser({
+    recipient: admin._id,
+    actorId: by.id || null,
+    actorName: by.name,
+    module: 'HRMS',
+    type: 'attendance.marked',
+    title: 'You were marked present',
+    body: `${dayKey} — by ${by.name} (from ${fmtTime(at)}, when your dialer came on).`,
+    link: '/',
+  });
+  return { ok: true, session };
+}
+
+// Management (or the tick) pops the "please log in" prompt on the user's screen now.
+function remindLogin(adminId, by) {
+  try {
+    require('../../socket').emitCallToAgent(adminId, 'workday:remind-login', { by: by ? by.name : null, at: new Date() });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// After the shift (end + 30 min): logged in today, never logged out → email
+// them once (WorkSession.logoutReminderAt).
+async function logoutReminderTick(now = new Date()) {
+  const dayKey = todayKey();
+  if (now < new Date(istAt(dayKey, W.end).getTime() + 30 * 60000)) return 0;
+  const { mailReady, sendMailWithRetry } = require('../mail/transport');
+  if (!mailReady()) return 0;
+  const open = await Session().find({ dayKey, loginAt: { $ne: null }, logoutAt: null, logoutReminderAt: null }).lean();
+  let sent = 0;
+  for (const s of open) {
+    const a = await mongoose.model('Admin').findOne({ _id: s.admin, removed: false, enabled: true }).select('name surname email role').lean();
+    if (!a || !a.email || !isSales(a)) continue;
+    await Session().updateOne({ _id: s._id }, { $set: { logoutReminderAt: now } });
+    await sendMailWithRetry({
+      from: `"CLC One" <${process.env.GMAIL_USER}>`,
+      to: a.email,
+      subject: `You didn't log out today — ${dayKey}`,
+      html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:14px">
+        <h2 style="margin:0 0 6px;color:#0f172a">You didn't log out today</h2>
+        <p style="margin:0 0 14px;color:#475569">Hi ${escapeHtml(a.name)}, you logged in at <b>${fmtTime(s.loginAt)}</b> but never pressed <b>Logout</b>. Your working time is counted to the end of the shift (${W.end}).</p>
+        <p style="margin:0;color:#475569">Please press <b>Logout</b> in CLC One at the end of every working day.</p>
+      </div>`,
+    }).catch((e) => console.error('[workday] logout reminder email failed:', e.message));
+    sent += 1;
+  }
+  return sent;
+}
+
 async function logout(admin) {
   const now = new Date();
   const s = await Session().findOne({ admin: admin._id, dayKey: todayKey() });
@@ -453,6 +535,10 @@ module.exports = {
   cancelLeave,
   durationLabel,
   lateLoginPenalty,
+  markPresent,
+  remindLogin,
+  logoutReminderTick,
+  firstActivityAt,
   leaveWindow,
   autoStartTick,
   leaveEnforcementTick,
