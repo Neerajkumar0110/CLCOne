@@ -1168,7 +1168,7 @@
 }
 .s3-day-stats {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 .s3-day-stats > div {
@@ -1922,3 +1922,23 @@ button.s3-kpi {
 .s3-att-leaves span.rej { text-decoration: line-through; opacity: .8; }
 .s3-att-cell.future.has-leave { opacity: 1; background: var(--hub-surface, #fff); border-style: dashed; }
 @media (max-width: 700px) { .s3-att-leaves span { font-size: 9px; padding: 0 4px; } }
+
+/* day modal: dialer minutes per hour + dialer sessions */
+.s3-hourly small.s3-hour-dial { color: #2563eb; font-weight: 700; margin-top: 1px; }
+.s3-hourly small + small { margin-top: 1px; }
+.s3-sessions { margin-top: 14px; border: 1px solid var(--hub-border); border-radius: 12px; padding: 12px 14px; }
+.s3-sessions-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px; }
+.s3-sessions-head b { font-size: 13.5px; color: var(--hub-text); }
+.s3-sessions-head span { font-size: 12px; color: var(--hub-muted); }
+.s3-sessions-list { display: flex; flex-direction: column; gap: 6px; }
+.s3-sessions-list > div { display: grid; grid-template-columns: 150px 1fr 64px minmax(180px, auto); align-items: center; gap: 10px; font-size: 12.5px; }
+.s3-sess-time { font-weight: 700; color: var(--hub-text); white-space: nowrap; }
+.s3-sess-bar { height: 7px; border-radius: 99px; background: var(--s3-soft); overflow: hidden; }
+.s3-sess-bar em { display: block; height: 100%; background: #2563eb; border-radius: 99px; }
+.s3-sessions-list b { color: #2563eb; text-align: right; }
+.s3-sessions-list > div > span:last-child { color: var(--hub-muted); }
+@media (max-width: 640px) {
+  .s3-sessions-list > div { grid-template-columns: 1fr auto; }
+  .s3-sess-bar { display: none; }
+  .s3-sessions-list > div > span:last-child { grid-column: 1 / -1; }
+}

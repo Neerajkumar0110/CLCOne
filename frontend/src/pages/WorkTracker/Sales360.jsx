@@ -922,12 +922,30 @@ function DayModal({ target, onClose }) {
 
   // hourly cards over the strip's window
   const { t0, t1 } = dayWindow(day.dayKey, [day.loginAt, day.autoStartedAt, day.endAt, ...calls.map((c) => c.created)]);
+  // minutes of [a, b) covered by the dialer-on spans
+  const dialerIn = (a, b) =>
+    Math.round(
+      dialer.reduce((s, sp) => {
+        const x = Math.max(a, new Date(sp.startAt).getTime());
+        const y = Math.min(b, new Date(sp.endAt).getTime());
+        return s + Math.max(0, y - x);
+      }, 0) / 60000
+    );
   const hours = [];
   for (let t = t0; t < t1; t += 3600e3) {
     const inH = calls.filter((c) => new Date(c.created).getTime() >= t && new Date(c.created).getTime() < t + 3600e3);
-    hours.push({ t, n: inH.length, talk: inH.filter(isConnected).reduce((s, c) => s + c.duration, 0) });
+    hours.push({ t, n: inH.length, conn: inH.filter(isConnected).length, talk: inH.filter(isConnected).reduce((s, c) => s + c.duration, 0), dial: dialerIn(t, t + 3600e3) });
   }
   const maxH = Math.max(1, ...hours.map((h) => h.n));
+  // each dialer on → off stretch, with the calls made inside it
+  const sessions = dialer.map((sp) => {
+    const a = new Date(sp.startAt).getTime();
+    const b = new Date(sp.endAt).getTime();
+    const inS = calls.filter((c) => new Date(c.created).getTime() >= a && new Date(c.created).getTime() < b);
+    const ok = inS.filter(isConnected);
+    return { ...sp, min: spansMin([sp]), n: inS.length, conn: ok.length, talk: ok.reduce((s, c) => s + c.duration, 0) };
+  });
+  const outsideCalls = calls.length - sessions.reduce((s, x) => s + x.n, 0);
 
   const events = [
     ...(data?.events || []).map((e) => ({ at: e.at, kind: "activity", color: (EVENT[e.kind] || [0, "#64748B"])[1], title: (EVENT[e.kind] || [e.kind])[0], sub: [e.detail, e.byName && e.byName !== user.name ? `by ${e.byName}` : null].filter(Boolean).join(" · ") })),
@@ -965,7 +983,8 @@ function DayModal({ target, onClose }) {
           {[
             ["Login", day.loginAt ? clock(day.loginAt) : day.autoStartedAt ? `auto ${clock(day.autoStartedAt)}` : "—", day.lateMin > 15 ? `late ${hm(day.lateMin)}` : day.loginAt ? "on time" : ""],
             ["Logout", day.logoutAt ? clock(day.logoutAt) : day.loginAt || day.autoStartedAt ? "no logout" : "—", !day.logoutAt && day.endAt ? `counted to ${clock(day.endAt)}` : ""],
-            ["Active", hm(day.activeMin), data ? `dialer on ${hm(dialerMin)} · break ${hm(day.breakMin)}` : `${hm(day.breakMin)} break`],
+            ["Active", hm(day.activeMin), `break ${hm(day.breakMin)}`],
+            ["Dialer on", data ? hm(dialerMin) : "…", data ? (dialer.length ? `${dialer.length}× · from ${clock(dialer[0].startAt)}` : "never switched on") : ""],
             ["Calls", n(calls.length), `${conn.length} connected · ${missed.length} missed`],
             ["Talk", dur(talkSec), conn.length ? `avg ${dur(talkSec / conn.length)}` : "—"],
             ["On phone", day.activeMin ? `${Math.round((talkSec / 60 / day.activeMin) * 100)}%` : "—", "of active time"],
@@ -1008,10 +1027,36 @@ function DayModal({ target, onClose }) {
               <span>{dayjs(h.t).format("h A")}</span>
               <b>{h.n || "—"}</b>
               <i><em style={{ width: `${(h.n / maxH) * 100}%` }} /></i>
+              <small>{h.n ? `${h.conn} connected` : ""}</small>
               <small>{h.talk ? (h.talk < 60 ? "<1m talk" : `${Math.round(h.talk / 60)}m talk`) : ""}</small>
+              <small className="s3-hour-dial">{h.dial ? `dialer ${h.dial}m` : ""}</small>
             </div>
           ))}
         </div>
+
+        {data && (
+          <div className="s3-sessions">
+            <div className="s3-sessions-head">
+              <b>Dialer sessions</b>
+              <span>
+                {dialer.length ? `${dialer.length} · ${hm(spansMin(dialer))} on in total` : "The dialer was not switched on this day."}
+                {outsideCalls > 0 ? ` · ${outsideCalls} call${outsideCalls > 1 ? "s" : ""} made with the dialer off` : ""}
+              </span>
+            </div>
+            {sessions.length > 0 && (
+              <div className="s3-sessions-list">
+                {sessions.map((s, i) => (
+                  <div key={i}>
+                    <span className="s3-sess-time">{clock(s.startAt)} – {clock(s.endAt)}</span>
+                    <span className="s3-sess-bar"><em style={{ width: `${Math.min(100, (s.min / Math.max(1, ...sessions.map((x) => x.min))) * 100)}%` }} /></span>
+                    <b>{hm(s.min)}</b>
+                    <span>{s.n} call{s.n === 1 ? "" : "s"} · {s.conn} connected · {dur(s.talk)} talk</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="s3-chips" style={{ margin: "14px 0 10px" }}>
           {[["all", "Everything"], ["call", "Calls"], ["activity", "Activity"], ["response", "Responses"], ["missed", "Missed"]].map(([k, l]) => (
