@@ -1946,3 +1946,11 @@ button.s3-kpi {
 .s3-sessions-list > div.is-break b { color: #d97706; }
 .s3-sessions-list > div.is-break > span:last-child { color: #b45309; font-weight: 600; }
 .s3-sessions-list > div.is-break { background: rgba(245, 158, 11, .06); border-radius: 8px; padding: 2px 0; }
+
+/* attendance user table: hover a count → the dates behind it */
+.s3-dates-num { cursor: help; border-bottom: 1px dashed currentColor; padding-bottom: 1px; }
+.s3-dates-tip { min-width: 200px; font-size: 12px; }
+.s3-dates-tip b { display: block; margin-bottom: 6px; }
+.s3-dates-tip > div { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; border-top: 1px solid rgba(255, 255, 255, .1); }
+.s3-dates-tip span { font-weight: 600; white-space: nowrap; }
+.s3-dates-tip em { font-style: normal; color: #cbd5e1; white-space: nowrap; }

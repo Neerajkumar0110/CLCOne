@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { DatePicker, Input, Modal, message } from "antd";
+import { DatePicker, Input, Modal, Tooltip, message } from "antd";
 import dayjs from "dayjs";
 import axios from "axios";
 import {
@@ -493,6 +493,39 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
   const me = single ? data.people[0] : null;
   const pctOf = (p) => (p.workingDays ? Math.round(((p.present + p.auto + 0.5 * (p.halfDay || 0)) / p.workingDays) * 100) : 0);
 
+  // hovering a count in the user table lists the dates behind it
+  const datesTip = (p, match, title, value) => {
+    if (!value) return value;
+    const hits = (data?.days || [])
+      .map((d) => ({ d, u: d.people.find((x) => x.adminId === p.adminId) }))
+      .filter(({ u }) => u && match(u));
+    if (!hits.length) return value;
+    const lateAfter = data.lateAfterMin || 15;
+    return (
+      <Tooltip
+        placement="top"
+        overlayStyle={{ maxWidth: 380 }}
+        title={
+          <div className="s3-dates-tip">
+            <b>{title} · {p.name}</b>
+            {hits.map(({ d, u }) => (
+              <div key={d.dayKey}>
+                <span>{dayjs(d.dayKey).format("ddd, D MMM")}</span>
+                <em>
+                  {[u.loginAt ? `login ${dayjs(u.loginAt).format("h:mm A")}` : null, u.lateMin > lateAfter ? `late ${hm(u.lateMin)}` : null, u.leave || null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </em>
+              </div>
+            ))}
+          </div>
+        }
+      >
+        <span className="s3-dates-num">{value}</span>
+      </Tooltip>
+    );
+  };
+
   const dayTip = (d) => {
     if (!d) return null;
     if (!d.people) {
@@ -652,12 +685,12 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
               {[...data.people].sort((a, b) => pctOf(b) - pctOf(a)).map((p) => (
                 <tr key={p.adminId}>
                   <td><b>{p.name}</b><div className="s3-muted">{p.role}{p.team ? ` · ${p.team}` : ""}</div></td>
-                  <td style={{ color: ATT.present[1], fontWeight: 700 }}>{p.present}</td>
-                  <td style={{ color: ATT["half-day"][1], fontWeight: p.halfDay ? 700 : 400 }}>{p.halfDay || 0}</td>
-                  <td style={{ color: ATT.auto[1] }}>{p.auto}</td>
-                  <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{p.absent}</td>
+                  <td style={{ color: ATT.present[1], fontWeight: 700 }}>{datesTip(p, (u) => u.status === "present", "Present", p.present)}</td>
+                  <td style={{ color: ATT["half-day"][1], fontWeight: p.halfDay ? 700 : 400 }}>{datesTip(p, (u) => u.status === "half-day", "Half day", p.halfDay || 0)}</td>
+                  <td style={{ color: ATT.auto[1] }}>{datesTip(p, (u) => u.status === "auto", "Auto-started", p.auto)}</td>
+                  <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{datesTip(p, (u) => u.status === "absent", "Absent", p.absent)}</td>
                   <td>
-                    {p.leave}
+                    {datesTip(p, (u) => u.status === "leave", "Leave", p.leave)}
                     {p.leaveRequests && (p.leaveRequests.pending > 0 || p.leaveRequests.rejected > 0) && (
                       <div className="s3-muted">
                         {p.leaveRequests.pending ? <span style={{ color: "#B45309" }}>{p.leaveRequests.pending} pending</span> : null}
@@ -666,8 +699,8 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                       </div>
                     )}
                   </td>
-                  <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{p.lateLeave || 0}</td>
-                  <td>{p.late ? <span className="s3-warn">{p.late}</span> : 0}</td>
+                  <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{datesTip(p, (u) => u.status === "late-leave", "Leave (late login)", p.lateLeave || 0)}</td>
+                  <td>{p.late ? <span className="s3-warn">{datesTip(p, (u) => u.lateMin > (data.lateAfterMin || 15), "Late", p.late)}</span> : 0}</td>
                   <td>
                     <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
                     <span className="s3-muted">{pctOf(p)}% of {p.workingDays} days</span>
