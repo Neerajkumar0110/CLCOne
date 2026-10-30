@@ -55,7 +55,7 @@ const me = async (req, res) => {
     loggedIn: !!(session && session.loginAt && !session.logoutAt),
     autoStarted: !!(session && session.autoStartedAt && !session.loginAt),
     onBreak: openBreak ? { key: openBreak.key, label: openBreak.label, until: wd.plannedEnd(openBreak) } : null,
-    breaks: shiftSchedule.breaks.map((b) => ({ key: b.key, label: b.label, durationMin: b.durationMin, window: `${b.start}–${b.end}`, taken: !!(session && (session.breaks || []).some((x) => x.key === b.key)) })),
+    breaks: shiftSchedule.breaks.map((b) => ({ key: b.key, label: b.label, durationMin: b.durationMin, start: b.start, end: b.end, window: `${b.start}–${b.end}`, taken: !!(session && (session.breaks || []).some((x) => x.key === b.key)) })),
     holiday,
     dayOff: off,
     leaveNow: leaveNow ? { _id: leaveNow._id, label: wd.durationLabel(leaveNow), until: leaveNow.toDate } : null,

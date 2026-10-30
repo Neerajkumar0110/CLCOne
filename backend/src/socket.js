@@ -44,6 +44,7 @@ function initSocket(server) {
       const admin = await authenticate(socket.handshake.auth?.token);
       if (!admin) return next(new Error('Authentication failed'));
       socket.adminId = String(admin._id);
+      socket.data.token = socket.handshake.auth?.token;
       socket.adminName = admin.name;
       socket.adminRole = admin.role;
       next();
@@ -216,7 +217,21 @@ function emitCallBroadcast(event, payload) {
   io.emit(event, payload);
 }
 
+// The user just logged in somewhere else (issueSession.js): tell every
+// socket still on an older session to log out, then drop it. The tab
+// decides — if its browser already holds the new token it just reloads.
+async function endOtherSessions(userId, keepToken) {
+  if (!io) return;
+  const sockets = await io.in(`user:${userId}`).fetchSockets();
+  for (const s of sockets) {
+    if (s.data && s.data.token === keepToken) continue;
+    s.emit('auth:session-replaced', { at: new Date() });
+    setTimeout(() => s.disconnect(true), 1500);
+  }
+}
+
 module.exports = {
+  endOtherSessions,
   initSocket,
   emitMessage,
   emitRead,

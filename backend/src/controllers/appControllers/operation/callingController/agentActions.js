@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getProvider } = require('../../../../services/calling');
+const { getProvider, readTick } = require('../../../../services/calling');
 const {
   notifyAgentCallEvent,
   last10,
@@ -31,15 +31,27 @@ async function loadCall(req, res) {
 
 // GET /api/calling/agent/active — the current user's live call + lead detail.
 const active = async (req, res) => {
-  await provider().tick();
+  await readTick();
   const CallRecord = mongoose.model('CallRecord');
-  const rec = await CallRecord.findOne({
+  let rec = await CallRecord.findOne({
     agent: req.admin._id,
     removed: false,
     status: { $in: LIVE_CALL_STATUSES },
   })
     .sort({ phaseAt: -1 })
     .lean();
+  // No live call, but the last one's outcome isn't submitted yet → hand it
+  // back so the modal reopens (page refresh / closed tab) until they do.
+  // Only the in-call modal asks (?pendingOutcome=1) — the dialer pages treat
+  // any call here as live.
+  let awaitingOutcome = false;
+  if (!rec && req.query.pendingOutcome) {
+    const st = await mongoose.model('AgentCallState').findOne({ agent: req.admin._id }).select('awaitingOutcome').lean();
+    if (st && st.awaitingOutcome) {
+      rec = await CallRecord.findOne({ _id: st.awaitingOutcome, removed: false, outcomeAt: null }).lean();
+      awaitingOutcome = !!rec;
+    }
+  }
   if (!rec) return res.status(200).json({ success: true, result: null, message: 'idle' });
 
   const lead = rec.callLead
@@ -56,7 +68,7 @@ const active = async (req, res) => {
     }
   }
 
-  return res.status(200).json({ success: true, result: { call: rec, lead, crmLead }, message: 'ok' });
+  return res.status(200).json({ success: true, result: { call: rec, lead, crmLead, awaitingOutcome }, message: 'ok' });
 };
 
 const answer = async (req, res) => {
@@ -492,6 +504,19 @@ const logDetails = async (req, res) => {
 
   const updatedRec = hangupResult?.callRecord || rec;
   const isEnded = ['completed', 'transferred', 'cancelled'].includes(updatedRec.status);
+
+  // "Submit Outcome & Close" on an ended call — the agent is now free for
+  // their next call (tick() rolls Wrapup → Available on its next pass).
+  if (b.submitOutcome && !LIVE_CALL_STATUSES.includes(updatedRec.status)) {
+    const at = new Date();
+    await mongoose.model('CallRecord').updateOne({ _id: rec._id }, { $set: { outcomeAt: at } });
+    updatedRec.outcomeAt = at;
+    if (rec.agent) {
+      await mongoose
+        .model('AgentCallState')
+        .updateOne({ agent: rec.agent, awaitingOutcome: rec._id }, { $set: { awaitingOutcome: null } });
+    }
+  }
   await notifyAgentCallEvent(rec.agent, isEnded ? 'call:ended' : 'call:updated', updatedRec);
 
   return res.status(200).json({

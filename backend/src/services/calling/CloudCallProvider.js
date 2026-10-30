@@ -27,6 +27,30 @@ const { NON_SALES_ROLES } = require('../../config/roles');
 
 const digitsOnly = (s) => String(s || '').replace(/[^\d]/g, '');
 
+// Plivo answered "Insufficient balance" (HTTP 402): every dial fails the
+// same way until the account is topped up, and the dialer used to keep
+// trying ~70 a minute (29 Oct: 2,073 failed dials in one hour, each one
+// burning an attempt on a lead). So on a 402 all auto-dialing stops for
+// BALANCE_HOLD_MS, management is told once, and then it tries again.
+const BALANCE_HOLD_MS = 5 * 60 * 1000;
+let balanceHoldUntil = 0;
+let balanceAlertedAt = 0;
+function onBalanceExhausted() {
+  balanceHoldUntil = Date.now() + BALANCE_HOLD_MS;
+  console.error('[calling] Plivo: insufficient balance — auto-dialing paused for 5 min');
+  if (Date.now() - balanceAlertedAt < 60 * 60 * 1000) return;
+  balanceAlertedAt = Date.now();
+  require('../../notify').notify({
+    audience: 'management',
+    module: 'Calling',
+    type: 'calling.balance',
+    title: 'Calling stopped — Plivo balance is over',
+    body: 'Plivo refused calls with "Insufficient balance". The auto-dialer is paused and retries every 5 minutes. Please recharge the Plivo account.',
+    link: '/calling',
+  });
+}
+const balanceHeld = () => Date.now() < balanceHoldUntil;
+
 // A failed call's `notes` is the only place to see WHY once the response
 // popup is gone — include the provider's full raw JSON (not just the
 // extracted message), since a generic-sounding error often carries an
@@ -146,7 +170,8 @@ class CloudCallProvider extends CallingProvider {
     });
     if (r.error) return { ok: false, error: `Cloud calling provider unreachable: ${r.error}`, code: 'unreachable' };
     const parsed = PLIVO_ADAPTER.parseCall(r.json, r.ok);
-    return { ...parsed, httpStatus: r.status, providerRaw: r.json };
+    if (r.status === 402) onBalanceExhausted();
+    return { ...parsed, httpStatus: r.status, providerRaw: r.json, ...(r.status === 402 ? { code: 'no_balance' } : {}) };
   }
 
   // "Support call" this lead — dials the customer directly (no agent leg).
@@ -371,9 +396,13 @@ class CloudCallProvider extends CallingProvider {
       rec.endedAt = new Date();
       rec.notes = failureNote(r);
       await rec.save();
+      // No balance isn't the lead's fault — give the attempt back.
+      const noBalance = r.code === 'no_balance';
       await CallLead.updateOne(
         { _id: lead._id },
-        { $set: { status: lead.attempts >= maxAttempts ? 'Failed' : 'Queued' } }
+        noBalance
+          ? { $set: { status: 'Queued' }, $inc: { attempts: -1 } }
+          : { $set: { status: lead.attempts >= maxAttempts ? 'Failed' : 'Queued' } }
       );
       return { ok: false, error: r.error };
     }
@@ -603,10 +632,30 @@ class CloudCallProvider extends CallingProvider {
       advanced++;
     }
 
-    // 2. Wrapup → Available after 8s (short; agents pause manually to hold).
+    // 2. Wrapup → Available after 8s — but only once the agent has pressed
+    // "Submit Outcome & Close" for the call that ended (awaitingOutcome);
+    // until then no next call comes to them. A wait whose call already has
+    // its outcome (a late hangup webhook re-set it) is cleared here.
+    const waiting = await AgentCallState.find({ status: 'Wrapup', awaitingOutcome: { $ne: null } })
+      .select('awaitingOutcome')
+      .lean();
+    if (waiting.length) {
+      const done = await CallRecord.find({
+        _id: { $in: waiting.map((w) => w.awaitingOutcome) },
+        $or: [{ outcomeAt: { $ne: null } }, { removed: true }],
+      })
+        .select('_id')
+        .lean();
+      if (done.length) {
+        await AgentCallState.updateMany(
+          { status: 'Wrapup', awaitingOutcome: { $in: done.map((d) => d._id) } },
+          { $set: { awaitingOutcome: null } }
+        );
+      }
+    }
     const wrapupBefore = new Date(now - 8 * 1000);
     const wr = await AgentCallState.updateMany(
-      { status: 'Wrapup', since: { $lte: wrapupBefore } },
+      { status: 'Wrapup', awaitingOutcome: null, since: { $lte: wrapupBefore } },
       { $set: { status: 'Available', currentCall: null, since: new Date() } }
     );
     advanced += wr.modifiedCount || 0;
@@ -640,9 +689,15 @@ class CloudCallProvider extends CallingProvider {
     // 2d. Due callbacks first — a promise to a customer: the moment the
     // agent who owes it is free (their call just ended), it goes out before
     // the pool or a new lead can take them (jobs/callingCallbackTick.js).
-    // 2e. Then fresh Facebook leads get an instant call — one free pool
-    // agent each, round-robin (services/calling/instantLeads.js) — before
+    // 2e. Then fresh Facebook leads get an instant call — the first free
+    // user each, any campaign (services/calling/instantLeads.js) — before
     // the campaign dialing below so a new inquiry never waits behind it.
+    // Plivo balance over → no dialing of any kind until the hold passes.
+    if (balanceHeld()) {
+      for (const cid of touched) await recountCampaign(cid);
+      return { advanced, heldForBalance: true };
+    }
+
     if (backgroundJobsOn) {
       try {
         advanced += await require('../../jobs/callingCallbackTick').runCallbackTickSafe();
@@ -656,7 +711,23 @@ class CloudCallProvider extends CallingProvider {
       }
     }
 
-    // 3. Auto-dial Available agents on Active auto-dial campaigns.
+    // 3. Auto-dial Available agents on Active auto-dial campaigns — unless a
+    // fresh Facebook lead is still waiting for someone: then no new line
+    // goes out, so the next user who frees up gets that lead, not another
+    // auto-dialer one.
+    if (await require('./instantLeads').instantLeadsWaiting()) {
+      for (const cid of touched) await recountCampaign(cid);
+      return { advanced, heldForInstantLead: true };
+    }
+    // Same for a missed incoming call nobody owns (the next free user calls
+    // it back) — and users with a callback due within the minute are left
+    // out of every campaign below (jobs/callingCallbackTick.js).
+    const holds = await require('../../jobs/callingCallbackTick').callbackHolds();
+    if (holds.unassigned) {
+      for (const cid of touched) await recountCampaign(cid);
+      return { advanced, heldForCallback: true };
+    }
+    const notHeld = (id) => !holds.agents.has(String(id));
     const campaigns = await CallCampaign.find({
       removed: false,
       status: 'Active',
@@ -685,6 +756,7 @@ class CloudCallProvider extends CallingProvider {
         const poolStates = await AgentCallState.find({
           campaign: camp._id,
           status: 'Available',
+          awaitingOutcome: null,
           ...eligibleAgentFilter(await getConnectMode()),
         })
           .select('agent')
@@ -694,7 +766,7 @@ class CloudCallProvider extends CallingProvider {
         // shows mid-call (a manual dial, an inbound transfer, a missed
         // hangup webhook) is not really free — don't over-dial on them.
         const poolBusy = await agentsOnLiveCalls(poolStates.map((s) => s.agent));
-        const availableAgents = poolStates.filter((s) => !poolBusy.has(String(s.agent))).length;
+        const availableAgents = poolStates.filter((s) => !poolBusy.has(String(s.agent)) && notHeld(s.agent)).length;
         if (availableAgents === 0) continue;
         // Only the UNANSWERED lines count against the budget here: a
         // lead-pool call that connected has already claimed its agent (see
@@ -744,7 +816,7 @@ class CloudCallProvider extends CallingProvider {
         // one we already dialled this pass (that would re-dial an agent we
         // just released), never one CallRecord says is mid-call.
         const pool = camp.agents.filter(
-          (id) => !attempted.has(String(id)) && !busy.has(String(id))
+          (id) => !attempted.has(String(id)) && !busy.has(String(id)) && notHeld(id)
         );
         if (!pool.length) break;
 

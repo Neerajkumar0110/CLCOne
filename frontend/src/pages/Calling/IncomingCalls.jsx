@@ -4,6 +4,7 @@ import { getSocket } from "@/socket";
 import { PhoneOutlined, SwapOutlined, ReloadOutlined } from "@ant-design/icons";
 import { fmtDuration, usePoll } from "./shared";
 import "./IncomingCalls.css";
+import { LeadLink } from "@/components/LeadFullDetail";
 
 // Calls page → Incoming calls (backend callingController/inbound.js).
 // A customer calling our number rings the user they last spoke to, else a
@@ -270,7 +271,7 @@ export default function IncomingCalls({ currentAdminId }) {
               <tr key={c._id}>
                 <td style={{ whiteSpace: "nowrap" }}>{fmtTime(c.at, days > 1)}</td>
                 <td>
-                  <b>{c.name || "Unknown caller"}</b>
+                  <b><LeadLink phone={c.phone}>{c.name || "Unknown caller"}</LeadLink></b>
                   <div className="ic-muted">{c.phone}</div>
                   {c.lead && (
                     <div className="ic-muted">

@@ -20,6 +20,7 @@ import {
   openTel,
 } from "./shared";
 import { PhoneOutlined } from "@ant-design/icons";
+import { LeadLink } from "@/components/LeadFullDetail";
 
 // The Auto-Dialer is Sales-only — mirrors backend/src/config/roles.js's
 // NON_SALES_ROLES, since a campaign's `agents` list is Sales-department
@@ -510,7 +511,7 @@ function CampaignDetail({ campaign, meta, onBack, onAction }) {
               {!loading &&
                 leads.map((l) => (
                   <tr key={l._id}>
-                    <td style={{ fontWeight: 600 }}>{l.name}</td>
+                    <td style={{ fontWeight: 600 }}><LeadLink phone={l.phone}>{l.name}</LeadLink></td>
                     <td>{l.phone}</td>
                     <td>{l.company || "—"}</td>
                     <td>{l.source || "—"}</td>

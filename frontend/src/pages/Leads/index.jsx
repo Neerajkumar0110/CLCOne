@@ -6,6 +6,7 @@ import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import TeamActivity from "./TeamActivity";
 import LeadOwnerModal from "./LeadOwnerModal";
+import LeadFullDetailModal from "@/components/LeadFullDetail";
 import { request } from "@/request";
 import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
@@ -111,16 +112,6 @@ const STATUS_META = new Proxy(
   { get: (_t, key) => badgeClassForStatus(typeof key === "string" ? key : "") }
 );
 
-function DetailField({ label, value }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 13.5, color: "var(--hub-text)" }}>{value || "—"}</div>
-    </div>
-  );
-}
 
 // Extra detail that doesn't get its own table column (email + location +
 // secondary phone) — rendered inside a Tooltip when the user hovers a
@@ -148,118 +139,11 @@ function leadHoverDetail(lead) {
 }
 
 // Shared across every lead table (Captured Leads, Unassigned Leads, All
-// Leads) — the capture-form custom questions (budget/timeline/message) are
-// saved on every Lead but don't fit any table's columns, so they only show
-// here.
+// Leads, called leads …) — the full picture in one modal: every field users
+// filled in, every call with who talked and for how long, responses, stage
+// history (components/LeadFullDetail).
 export function LeadDetailModal({ lead, onClose }) {
-  if (!lead) return null;
-  return (
-    <HubModal
-      open={!!lead}
-      onClose={onClose}
-      title={lead.name}
-      subtitle={lead.phone}
-      width={480}
-      footer={<button type="button" className="hub-btn hub-btn-primary" onClick={onClose}>Close</button>}
-    >
-      <div className="hub-stack" style={{ gap: 16 }}>
-        <div className="hub-grid-2">
-          <DetailField label="Email" value={lead.email} />
-          <DetailField label="Phone" value={lead.phone} />
-          <DetailField label="Source" value={lead.source} />
-          <DetailField
-            label="Stage"
-            value={
-              (lead.stage || lead.status) && (
-                <span className={`hub-badge ${STATUS_META[lead.stage || lead.status]}`}>
-                  {lead.stage || stageForStatus(lead.status)}
-                </span>
-              )
-            }
-          />
-          <DetailField label="Sub-Status" value={lead.subStatus} />
-          <DetailField label="Assigned To" value={lead.assignedUserName || (lead.assignedUser && lead.assignedUser.name)} />
-          <DetailField label="Team" value={lead.team || "Unassigned"} />
-          <DetailField label="Position" value={lead.position} />
-          <DetailField label="Stage Updated" value={lead.stageUpdatedAt ? new Date(lead.stageUpdatedAt).toLocaleString() : null} />
-          <DetailField label="Last Contact" value={lead.lastContactAt ? new Date(lead.lastContactAt).toLocaleString() : null} />
-          <DetailField label="Next Follow-up" value={lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toLocaleString() : null} />
-          {lead.callBackAt && (
-            <DetailField label="Call Back On" value={new Date(lead.callBackAt).toLocaleString()} />
-          )}
-          {lead.meetingAt && (
-            <DetailField label="Meeting On" value={new Date(lead.meetingAt).toLocaleString()} />
-          )}
-          {lead.futureFollowUpAt && (
-            <DetailField label="Expected Follow-up" value={new Date(lead.futureFollowUpAt).toLocaleDateString()} />
-          )}
-          {lead.enrolledAt && (
-            <DetailField label="Enrolled On" value={new Date(lead.enrolledAt).toLocaleDateString()} />
-          )}
-          {lead.registrationLink && <DetailField label="Registration Link" value={lead.registrationLink} />}
-          <DetailField label="Alt. Phone" value={lead.alternatePhone} />
-          <DetailField label="City" value={lead.city} />
-          <DetailField label="State" value={lead.state} />
-          <DetailField label="Country" value={lead.country} />
-          <DetailField label="Zipcode" value={lead.zipcode} />
-          <DetailField label="Budget Range" value={lead.budgetRange} />
-          <DetailField label="How Soon to Start" value={lead.howSoonToStart} />
-        </div>
-
-        {lead.remarks && (
-          <div>
-            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
-              Remarks / Notes
-            </div>
-            <div style={{ fontSize: 13, color: "var(--hub-text)", padding: "10px 12px", background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)", borderRadius: 8 }}>
-              {lead.remarks}
-            </div>
-          </div>
-        )}
-
-        {Array.isArray(lead.stageHistory) && lead.stageHistory.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
-              Stage Change History
-            </div>
-            <div style={{ display: "grid", gap: 6, maxHeight: 180, overflowY: "auto" }}>
-              {[...lead.stageHistory].reverse().map((h, i) => (
-                <div key={i} style={{ fontSize: 12, color: "var(--hub-text-soft)", display: "flex", gap: 8, alignItems: "baseline" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: stageColor(h.toStage), flexShrink: 0, marginTop: 5 }} />
-                  <span style={{ flex: 1 }}>
-                    <strong>{h.fromStage ? `${h.fromStage} → ` : ""}{h.toStage}</strong>
-                    {h.toSubStatus ? ` · ${h.toSubStatus}` : ""}
-                    {h.remarks ? <span style={{ color: "#64748b" }}> — {h.remarks}</span> : ""}
-                    <span style={{ color: "var(--hub-muted)" }}>
-                      {" "}· {h.changedByName || "system"} · {h.at ? new Date(h.at).toLocaleString() : ""}
-                    </span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <div style={{ fontSize: 11, color: "var(--hub-muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>
-            Message
-          </div>
-          <div
-            style={{
-              fontSize: 13, color: "var(--hub-text)", padding: "10px 12px",
-              background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)", borderRadius: 8, minHeight: 44,
-            }}
-          >
-            {lead.message || "—"}
-          </div>
-        </div>
-
-        <div style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>
-          Captured {lead.created ? new Date(lead.created).toLocaleString() : "—"}
-        </div>
-      </div>
-    </HubModal>
-  );
+  return <LeadFullDetailModal lead={lead} onClose={onClose} />;
 }
 
 
@@ -3459,6 +3343,7 @@ function UsedLeadsBoard() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [ownerFilter, setOwnerFilter] = useState(""); // "" | unassigned | assigned
+  const [viewLead, setViewLead] = useState(null); // row clicked → full detail modal
   const [showAllResp, setShowAllResp] = useState(false);
   // Bulk "Move to stage" for leads no user has (backend usedLeads.moveToStage).
   const [picked, setPicked] = useState([]);
@@ -3678,6 +3563,7 @@ function UsedLeadsBoard() {
 
   return (
     <div className="hub-stack">
+      <LeadDetailModal lead={viewLead} onClose={() => setViewLead(null)} />
       <div className="hub-card">
         <div className="hub-card-header">
           <h3><PhoneOutlined /> Used Leads {!loading && !error && <span className="hub-badge hub-badge-blue">{total}</span>}</h3>
@@ -3898,9 +3784,9 @@ function UsedLeadsBoard() {
                 </thead>
                 <tbody>
                   {pageRows.map((l) => (
-                    <tr key={l._id}>
+                    <tr key={l._id} style={{ cursor: "pointer" }} title="Click for full details" onClick={() => setViewLead(l)}>
                       {selectable && (
-                        <td>
+                        <td onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             aria-label={`Select ${l.name}`}

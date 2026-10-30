@@ -261,19 +261,23 @@ async function logout(admin) {
   return s ? s.toObject() : null;
 }
 
-async function startBreak(admin, key) {
+// `auto`: the scheduled start (autoBreakTick) — also covers a dialer that was
+// auto-started without a Login, and never cuts into a live call (it waits
+// for the call to end; the next minute's tick tries again).
+async function startBreak(admin, key, { auto = false } = {}) {
   const def = shiftSchedule.breaks.find((b) => b.key === key);
   if (!def) return { ok: false, error: 'Unknown break.' };
   const now = new Date();
   const s = await Session().findOne({ admin: admin._id, dayKey: todayKey() });
-  if (!s || !s.loginAt || s.logoutAt) return { ok: false, error: 'Log in first.' };
+  if (!s || !(s.loginAt || (auto && s.autoStartedAt)) || s.logoutAt) return { ok: false, error: 'Log in first.' };
   if (settleBreaks(s, now)) return { ok: false, error: 'You are already on a break.' };
   if ((s.breaks || []).some((b) => b.key === key)) return { ok: false, error: `You've already taken today's ${def.label}.` };
-  s.breaks.push({ key, label: def.label, plannedMin: def.durationMin, startAt: now });
+  const st = await poolState(admin._id);
+  if (auto && st && ['Ringing', 'OnCall'].includes(st.status)) return { ok: false, error: 'On a call.', onCall: true };
+  s.breaks.push({ key, label: def.label, plannedMin: def.durationMin, startAt: now, ...(auto ? { auto: true } : {}) });
   s.updated = now;
   await s.save();
 
-  const st = await poolState(admin._id);
   if (inPool(st) && !['Ringing', 'OnCall'].includes(st.status)) {
     await mongoose.model('AgentCallState').updateOne(
       { agent: admin._id },
@@ -284,8 +288,38 @@ async function startBreak(admin, key) {
       }
     );
   }
-  logActivity(admin, 'break_start', { by: admin, detail: `${def.label} · ${def.durationMin} min` });
+  logActivity(admin, 'break_start', { by: auto ? null : admin, detail: `${def.label} · ${def.durationMin} min${auto ? ' · automatic' : ''}` });
   return { ok: true, session: s.toObject(), label: def.label, until: new Date(now.getTime() + def.durationMin * 60000) };
+}
+
+// Every break starts on its own at its scheduled time (shiftSchedule.breaks
+// `start`, any time up to `end`) for everyone working today who hasn't taken
+// it yet — the dialer pauses for its duration and comes back on after. Someone
+// on a live call gets it the minute that call ends. One break at a time.
+async function autoBreakTick(now = new Date()) {
+  const dayKey = istDateKey(now);
+  const due = shiftSchedule.breaks.filter((b) => now >= istAt(dayKey, b.start) && now < istAt(dayKey, b.end));
+  if (!due.length) return 0;
+  const sessions = await Session()
+    .find({ dayKey, logoutAt: null, $or: [{ loginAt: { $ne: null } }, { autoStartedAt: { $ne: null } }] })
+    .select('admin breaks')
+    .lean();
+  let started = 0;
+  for (const s of sessions) {
+    const def = due.find((d) => !(s.breaks || []).some((b) => b.key === d.key));
+    if (!def) continue;
+    const a = await mongoose.model('Admin').findOne({ _id: s.admin, removed: false }).select('name surname role').lean();
+    if (!isSales(a)) continue;
+    const r = await startBreak(a, def.key, { auto: true });
+    if (!r.ok) continue;
+    started += 1;
+    try {
+      require('../../socket').emitCallToAgent(a._id, 'workday:changed', { break: def.key, until: r.until });
+    } catch (e) {
+      /* the header's own 60s refresh picks it up */
+    }
+  }
+  return started;
 }
 
 async function endBreak(admin) {
@@ -293,14 +327,70 @@ async function endBreak(admin) {
   const s = await Session().findOne({ admin: admin._id, dayKey: todayKey() });
   const open = s ? await closeOpenBreak(s, now) : null;
   if (!open) return { ok: false, error: 'You are not on a break.' };
+  open.resumedAt = now;
   s.updated = now;
   await s.save();
+  logActivity(admin, 'break_end', { by: admin, detail: `${open.label} ended early` });
+  await resumeDialer(admin, open.key);
+  return { ok: true, session: s.toObject() };
+}
+
+// Dialer back on after a break: Paused for it → Available; switched off
+// during it (or off when it began) → on again. Never touches a live call.
+async function resumeDialer(admin, breakKey) {
+  const st = await poolState(admin._id);
+  if (!inPool(st)) {
+    const r = await startDialer(admin, null, 'break-end');
+    return r.started;
+  }
+  if (st.status !== 'Paused' || st.breakKey !== breakKey) return false;
   const r = await mongoose
     .model('AgentCallState')
-    .updateOne({ agent: admin._id, status: 'Paused', breakKey: open.key }, { $set: { status: 'Available', since: now }, $unset: { pausedUntil: '', breakKey: '' } });
-  logActivity(admin, 'break_end', { by: admin, detail: `${open.label} ended early` });
+    .updateOne(
+      { agent: admin._id, status: 'Paused', breakKey },
+      { $set: { status: 'Available', since: new Date() }, $unset: { pausedUntil: '', breakKey: '' } }
+    );
   if (r.modifiedCount) await enforceLeave(admin);
-  return { ok: true, session: s.toObject() };
+  return !!r.modifiedCount;
+}
+
+// The moment a break's time is up the dialer is back on (within the minute)
+// — including when the user had switched it off during the break. Once per
+// break (resumedAt). A break that ended long ago (before this existed, or
+// while the job was down) is only marked, never acted on.
+const RESUME_WITHIN_MS = 30 * 60 * 1000;
+async function resumeAfterBreakTick(now = new Date()) {
+  const sessions = await Session().find({
+    dayKey: istDateKey(now),
+    logoutAt: null,
+    breaks: { $elemMatch: { resumedAt: null } },
+  });
+  let resumed = 0;
+  for (const s of sessions) {
+    if (settleBreaks(s, now)) continue; // still on a break
+    const pending = (s.breaks || []).filter((b) => !b.resumedAt && b.endAt);
+    if (!pending.length) continue;
+    const last = pending[pending.length - 1];
+    for (const b of pending) b.resumedAt = now;
+    s.updated = now;
+    await s.save();
+    if (now - new Date(last.endAt) > RESUME_WITHIN_MS) continue;
+    const a = await mongoose.model('Admin').findOne({ _id: s.admin, removed: false }).select('name surname role phone mobile contactNumber').lean();
+    if (!isSales(a)) continue;
+    // false also when the dialer tick already took them off Paused (it does
+    // that within seconds) — the header still hears the break is over.
+    if (await resumeDialer(a, last.key)) {
+      resumed += 1;
+      logActivity(a, 'break_end', { detail: `${last.label} over — dialer back on (automatic)` });
+    }
+    if (!inPool(await poolState(a._id))) continue; // day off / leave — stays off
+    try {
+      require('../../socket').emitCallToAgent(a._id, 'workday:changed', { resumed: true });
+    } catch (e) {
+      /* the header's own 60s refresh picks it up */
+    }
+  }
+  return resumed;
 }
 
 // ── leave ────────────────────────────────────────────────────────────────
@@ -529,6 +619,8 @@ module.exports = {
   login,
   logout,
   startBreak,
+  autoBreakTick,
+  resumeAfterBreakTick,
   endBreak,
   applyLeave,
   decideLeave,

@@ -224,11 +224,13 @@ async function findAvailableAgentById(agentId) {
 async function claimLeadPoolAgent(campaignId, callRecordId) {
   const AgentCallState = mongoose.model('AgentCallState');
   const Admin = mongoose.model('Admin');
-  const skip = [];
+  // A user whose callback is due within the minute is kept for it.
+  const { agents: held } = await require('../../../../jobs/callingCallbackTick').callbackHolds();
+  const skip = [...held].map((id) => new mongoose.Types.ObjectId(id));
 
   for (let i = 0; i < 10; i++) {
     const { getConnectMode, eligibleAgentFilter } = require('../../../../services/calling/connectModes');
-    const query = { campaign: campaignId, status: 'Available', ...eligibleAgentFilter(await getConnectMode()) };
+    const query = { campaign: campaignId, status: 'Available', awaitingOutcome: null, ...eligibleAgentFilter(await getConnectMode()) };
     if (skip.length) query.agent = { $nin: skip };
 
     const state = await AgentCallState.findOneAndUpdate(
@@ -544,6 +546,35 @@ const plivoAnswer = async (req, res) => {
         return respondXml(res, '<Response></Response>');
       }
       if (rec && rec.agent && !rec.agentLegAnswered && !rec.missedByAgent) {
+        // The customer hung up first (their hangup cancels this ringing leg —
+        // cloudWebhook → cancelAgentLeg): that's not the user missing it.
+        if (['completed', 'failed', 'cancelled', 'transferred'].includes(rec.status)) {
+          return respondXml(res, '<Response></Response>');
+        }
+        // Browser phone didn't take it (it rejects in ~1–2 s when the tab's
+        // phone is asleep / stuck) while the customer is still on the line,
+        // waiting in the room → ring the same user's mobile once instead of
+        // losing the customer. Only if that isn't answered either is it a miss.
+        if (rec.connectMode === 'browser' && !rec.mobileFallbackAt) {
+          const admin = await mongoose.model('Admin').findById(rec.agent).select('phone mobile contactNumber').lean();
+          const mobile = admin && last10(admin.phone || admin.mobile || admin.contactNumber);
+          if (mobile) {
+            rec.mobileFallbackAt = new Date();
+            await rec.save();
+            await mongoose
+              .model('AgentCallState')
+              .updateOne({ agent: rec.agent }, { $set: { browserReadyAt: null, browserResetNeeded: true } });
+            console.log(`[browser-phone] ${rec.agentName || rec.agent}: leg not answered (${req.body?.HangupCauseName || req.query.HangupCauseName || 'no answer'}) — ringing their mobile instead`);
+            try {
+              // connectMode stays 'browser' on purpose: the customer is already
+              // in the room, so leg=agent must not redirect them (no greeting).
+              await placeBridgeLeg({ cfg, dialNumber: `${cfg.plivo.countryCode}${mobile}`, callerId: rec.callerId || cfg.callerId, crmCallId, secretQs });
+              return respondXml(res, '<Response></Response>');
+            } catch (err) {
+              console.error('[browser-phone] mobile fallback failed:', err.message);
+            }
+          }
+        }
         rec.missedByAgent = true;
         rec.missedByAgentAt = new Date();
         await rec.save();

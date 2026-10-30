@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
-const { getProvider } = require('../../../../services/calling');
+const { getProvider, readTick } = require('../../../../services/calling');
 const { campaignScope, callingTier } = require('./permissions');
 
 const RANGE_DAYS = { '1W': 7, '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
 
 // GET /api/calling/reports?range=1M&campaign=&agent=
 const summary = async (req, res) => {
-  await getProvider().tick();
+  await readTick();
   const CallRecord = mongoose.model('CallRecord');
   const CallCampaign = mongoose.model('CallCampaign');
   const CallCallback = mongoose.model('CallCallback');

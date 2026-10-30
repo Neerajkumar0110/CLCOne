@@ -35,6 +35,21 @@ const greet = () => {
   return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
 };
 const TARGET_MIN = 8 * 60;
+const toMin = (hmStr) => {
+  const [h, m] = String(hmStr).split(":").map(Number);
+  return h * 60 + m;
+};
+const istNowMin = (ms) => {
+  const [h, m] = new Date(ms).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false }).split(":").map(Number);
+  return h * 60 + m;
+};
+// Today's next scheduled break not taken yet (its window not over), and how
+// far off it is — the header shows it; the break starts on its own then.
+const nextBreak = (breaks, ms) => {
+  const nowMin = istNowMin(ms);
+  const b = (breaks || []).find((x) => !x.taken && x.start && nowMin < toMin(x.end));
+  return b ? { ...b, inMin: toMin(b.start) - nowMin } : null;
+};
 
 // Shared shell for the Login / Break / Logout modals — gradient header in
 // the action's colour, same look as the leave modal.
@@ -123,7 +138,17 @@ export default function WorkdayWidget() {
       load();
     };
     socket?.on("workday:remind-login", onRemind);
-    return () => socket?.off("workday:remind-login", onRemind);
+    // a scheduled break just started on its own → show the break timer now
+    const onChanged = (p) => {
+      if (p?.resumed) message.success("Break over — your auto-dialer is back on.");
+      else message.info("Break time — your auto-dialer is paused until the break ends.");
+      load();
+    };
+    socket?.on("workday:changed", onChanged);
+    return () => {
+      socket?.off("workday:remind-login", onRemind);
+      socket?.off("workday:changed", onChanged);
+    };
   }, [admin, load]);
 
   if (!admin || !forRole(admin.role) || !data) return null;
@@ -149,6 +174,7 @@ export default function WorkdayWidget() {
   const workedMin = started ? Math.max(0, Math.round((now - new Date(started)) / 60000) - breakMin) : 0;
   const onBreak = data.onBreak && new Date(data.onBreak.until).getTime() > now ? data.onBreak : null;
   const off = data.dayOff;
+  const upcoming = data.loggedIn && !onBreak ? nextBreak(data.breaks, now) : null;
 
   return (
     <div className="wd-bar">
@@ -179,8 +205,27 @@ export default function WorkdayWidget() {
           <span className="wd-pill is-working" title={`Logged in at ${clock(s.loginAt)}`}>
             <span className="wd-dot" /> <span className="wd-label">Working</span> <span className="wd-time">{hm(workedMin)}</span>
           </span>
-          <button type="button" className="wd-pill" onClick={() => setModal("break")}>
-            <CoffeeOutlined /> <span className="wd-label">Break</span>
+          <button
+            type="button"
+            className="wd-pill"
+            onClick={() => setModal("break")}
+            title={upcoming ? `${upcoming.label} at ${to12(upcoming.start)} — the dialer turns off on its own then (${upcoming.durationMin} min)` : "Take a break"}
+          >
+            <CoffeeOutlined />{" "}
+            {upcoming ? (
+              <>
+                <span className="wd-label">{upcoming.label}</span>{" "}
+                <span className="wd-time">
+                  {upcoming.inMin > 0
+                    ? upcoming.inMin <= 60
+                      ? `in ${upcoming.inMin}m`
+                      : to12(upcoming.start)
+                    : "now"}
+                </span>
+              </>
+            ) : (
+              <span className="wd-label">Break</span>
+            )}
           </button>
           <button type="button" className="wd-pill is-icon" title="Logout" onClick={() => setModal("logout")}>
             <LogoutOutlined />
@@ -261,7 +306,7 @@ export default function WorkdayWidget() {
         tone="amber"
         icon="☕"
         title="Take a break"
-        subtitle="Your dialer pauses and starts again on its own when the break ends."
+        subtitle="Breaks start on their own at the scheduled time — your dialer pauses and starts again when the break ends. You can also start one now."
       >
         <div className="wm-breaks">
           {data.breaks.map((b, i) => (
@@ -276,7 +321,7 @@ export default function WorkdayWidget() {
               <span className="wm-break-ico">{b.key === "lunch" ? "🍱" : "☕"}</span>
               <b>{b.label}</b>
               <span className="wm-break-min">{b.durationMin} min</span>
-              <span className="wm-break-win">usual {b.window}</span>
+              <span className="wm-break-win">auto at {to12(b.start || b.window.split("–")[0])}</span>
               {b.taken ? <span className="wm-tag done">✓ Taken today</span> : <span className="wm-tag">Start now →</span>}
             </button>
           ))}

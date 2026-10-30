@@ -12,6 +12,8 @@ const breakSchema = new mongoose.Schema(
     plannedMin: Number,
     startAt: Date,
     endAt: Date, // null while on it
+    auto: Boolean, // started on its own at the scheduled time (workday.autoBreakTick)
+    resumedAt: Date, // dialer put back on after it (workday.resumeAfterBreakTick / endBreak)
   },
   { _id: false }
 );

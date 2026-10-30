@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getProvider, callingConfig } = require('../../../../services/calling');
+const { getProvider, readTick, callingConfig } = require('../../../../services/calling');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
 // Recording visibility: owner/Super Admin/Admin/Sales Manager/Team Manager
@@ -32,7 +32,7 @@ const GENERIC_NAMES = ['', 'Inbound caller', 'Unknown', 'Unknown Number'];
 // the same filters minus `status`, so the status tiles can show the split.
 // NEVER returns a real audio URL — that's /recordings/:id only.
 const list = async (req, res) => {
-  await getProvider().tick();
+  await readTick();
   const CallRecord = mongoose.model('CallRecord');
   const q = req.query;
   const seesAll = seesAllRecordings(req);

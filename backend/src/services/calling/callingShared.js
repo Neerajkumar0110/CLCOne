@@ -51,7 +51,9 @@ const RESERVATION_TTL_MS = 120 * 1000;
 async function reserveAgent({ agentIds, campaignId }) {
   if (!agentIds || !agentIds.length) return null;
   return mongoose.model('AgentCallState').findOneAndUpdate(
-    { agent: { $in: agentIds }, status: 'Available' },
+    // awaitingOutcome: never while their last call's outcome is unsubmitted,
+    // even if something flipped them back to Available.
+    { agent: { $in: agentIds }, status: 'Available', awaitingOutcome: null },
     {
       $set: {
         status: 'Ringing',
@@ -144,6 +146,7 @@ async function setAgent(agentId, patch) {
 }
 
 // Move an agent into Wrapup after a call ends, bumping their day counters.
+// They stay there until they submit this call's outcome (awaitingOutcome).
 async function wrapupAgent(callRecord, actorName) {
   if (!callRecord || !callRecord.agent) return;
   await mongoose.model('AgentCallState').updateOne(
@@ -152,6 +155,7 @@ async function wrapupAgent(callRecord, actorName) {
       $set: {
         status: 'Wrapup',
         currentCall: null,
+        awaitingOutcome: callRecord.outcomeAt ? null : callRecord._id,
         since: new Date(),
         lastSeenAt: new Date(),
         ...(actorName ? { agentName: actorName } : {}),

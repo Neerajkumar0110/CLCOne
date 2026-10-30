@@ -482,7 +482,7 @@ export default function ActiveCallModal() {
     if (!hasCalling) return undefined;
 
     const checkActive = async () => {
-      const res = await silentGet("calling/agent/active");
+      const res = await silentGet("calling/agent/active?pendingOutcome=1");
       if (!res?.success) return;
       if (!res.result?.call) {
         // The server has no live call for me any more, but the modal still
@@ -498,18 +498,19 @@ export default function ActiveCallModal() {
         return;
       }
 
-      const { call, lead, crmLead } = res.result;
+      const { call, lead, crmLead, awaitingOutcome } = res.result;
+      // An ended call whose outcome is still unsubmitted: reopen it (page
+      // refresh), but never overwrite another call the modal is showing.
+      if (awaitingOutcome && isOpenRef.current && callDataRef.current && String(callDataRef.current._id) !== String(call._id)) return;
       setCallData(call);
       setLeadData(lead || null);
       setCrmLeadData(crmLead || null);
 
-      if (
-        !isOpenRef.current &&
-        ["connected", "onhold", "ringing", "dialing"].includes(call.status)
-      ) {
+      if (!isOpenRef.current && (awaitingOutcome || ["connected", "onhold", "ringing", "dialing"].includes(call.status))) {
         initForm(call, lead, crmLead);
         setIsOpen(true);
-        playCallChime();
+        if (awaitingOutcome) message.info("Submit this call's outcome — your next call comes after that.");
+        else playCallChime();
       }
     };
 
@@ -569,6 +570,8 @@ export default function ActiveCallModal() {
         painPoint,
         preferredLanguage,
         hangupCall: hangup,
+        // "Submit Outcome & Close" — frees the agent for their next call.
+        submitOutcome: closeAfter,
       };
 
       const res = await request.post({
@@ -794,8 +797,11 @@ export default function ActiveCallModal() {
                 type="button"
                 className="incall-btn-icon"
                 onClick={() => {
-                  if (isCallLive) {
+                  // An ended call can't be dismissed without its outcome —
+                  // the next call only comes after Submit Outcome & Close.
+                  if (isCallLive || (callData && !callData.outcomeAt)) {
                     setIsMinimized(true);
+                    if (!isCallLive) message.info("Submit Outcome & Close first — your next call comes after that.");
                   } else {
                     setIsOpen(false);
                   }

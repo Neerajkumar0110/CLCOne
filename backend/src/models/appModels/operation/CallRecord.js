@@ -99,9 +99,15 @@ const schema = new mongoose.Schema({
   liveCheckedAt: Date,
   missedByAgent: { type: Boolean, default: false },
   missedByAgentAt: Date,
+  // Browser phone didn't answer while the customer waited → their mobile was
+  // rung instead (plivoAnswer leg=agent-hangup). Done at most once per call.
+  mobileFallbackAt: Date,
 
   disposition: String,
   notes: String,
+  // When the agent pressed "Submit Outcome & Close" for this call — until
+  // then they get no next call (AgentCallState.awaitingOutcome).
+  outcomeAt: Date,
   transferredTo: String, // team or agent label
   transferredToAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   transferredToNumber: String, // external number the call was handed to

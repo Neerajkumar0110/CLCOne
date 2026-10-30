@@ -39,6 +39,7 @@ import {
 } from "@ant-design/icons";
 import { request } from "@/request";
 import { getSocket } from "@/socket";
+import LeadFullDetailModal from "@/components/LeadFullDetail";
 import { API_BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
@@ -250,6 +251,7 @@ function Kpi({ icon, label, value, sub, color, tone, delta, i = 0, active, onOpe
 // newest first, with a sub-status filter.
 function LeadLog({ base, stages, showUser }) {
   const stageKey = stages.join(","); // a fresh array each render — depend on its text
+  const [view, setView] = useState(null); // row clicked → full lead detail
   const [sub, setSub] = useState("");
   const [q, setQ] = useState("");
   const [qDraft, setQDraft] = useState("");
@@ -274,6 +276,7 @@ function LeadLog({ base, stages, showUser }) {
   const total = (data?.subs || []).reduce((t, x) => t + x.n, 0);
   return (
     <>
+      <LeadFullDetailModal lead={view} onClose={() => setView(null)} />
       <div className="s3-detail-tools">
         <div className="s3-chips">
           <button type="button" className={!sub ? "on" : ""} onClick={() => setSub("")}>All <em>{n(total)}</em></button>
@@ -303,7 +306,7 @@ function LeadLog({ base, stages, showUser }) {
             {!data && <tr><td colSpan={7}><div className="s3-skel-rows"><i /><i /></div></td></tr>}
             {data && !data.rows.length && <tr><td colSpan={7}><div className="s3-empty">Nothing in this range.</div></td></tr>}
             {(data?.rows || []).map((r) => (
-              <tr key={`${r._id}-${r.at}`}>
+              <tr key={`${r._id}-${r.at}`} className="s3-click" title="Click for full details" onClick={() => setView({ phone: r.phone, name: r.name })}>
                 <td style={{ whiteSpace: "nowrap" }}>{when(r.at)}</td>
                 <td><b>{r.name || "—"}</b><div className="s3-muted">{r.phone}</div></td>
                 {showUser && <td>{r.by || "—"}</td>}
@@ -885,6 +888,9 @@ function CallLog({ base, title, cards, initial }) {
   const [data, setData] = useState({ rows: [], count: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
   const rec = useRecording();
+  const [view, setView] = useState(null); // call clicked → full lead detail
+  const open = (r) => setView({ phone: r.phone, name: r.name });
+  const stop = (e) => e.stopPropagation(); // the play button plays, it doesn't open
 
   useEffect(() => setPage(1), [base, f, items]);
   useEffect(() => {
@@ -922,6 +928,8 @@ function CallLog({ base, title, cards, initial }) {
     );
 
   return (
+    <>
+    <LeadFullDetailModal lead={view} onClose={() => setView(null)} />
     <Panel
       title={`${title} · ${n(data.count)}`}
       icon={<PhoneOutlined />}
@@ -961,7 +969,7 @@ function CallLog({ base, title, cards, initial }) {
             const [label, color] = result(r);
             return (
               <div key={r._id} className={`s3-callcard ${rec.state.id === r._id ? "on" : ""}`}>
-                <div className="s3-callcard-row">
+                <div className="s3-callcard-row" style={{ cursor: "pointer" }} title="Click for full details" onClick={() => open(r)}>
                   <div className="s3-cc-time"><b>{clock(r.at)}</b><span>{dayjs(r.at).format("D MMM")}</span></div>
                   <div className="s3-cc-who">
                     <b>{r.name || "Unknown"}</b>
@@ -969,7 +977,7 @@ function CallLog({ base, title, cards, initial }) {
                   </div>
                   <Pill color={color}>{label}</Pill>
                   <div className="s3-cc-talk"><b>{r.talkSec ? dur(r.talkSec) : "—"}</b><span>{[r.disposition, r.stage].filter(Boolean).join(" → ") || "—"}</span></div>
-                  <div className="s3-cc-rec">
+                  <div className="s3-cc-rec" onClick={stop}>
                     {r.recording === "available" ? (
                       <>
                         <button type="button" className="s3-roundplay" onClick={() => rec.toggle(r._id)} aria-label={rec.state.id === r._id ? "Stop recording" : "Play recording"}>
@@ -1000,7 +1008,7 @@ function CallLog({ base, title, cards, initial }) {
                 const [label, color] = result(r);
                 return (
                   <React.Fragment key={r._id}>
-                    <tr className={rec.state.id === r._id ? "s3-playing" : ""}>
+                    <tr className={`s3-click ${rec.state.id === r._id ? "s3-playing" : ""}`} title="Click for full details" onClick={() => open(r)}>
                       <td style={{ whiteSpace: "nowrap" }}><b>{dayjs(r.at).format("D MMM")}</b><div className="s3-muted">{clockSec(r.at)}</div></td>
                       <td>{r.user || "—"}</td>
                       <td><b>{r.name || "Unknown"}</b><div className="s3-muted">{r.direction === "Inbound" ? "Incoming" : "Outgoing"} · {r.phone}</div></td>
@@ -1011,7 +1019,7 @@ function CallLog({ base, title, cards, initial }) {
                         {r.stage && <div className="s3-muted">{r.stage}</div>}
                         {!r.disposition && !r.stage && "—"}
                       </td>
-                      <td>
+                      <td onClick={stop}>
                         {r.recording === "available" ? (
                           <button type="button" className={`s3-play ${rec.state.id === r._id ? "on" : ""}`} onClick={() => rec.toggle(r._id)} aria-label={rec.state.id === r._id ? "Stop recording" : "Play recording"}>
                             {rec.state.id === r._id ? <PauseCircleFilled /> : <PlayCircleFilled />} {r.recordingSec ? dur(r.recordingSec) : "Play"}
@@ -1042,6 +1050,7 @@ function CallLog({ base, title, cards, initial }) {
         <button type="button" className="hub-btn" disabled={page >= data.pages} onClick={() => setPage(page + 1)} aria-label="Next page"><RightOutlined /></button>
       </div>
     </Panel>
+    </>
   );
 }
 
@@ -1391,6 +1400,7 @@ function LeadsSection({ base, who }) {
   const [items, setItems] = useState(25);
   const [list, setList] = useState(null);
   const listRef = useRef(null);
+  const [view, setView] = useState(null); // lead clicked → full detail
 
   useEffect(() => {
     let live = true;
@@ -1429,6 +1439,7 @@ function LeadsSection({ base, who }) {
 
   return (
     <>
+      <LeadFullDetailModal lead={view} onClose={() => setView(null)} />
       <div className="s3-section"><FunnelPlotOutlined /> Used leads <span>{who} — numbers called in this range, with what each lead is now · ▲▼ vs previous period</span></div>
       {rep && total === 0 && <div className="s3-alert">No number was called in this range.</div>}
       {rep && rep.notInCrm > 0 && <p className="s3-note" style={{ margin: 0 }}>{n(rep.notInCrm)} of the numbers called aren't leads in the CRM — they count as used, but have no stage.</p>}
@@ -1508,7 +1519,7 @@ function LeadsSection({ base, who }) {
               {!list && <tr><td colSpan={7}><div className="s3-skel-rows"><i /><i /></div></td></tr>}
               {list && !list.rows.length && <tr><td colSpan={7}><div className="s3-empty">No used lead for this filter.</div></td></tr>}
               {(list?.rows || []).map((l) => (
-                <tr key={l.key}>
+                <tr key={l.key} className="s3-click" title="Click for full details" onClick={() => setView({ phone: l.phone, name: l.name })}>
                   <td><b>{l.name || "—"}</b><div className="s3-muted">{l.phone}</div></td>
                   <td>{l.source}</td>
                   <td>

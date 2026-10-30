@@ -48,4 +48,17 @@ function getProvider() {
   return _provider;
 }
 
-module.exports = { getProvider, callingConfig };
+// What the polled read endpoints call instead of tick(). Where the
+// background jobs run (the VPS) the 8 s callingDialerTick job already keeps
+// every call / agent state current, so a read doesn't tick at all — before,
+// every user's 5 s agent/active poll (on every page) waited for a full tick
+// (dozens of Atlas queries), which is what made pages slow to load. With no
+// background jobs (serverless, a laptop on the shared DB) or the mock
+// provider, reads still drive it as before.
+const BACKGROUND_JOBS_ON = String(process.env.RUN_BACKGROUND_JOBS ?? 'true').toLowerCase() !== 'false';
+async function readTick() {
+  if (BACKGROUND_JOBS_ON && !callingConfig.isMock) return null;
+  return getProvider().tick();
+}
+
+module.exports = { getProvider, readTick, callingConfig };

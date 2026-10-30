@@ -16,8 +16,8 @@ const schema = new mongoose.Schema({
     index: true,
   },
   campaign: { type: mongoose.Schema.ObjectId, ref: 'CallCampaign' },
-  // Round-robin for instant Facebook leads: whoever got one longest ago
-  // (or never) is next — everyone active gets one before anyone gets two.
+  // When this agent last got an instant Facebook lead (info only — they go
+  // to whoever is free first, not round-robin).
   lastInstantLeadAt: Date,
   // alwaysOn mode: the agent's own standing line (services/calling/connectModes.js).
   agentLineLive: { type: Boolean, default: false },
@@ -37,6 +37,10 @@ const schema = new mongoose.Schema({
   // phone before it counts as ready again — until then calls ring the mobile.
   browserResetNeeded: { type: Boolean, default: false },
   currentCall: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
+  // The ended call whose outcome form the agent hasn't submitted yet. While
+  // set, they stay in Wrapup and no dialer / pool / Facebook lead call is
+  // given to them (callingShared.reserveAgent, CloudCallProvider.tick).
+  awaitingOutcome: { type: mongoose.Schema.ObjectId, ref: 'CallRecord', default: null },
 
   since: { type: Date, default: Date.now },
   lastSeenAt: { type: Date, default: Date.now },

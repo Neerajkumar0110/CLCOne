@@ -45,10 +45,20 @@ async function issueSession({ user, UserPasswordModel, remember, req }) {
     return token;
   }
 
+  // Everyone else: ONE session at a time. A new login replaces every older
+  // session, so the other device/browser is logged out — at once through
+  // the socket (endOtherSessions), else on its next request (its token is
+  // gone from loggedSessions → isValidAuthToken 401 → /logout). Tabs of the
+  // same browser share the token, so they stay logged in.
   await UserPasswordModel.findOneAndUpdate(
     { user: user._id },
-    { $push: { loggedSessions: token }, $unset: { otpCode: '', otpSalt: '', otpExpires: '' } }
+    { $set: { loggedSessions: [token], deviceSessions: [] }, $unset: { otpCode: '', otpSalt: '', otpExpires: '' } }
   ).exec();
+  try {
+    require('../../../socket').endOtherSessions(user._id, token);
+  } catch (e) {
+    /* no live socket server (serverless) — the next request logs them out */
+  }
 
   return token;
 }

@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
-const { getProvider } = require('../../../../services/calling');
+const { getProvider, readTick } = require('../../../../services/calling');
 const { callingTier } = require('./permissions');
 
 // GET /api/calling/callbacks?scope=today|upcoming|completed|all&agent=&campaign=
 const list = async (req, res) => {
-  await getProvider().tick();
+  await readTick();
   const CallCallback = mongoose.model('CallCallback');
 
   const now = new Date();

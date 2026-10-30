@@ -20,6 +20,21 @@ export function getSocket() {
     transports: ['websocket', 'polling'],
     reconnection: true,
   });
+  // One login per user (backend issueSession.js): someone logged in with
+  // this account somewhere else → this session is over. If this browser is
+  // the one that logged in again (another tab), it already holds the new
+  // token — just reload onto it instead of logging out.
+  socket.on('auth:session-replaced', () => {
+    const current = storePersist.get('auth')?.current?.token;
+    if (current && current !== token) {
+      window.location.reload();
+      return;
+    }
+    window.localStorage.removeItem('auth');
+    window.localStorage.removeItem('isLogout');
+    window.alert('You have been logged out because your account was just logged in on another device or browser.');
+    window.location.href = '/logout';
+  });
   return socket;
 }
 

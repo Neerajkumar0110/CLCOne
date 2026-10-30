@@ -7,18 +7,22 @@ const {
   callReachedCustomer,
   last10,
 } = require('./callingShared');
+const { NON_SALES_ROLES } = require('../../config/roles');
 
 // Instant call for a fresh Facebook lead.
 //
 // The moment a new lead lands from a Facebook Lead Ad (facebookController/
 // webhook.js processWebhookLog marks it instantDispatch.status='pending'),
-// the next CloudCallProvider.tick() hands it to ONE active agent — someone
-// in the Instant Lead Pool, Available and not on a call — and dials it right
-// away (customer first, then that agent's phone, like every cloud call).
+// the next CloudCallProvider.tick() hands it to the FIRST user who is free —
+// any Sales user with the dialer on (Lead Pool or any campaign), Available
+// and not on a call — and dials it right away (customer first, then that
+// agent's phone, like every cloud call). No round-robin: whoever has been
+// free longest takes it.
 //
-// Round-robin: the agent whose last instant lead was longest ago (or who
-// never had one) goes first, so every active agent gets one before anyone
-// gets a second (AgentCallState.lastInstantLeadAt).
+// Priority over the auto-dialer: tick() dispatches these before any
+// campaign dialing, and while one is waiting (instantLeadsWaiting) the
+// auto-dialer starts no new lines, so the next user whose call ends gets the
+// Facebook lead instead of another auto-dialer lead.
 //
 // Ownership after the call (settleInstantLead, from resolveLead):
 //   spoke to the customer → the lead stays with that agent;
@@ -30,6 +34,10 @@ const {
 // on gets it. After 24h with nobody it expires into the normal pipeline.
 const EXPIRE_MS = 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
+// How long a waiting lead may hold the auto-dialer back. A lead that still
+// can't be placed after this (e.g. every free user has no phone number)
+// keeps first call on the next free user, but stops pausing everyone else.
+const HOLD_MS = Number(process.env.INSTANT_LEAD_HOLD_MS || 10 * 60 * 1000);
 
 // Every Sales user + CRM admin sees "new lead → who got it" live.
 async function broadcastAssignment(lead, agentName) {
@@ -79,30 +87,35 @@ async function dispatchInstantLeads(provider) {
   let placed = 0;
 
   for (const lead of pending) {
-    // Free pool agents, round-robin order.
-    const { getConnectMode, eligibleAgentFilter } = require('./connectModes');
-    const states = await AgentCallState.find({ campaign: camp._id, status: 'Available', ...eligibleAgentFilter(await getConnectMode()) })
-      .select('agent lastInstantLeadAt since')
+    // Every free user with the dialer on, whichever campaign — longest free
+    // first. (The connect mode isn't a filter here: plivoAnswer rings the
+    // mobile for anyone whose line / browser phone isn't ready.)
+    const states = await AgentCallState.find({ status: 'Available', awaitingOutcome: null })
+      .select('agent since')
+      .sort({ since: 1 })
       .lean();
-    if (!states.length) break; // nobody active — wait
+    if (!states.length) break; // nobody free — wait
     const busy = await agentsOnLiveCalls(states.map((s) => s.agent));
-    const free = states
-      .filter((s) => !busy.has(String(s.agent)))
-      .sort(
-        (a, b) =>
-          (a.lastInstantLeadAt ? new Date(a.lastInstantLeadAt).getTime() : 0) -
-            (b.lastInstantLeadAt ? new Date(b.lastInstantLeadAt).getTime() : 0) ||
-          new Date(a.since || 0).getTime() - new Date(b.since || 0).getTime()
-      );
+    // a callback due within the minute keeps its user for that
+    const { agents: held } = await require('../../jobs/callingCallbackTick').callbackHolds();
+    const free = states.filter((s) => !busy.has(String(s.agent)) && !held.has(String(s.agent)));
     if (!free.length) break;
 
     let state = null;
     let admin = null;
     for (const s of free) {
-      const reserved = await reserveAgent({ agentIds: [s.agent], campaignId: camp._id });
+      // No campaignId: AgentCallState.campaign is the user's campaign / pool
+      // membership — taking a Facebook lead must not move them out of it.
+      const reserved = await reserveAgent({ agentIds: [s.agent], campaignId: null });
       if (!reserved) continue; // grabbed by someone else this instant
-      const a = await Admin.findById(s.agent).select('name surname phone mobile contactNumber removed enabled').lean();
-      if (a && !a.removed && a.enabled !== false && last10(a.phone || a.mobile || a.contactNumber)) {
+      const a = await Admin.findById(s.agent).select('name surname phone mobile contactNumber role removed enabled').lean();
+      if (
+        a &&
+        !a.removed &&
+        a.enabled !== false &&
+        !NON_SALES_ROLES.includes(a.role) &&
+        last10(a.phone || a.mobile || a.contactNumber)
+      ) {
         state = reserved;
         admin = a;
         break;
@@ -183,6 +196,16 @@ async function dispatchInstantLeads(provider) {
   return placed;
 }
 
+// Fresh Facebook leads still waiting for a free user — while any are, the
+// auto-dialer places no new lines (CloudCallProvider.tick step 3).
+async function instantLeadsWaiting() {
+  return mongoose.model('Lead').countDocuments({
+    removed: false,
+    'instantDispatch.status': 'pending',
+    'instantDispatch.at': { $gte: new Date(Date.now() - HOLD_MS) },
+  });
+}
+
 // After an instant call ends (and again when the agent saves a response):
 // keep the owner only if the agent actually spoke to the customer.
 async function settleInstantLead(callRecord) {
@@ -205,4 +228,4 @@ async function settleInstantLead(callRecord) {
   );
 }
 
-module.exports = { dispatchInstantLeads, settleInstantLead };
+module.exports = { dispatchInstantLeads, instantLeadsWaiting, settleInstantLead };

@@ -81,7 +81,16 @@ export default function BrowserPhone() {
     }
 
     let cancelled = false;
-    (async () => {
+    // ONE tab per user runs the phone. Every open CRM tab used to log into
+    // the same SIP endpoint, so Plivo sent the call to whichever registered
+    // last — often a background tab Chrome had put to sleep — which rejected
+    // it in 1–2 s while the other tabs kept telling the server "ready".
+    // The Web Lock passes to another tab when this one closes.
+    let releaseLock = () => {};
+    const held = new Promise((r) => {
+      releaseLock = r;
+    });
+    const start = async () => {
       try {
         setState("starting");
         setErr("");
@@ -114,13 +123,24 @@ export default function BrowserPhone() {
           sdkRef.current = null;
           setGen((g) => g + 1);
         };
-        const beat = () =>
-          request
+        // "Ready" only while the phone is really registered with Plivo. The
+        // heartbeat used to fire on a timer no matter what, so after a Wi-Fi
+        // blip / laptop sleep dropped the registration the server still
+        // routed customers here and Plivo rejected them at once (nobody
+        // registered). Not registered → rebuild the phone instead.
+        const beat = () => {
+          if (sdk.client.isLoggedIn === false) {
+            report("not-registered", "rebuilding phone");
+            rebuild();
+            return Promise.resolve();
+          }
+          return request
             .post({ entity: "calling/browser-phone/ready", jsonData: { ready: true } })
             .then((r) => {
               if (r?.result?.reset) rebuild();
             })
             .catch(() => {});
+        };
         // Every phone event goes to the server log, so a call that didn't
         // pick up can be traced (VPS: pm2 logs → [browser-phone]).
         const report = (event, detail) =>
@@ -171,21 +191,41 @@ export default function BrowserPhone() {
           report("call-failed", cause);
         });
         sdk.client.on("onLogout", () => setState("off"));
+        // Connection to Plivo lost → stop saying "ready" right away.
+        sdk.client.on("onConnectionChange", (info) => {
+          const s = info && (info.state || info);
+          if (s === "disconnected" || s === "failed") {
+            report("connection", s);
+            request.post({ entity: "calling/browser-phone/ready", jsonData: { ready: false } }).catch(() => {});
+          }
+        });
         sdk.client.login(cr.result.username, cr.result.password);
       } catch (e) {
         if (cancelled) return;
         setState("error");
         setErr(e?.name === "NotAllowedError" ? "Microphone blocked — allow it in the browser to take calls." : e?.message || "Phone error");
       }
-    })();
+    };
+    if (navigator.locks && navigator.locks.request) {
+      setState("other-tab");
+      navigator.locks
+        .request("clc-browser-phone", () => {
+          if (cancelled) return null;
+          start();
+          return held;
+        })
+        .catch(() => {});
+    } else start();
     return () => {
       cancelled = true;
+      releaseLock();
     };
   }, [wanted, gen]);
 
   if (state === "off") return null;
-  const color = { starting: "#d97706", ready: "#16a34a", oncall: "#2563eb", error: "#dc2626" }[state];
+  const color = { starting: "#d97706", ready: "#16a34a", oncall: "#2563eb", error: "#dc2626", "other-tab": "#64748b" }[state];
   const text = {
+    "other-tab": "🎧 Browser phone is on in your other CRM tab",
     starting: "Browser phone: starting…",
     ready: "🎧 Browser phone ready",
     oncall: "🎧 On a call",

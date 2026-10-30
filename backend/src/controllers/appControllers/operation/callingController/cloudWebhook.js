@@ -279,6 +279,8 @@ const cloudWebhook = async (req, res) => {
     if (rec.agent) {
       await wrapupAgent(rec);
       await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
+      // an auto-dialled callback the user actually spoke on → Done
+      await require('../../../../jobs/callingCallbackTick').settleCallbackCall(rec).catch(() => {});
     }
     const smartInbound = rec.direction === 'Inbound' && rec.inbound && rec.inbound.routedBy === 'smart';
     if (smartInbound) {

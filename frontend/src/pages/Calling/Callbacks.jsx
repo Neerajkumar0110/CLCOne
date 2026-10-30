@@ -4,6 +4,7 @@ import { message } from "antd";
 import { CalendarOutlined, PhoneOutlined } from "@ant-design/icons";
 import { usePoll, dialContact } from "./shared";
 import "./Callbacks.css";
+import { LeadLink } from "@/components/LeadFullDetail";
 
 const IST = { timeZone: "Asia/Kolkata" };
 
@@ -124,7 +125,7 @@ export default function Callbacks() {
               {rows.map((cb) => (
                 <tr key={cb._id} className={tone === "red" ? "cb-row-overdue" : undefined}>
                   <td>
-                    <div className="cb-contact-name">{cb.contactName || "Unknown"}</div>
+                    <div className="cb-contact-name"><LeadLink phone={cb.phone}>{cb.contactName || "Unknown"}</LeadLink></div>
                     <div className="cb-contact-sub">
                       {cb.phone || "no number"}
                       {cb.campaign?.name ? ` · ${cb.campaign.name}` : ""}

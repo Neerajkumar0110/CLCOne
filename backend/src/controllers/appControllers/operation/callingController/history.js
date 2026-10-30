@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getProvider } = require('../../../../services/calling');
+const { getProvider, readTick } = require('../../../../services/calling');
 const { callingTier, campaignScope } = require('./permissions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
@@ -7,7 +7,7 @@ const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 //   q, campaign, agent, status, disposition, direction,
 //   from, to (ISO), page, items
 const list = async (req, res) => {
-  await getProvider().tick();
+  await readTick();
   const CallRecord = mongoose.model('CallRecord');
   const CallCampaign = mongoose.model('CallCampaign');
   const q = req.query;

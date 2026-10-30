@@ -57,7 +57,7 @@ const isValidAuthToken = async (req, res, next, { userModel, jwtSecret = 'JWT_SE
       return res.status(401).json({
         success: false,
         result: null,
-        message: 'User is already logout try to login, authorization denied.',
+        message: 'You were logged out because your account was logged in somewhere else. Please log in again.',
         jwtExpired: true,
       });
     else {

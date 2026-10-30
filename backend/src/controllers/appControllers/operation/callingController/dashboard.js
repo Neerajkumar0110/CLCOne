@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getProvider } = require('../../../../services/calling');
+const { getProvider, readTick } = require('../../../../services/calling');
 const { campaignScope } = require('./permissions');
 
 const startOfToday = () => {
@@ -10,7 +10,7 @@ const startOfToday = () => {
 
 // GET /api/calling/dashboard — the Calling Dashboard KPIs.
 const dashboard = async (req, res) => {
-  await getProvider().tick();
+  await readTick();
 
   const CallRecord = mongoose.model('CallRecord');
   const CallCampaign = mongoose.model('CallCampaign');

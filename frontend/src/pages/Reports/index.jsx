@@ -26,6 +26,7 @@ import {
   DownloadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+import { LeadLink } from "@/components/LeadFullDetail";
 
 /* =========================================================
    REAL DATA — GET /api/report/summary, GET /api/report/number-lookup,
@@ -431,8 +432,8 @@ function NumberLookup() {
                   )}
                   {(numberSelected ? rows : rows).map((c, idx) => (
                     <tr key={c._id || idx}>
-                      {!numberSelected && <td>{c.phone}</td>}
-                      {!numberSelected && <td>{c.contactName}</td>}
+                      {!numberSelected && <td><LeadLink phone={c.phone}>{c.phone}</LeadLink></td>}
+                      {!numberSelected && <td><LeadLink phone={c.phone}>{c.contactName}</LeadLink></td>}
                       <td>{new Date(c.created).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                       <td>{c.calledBy}</td>
                       <td>{c.team}</td>

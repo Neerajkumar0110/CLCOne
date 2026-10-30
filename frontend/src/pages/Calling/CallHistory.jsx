@@ -3,6 +3,7 @@ import { request } from "@/request";
 import { message } from "antd";
 import { HistoryOutlined, LeftOutlined, RightOutlined, PhoneOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, useCallingMeta, dialContact } from "./shared";
+import { LeadLink } from "@/components/LeadFullDetail";
 
 const STATUSES = ["All", "completed", "connected", "no-answer", "busy", "failed", "voicemail", "transferred"];
 
@@ -105,8 +106,8 @@ export default function CallHistory() {
               {!loading &&
                 rows.map((r) => (
                   <tr key={r._id}>
-                    <td>{r.contactName || "—"}</td>
-                    <td>{r.phone}</td>
+                    <td><LeadLink phone={r.phone}>{r.contactName || "—"}</LeadLink></td>
+                    <td><LeadLink phone={r.phone}>{r.phone}</LeadLink></td>
                     <td>
                       {r.agentName || "—"}
                       {/* nobody took it — filed under the lead's owner / last user who spoke to them */}

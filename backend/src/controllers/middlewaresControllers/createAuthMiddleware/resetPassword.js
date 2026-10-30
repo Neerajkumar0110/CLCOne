@@ -68,7 +68,8 @@ const resetPassword = async (req, res, { userModel }) => {
   await UserPassword.findOneAndUpdate(
     { user: userId },
     {
-      $push: { loggedSessions: token },
+      // New password → this is the only session; every other device is out.
+      $set: { loggedSessions: [token], deviceSessions: [] },
       password: hashedPassword,
       salt: salt,
       emailToken: emailToken,
