@@ -28,6 +28,7 @@ router.route('/admin/360/leads-report').get(catchErrors(c.sales360LeadsReport));
 router.route('/admin/360/export').get(catchErrors(c.sales360Export));
 router.route('/admin/360/attendance').get(catchErrors(c.sales360Attendance));
 router.route('/admin/360/exceptions').get(catchErrors(c.sales360Exceptions));
+router.route('/admin/360/dialer-report').get(catchErrors(c.sales360DialerReport));
 router.route('/admin/mark-present').post(catchErrors(c.markPresent));
 router.route('/admin/remind-login').post(catchErrors(c.remindLogin));
 

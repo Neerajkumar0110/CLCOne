@@ -1,0 +1,51 @@
+/* Calls → Auto-dialer report (AutoDialer.jsx DialerReport). dr- prefixed. */
+.dr-card { margin-top: 16px; }
+.dr-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.dr-head h3 { margin: 0; font-size: 17px; font-weight: 700; color: var(--hub-text, #0f172a); display: flex; align-items: center; gap: 8px; }
+.dr-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--hub-muted, #64748b); }
+.dr-ranges { display: flex; gap: 6px; flex-wrap: wrap; }
+.dr-ranges button { padding: 6px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 700; cursor: pointer; border: 1px solid var(--hub-border, #e5e7eb); background: var(--hub-surface, #fff); color: var(--hub-text-soft, #475569); }
+.dr-ranges button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+.dr-hero { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; padding: 16px 18px; border-radius: 16px; background: var(--hub-bg-soft, #f8fafc); border: 1px solid var(--hub-border, #e5e7eb); }
+.dr-ring { --p: 0; --c: #2563eb; width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), #e2e8f0 0); }
+.dr-ring > div { width: 104px; height: 104px; border-radius: 50%; background: var(--hub-surface, #fff); display: grid; place-content: center; text-align: center; }
+.dr-ring b { font-size: 24px; font-weight: 800; color: var(--c); line-height: 1.1; }
+.dr-ring span { font-size: 10.5px; color: var(--hub-muted, #64748b); }
+.dr-hero-txt { flex: 1; min-width: 260px; }
+.dr-big { font-size: 15px; color: var(--hub-muted, #64748b); }
+.dr-big b { font-size: 22px; color: var(--hub-text, #0f172a); font-weight: 800; }
+.dr-funnel { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.dr-funnel > div { display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 10px; font-size: 12.5px; }
+.dr-funnel span { color: var(--hub-muted, #64748b); font-weight: 600; }
+.dr-funnel i, .dr-ratio i, .dr-hours i { display: block; position: relative; height: 9px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+.dr-funnel em, .dr-ratio em, .dr-hours em { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+.dr-funnel b { text-align: right; color: var(--hub-text, #0f172a); }
+.dr-note { margin: 10px 0 0; font-size: 12px; color: var(--hub-muted, #64748b); }
+
+.dr-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 14px; }
+.dr-tile { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--hub-border, #e5e7eb); background: var(--hub-surface, #fff); }
+.dr-tile span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--hub-muted, #64748b); }
+.dr-tile b { display: block; font-size: 22px; font-weight: 800; margin-top: 3px; }
+.dr-tile small { display: block; font-size: 11.5px; color: var(--hub-muted, #64748b); margin-top: 2px; }
+
+.dr-warn { margin-top: 14px; padding: 11px 14px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 12.5px; line-height: 1.5; }
+
+.dr-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.dr-sub { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--hub-muted, #64748b); margin-bottom: 8px; }
+.dr-table td { vertical-align: middle; }
+.dr-table tr.idle td { background: #fff7ed; }
+.dr-muted { font-size: 11.5px; color: var(--hub-muted, #64748b); }
+.dr-ratio { display: grid; grid-template-columns: 80px auto; align-items: center; gap: 8px; }
+.dr-ratio b { font-size: 12.5px; }
+.dr-hours { display: flex; flex-direction: column; gap: 5px; }
+.dr-hours > div { display: grid; grid-template-columns: 48px 1fr 34px; align-items: center; gap: 8px; font-size: 12px; }
+.dr-hours span { color: var(--hub-muted, #64748b); font-weight: 600; }
+.dr-hours em { background: #93c5fd; }
+.dr-hours em.c { background: #16a34a; }
+.dr-hours b { text-align: right; }
+.dr-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11.5px; color: var(--hub-muted, #64748b); }
+.dr-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dr-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+@media (max-width: 900px) { .dr-grid { grid-template-columns: 1fr; } .dr-funnel > div { grid-template-columns: 110px 1fr 54px; } }

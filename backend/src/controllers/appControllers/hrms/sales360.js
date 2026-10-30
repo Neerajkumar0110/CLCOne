@@ -1192,4 +1192,113 @@ async function exceptions(req, res) {
   return res.status(200).json({ success: true, message: 'ok', result: { noLogin: noLogin.sort(byDate), noLogout: noLogout.sort(byDate) } });
 }
 
-module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth, exceptions };
+// GET /workday/admin/360/dialer-report?from=&to=&adminId=&team=
+// Auto-dialer capacity vs what actually happened. A call slot = the average
+// time one call takes (dial → hang-up) + WRAP_SEC to save the response, so
+//   capacity (dialer time) = minutes the dialer was on ÷ slot
+//   capacity (full shift)  = days worked × SHIFT_WORK_MIN ÷ slot
+// and the ratio = calls made ÷ capacity. Dialer-on time comes from the pool
+// on/off log (attendance() above); calls from CallRecord (agent = who took it).
+const WRAP_SEC = 15;
+const SHIFT_WORK_MIN = 8 * 60; // 10:00–19:30 minus 90 min of breaks
+async function dialerReport(req, res) {
+  const q = req.query;
+  const { from, to, dayKeys } = parseRange(q);
+  const { users } = await salesUsers(q);
+  if (!users.length) return res.status(200).json({ success: true, message: 'ok', result: null });
+  const ids = users.map((u) => u._id);
+  const [att, perAgent, perHour] = await Promise.all([
+    attendance(users, dayKeys, from, to),
+    mongoose.model('CallRecord').aggregate([
+      { $match: { removed: false, agent: { $in: ids }, created: { $gte: from, $lte: to } } },
+      {
+        $group: {
+          _id: '$agent',
+          calls: { $sum: 1 },
+          connected: sumIf(CONNECTED),
+          talkSec: { $sum: { $cond: [CONNECTED, { $ifNull: ['$duration', 0] }, 0] } },
+          handleSec: { $sum: { $cond: [{ $and: [{ $ne: ['$endedAt', null] }, { $gt: ['$endedAt', '$created'] }] }, { $divide: [{ $subtract: ['$endedAt', '$created'] }, 1000] }, 0] } },
+          handleN: sumIf({ $and: [{ $ne: ['$endedAt', null] }, { $gt: ['$endedAt', '$created'] }] }),
+        },
+      },
+    ]),
+    mongoose.model('CallRecord').aggregate([
+      { $match: { removed: false, agent: { $in: ids }, created: { $gte: from, $lte: to } } },
+      { $group: { _id: { $hour: { date: '$created', timezone: TZ } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED) } },
+      { $sort: { _id: 1 } },
+    ]),
+  ]);
+
+  const cBy = new Map(perAgent.map((x) => [String(x._id), x]));
+  const all = perAgent.reduce((t, x) => ({ handleSec: t.handleSec + x.handleSec, handleN: t.handleN + x.handleN }), { handleSec: 0, handleN: 0 });
+  const avgCallSec = all.handleN ? Math.round(all.handleSec / all.handleN) : 45;
+  const slotSec = avgCallSec + WRAP_SEC;
+
+  const rows = users.map((u) => {
+    const uid = String(u._id);
+    const days = att.get(uid) || [];
+    const c = cBy.get(uid) || { calls: 0, connected: 0, talkSec: 0, handleSec: 0, handleN: 0 };
+    const dialerMin = days.reduce((s, d) => s + (d.dialerMin || 0), 0);
+    const activeMin = days.reduce((s, d) => s + (d.activeMin || 0), 0);
+    const daysWorked = days.filter((d) => d.startAt && d.workingDay).length;
+    const capacity = Math.floor((dialerMin * 60) / slotSec);
+    const shiftCapacity = Math.floor((daysWorked * SHIFT_WORK_MIN * 60) / slotSec);
+    return {
+      adminId: uid,
+      name: wd.fullName(u) || u.email,
+      role: u.role,
+      daysWorked,
+      activeMin,
+      dialerMin,
+      calls: c.calls,
+      connected: c.connected,
+      talkSec: c.talkSec,
+      avgCallSec: c.handleN ? Math.round(c.handleSec / c.handleN) : null,
+      capacity,
+      shiftCapacity,
+      ratio: capacity ? Math.round((c.calls / capacity) * 1000) / 10 : null,
+      shiftRatio: shiftCapacity ? Math.round((c.calls / shiftCapacity) * 1000) / 10 : null,
+      callsPerHour: dialerMin ? Math.round((c.calls / dialerMin) * 600) / 10 : null,
+    };
+  });
+  const sum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
+  const totals = {
+    people: rows.filter((r) => r.daysWorked || r.calls).length,
+    daysWorked: sum('daysWorked'),
+    activeMin: sum('activeMin'),
+    dialerMin: sum('dialerMin'),
+    calls: sum('calls'),
+    connected: sum('connected'),
+    talkSec: sum('talkSec'),
+    capacity: sum('capacity'),
+    shiftCapacity: sum('shiftCapacity'),
+  };
+  totals.ratio = totals.capacity ? Math.round((totals.calls / totals.capacity) * 1000) / 10 : null;
+  // only the people who actually made calls (dialer on but no calls coming in
+  // — e.g. Browser phone not ready — would otherwise swamp the ratio)
+  const callers = rows.filter((r) => r.calls > 0);
+  totals.callers = callers.length;
+  totals.callerCapacity = callers.reduce((s, r) => s + r.capacity, 0);
+  totals.callerDialerMin = callers.reduce((s, r) => s + r.dialerMin, 0);
+  totals.callerRatio = totals.callerCapacity ? Math.round((totals.calls / totals.callerCapacity) * 1000) / 10 : null;
+  totals.shiftRatio = totals.shiftCapacity ? Math.round((totals.calls / totals.shiftCapacity) * 1000) / 10 : null;
+  totals.connectRate = totals.calls ? Math.round((totals.connected / totals.calls) * 1000) / 10 : null;
+  totals.dialerUse = totals.activeMin ? Math.round((totals.dialerMin / totals.activeMin) * 1000) / 10 : null;
+  totals.talkShare = totals.dialerMin ? Math.round((totals.talkSec / 60 / totals.dialerMin) * 1000) / 10 : null;
+  totals.callsPerHour = totals.dialerMin ? Math.round((totals.calls / totals.dialerMin) * 600) / 10 : null;
+  totals.perDay = dayKeys.length ? Math.round(totals.calls / Math.max(1, dayKeys.filter((k) => !wd.W.weeklyOff.includes(wd.istAt(k, '12:00').getUTCDay())).length)) : 0;
+
+  return res.status(200).json({
+    success: true,
+    message: 'ok',
+    result: {
+      range: { from, to, days: dayKeys.length },
+      assumptions: { avgCallSec, wrapSec: WRAP_SEC, slotSec, shiftWorkMin: SHIFT_WORK_MIN, callsPerHourMax: Math.floor(3600 / slotSec) },
+      totals,
+      rows: rows.filter((r) => r.daysWorked || r.calls || r.dialerMin).sort((a, b) => b.calls - a.calls),
+      hours: perHour.map((h) => ({ hour: h._id, calls: h.calls, connected: h.connected })),
+    },
+  });
+}
+
+module.exports = { summary, calls, leads, leadList, leadsSection, exportXlsx, attendanceMonth, exceptions, dialerReport };

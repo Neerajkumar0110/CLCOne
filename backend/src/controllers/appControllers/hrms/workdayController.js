@@ -569,6 +569,7 @@ module.exports = {
   markPresent,
   remindLogin,
   sales360Exceptions: selfOrManager(sales360.exceptions),
+  sales360DialerReport: selfOrManager(sales360.dialerReport),
   me: salesOnly(me),
   login: salesOnly(login),
   logout: salesOnly(logout),

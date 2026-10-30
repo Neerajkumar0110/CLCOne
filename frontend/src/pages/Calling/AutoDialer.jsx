@@ -8,6 +8,7 @@ import PoolStagesModal from "./PoolStagesModal";
 import CallerDetailModal from "./CallerDetailModal";
 import IncomingCalls from "./IncomingCalls";
 import { STAGE_NAMES } from "@/config/leadStages";
+import "./dialerReport.css";
 
 // My Calls: the call-again button shows only for leads worth calling back.
 const CALLABLE_STAGES = ["Interested Leads", "Demo Booking"];
@@ -836,9 +837,181 @@ function InstantLeadPool() {
         )}
       </div>
 
+      <DialerReport leadsWaiting={data?.leadsWaiting} />
+
       <IncomingCalls currentAdminId={currentAdmin?._id} />
 
       <UsedLeads />
+    </div>
+  );
+}
+
+// ── Auto-dialer report: how many calls the dialer time allowed vs made ───
+// Backend /workday/admin/360/dialer-report (management: everyone; a Sales
+// user: themself). One call slot = average call length + 15 s to save the
+// response; capacity = dialer-on time ÷ slot (and a full 8-hour shift ÷ slot).
+const RANGES = [
+  ["today", "Today", () => [dayStart(0), new Date()]],
+  ["yesterday", "Yesterday", () => [dayStart(-1), new Date(dayStart(0).getTime() - 1000)]],
+  ["7d", "7 days", () => [dayStart(-6), new Date()]],
+  ["30d", "30 days", () => [dayStart(-29), new Date()]],
+];
+function dayStart(offset) {
+  const ist = new Date(Date.now() + 5.5 * 3600e3);
+  const d = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + offset) - 5.5 * 3600e3;
+  return new Date(d);
+}
+const pctColor = (p) => (p == null ? "#64748b" : p >= 60 ? "#15803d" : p >= 30 ? "#b45309" : "#b91c1c");
+const hmm = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, "0")}m` : `${Math.round(m)}m`);
+const nf = (v) => (v || 0).toLocaleString("en-IN");
+
+function DialerReport({ leadsWaiting }) {
+  const [range, setRange] = useState("today");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const [from, to] = RANGES.find((r) => r[0] === range)[2]();
+    setLoading(true);
+    request.get({ entity: `workday/admin/360/dialer-report?from=${from.toISOString()}&to=${to.toISOString()}` }).then((r) => {
+      if (!live) return;
+      setData(r?.success ? r.result : null);
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, [range]);
+
+  const t = data?.totals;
+  const a = data?.assumptions;
+  const idle = (data?.rows || []).filter((r) => r.dialerMin >= 60 && !r.calls);
+  const maxHour = Math.max(1, ...(data?.hours || []).map((h) => h.calls));
+  // calls / hour and talk share over the dialer time of people who actually called
+  const cph = t && t.callerDialerMin ? Math.round((t.calls / t.callerDialerMin) * 600) / 10 : null;
+  const talkPct = t && t.callerDialerMin ? Math.round((t.talkSec / 60 / t.callerDialerMin) * 1000) / 10 : null;
+  const daysToClear = t && t.perDay && leadsWaiting ? Math.ceil(leadsWaiting / t.perDay) : null;
+
+  const Tile = ({ label, value, sub, color = "#0f172a" }) => (
+    <div className="dr-tile">
+      <span>{label}</span>
+      <b style={{ color }}>{value}</b>
+      <small>{sub}</small>
+    </div>
+  );
+
+  return (
+    <div className="hub-card dr-card">
+      <div className="dr-head">
+        <div>
+          <h3><ThunderboltOutlined /> Auto-dialer report</h3>
+          <p>How many calls the dialer time allowed, how many were made, and the ratio.</p>
+        </div>
+        <div className="dr-ranges">
+          {RANGES.map(([k, l]) => (
+            <button key={k} type="button" className={range === k ? "on" : ""} onClick={() => setRange(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {!data ? (
+        <div className="hub-empty">{loading ? "Working out the report…" : "No report for this range."}</div>
+      ) : (
+        <div style={{ opacity: loading ? 0.5 : 1, transition: "opacity .15s" }}>
+          <div className="dr-hero">
+            <div className="dr-ring" style={{ "--p": Math.min(100, t.callerRatio || 0), "--c": pctColor(t.callerRatio) }}>
+              <div>
+                <b>{t.callerRatio == null ? "—" : `${t.callerRatio}%`}</b>
+                <span>of capacity used</span>
+              </div>
+            </div>
+            <div className="dr-hero-txt">
+              <div className="dr-big">
+                <b>{nf(t.calls)}</b> calls made <span>of</span> <b>{nf(t.callerCapacity)}</b> possible <span>· {t.callers} {t.callers === 1 ? "person" : "people"} calling, {hmm(t.callerDialerMin)} of dialer time</span>
+              </div>
+              <div className="dr-funnel">
+                {[
+                  ["Possible (dialer on)", t.callerCapacity, "#cbd5e1"],
+                  ["Made", t.calls, "#2563eb"],
+                  ["Connected", t.connected, "#16a34a"],
+                ].map(([l, v, c]) => (
+                  <div key={l}>
+                    <span>{l}</span>
+                    <i><em style={{ width: `${t.callerCapacity ? Math.min(100, (v / t.callerCapacity) * 100) : 0}%`, background: c }} /></i>
+                    <b>{nf(v)}</b>
+                  </div>
+                ))}
+              </div>
+              <p className="dr-note">
+                {t.capacity !== t.callerCapacity && (
+                  <>Counting everyone whose dialer was on ({t.people} people, {hmm(t.dialerMin)}): {nf(t.calls)} of {nf(t.capacity)} = <b style={{ color: pctColor(t.ratio) }}>{t.ratio}%</b>.<br /></>
+                )}
+                One call ≈ <b>{a.avgCallSec}s</b> (average) + <b>{a.wrapSec}s</b> to save the response = <b>{a.slotSec}s</b> → up to <b>{a.callsPerHourMax}</b> calls an hour per person.
+              </p>
+            </div>
+          </div>
+
+          <div className="dr-tiles">
+            <Tile label="Full-shift capacity" value={nf(t.shiftCapacity)} sub={`${t.shiftRatio ?? "—"}% used · ${t.daysWorked} person-days × 8h`} color={pctColor(t.shiftRatio)} />
+            <Tile label="Connect rate" value={t.connectRate == null ? "—" : `${t.connectRate}%`} sub={`${nf(t.connected)} of ${nf(t.calls)} calls`} color={pctColor(t.connectRate)} />
+            <Tile label="Calls / hour of dialer" value={cph ?? "—"} sub={`per person · max ${a.callsPerHourMax} an hour`} color={pctColor(cph != null ? (cph / a.callsPerHourMax) * 100 : null)} />
+            <Tile label="Dialer on" value={hmm(t.dialerMin)} sub={`${t.dialerUse ?? "—"}% of logged-in time (${hmm(t.activeMin)})`} />
+            <Tile label="Talk time" value={hmm(t.talkSec / 60)} sub={`${talkPct ?? "—"}% of the callers' dialer time`} />
+            <Tile label="Calls a day" value={nf(t.perDay)} sub={daysToClear ? `${nf(leadsWaiting)} leads waiting ≈ ${daysToClear} day${daysToClear > 1 ? "s" : ""} to clear` : "average per working day"} />
+          </div>
+
+          {idle.length > 0 && (
+            <div className="dr-warn">
+              ⚠️ <b>{idle.length} {idle.length > 1 ? "people had" : "person had"} the dialer on with no calls</b> — {idle.map((r) => `${r.name} (${hmm(r.dialerMin)})`).join(", ")}. With Browser phone, calls only reach someone whose CLC One tab is open and shows “Browser phone ready”.
+            </div>
+          )}
+
+          <div className="dr-grid">
+            <div>
+              <div className="dr-sub">By person</div>
+              <div className="hub-table-wrapper">
+                <table className="hub-table dr-table">
+                  <thead>
+                    <tr><th>User</th><th>Dialer on</th><th>Possible</th><th>Made</th><th>Ratio</th><th>Connected</th><th>Calls / h</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.rows.map((r) => (
+                      <tr key={r.adminId} className={r.dialerMin >= 60 && !r.calls ? "idle" : ""}>
+                        <td><b>{r.name}</b><div className="dr-muted">{r.daysWorked} day{r.daysWorked === 1 ? "" : "s"} · {r.role}</div></td>
+                        <td>{hmm(r.dialerMin)}</td>
+                        <td>{nf(r.capacity)}</td>
+                        <td><b>{nf(r.calls)}</b></td>
+                        <td>
+                          <div className="dr-ratio"><i><em style={{ width: `${Math.min(100, r.ratio || 0)}%`, background: pctColor(r.ratio) }} /></i><b style={{ color: pctColor(r.ratio) }}>{r.ratio == null ? "—" : `${r.ratio}%`}</b></div>
+                        </td>
+                        <td>{nf(r.connected)}<div className="dr-muted">{r.calls ? `${Math.round((r.connected / r.calls) * 100)}%` : ""}</div></td>
+                        <td>{r.callsPerHour ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <div className="dr-sub">By hour of day</div>
+              <div className="dr-hours">
+                {(data.hours || []).length ? (
+                  data.hours.map((h) => (
+                    <div key={h.hour}>
+                      <span>{h.hour % 12 || 12} {h.hour < 12 ? "AM" : "PM"}</span>
+                      <i><em style={{ width: `${(h.calls / maxHour) * 100}%` }} /><em className="c" style={{ width: `${(h.connected / maxHour) * 100}%` }} /></i>
+                      <b>{h.calls}</b>
+                    </div>
+                  ))
+                ) : (
+                  <div className="dr-muted">No calls in this range.</div>
+                )}
+              </div>
+              <div className="dr-legend"><span><i style={{ background: "#93c5fd" }} />Calls</span><span><i style={{ background: "#16a34a" }} />Connected</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
