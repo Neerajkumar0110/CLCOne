@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { message } from "antd";
+import { message, Switch } from "antd";
 import { request } from "@/request";
 import { usePoll } from "@/pages/Calling/shared";
 import { stageConfig } from "@/config/leadStages";
@@ -94,9 +94,11 @@ function WeekBars({ days, todayKey }) {
   );
 }
 
-function Detail({ u, todayKey }) {
+function Detail({ u, todayKey, busy, onAutoStart }) {
   const stages = Object.entries(u.leads.byStage).sort((a, b) => b[1] - a[1]);
-  const st = POOL_STATUS[u.pool.status];
+  const as = u.autoStart || { off: false, onLeave: null };
+  // On a whole-day leave the dialer never auto-starts anyway — shown on and locked.
+  const skipOn = !!as.onLeave || as.off;
   return (
     <div className="ta-detail-inner">
       <div>
@@ -110,10 +112,20 @@ function Detail({ u, todayKey }) {
           <dt>Business</dt><dd>{[u.businessName, u.businessSegment].filter(Boolean).join(" · ") || "—"}</dd>
           <dt>Joined CRM</dt><dd>{u.joined ? new Date(u.joined).toLocaleDateString("en-IN") : "—"}</dd>
           <dt>Last seen</dt><dd>{u.online ? "Online now" : ago(u.lastSeenAt)}</dd>
-          <dt>Lead Pool</dt>
+          <dt>Skip 11:00 auto-start</dt>
           <dd>
-            {u.pool.on ? (st ? st.label : u.pool.status) : "Not in pool"}
-            {u.pool.on && u.pool.since ? ` · since ${new Date(u.pool.since).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : ""}
+            <div className="ta-autostart">
+              <Switch
+                size="small"
+                checked={skipOn}
+                disabled={!!as.onLeave || busy}
+                loading={busy}
+                onChange={(v) => onAutoStart(v)}
+              />
+              <span className={skipOn ? "on" : ""}>
+                {as.onLeave ? `${as.onLeave} — no auto-start today` : as.off ? "Dialer won't auto-start" : "Dialer auto-starts at 11:00"}
+              </span>
+            </div>
           </dd>
           <dt>Breaks today</dt>
           <dd>{u.pool.breakMinutesToday ? `${u.pool.breakMinutesToday}m (${u.pool.breaksTakenToday.join(", ")})` : "None"}</dd>
@@ -197,6 +209,18 @@ export default function TeamActivity() {
     const r = await request.post({ entity: `calling/team-activity/${u._id}/pool`, jsonData: { on } });
     if (r?.success) message.success(r.message);
     else window.alert(r?.message || "Could not change the pool status.");
+    await load();
+    setBusyId(null);
+  };
+
+  // "Skip 11:00 auto-start" switch in the user's detail panel.
+  const toggleAutoStart = async (u, off) => {
+    if (busyId) return;
+    setBusyId(u._id);
+    setRows((rs) => rs.map((x) => (x._id === u._id ? { ...x, autoStart: { ...x.autoStart, off } } : x)));
+    const r = await request.post({ entity: `calling/team-activity/${u._id}/auto-start`, jsonData: { off } });
+    if (r?.success) message.success(r.message);
+    else message.error(r?.message || "Could not change the auto-start.");
     await load();
     setBusyId(null);
   };
@@ -341,7 +365,7 @@ export default function TeamActivity() {
                     </tr>
                     {open && (
                       <tr className="ta-detail">
-                        <td colSpan={8}><Detail u={u} todayKey={todayKey} /></td>
+                        <td colSpan={8}><Detail u={u} todayKey={todayKey} busy={busyId === u._id} onAutoStart={(off) => toggleAutoStart(u, off)} /></td>
                       </tr>
                     )}
                   </React.Fragment>

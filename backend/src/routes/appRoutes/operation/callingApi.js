@@ -64,6 +64,7 @@ router.route('/inbound/forward-targets').get(catchErrors(inboundCalls.forwardTar
 router.route('/inbound/:id/forward').post(catchErrors(inboundCalls.forward));
 router.route('/team-activity').get(catchErrors(c.teamActivityList));
 router.route('/team-activity/:id/pool').post(catchErrors(c.teamActivitySetPool));
+router.route('/team-activity/:id/auto-start').post(catchErrors(c.teamActivitySetAutoStart));
 
 // ── agent calling screen ───────────────────────────────────────────────
 router.route('/agent/active').get(catchErrors(c.agentActive));

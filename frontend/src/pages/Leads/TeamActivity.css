@@ -239,3 +239,8 @@
   border-radius: 50%;
   display: inline-block;
 }
+
+/* "Skip 11:00 auto-start" switch in the detail panel */
+.ta-autostart { display: inline-flex; align-items: center; gap: 8px; }
+.ta-autostart span { font-size: 12.5px; color: var(--hub-muted, #64748b); font-weight: 600; }
+.ta-autostart span.on { color: #b45309; }

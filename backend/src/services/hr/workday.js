@@ -385,7 +385,8 @@ async function autoStartTick(now = new Date()) {
   if (W.weeklyOff.includes(weekday(dayKey)) || (await holidayOn(dayKey))) return 0;
   const admins = await mongoose
     .model('Admin')
-    .find({ removed: false, enabled: true, role: { $in: SALES_ROLES } })
+    // dialerAutoStartOff: management turned the auto-start off for them (Team Activity)
+    .find({ removed: false, enabled: true, role: { $in: SALES_ROLES }, dialerAutoStartOff: { $ne: true } })
     .select('name surname role phone mobile contactNumber email')
     .lean();
   const sessions = await Session().find({ dayKey, admin: { $in: admins.map((a) => a._id) } }).select('admin loginAt autoStartedAt').lean();

@@ -45,7 +45,7 @@ const list = async (req, res) => {
   const since = new Date(`${dayKeys[0]}T00:00:00+05:30`);
 
   const admins = await Admin.find({ removed: false, enabled: true, role: { $nin: NON_SALES_ROLES } })
-    .select('name surname email phone role photo businessName businessSegment lastSeenAt created')
+    .select('name surname email phone role photo businessName businessSegment lastSeenAt created dialerAutoStartOff')
     .sort({ name: 1 })
     .lean();
   const ids = admins.map((a) => a._id);
@@ -65,6 +65,14 @@ const list = async (req, res) => {
       { $group: { _id: { u: '$assignedUser', stage: '$stage' }, n: { $sum: 1 } } },
     ]),
   ]);
+
+  // 11:00 auto-start: who has it switched off, and who is on a whole-day leave today
+  const wd = require('../../../../services/hr/workday');
+  const leaveToday = new Map();
+  await Promise.all(admins.map(async (a) => {
+    const off = await wd.dayOff(a, todayKey);
+    if (off && off.kind === 'leave') leaveToday.set(String(a._id), off.label);
+  }));
 
   const online = new Set(getOnlineUserIds());
   const blankDay = (day) => ({ day, loginSeconds: 0, calls: 0, connected: 0, talkSeconds: 0 });
@@ -146,6 +154,7 @@ const list = async (req, res) => {
         breakMinutesToday: joinedToday ? st.breakMinutesToday || 0 : 0,
         breaksTakenToday: joinedToday ? st.breaksTakenToday || [] : [],
       },
+      autoStart: { off: !!a.dialerAutoStartOff, onLeave: leaveToday.get(key) || null },
       today: byUser.get(key).get(todayKey),
       week,
       days,
@@ -192,4 +201,21 @@ const setPool = async (req, res) => {
   });
 };
 
-module.exports = { list, setPool };
+// POST /api/calling/team-activity/:id/auto-start { off } — management turns
+// the 11:00 dialer auto-start off (or back on) for one Sales user.
+const setAutoStart = async (req, res) => {
+  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) return deny(res);
+  const Admin = mongoose.model('Admin');
+  const off = !!(req.body && req.body.off);
+  const agent = await Admin.findOneAndUpdate({ _id: req.params.id, removed: false }, { $set: { dialerAutoStartOff: off } }, { new: true })
+    .select('name surname role')
+    .lean();
+  if (!agent) return res.status(404).json({ success: false, result: null, message: 'User not found.' });
+  return res.status(200).json({
+    success: true,
+    result: { off },
+    message: off ? `${agent.name}'s dialer will not auto-start at 11:00.` : `${agent.name}'s dialer auto-starts at 11:00 again.`,
+  });
+};
+
+module.exports = { list, setPool, setAutoStart };

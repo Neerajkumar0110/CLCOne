@@ -78,6 +78,7 @@ module.exports = {
   browserPhoneReady: leadPool.browserReady,
   teamActivityList: teamActivity.list,
   teamActivitySetPool: teamActivity.setPool,
+  teamActivitySetAutoStart: teamActivity.setAutoStart,
 
   missedCallsSummary: missedCalls.summary,
 };

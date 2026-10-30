@@ -11,6 +11,12 @@ const adminSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  // Sales: management switched off the 11:00 dialer auto-start for this user
+  // (Team Activity → "Skip 11:00 auto-start"); stays until switched back.
+  dialerAutoStartOff: {
+    type: Boolean,
+    default: false,
+  },
 
   email: {
     type: String,
