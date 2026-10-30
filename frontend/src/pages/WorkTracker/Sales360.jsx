@@ -78,6 +78,8 @@ const OUTCOME = {
 };
 const DAY_STATUS = {
   present: ["Present", "#15803D"],
+  "half-day": ["Half day (late login)", "#0D9488"],
+  "late-leave": ["Leave (late login)", "#9333EA"],
   auto: ["Auto-started", "#2563EB"],
   absent: ["Absent", "#B91C1C"],
   leave: ["Leave", "#7C3AED"],
@@ -404,6 +406,8 @@ function Pill({ color, children }) {
 // as the report above. Its own month, independent of the range picker.
 const ATT = {
   present: ["Present", "#16A34A"],
+  "half-day": ["Half day", "#0D9488"],
+  "late-leave": ["Leave (late login)", "#9333EA"],
   auto: ["Auto-started", "#2563EB"],
   absent: ["Absent", "#DC2626"],
   leave: ["Leave", "#7C3AED"],
@@ -487,7 +491,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
   const isFuture = (d) => d.isAfter(dayjs(), "day");
   const sum = (k) => (data?.people || []).reduce((x, p) => x + (p[k] || 0), 0);
   const me = single ? data.people[0] : null;
-  const pctOf = (p) => (p.workingDays ? Math.round(((p.present + p.auto) / p.workingDays) * 100) : 0);
+  const pctOf = (p) => (p.workingDays ? Math.round(((p.present + p.auto + 0.5 * (p.halfDay || 0)) / p.workingDays) * 100) : 0);
 
   const dayTip = (d) => {
     if (!d) return null;
@@ -508,12 +512,13 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           {d.holiday && <div>{d.holiday}</div>}
           {u.loginAt && <div>Login {dayjs(u.loginAt).format("h:mm A")}{u.logoutAt ? ` · logout ${dayjs(u.logoutAt).format("h:mm A")}` : ""}</div>}
           {u.lateMin > (data.lateAfterMin || 15) && <div style={{ color: "#B45309" }}>Late by {hm(u.lateMin)}</div>}
+          {u.note && <div style={{ color: "#5EEAD4" }}>{u.note}</div>}
           {u.activeMin > 0 && <div>Active {hm(u.activeMin)}</div>}
           {leaveTip(d.leaves)}
         </>
       );
     }
-    const groups = ["present", "auto", "leave", "absent"].map((k) => [k, d.people.filter((u) => u.status === k)]).filter(([, l]) => l.length);
+    const groups = ["present", "half-day", "auto", "late-leave", "leave", "absent"].map((k) => [k, d.people.filter((u) => u.status === k)]).filter(([, l]) => l.length);
     return (
       <>
         <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b>
@@ -548,6 +553,8 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
         {single ? (
           <div className="s3-att-chips">
             <span style={{ "--c": ATT.present[1] }}><b>{me.present}</b> present</span>
+            {me.halfDay > 0 && <span style={{ "--c": ATT["half-day"][1] }}><b>{me.halfDay}</b> half day</span>}
+            {me.lateLeave > 0 && <span style={{ "--c": ATT["late-leave"][1] }}><b>{me.lateLeave}</b> late-login leave</span>}
             <span style={{ "--c": ATT.auto[1] }}><b>{me.auto}</b> auto-started</span>
             <span style={{ "--c": ATT.absent[1] }}><b>{me.absent}</b> absent</span>
             <span style={{ "--c": ATT.leave[1] }}><b>{me.leave}</b> leave</span>
@@ -558,6 +565,8 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           <div className="s3-att-chips">
             <span style={{ "--c": "#0F172A" }}><b>{data?.people?.length || 0}</b> people</span>
             <span style={{ "--c": ATT.present[1] }}><b>{sum("present")}</b> present days</span>
+            <span style={{ "--c": ATT["half-day"][1] }}><b>{sum("halfDay")}</b> half days</span>
+            <span style={{ "--c": ATT["late-leave"][1] }}><b>{sum("lateLeave")}</b> late-login leave</span>
             <span style={{ "--c": ATT.auto[1] }}><b>{sum("auto")}</b> auto-started</span>
             <span style={{ "--c": ATT.absent[1] }}><b>{sum("absent")}</b> absent</span>
             <span style={{ "--c": ATT.leave[1] }}><b>{sum("leave")}</b> leave</span>
@@ -565,7 +574,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           </div>
         )}
         <div className="s3-att-legend">
-          {["present", "auto", "absent", "leave", "holiday", "weekly-off"].map((k) => (
+          {["present", "half-day", "auto", "late-leave", "absent", "leave", "holiday", "weekly-off"].map((k) => (
             <span key={k}><i style={{ background: ATT[k][1] }} />{ATT[k][0]}</span>
           ))}
         </div>
@@ -610,18 +619,19 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
               <span className="s3-att-num">{c.date()}</span>
               {d && !future && (off && !d.present && !d.auto ? (
                 <span className="s3-att-offlabel">{d.holiday || "Weekly off"}</span>
-              ) : !(d.present + d.auto + d.absent + d.leave) ? (
+              ) : !(d.present + d.auto + d.absent + d.leave + (d.halfDay || 0) + (d.lateLeave || 0)) ? (
                 <span className="s3-att-offlabel">Not started yet</span>
               ) : (
                 <>
                   <div className="s3-att-bar">
-                    {["present", "auto", "leave", "absent"].map((k) => d[k] ? <i key={k} style={{ width: `${(d[k] / total) * 100}%`, background: ATT[k][1] }} /> : null)}
+                    {[["present", "present"], ["halfDay", "half-day"], ["auto", "auto"], ["lateLeave", "late-leave"], ["leave", "leave"], ["absent", "absent"]].map(([k, a]) => d[k] ? <i key={k} style={{ width: `${(d[k] / total) * 100}%`, background: ATT[a][1] }} /> : null)}
                   </div>
                   <div className="s3-att-counts">
-                    <span style={{ color: ATT.present[1] }}>{d.present + d.auto}</span>
+                    <span style={{ color: ATT.present[1] }}>{d.present + d.auto + (d.halfDay || 0)}</span>
                     <span>/{total}</span>
                     {d.absent > 0 && <em style={{ color: ATT.absent[1] }}>{d.absent} absent</em>}
                   </div>
+                  {(d.halfDay > 0 || d.lateLeave > 0) && <span className="s3-att-late" style={{ color: ATT["half-day"][1] }}>{[d.halfDay ? `${d.halfDay} half day` : null, d.lateLeave ? `${d.lateLeave} late leave` : null].filter(Boolean).join(" · ")}</span>}
                   {d.late > 0 && <span className="s3-att-late">{d.late} late</span>}
                 </>
               ))}
@@ -636,13 +646,14 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
         <div className="hub-table-wrapper" style={{ marginTop: 16 }}>
           <table className="hub-table s3-table">
             <thead>
-              <tr><th>User</th><th>Present</th><th>Auto-started</th><th>Absent</th><th>Leave</th><th>Late</th><th>Attendance</th></tr>
+              <tr><th>User</th><th>Present</th><th>Half day</th><th>Auto-started</th><th>Absent</th><th>Leave</th><th>Late-login leave</th><th>Late</th><th>Attendance</th></tr>
             </thead>
             <tbody>
               {[...data.people].sort((a, b) => pctOf(b) - pctOf(a)).map((p) => (
                 <tr key={p.adminId}>
                   <td><b>{p.name}</b><div className="s3-muted">{p.role}{p.team ? ` · ${p.team}` : ""}</div></td>
                   <td style={{ color: ATT.present[1], fontWeight: 700 }}>{p.present}</td>
+                  <td style={{ color: ATT["half-day"][1], fontWeight: p.halfDay ? 700 : 400 }}>{p.halfDay || 0}</td>
                   <td style={{ color: ATT.auto[1] }}>{p.auto}</td>
                   <td style={{ color: p.absent ? ATT.absent[1] : undefined, fontWeight: p.absent ? 700 : 400 }}>{p.absent}</td>
                   <td>
@@ -655,6 +666,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
                       </div>
                     )}
                   </td>
+                  <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{p.lateLeave || 0}</td>
                   <td>{p.late ? <span className="s3-warn">{p.late}</span> : 0}</td>
                   <td>
                     <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
@@ -666,7 +678,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           </table>
         </div>
       )}
-      <p className="s3-note">Present = logged in · Auto-started = the dialer started at 11:00 without a login · Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
+      <p className="s3-note">Login after 11:00 = half day · after 2:00 PM = full-day leave (not when approved part-day leave covers the day). Present = logged in · Auto-started = the dialer started at 11:00 without a login · Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
     </Panel>
   );
 }

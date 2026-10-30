@@ -62,6 +62,19 @@ async function fullDayLeave(adminId, dayKey) {
   return Leave().findOne({ removed: false, adminId: String(adminId), status: 'Approved', fromDate: { $lte: ws }, toDate: { $gte: we } }).lean();
 }
 
+// A real login (not one rebuilt from dialer activity) after the late-login
+// cut-offs: after halfDayAfter = half day, after fullDayAfter = full-day
+// leave. A day already covered by approved part-day leave isn't penalised.
+// → null | { kind: 'half-day' | 'late-leave', leave: 0.5 | 1, label }
+function lateLoginPenalty(dayKey, loginAt, { derived = false, leaveDay = 0 } = {}) {
+  const rule = W.lateLogin;
+  if (!rule || !loginAt || derived || leaveDay > 0) return null;
+  const at = new Date(loginAt);
+  if (rule.fullDayAfter && at > istAt(dayKey, rule.fullDayAfter)) return { kind: 'late-leave', leave: 1, label: `Full-day leave (logged in after ${rule.fullDayAfter})` };
+  if (rule.halfDayAfter && at > istAt(dayKey, rule.halfDayAfter)) return { kind: 'half-day', leave: 0.5, label: `Half day (logged in after ${rule.halfDayAfter})` };
+  return null;
+}
+
 async function dayOff(admin, dayKey) {
   if (W.weeklyOff.includes(weekday(dayKey))) return { kind: 'weekly-off', label: 'Weekly off' };
   const h = await holidayOn(dayKey);
@@ -439,6 +452,7 @@ module.exports = {
   decideLeave,
   cancelLeave,
   durationLabel,
+  lateLoginPenalty,
   leaveWindow,
   autoStartTick,
   leaveEnforcementTick,

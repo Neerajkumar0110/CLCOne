@@ -181,13 +181,18 @@ async function attendance(users, dayKeys, from, to) {
       else if (s && s.loginAt) status = 'present';
       else if (s && s.autoStartedAt) status = 'auto';
       else status = dk === today && new Date() < ws ? 'upcoming' : 'absent';
+      // late login → half day / full-day leave (shiftSchedule.workday.lateLogin)
+      const penalty = status === 'present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived, leaveDay }) : null;
+      if (penalty) status = penalty.kind;
       rows.push({
         dayKey: dk,
         status,
         derived: !!(s && s.derived),
         holiday: holiday ? holiday.name : null,
         leave: dayLeaves.map((l) => l.leaveType).join(', ') || null,
-        leaveDay,
+        // approved leave + any late-login leave counted for this day
+        leaveDay: leaveDay + (penalty ? penalty.leave : 0),
+        lateLoginNote: penalty ? penalty.label : null,
         workingDay: !holiday && !weeklyOff,
         loginAt: s && s.loginAt,
         autoStartedAt: s && s.autoStartedAt,
@@ -455,8 +460,11 @@ async function build(q) {
         t.worked += 1;
         t.loginClock.push(minutes(wd.istAt(d.dayKey, '00:00'), d.startAt));
       }
-      if (d.status === 'present') {
-        t.present += 1;
+      if (d.status === 'present' || d.status === 'half-day' || d.status === 'late-leave') {
+        // a half day is half present; a late-login leave isn't present at all (its leave is in leaveDay)
+        t.present += d.status === 'present' ? 1 : d.status === 'half-day' ? 0.5 : 0;
+        if (d.status === 'half-day') t.halfDay = (t.halfDay || 0) + 1;
+        if (d.status === 'late-leave') t.lateLeave = (t.lateLeave || 0) + 1;
         if (d.lateMin > 15) t.late += 1;
       } else if (d.status === 'auto') t.auto += 1;
       else if (d.status === 'absent' && d.workingDay) t.absent += 1;
@@ -1083,9 +1091,11 @@ async function attendanceMonth(req, res) {
   };
 
   const LATE_MIN = 15;
-  const blank = () => ({ present: 0, auto: 0, absent: 0, leave: 0, late: 0 });
+  const blank = () => ({ present: 0, halfDay: 0, lateLeave: 0, auto: 0, absent: 0, leave: 0, late: 0 });
   const tally = (c, d) => {
     if (d.status === 'present') c.present += 1;
+    else if (d.status === 'half-day') c.halfDay += 1;
+    else if (d.status === 'late-leave') c.lateLeave += 1;
     else if (d.status === 'auto') c.auto += 1;
     else if (d.status === 'absent') c.absent += 1;
     else if (d.status === 'leave') c.leave += 1;
@@ -1102,7 +1112,7 @@ async function attendanceMonth(req, res) {
     const list = users.map((u) => {
       const d = (att.get(String(u._id)) || [])[i] || {};
       tally(c, d);
-      return { adminId: String(u._id), name: wd.fullName(u) || u.email, status: d.status, loginAt: d.loginAt || d.autoStartedAt || null, logoutAt: d.logoutAt || null, lateMin: d.lateMin || 0, activeMin: d.activeMin || 0, leave: d.leave || null };
+      return { adminId: String(u._id), name: wd.fullName(u) || u.email, status: d.status, loginAt: d.loginAt || d.autoStartedAt || null, logoutAt: d.logoutAt || null, lateMin: d.lateMin || 0, activeMin: d.activeMin || 0, leave: d.leave || null, note: d.lateLoginNote || null };
     });
     const any = (att.get(String(users[0]._id)) || [])[i] || {};
     const leaves = leavesOn(dk);

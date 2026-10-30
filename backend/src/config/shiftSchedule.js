@@ -15,7 +15,11 @@ module.exports = {
   // dialer anyway (jobs/workdayTick.js) — unless it's a holiday, their
   // weekly off, or they're on approved leave. Half-day leave splits the day
   // at halfSplit. weeklyOff uses JS day numbers (0 = Sunday).
-  workday: { start: '10:00', end: '19:30', halfSplit: '14:30', autoStartAt: '11:00', weeklyOff: [0] },
+  // lateLogin: logging in after halfDayAfter counts as a half day (half
+  // present, half leave); after fullDayAfter, as a full-day leave — unless an
+  // approved part-day leave already covers that day (services/hr/workday.js
+  // lateLoginPenalty).
+  workday: { start: '10:00', end: '19:30', halfSplit: '14:30', autoStartAt: '11:00', weeklyOff: [0], lateLogin: { halfDayAfter: '11:00', fullDayAfter: '14:00' } },
 
   // `key` must be stable (used to dedupe "already took this break today").
   // `start`/`end` is the window the break option is OFFERED in; `durationMin`

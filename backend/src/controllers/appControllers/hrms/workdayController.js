@@ -409,11 +409,15 @@ const report = selfOrManager(async (req, res) => {
       else if (s && s.loginAt) status = s.derived ? 'Present (from dialer activity)' : 'Present';
       else if (s && s.autoStartedAt) status = 'Auto-started (not logged in)';
       else status = 'Absent';
+      // late login → half day / full-day leave (shiftSchedule.workday.lateLogin)
+      const penalty = status === 'Present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived, leaveDay }) : null;
+      if (penalty) status = penalty.label;
 
       const workingDay = !holiday && !weeklyOff;
       if (workingDay) t.working += 1;
+      if (penalty && workingDay) t.leave += penalty.leave;
       if (s && s.loginAt) {
-        t.present += 1;
+        t.present += penalty ? 1 - penalty.leave : 1;
         t.loginMins.push(minutes(wd.istAt(dk, '00:00'), s.loginAt));
         if (lateMin > 15) t.late += 1;
       } else if (s && s.autoStartedAt) t.auto += 1;
