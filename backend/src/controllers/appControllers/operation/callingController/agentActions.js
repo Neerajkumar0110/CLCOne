@@ -513,7 +513,10 @@ const logDetails = async (req, res) => {
 
   // "Submit Outcome & Close" on an ended call — the agent is now free for
   // their next call (tick() rolls Wrapup → Available on its next pass).
-  if (b.submitOutcome && !LIVE_CALL_STATUSES.includes(updatedRec.status)) {
+  // "End Call & Save" with a response picked is the outcome too: before,
+  // that left the user parked in Wrapup with no next call.
+  const outcomeGiven = b.submitOutcome || (hangupCall && dispCode);
+  if (outcomeGiven && !LIVE_CALL_STATUSES.includes(updatedRec.status)) {
     const at = new Date();
     await mongoose.model('CallRecord').updateOne({ _id: rec._id }, { $set: { outcomeAt: at } });
     updatedRec.outcomeAt = at;

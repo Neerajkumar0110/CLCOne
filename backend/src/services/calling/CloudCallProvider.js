@@ -635,14 +635,16 @@ class CloudCallProvider extends CallingProvider {
     // 2. Wrapup → Available after 8s — but only once the agent has pressed
     // "Submit Outcome & Close" for the call that ended (awaitingOutcome);
     // until then no next call comes to them. A wait whose call already has
-    // its outcome (a late hangup webhook re-set it) is cleared here.
+    // its outcome (a late hangup webhook re-set it) is cleared here, and so
+    // is one whose response was saved some other way (only a user ever sets
+    // a call's disposition).
     const waiting = await AgentCallState.find({ status: 'Wrapup', awaitingOutcome: { $ne: null } })
       .select('awaitingOutcome')
       .lean();
     if (waiting.length) {
       const done = await CallRecord.find({
         _id: { $in: waiting.map((w) => w.awaitingOutcome) },
-        $or: [{ outcomeAt: { $ne: null } }, { removed: true }],
+        $or: [{ outcomeAt: { $ne: null } }, { removed: true }, { disposition: { $nin: [null, ''] } }],
       })
         .select('_id')
         .lean();
