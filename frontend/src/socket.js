@@ -13,7 +13,11 @@ let socket = null;
 export function getSocket() {
   const token = storePersist.get('auth')?.current?.token;
   if (!token) return null;
-  if (socket) return socket;
+  // Logout → login as someone else happens without a page reload, so a
+  // socket opened for the previous user would keep receiving THEIR call
+  // events (their in-call window popped up in the new user's CRM).
+  if (socket && socket.auth?.token === token) return socket;
+  disconnectSocket();
 
   socket = io(BASE_URL, {
     auth: { token },

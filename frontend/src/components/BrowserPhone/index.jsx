@@ -219,8 +219,31 @@ export default function BrowserPhone() {
     return () => {
       cancelled = true;
       releaseLock();
+      // Logout / another user logging in on this tab (no page reload): the
+      // old phone used to stay registered as the previous user and auto-
+      // answer THEIR customers in the new user's CRM. Log it out with them.
+      clearInterval(beatRef.current);
+      const old = sdkRef.current;
+      sdkRef.current = null;
+      if (old) {
+        try {
+          old.client.hangup();
+        } catch {
+          /* no call */
+        }
+        try {
+          old.client.logout();
+        } catch {
+          /* already out */
+        }
+        // Browser mode switched off (still logged in) → tell the server now;
+        // after a logout the 75 s readiness window simply runs out.
+        if (window.localStorage.getItem("auth")) {
+          request.post({ entity: "calling/browser-phone/ready", jsonData: { ready: false } }).catch(() => {});
+        }
+      }
     };
-  }, [wanted, gen]);
+  }, [wanted, gen, me?._id]);
 
   if (state === "off") return null;
   const color = { starting: "#d97706", ready: "#16a34a", oncall: "#2563eb", error: "#dc2626", "other-tab": "#64748b" }[state];

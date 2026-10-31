@@ -1,6 +1,7 @@
 import * as actionTypes from './types';
 import * as authService from '@/auth';
 import { request } from '@/request';
+import { disconnectSocket } from '@/socket';
 
 export const login =
   ({ loginData }) =>
@@ -177,6 +178,9 @@ export const resetPassword =
   };
 
 export const logout = () => async (dispatch) => {
+  // Stop receiving this user's live call events before the next person logs
+  // in on this tab (there is no page reload between the two).
+  disconnectSocket();
   dispatch({
     type: actionTypes.LOGOUT_SUCCESS,
   });
