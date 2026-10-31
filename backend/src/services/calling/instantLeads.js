@@ -33,7 +33,20 @@ const { NON_SALES_ROLES } = require('../../config/roles');
 // Nobody active → the lead simply waits; the first agent who turns the pool
 // on gets it. After 24h with nobody it expires into the normal pipeline.
 const EXPIRE_MS = 24 * 60 * 60 * 1000;
-const MAX_ATTEMPTS = 3;
+// A Facebook lead is never left at one failed dial: busy / rejected / no
+// answer / carrier error → back to pending, and the first free user calls it
+// again after these gaps (minutes). Still first priority each time. When they
+// run out (8 dials over ~4 h) the lead goes on in the normal pipeline.
+const RETRY_GAPS_MIN = [2, 5, 10, 20, 30, 60, 120];
+const MAX_ATTEMPTS = RETRY_GAPS_MIN.length + 1;
+const nextTry = (attempts) =>
+  new Date(Date.now() + RETRY_GAPS_MIN[Math.min(Math.max(attempts, 1), RETRY_GAPS_MIN.length) - 1] * 60000);
+// What the dispatcher may take now: pending and its retry (if any) is due.
+const dueNow = (now) => ({
+  removed: false,
+  'instantDispatch.status': 'pending',
+  $or: [{ 'instantDispatch.nextAt': null }, { 'instantDispatch.nextAt': { $lte: new Date(now) } }],
+});
 // How long a waiting lead may hold the auto-dialer back. A lead that still
 // can't be placed after this (e.g. every free user has no phone number)
 // keeps first call on the next free user, but stops pausing everyone else.
@@ -74,8 +87,9 @@ async function dispatchInstantLeads(provider) {
     { $set: { 'instantDispatch.status': 'expired' } }
   );
 
-  const pending = await Lead.find({ removed: false, 'instantDispatch.status': 'pending' })
-    .sort({ facebookCreatedAt: 1, created: 1 })
+  // Fresh leads (never dialled) before retries, oldest first within each.
+  const pending = await Lead.find(dueNow(now))
+    .sort({ 'instantDispatch.attempts': 1, facebookCreatedAt: 1, created: 1 })
     .limit(10)
     .exec();
   if (!pending.length) return 0;
@@ -167,6 +181,7 @@ async function dispatchInstantLeads(provider) {
         {
           $set: {
             'instantDispatch.status': giveUp ? 'expired' : 'pending',
+            'instantDispatch.nextAt': giveUp ? null : new Date(Date.now() + 60000),
             assignedUser: null,
             assignedUserName: '',
           },
@@ -198,34 +213,72 @@ async function dispatchInstantLeads(provider) {
 
 // Fresh Facebook leads still waiting for a free user — while any are, the
 // auto-dialer places no new lines (CloudCallProvider.tick step 3).
+// A retry counts from when it fell due, not from when the lead came in.
 async function instantLeadsWaiting() {
+  const now = Date.now();
+  const since = new Date(now - HOLD_MS);
   return mongoose.model('Lead').countDocuments({
     removed: false,
     'instantDispatch.status': 'pending',
-    'instantDispatch.at': { $gte: new Date(Date.now() - HOLD_MS) },
+    $or: [
+      { 'instantDispatch.nextAt': null, 'instantDispatch.at': { $gte: since } },
+      { 'instantDispatch.nextAt': { $gte: since, $lte: new Date(now) } },
+    ],
   });
 }
 
 // After an instant call ends (and again when the agent saves a response):
-// keep the owner only if the agent actually spoke to the customer.
+// spoke → done, the lead stays with that agent. Didn't reach them → back to
+// pending for the next retry, unless the response says calling again is
+// pointless (wrong / invalid number, DNC, not interested) or the retries ran out.
 async function settleInstantLead(callRecord) {
   if (!callRecord || !callRecord.instantLead || !callRecord.callLead) return;
   const callLead = await mongoose.model('CallLead').findById(callRecord.callLead).select('crmLead').lean();
   if (!callLead || !callLead.crmLead) return;
   const ended = ['completed', 'failed', 'cancelled', 'transferred'].includes(callRecord.status);
   if (!ended) return;
+  const Lead = mongoose.model('Lead');
+  // Only while this call is still the lead's latest — a late settle of an
+  // old call must not touch a retry that is already under way.
+  const filter = { _id: callLead.crmLead, 'instantDispatch.callRecord': callRecord._id };
   const spoke = callReachedCustomer(callRecord) && callRecord.agentLegAnswered !== false;
-  await mongoose.model('Lead').updateOne(
-    { _id: callLead.crmLead },
-    {
+  if (spoke) {
+    await Lead.updateOne(filter, {
       $set: {
         'instantDispatch.status': 'done',
-        ...(spoke
-          ? { assignedUser: callRecord.agent, assignedUserName: callRecord.agentName || '' }
-          : { assignedUser: null, assignedUserName: '' }),
+        'instantDispatch.nextAt': null,
+        assignedUser: callRecord.agent,
+        assignedUserName: callRecord.agentName || '',
       },
-    }
-  );
+    });
+    return;
+  }
+  const { BY_CODE } = require('./dispositions');
+  const d = callRecord.disposition && BY_CODE[callRecord.disposition];
+  if (d && d.final) {
+    // The outcome is often saved after the retry was already scheduled —
+    // cancel a waiting retry too, just never one that is already dialling.
+    await Lead.updateOne(
+      {
+        _id: callLead.crmLead,
+        $or: [{ 'instantDispatch.status': 'pending' }, { 'instantDispatch.callRecord': callRecord._id }],
+      },
+      { $set: { 'instantDispatch.status': 'done', 'instantDispatch.nextAt': null, assignedUser: null, assignedUserName: '' } }
+    );
+    return;
+  }
+  const lead = await Lead.findOne(filter).select('instantDispatch').lean();
+  if (!lead) return;
+  const attempts = (lead.instantDispatch && lead.instantDispatch.attempts) || 1;
+  const retry = attempts < MAX_ATTEMPTS;
+  await Lead.updateOne(filter, {
+    $set: {
+      'instantDispatch.status': retry ? 'pending' : 'done',
+      'instantDispatch.nextAt': retry ? nextTry(attempts) : null,
+      assignedUser: null,
+      assignedUserName: '',
+    },
+  });
 }
 
 module.exports = { dispatchInstantLeads, instantLeadsWaiting, settleInstantLead };

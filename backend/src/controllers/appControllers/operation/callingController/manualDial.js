@@ -1,7 +1,17 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { getProvider } = require('../../../../services/calling');
-const { last10, notifyAgentCallEvent, advanceLeadByPhone } = require('../../../../services/calling/callingShared');
+const {
+  last10,
+  notifyAgentCallEvent,
+  advanceLeadByPhone,
+  agentsOnLiveCalls,
+} = require('../../../../services/calling/callingShared');
+
+// Users with a manual dial request in flight. A double-clicked Call button
+// used to place the same number twice ~1 s apart — the second leg found the
+// customer's phone already ringing and came back "Busy Line".
+const dialing = new Set();
 
 // "Call this lead" from a lead row / the agent screen.
 //
@@ -59,14 +69,37 @@ const dial = async (req, res) => {
       });
     }
 
-    const r = await provider.placeCall({
-      agent: req.admin,
-      agentPhone: b.agentPhone || undefined, // per-call override / first-time set
-      phone: String(b.phone).trim(),
-      contactName: contactName || 'Manual Call',
-      callLead: b.callLead || undefined,
-      campaign,
-    });
+    // One call at a time: refuse while this user already has a call ringing
+    // or connected (a second dial, or the dialer handing them a pool / instant
+    // customer mid-call, is what showed up as "failed — Busy Line").
+    const me = String(req.admin._id);
+    const busyMsg = 'You are already on a call — finish it (and submit the outcome) first.';
+    if (dialing.has(me)) return res.status(409).json({ success: false, result: null, message: busyMsg });
+    dialing.add(me);
+    let r;
+    try {
+      if ((await agentsOnLiveCalls([req.admin._id])).size) {
+        return res.status(409).json({ success: false, result: null, message: busyMsg });
+      }
+      // Take them off "Available" before the dial goes out so the auto-dialer
+      // / Lead Pool can't claim them while Plivo is placing it.
+      await mongoose
+        .model('AgentCallState')
+        .updateOne(
+          { agent: req.admin._id, status: 'Available' },
+          { $set: { status: 'Ringing', currentCall: null, since: new Date() } }
+        );
+      r = await provider.placeCall({
+        agent: req.admin,
+        agentPhone: b.agentPhone || undefined, // per-call override / first-time set
+        phone: String(b.phone).trim(),
+        contactName: contactName || 'Manual Call',
+        callLead: b.callLead || undefined,
+        campaign,
+      });
+    } finally {
+      dialing.delete(me);
+    }
     // Remember the agent's number for next time if they supplied one (used
     // for CDR agent-attribution matching, not to place this call).
     if (r.ok && b.agentPhone && !req.admin.phone) {

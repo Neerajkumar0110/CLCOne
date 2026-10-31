@@ -244,6 +244,27 @@ async function claimLeadPoolAgent(campaignId, callRecordId) {
       .select('name surname phone mobile contactNumber removed enabled')
       .lean();
     const number = admin && last10(admin.phone || admin.mobile || admin.contactNumber);
+    // "Available" can be stale — e.g. a manual call still ringing when an
+    // earlier call's wrap-up flipped them back. Never hand a pool customer to
+    // someone whose phone is busy with another call; park them on it instead.
+    const other = await mongoose
+      .model('CallRecord')
+      .findOne({
+        agent: state.agent,
+        removed: false,
+        status: { $in: ['dialing', 'ringing', 'connected', 'onhold'] },
+        ...(callRecordId ? { _id: { $ne: callRecordId } } : {}),
+      })
+      .select('_id')
+      .lean();
+    if (other) {
+      await AgentCallState.updateOne(
+        { _id: state._id, status: 'Ringing' },
+        { $set: { status: 'OnCall', currentCall: other._id, since: new Date() } }
+      );
+      skip.push(state.agent);
+      continue;
+    }
     if (admin && !admin.removed && admin.enabled !== false && number) return admin;
 
     // Unusable row — put it back the way we found it and try the next agent.

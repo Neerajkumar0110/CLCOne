@@ -1358,9 +1358,15 @@ function CaptureForm() {
                       </td>
                       <td>
                         <div>{l.assignedUserName || "Unassigned"}</div>
-                        {l.instantDispatch?.status === "pending" && (
-                          <span className="hub-badge hub-badge-yellow" style={{ fontSize: 11 }}>Waiting for an active user</span>
-                        )}
+                        {l.instantDispatch?.status === "pending" &&
+                          (l.instantDispatch.nextAt && new Date(l.instantDispatch.nextAt) > new Date() ? (
+                            <span className="hub-badge hub-badge-yellow" style={{ fontSize: 11 }}>
+                              Calling again at{" "}
+                              {new Date(l.instantDispatch.nextAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          ) : (
+                            <span className="hub-badge hub-badge-yellow" style={{ fontSize: 11 }}>Waiting for a free user</span>
+                          ))}
                         {l.instantDispatch?.status === "calling" && (
                           <span className="hub-badge hub-badge-green" style={{ fontSize: 11 }}>Calling now</span>
                         )}

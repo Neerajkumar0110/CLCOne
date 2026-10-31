@@ -177,6 +177,7 @@ const disposition = async (req, res) => {
   rec.disposition = req.body.disposition;
   if (req.body.notes != null) rec.notes = req.body.notes;
   await rec.save();
+  if (rec.instantLead) await require('../../../../services/calling/instantLeads').settleInstantLead(rec);
   await notifyAgentCallEvent(rec.agent, 'call:ended', rec);
   return res.status(200).json({ success: true, result: rec, message: 'Disposition saved' });
 };
@@ -283,6 +284,11 @@ const logDetails = async (req, res) => {
     });
   } else {
     await rec.save();
+    // Facebook lead: a final outcome (wrong number, not interested…) saved
+    // after the call stops its automatic re-dials.
+    if (rec.instantLead && dispCode) {
+      await require('../../../../services/calling/instantLeads').settleInstantLead(rec);
+    }
   }
 
   const disp = dispCode ? BY_CODE[dispCode] : null;

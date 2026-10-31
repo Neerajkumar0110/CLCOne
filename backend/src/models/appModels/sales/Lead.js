@@ -204,6 +204,10 @@ const schema = new mongoose.Schema({
     at: Date,
     callRecord: { type: mongoose.Schema.ObjectId, ref: 'CallRecord' },
     attempts: { type: Number, default: 0 },
+    // A call that didn't reach them (busy / rejected / no answer) puts the
+    // lead back to pending with the next try at nextAt — see
+    // instantLeads.RETRY_GAPS_MIN.
+    nextAt: Date,
   },
   metaFormName: String,
   rawMetaData: mongoose.Schema.Types.Mixed,
