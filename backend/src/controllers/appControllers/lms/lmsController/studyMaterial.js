@@ -180,17 +180,40 @@ async function arrangeByCurriculum(rows) {
 async function list(req, res) {
   const StudyMaterial = mongoose.model('StudyMaterial');
   const q = { removed: false };
-  if (!isManager(req.admin)) q.teacherCrmUser = req.admin._id;
   // By title, not upload time — a folder upload's files land in whatever
   // order the browser happened to traverse the directory tree in, which has
   // nothing to do with "01 Python + SQL" belonging before "02 ...". Title
   // carries the folder path for a folder upload (see uploadFiles' webkitRelativePath
   // title), so this naturally reconstructs the course's intended sequence —
   // same reasoning as Recordings sorting by class date instead of compression order.
-  const rows = await StudyMaterial.find(q).sort({ title: 1 }).limit(500).lean();
+  if (!isManager(req.admin)) {
+    // A teacher sees their own uploads AND everything for the batches they
+    // run / the internships they teach — whoever uploaded it. Before, a
+    // teacher saw only their own uploads, so one who hadn't uploaded
+    // anything saw an empty page while 200+ files existed for their batches.
+    // They can still only delete their own (remove + canDelete below).
+    const Batch = mongoose.model('Batch');
+    const Course = mongoose.model('Course');
+    const me = rxEq(req.admin.name || '');
+    const batches = req.admin.name ? await Batch.find({ removed: false, trainer: me }).select('name course').lean() : [];
+    const courseTitles = [...new Set(batches.map((b) => b.course).filter(Boolean))];
+    const courses = await Course.find({
+      removed: false,
+      $or: [...(courseTitles.length ? [{ title: { $in: courseTitles } }] : []), ...(req.admin.name ? [{ instructor: me }] : [])],
+    })
+      .select('_id')
+      .lean();
+    q.$or = [
+      { teacherCrmUser: req.admin._id },
+      ...(batches.length ? [{ batch: { $in: batches.map((b) => b.name) } }] : []),
+      ...(courses.length ? [{ course: { $in: courses.map((c) => c._id) } }] : []),
+    ];
+  }
+  const rows = await StudyMaterial.find(q).sort({ title: 1 }).limit(1000).lean();
+  const mine = (r) => isManager(req.admin) || String(r.teacherCrmUser) === String(req.admin._id);
   // …then into curriculum order (Unit → chapter), matched by name; files
   // matching no chapter keep A–Z after them. See services/lms/materialCurriculum.js.
-  return ok(res, await arrangeByCurriculum(rows.map(serialize)));
+  return ok(res, await arrangeByCurriculum(rows.map((r) => ({ ...serialize(r), canDelete: mine(r) }))));
 }
 
 async function remove(req, res) {

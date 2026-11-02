@@ -390,8 +390,11 @@ function TeacherStudyMaterial() {
     });
   };
 
+  // A teacher also sees material others uploaded for their batches — only
+  // their own (canDelete) can be selected / removed.
+  const deletable = filtered.filter((m) => m.canDelete !== false);
   const toggleSelectAll = () => {
-    setSelectedIds((prev) => (prev.size === filtered.length ? new Set() : new Set(filtered.map((m) => m.id))));
+    setSelectedIds((prev) => (prev.size === deletable.length ? new Set() : new Set(deletable.map((m) => m.id))));
   };
 
   const deleteSelected = async () => {
@@ -582,11 +585,11 @@ function TeacherStudyMaterial() {
             </div>
           </div>
 
-          {filtered.length > 0 && (
+          {deletable.length > 0 && (
             <div className="material-toolbar" style={{ marginBottom: 10 }}>
               <Checkbox
-                checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                indeterminate={selectedIds.size > 0 && selectedIds.size < filtered.length}
+                checked={selectedIds.size === deletable.length}
+                indeterminate={selectedIds.size > 0 && selectedIds.size < deletable.length}
                 onChange={toggleSelectAll}
               >
                 Select all
@@ -615,9 +618,9 @@ function TeacherStudyMaterial() {
                 <FileCard
                   key={m.id}
                   m={m}
-                  canManage
+                  canManage={m.canDelete !== false}
                   onDelete={onDelete}
-                  selectable
+                  selectable={m.canDelete !== false}
                   selected={selectedIds.has(m.id)}
                   onToggleSelect={toggleSelect}
                 />
