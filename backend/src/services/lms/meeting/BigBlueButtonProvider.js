@@ -134,6 +134,16 @@ class BigBlueButtonProvider extends MeetingProvider {
     // Older BBB wants the password rather than role=; send both for safety.
     params.password = role === 'moderator' ? session.moderatorPW : session.attendeePW;
     if (userId) params.userID = String(userId);
+    // BBB's per-panel fullscreen (presentation / screen share / webcam /
+    // external video) puts just that panel on the screen — the bottom bar
+    // with the mic, camera and leave buttons is outside it, so a candidate
+    // in fullscreen couldn't unmute. Hide those buttons; the client's own
+    // "Make fullscreen" (options menu) enlarges the whole room and keeps the
+    // bar. Selectors are BBB 3.0's data-test hooks (every panel's button
+    // renders as webcamFullscreenButton; presentationFullscreen is the item
+    // in the slide's menu).
+    params['userdata-bbb_custom_style'] =
+      '[data-test="webcamFullscreenButton"],[data-test="webcamsFullscreenButton"],[data-test="presentationFullscreen"]{display:none!important}';
     const query = new URLSearchParams(params).toString();
     const checksum = this._checksum('join', query);
     return `${this.cfg.url}/api/join?${query}&checksum=${checksum}`;
