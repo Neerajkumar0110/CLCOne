@@ -38,6 +38,11 @@ const schema = new mongoose.Schema({
 
   attempts: { type: Number, default: 0 },
   lastAttemptAt: Date,
+  // Lead Pool: Fresh Leads are queued with a higher priority and always
+  // dialled first; one that didn't reach the customer waits until
+  // nextAttemptAt and is dialled again (jobs/leadPoolSyncTick.js FRESH_*).
+  priority: { type: Number, default: 0 },
+  nextAttemptAt: Date,
   lastDisposition: String,
   assignedAgent: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   dncAt: Date, // set when a call/IVR marks this number Do-Not-Call

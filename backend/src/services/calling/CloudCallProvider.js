@@ -360,10 +360,18 @@ class CloudCallProvider extends CallingProvider {
 
     const maxAttempts = Math.max(1, campaign.maxAttempts || 3);
 
+    // Fresh Leads (priority) before everything else; a Fresh lead waiting to
+    // be re-dialled only once its nextAttemptAt has come.
     const lead = await CallLead.findOneAndUpdate(
-      { campaign: campaign._id, removed: false, dncAt: { $exists: false }, status: { $in: ['New', 'Queued'] } },
+      {
+        campaign: campaign._id,
+        removed: false,
+        dncAt: { $exists: false },
+        status: { $in: ['New', 'Queued'] },
+        $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: new Date() } }],
+      },
       { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
-      { sort: { attempts: 1, created: 1 }, new: true }
+      { sort: { priority: -1, attempts: 1, created: 1 }, new: true }
     );
     if (!lead) return { ok: false, error: 'No leads waiting in this campaign.' };
 

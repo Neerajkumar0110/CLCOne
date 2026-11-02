@@ -36,7 +36,13 @@ function StageLine({ st }) {
   );
 }
 
-export default function PoolStagesModal({ open, onClose, onSave, options = [], current = [], max = 5, saving }) {
+// Always #1, can't be removed or moved — the backend adds it on its own
+// (leadPoolSyncTick FRESH_STAGE), so it is never part of `picked`.
+const FRESH = "Fresh Leads";
+
+export default function PoolStagesModal({ open, onClose, onSave, options: allOptions = [], current: allCurrent = [], max = 5, saving }) {
+  const options = allOptions.filter((s) => s !== FRESH);
+  const current = allCurrent.filter((s) => s !== FRESH);
   const [picked, setPicked] = useState([]);
   // Per stage: leads the pool can dial, and for the stages in the saved
   // order how this round went (backend leadPool.js stageStats).
@@ -44,7 +50,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
 
   useEffect(() => {
     if (!open) return;
-    setPicked(current.length ? [...current] : ["New Lead"]);
+    setPicked([...current]);
     request.get({ entity: "calling/lead-pool/stage-stats" }).then((r) => {
       if (r?.success) setStats(Object.fromEntries((r.result?.stages || []).map((x) => [x.stage, x])));
     });
@@ -68,7 +74,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
       open={open}
       onClose={onClose}
       title="Dialing stages"
-      subtitle={`Pick up to ${max} stages in order — #1 dials first, then #2 when #1 runs out, and so on.`}
+      subtitle={`Fresh Leads always dial first. Then pick up to ${max} stages in order — each dials when the one above runs out.`}
       width={560}
       footer={
         <>
@@ -76,7 +82,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
           <button
             type="button"
             className="hub-btn hub-btn-primary"
-            disabled={saving || !picked.length || unchanged}
+            disabled={saving || unchanged}
             onClick={() => onSave(picked)}
           >
             {saving ? "Saving…" : "Save order"}
@@ -85,9 +91,27 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
       }
     >
       <div className="hub-form-row">
-        <label>Order ({picked.length}/{max})</label>
-        {picked.length === 0 && <div className="hub-empty" style={{ padding: 12 }}>Pick at least one stage below.</div>}
+        <label>Order ({picked.length}/{max} + Fresh Leads)</label>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div
+            title="Fresh Leads are always dialled first and can't be removed"
+            style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+              border: "1px solid #bbf7d0", borderRadius: 10, background: "rgba(34,197,94,.08)",
+            }}
+          >
+            <span style={{
+              width: 24, height: 24, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
+              background: "#16a34a", color: "#fff", fontSize: 12, fontWeight: 800, flex: "0 0 auto",
+            }}>
+              1
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>🔒 {FRESH}</span>
+              <span style={{ fontSize: 11.5, color: "var(--hub-muted)", marginLeft: 6 }}>always first · new Facebook leads land here</span>
+              <StageLine st={stats[FRESH]} />
+            </span>
+          </div>
           {picked.map((s, i) => (
             <div
               key={s}
@@ -101,7 +125,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options = [], c
                 width: 24, height: 24, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
                 background: "var(--hub-blue, #2563eb)", color: "#fff", fontSize: 12, fontWeight: 800, flex: "0 0 auto",
               }}>
-                {i + 1}
+                {i + 2}
               </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>{s}</span>

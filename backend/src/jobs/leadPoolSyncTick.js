@@ -23,9 +23,22 @@ const { notifyUser } = require('../notify');
 const TICK_MS = 30 * 1000;
 const BATCH_LIMIT = 200;
 
+// Fresh Leads is pinned as stage #1 — management can't remove it or move
+// anything above it. Every Fresh lead is queued the moment it is there (even
+// mid-way through another stage) and dialled before any other lead
+// (CallLead.priority); one that doesn't reach the customer goes back to
+// waiting and is dialled again after FRESH_RETRY_MS, up to
+// FRESH_MAX_ATTEMPTS. New Facebook leads land here as soon as they come in.
+const FRESH_STAGE = 'Fresh Leads';
+const FRESH_PRIORITY = 10;
+const FRESH_RETRY_MS = 10 * 60 * 1000;
+const FRESH_MAX_ATTEMPTS = 5;
+
+// The picked stages in order, Fresh Leads always first.
 const stagesOf = (camp) => {
-  const list = (camp.leadPoolStages || []).filter(Boolean);
-  return list.length ? list : [camp.leadPoolStage || 'New Lead'];
+  const list = (camp.leadPoolStages || []).filter((s) => s && s !== FRESH_STAGE);
+  const rest = list.length ? list : camp.leadPoolStage && camp.leadPoolStage !== FRESH_STAGE ? [camp.leadPoolStage] : [];
+  return [FRESH_STAGE, ...rest];
 };
 
 // The Lead filter for "not yet queued under the current pick" in one stage.
@@ -33,6 +46,14 @@ function stageLeadFilter(camp, stage) {
   // A fresh Facebook lead waiting for / on its instant call
   // (services/calling/instantLeads.js) is not the pool's to dial.
   const and = [{ 'instantDispatch.status': { $nin: ['pending', 'calling'] } }];
+  if (stage === FRESH_STAGE) {
+    // Not tied to the pick: queued once each time it lands in Fresh Leads
+    // (re-dials of an unreached one are CallLead retries, not re-queues).
+    and.push({
+      $or: [{ autoDialerQueuedAt: null }, { $expr: { $lt: ['$autoDialerQueuedAt', '$stageUpdatedAt'] } }],
+    });
+    return { removed: false, stage, $and: and };
+  }
   if (stage === 'New Lead') {
     and.push({ $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }] });
   }
@@ -68,6 +89,7 @@ async function queueStageLeads(camp, stage, limit = BATCH_LIMIT) {
       email: l.email || undefined,
       source: stage === 'New Lead' ? 'CRM Lead Pool' : `CRM Lead Pool (${stage})`,
       status: 'New',
+      priority: stage === FRESH_STAGE ? FRESH_PRIORITY : 0,
     }));
   if (docs.length) {
     await CallLead.insertMany(docs, { ordered: false }).catch(() => {});
@@ -86,12 +108,15 @@ async function queueStageLeads(camp, stage, limit = BATCH_LIMIT) {
 // picked stage — no double dials.
 async function advanceAndQueue(camp, limit = BATCH_LIMIT) {
   const CallLead = mongoose.model('CallLead');
+  // Fresh Leads jump the queue whatever stage is running.
+  const fresh = await queueStageLeads(camp, FRESH_STAGE, limit);
+  if (fresh) return { stage: FRESH_STAGE, queued: fresh };
   const active = camp.leadPoolStage || 'New Lead';
   const pending = await CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } });
   if (pending > 0) {
     return { stage: active, queued: await queueStageLeads(camp, active, limit) };
   }
-  for (const stage of stagesOf(camp)) {
+  for (const stage of stagesOf(camp).filter((s) => s !== FRESH_STAGE)) {
     const queued = await queueStageLeads(camp, stage, limit);
     if (queued) {
       if (stage !== active) {
@@ -114,12 +139,20 @@ async function stageQueueSummary(camp) {
   if (_queueCache.value && _queueCache.key === key && Date.now() - _queueCache.at < 15000) return _queueCache.value;
   const Lead = mongoose.model('Lead');
   const CallLead = mongoose.model('CallLead');
-  const pending = await CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } });
-  const active = camp.leadPoolStage || 'New Lead';
+  const waiting = { campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } };
+  const freshWaiting = await CallLead.countDocuments({ ...waiting, priority: FRESH_PRIORITY });
+  const pending = (await CallLead.countDocuments(waiting)) - freshWaiting;
+  const freshLeft = freshWaiting + (await Lead.countDocuments(stageLeadFilter(camp, FRESH_STAGE)));
+  // Fresh Leads show as dialing whenever any are left — they go first.
+  const active = freshLeft ? FRESH_STAGE : camp.leadPoolStage || 'New Lead';
   const value = [];
   for (const stage of stagesOf(camp)) {
+    if (stage === FRESH_STAGE) {
+      value.push({ stage, left: freshLeft, active: stage === active, pinned: true });
+      continue;
+    }
     const notQueued = await Lead.countDocuments(stageLeadFilter(camp, stage));
-    value.push({ stage, left: notQueued + (stage === active ? pending : 0), active: stage === active });
+    value.push({ stage, left: notQueued + (stage === (camp.leadPoolStage || 'New Lead') ? pending : 0), active: stage === active });
   }
   _queueCache = { at: Date.now(), key, value };
   return value;
@@ -202,3 +235,7 @@ module.exports.stageQueueSummary = stageQueueSummary;
 module.exports.stagesOf = stagesOf;
 module.exports.stageLeadFilter = stageLeadFilter;
 module.exports.advanceAndQueue = advanceAndQueue;
+module.exports.FRESH_STAGE = FRESH_STAGE;
+module.exports.FRESH_PRIORITY = FRESH_PRIORITY;
+module.exports.FRESH_RETRY_MS = FRESH_RETRY_MS;
+module.exports.FRESH_MAX_ATTEMPTS = FRESH_MAX_ATTEMPTS;

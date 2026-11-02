@@ -392,6 +392,17 @@ async function resolveLead(callRecord, dispositionCode, rawOutcome) {
   } else if (!callReachedCustomer(callRecord)) {
     status = 'No Answer';
   }
+  // A Fresh lead the pool didn't reach goes back to waiting and is dialled
+  // again (ahead of every other stage) — see leadPoolSyncTick FRESH_*.
+  const pool = require('../../jobs/leadPoolSyncTick');
+  if (
+    callLead.priority === pool.FRESH_PRIORITY &&
+    ['No Answer', 'Busy', 'Failed', 'Voicemail'].includes(status) &&
+    (callLead.attempts || 0) < pool.FRESH_MAX_ATTEMPTS
+  ) {
+    status = 'Queued';
+    callLead.nextAttemptAt = new Date(Date.now() + pool.FRESH_RETRY_MS);
+  }
   callLead.status = status;
   callLead.lastDisposition = dispositionCode || callLead.lastDisposition;
   if (status === 'DNC') callLead.dncAt = new Date();

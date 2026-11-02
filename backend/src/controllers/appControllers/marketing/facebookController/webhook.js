@@ -125,6 +125,12 @@ async function processWebhookLog(log) {
       message: mapped.message,
       source: 'Facebook Ads',
       status: 'New',
+      // Straight into Fresh Leads — the Lead Pool's pinned #1 stage, dialled
+      // before any other (jobs/leadPoolSyncTick.js). facebookFreshAt so the
+      // 24-hour "move to Fresh Leads" sweep leaves it alone.
+      stage: 'Fresh Leads',
+      subStatus: 'Old Leads reassignment or Stage wise Dialing',
+      facebookFreshAt: new Date(),
       color: '#1877F2',
       facebookLeadId: log.leadgenId,
       pageId: log.pageId,

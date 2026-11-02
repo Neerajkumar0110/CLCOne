@@ -336,21 +336,25 @@ const setStage = async (req, res) => {
   // { stages: [...] } in priority order (1-5), or the older { stage }.
   const body = req.body || {};
   const raw = Array.isArray(body.stages) ? body.stages : [body.stage];
-  const stages = [...new Set(raw.map((s) => String(s || '')).filter(Boolean))];
-  if (!stages.length || stages.some((s) => !STAGE_NAMES.includes(s))) {
+  // Fresh Leads is always #1 on its own (leadPoolSyncTick.stagesOf) — it is
+  // not stored with the picks and doesn't count toward the limit.
+  const { FRESH_STAGE, FRESH_PRIORITY } = require('../../../../jobs/leadPoolSyncTick');
+  const stages = [...new Set(raw.map((s) => String(s || '')).filter((s) => s && s !== FRESH_STAGE))];
+  if (stages.some((s) => !STAGE_NAMES.includes(s))) {
     return res.status(400).json({ success: false, result: null, message: 'Unknown stage.' });
   }
   if (stages.length > MAX_POOL_STAGES) {
     return res.status(400).json({ success: false, result: null, message: `Pick at most ${MAX_POOL_STAGES} stages.` });
   }
-  const stage = stages[0];
+  const stage = stages[0] || FRESH_STAGE;
 
   const camp = await getOrCreateLeadPoolCampaign();
   const CallCampaign = mongoose.model('CallCampaign');
   const CallLead = mongoose.model('CallLead');
 
+  // Waiting Fresh leads stay queued — only the old picks' leads are dropped.
   await CallLead.updateMany(
-    { campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } },
+    { campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] }, priority: { $ne: FRESH_PRIORITY } },
     { $set: { removed: true, updated: new Date() } }
   );
   await CallCampaign.updateOne(
@@ -377,8 +381,8 @@ const setStage = async (req, res) => {
     success: true,
     result: { stage, stages, queued },
     message: queued
-      ? `Instant Lead Pool now dials ${stages.join(' → ')} — ${queued} lead(s) queued.`
-      : `Instant Lead Pool now dials ${stages.join(' → ')} — no leads to dial in these stages right now.`,
+      ? `Instant Lead Pool now dials ${[FRESH_STAGE, ...stages].join(' → ')} — ${queued} lead(s) queued.`
+      : `Instant Lead Pool now dials ${[FRESH_STAGE, ...stages].join(' → ')} — no leads to dial in these stages right now.`,
   });
 };
 
