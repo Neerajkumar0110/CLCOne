@@ -26,6 +26,7 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   // correcting an already-mislabelled recording is the point.
   router.route(`${base}/:id/syllabus`).post(catchErrors(lms.liveSyllabusFlag));
   router.route(`${base}/:id/cancel`).post(catchErrors(lms.liveCancel));
+  router.route(`${base}/:id/delete`).post(requireManager, catchErrors(lms.liveDelete));
   router.route(`${base}/:id/postpone`).post(catchErrors(lms.livePostpone));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
   router.route(`${base}/:id/end`).post(catchErrors(lms.liveEnd));
@@ -44,6 +45,11 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   // classes that happened before this system tracked them.
   router.route(`${base}/:id/recording-link`).post(catchErrors(lms.liveRecordingAttachLink));
 });
+
+// ── switch a batch's daily live classes off / on (manager / Support) ──
+router.route('/batches/live-paused').get(requireManager, catchErrors(lms.livePausedBatches));
+router.route('/batches/:id/live-pause').post(requireManager, catchErrors(lms.livePauseBatch));
+router.route('/batches/:id/live-resume').post(requireManager, catchErrors(lms.liveResumeBatch));
 
 // ── add a student to a running batch (manager, or the batch's teacher) ──
 router.route('/batches/:id/students').get(catchErrors(lms.batchStudents)).post(catchErrors(lms.liveAddStudent));
@@ -274,6 +280,7 @@ router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTi
   router.route('/assessments/bank/questions/:id').patch(catchErrors(bank.setRetired));
 }
 router.route('/assessments/start/:testType').post(catchErrors(lms.assessmentStart));
+router.route('/assessments/gate-issue').post(catchErrors(lms.assessmentGateIssue));
 router.route('/assessments/run-code').post(catchErrors(lms.assessmentRunCode));
 router.route('/assessments/my-results').get(catchErrors(lms.assessmentMyResults));
 router.route('/assessments/batch-progress').get(catchErrors(lms.assessmentBatchProgress));

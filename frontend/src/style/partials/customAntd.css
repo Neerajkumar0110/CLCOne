@@ -129,6 +129,113 @@ h6 {
   transform: rotate(90deg);
 }
 
+/* ---------- Confirm dialogs (Modal.confirm, app-wide) ----------
+   The modal polish above zeroes .ant-modal-content's padding (normal modals
+   pad their header/body/footer instead) — but a confirm has no header/body/
+   footer of its own, so its icon and text sat flush against the edge. Give
+   it its own layout: a tinted icon bubble, a clear title, soft body text and
+   full-size pill buttons. The bubble takes the icon's own colour
+   (currentColor), so warning / danger / info / success and any custom icon
+   passed to Modal.confirm all tint correctly. */
+.ant-modal-confirm .ant-modal-content {
+  padding: 26px 26px 22px !important;
+}
+.ant-modal-confirm .ant-modal-confirm-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.ant-modal-confirm .ant-modal-confirm-body > .anticon {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  margin: 0 !important;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px !important;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+.ant-modal-confirm .ant-modal-confirm-paragraph {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.ant-modal-confirm .ant-modal-confirm-title {
+  margin-top: 2px;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.2px;
+  color: var(--hub-text, #0f172a) !important;
+}
+.ant-modal-confirm .ant-modal-confirm-content {
+  margin-top: 8px !important;
+  margin-inline-start: 0 !important;
+  max-width: none !important;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--hub-muted, #64748b) !important;
+}
+.ant-modal-confirm .ant-modal-confirm-btns {
+  margin-top: 22px !important;
+  padding-top: 16px;
+  border-top: 1px solid var(--hub-border, rgba(15, 23, 42, 0.08));
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn {
+  margin: 0 !important;
+  height: 40px;
+  min-width: 112px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary.ant-btn-dangerous {
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.25);
+}
+/* Every confirm sits in the middle of the screen (antd puts them 100px from
+   the top unless each call passes centered), whichever page opened it. */
+.ant-modal-wrap:has(> .ant-modal.ant-modal-confirm) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ant-modal.ant-modal-confirm {
+  top: 0;
+  margin: 0 auto;
+  padding-bottom: 0;
+}
+/* Modal.confirm renders outside the app's ConfigProvider, so antd never
+   applies the dark theme to its own buttons — the Cancel button stayed a
+   white block on a dark dialog. Paint it from the --hub-* tokens instead. */
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-default {
+  background: var(--hub-surface-2, #f9fafb);
+  border-color: var(--hub-border, #e5e7eb);
+  color: var(--hub-text, #111827);
+}
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-default:hover {
+  border-color: var(--hub-blue, #2563eb) !important;
+  color: var(--hub-blue, #2563eb) !important;
+}
+:root[data-theme='dark'] .ant-modal-confirm .ant-modal-content {
+  border: 1px solid var(--hub-border);
+}
+@media (max-width: 480px) {
+  .ant-modal-confirm .ant-modal-content {
+    padding: 22px 18px 18px !important;
+  }
+  .ant-modal-confirm .ant-modal-confirm-btns .ant-btn {
+    flex: 1;
+  }
+}
+
 /* Form fields inside a modal — Input/Select/DatePicker/Checkbox inherit the
    active app palette's pastel colorBgContainer/border from ConfigProvider
    (context/themeContext.jsx), same as the page-level controls fixed for

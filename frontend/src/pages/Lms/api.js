@@ -33,6 +33,12 @@ const lmsApi = {
   // teacher / support / manager: push a class (and every later not-yet-started
   // class in its recurring series) forward by N days — class is running late.
   liveClassPostpone: (id, days) => request.post({ entity: `lms/live-classes/${id}/postpone`, jsonData: { days } }),
+  // manager / Support: delete one not-yet-started class; switch a batch's
+  // daily classes off / on, and list the batches that are off.
+  liveClassDelete: (id) => request.post({ entity: `lms/live-classes/${id}/delete`, jsonData: {} }),
+  batchClassesPause: (batchId) => request.post({ entity: `lms/batches/${batchId}/live-pause`, jsonData: {} }),
+  batchClassesResume: (batchId) => request.post({ entity: `lms/batches/${batchId}/live-resume`, jsonData: {} }),
+  pausedBatches: () => request.get({ entity: 'lms/batches/live-paused' }),
   // manager / batch teacher: add a student to a running batch (same link + email).
   addBatchStudent: (batchId, jsonData) =>
     request.post({ entity: `lms/batches/${batchId}/students`, jsonData }),
@@ -185,6 +191,10 @@ const lmsApi = {
   // ── assessments (ported from the python-test-platform reference project;
   // distinct from the generic quizzes/attempts calls above) ──────────
   startAssessment: (testType) => request.post({ entity: `lms/assessments/start/${testType}`, jsonData: {} }),
+  // Fire-and-forget: why a learner couldn't open a test (proctoring setup or
+  // a refused start) — kept in the LMS audit log for support.
+  reportAssessmentGateIssue: (b) =>
+    request.post({ entity: 'lms/assessments/gate-issue', jsonData: { ...b, device: navigator.userAgent } }).catch(() => {}),
   submitAssessment: (attemptId, b) => request.post({ entity: `lms/assessments/${attemptId}/submit`, jsonData: b }),
   runAssessmentCode: (code) => request.post({ entity: 'lms/assessments/run-code', jsonData: { code } }),
   reportAssessmentProctorEvent: (attemptId, type) =>

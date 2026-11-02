@@ -82,6 +82,10 @@ module.exports = {
   holidayList: holidays.list,
   holidaySetYear: holidays.setYear,
   liveCancel: liveclass.cancel,
+  liveDelete: liveclass.remove,
+  livePauseBatch: liveclass.pauseBatch,
+  liveResumeBatch: liveclass.resumeBatch,
+  livePausedBatches: liveclass.pausedBatches,
   livePostpone: liveclass.postpone,
   liveRenameBatch: liveclass.renameBatch,
   liveAddStudent: liveclass.addStudent,
@@ -225,6 +229,7 @@ module.exports = {
   // assessments (ported from the python-test-platform reference project) —
   // distinct from the generic quizzes/* system above
   assessmentStart: assessments.startTest,
+  assessmentGateIssue: assessments.reportGateIssue,
   assessmentSubmit: assessments.submitTest,
   assessmentRunCode: assessments.runCode,
   assessmentMyResults: assessments.getMyResults,

@@ -1,8 +1,40 @@
 import React, { useRef, useState } from 'react';
 import { Card, Button, Typography, Space, Alert } from 'antd';
-import { VideoCameraOutlined, DesktopOutlined, CheckCircleFilled, ExpandOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, DesktopOutlined, CheckCircleFilled, ExpandOutlined, LaptopOutlined } from '@ant-design/icons';
+import lmsApi from '@/pages/Lms/api';
 
 const { Title, Paragraph, Text } = Typography;
+
+// Phones and tablets can't share their screen from a browser at all
+// (getDisplayMedia doesn't exist there), so the test can never start on one.
+const canShareScreen = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+const canUseCamera = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+// What actually went wrong, in words a learner can act on — the gate used to
+// say only "access is required" whatever the cause, so a learner whose
+// camera was blocked, busy in another app or missing couldn't tell why the
+// test "doesn't open".
+function cameraError(err) {
+  switch (err && err.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Camera / microphone is blocked for this site. Click the camera icon in the address bar → Allow, then click "Enable Camera & Microphone" again.';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No camera or microphone was found. Connect one (or use a laptop with a built-in camera) and try again.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'Your camera or microphone is being used by another app or tab (live class, Zoom, Meet, WhatsApp…). Close it and try again.';
+    default:
+      return 'Could not turn on the camera and microphone. Check that they are connected and allowed for this site, then try again.';
+  }
+}
+function screenError(err) {
+  if (err && err.name === 'NotAllowedError') {
+    return 'Screen sharing was cancelled. Click "Enable Screen Sharing", choose "Entire screen" and press Share.';
+  }
+  return 'Could not start screen sharing. Use Chrome or Edge on a laptop / desktop and try again.';
+}
 
 /**
  * Camera + mic + screen-share + fullscreen gate for the proctored assessment
@@ -11,7 +43,7 @@ const { Title, Paragraph, Text } = Typography;
  * only, used by the unrelated generic Quizzes flow) so that flow's behavior is
  * unaffected by this one's stricter requirements.
  */
-export default function AssessmentProctorGate({ onReady }) {
+export default function AssessmentProctorGate({ testType, onReady }) {
   const videoRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
@@ -19,6 +51,12 @@ export default function AssessmentProctorGate({ onReady }) {
   const [screenGranted, setScreenGranted] = useState(false);
   const [error, setError] = useState('');
   const [requesting, setRequesting] = useState(false);
+  const unsupported = !canShareScreen() || !canUseCamera();
+
+  const fail = (step, message, err) => {
+    setError(message);
+    lmsApi.reportAssessmentGateIssue({ testType, step, error: `${(err && err.name) || ''} ${(err && err.message) || message}`.trim() });
+  };
 
   async function requestCameraAndMic() {
     setError('');
@@ -28,7 +66,7 @@ export default function AssessmentProctorGate({ onReady }) {
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraGranted(true);
     } catch (err) {
-      setError('Camera and microphone access is required to start the test.');
+      fail('camera', cameraError(err), err);
     }
   }
 
@@ -39,26 +77,48 @@ export default function AssessmentProctorGate({ onReady }) {
       screenStreamRef.current = stream;
       setScreenGranted(true);
     } catch (err) {
-      setError('Screen sharing is required to start the test.');
+      fail('screen', screenError(err), err);
     }
   }
 
   async function handleStart() {
     setRequesting(true);
     setError('');
+    const el = document.documentElement;
+    const enter = el.requestFullscreen || el.webkitRequestFullscreen;
     try {
-      const el = document.documentElement;
-      if (el.requestFullscreen) await el.requestFullscreen();
-      if (cameraStreamRef.current && screenStreamRef.current) {
-        onReady?.({ cameraStream: cameraStreamRef.current, screenStream: screenStreamRef.current });
-      }
+      // Older Safari only has the webkit- version; a browser with neither
+      // still starts (the proctor watches for tab switches either way)
+      // instead of being stuck on this screen forever.
+      if (enter) await enter.call(el);
     } catch (err) {
-      setError('Fullscreen mode is required to start the test.');
+      fail('fullscreen', 'Fullscreen was blocked. Click "Start Test" again and allow fullscreen when the browser asks.', err);
+      setRequesting(false);
+      return;
+    }
+    if (cameraStreamRef.current && screenStreamRef.current) {
+      onReady?.({ cameraStream: cameraStreamRef.current, screenStream: screenStreamRef.current });
+    } else {
       setRequesting(false);
     }
   }
 
   const allGranted = cameraGranted && screenGranted;
+
+  if (unsupported) {
+    return (
+      <div className="lms-portal" style={{ padding: 4, display: 'flex', justifyContent: 'center' }}>
+        <Card style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+          <LaptopOutlined style={{ fontSize: 40, color: '#2563eb' }} />
+          <Title level={4} style={{ marginTop: 12 }}>Open this test on a laptop or desktop</Title>
+          <Paragraph type="secondary">
+            This test is proctored with screen sharing, which phones and tablets can't do from a browser. Open the CRM on a
+            laptop or desktop in <b>Google Chrome</b> or <b>Microsoft Edge</b> and start the test there.
+          </Paragraph>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="lms-portal" style={{ padding: 4, display: 'flex', justifyContent: 'center' }}>

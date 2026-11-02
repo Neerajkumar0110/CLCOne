@@ -46,6 +46,16 @@ const batchSchema = featureSchema([
 // growing date list doesn't fit that tag-input well).
 batchSchema.add({ holidays: { type: [String], default: [] } });
 
+// Live classes switched off for this batch (manager / Support): its upcoming
+// classes are taken off and none come back until someone switches it on
+// again — the days it was off then become holidays, so the classes move
+// later instead of being lost (liveClassService.pauseBatchClasses /
+// resumeBatchClasses).
+batchSchema.add({
+  liveClassesPausedAt: { type: Date, default: null },
+  liveClassesPausedByName: { type: String, default: '' },
+});
+
 // "HH:mm" (24h) -> minutes since midnight, or null if unparseable.
 function toMinutes(hhmm) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());

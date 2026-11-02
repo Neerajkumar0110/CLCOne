@@ -94,6 +94,7 @@ export default function AssessmentRunner({ testType, onExit }) {
         stopAllMedia();
         setError((res && res.message) || 'Something went wrong.');
         setPhase('error');
+        lmsApi.reportAssessmentGateIssue({ testType, step: 'start', error: (res && res.message) || 'no result' });
         return;
       }
       setAttemptId(data.attemptId);
@@ -112,6 +113,7 @@ export default function AssessmentRunner({ testType, onExit }) {
       stopAllMedia();
       setError('Something went wrong.');
       setPhase('error');
+      lmsApi.reportAssessmentGateIssue({ testType, step: 'start', error: (err && err.message) || 'request failed' });
     }
   }
 
@@ -176,7 +178,7 @@ export default function AssessmentRunner({ testType, onExit }) {
   }
 
   if (phase === 'gate') {
-    return <AssessmentProctorGate onReady={beginTest} />;
+    return <AssessmentProctorGate testType={testType} onReady={beginTest} />;
   }
 
   if (phase === 'loading') {

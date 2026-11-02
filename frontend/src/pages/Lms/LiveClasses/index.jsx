@@ -31,8 +31,16 @@ import {
   FieldTimeOutlined,
   UserAddOutlined,
   CheckCircleOutlined,
+  DeleteOutlined,
+  PauseCircleOutlined,
 } from '@ant-design/icons';
+import { useSelector } from 'react-redux';
+import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
+
+// Who may delete a class / switch a batch's classes off (backend
+// requireManager → LMS_FULL_ACCESS_ROLES: Admin, Super Admin, owner, Support).
+const MANAGER_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
 import DevicePreflightModal from '../components/DevicePreflightModal';
 
@@ -72,6 +80,20 @@ const t = (v) => {
     return '';
   }
 };
+
+// Body of a confirm dialog: what will happen, one short point per line.
+function ConfirmPoints({ points }) {
+  return (
+    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {points.map((p) => (
+        <li key={p} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', opacity: 0.45, marginTop: 9, flex: '0 0 auto' }} />
+          <span>{p}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // One contextual "what's going on with this class right now" line — icon +
 // title + description — that anchors the card's bottom panel. Everything
@@ -141,6 +163,18 @@ export default function LiveClasses() {
   const [policy, setPolicy] = useState(null);
   const [preflight, setPreflight] = useState(null); // row awaiting device check
   const timer = useRef(null);
+  const admin = useSelector(selectCurrentAdmin) || {};
+  const isManager = MANAGER_ROLES.includes(admin.role);
+  const [paused, setPaused] = useState([]); // batches whose classes are switched off
+
+  const loadPaused = useCallback(async () => {
+    if (!isManager) return;
+    const res = await lmsApi.pausedBatches().catch(() => null);
+    setPaused((res && res.result) || []);
+  }, [isManager]);
+  useEffect(() => {
+    loadPaused();
+  }, [loadPaused]);
 
   useEffect(() => {
     lmsApi.joinPolicy().then((r) => setPolicy((r && r.result) || null)).catch(() => {});
@@ -224,8 +258,10 @@ export default function LiveClasses() {
   };
   const onEnd = (id) =>
     Modal.confirm({
+      centered: true,
+      icon: <StopOutlined style={{ color: '#dc2626' }} />,
       title: 'End this class?',
-      content: 'Candidates are disconnected, recording stops and attendance is finalised.',
+      content: <ConfirmPoints points={['Candidates are disconnected.', 'Recording stops and attendance is finalised.']} />,
       okText: 'End class',
       okButtonProps: { danger: true },
       onOk: async () => {
@@ -289,6 +325,68 @@ export default function LiveClasses() {
 
   const openAdd = (r) => setAddFor(r);
 
+  const onDelete = (r) =>
+    Modal.confirm({
+      centered: true,
+      icon: <DeleteOutlined style={{ color: '#dc2626' }} />,
+      title: `Delete ${r.title}?`,
+      content: (
+        <ConfirmPoints
+          points={[
+            `${d(r.scheduledStart)}, ${t(r.scheduledStart)} — removed for the project manager and every candidate.`,
+            'The batch\'s later classes are renumbered.',
+          ]}
+        />
+      ),
+      okText: 'Delete class',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        const res = await lmsApi.liveClassDelete(r.id);
+        if (res && res.success === false) message.warning(res.message || 'Could not delete the class.');
+        else message.success('Class deleted.');
+        load(true);
+      },
+    });
+  const onPauseBatch = (r) =>
+    Modal.confirm({
+      centered: true,
+      icon: <PauseCircleOutlined style={{ color: '#dc2626' }} />,
+      title: `Switch off classes for ${r.batchName}?`,
+      content: (
+        <ConfirmPoints
+          points={[
+            'All upcoming classes of this batch are taken off.',
+            'No class comes up daily until you switch it back on.',
+            'The days it stays off move to the end of the schedule — no class is lost.',
+          ]}
+        />
+      ),
+      okText: 'Switch off',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        const res = await lmsApi.batchClassesPause(r.batchId);
+        if (res && res.success === false) message.warning(res.message || 'Could not switch off.');
+        else message.success(`${r.batchName}: classes switched off.`);
+        load(true);
+        loadPaused();
+      },
+    });
+  // On at once: the row leaves the list as soon as the server says yes; the
+  // classes are rebuilt in the background, so re-fetch a few times as they land.
+  const [resumingId, setResumingId] = useState(null);
+  const onResumeBatch = async (b) => {
+    setResumingId(b.id);
+    const res = await lmsApi.batchClassesResume(b.id).catch(() => null);
+    setResumingId(null);
+    if (!res || res.success === false) {
+      message.warning((res && res.message) || 'Could not switch on.');
+      return;
+    }
+    setPaused((p) => p.filter((x) => x.id !== b.id));
+    message.success(`${b.name}: classes switched on.`);
+    [1500, 5000, 12000].forEach((ms) => setTimeout(() => load(true), ms));
+  };
+
   const liveNow = rows.filter((r) => r.status === 'LIVE');
 
   if (loading) {
@@ -320,6 +418,40 @@ export default function LiveClasses() {
       </div>
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+
+      {isManager && paused.length > 0 && (
+        <div className="lms-paused">
+          <div className="lms-paused-head">
+            <span className="lms-paused-icon"><PauseCircleOutlined /></span>
+            <div>
+              <div className="lms-paused-title">
+                Classes switched off for {paused.length} batch{paused.length > 1 ? 'es' : ''}
+              </div>
+              <div className="lms-paused-sub">No class comes up for these until you switch them on — the days off move to the end of the schedule.</div>
+            </div>
+          </div>
+          <div className="lms-paused-list">
+            {paused.map((b) => (
+              <div className="lms-paused-row" key={b.id}>
+                <div className="lms-paused-info">
+                  <div className="lms-paused-name">
+                    {b.name}
+                    <span className="lms-paused-pill">OFF</span>
+                  </div>
+                  <div className="lms-paused-meta">
+                    {b.course ? `${b.course} · ` : ''}since {d(b.pausedAt)}
+                    {b.pausedBy ? ` · by ${b.pausedBy}` : ''}
+                  </div>
+                </div>
+                <button type="button" className="lms-paused-btn" disabled={resumingId === b.id} onClick={() => onResumeBatch(b)}>
+                  <PlayCircleOutlined />
+                  {resumingId === b.id ? 'Switching on…' : 'Switch on'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {liveNow.length > 0 && (
         <div className="lms-livenow2">
@@ -387,6 +519,12 @@ export default function LiveClasses() {
               secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add candidate', onClick: () => openAdd(r) });
             }
             if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
+            if (isManager && ['SCHEDULED', 'UPCOMING'].includes(r.status)) {
+              secondaryButtons.push({ key: 'delete', danger: true, icon: <DeleteOutlined />, label: 'Delete', onClick: () => onDelete(r) });
+              if (r.batchId) {
+                secondaryButtons.push({ key: 'pause', danger: true, icon: <PauseCircleOutlined />, label: 'Switch off batch', onClick: () => onPauseBatch(r) });
+              }
+            }
 
             return (
               <div className="live-class-card" key={r.id}>
@@ -473,7 +611,7 @@ export default function LiveClasses() {
                       <button
                         key={btn.key}
                         type="button"
-                        className={`attendance-btn${btn.key === 'end' ? ' is-danger' : ''}`}
+                        className={`attendance-btn${btn.key === 'end' || btn.danger ? ' is-danger' : ''}`}
                         disabled={busy}
                         onClick={btn.onClick}
                       >

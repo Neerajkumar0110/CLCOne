@@ -99,6 +99,23 @@ async function cancel(req, res) {
   return send(res, await liveClassService.cancelSession(req.params.id, req.admin, { reason: (req.body || {}).reason }));
 }
 
+// POST /api/lms/liveclasses/:id/delete — manager / Support only (route-gated).
+async function remove(req, res) {
+  return send(res, await liveClassService.deleteSession(req.params.id, req.admin));
+}
+
+// POST /api/lms/batches/:id/live-pause | live-resume, GET /api/lms/batches/live-paused
+// — manager / Support only (route-gated): switch a batch's daily classes off / on.
+async function pauseBatch(req, res) {
+  return send(res, await liveClassService.pauseBatchClasses(req.params.id, req.admin));
+}
+async function resumeBatch(req, res) {
+  return send(res, await liveClassService.resumeBatchClasses(req.params.id, req.admin));
+}
+async function pausedBatches(req, res) {
+  return send(res, await liveClassService.pausedBatches());
+}
+
 // POST /api/lms/liveclasses/:id/postpone  { days }
 async function postpone(req, res) {
   return send(res, await liveClassService.postponeSession(req.params.id, req.admin, { days: (req.body || {}).days }));
@@ -324,4 +341,4 @@ async function deviceCheck(req, res) {
   return res.status(200).json({ success: true, result: { logged: true, persisted: true } });
 }
 
-module.exports = { list, get, create, updateTime, syllabusFlag, cancel, postpone, renameBatch, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };
+module.exports = { list, get, create, updateTime, syllabusFlag, cancel, remove, pauseBatch, resumeBatch, pausedBatches, postpone, renameBatch, addHoliday, removeHoliday, addStudent, studentSearch, batchStudents, removeStudent, start, end, join, leave, attendance, regenerate, openEntry, openPublic, ticket, left, mockRoom, deviceCheck };

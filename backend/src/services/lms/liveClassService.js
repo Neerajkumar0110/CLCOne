@@ -347,6 +347,8 @@ async function regenerateForBatch(batchId) {
     { batch: batch._id, status: { $in: ['scheduled', 'upcoming'] }, actualStart: { $exists: false } },
     { $set: { removed: true, status: 'cancelled' } }
   );
+  // Classes switched off for this batch: nothing upcoming until it's back on.
+  if (batch.liveClassesPausedAt) return { result: { created: 0, renumbered: 0, paused: true } };
   const created = await recurrence.generateForBatch({ ...batch.toObject(), _id: batch._id }, module.exports, { force: true });
   const renumbered = await renumberBatchSessions(batch._id, batch.name);
   return { result: { created: created.length, renumbered } };
@@ -413,6 +415,136 @@ async function removeBatchHoliday(batchId, admin, dateStr) {
   await batch.save();
   const regen = await regenerateForBatch(batchId);
   return { result: { holidays: batch.holidays, regenerated: regen.result } };
+}
+
+// IST calendar day "YYYY-MM-DD" — the format Batch.holidays uses.
+const istDay = (d) => new Date(new Date(d).getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+
+// Delete one class that hasn't started (manager / Support — route-gated),
+// e.g. a duplicate. Its date becomes a batch holiday so a later regenerate
+// doesn't put it back; the batch's class numbers close up behind it.
+async function deleteSession(id, admin) {
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const session = await LmsLiveSession.findOne({ _id: id, removed: false });
+  if (!session) return { error: 404, message: 'Live class not found.' };
+  if (!['scheduled', 'upcoming'].includes(session.status) || session.actualStart) {
+    return { error: 409, message: `Cannot delete a class that is ${DISPLAY[session.status] || session.status}.` };
+  }
+  session.removed = true;
+  session.status = 'cancelled';
+  session.cancelReason = `Deleted by ${admin.name || 'admin'}`;
+  session.cancelledBy = admin._id;
+  session.cancelledByName = admin.name;
+  session.cancelledAt = new Date();
+  session.updated = new Date();
+  await session.save();
+  await mongoose.model('LiveClass').updateOne({ _id: session.liveClass }, { $set: { removed: true, status: 'Cancelled', updated: new Date() } });
+  let renumbered = 0;
+  if (session.batch) {
+    const Batch = mongoose.model('Batch');
+    const day = istDay(session.scheduledStart);
+    await Batch.updateOne({ _id: session.batch }, { $addToSet: { holidays: day } });
+    renumbered = await renumberBatchSessions(session.batch, session.batchName);
+  }
+  try {
+    await require('./auditLog').record({
+      module: 'liveclass',
+      action: 'delete',
+      entityType: 'LmsLiveSession',
+      entityId: session._id,
+      admin,
+      after: { title: session.title, scheduledStart: session.scheduledStart },
+    });
+  } catch (e) {
+    /* best-effort */
+  }
+  return { result: { id: String(session._id), renumbered } };
+}
+
+// Switch a batch's live classes off: every upcoming class is taken off and
+// no new one appears (regenerateForBatch honours the flag) until it is
+// switched on again.
+async function pauseBatchClasses(batchId, admin) {
+  const Batch = mongoose.model('Batch');
+  const LmsLiveSession = mongoose.model('LmsLiveSession');
+  const batch = await Batch.findById(batchId);
+  if (!batch || batch.removed) return { error: 404, message: 'Batch not found.' };
+  if (!batch.liveClassesPausedAt) {
+    batch.liveClassesPausedAt = new Date();
+    batch.liveClassesPausedByName = admin.name || '';
+    await batch.save();
+  }
+  const upcoming = await LmsLiveSession.find({
+    batch: batch._id,
+    removed: false,
+    status: { $in: ['scheduled', 'upcoming'] },
+    actualStart: { $exists: false },
+  })
+    .select('liveClass')
+    .lean();
+  await LmsLiveSession.updateMany(
+    { _id: { $in: upcoming.map((s) => s._id) } },
+    { $set: { removed: true, status: 'cancelled', cancelReason: `Batch classes switched off by ${admin.name || 'admin'}`, updated: new Date() } }
+  );
+  await mongoose
+    .model('LiveClass')
+    .updateMany({ _id: { $in: upcoming.map((s) => s.liveClass).filter(Boolean) } }, { $set: { removed: true, status: 'Cancelled', updated: new Date() } });
+  return { result: { batch: batch.name, paused: true, removed: upcoming.length } };
+}
+
+// Switch them back on: the days they were off become holidays (so those
+// classes move later rather than being dropped — see recurrence.occurrences)
+// and the schedule is rebuilt from today.
+async function resumeBatchClasses(batchId) {
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(batchId);
+  if (!batch || batch.removed) return { error: 404, message: 'Batch not found.' };
+  if (batch.liveClassesPausedAt) {
+    const today = istDay(new Date());
+    const days = new Set(batch.holidays || []);
+    // …except a day a class was actually held (switched off after it ran).
+    const from = new Date(`${istDay(batch.liveClassesPausedAt)}T00:00:00+05:30`);
+    const held = new Set(
+      (
+        await mongoose
+          .model('LmsLiveSession')
+          .find({ batch: batch._id, removed: false, scheduledStart: { $gte: from } })
+          .select('scheduledStart')
+          .lean()
+      ).map((s) => istDay(s.scheduledStart))
+    );
+    for (let d = from; istDay(d) < today; d = new Date(d.getTime() + 86400000)) {
+      if (!held.has(istDay(d))) days.add(istDay(d));
+    }
+    batch.holidays = [...days].sort();
+    batch.liveClassesPausedAt = null;
+    batch.liveClassesPausedByName = '';
+    await batch.save();
+  }
+  // The batch is on the moment the flag clears; rebuilding ~150 classes
+  // takes a while, so it runs in the background instead of holding the
+  // Switch on button (the page re-fetches as they appear).
+  regenerateForBatch(batch._id).catch((e) => console.error('[lms] resume regenerate failed:', e && e.message));
+  return { result: { batch: batch.name, paused: false } };
+}
+
+// Batches whose live classes are switched off — for the Live Classes page.
+async function pausedBatches() {
+  const rows = await mongoose
+    .model('Batch')
+    .find({ removed: false, liveClassesPausedAt: { $ne: null } })
+    .select('name course liveClassesPausedAt liveClassesPausedByName')
+    .sort({ name: 1 })
+    .lean();
+  return {
+    result: rows.map((b) => ({
+      id: String(b._id),
+      name: b.name,
+      course: b.course || '',
+      pausedAt: b.liveClassesPausedAt,
+      pausedBy: b.liveClassesPausedByName || '',
+    })),
+  };
 }
 
 // Reschedule / edit a class time. Teacher or manager, only before it starts.
@@ -2363,6 +2495,10 @@ module.exports = {
   regenerateForBatch,
   addBatchHoliday,
   removeBatchHoliday,
+  deleteSession,
+  pauseBatchClasses,
+  resumeBatchClasses,
+  pausedBatches,
   ensureBatchRoom,
   updateSchedule,
   renumberBatchSessions,

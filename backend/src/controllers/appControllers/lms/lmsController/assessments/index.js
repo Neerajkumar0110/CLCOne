@@ -9,6 +9,7 @@ const proctor = require('./proctorController');
 
 module.exports = {
   startTest: test.startTest,
+  reportGateIssue: test.reportGateIssue,
   submitTest: test.submitTest,
   runCode: test.runCode,
   getMyResults: test.getMyResults,

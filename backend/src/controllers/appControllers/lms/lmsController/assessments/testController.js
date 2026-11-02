@@ -193,6 +193,25 @@ async function startTest(req, res) {
   }
 }
 
+// POST /api/lms/assessments/gate-issue { testType, step, error, device }
+// A learner who couldn't get past the proctoring setup (camera / screen
+// share / fullscreen) — or whose start was refused — leaves no attempt
+// behind, so "the test doesn't open" was invisible. Each such failure is
+// kept in the LMS audit log (module 'assessment', action 'open_failed').
+async function reportGateIssue(req, res) {
+  const b = req.body || {};
+  const cut = (s, n) => String(s || '').slice(0, n);
+  await require('../../../../../services/lms/auditLog').record({
+    module: 'assessment',
+    action: 'open_failed',
+    entityType: 'AssessmentGate',
+    admin: req.admin,
+    reason: `${cut(b.testType, 20)} · ${cut(b.step, 30)} · ${cut(b.error, 200)}`,
+    meta: { testType: cut(b.testType, 20), step: cut(b.step, 30), error: cut(b.error, 300), device: cut(b.device, 300), email: req.admin && req.admin.email },
+  });
+  return res.status(200).json({ success: true, result: null, message: 'ok' });
+}
+
 async function submitTest(req, res) {
   try {
     const { attemptId } = req.params;
@@ -499,4 +518,4 @@ async function getBatchProgress(req, res) {
   }
 }
 
-module.exports = { startTest, submitTest, runCode, getMyResults, getAttemptBreakdown, getBatchProgress };
+module.exports = { startTest, submitTest, runCode, getMyResults, getAttemptBreakdown, getBatchProgress, reportGateIssue };
