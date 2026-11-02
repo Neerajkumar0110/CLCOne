@@ -275,7 +275,9 @@ export default function ActiveCallModal() {
     setStage(s);
     setSubStatus(crm?.subStatus || defaultSubStatus(s));
 
-    setScheduledCallback(crm?.callBackAt ? dayjs(crm.callBackAt) : null);
+    // Only a callback still ahead — a past one re-sent with the outcome used
+    // to re-book itself and ring the customer again straight away.
+    setScheduledCallback(crm?.callBackAt && dayjs(crm.callBackAt).isAfter(dayjs()) ? dayjs(crm.callBackAt) : null);
     setMeetingAt(crm?.meetingAt ? dayjs(crm.meetingAt) : null);
     setFutureFollowUpAt(crm?.futureFollowUpAt ? dayjs(crm.futureFollowUpAt) : null);
 

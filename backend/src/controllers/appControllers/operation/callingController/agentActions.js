@@ -468,9 +468,32 @@ const logDetails = async (req, res) => {
   // on it: nothing would appear in the Callbacks queue and nobody would ever
   // call back. The UI makes the agent pick a time, so this only catches API
   // callers that don't — fall back to an hour out rather than drop it.
-  let callbackAt = scheduledCallback;
+  //
+  // The form pre-fills the lead's existing callback time, so it used to come
+  // back on every save — with "Not Interested" / DNC too — and re-book that
+  // (already past) time, which the callback dialer rang at once: Abhay
+  // Chaudhary got 5 calls in 33 min. A final outcome books nothing (and
+  // cancels what's pending, below); a time in the past isn't a new promise.
+  let callbackAt = disp && disp.final ? null : scheduledCallback;
+  if (callbackAt && new Date(callbackAt).getTime() < Date.now() - 60 * 1000) callbackAt = null;
   if (!callbackAt && disp && disp.category === 'callback') {
     callbackAt = new Date(Date.now() + 60 * 60 * 1000);
+  }
+  if (disp && disp.final) {
+    const digits10 = String(phone || rec.phone || '').replace(/\D/g, '').slice(-10);
+    const or = [{ callRecord: rec._id }];
+    if (rec.callLead) or.push({ callLead: rec.callLead });
+    if (digits10.length === 10) or.push({ phone: { $regex: `${digits10}$` } });
+    await mongoose
+      .model('CallCallback')
+      .updateMany(
+        { removed: false, status: 'Pending', $or: or },
+        { $set: { status: 'Cancelled', completedAt: new Date(), updated: new Date() } }
+      );
+    if (crmLead && crmLead.callBackAt) {
+      crmLead.callBackAt = null;
+      await crmLead.save();
+    }
   }
 
   if (callbackAt) {
