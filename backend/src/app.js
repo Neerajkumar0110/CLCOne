@@ -84,6 +84,10 @@ app.use('/api/lms/webhook', lmsWebhookRouter);
 // bearer gate; guarded by a single-use short-lived ticket / per-session key.
 app.use('/api/lms/live', lmsLivePublicRouter);
 
+// Public certificate verification — before the bearer gate; read-only,
+// minimal fields, every lookup audit-logged.
+app.use('/api/certificate-verify', require('./routes/appRoutes/lms/lmsCertVerifyPublicApi'));
+
 // BigBlueButton event callbacks — before the bearer gate; token / checksum
 // checked in the handler, idempotent.
 app.use('/api/lms/webhooks', lmsBbbWebhookRouter);

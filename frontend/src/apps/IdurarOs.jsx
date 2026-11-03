@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 import { useSelector } from 'react-redux';
 import { selectAuth, selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -22,6 +22,7 @@ const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
 // isLoggedIn branch below entirely, the one architectural spot that can
 // render something regardless of auth state.
 const PublicKycForm = lazy(() => import('@/pages/Payments/PublicKycForm'));
+const VerifyCertificate = lazy(() => import('@/pages/Lms/VerifyCertificate'));
 const FinanceKycForm = lazy(() => import('@/pages/Payments/FinanceKycForm'));
 
 const DefaultApp = () => {
@@ -91,6 +92,24 @@ export default function IdurarOs() {
   //     window.removeEventListener('offline', handleStatusChange);
   //   };
   // }, [navigator.onLine]);
+
+  // Public certificate verification — no login. Certificates already issued
+  // carry a "/#/verify/<id>" link from before this route existed; send those
+  // to the same page.
+  const legacyVerify = location.pathname === '/' && /^#\/verify\/([^/?#]+)/.exec(location.hash || '');
+  if (legacyVerify || location.pathname === '/verify' || location.pathname.startsWith('/verify/')) {
+    return (
+      <Localization>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/verify" element={<VerifyCertificate />} />
+            <Route path="/verify/:certificateId" element={<VerifyCertificate />} />
+            <Route path="*" element={<Navigate to={legacyVerify ? `/verify/${legacyVerify[1]}` : '/verify'} replace />} />
+          </Routes>
+        </Suspense>
+      </Localization>
+    );
+  }
 
   if (location.pathname.startsWith('/kyc/') || location.pathname.startsWith('/finance-kyc/')) {
     return (

@@ -190,7 +190,8 @@ async function autoIssueCertificate({ adminId, adminName, course, batch }) {
     grade: gradeForPct(coursePercent),
     score: coursePercent,
     status: 'Issued',
-    verificationUrl: `/#/verify/${certificateId}`,
+    // public, no-login page (pages/Lms/VerifyCertificate); older "/#/verify/<id>" links redirect there
+    verificationUrl: `/verify/${certificateId}`,
     issuedBy: 'System (auto)',
   });
 }
