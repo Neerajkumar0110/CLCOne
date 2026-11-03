@@ -50,6 +50,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
 import useBrandLogo from '@/hooks/useBrandLogo';
+import '@/pages/Lms/components/LearnerDesign.css';
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -244,16 +245,22 @@ function AccessHoldScreen({ info, onRequested }) {
 // Major and Micro (each its own dropdown of the reference nav's 2 variants).
 // [path, label, icon, element] — a group entry carries a 5th array of
 // children of the same shape, nested to any depth.
-function quizzesGroup(base, label) {
+// The BASIC test entry — inside Quizzes & Exams for staff, its own
+// "Readiness test" item in the learner's START group (design R1).
+function basicTestEntry(base, label = 'Basic') {
+  return [
+    `${base}/tests/basic`,
+    label,
+    <ProfileOutlined />,
+    <TestIntro testType="BASIC" icon={<ProfileOutlined />} eyebrow="Foundational Assessment" title="Basic Test" description="Multiple-choice, output-based, and short programming questions covering core fundamentals." />,
+  ];
+}
+
+function quizzesGroup(base, label, { withBasic = true } = {}) {
   return [
     'group:quizzes', label, <FormOutlined />, null,
     [
-      [
-        `${base}/tests/basic`,
-        'Basic',
-        <ProfileOutlined />,
-        <TestIntro testType="BASIC" icon={<ProfileOutlined />} eyebrow="Foundational Assessment" title="Basic Test" description="Multiple-choice, output-based, and short programming questions covering core fundamentals." />,
-      ],
+      ...(withBasic ? [basicTestEntry(base)] : []),
       [
         'group:major-test', 'Major', <FormOutlined />, null,
         [
@@ -302,7 +309,7 @@ function quizzesGroup(base, label) {
 // entry (no route of its own) may itself contain further group entries
 // (Major/Micro nested inside Quizzes & Exams), so this recurses to any depth.
 function flattenNavLeaves(entries) {
-  return entries.flatMap((entry) => (entry[4] ? flattenNavLeaves(entry[4]) : [entry]));
+  return entries.flatMap((entry) => (entry.length === 1 ? [] : entry[4] ? flattenNavLeaves(entry[4]) : [entry]));
 }
 
 // Recursively builds AntD Menu items, preserving nested dropdown groups.
@@ -311,6 +318,7 @@ function flattenNavLeaves(entries) {
 // notification is read (see markLinkRead), not on a timer.
 function buildMenuItems(entries, unreadPaths) {
   return entries.map(([path, label, icon, , children]) => {
+    if (label === undefined) return { type: 'group', key: path, label: path.slice(1) };
     const dotted = unreadPaths && unreadPaths.has(path);
     const renderedLabel = dotted ? (
       <span className="lms-nav-unread-label">
@@ -351,30 +359,39 @@ const TEACHER_NAV = [
   ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
+// Learner sidebar — same groups and order as the design canvas (R1 "Har
+// role ka sidebar" / L3 board): START → LEARN → ME. Pages the design doesn't
+// list (Internships, Calendar, Doubts, Results, Eligibility, Announcements)
+// stay, in the group they belong to. A one-element entry ['#LABEL'] is a
+// group heading, not a route.
 const STUDENT_NAV = [
+  ['#START'],
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
-  ['/learn/onboarding', 'Onboarding', <ScheduleOutlined />, <Onboarding />],
-  ['/learn/overview', 'My Overview', <TrophyOutlined />, <LearnerOverview />],
-  ['/learn/fees', 'My Fees', <WalletOutlined />, <MyFees />],
-  ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
-  ['/learn/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
-  ['/learn/courses', 'My Internships', <BookOutlined />, <LearningPage />],
-  ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
+  ['/learn/onboarding', 'Onboarding checklist', <ScheduleOutlined />, <Onboarding />],
+  ['/learn/policies', 'Policies & consent', <FileProtectOutlined />, <Policies />],
+  basicTestEntry('/learn', 'Readiness test'),
+  ['#LEARN'],
+  ['/learn/classes', 'My Classes (live)', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
-  ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
-  ['/learn/feedback', 'Weekly Feedback', <CommentOutlined />, <WeeklyFeedback />],
-  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
-  ['/learn/curriculum', 'Curriculum Progress', <ScheduleOutlined />, <Curriculum />],
+  ['/learn/material', 'Study material', <FolderOpenOutlined />, <StudyMaterial />],
+  ['/learn/curriculum', 'Curriculum progress', <ScheduleOutlined />, <Curriculum />],
+  ['/learn/assessment-dashboard', 'Assessments & tests', <RocketOutlined />, <AssessmentDashboard />],
+  quizzesGroup('/learn', 'Major & Micro tests', { withBasic: false }),
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
-  ['/learn/projects', 'My Projects', <ProjectOutlined />, <Projects />],
-  quizzesGroup('/learn', 'Quizzes & Exams'),
-  ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
-  ['/learn/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
+  ['/learn/projects', 'My Project', <ProjectOutlined />, <Projects />],
+  ['/learn/courses', 'My Internships', <BookOutlined />, <LearningPage />],
+  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
-  ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
-  ['/learn/policies', 'Policies', <FileProtectOutlined />, <Policies />],
+  ['#ME'],
+  ['/learn/feedback', 'Weekly & PM feedback', <CommentOutlined />, <WeeklyFeedback />],
+  ['/learn/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
+  ['/learn/overview', 'Progress · timeline · documents', <TrophyOutlined />, <LearnerOverview />],
+  ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
   ['/learn/eligibility', 'My Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
-  ['/learn/certificates', 'My Certificates', <TrophyOutlined />, <Certificates />],
+  ['/learn/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
+  ['/learn/fees', 'Fees & receipts', <WalletOutlined />, <MyFees />],
+  ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
+  ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
 ];
 
 export default function LmsPanelApp() {
@@ -565,6 +582,12 @@ export default function LmsPanelApp() {
 
   const sidebarInner = (isDrawer) => (
     <>
+      {!isTeacher ? (
+        // design L-boards: text brand on the learner sidebar
+        <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)}>
+          {!isDrawer && collapsed ? <span>CL</span> : <>Career Lab · <span>InternX-AI</span></>}
+        </div>
+      ) : (
       <div
         className="logo"
         onClick={() => go(base)}
@@ -584,6 +607,7 @@ export default function LmsPanelApp() {
           }}
         />
       </div>
+      )}
       {updates.liveNow && updates.liveNow.length > 0 && (
         <div
           onClick={() => go(`${base}/classes`)}
@@ -619,7 +643,7 @@ export default function LmsPanelApp() {
           collapsed={collapsed}
           onCollapse={() => navMenu.collapse()}
           trigger={<div className="navigation-trigger">{collapsed ? '»' : '«'}</div>}
-          className="navigation"
+          className={`navigation${isTeacher ? "" : " ld-sider"}`}
           width={256}
           style={{ overflow: 'hidden', height: '100vh', position: 'fixed', top: 0, left: 0, zIndex: 20 }}
           theme="dark"
@@ -637,7 +661,7 @@ export default function LmsPanelApp() {
         className="navigation-drawer"
         styles={{ body: { padding: 0 }, header: { display: 'none' } }}
       >
-        <Sider className="navigation" theme="dark" collapsible={false} width={256} style={{ position: 'static', height: '100%' }}>
+        <Sider className={`navigation${isTeacher ? "" : " ld-sider"}`} theme="dark" collapsible={false} width={256} style={{ position: 'static', height: '100%' }}>
           {sidebarInner(true)}
         </Sider>
       </Drawer>

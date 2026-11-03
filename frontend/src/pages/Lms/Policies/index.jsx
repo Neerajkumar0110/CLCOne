@@ -14,6 +14,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
 import '../StudentDashboard/StudentHome.css';
+import '../components/LearnerDesign.css';
 import './StudentConsent.css';
 
 const { Text, Paragraph } = Typography;
@@ -311,101 +312,76 @@ function StudentPolicies() {
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
 
   const chipFor = (r) => {
-    if (r.status === 'acknowledged') return <span className="sh-chip ok">Accepted</span>;
-    if (r.openedAt) return <span className="sh-chip info">Read</span>;
-    return <span className="sh-chip gray">Not opened</span>;
+    if (r.status === 'acknowledged') return <span className="ld-chip hai">Accepted</span>;
+    if (r.openedAt) return <span className="ld-chip hai">Read</span>;
+    return <span className="ld-chip gray">Not opened</span>;
   };
   const mandatoryPending = pending.filter((r) => r.mandatory !== false).length;
 
+  // design board L1 — same header, 460px policy list | acknowledgement card
   return (
-    <div className="sh-root lms-portal">
-      <div className="sh-head">
-        <div>
-          <div className="sh-muted" style={{ fontWeight: 700, letterSpacing: '0.06em', fontSize: 12 }}>ACCOUNT ACTIVATION</div>
-          <h1>{pending.length ? 'LMS shuru karne se pehle policies accept karein' : 'Policies & agreements'}</h1>
-          <div className="sh-sub">
-            {mandatoryPending
-              ? 'Jab tak accept nahi hota, classes, recordings, tests aur projects band rahenge — direct link se bhi.'
-              : 'Aapne saari zaroori policies accept kar li hain.'}
+    <div className="ld-page" style={{ padding: '36px 56px', gap: 20 }}>
+      <div className="ld-head">
+        <div style={{ gap: 6 }}>
+          <div className="ld-eyebrow">Account activation</div>
+          <h1 style={{ fontSize: 32 }}>{pending.length ? 'LMS shuru karne se pehle policies accept karein' : 'Policies & agreements'}</h1>
+          <div className="ld-muted" style={{ fontSize: 15 }}>
+            {mandatoryPending ? 'Jab tak accept nahi hota, classes, recordings aur tests band rahenge — direct link se bhi.' : 'Aapne saari zaroori policies accept kar li hain.'}
           </div>
         </div>
       </div>
 
-      <div className="pc-grid">
-        <section className="sh-card" aria-label="Your policies">
-          <div className="sh-card-hd">
-            <b>Aapke liye policies ({rows.length})</b>
-          </div>
+      <div className="ld-grid" style={{ gridTemplateColumns: pending.length ? '460px minmax(0, 1fr)' : 'minmax(0, 720px)', gap: 20, flex: 1 }}>
+        <section className="ld-card p20" aria-label="Your policies" style={{ gap: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Aapke liye policies ({rows.length})</div>
           {rows.length === 0 ? (
-            <Empty description="No policies have been published for you yet." />
+            <div className="ld-empty">No policies have been published for you yet.</div>
           ) : (
             <div>
               {rows.map((r) => (
-                <div className="sh-row" key={r.id}>
+                <div className="ld-pol" key={r.id}>
                   <span style={{ minWidth: 0 }}>
-                    <b>{r.title}</b> <span className="sh-muted">v{r.version}</span>
-                    {r.mandatory === false && <span className="sh-muted"> · optional</span>}
-                    {r.status === 'acknowledged' && r.acknowledgedAt && (
-                      <div className="sh-muted">Accepted {dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm')}</div>
-                    )}
+                    <b>{r.title}</b> <span className="ld-muted">v{r.version}</span>
+                    {r.mandatory === false && <span className="ld-muted"> · optional</span>}
+                    {r.status === 'acknowledged' && r.acknowledgedAt && <div className="ld-muted" style={{ fontSize: 12 }}>Accepted {dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm')}</div>}
                   </span>
                   <span style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
                     {chipFor(r)}
-                    <button type="button" className="sh-link" onClick={() => open(r)}>
-                      Open
-                    </button>
+                    <button type="button" className="ld-link" onClick={() => open(r)}>Open</button>
                   </span>
                 </div>
               ))}
             </div>
           )}
           {mandatoryPending > 0 && (
-            <div className="sh-muted">
-              Locked till accepted: <b>Live Classes · Recordings · Tests · Projects</b>. Support aur yeh page khule rahenge.
+            <div className="ld-soft ld-muted" style={{ marginTop: 'auto', padding: 14, borderRadius: 10 }}>
+              Locked till accepted: <b style={{ color: '#0f172a' }}>Live Classes · Recordings · Tests · Projects</b>. Support aur yeh page khule rahenge.
             </div>
           )}
         </section>
 
         {pending.length > 0 && (
-          <section className="sh-card" aria-label="Learner policy acknowledgement">
-            <div className="sh-card-hd">
-              <b>Learner Policy Acknowledgement</b>
+          <section className="ld-card p20" aria-label="Learner policy acknowledgement" style={{ gap: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Learner Policy Acknowledgement</div>
+            <div style={{ fontSize: 14, lineHeight: '22px', padding: 16, border: '1px solid #e2e8f0', borderRadius: 10, background: '#fcfdfe' }}>
+              I confirm that I have been given access to the Learner Policies, LMS Usage Guidelines, Attendance Requirements, Assessment Rules, Communication Guidelines, applicable Course Terms, and Privacy Notice provided by Career Lab Consulting. I have had the opportunity to read them and seek clarification where needed. I agree to follow the applicable policies and use the LMS responsibly. I will keep my login credentials confidential, provide accurate information, follow assessment instructions, and report technical issues through the designated support channels. I understand that mandatory policy acceptance is required before my LMS access is activated.
             </div>
-            <div className="pc-text">
-              I confirm that I have been given access to the policies listed here, provided by Career Lab Consulting. I have had the
-              opportunity to read them and seek clarification where needed. I agree to follow the applicable policies and use the LMS
-              responsibly. I will keep my login credentials confidential, provide accurate information, follow assessment instructions,
-              and report technical issues through the designated support channels. I understand that mandatory policy acceptance is
-              required before my LMS access is activated.
+            <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, cursor: 'pointer' }}>
+              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ width: 20, height: 20, margin: '2px 0 0' }} />
+              <span>Maine upar di gayi sabhi policies padh li hain aur main inhe accept karta/karti hoon.</span>
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, fontSize: 13 }}>
+              <div className="ld-kv"><div className="ld-muted">Saved with acceptance</div><b>Learner ID + version</b></div>
+              <div className="ld-kv"><div className="ld-muted">Timestamp</div><b>{dayjs().format('D MMM YYYY')}, IST</b></div>
+              <div className="ld-kv"><div className="ld-muted">Audit ref</div><b>Event ID auto</b></div>
             </div>
-            <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
-              Maine upar di gayi sabhi policies padh li hain aur main inhe accept karta/karti hoon.
-            </Checkbox>
-            <div className="pc-meta">
-              <div>
-                <div className="sh-muted">Saved with acceptance</div>
-                <b>Learner ID + version</b>
-              </div>
-              <div>
-                <div className="sh-muted">Timestamp</div>
-                <b>Time of accepting (IST)</b>
-              </div>
-              <div>
-                <div className="sh-muted">Audit ref</div>
-                <b>IP + device, logged</b>
-              </div>
-            </div>
-            <div className="sh-card-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="sh-link"
-                onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Question about a policy', description: 'Policy name:\nMy question:' } } })}
-              >
+            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="ld-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Question about a policy', description: 'Policy name:\nMy question:' } } })}>
                 Kuch samajh nahi aaya? Support se poochein
               </button>
-              <Button type="primary" disabled={!agree} loading={accepting} onClick={acceptAll}>
-                Accept &amp; continue →
-              </Button>
+              <button type="button" className="ld-btn" style={{ fontSize: 15, padding: '0 20px' }} disabled={!agree || accepting} onClick={acceptAll}>
+                {accepting ? 'Accepting…' : 'Accept & continue →'}
+              </button>
             </div>
           </section>
         )}

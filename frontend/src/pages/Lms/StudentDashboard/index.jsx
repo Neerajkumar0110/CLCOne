@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Table, Tag, Progress, Empty, Skeleton, Alert, Button } from 'antd';
-import { VideoCameraOutlined } from '@ant-design/icons';
+import { Empty, Skeleton, Alert } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
-import './StudentHome.css';
+import '../components/LearnerDesign.css';
 
-// Learner Home (design L3). Everything here is read from endpoints that
+// Learner Home — design board L3, same layout and order. Everything here is read from endpoints that
 // already exist — /student/dashboard (classes, recordings, certificates),
 // /my/overview (eligibility, attendance, assessments, projects, policies,
 // notifications) and /my/tickets — so no new business logic lives on this
@@ -28,9 +27,9 @@ const asList = (v) => (Array.isArray(v) ? v : (v && v.result) || []);
 const settledResult = (s) => (s.status === 'fulfilled' && s.value && s.value.result) || null;
 
 function gateChip(item) {
-  if (!item.applicable) return <span className="sh-chip gray">N/A</span>;
-  if (item.passed) return <span className="sh-chip ok">Done</span>;
-  return <span className="sh-chip bad">{item.achieved} / {item.required}</span>;
+  if (!item.applicable) return <span className="ld-chip gray">N/A</span>;
+  if (item.passed) return <span className="ld-chip hai">Done</span>;
+  return <span className="ld-chip red">Gap</span>;
 }
 
 export default function StudentDashboard() {
@@ -40,6 +39,7 @@ export default function StudentDashboard() {
   const [ov, setOv] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [onboarding, setOnboarding] = useState(null);
+  const [feedback, setFeedback] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,13 +47,14 @@ export default function StudentDashboard() {
     (async () => {
       // Each source is optional except the dashboard itself — a failure in
       // one (say tickets) just leaves its card empty instead of blanking Home.
-      const [dash, overview, tk, ob] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets(), lmsApi.myOnboarding()]);
+      const [dash, overview, tk, ob, fb] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets(), lmsApi.myOnboarding(), lmsApi.myFeedback()]);
       if (!alive) return;
       if (dash.status !== 'fulfilled') setErr('Could not load your dashboard.');
       setD(settledResult(dash));
       setOv(settledResult(overview));
       setTickets((settledResult(tk) || {}).tickets || []);
       setOnboarding(settledResult(ob));
+      setFeedback(settledResult(fb));
       setLoading(false);
     })();
     return () => {
@@ -110,295 +111,146 @@ export default function StudentDashboard() {
   const doneGates = elig ? (elig.items || []).filter((i) => i.applicable && i.passed).length : 0;
   const totalGates = elig ? (elig.items || []).filter((i) => i.applicable).length : 0;
 
+  const feedbackWin = feedback && feedback.enrolled ? feedback.window || {} : null;
+  const feedbackPending = feedbackWin && (feedbackWin.open || feedbackWin.late) && !(feedback.submitted && feedback.submitted.weekly);
+  const go = (to) => () => navigate(to);
+
   return (
-    <div className="sh-root lms-portal lms-dashboard-shell">
-      <div className="sh-head">
-        <div>
+    <div className="ld-page">
+      <div className="ld-hd">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Namaste, {(d.student?.name || 'there').split(' ')[0]}</h1>
-          <div className="sh-sub">{[course, batch].filter(Boolean).join(' · ') || 'Continue learning — your internships, classes and progress.'}</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>
+            {[batch && `${batch} batch`, course].filter(Boolean).join(' · ') || 'Your internship'} · last updated {fmtTime(new Date())}
+          </div>
         </div>
         {k.liveNow > 0 && (
-          <Button type="primary" icon={<VideoCameraOutlined />} onClick={() => navigate('/learn/classes')}>
-            Join live class
-          </Button>
+          <button type="button" className="ld-btn md" onClick={go('/learn/classes')}>Join live class</button>
         )}
       </div>
 
-      <div className="sh-grid-top">
-        <section className="sh-card" aria-label="Overall eligibility">
-          <div className="sh-card-hd">
-            <b>Overall eligibility</b>
-            {elig && <span className={`sh-chip ${elig.eligible ? 'ok' : 'warn'}`}>{elig.score}%</span>}
-          </div>
+      <div className="ld-grid" style={{ gridTemplateColumns: '1.3fr 1fr 1fr' }}>
+        <section className="ld-card" aria-label="Overall eligibility">
+          <div className="ld-hd"><b>Overall eligibility</b>{elig && <span className={`ld-chip ${elig.eligible ? 'hai' : 'adh'}`}>{elig.score}%</span>}</div>
           {elig ? (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                <span className={`sh-big sh-status-big ${elig.eligible ? 'ok' : 'warn'}`}>{elig.eligible ? 'Eligible' : 'Not yet eligible'}</span>
-                <span className="sh-muted" style={{ fontSize: 14 }}>
-                  {doneGates} of {totalGates} done
-                </span>
+                <span className="ld-big" style={{ color: elig.eligible ? '#166534' : '#9a3412' }}>{elig.eligible ? 'Eligible' : 'Not yet eligible'}</span>
+                <span className="ld-muted" style={{ fontSize: 14 }}>{doneGates} of {totalGates} gates done</span>
               </div>
               <div>
                 {(elig.items || []).map((item) => (
-                  <div className="sh-row" key={item.key}>
-                    <span>{item.label}</span>
+                  <div className="ld-gate" key={item.key}>
+                    <span>{item.label} {item.applicable && !item.passed && <span className="ld-muted">{item.achieved} / {item.required} needed</span>}</span>
                     {gateChip(item)}
                   </div>
                 ))}
               </div>
-              <button type="button" className="sh-link" onClick={() => navigate('/learn/overview')}>
-                Full breakdown →
-              </button>
-              <button
-                type="button"
-                className="sh-link"
-                onClick={() =>
-                  navigate('/learn/support', {
-                    state: { raise: { category: 'Internship Content', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } },
-                  })
-                }
-              >
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Internship Content', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } } })}>
                 Calculation galat lagi? Review request karein
               </button>
             </>
           ) : (
-            <div className="sh-muted">No eligibility rule is set for your internship yet.</div>
+            <div className="ld-muted" style={{ fontSize: 14 }}>No eligibility rule is set for your internship yet.</div>
           )}
         </section>
 
-        <div className="sh-stack">
-          <section className="sh-card" aria-label="Attendance">
-            <div className="sh-card-hd">
-              <b>Attendance</b>
-            </div>
-            <div className="sh-big">{att ? `${att.attendancePct}%` : '—'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section className="ld-card" aria-label="Attendance">
+            <div className="ld-hd"><b>Attendance</b></div>
+            <div className="ld-big">{att ? `${att.attendancePct}%` : '—'}</div>
             {att && (
               <>
-                <div className="sh-muted">
-                  {att.present + att.late} present · {att.partial} partial · {att.absent} absent · {att.totalClasses} classes
-                </div>
-                <div className="sh-bar" role="img" aria-label={`Attendance ${att.attendancePct}%`}>
-                  <span style={{ width: `${Math.min(att.attendancePct, 100)}%` }} />
-                </div>
+                <div className="ld-muted" style={{ fontSize: 13 }}>{att.present + att.late} / {att.totalClasses} sessions · {att.partial} partial · {att.absent} absent</div>
+                <div className="ld-track" role="img" aria-label={`Attendance ${att.attendancePct}%`}><div style={{ width: `${Math.min(att.attendancePct, 100)}%` }} /></div>
               </>
             )}
-            <button type="button" className="sh-link" onClick={() => navigate('/learn/attendance')}>
-              Session-wise dekhein →
-            </button>
+            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/attendance')}>Session-wise dekhein →</button>
           </section>
-
-          <section className="sh-card" aria-label="Assessments">
-            <div className="sh-card-hd">
-              <b>Assessments</b>
-            </div>
+          <section className="ld-card" aria-label="Assessments">
+            <div className="ld-hd"><b>Assessments</b></div>
             {testTypes.length === 0 ? (
-              <div className="sh-muted">No assessment unlocked yet.</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>No assessment unlocked yet.</div>
             ) : (
               <div>
                 {testTypes.map((t) => {
                   const last = latestByType[t];
                   const a = attemptsByType[t];
                   return (
-                    <div className="sh-row small" key={t}>
+                    <div className="ld-li" key={t}>
                       <span>{TEST_TYPE_LABELS[t] || t}</span>
-                      {last ? (
-                        <b>
-                          {last.score}/{last.totalCount} · {last.qualified ? 'Qualified' : 'Not qualified'}
-                        </b>
+                      {last && last.qualified ? (
+                        <b>{last.score}/{last.totalCount} · Qualified</b>
                       ) : (
-                        <span className="sh-muted">
-                          {a.remaining} attempt{a.remaining === 1 ? '' : 's'} left
-                        </span>
+                        <span className="ld-muted">{last ? `${last.score}/${last.totalCount} · ` : ''}{a.remaining} attempt{a.remaining === 1 ? '' : 's'} left{a.nextEligibleAt ? ` · from ${fmtDay(a.nextEligibleAt)}` : ''}</span>
                       )}
                     </div>
                   );
                 })}
               </div>
             )}
-            <button type="button" className="sh-link" onClick={() => navigate('/learn/results')}>
-              My results →
-            </button>
           </section>
         </div>
 
-        <div className="sh-stack">
-          <section className="sh-card" aria-label="Next actions">
-            <div className="sh-card-hd">
-              <b>Next actions</b>
-              {actions.length > 0 && <span className="sh-chip info">{actions.length}</span>}
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section className="ld-card" aria-label="Next actions">
+            <div className="ld-hd"><b>Next actions</b></div>
             {actions.length === 0 ? (
-              <div className="sh-muted">Sab up to date hai.</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>Sab up to date hai.</div>
             ) : (
               <div>
-                {actions.slice(0, 6).map((a) => (
-                  <button type="button" className="sh-action" key={a.key} onClick={() => navigate(a.to)}>
-                    <span>{a.label}</span>
-                    {a.tag && <span className="sh-chip bad">{a.tag}</span>}
-                  </button>
+                {actions.slice(0, 5).map((a) => (
+                  <div className="ld-li" key={a.key}>
+                    <button type="button" className="ld-link" onClick={go(a.to)}>{a.label}</button>
+                    {a.tag && <span className="ld-chip red">{a.tag}</span>}
+                  </div>
                 ))}
               </div>
             )}
           </section>
           {onboarding && onboarding.steps && (
-            <section className="sh-card" aria-label="Onboarding checklist">
-              <div className="sh-card-hd">
-                <b>Onboarding checklist</b>
-                <span className={`sh-chip ${onboarding.done === onboarding.total ? 'ok' : 'info'}`}>
-                  {onboarding.done} / {onboarding.total}
-                </span>
-              </div>
+            <section className="ld-card" aria-label="Onboarding checklist">
+              <div className="ld-hd"><b>Onboarding checklist</b><span className={`ld-chip ${onboarding.done === onboarding.total ? 'hai' : 'gray'}`}>{onboarding.done} / {onboarding.total}</span></div>
               <div>
-                {onboarding.steps
-                  .filter((s) => s.state !== 'done')
-                  .slice(0, 3)
-                  .map((s) => (
-                    <div className="sh-row small" key={s.key}>
-                      <span>{s.title}</span>
-                      <span className={`sh-chip ${s.state === 'blocked' ? 'bad' : 'gray'}`}>{s.state === 'blocked' ? 'Blocked' : 'Pending'}</span>
-                    </div>
-                  ))}
-                {onboarding.done === onboarding.total && <div className="sh-muted">Setup complete.</div>}
+                {onboarding.steps.slice(0, 4).map((s) => (
+                  <div className="ld-li" key={s.key}>
+                    <span>{s.title}</span>
+                    <span className={`ld-chip ${s.state === 'done' ? 'hai' : s.state === 'blocked' ? 'red' : 'gray'}`}>{s.state === 'done' ? 'Done' : s.state === 'blocked' ? 'Blocked' : 'Pending'}</span>
+                  </div>
+                ))}
               </div>
-              <button type="button" className="sh-link" onClick={() => navigate('/learn/onboarding')}>
-                Open checklist →
-              </button>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/onboarding')}>Open checklist →</button>
             </section>
           )}
         </div>
       </div>
 
-      <div className="sh-grid-four">
-        <section className="sh-card" aria-label="Project">
-          <div className="sh-card-hd">
-            <b>Project</b>
-            {project && <span className={`sh-chip ${project.status === 'approved' ? 'ok' : 'gray'}`}>{project.status}</span>}
-          </div>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        <section className="ld-card" aria-label="Project">
+          <div className="ld-hd"><b>Project</b>{project && <span className={`ld-chip ${project.status === 'approved' ? 'hai' : 'gray'}`}>{project.status}</span>}</div>
           <div style={{ fontSize: 14 }}>{project ? project.title : 'No project assigned yet'}</div>
-          {project && <div className="sh-muted">{[project.mentor && `Mentor: ${project.mentor}`, project.dueDate && `Due ${fmtDay(project.dueDate)}`].filter(Boolean).join(' · ')}</div>}
-          <button type="button" className="sh-link" onClick={() => navigate('/learn/projects')}>
-            Open →
-          </button>
+          {project && <div className="ld-muted" style={{ fontSize: 13 }}>{[project.mentor && `Mentor: ${project.mentor}`, project.dueDate && `Due ${fmtDay(project.dueDate)}`].filter(Boolean).join(' · ')}</div>}
+          <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/projects')}>Open →</button>
         </section>
-
-        <section className="sh-card" aria-label="Policies">
-          <div className="sh-card-hd">
-            <b>Policies</b>
-            {policies.length > 0 && (
-              <span className={`sh-chip ${pendingPolicies.length ? 'warn' : 'ok'}`}>{pendingPolicies.length ? `${pendingPolicies.length} pending` : 'Done'}</span>
-            )}
-          </div>
-          <div style={{ fontSize: 14 }}>
-            {policies.length ? `${policies.length - pendingPolicies.length} / ${policies.length} accepted` : 'No policies published yet'}
-          </div>
-          <button type="button" className="sh-link" onClick={() => navigate('/learn/policies')}>
-            {pendingPolicies.length ? 'Accept now →' : 'View →'}
-          </button>
+        <section className="ld-card" aria-label="Feedback and policies">
+          <div className="ld-hd"><b>Feedback &amp; policies</b></div>
+          <div style={{ fontSize: 14 }}>{!feedbackWin ? 'Weekly feedback not open' : feedbackPending ? `Week of ${feedbackWin.weekKey} pending` : feedback.submitted && feedback.submitted.weekly ? 'This week submitted' : 'Next window opens Friday'}</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>{policies.length ? `${policies.length - pendingPolicies.length} / ${policies.length} policies accepted` : 'No policies published yet'}</div>
+          <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go(pendingPolicies.length ? '/learn/policies' : '/learn/feedback')}>{pendingPolicies.length ? 'Accept policies →' : feedbackPending ? 'Fill now →' : 'Open →'}</button>
         </section>
-
-        <section className="sh-card" aria-label="Notifications">
-          <div className="sh-card-hd">
-            <b>Notifications</b>
-            {notif.unread > 0 && <span className="sh-chip info">{notif.unread} unread</span>}
-          </div>
-          {latestNotif.length === 0 ? (
-            <div className="sh-muted">No notifications</div>
-          ) : (
-            <div className="sh-muted">{latestNotif.map((n) => n.title).join(' · ')}</div>
-          )}
-          <button type="button" className="sh-link" onClick={() => navigate('/learn/notifications')}>
-            View all →
-          </button>
+        <section className="ld-card" aria-label="Notifications">
+          <div className="ld-hd"><b>Notifications</b></div>
+          <div style={{ fontSize: 14 }}>{notif.unread || 0} unread</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>{latestNotif.length ? latestNotif.map((n) => n.title).join(' · ') : 'No notifications'}</div>
+          <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/notifications')}>View all →</button>
         </section>
-
-        <section className="sh-card" aria-label="Support requests">
-          <div className="sh-card-hd">
-            <b>Support requests</b>
-            {openTickets.length > 0 && <span className="sh-chip warn">{openTickets.length} open</span>}
-          </div>
+        <section className="ld-card" aria-label="Support requests">
+          <div className="ld-hd"><b>Support requests</b></div>
           <div style={{ fontSize: 14 }}>{openTickets[0] ? `${openTickets[0].ticketNo} · ${openTickets[0].status}` : 'No open requests'}</div>
-          {openTickets[0] && <div className="sh-muted">{openTickets[0].subject}</div>}
-          <button type="button" className="sh-link" onClick={() => navigate('/learn/support')}>
-            {openTickets.length ? 'Track →' : 'Raise a request →'}
-          </button>
+          {openTickets[0] && <div className="ld-muted" style={{ fontSize: 13 }}>{openTickets[0].subject}</div>}
+          <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/support')}>{openTickets.length ? 'Track →' : 'Raise a request →'}</button>
         </section>
       </div>
-
-      <Row gutter={[12, 12]}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="My internships" bordered>
-            <Table
-              size="small"
-              rowKey={(r) => `${r.course}-${r.batch}`}
-              dataSource={d.courses || []}
-              pagination={false}
-              locale={{ emptyText: 'No internships' }}
-              columns={[
-                { title: 'Internship', dataIndex: 'course' },
-                { title: 'Batch', dataIndex: 'batch' },
-                { title: 'Progress', dataIndex: 'progress', render: (v) => <Progress percent={v} size="small" style={{ width: 120 }} /> },
-              ]}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Upcoming & live classes" bordered>
-            <Table
-              size="small"
-              rowKey="id"
-              dataSource={[...(d.liveNow || []), ...(d.upcomingClasses || [])]}
-              pagination={false}
-              locale={{ emptyText: 'Nothing scheduled' }}
-              columns={[
-                { title: 'Class', dataIndex: 'title' },
-                { title: 'Starts', dataIndex: 'scheduledStart', render: fmtTime },
-                { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{String(s || '').toUpperCase()}</Tag> },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Row gutter={[12, 12]}>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="Latest recordings" bordered>
-            <Table
-              size="small"
-              rowKey={(r) => `${r.className}-${r.publishedAt}`}
-              dataSource={d.recordings || []}
-              pagination={false}
-              locale={{ emptyText: 'No recordings yet' }}
-              columns={[
-                {
-                  title: 'Class',
-                  render: (_, r) =>
-                    [r.batch, r.date && new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })]
-                      .filter(Boolean)
-                      .join(' — ') || r.className,
-                },
-                { title: 'Internship', dataIndex: 'course' },
-                { title: 'Min', dataIndex: 'durationMin', width: 60 },
-              ]}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card size="small" title="My certificates" bordered>
-            <Table
-              size="small"
-              rowKey={(r) => r.certificateId || r.course}
-              dataSource={d.certificates || []}
-              pagination={false}
-              locale={{ emptyText: 'No certificates yet' }}
-              columns={[
-                { title: 'Internship', dataIndex: 'course' },
-                { title: 'ID', dataIndex: 'certificateId' },
-                { title: 'Status', dataIndex: 'status', render: (s) => <Tag>{s}</Tag> },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
     </div>
   );
 }
