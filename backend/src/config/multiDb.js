@@ -77,6 +77,7 @@ const DB_MAP = {
   BatchChapterProgress: 'lmsDb',
   Certificate: 'lmsDb',
   CertificateRule: 'lmsDb',
+  ExternalCertificate: 'lmsDb', // learner-added IBM / Microsoft certificates (design L8)
   Chapter: 'lmsDb',
   Course: 'lmsDb',
   CourseModule: 'lmsDb',
