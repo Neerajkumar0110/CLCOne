@@ -500,7 +500,10 @@ export default function LiveClasses() {
           <div className="ld-page" style={{ paddingTop: 0 }}>
             <section className="ld-card" aria-label="All classes">
               <div className="ld-hd">
-                <b>Batch ki classes</b>
+                <span style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                  <b>Batch ki classes</b>
+                  <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/calendar')}>Calendar view →</button>
+                </span>
                 <span style={{ display: 'flex', gap: 6 }}>
                   <button type="button" className={`ld-pill${listTab === 'upcoming' ? ' on' : ''}`} onClick={() => { setListTab('upcoming'); setListMore(false); }}>Upcoming ({upcoming.length})</button>
                   <button type="button" className={`ld-pill${listTab === 'past' ? ' on' : ''}`} onClick={() => { setListTab('past'); setListMore(false); }}>Past ({past.length})</button>

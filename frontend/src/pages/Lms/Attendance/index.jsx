@@ -311,7 +311,7 @@ function MyAttendance() {
     navigate('/learn/support', {
       state: {
         raise: {
-          category: 'Live Class',
+          category: 'Attendance',
           subject: `Attendance correction · ${fmtDate(picked.date)}`,
           reference: [picked.className, picked.batchName, fmtDate(picked.date)].filter(Boolean).join(' · '),
           description: `Recorded: ${picked.status} (${picked.attendedMin || 0} of ${picked.scheduledDurationMin || '?'} min).\nWhat happened: ${corrText}`,

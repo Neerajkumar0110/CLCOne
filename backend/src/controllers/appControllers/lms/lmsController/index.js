@@ -27,6 +27,7 @@ const adminOps2 = require('./adminOps2');
 const onboarding = require('./onboarding');
 const eligibility = require('./eligibility');
 const projects = require('./projects');
+const externalCertificates = require('./externalCertificates');
 const health = require('./health');
 const learner360 = require('./learner360');
 const learnerOverview = require('./learnerOverview');
@@ -124,6 +125,7 @@ module.exports = {
   lmsMyTicketPayments: supportTickets.payments,
   lmsMyTicketCreate: supportTickets.create,
   lmsMyTicketConfirm: supportTickets.confirm,
+  lmsMyTicketAttachment: supportTickets.attachment,
   teacherLiveAnalytics: panel.teacherLiveAnalytics,
 
   // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager
@@ -325,6 +327,14 @@ module.exports = {
   projectUpdate: projects.update,
   projectUpdateMilestone: projects.updateMilestone,
   projectSubmit: projects.submit,
+  projectUploadFile: projects.uploadFile,
+  projectSetBlocker: projects.setBlocker,
+  externalCertMine: externalCertificates.mine,
+  externalCertUpload: externalCertificates.uploadFile,
+  externalCertAdd: externalCertificates.add,
+  externalCertRemove: externalCertificates.remove,
+  externalCertList: externalCertificates.list,
+  externalCertReview: externalCertificates.review,
   projectReview: projects.review,
   projectDelete: projects.remove,
 

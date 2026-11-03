@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
+import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
 
@@ -222,6 +223,8 @@ function TeacherCertificates({ isManagerRole }) {
         </Row>
       )}
 
+      {isManagerRole && <ExternalReview />}
+
       <Modal open={issueOpen} title="Issue certificate manually" onCancel={() => setIssueOpen(false)} onOk={issue} okText="Check & issue" destroyOnClose>
         <Form form={issueForm} layout="vertical" preserve={false}>
           <Form.Item name="studentEmail" label="Candidate email" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
@@ -235,6 +238,163 @@ function TeacherCertificates({ isManagerRole }) {
 /// Design board L8 — certificate preview on the left (520px, dark panel), one
 // card per programme on the right (issued: download / copy verify link /
 // correction; not yet: the requirement rows), then the public verify preview.
+// External (IBM / Microsoft / Google…) certificates — design L8. The learner
+// adds the provider's verification link and/or the file; Support verifies.
+const EXT_CHIP = { unverified: ['adh', 'Unverified'], verified: ['hai', 'Verified'], rejected: ['red', 'Not verified'] };
+function ExternalCertificates() {
+  const [rows, setRows] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ provider: '', title: '', credentialId: '', verifyUrl: '', issuedOn: '' });
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => lmsApi.myExternalCertificates().then((r) => setRows((r && r.result) || [])).catch(() => {}), []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const pickFile = async (e) => {
+    const fl = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!fl) return;
+    if (!/\.(pdf|png|jpe?g)$/i.test(fl.name) || fl.size > 10 * 1024 * 1024) return message.error('PDF / PNG / JPG, max 10 MB');
+    setBusy(true);
+    const r = await lmsApi.externalCertificateFile(fl).catch(() => null);
+    setBusy(false);
+    if (r && r.success !== false && r.result) setFile(r.result);
+    else message.error((r && r.message) || 'Upload failed.');
+    return null;
+  };
+  const save = async () => {
+    setBusy(true);
+    const r = await lmsApi.addExternalCertificate({ ...f, file }).catch(() => null);
+    setBusy(false);
+    if (!r || r.success === false) return message.error((r && r.message) || 'Could not add.');
+    setF({ provider: '', title: '', credentialId: '', verifyUrl: '', issuedOn: '' });
+    setFile(null);
+    setOpen(false);
+    load();
+    return null;
+  };
+  const remove = async (c) => {
+    const r = await lmsApi.removeExternalCertificate(c.id).catch(() => null);
+    if (r && r.success !== false) load();
+  };
+  return (
+    <>
+      {rows.map((c) => {
+        const chip = EXT_CHIP[c.status] || EXT_CHIP.unverified;
+        return (
+          <section className="ld-card" key={c.id} aria-label={`${c.provider} certificate`}>
+            <div className="ld-hd"><b>{c.provider} · {c.title}</b><span className={`ld-chip ${chip[0]}`}>{chip[1]}</span></div>
+            <div className="ld-muted" style={{ fontSize: 13 }}>
+              {c.status === 'unverified'
+                ? 'Learner-provided upload · provider verification link pending check by Support'
+                : `${c.status === 'verified' ? 'Verified' : 'Checked'} by ${c.reviewedByName || 'Support'}${c.reviewedAt ? ` · ${dayjs(c.reviewedAt).format('D MMM YYYY')}` : ''}${c.reviewNote ? ` · ${c.reviewNote}` : ''}`}
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
+              {c.verifyUrl && <a href={c.verifyUrl} target="_blank" rel="noopener noreferrer">Provider verify link</a>}
+              {c.file && <a href={`${BASE_URL}${c.file.url}`} target="_blank" rel="noopener noreferrer">{c.file.name}</a>}
+              {c.status !== 'verified' && <button type="button" className="ld-link" onClick={() => remove(c)}>Remove</button>}
+            </div>
+          </section>
+        );
+      })}
+      {open ? (
+        <section className="ld-card" aria-label="Add external certificate">
+          <b>External certificate add karein</b>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label className="ld-label">Provider<input className="ld-inp full" maxLength={80} value={f.provider} onChange={set('provider')} placeholder="IBM / Microsoft / Google" /></label>
+            <label className="ld-label">Issued on<input className="ld-inp full" type="date" value={f.issuedOn} onChange={set('issuedOn')} /></label>
+          </div>
+          <label className="ld-label">Certificate name<input className="ld-inp full" maxLength={200} value={f.title} onChange={set('title')} placeholder="Generative AI for Business and Professionals" /></label>
+          <label className="ld-label">Provider verification link<input className="ld-inp full" maxLength={500} value={f.verifyUrl} onChange={set('verifyUrl')} placeholder="https://…" /></label>
+          <label className="ld-label">Credential ID (optional)<input className="ld-inp full" maxLength={120} value={f.credentialId} onChange={set('credentialId')} /></label>
+          <label className="ld-btn2 sm" style={{ alignSelf: 'flex-start' }}>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={pickFile} />
+            {file ? `✓ ${file.name}` : busy ? 'Uploading…' : 'Certificate file (PDF / image)'}
+          </label>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="ld-btn2 sm" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="button" className="ld-btn sm" disabled={busy || !f.provider.trim() || !f.title.trim() || (!f.verifyUrl.trim() && !file)} onClick={save}>Add for verification</button>
+          </div>
+        </section>
+      ) : (
+        <button type="button" className="ld-link" style={{ fontSize: 13, alignSelf: 'flex-start' }} onClick={() => setOpen(true)}>+ External certificate (IBM / Microsoft…) add karein</button>
+      )}
+    </>
+  );
+}
+
+// Support / management: learners' external certificates to check against the
+// provider's link, then mark Verified or Not verified (learner is notified).
+function ExternalReview() {
+  const [rows, setRows] = useState([]);
+  const [status, setStatus] = useState('unverified');
+  const [busyId, setBusyId] = useState(null);
+  const load = useCallback(() => lmsApi.adminExternalCertificates(status).then((r) => setRows((r && r.result) || [])).catch(() => {}), [status]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const decide = (r, decision) => {
+    let note = '';
+    Modal.confirm({
+      title: decision === 'verified' ? `Verify ${r.provider} certificate?` : `Mark ${r.provider} certificate as not verified?`,
+      content: <Input.TextArea rows={2} placeholder="Note for the learner (optional)" onChange={(e) => { note = e.target.value; }} />,
+      okText: decision === 'verified' ? 'Verified' : 'Not verified',
+      okButtonProps: { danger: decision !== 'verified' },
+      onOk: async () => {
+        setBusyId(r.id);
+        const res = await lmsApi.reviewExternalCertificate(r.id, decision, note).catch(() => null);
+        setBusyId(null);
+        if (!res || res.success === false) return message.error((res && res.message) || 'Could not save.');
+        load();
+        return null;
+      },
+    });
+  };
+  return (
+    <Card style={{ marginTop: 16 }} title={<span><SafetyCertificateOutlined /> External certificates (learner-provided)</span>} extra={
+      <Select size="small" value={status} onChange={setStatus} style={{ width: 150 }} options={[{ value: 'unverified', label: 'To verify' }, { value: 'verified', label: 'Verified' }, { value: 'rejected', label: 'Not verified' }, { value: '', label: 'All' }]} />
+    }>
+      <Table
+        size="small"
+        rowKey="id"
+        dataSource={rows}
+        pagination={{ pageSize: 10 }}
+        locale={{ emptyText: <Empty description="Nothing here" /> }}
+        columns={[
+          { title: 'Learner', render: (_, r) => <><b>{r.studentName}</b><br /><Typography.Text type="secondary">{r.studentEmail}</Typography.Text></> },
+          { title: 'Certificate', render: (_, r) => <><b>{r.provider}</b> · {r.title}{r.credentialId ? <><br /><Typography.Text type="secondary">ID {r.credentialId}</Typography.Text></> : null}</> },
+          {
+            title: 'Proof',
+            render: (_, r) => (
+              <Space direction="vertical" size={0}>
+                {r.verifyUrl && <a href={r.verifyUrl} target="_blank" rel="noopener noreferrer">Provider link</a>}
+                {r.file && <a href={`${BASE_URL}${r.file.url}`} target="_blank" rel="noopener noreferrer">{r.file.name}</a>}
+              </Space>
+            ),
+          },
+          { title: 'Added', width: 110, render: (_, r) => dayjs(r.created).format('D MMM YY') },
+          { title: 'Status', width: 120, render: (_, r) => <Tag color={r.status === 'verified' ? 'green' : r.status === 'rejected' ? 'red' : 'orange'}>{(EXT_CHIP[r.status] || EXT_CHIP.unverified)[1]}</Tag> },
+          {
+            title: '',
+            width: 200,
+            render: (_, r) =>
+              r.status === 'unverified' ? (
+                <Space>
+                  <Button size="small" type="primary" loading={busyId === r.id} onClick={() => decide(r, 'verified')}>Verified</Button>
+                  <Button size="small" danger disabled={busyId === r.id} onClick={() => decide(r, 'rejected')}>Not verified</Button>
+                </Space>
+              ) : (
+                <Typography.Text type="secondary">{r.reviewedByName}</Typography.Text>
+              ),
+          },
+        ]}
+      />
+    </Card>
+  );
+}
+
 function StudentCertificates() {
   const navigate = useNavigate();
   const admin = useSelector(selectCurrentAdmin) || {};
@@ -274,7 +434,7 @@ function StudentCertificates() {
       <div className="ld-head">
         <div>
           <h1>My certificates</h1>
-          <div className="ld-muted ld-sub">Unlocks itself once your programme duration is complete and your capstone project is submitted</div>
+          <div className="ld-muted ld-sub">Career Lab ke certificates aur external (IBM / Microsoft) alag dikhte hain</div>
         </div>
       </div>
       {rows.length === 0 ? (
@@ -323,6 +483,7 @@ function StudentCertificates() {
                 )}
               </section>
             ))}
+            <ExternalCertificates />
             {issued[0] && (
               <section className="ld-card" aria-label="Public verify page">
                 <div className="ld-hd"><b>Public verify page (preview)</b></div>

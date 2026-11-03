@@ -27,6 +27,7 @@ const reviewSchema = new mongoose.Schema(
     at: Date,
     decision: { type: String, enum: ['approved', 'revision_requested', 'rejected'] },
     feedback: String,
+    changes: [String], // "Requested changes" list on the learner's review card (design L6)
     rubricScores: [{ criterion: String, marks: Number, _id: false }],
     totalScore: Number, // % of rubric max
   },
@@ -86,6 +87,8 @@ const schema = new mongoose.Schema({
   },
 
   submissions: { type: [submissionSchema], default: [] },
+  // learner-flagged blocker shown to the PM (design L6 "Blocker: … PM ko flag kiya")
+  blocker: { text: String, at: Date },
   currentVersion: { type: Number, default: 0 },
 
   githubUrl: String, // mirrors the latest submission's, for quick listing

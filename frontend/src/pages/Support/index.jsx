@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
+import { BASE_URL } from "@/config/serverApiConfig";
 import { BorderTrail } from "@/components/ui/border-trail";
 import { TICKET_CATEGORY_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModules";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
@@ -61,6 +62,10 @@ function mapTicket(t) {
     fromStudent: t.source === "student",
     payment: t.payment ? t.paymentSnapshot || null : null,
     resolutionNote: t.resolutionNote || "",
+    // learner ticket (LMS L9): which session/test/project, expected result, screenshots
+    reference: t.reference || "",
+    expected: t.expected || "",
+    attachments: t.attachments || [],
     resolvedBy: t.resolvedByName || "",
     resolvedAt: t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : "",
     date: t.created ? new Date(t.created).toLocaleString() : "",
@@ -339,6 +344,28 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
               <label>Message</label>
               <div>{viewTicket.description || "No additional details provided."}</div>
             </div>
+            {viewTicket.reference && (
+              <div className="hub-form-row">
+                <label>Session / test / project</label>
+                <div>{viewTicket.reference}</div>
+              </div>
+            )}
+            {viewTicket.expected && (
+              <div className="hub-form-row">
+                <label>Expected</label>
+                <div>{viewTicket.expected}</div>
+              </div>
+            )}
+            {viewTicket.attachments.length > 0 && (
+              <div className="hub-form-row">
+                <label>Screenshots</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {viewTicket.attachments.map((a) => (
+                    <a key={a.url} href={`${BASE_URL}${a.url}`} target="_blank" rel="noopener noreferrer">{a.name}</a>
+                  ))}
+                </div>
+              </div>
+            )}
             {viewTicket.payment && (
               <div className="hub-form-row">
                 <label>Payment</label>

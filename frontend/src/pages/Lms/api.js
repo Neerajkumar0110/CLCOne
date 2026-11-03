@@ -258,6 +258,16 @@ const lmsApi = {
   runCertificates: (courseId) => request.post({ entity: `lms/certificates/run/${courseId}`, jsonData: {} }),
   certHistory: (f = {}) => request.get({ entity: `lms/certificates${qs(f)}` }),
   myCertificates: () => request.get({ entity: 'lms/my/certificates' }),
+  myExternalCertificates: () => request.get({ entity: 'lms/my/external-certificates' }),
+  addExternalCertificate: (b) => request.post({ entity: 'lms/my/external-certificates', jsonData: b }),
+  removeExternalCertificate: (id) => request.del({ entity: `lms/my/external-certificates/${id}` }),
+  externalCertificateFile: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request.post({ entity: 'lms/my/external-certificates/file', jsonData: fd });
+  },
+  adminExternalCertificates: (status) => request.get({ entity: `lms/admin/external-certificates${status ? `?status=${status}` : ''}` }),
+  reviewExternalCertificate: (id, decision, note) => request.post({ entity: `lms/admin/external-certificates/${id}/review`, jsonData: { decision, note } }),
   certificateRoster: () => request.get({ entity: 'lms/certificates/roster' }),
   verifyCertificate: (cid) => request.get({ entity: `lms/certificates/verify/${cid}` }),
   // PDF download -> fetch with the bearer (binary, so it can't go through a
@@ -327,6 +337,11 @@ const lmsApi = {
   myTicketPayments: () => request.get({ entity: 'lms/my/tickets/payments' }),
   createTicket: (b) => request.post({ entity: 'lms/my/tickets', jsonData: b }),
   confirmTicket: (id, resolved, note) => request.post({ entity: `lms/my/tickets/${id}/confirm`, jsonData: { resolved, note } }),
+  ticketAttachment: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request.post({ entity: 'lms/my/tickets/attachment', jsonData: fd });
+  },
 
   // ── policy & acknowledgement centre ──────────────────────────
   listPolicies: (f = {}) => request.get({ entity: `lms/policies${qs(f)}` }),
@@ -365,6 +380,12 @@ const lmsApi = {
   updateProject: (id, b) => request.patch({ entity: `lms/projects/${id}`, jsonData: b }),
   updateMilestone: (id, b) => request.post({ entity: `lms/projects/${id}/milestones`, jsonData: b }),
   submitProject: (id, b) => request.post({ entity: `lms/projects/${id}/submit`, jsonData: b }),
+  uploadProjectFile: (id, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request.post({ entity: `lms/projects/${id}/files`, jsonData: fd });
+  },
+  setProjectBlocker: (id, text) => request.post({ entity: `lms/projects/${id}/blocker`, jsonData: { text } }),
   reviewProject: (id, b) => request.post({ entity: `lms/projects/${id}/review`, jsonData: b }),
   deleteProject: (id) => request.del({ entity: `lms/projects/${id}` }),
 

@@ -66,8 +66,11 @@ export default function Onboarding() {
     setBusy('device');
     const device = await runDeviceCheck();
     setBusy(null);
-    await mark('device', { done: true, device });
-    if (!device.camera || !device.microphone) message.warning('Camera or microphone not available — allow access in the browser, or raise a ticket.');
+    const r = await lmsApi.markOnboarding('device', { done: true, device }).catch(() => null);
+    if (!r || r.success === false) return message.error((r && r.message) || 'Could not save.');
+    setD(r.result);
+    if (r.result.autoTicket) message.warning(`Camera / mic nahi mila — ticket ${r.result.autoTicket} Support ko automatically chala gaya. Browser mein access allow karke "Check again" karein.`);
+    return null;
   };
   const ticketFor = (s) =>
     navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: `Stuck on onboarding: ${s.title}`, reference: s.note, description: 'What I tried:\nWhat happens:' } } });
@@ -83,7 +86,13 @@ export default function Onboarding() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div className="ld-eyebrow">Activation + onboarding</div>
           <h1>Welcome, {(d.name || '').split(' ')[0]} — chaliye setup poora karein</h1>
-          <div className="ld-muted" style={{ fontSize: 14 }}>{[d.batch && `${d.batch} batch`, d.pmName && `Project Manager: ${d.pmName}`].filter(Boolean).join(' · ')}</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>
+            {[
+              d.batch && `${d.batch} batch${d.batchTime ? ` (${d.batchTime})` : ''}`,
+              d.startDate && `Induction Day 1 on ${new Date(d.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+              d.pmName && `Project Manager: ${d.pmName}`,
+            ].filter(Boolean).join(' · ')}
+          </div>
         </div>
       </div>
 
@@ -126,7 +135,7 @@ export default function Onboarding() {
           </section>
           <section className="ld-card" aria-label="Stuck">
             <b style={{ fontSize: 16 }}>Atak gaye?</b>
-            <div className="ld-muted" style={{ fontSize: 13 }}>Blocked step par &quot;Raise ticket&quot; se Support Manager ko seedha ticket jaata hai.</div>
+            <div className="ld-muted" style={{ fontSize: 13 }}>Blocked step ka ticket automatic ban jaata hai, Support Manager ko dikh jaata hai.</div>
             <button type="button" className="ld-btn2" style={{ alignSelf: 'flex-start', height: 36 }} onClick={() => navigate('/learn/support')}>Raise a ticket</button>
           </section>
         </div>

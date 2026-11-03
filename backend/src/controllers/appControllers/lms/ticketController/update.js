@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { notifyUser } = require('../../../../notify');
-const { isTicketFullAccess } = require('./scope');
-const { ticketNo } = require('../../../../config/supportTickets');
+const { isTicketFullAccess, canSeeRestricted } = require('./scope');
+const { ticketNo, RESTRICTED_TICKET_CATEGORY } = require('../../../../config/supportTickets');
 const { ticketResolvedMail } = require('../../../../services/support/ticketMail');
 
 const Model = mongoose.model('Ticket');
@@ -21,7 +21,7 @@ const update = async (req, res) => {
   }
 
   const existing = await Model.findOne({ _id: req.params.id, removed: false }).lean();
-  if (!existing) {
+  if (!existing || (existing.category === RESTRICTED_TICKET_CATEGORY && !canSeeRestricted(req.admin))) {
     return res.status(404).json({ success: false, result: null, message: 'No document found' });
   }
 

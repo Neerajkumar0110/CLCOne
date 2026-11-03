@@ -68,7 +68,7 @@ export default function MyFees() {
   };
   const paymentTicket = () =>
     navigate('/learn/support', {
-      state: { raise: { category: 'Payment / Fees', subject: 'Payment issue', reference: (next && next.reference) || d.enrollmentId || '', description: 'Order / reference ID:\nWhat happened:' } },
+      state: { raise: { category: 'Payment', subject: 'Payment issue', reference: (next && next.reference) || d.enrollmentId || '', description: 'Order / reference ID:\nWhat happened:' } },
     });
 
   return (

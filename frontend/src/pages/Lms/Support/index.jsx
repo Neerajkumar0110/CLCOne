@@ -4,6 +4,7 @@ import { CheckCircleFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getSocket } from '@/socket';
+import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
 
@@ -23,10 +24,13 @@ const HISTORY_LABEL = {
 // First-line answers per category (spec §25 FAQ) shown while raising a
 // ticket — "That solved it" closes the form without creating a ticket.
 const FAQ = {
-  'Payment / Fees': 'Payments show as paid once the gateway confirms them (usually within minutes). If money was debited but the fee still shows due after an hour, attach the payment here and Finance will match it.',
-  'Invoice / Receipt': 'Receipts for paid installments are under My Fees. If one is missing or has wrong details, attach the payment and tell us what should change.',
-  'Live Class': 'Refresh the class page and use Join again — the link is issued fresh each time. If the class shows the wrong state or a recording is missing, send the class date and what you see; the team verifies the session and escalates confirmed issues.',
-  'Internship Content': 'Study material and recordings for your batch are under Study Material and Recordings. Tell us the module / class if something is missing or wrong.',
+  'Live class / join': 'Screenshot aur session details bhejein. Refresh karke Join dobara try karein — link har baar naya banta hai. Team live-session state aur join access verify karegi; confirmed issue log aur escalate hoga.',
+  'Recording / material': 'Recordings class ke ~2 ghante baad Recordings page par aati hain; study material Study material page par hai. Kaunsi class / module missing ya galat hai, woh batayein.',
+  Attendance: 'Attendance join/leave events se calculate hoti hai. Galat lage to My Attendance page se us class ka correction request bhejein — ya yahan class date ke saath batayein.',
+  Assessment: 'Test ke dauran technical issue (network, camera) hua to date / time aur kya dikha woh batayein — technical failure par attempt count nahi hota, team review karegi.',
+  Project: 'Deadline extension ke liye My Project page par "Extension chahiye?" use karein. Review ya submission ka issue ho to project version batayein.',
+  Payment: 'Payment gateway confirm hote hi paid dikhta hai (usually kuch minute). Paisa kat gaya par fee due dikh rahi hai ek ghante baad bhi, to neeche payment select karein — Finance match karega. Receipts My Fees mein hain.',
+  'Policy / privacy': 'Yeh ticket sirf authorised management dekhta hai. Policy ya privacy concern detail mein likhein.',
   Certificate: 'Certificates are issued once every eligibility requirement is met — see My Eligibility. For a name or detail correction, tell us exactly what should change.',
   'Login / Technical': 'Try a hard refresh (Ctrl + Shift + R), another browser, or clearing site data. If it continues, tell us the device/browser and the exact error.',
 };
@@ -63,6 +67,24 @@ export default function SupportTickets() {
   const [viewingId, setViewingId] = useState(null);
   const [reopenNote, setReopenNote] = useState('');
   const [confirming, setConfirming] = useState(null); // 'yes' | 'no' while saving
+  const [shots, setShots] = useState([]); // uploaded screenshots for the new ticket
+  const [shotBusy, setShotBusy] = useState(false);
+  const [shotDrag, setShotDrag] = useState(false);
+  const addShots = async (list) => {
+    const picked = [...(list || [])].slice(0, 5 - shots.length);
+    setShotBusy(true);
+    for (const file of picked) {
+      if (!/\.(png|jpe?g|webp)$/i.test(file.name) || file.size > 5 * 1024 * 1024) {
+        message.error(`${file.name}: png / jpg / webp, max 5 MB`);
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const r = await lmsApi.ticketAttachment(file).catch(() => null);
+      if (r && r.success !== false && r.result) setShots((xs) => [...xs, r.result]);
+      else message.error((r && r.message) || 'Upload failed.');
+    }
+    setShotBusy(false);
+  };
   const EMPTY = { category: '', priority: 'Medium', subject: '', reference: '', description: '', expected: '', payment: '' };
   const [f, setF] = useState(EMPTY);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -130,11 +152,12 @@ export default function SupportTickets() {
     if (!f.category) return message.error('Pick a category.');
     if (!f.subject.trim()) return message.error('Add a short subject.');
     setSaving(true);
-    const r = await lmsApi.createTicket({ ...f, payment: needsPayment && f.payment ? f.payment : undefined });
+    const r = await lmsApi.createTicket({ ...f, attachments: shots, payment: needsPayment && f.payment ? f.payment : undefined });
     setSaving(false);
     if (r?.success) {
       message.success(r.message || 'Ticket raised.');
       setF(EMPTY);
+      setShots([]);
       if (r.result && r.result._id) setViewingId(r.result._id);
       load();
     } else {
@@ -153,6 +176,7 @@ export default function SupportTickets() {
     <div className="ld-page">
       <div className="ld-head">
         <h1>Support</h1>
+        <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/doubts')}>Padhai ka doubt? Project Manager se poochein — My doubts →</button>
       </div>
 
       <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr', flex: 1 }}>
@@ -186,6 +210,25 @@ export default function SupportTickets() {
           <label className="ld-label">Kya hona chahiye tha?
             <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={1000} name="expected" value={f.expected} onChange={set('expected')} placeholder="e.g. Join button dikhna chahiye" />
           </label>
+          <label
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 56, padding: 10, border: `1.5px dashed ${shotDrag ? '#0e7490' : '#cbd5e1'}`, borderRadius: 8, background: shotDrag ? '#ecfeff' : '#f8fafc', fontSize: 13, color: '#475569', cursor: 'pointer', textAlign: 'center' }}
+            onDragOver={(e) => { e.preventDefault(); setShotDrag(true); }}
+            onDragLeave={() => setShotDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setShotDrag(false); addShots(e.dataTransfer.files); }}
+          >
+            <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple style={{ display: 'none' }} onChange={(e) => { addShots(e.target.files); e.target.value = ''; }} />
+            {shotBusy ? 'Uploading…' : 'Screenshot attach karein (drag & drop)'}
+          </label>
+          {shots.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+              {shots.map((s, i) => (
+                <span key={s.url} className="ld-chip gray" style={{ textTransform: 'none' }}>
+                  {s.name}
+                  <button type="button" className="ld-link" aria-label={`Remove ${s.name}`} style={{ marginLeft: 6 }} onClick={() => setShots((xs) => xs.filter((_, j) => j !== i))}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
           <div style={{ padding: 12, borderRadius: 8, background: '#fef2f2', fontSize: 13, color: '#991b1b' }}>Password, OTP ya card details kabhi mat bhejein.</div>
           {FAQ[f.category] && (
             <div style={{ padding: 14, borderRadius: 8, background: '#eff6ff', fontSize: 13, lineHeight: '19px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -230,13 +273,23 @@ export default function SupportTickets() {
             <section className="ld-card" aria-label="Ticket history" style={{ flex: 1 }}>
               <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 16 }}>{viewing.ticketNo} · history</b>
-                <span className="ld-muted" style={{ fontSize: 13 }}>{viewing.priority} · {viewing.category}</span>
+                <span className="ld-muted" style={{ fontSize: 13 }}>
+                  {viewing.priority} · {viewing.category}
+                  {(() => {
+                    // owner = whoever at Support last moved the ticket
+                    const o = [...history].reverse().find((h) => h.action === 'status' && h.byName);
+                    return o ? ` · owner: ${o.byName}` : '';
+                  })()}
+                </span>
               </div>
-              {(viewing.reference || viewing.description || viewing.expected) && (
+              {(viewing.reference || viewing.description || viewing.expected || (viewing.attachments || []).length > 0) && (
                 <div className="ld-soft" style={{ whiteSpace: 'pre-wrap' }}>
                   {viewing.reference && <div><span className="ld-muted">About: </span>{viewing.reference}</div>}
                   {viewing.description && <div>{viewing.description}</div>}
                   {viewing.expected && <div><span className="ld-muted">Expected: </span>{viewing.expected}</div>}
+                  {(viewing.attachments || []).map((a) => (
+                    <div key={a.url}><a href={`${BASE_URL}${a.url}`} target="_blank" rel="noopener noreferrer">{a.name}</a></div>
+                  ))}
                 </div>
               )}
               <ol className="tk-history" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>

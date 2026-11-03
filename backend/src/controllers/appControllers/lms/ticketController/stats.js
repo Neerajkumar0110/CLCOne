@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { isTicketFullAccess } = require('./scope');
+const { scopeMatch } = require('./scope');
 
 // GET /api/ticket/stats?category= — status counts (Open/In Progress/
 // Resolved) for the KPI cards, computed server-side so they stay correct
@@ -13,7 +13,7 @@ const stats = async (req, res) => {
   if (req.query.source === 'student' || req.query.source === 'crm') match.source = req.query.source === 'crm' ? { $ne: 'student' } : 'student';
   // Same row-level visibility as list.js — a non-full-access caller's KPI
   // cards should only ever total their own tickets.
-  if (!isTicketFullAccess(req.admin)) match.createdBy = req.admin._id;
+  scopeMatch(req.admin, match);
 
   const rows = await Model.aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
 

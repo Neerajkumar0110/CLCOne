@@ -43,10 +43,10 @@ function RatingRow({ text, value, onChange }) {
   );
 }
 
-export default function WeeklyFeedback() {
+export default function WeeklyFeedback({ initialTab = 'weekly' }) {
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('weekly');
+  const [tab, setTab] = useState(initialTab);
   const [answers, setAnswers] = useState({ weekly: [], pm: [] });
   const [comment, setComment] = useState({ weekly: '', pm: '' });
   const [concern, setConcern] = useState(false);

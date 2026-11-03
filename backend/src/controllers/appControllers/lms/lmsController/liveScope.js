@@ -184,9 +184,11 @@ async function listRecordings(req, res) {
     const LmsLiveSession = mongoose.model('LmsLiveSession');
     const linked = await LmsLiveSession.find({ moodleCourseId: { $in: myCourseIds } }, 'courseTitle batch').lean();
     linked.forEach((l) => l.courseTitle && myCourseTitles.add(l.courseTitle));
+    // A learner sees every recording of their own batch/course in the list —
+    // including queued / processing / failed / source-unavailable ones (design
+    // L5 status pipeline) — but only a released AVAILABLE one is playable
+    // (canPlay below; /play re-checks). Nothing playable is in this list.
     const enrolledAccess = (r) => {
-      if (r.status !== 'AVAILABLE') return false;
-      if (!releasedToStudents(r)) return false;
       if (s.recordingAccess === 'admin-only') return false;
       // Roster batch match always grants access — it's the source of truth
       // for "which batch is this student in" while Moodle sync is unused.
@@ -196,18 +198,28 @@ async function listRecordings(req, res) {
     };
     rows = rows.filter((r) => ownTaught(r) || enrolledAccess(r));
   }
+  // "S77" in the Session column — the class's own number
+  const sessIds = rows.map((r) => r.liveSession).filter(Boolean);
+  const sessIndex = new Map(
+    sessIds.length
+      ? (await mongoose.model('LmsLiveSession').find({ _id: { $in: sessIds } }).select('sessionIndex').lean()).map((x) => [String(x._id), x.sessionIndex])
+      : []
+  );
+  // not yet released to learners (2-hour delay) reads as still processing
+  const shownStatus = (r) => (r.status === 'AVAILABLE' && !ownTaught(r) && !releasedToStudents(r) ? 'PROCESSING' : r.status);
 
   return res.status(200).json({
     success: true,
     result: rows.map((r) => ({
       id: String(r._id),
       className: r.className,
+      sessionIndex: r.liveSession ? sessIndex.get(String(r.liveSession)) || null : null,
       courseTitle: r.courseTitle,
       batchName: r.batchName,
       teacherName: r.teacherName,
       date: r.startedAt || r.created,
       durationMin: r.durationMin,
-      status: r.status,
+      status: shownStatus(r),
       provider: r.provider,
       views: r.views,
       // Manager-only, same reasoning as hasBackup below — a student doesn't

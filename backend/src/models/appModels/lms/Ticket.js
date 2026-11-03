@@ -64,6 +64,8 @@ const schema = new mongoose.Schema({
   // and what they expected to happen, alongside `description` (what happened).
   reference: String,
   expected: String,
+  // screenshots the learner attached (design L9 "Screenshot attach karein")
+  attachments: { type: [{ _id: false, name: String, url: String }], default: undefined },
   // Status timeline shown to the raiser — appended on create, on every
   // status change by Support, and when the learner confirms or reopens.
   history: {

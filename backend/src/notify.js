@@ -26,8 +26,11 @@ const { emitNotification } = require('./socket');
 async function resolveRecipients({ audience, teamName, excludeAdminId }) {
   const Admin = mongoose.model('Admin');
 
-  if (audience === 'everyone' || audience === 'support') {
-    const role = audience === 'support' ? { $in: ['Support', ...CRM_ADMIN_ROLES] } : { $nin: LMS_PANEL_ROLES };
+  // 'admins' — owner/Super Admin/Admin only (a learner's restricted
+  // Policy / privacy ticket, see config/supportTickets.js).
+  if (audience === 'everyone' || audience === 'support' || audience === 'admins') {
+    const role =
+      audience === 'support' ? { $in: ['Support', ...CRM_ADMIN_ROLES] } : audience === 'admins' ? { $in: CRM_ADMIN_ROLES } : { $nin: LMS_PANEL_ROLES };
     const all = await Admin.find({ removed: false, enabled: true, role }).select('_id').lean();
     return all.map((a) => String(a._id)).filter((id) => id !== String(excludeAdminId));
   }

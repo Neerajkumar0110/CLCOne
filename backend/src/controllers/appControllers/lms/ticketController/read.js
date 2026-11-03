@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { isTicketFullAccess } = require('./scope');
+const { scopeMatch } = require('./scope');
 
 // GET /api/ticket/read/:id — same row-level visibility as list.js: a
 // non-full-access caller can't fetch another admin's ticket directly by id
@@ -8,7 +8,7 @@ const read = async (req, res) => {
   const Model = mongoose.model('Ticket');
 
   const match = { _id: req.params.id, removed: false };
-  if (!isTicketFullAccess(req.admin)) match.createdBy = req.admin._id;
+  scopeMatch(req.admin, match);
 
   const result = await Model.findOne(match).exec();
   if (!result) {

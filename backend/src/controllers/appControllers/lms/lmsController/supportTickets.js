@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { notify } = require('../../../../notify');
-const { STUDENT_TICKET_CATEGORIES, PAYMENT_TICKET_CATEGORIES, ticketNo } = require('../../../../config/supportTickets');
+const { STUDENT_TICKET_CATEGORIES, LEGACY_TICKET_CATEGORIES, RESTRICTED_TICKET_CATEGORY, PAYMENT_TICKET_CATEGORIES, ticketNo } = require('../../../../config/supportTickets');
 const { newTicketMail } = require('../../../../services/support/ticketMail');
 
 // Student-side support tickets (LMS panel → Help & Support). Same Ticket
@@ -25,6 +25,7 @@ const shape = (t) => ({
   resolvedAt: t.resolvedAt || null,
   reference: t.reference || null,
   expected: t.expected || null,
+  attachments: t.attachments || [],
   history: t.history || [],
   learnerConfirmedAt: t.learnerConfirmedAt || null,
   reopenCount: t.reopenCount || 0,
@@ -61,7 +62,9 @@ async function create(req, res) {
   const Ticket = mongoose.model('Ticket');
   const b = req.body || {};
   const subject = String(b.subject || '').trim();
-  const category = String(b.category || '').trim();
+  const rawCategory = String(b.category || '').trim();
+  const category = LEGACY_TICKET_CATEGORIES[rawCategory] || rawCategory;
+  const restricted = category === RESTRICTED_TICKET_CATEGORY;
   const description = String(b.description || '').trim();
   const priority = PRIORITIES.includes(b.priority) ? b.priority : 'Medium';
 
@@ -83,6 +86,11 @@ async function create(req, res) {
     raisedByPhone: req.admin.phone || undefined,
     reference: String(b.reference || '').trim().slice(0, 200) || undefined,
     expected: String(b.expected || '').trim().slice(0, 1000) || undefined,
+    // screenshots this learner uploaded via POST /my/tickets/attachment
+    attachments: (Array.isArray(b.attachments) ? b.attachments : [])
+      .filter((x) => x && typeof x.url === 'string' && x.url.startsWith(`public/uploads/tickets/${req.admin._id}-`))
+      .slice(0, 5)
+      .map((x) => ({ name: String(x.name || 'screenshot').slice(0, 200), url: x.url })),
   };
   doc.history = [{ at: new Date(), action: 'created', status: 'Open', byName: doc.raisedByName }];
 
@@ -115,17 +123,19 @@ async function create(req, res) {
 
   // Support + owner/Super Admin/Admin, live over the socket (notify.js →
   // socket.js emitNotification) — never other students.
+  // A restricted Policy / privacy ticket goes to management only, and its
+  // subject never travels in the notification or the shared support mail.
   notify({
-    audience: 'support',
+    audience: restricted ? 'admins' : 'support',
     actorId: req.admin._id,
     actorName: doc.raisedByName,
     module: 'Support',
     type: 'ticket.created',
     title: `New ${category} ticket ${no}`,
-    body: `${doc.raisedByName}: ${ticket.subject}`,
+    body: restricted ? `${doc.raisedByName} raised a restricted ticket` : `${doc.raisedByName}: ${ticket.subject}`,
     link: '/support',
   });
-  newTicketMail(ticket.toObject()).catch(() => {});
+  if (!restricted) newTicketMail(ticket.toObject()).catch(() => {});
 
   return res.status(200).json({ success: true, result: shape(ticket), message: `Ticket ${no} raised — Support has been notified.` });
 }
@@ -169,4 +179,13 @@ async function confirm(req, res) {
   return res.status(200).json({ success: true, result: shape(t), message: t.status === 'Open' ? 'Ticket reopened — Support has been notified.' : 'Thanks for confirming.' });
 }
 
-module.exports = { mine, payments, create, confirm };
+// POST /api/lms/my/tickets/attachment (multipart "file") — a screenshot for
+// the next ticket; the route's multer stored it as
+// public/uploads/tickets/<adminId>-<random>.<ext>, create() only accepts
+// the caller's own.
+async function attachment(req, res) {
+  if (!req.file) return res.status(400).json({ success: false, result: null, message: 'Choose an image (png / jpg / webp, max 5 MB).' });
+  return res.status(200).json({ success: true, result: { name: req.file.originalname, url: `public/uploads/tickets/${require('path').basename(req.file.path)}` } });
+}
+
+module.exports = { mine, payments, create, confirm, attachment };

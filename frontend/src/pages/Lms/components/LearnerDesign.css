@@ -333,3 +333,9 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
   .ld-legacy .page-header h1, .ld-legacy .elig-hero h1, .ld-legacy .asm-hero h1,
   .ld-legacy .courses-hero h1, .ld-legacy .announcement-hero h1 { font-size: 22px !important; }
 }
+
+/* board L16 — learner bottom tab bar on phones */
+.ld-tabbar { position: sticky; bottom: 0; z-index: 15; height: 60px; flex-shrink: 0; background: #fff; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-around; align-items: center; font-family: Inter, system-ui, sans-serif; }
+.ld-tabbar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; border: 0; background: none; font: inherit; font-size: 11px; color: #475569; cursor: pointer; }
+.ld-tabbar button .anticon { font-size: 18px; }
+.ld-tabbar button.on { color: #0e7490; font-weight: 700; }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Skeleton } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AssessmentRunner from './AssessmentRunner';
+import AssessmentRunner, { TIME_LIMITS } from './AssessmentRunner';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
 
@@ -70,6 +70,8 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
 
   const mix = t && t.mix ? Object.entries(t.mix).filter(([, n]) => n > 0) : [];
   const totalQ = mix.reduce((s, [, n]) => s + n, 0);
+  // per-question clocks of the runner, added up (board: "Time limit 30 min")
+  const totalMin = Math.ceil(mix.reduce((s, [k, n]) => s + n * (TIME_LIMITS[k] ?? TIME_LIMITS.DEFAULT), 0) / 60);
 
   // design board L2 — eyebrow + title, 1fr | 460px: why/rules + attempt history | result
   return (
@@ -91,9 +93,9 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
             <div className="ld-muted" style={{ fontSize: 14, lineHeight: '21px' }}>{description}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
               <div className="ld-kv"><span className="ld-muted">Questions</span><b>{totalQ ? `${totalQ} · ${mix.map(([k, n]) => `${n} ${MIX_LABEL[k] || k}`).join(' · ')}` : 'Project-style task'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Time limit</span><b>{totalQ ? `${totalMin} min` : '—'}</b></div>
               <div className="ld-kv"><span className="ld-muted">Pass mark</span><b>{rules ? `${rules.qualifyPct}%` : '—'}</b></div>
-              <div className="ld-kv"><span className="ld-muted">Attempts left</span><b>{t ? `${t.remaining} of ${t.max}` : rules ? `${rules.maxAttempts}` : '—'}</b></div>
-              <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays} din` : '—'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays} din${t ? ` · ${t.remaining} left` : ''}` : '—'}</b></div>
             </div>
             <div className="ld-muted" style={{ fontSize: 13 }}>Camera on rahega · tab switch log hota hai (sirf review signal) · technical failure par attempt count nahi hoga.</div>
             {blockReason && <span className="ld-chip adh" style={{ alignSelf: 'flex-start', height: 'auto', padding: '4px 10px', whiteSpace: 'normal' }}>{blockReason}</span>}

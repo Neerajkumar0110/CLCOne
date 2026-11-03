@@ -203,7 +203,7 @@ async function myProjects(req, res) {
   if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Not available.');
   const Project = mongoose.model('Project');
   const rows = await Project.find({ student: req.admin._id, removed: false }).sort({ updated: -1 }).lean();
-  return ok(res, rows.map((p) => ({ ...summarize(p), problemStatement: p.problemStatement, scope: p.scope, milestones: p.milestones, rubric: p.rubric, submissions: p.submissions })));
+  return ok(res, rows.map((p) => ({ ...summarize(p), created: p.created, problemStatement: p.problemStatement, scope: p.scope, milestones: p.milestones, rubric: p.rubric, submissions: p.submissions, blocker: p.blocker && p.blocker.text ? p.blocker : null })));
 }
 
 async function getOne(req, res) {
@@ -284,7 +284,11 @@ async function submit(req, res) {
     githubUrl: b.githubUrl || '',
     deploymentUrl: b.deploymentUrl || '',
     demoUrl: String(b.demoUrl || '').slice(0, 500),
-    files: Array.isArray(b.files) ? b.files.slice(0, 20) : [],
+    // only files this project's own upload route stored (uploadFile below)
+    files: (Array.isArray(b.files) ? b.files : [])
+      .filter((x) => x && typeof x.url === 'string' && x.url.startsWith(`public/uploads/projects/${p._id}-`))
+      .slice(0, 20)
+      .map((x) => ({ name: String(x.name || '').slice(0, 200), url: x.url })),
   });
   p.currentVersion = version;
   p.githubUrl = b.githubUrl || p.githubUrl;
@@ -327,6 +331,11 @@ async function review(req, res) {
     at: new Date(),
     decision: b.decision,
     feedback: b.feedback || '',
+    changes: (Array.isArray(b.changes) ? b.changes : String(b.changes || '').split('\n'))
+      .map((x) => String(x).replace(/^[-•*\s]+/, '').trim())
+      .filter(Boolean)
+      .slice(0, 20)
+      .map((x) => x.slice(0, 300)),
     rubricScores: rubricScores.map((r) => ({ criterion: r.criterion, marks: Number(r.marks) || 0 })),
     totalScore,
   };
@@ -360,6 +369,45 @@ async function review(req, res) {
   return ok(res, { id: String(p._id), status: p.status, totalScore }, 'Review saved.');
 }
 
+// POST /api/lms/projects/:id/files  (owner, multipart "file") — design L6
+// "Drop files or browse · zip/pdf/ipynb · max 50 MB". The route's multer
+// (projectFileUpload) already stored it; this checks ownership and hands
+// back { name, url } for the next submit. A rejected upload is deleted.
+async function uploadFile(req, res) {
+  const fs = require('fs');
+  const path = require('path');
+  const drop = () => req.file && fs.unlink(req.file.path, () => {});
+  const p = await mongoose.model('Project').findOne({ _id: req.params.id, removed: false });
+  if (!p) return drop(), bad(res, 404, 'Not found.');
+  if (String(p.student) !== String(req.admin._id)) return drop(), bad(res, 403, 'Only the project owner can upload.');
+  if (p.status === 'approved') return drop(), bad(res, 400, 'Project already approved.');
+  if (!req.file) return bad(res, 400, 'Choose a .zip, .pdf or .ipynb file (max 50 MB).');
+  return ok(res, { name: req.file.originalname, url: `public/uploads/projects/${path.basename(req.file.path)}`, size: req.file.size }, 'Uploaded.');
+}
+
+// POST /api/lms/projects/:id/blocker { text }  (owner) — flag a blocker to
+// the Project Manager; empty text clears it.
+async function setBlocker(req, res) {
+  const p = await mongoose.model('Project').findOne({ _id: req.params.id, removed: false });
+  if (!p) return bad(res, 404, 'Not found.');
+  if (String(p.student) !== String(req.admin._id)) return bad(res, 403, 'Only the project owner can flag a blocker.');
+  const text = String((req.body && req.body.text) || '').trim().slice(0, 500);
+  p.blocker = text ? { text, at: new Date() } : undefined;
+  p.updated = new Date();
+  await p.save();
+  if (text && p.mentor) {
+    await realtime.notify([p.mentor], {
+      type: 'lms.project.blocker',
+      title: `⚠️ ${p.studentName} flagged a blocker on "${p.title}"`,
+      body: text,
+      link: '/teacher/projects',
+      actorName: req.admin.name,
+    });
+  }
+  await auditLog.record({ module: 'project', action: text ? 'blocker' : 'blocker_cleared', entityType: 'Project', entityId: p._id, admin: req.admin, after: { text } });
+  return ok(res, { blocker: p.blocker || null }, text ? 'Blocker sent to your Project Manager.' : 'Blocker cleared.');
+}
+
 // DELETE /api/lms/projects/:id  (manager only — mentors can review/reject,
 // but removing the record entirely is an admin-tier action, same tier as
 // the rest of this app's soft-delete pattern.)
@@ -375,4 +423,4 @@ async function remove(req, res) {
   return ok(res, { id: String(p._id) }, 'Project deleted.');
 }
 
-module.exports = { assign, list, myProjects, getOne, update, updateMilestone, submit, review, remove };
+module.exports = { assign, list, myProjects, getOne, update, updateMilestone, submit, review, remove, uploadFile, setBlocker };

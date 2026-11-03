@@ -14,3 +14,7 @@
   background: rgba(148, 163, 184, 0.12);
   font-size: 13px;
 }
+
+/* learner L6 — file drop zone (board: "Drop files or browse") */
+.pj-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 84px; padding: 12px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; font-size: 13px; text-align: center; cursor: pointer; }
+.pj-drop:hover, .pj-drop.on { border-color: #0e7490; background: #ecfeff; }

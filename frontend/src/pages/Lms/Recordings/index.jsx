@@ -85,7 +85,7 @@ export default function Recordings() {
   const isLearnerPanel = useLocation().pathname.startsWith('/learn');
   const reportRecording = () =>
     navigate('/learn/support', {
-      state: { raise: { category: 'Live Class', subject: 'Recording missing or wrong topic', description: 'Class date / batch:\nWhat is wrong:' } },
+      state: { raise: { category: 'Recording / material', subject: 'Recording missing or wrong topic', description: 'Class date / batch:\nWhat is wrong:' } },
     });
 
   const [rows, setRows] = useState([]);
@@ -100,6 +100,7 @@ export default function Recordings() {
   const [driveOpen, setDriveOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [lFilter, setLFilter] = useState('All');
+  const [lMonth, setLMonth] = useState(''); // learner board's date dropdown — 'YYYY-MM'
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const fileInputRef = useRef(null);
@@ -391,7 +392,20 @@ export default function Recordings() {
       DELETED: ['adh', 'Source unavailable'],
     };
     const bucket = (r) => (r.status === 'AVAILABLE' ? 'Ready' : ['FAILED', 'DELETED'].includes(r.status) ? 'Problem' : 'In progress');
-    const shown = filteredRows.filter((r) => lFilter === 'All' || bucket(r) === lFilter);
+    const monthKey = (v) => (v ? `${new Date(v).getFullYear()}-${String(new Date(v).getMonth() + 1).padStart(2, '0')}` : '');
+    const months = [...new Set(filteredRows.map((r) => monthKey(r.date)).filter(Boolean))].sort().reverse();
+    const monthName = (k) => new Date(`${k}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    const shown = filteredRows.filter((r) => (lFilter === 'All' || bucket(r) === lFilter) && (!lMonth || monthKey(r.date) === lMonth));
+    const ccNote = (r) =>
+      ({
+        AVAILABLE: 'captions abhi nahi',
+        PROCESSING: 'processing ke baad',
+        RECORDING: 'class ke baad',
+        NOT_STARTED: 'class ke baad',
+        AWAITING_UPLOAD: 'upload pending',
+        FAILED: 'team check kar rahi hai',
+        DELETED: 'recording available nahi',
+      })[r.status] || '—';
     const isFrame = playing && (playing.provider === 'bigbluebutton' || playing.provider === 'external');
     return (
       <div className="ld-page">
@@ -407,6 +421,10 @@ export default function Recordings() {
           <select className="ld-inp" aria-label="Module" value={f.courseTitle} onChange={(e) => setF((x) => ({ ...x, courseTitle: e.target.value }))}>
             <option value="">All modules</option>
             {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="ld-inp" aria-label="Date" value={lMonth} onChange={(e) => setLMonth(e.target.value)}>
+            <option value="">All dates</option>
+            {months.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
           </select>
           {batches.length > 1 && (
             <select className="ld-inp" aria-label="Batch" value={f.batchName} onChange={(e) => setF((x) => ({ ...x, batchName: e.target.value }))}>
@@ -432,12 +450,12 @@ export default function Recordings() {
                     const st = L_STATUS[r.status] || ['gray', r.status];
                     return (
                       <tr key={r.id} onClick={() => r.canPlay && play(r)} style={{ cursor: r.canPlay ? 'pointer' : 'default', background: playing && playing.id === r.id ? '#f0fdfa' : undefined }}>
-                        <td><b>{r.batchName || '—'}</b></td>
+                        <td><b>{r.sessionIndex ? `S${r.sessionIndex}` : r.batchName || '—'}</b></td>
                         <td>{r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</td>
                         <td>{r.className || r.courseTitle || '—'}</td>
                         <td>{fmtDuration(r.durationMin)}</td>
                         <td><span className={`ld-chip ${st[0]}`}>{st[1]}</span></td>
-                        <td className="ld-muted">{r.status === 'AVAILABLE' ? 'transcript not available' : r.status === 'DELETED' ? 'recording removed' : 'after processing'}</td>
+                        <td className="ld-muted">{ccNote(r)}</td>
                       </tr>
                     );
                   })}

@@ -14,6 +14,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import './projects.css';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
+import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
 
@@ -121,7 +122,7 @@ function ManageProjects() {
     setSaving(true);
     try {
       const rubricScores = (detail.rubric || []).map((r) => ({ criterion: r.criterion, marks: Number(reviewState.rubricMarks[r.criterion]) || 0 }));
-      const res = await lmsApi.reviewProject(detail.id || detail._id, { decision: reviewState.decision, feedback: reviewState.feedback, rubricScores });
+      const res = await lmsApi.reviewProject(detail.id || detail._id, { decision: reviewState.decision, feedback: reviewState.feedback, changes: reviewState.decision === 'revision_requested' ? reviewState.changes || '' : '', rubricScores });
       message.success(res?.message || 'Saved.');
       setDetail(null); load();
     } catch (e) { message.error('Review failed.'); } finally { setSaving(false); }
@@ -410,6 +411,17 @@ function ManageProjects() {
                           onChange={(e) => setReviewState((s) => ({ ...s, feedback: e.target.value }))}
                           placeholder="Notes for the candidate…"
                         />
+                        {reviewState.decision === 'revision_requested' && (
+                          <>
+                            <label className="feedback-label">Requested changes (one per line)</label>
+                            <textarea
+                              className="feedback"
+                              value={reviewState.changes || ''}
+                              onChange={(e) => setReviewState((s) => ({ ...s, changes: e.target.value }))}
+                              placeholder={'README setup steps\nSample output screenshots'}
+                            />
+                          </>
+                        )}
                         <div className="review-actions">
                           <button type="button" className="cancel-btn" onClick={() => setDetail(null)}>Cancel</button>
                           <button type="button" className="save-btn" disabled={saving} onClick={submitReview}>{saving ? 'Saving…' : 'Save review'}</button>
@@ -439,8 +451,47 @@ function ProjectBlock({ p, onChanged }) {
   const last = (p.submissions || [])[p.submissions.length - 1];
   const [f, setF] = useState({ githubUrl: (last && last.githubUrl) || p.githubUrl || '', deploymentUrl: (last && last.deploymentUrl) || p.deploymentUrl || '', demoUrl: (last && last.demoUrl) || '', note: '' });
   const [saving, setSaving] = useState(false);
+  const [files, setFiles] = useState([]); // uploaded for the next version: { name, url }
+  const [uploading, setUploading] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [blockerOpen, setBlockerOpen] = useState(false);
+  const [blockerText, setBlockerText] = useState('');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const at = STAGE_AT[p.status] ?? 0;
+  const curMilestone = (p.milestones || []).findIndex((m) => m.status !== 'done');
+  const shaOf = (u) => {
+    const m = String(u || '').match(/\/commit\/([0-9a-f]{7,40})/i);
+    return m ? m[1].slice(0, 7) : '';
+  };
+
+  const upload = async (list) => {
+    const picked = [...(list || [])];
+    if (!picked.length) return;
+    setUploading(true);
+    for (const file of picked) {
+      if (!/\.(zip|pdf|ipynb)$/i.test(file.name)) {
+        message.error(`${file.name}: sirf zip / pdf / ipynb`);
+        continue;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        message.error(`${file.name}: 50 MB se bada hai`);
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const r = await lmsApi.uploadProjectFile(p.id, file).catch(() => null);
+      if (r && r.success !== false && r.result) setFiles((xs) => [...xs, { name: r.result.name, url: r.result.url }]);
+      else message.error((r && r.message) || `${file.name}: upload failed`);
+    }
+    setUploading(false);
+  };
+  const sendBlocker = async (text) => {
+    const r = await lmsApi.setProjectBlocker(p.id, text).catch(() => null);
+    if (!r || r.success === false) return message.error((r && r.message) || 'Could not save.');
+    setBlockerOpen(false);
+    setBlockerText('');
+    onChanged();
+    return null;
+  };
   const nextVersion = (p.submissions || []).length + 1;
   const review = last && last.review;
   const scores = (review && review.rubricScores) || [];
@@ -456,10 +507,11 @@ function ProjectBlock({ p, onChanged }) {
   const submit = async () => {
     setSaving(true);
     try {
-      const res = await lmsApi.submitProject(p.id, f);
+      const res = await lmsApi.submitProject(p.id, { ...f, files });
       if (res && res.success === false) throw new Error(res.message);
       message.success((res && res.message) || 'Submitted.');
       setF((x) => ({ ...x, note: '' }));
+      setFiles([]);
       onChanged();
     } catch (e) {
       message.error((e && e.message) || 'Submit failed.');
@@ -471,7 +523,7 @@ function ProjectBlock({ p, onChanged }) {
     navigate('/learn/support', {
       state: {
         raise: {
-          category: 'Internship Content',
+          category: 'Project',
           subject: `Project extension request · ${p.title}`,
           reference: [p.code, p.title, p.dueDate && `due ${dayjs(p.dueDate).format('D MMM YYYY')}`].filter(Boolean).join(' · '),
           description: 'Which milestone:\nReason:\nNew date I can commit to:',
@@ -513,11 +565,42 @@ function ProjectBlock({ p, onChanged }) {
               ))}
             </tbody>
           </table>
+          {p.blocker ? (
+            <div className="ld-warn">
+              <b>Blocker:</b> {p.blocker.text} — PM ko flag kiya ({dayjs(p.blocker.at).format('D MMM')}){' '}
+              {p.status !== 'approved' && <button type="button" className="ld-link" onClick={() => sendBlocker('')}>Resolved</button>}
+            </div>
+          ) : p.status !== 'approved' && (blockerOpen ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="ld-inp" style={{ flex: 1 }} aria-label="Blocker" maxLength={500} value={blockerText} onChange={(e) => setBlockerText(e.target.value)} placeholder="Kya atka hai? (e.g. API key limit)" />
+              <button type="button" className="ld-btn2 sm" disabled={!blockerText.trim()} onClick={() => sendBlocker(blockerText)}>Flag to PM</button>
+            </div>
+          ) : (
+            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => setBlockerOpen(true)}>Koi blocker hai? PM ko flag karein</button>
+          ))}
           {p.status !== 'approved' && <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={requestExtension}>Extension chahiye? PM ko request (approval recorded)</button>}
         </section>
 
         <section className="ld-card" aria-label="Submission" style={{ gap: 12 }}>
-          <div className="ld-hd"><b>Submission{p.status === 'approved' ? '' : ` · v${nextVersion}`}</b></div>
+          <div className="ld-hd"><b>Submission{p.status === 'approved' ? '' : curMilestone >= 0 ? ` · Milestone ${curMilestone + 1}` : ` · v${nextVersion}`}</b></div>
+          {p.status !== 'approved' && (
+            <label
+              className={`pj-drop${drag ? ' on' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); }}
+            >
+              <input type="file" accept=".zip,.pdf,.ipynb" multiple style={{ display: 'none' }} onChange={(e) => { upload(e.target.files); e.target.value = ''; }} />
+              <b>{uploading ? 'Uploading…' : 'Drop files or browse'}</b>
+              <span className="ld-muted">zip / pdf / ipynb · max 50 MB</span>
+            </label>
+          )}
+          {files.map((x, i) => (
+            <div className="ld-li" key={x.url}>
+              <a href={`${BASE_URL}${x.url}`} target="_blank" rel="noopener noreferrer">{x.name}</a>
+              <button type="button" className="ld-link" onClick={() => setFiles((xs) => xs.filter((_, j) => j !== i))}>Remove</button>
+            </div>
+          ))}
           <label className="ld-label">GitHub repo + commit<input className="ld-inp full" name="githubUrl" value={f.githubUrl} onChange={set('githubUrl')} placeholder="https://github.com/…" disabled={p.status === 'approved'} /></label>
           <label className="ld-label">Deployment URL<input className="ld-inp full" name="deploymentUrl" value={f.deploymentUrl} onChange={set('deploymentUrl')} placeholder="https://…" disabled={p.status === 'approved'} /></label>
           <label className="ld-label">Demo video<input className="ld-inp full" name="demoUrl" value={f.demoUrl} onChange={set('demoUrl')} placeholder="Loom / Drive link" disabled={p.status === 'approved'} /></label>
@@ -527,7 +610,7 @@ function ProjectBlock({ p, onChanged }) {
             {(p.submissions || []).length === 0 && <span className="ld-muted">No submission yet.</span>}
             {[...(p.submissions || [])].reverse().map((s, i) => (
               <div key={s.version} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span>v{s.version} · {dayjs(s.submittedAt).format('D MMM h:mm A')}{s.githubUrl ? <> · <a href={s.githubUrl} target="_blank" rel="noopener noreferrer">repo</a></> : null}{s.deploymentUrl ? <> · <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer">live</a></> : null}{s.demoUrl ? <> · <a href={s.demoUrl} target="_blank" rel="noopener noreferrer">demo</a></> : null}</span>
+                <span>v{s.version} · {dayjs(s.submittedAt).format('D MMM h:mm A')}{shaOf(s.githubUrl) ? ` · sha ${shaOf(s.githubUrl)}` : ''}{(s.files || []).map((x) => <React.Fragment key={x.url}> · <a href={`${BASE_URL}${x.url}`} target="_blank" rel="noopener noreferrer">{x.name}</a></React.Fragment>)}{s.githubUrl ? <> · <a href={s.githubUrl} target="_blank" rel="noopener noreferrer">repo</a></> : null}{s.deploymentUrl ? <> · <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer">live</a></> : null}{s.demoUrl ? <> · <a href={s.demoUrl} target="_blank" rel="noopener noreferrer">demo</a></> : null}</span>
                 <span className="ld-muted">{i === 0 ? 'current' : 'kept'}</span>
               </div>
             ))}
@@ -550,6 +633,24 @@ function ProjectBlock({ p, onChanged }) {
             );
           })}
           {review && review.feedback && <div className="ld-soft">&quot;{review.feedback}&quot; — {review.byName}{review.at ? `, ${dayjs(review.at).format('D MMM')}` : ''}</div>}
+          {(() => {
+            // the latest review that asked for changes, and whether a newer version answered it
+            const subs = p.submissions || [];
+            let ri = -1;
+            subs.forEach((s, i) => {
+              if (s.review && (s.review.changes || []).length) ri = i;
+            });
+            if (ri < 0) return null;
+            const answered = ri < subs.length - 1;
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
+                <b>Requested changes</b>
+                {subs[ri].review.changes.map((c) => (
+                  <span key={c}>• {c}{answered && <span className="ld-muted"> (v{subs[subs.length - 1].version} submitted)</span>}</span>
+                ))}
+              </div>
+            );
+          })()}
           <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval sirf Project Manager / authorised approver · eligibility update audit me log hota hai</div>
         </section>
       </div>

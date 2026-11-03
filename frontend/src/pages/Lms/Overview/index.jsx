@@ -112,13 +112,13 @@ export default function LearnerOverview() {
                 </div>
               ))}
             {elig && (
-              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Internship Content', subject: 'Eligibility review / appeal', description: `My scorecard shows ${elig.score}%. What looks wrong:` } } })}>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Eligibility review / appeal', description: `My scorecard shows ${elig.score}%. What looks wrong:` } } })}>
                 Galat lag raha hai? Review / appeal request →
               </button>
             )}
           </section>
           <section className="ld-card" aria-label="Curriculum progress">
-            <div className="ld-hd"><b>Curriculum progress</b></div>
+            <div className="ld-hd"><b>Curriculum progress</b><button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/courses')}>Course content →</button></div>
             {modules.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Curriculum appears once your batch has sessions.</div>}
             {modules.map((m) => {
               const pct = Math.round((m.done / m.total) * 100);
@@ -134,7 +134,7 @@ export default function LearnerOverview() {
         </div>
 
         <section className="ld-card" aria-label="Quizzes and documents">
-          <div className="ld-hd"><b>Quizzes &amp; surprise tests</b></div>
+          <div className="ld-hd"><b>Quizzes &amp; surprise tests</b><button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/results')}>All results →</button></div>
           {quizzes.length === 0 && results.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>No quiz or test taken yet.</div>}
           {quizzes.map((q) => (
             <div className="ld-li" key={q.id || q._id || q.title}>

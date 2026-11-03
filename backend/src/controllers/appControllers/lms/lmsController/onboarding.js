@@ -85,7 +85,49 @@ async function mark(req, res) {
     set.device = { camera: !!b.device.camera, microphone: !!b.device.microphone, browser: String(b.device.browser || '').slice(0, 80) };
   }
   await mongoose.model('OnboardingProgress').updateOne({ student: req.admin._id }, { $set: set }, { upsert: true });
-  return ok(res, await build(req.admin));
+  const ticket = set.device && (!set.device.camera || !set.device.microphone) ? await blockedTicket(req.admin, set.device) : null;
+  return res.status(200).json({
+    success: true,
+    result: { ...(await build(req.admin)), autoTicket: ticket },
+    message: ticket ? `Device check blocked — ticket ${ticket} Support ko chala gaya.` : undefined,
+  });
+}
+
+// Design L10: "Blocked step ka ticket automatic ban jaata hai, Support
+// Manager ko dikh jaata hai." One open ticket per learner for it.
+const BLOCKED_SUBJECT = 'Onboarding blocked: device check (camera / microphone)';
+async function blockedTicket(admin, device) {
+  const Ticket = mongoose.model('Ticket');
+  const { ticketNo } = require('../../../../config/supportTickets');
+  const open = await Ticket.findOne({ removed: false, createdBy: admin._id, subject: BLOCKED_SUBJECT, status: { $ne: 'Resolved' } }).lean();
+  if (open) return ticketNo(open);
+  const name = [admin.name, admin.surname].filter(Boolean).join(' ');
+  const t = await new Ticket({
+    subject: BLOCKED_SUBJECT,
+    description: `Automatic: onboarding device check — camera ${device.camera ? 'OK' : 'not available'}, microphone ${device.microphone ? 'OK' : 'not available'}${device.browser ? `, ${device.browser}` : ''}.`,
+    category: 'Login / Technical',
+    priority: 'Medium',
+    status: 'Open',
+    source: 'student',
+    createdBy: admin._id,
+    raisedByName: name,
+    raisedByEmail: admin.email,
+    raisedByPhone: admin.phone || undefined,
+    reference: 'Onboarding · device check',
+    history: [{ at: new Date(), action: 'created', status: 'Open', byName: 'System (onboarding)' }],
+  }).save();
+  const { notify } = require('../../../../notify');
+  notify({
+    audience: 'support',
+    actorId: admin._id,
+    actorName: name,
+    module: 'Support',
+    type: 'ticket.created',
+    title: `New Login / Technical ticket ${ticketNo(t)}`,
+    body: `${name}: ${BLOCKED_SUBJECT}`,
+    link: '/support',
+  });
+  return ticketNo(t);
 }
 
 module.exports = { mine, mark };

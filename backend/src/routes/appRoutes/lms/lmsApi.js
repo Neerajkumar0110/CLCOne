@@ -12,6 +12,31 @@ const { singleStorageUpload } = require('../../../middlewares/uploadMiddleware')
 // (lmsWebhookApi.js) mounted before the bearer gate.
 const router = express.Router();
 
+// One-file learner upload into src/public/uploads/<dir>/<prefix>-<random>.<ext>
+// (served by corePublicRouter at /public/uploads/...). Extension whitelist +
+// size cap; the handler decides who may use the file.
+function learnerUpload({ dir, prefix, exts, maxMB }) {
+  const multer = require('multer');
+  const fs = require('fs');
+  const path = require('path');
+  const full = `src/public/uploads/${dir}`;
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        fs.mkdirSync(full, { recursive: true });
+        cb(null, full);
+      },
+      filename: (req, file, cb) => cb(null, `${prefix(req)}-${Math.random().toString(36).slice(2, 9)}${path.extname(file.originalname).toLowerCase()}`),
+    }),
+    limits: { fileSize: maxMB * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => cb(null, exts.includes(path.extname(file.originalname).toLowerCase())),
+  }).single('file');
+  return (req, res, next) =>
+    upload(req, res, (err) =>
+      err ? res.status(400).json({ success: false, result: null, message: err.code === 'LIMIT_FILE_SIZE' ? `File is larger than ${maxMB} MB.` : 'Upload failed.' }) : next()
+    );
+}
+
 // ── SSO (current user) ────────────────────────────────────────────────
 router.route('/sso/login-url').get(catchErrors(lms.ssoLoginUrl));
 router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
@@ -140,6 +165,11 @@ router.route('/my/fees/receipt').get(catchErrors(lms.lmsMyFeesReceipt));
 router.route('/my/tickets').get(catchErrors(lms.lmsMyTickets)).post(catchErrors(lms.lmsMyTicketCreate));
 router.route('/my/tickets/payments').get(catchErrors(lms.lmsMyTicketPayments));
 router.route('/my/tickets/:id/confirm').post(catchErrors(lms.lmsMyTicketConfirm));
+// screenshot for a ticket (design L9) — png / jpg / webp up to 5 MB
+router.route('/my/tickets/attachment').post(
+  learnerUpload({ dir: 'tickets', prefix: (req) => String(req.admin._id), exts: ['.png', '.jpg', '.jpeg', '.webp'], maxMB: 5 }),
+  catchErrors(lms.lmsMyTicketAttachment)
+);
 
 // ── doubts (Q&A) ───────────────────────────────────────────────────
 router.route('/doubts').get(catchErrors(lms.doubtList)).post(catchErrors(lms.doubtAsk));
@@ -384,6 +414,25 @@ router.route('/projects').get(catchErrors(lms.projectList)).post(catchErrors(lms
 router.route('/projects/:id').get(catchErrors(lms.projectGet)).patch(catchErrors(lms.projectUpdate)).delete(requireManager, catchErrors(lms.projectDelete));
 router.route('/projects/:id/milestones').post(catchErrors(lms.projectUpdateMilestone));
 router.route('/projects/:id/submit').post(requirePoliciesAccepted, catchErrors(lms.projectSubmit));
+// Project files (design L6): zip / pdf / ipynb up to 50 MB, stored as
+// public/uploads/projects/<projectId>-<random>.<ext>; ownership is checked
+// in the handler (a rejected file is deleted there).
+router.route('/projects/:id/files').post(
+  requirePoliciesAccepted,
+  learnerUpload({ dir: 'projects', prefix: (req) => String(req.params.id).replace(/[^a-f0-9]/gi, ''), exts: ['.zip', '.pdf', '.ipynb'], maxMB: 50 }),
+  catchErrors(lms.projectUploadFile)
+);
+router.route('/projects/:id/blocker').post(requirePoliciesAccepted, catchErrors(lms.projectSetBlocker));
+
+// External certificates (design L8) — learner adds, Support verifies
+router.route('/my/external-certificates').get(catchErrors(lms.externalCertMine)).post(catchErrors(lms.externalCertAdd));
+router.route('/my/external-certificates/file').post(
+  learnerUpload({ dir: 'external-certificates', prefix: (req) => String(req.admin._id), exts: ['.pdf', '.png', '.jpg', '.jpeg'], maxMB: 10 }),
+  catchErrors(lms.externalCertUpload)
+);
+router.route('/my/external-certificates/:id').delete(catchErrors(lms.externalCertRemove));
+router.route('/admin/external-certificates').get(catchErrors(lms.externalCertList));
+router.route('/admin/external-certificates/:id/review').post(catchErrors(lms.externalCertReview));
 router.route('/projects/:id/review').post(catchErrors(lms.projectReview));
 router.route('/my/projects').get(requirePoliciesAccepted, catchErrors(lms.projectMyList));
 router.route('/teacher/projects').get(catchErrors(lms.projectList));

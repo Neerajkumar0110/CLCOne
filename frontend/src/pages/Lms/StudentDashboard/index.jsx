@@ -121,7 +121,7 @@ export default function StudentDashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Namaste, {(d.student?.name || 'there').split(' ')[0]}</h1>
           <div className="ld-muted" style={{ fontSize: 14 }}>
-            {[batch && `${batch} batch`, course].filter(Boolean).join(' · ') || 'Your internship'} · last updated {fmtTime(new Date())}
+            {[batch && `${batch} batch`, onboarding && onboarding.pmName && `Project Manager: ${onboarding.pmName}`].filter(Boolean).join(' · ') || course || 'Your internship'} · last updated {fmtTime(new Date())}
           </div>
         </div>
         {k.liveNow > 0 && (
@@ -146,9 +146,10 @@ export default function StudentDashboard() {
                   </div>
                 ))}
               </div>
-              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Internship Content', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } } })}>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } } })}>
                 Calculation galat lagi? Review request karein
               </button>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/eligibility')}>Har gate ki detail →</button>
             </>
           ) : (
             <div className="ld-muted" style={{ fontSize: 14 }}>No eligibility rule is set for your internship yet.</div>

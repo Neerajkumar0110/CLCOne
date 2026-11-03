@@ -129,7 +129,7 @@ const LD_THEME = {
 };
 // Learner routes already rebuilt to their board (they render their own
 // .ld-page); every other learner route gets the board shell around it.
-const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/classes', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
+const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/classes', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/pm-feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
 const isBoardBuilt = (path) => BOARD_BUILT.some((p) => path === p || (p !== '/learn' && path.startsWith(`${p}/`)));
 
 const ComingSoon = ({ title }) => (
@@ -399,14 +399,12 @@ const TEACHER_NAV = [
   ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
-// Learner sidebar — same groups and order as the design canvas (R1 "Har
-// role ka sidebar" / L3 board): START → LEARN → ME. Pages the design doesn't
-// list (Internships, Calendar, Doubts, Results, Eligibility, Announcements)
-// stay, in the group they belong to. A one-element entry ['#LABEL'] is a
-// group heading, not a route.
+// Learner sidebar — exactly the design canvas R1 "Har role ka sidebar"
+// learner column: START → LEARN → ME, same items, same order. A one-element
+// entry ['#LABEL'] is a group heading, not a route.
 const STUDENT_NAV = [
   ['#START'],
-  ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn', 'Home / dashboard', <DashboardOutlined />, <StudentDashboard />],
   ['/learn/onboarding', 'Onboarding checklist', <ScheduleOutlined />, <Onboarding />],
   ['/learn/policies', 'Policies & consent', <FileProtectOutlined />, <Policies />],
   basicTestEntry('/learn', 'Readiness test'),
@@ -416,22 +414,30 @@ const STUDENT_NAV = [
   ['/learn/material', 'Study material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/learn/curriculum', 'Curriculum progress', <ScheduleOutlined />, <Curriculum />],
   ['/learn/assessment-dashboard', 'Assessments & tests', <RocketOutlined />, <AssessmentDashboard />],
-  quizzesGroup('/learn', 'Major & Micro tests', { withBasic: false }),
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/learn/projects', 'My Project', <ProjectOutlined />, <Projects />],
-  ['/learn/courses', 'My Internships', <BookOutlined />, <LearningPage />],
-  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
-  ['/learn/doubts', 'My Doubts', <QuestionCircleOutlined />, <Doubts />],
   ['#ME'],
-  ['/learn/feedback', 'Weekly & PM feedback', <CommentOutlined />, <WeeklyFeedback />],
+  ['/learn/feedback', 'Weekly feedback', <CommentOutlined />, <WeeklyFeedback key="weekly" />],
+  ['/learn/pm-feedback', 'PM feedback', <CommentOutlined />, <WeeklyFeedback key="pm" initialTab="pm" />],
   ['/learn/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/learn/overview', 'Progress · timeline · documents', <TrophyOutlined />, <LearnerOverview />],
-  ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
-  ['/learn/eligibility', 'My Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
   ['/learn/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
   ['/learn/fees', 'Fees & receipts', <WalletOutlined />, <MyFees />],
-  ['/learn/notifications', 'Announcements', <BellOutlined />, <AnnouncementsPage />],
   ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
+];
+// Learner pages R1 doesn't put in the sidebar — still routed, reached from
+// where they belong: Major / Micro tests (Assessments & tests), Internships
+// course content (My progress), Calendar (Live classes), Doubts (Support),
+// Results (test pages, My progress), Eligibility (Home), Announcements (bell,
+// Home). Nothing removed.
+const STUDENT_MORE = [
+  ...flattenNavLeaves([quizzesGroup('/learn', 'Major & Micro tests', { withBasic: false })]),
+  ['/learn/courses', 'My Internships', null, <LearningPage />],
+  ['/learn/calendar', 'Calendar', null, <LmsCalendar />],
+  ['/learn/doubts', 'My Doubts', null, <Doubts />],
+  ['/learn/results', 'My Results', null, <Results />],
+  ['/learn/eligibility', 'My Eligibility', null, <Eligibility />],
+  ['/learn/notifications', 'Announcements', null, <AnnouncementsPage />],
 ];
 
 export default function LmsPanelApp() {
@@ -623,7 +629,7 @@ export default function LmsPanelApp() {
         <FinanceHoldScreen info={updates.finance.outstanding} />
       ) : (
         <Routes>
-          {leaves.map(([path, , , element]) => (
+          {(isTeacher ? leaves : [...leaves, ...STUDENT_MORE]).map(([path, , , element]) => (
             <Route key={path} path={path} element={gate(path, element)} />
           ))}
           {/* Not in the sidebar (dropped along with "All Quizzes"), but every
@@ -796,6 +802,17 @@ export default function LmsPanelApp() {
         <Content style={{ margin: 10, overflow: 'initial', width: 'calc(100% - 20px)', padding: 0, maxWidth: 'none' }}>
           {routes}
         </Content>
+        {/* board L16: on a phone the learner's main pages sit in a bottom tab bar (44px targets); ☰ still opens the full menu */}
+        {!isTeacher && isMobile && (
+          <nav className="ld-tabbar" aria-label="Main">
+            {[['/learn', 'Home', <DashboardOutlined />], ['/learn/classes', 'Classes', <VideoCameraOutlined />], ['/learn/recordings', 'Videos', <PlayCircleOutlined />], ['/learn/projects', 'Project', <ProjectOutlined />], ['/learn/support', 'Help', <CustomerServiceOutlined />]].map(([p, l, ic]) => (
+              <button key={p} type="button" className={selectedKey === p ? 'on' : ''} aria-current={selectedKey === p ? 'page' : undefined} onClick={() => go(p)}>
+                {ic}
+                <span>{l}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </Layout>
     </Layout>
   );
