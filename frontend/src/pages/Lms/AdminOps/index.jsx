@@ -16,7 +16,7 @@ import './AdminOps.css';
 // boards A1–A11. Its own section in the CRM sidebar (config/featureSections
 // 'admin-ops'): one sub-tab per screen, in the board's sidebar order, each
 // rendering <AdminOpsScreen screen=…/> in the board's look.
-export const SCREENS = [
+const SCREENS = [
   { key: 'approvals', label: 'Ops approvals', C: OpsApprovals },
   { key: 'kpis', label: 'Management KPIs', C: Mgmt },
   { key: 'reports', label: 'Reports & exports', C: Reports },
