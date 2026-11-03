@@ -602,6 +602,10 @@ export default function LmsPanelApp() {
   // pages' data (requirePoliciesAccepted); send the learner to the consent
   // page instead of showing them broken.
   const policyGate = !isTeacher && updates.policies && updates.policies.pendingMandatory > 0;
+  const [enrollmentId, setEnrollmentId] = useState('');
+  useEffect(() => {
+    if (policyGate && !enrollmentId) lmsApi.myOnboarding().then((r) => setEnrollmentId((r && r.result && r.result.enrollmentId) || '')).catch(() => {});
+  }, [policyGate, enrollmentId]);
   const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes', '/learn/tests'];
   const shell = (path, element) =>
     isTeacher ? element : (
@@ -685,6 +689,24 @@ export default function LmsPanelApp() {
       {menu}
     </>
   );
+
+  // Board L1: until the mandatory policies are accepted the consent page is
+  // an account-activation screen — full width, no sidebar, a dark top bar
+  // with the brand and the learner's name · enrollment ID.
+  if (policyGate && location.pathname === '/learn/policies') {
+    return (
+      <div className="ld-activate">
+        <header className="ld-actbar">
+          <div className="ld-brand" style={{ padding: 0 }}>Career Lab · <span>InternX-AI</span></div>
+          <div className="ld-actbar-r">
+            <span>{[`${admin.name || ''} ${admin.surname || ''}`.trim(), enrollmentId].filter(Boolean).join(' · ')}</span>
+            <button type="button" onClick={() => dispatch(logoutAction())}>Logout</button>
+          </div>
+        </header>
+        {routes}
+      </div>
+    );
+  }
 
   return (
     <Layout hasSider style={{ minHeight: '100vh' }}>

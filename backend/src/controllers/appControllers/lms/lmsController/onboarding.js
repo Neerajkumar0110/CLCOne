@@ -60,6 +60,8 @@ async function build(admin) {
   return {
     name: admin.name,
     batch: batch ? batch.name : row && row.batch,
+    batchTime: batch && batch.classTime && batch.endTime ? `${batch.classTime}–${batch.endTime}` : '',
+    enrollmentId: (row && row.enrollmentId) || '',
     pmName: batch ? trainerNames(batch.trainer)[0] || '' : '',
     startDate: batch && batch.startDate,
     steps,

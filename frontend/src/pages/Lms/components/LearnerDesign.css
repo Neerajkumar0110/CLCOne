@@ -144,6 +144,16 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
   min-height: 100%;
 }
 
+/* board L1 account-activation screen: no sidebar, dark 64px bar */
+.ld-activate { min-height: 100vh; background: #f4f6f8; display: flex; flex-direction: column; font-family: Inter, system-ui, sans-serif; }
+.ld-actbar { height: 64px; flex-shrink: 0; background: #042430; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 32px; }
+.ld-actbar-r { display: flex; align-items: center; gap: 20px; font-size: 14px; color: #cbd5e1; min-width: 0; }
+.ld-actbar-r > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ld-actbar-r button { background: none; border: 0; padding: 0; font: inherit; color: #cbd5e1; text-decoration: underline; cursor: pointer; }
+.ld-actbar-r button:hover { color: #fff; }
+.ld-activate .ld-root { flex: 1; }
+@media (max-width: 760px) { .ld-actbar { padding: 0 16px; } .ld-activate .ld-page { padding: 20px 16px !important; } }
+
 /* top bar + content frame: the boards are flush, light, no outer margin */
 .ld-topbar.app-header { --nav-text: #0f172a; background: #fff !important; border-bottom: 1px solid #e2e8f0; box-shadow: none !important; }
 .ld-topbar ~ .ant-layout-content { margin: 0 !important; width: 100% !important; }

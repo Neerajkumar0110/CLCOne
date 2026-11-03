@@ -265,7 +265,13 @@ function StudentPolicies() {
   const [view, setView] = useState(null);
   const [agree, setAgree] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  // onboarding checklist: "STEP x OF n" + the batch line of the board header
+  const [ob, setOb] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    lmsApi.myOnboarding().then((r) => setOb((r && r.result) || null)).catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -317,13 +323,14 @@ function StudentPolicies() {
     return <span className="ld-chip gray">Not opened</span>;
   };
   const mandatoryPending = pending.filter((r) => r.mandatory !== false).length;
+  const stepNo = ob && ob.steps ? ob.steps.findIndex((s) => s.key === 'policies') + 1 : 0;
 
   // design board L1 — same header, 460px policy list | acknowledgement card
   return (
     <div className="ld-page" style={{ padding: '36px 56px', gap: 20 }}>
       <div className="ld-head">
         <div style={{ gap: 6 }}>
-          <div className="ld-eyebrow">Account activation</div>
+          <div className="ld-eyebrow">{stepNo ? `Step ${stepNo} of ${ob.total} · ` : ''}Account activation</div>
           <h1 style={{ fontSize: 32 }}>{pending.length ? 'LMS shuru karne se pehle policies accept karein' : 'Policies & agreements'}</h1>
           <div className="ld-muted" style={{ fontSize: 15 }}>
             {mandatoryPending ? 'Jab tak accept nahi hota, classes, recordings aur tests band rahenge — direct link se bhi.' : 'Aapne saari zaroori policies accept kar li hain.'}
@@ -334,6 +341,9 @@ function StudentPolicies() {
       <div className="ld-grid" style={{ gridTemplateColumns: pending.length ? '460px minmax(0, 1fr)' : 'minmax(0, 720px)', gap: 20, flex: 1 }}>
         <section className="ld-card p20" aria-label="Your policies" style={{ gap: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Aapke liye policies ({rows.length})</div>
+          {ob && ob.batch && (
+            <div className="ld-muted" style={{ fontSize: 13, marginBottom: 8 }}>Batch: {ob.batch}{ob.batchTime ? ` · ${ob.batchTime}` : ''}</div>
+          )}
           {rows.length === 0 ? (
             <div className="ld-empty">No policies have been published for you yet.</div>
           ) : (
