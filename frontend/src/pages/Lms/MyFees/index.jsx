@@ -1,45 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { Empty, Skeleton, Alert, message } from 'antd';
-import {
-  WalletOutlined,
-  BookOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  CreditCardOutlined,
-  FileTextOutlined,
-  DownloadOutlined,
-} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
-import '../components/FeesCourses.css';
+import '../components/LearnerDesign.css';
 
-// Same visual language as the Finance hub's payment detail modal
-// (pages/Finance/index.jsx's PaymentDetailModal) — the underlying data
-// (plan/installments from GET /api/lms/my/fees) is unchanged, only the
-// markup/CSS here is redesigned.
+// My fees — design board L12: 4 KPI tiles, installments & receipts table |
+// pay-next-installment card. Data is unchanged (plan/installments from
+// GET /api/lms/my/fees, receipt PDF from GET /api/lms/my/fees/receipt).
 
 function money(amount) {
-  const n = Number(amount || 0);
-  return `₹${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₹${Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 function formatDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+const shortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—');
 
-const STATUS_CLASS = {
-  paid: 'txn-status',
-  created: 'txn-status pending',
-  upcoming: 'txn-status pending',
-  expired: 'txn-status pending',
-  cancelled: 'txn-status pending',
-  failed: 'txn-status pending',
-};
+const STATUS_CHIP = { paid: 'hai', created: 'adh', upcoming: 'gray', expired: 'red', cancelled: 'gray', failed: 'red' };
+const STATUS_LABEL = { created: 'due', upcoming: 'upcoming' };
 
 export default function MyFees() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [d, setD] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
@@ -67,9 +53,9 @@ export default function MyFees() {
   const feePaid = Number(plan ? plan.paidTotal : d.feePaid) || 0;
   const feeDue = Number(plan ? plan.remaining : d.feeDue) || 0;
   const payUrl = plan && plan.remaining > 0 ? plan.shortUrl : '';
-  const pct = feeGrandTotal > 0 ? Math.round((feePaid / feeGrandTotal) * 100) : feeDue <= 0 ? 100 : 0;
   // design L12: the whole schedule — paid, created and still-upcoming installments
   const allInstallments = plan ? plan.installments : [];
+  const next = allInstallments.find((i) => i.status !== 'paid');
   const downloadReceipt = async () => {
     setDownloading(true);
     try {
@@ -80,189 +66,85 @@ export default function MyFees() {
       setDownloading(false);
     }
   };
+  const paymentTicket = () =>
+    navigate('/learn/support', {
+      state: { raise: { category: 'Payment / Fees', subject: 'Payment issue', reference: (next && next.reference) || d.enrollmentId || '', description: 'Order / reference ID:\nWhat happened:' } },
+    });
 
   return (
-    <div className="fees-page">
-      <div className="page-hero">
-        <div className="hero-left">
-          <div className="hero-icon">
-            <WalletOutlined />
-          </div>
-          <div className="hero-title">
-            <h1>My Fees</h1>
-            <p>
-              {d.course || 'Your internship'}
-              {d.batch ? ` · Batch ${d.batch}` : ''}
-              {d.enrollmentId ? ` · ${d.enrollmentId}` : ''}
-            </p>
-          </div>
-        </div>
-        {payUrl && (
-          <a className="hero-action" href={payUrl} target="_blank" rel="noreferrer">
-            <button type="button" className="hero-pay-button">
-              <CreditCardOutlined /> Pay next installment
-            </button>
-          </a>
-        )}
-      </div>
-
-      <div className="fee-stat-grid">
-        <div className="fee-stat-card">
-          <div className="fee-stat-icon">
-            <BookOutlined />
-          </div>
-          <div className="fee-stat-content">
-            <span>Total payable</span>
-            <strong>{money(feeGrandTotal)}</strong>
-          </div>
-        </div>
-        <div className="fee-stat-card paid">
-          <div className="fee-stat-icon">
-            <CheckCircleOutlined />
-          </div>
-          <div className="fee-stat-content">
-            <span>Paid so far</span>
-            <strong>{money(feePaid)}</strong>
-          </div>
-        </div>
-        <div className="fee-stat-card balance">
-          <div className="fee-stat-icon">
-            <ExclamationCircleOutlined />
-          </div>
-          <div className="fee-stat-content">
-            <span>Balance due</span>
-            <strong>{money(feeDue)}</strong>
+    <div className="ld-page">
+      <div className="ld-hd">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <h1>My fees</h1>
+          <div className="ld-muted" style={{ fontSize: 14 }}>
+            {[d.course || 'Your internship', plan && plan.installmentCount > 1 ? `${plan.installmentCount}-installment EMI plan` : null, d.batch && `Batch ${d.batch}`].filter(Boolean).join(' · ')}
           </div>
         </div>
       </div>
 
-      <div className="fee-main-grid">
-        <div className="dashboard-card">
-          <div className="card-header">
-            <div>
-              <h2>Payment Overview</h2>
-            </div>
-          </div>
-          <div className="payment-overview">
-            <div className="payment-circle" style={{ '--pct': `${pct}%` }}>
-              <div className="payment-circle-content">
-                <strong>{pct}%</strong>
-                <span>Paid</span>
-              </div>
-            </div>
-            <div className="payment-details">
-              <div className="payment-values">
-                <div className="payment-value">
-                  <span>Total Paid</span>
-                  <strong>{money(feePaid)}</strong>
-                </div>
-                <div className="payment-value">
-                  <span>Remaining</span>
-                  <strong>{money(feeDue)}</strong>
-                </div>
-              </div>
-              <div className="payment-progress">
-                <div className="payment-progress-top">
-                  <span>Payment Progress</span>
-                  <span>{pct}%</span>
-                </div>
-                <div className="progress-track" style={{ '--pct': `${pct}%` }}>
-                  <span />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="dashboard-card">
-          <div className="payment-success">
-            {feeDue <= 0 ? (
-              <div className="success-box">
-                <div className="success-icon">
-                  <CheckCircleOutlined />
-                </div>
-                <div className="success-content">
-                  <strong>No outstanding payment</strong>
-                  <p>Your fee is fully paid. Thank you for your payment!</p>
-                </div>
-              </div>
-            ) : (
-              <div className="success-box is-due">
-                <div className="success-icon">
-                  <ExclamationCircleOutlined />
-                </div>
-                <div className="success-content">
-                  <strong>Payment pending</strong>
-                  <p>You have a balance of {money(feeDue)} due.</p>
-                  {payUrl && (
-                    <a className="pay-link" href={payUrl} target="_blank" rel="noreferrer">
-                      Pay now →
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Total fee</span><b style={{ fontSize: 26 }}>{money(feeGrandTotal)}</b></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Paid</span><b style={{ fontSize: 26, color: '#166534' }}>{money(feePaid)}</b></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Outstanding</span><b style={{ fontSize: 26, color: feeDue > 0 ? '#9a3412' : '#166534' }}>{money(feeDue)}</b></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Next due</span><b style={{ fontSize: 26 }}>{next ? formatDate(next.dueAt) : '—'}</b></div>
       </div>
 
-      <div className="dashboard-card transaction-card">
-        <div className="card-header">
-          <div>
-            <h2>Transaction / Fee Details</h2>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px', flex: 1 }}>
+        <section className="ld-card" aria-label="Installments and receipts">
+          <div className="ld-hd">
+            <b style={{ fontSize: 16 }}>Installments &amp; receipts</b>
+            <button type="button" className="ld-btn2 sm" onClick={downloadReceipt} disabled={downloading}>{downloading ? 'Preparing…' : 'Download receipt (PDF)'}</button>
           </div>
-          <div className="transaction-actions">
-            <button type="button" className="download-button" onClick={downloadReceipt} disabled={downloading}>
-              <DownloadOutlined /> {downloading ? 'Preparing…' : 'Download Receipt'}
-            </button>
+          <div className="ld-tablewrap">
+            <table className="ld-table transaction-table">
+              <thead><tr><th>#</th><th>Due date</th><th>Amount</th><th>Paid on</th><th>Reference</th><th>Status</th><th>Receipt</th></tr></thead>
+              <tbody>
+                {allInstallments.length === 0 ? (
+                  <tr><td colSpan={7} className="ld-empty">No transaction records found — your payment history will appear here once available.</td></tr>
+                ) : (
+                  allInstallments.map((ins) => (
+                    <tr key={ins.id || `n${ins.installmentNo}`}>
+                      <td>{ins.installmentNo}</td>
+                      <td>{formatDate(ins.dueAt)}</td>
+                      <td>{money(ins.amount)}</td>
+                      <td>{shortDate(ins.paidAt)}</td>
+                      <td>{ins.reference || '—'}</td>
+                      <td><span className={`ld-chip ${STATUS_CHIP[ins.status] || 'gray'}`}>{STATUS_LABEL[ins.status] || ins.status}</span></td>
+                      <td>{ins.status === 'paid' ? <button type="button" className="ld-link" onClick={downloadReceipt}>PDF</button> : '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+          <div className="ld-soft">Payment tabhi &quot;Paid&quot; dikhega jab server ne gateway se verify kar liya ho — sirf success screen kaafi nahi.</div>
+          <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Fees, EMI, refund aur cancellation terms: <button type="button" className="ld-link" onClick={() => navigate('/learn/policies')}>Course terms</button></div>
+        </section>
 
-        <div className="transaction-table-wrapper">
-          <table className="transaction-table">
-            <thead>
-              <tr>
-                <th>DATE</th>
-                <th>DESCRIPTION</th>
-                <th>AMOUNT</th>
-                <th>REFERENCE</th>
-                <th>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allInstallments.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="empty-table">
-                    <div className="empty-icon">
-                      <FileTextOutlined />
-                    </div>
-                    <strong>No transaction records found</strong>
-                    <br />
-                    <span>Your payment history will appear here once available.</span>
-                  </td>
-                </tr>
+        <section className="ld-card" aria-label="Pay next installment">
+          {next ? (
+            <>
+              <b style={{ fontSize: 16 }}>Pay installment {next.installmentNo}</b>
+              <div style={{ fontSize: 30, fontWeight: 700 }}>{money(next.amount)}</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>UPI · cards · netbanking via Razorpay</div>
+              {payUrl ? (
+                <a className="ld-btn" href={payUrl} target="_blank" rel="noreferrer">Pay now</a>
               ) : (
-                allInstallments.map((ins) => (
-                  <tr key={ins.id || `n${ins.installmentNo}`}>
-                    <td>
-                      {formatDate(ins.paidAt || ins.dueAt)}
-                      <br />
-                      <span className="txn-date-sub">{ins.paidAt ? 'paid on' : 'due'}</span>
-                    </td>
-                    <td>
-                      Installment {ins.installmentNo}/{plan.installmentCount}
-                    </td>
-                    <td>{money(ins.amount)}</td>
-                    <td>{ins.reference || '—'}</td>
-                    <td>
-                      <span className={STATUS_CLASS[ins.status] || 'txn-status pending'}>{ins.status}</span>
-                    </td>
-                  </tr>
-                ))
+                <button type="button" className="ld-btn" disabled>Payment link not ready yet</button>
               )}
-            </tbody>
-          </table>
-        </div>
+              <div className="ld-warn">Due date ke baad payment na ho to LMS access hold par ja sakta hai (finance policy ke hisaab se). Hold par bhi Support aur Fees page khule rehte hain.</div>
+            </>
+          ) : (
+            <>
+              <b style={{ fontSize: 16 }}>No outstanding payment</b>
+              <div style={{ fontSize: 30, fontWeight: 700, color: '#166534' }}>{money(0)}</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>Your fee is fully paid. Thank you!</div>
+            </>
+          )}
+          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Payment issue?</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>Order / reference ID ke saath ticket banayein. Card details kabhi mat bhejein.</div>
+          <button type="button" className="ld-link" style={{ fontSize: 13, marginTop: 'auto' }} onClick={paymentTicket}>Raise payment ticket →</button>
+        </section>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import '../components/LearnerDesign.css';
 
 const { Text, Paragraph, Title } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -231,100 +232,110 @@ function TeacherCertificates({ isManagerRole }) {
   );
 }
 
-// A card always shows for every enrolled course — it just stays locked
-// until both real conditions are met (see certificates.js#checkEligibility):
-// the program's actual duration (6/12 months since enrolment) has elapsed,
-// and the capstone project has actually been submitted. Nothing here is
-// issued by an admin clicking a button — it unlocks itself.
-// Plain flex divs, not antd <Space> — Space defaults to display:inline-flex,
-// which let this row and the button row below it flow onto the same visual
-// line once the card got narrow (3-up grid), instead of stacking.
-function RequirementRow({ ok, icon, label }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: ok ? '#15803d' : '#94a3b8' }}>
-      {ok ? <CheckCircleFilled style={{ color: '#16a34a' }} /> : icon}
-      <Text style={{ color: 'inherit' }}>{label}</Text>
-    </div>
-  );
-}
-
+/// Design board L8 — certificate preview on the left (520px, dark panel), one
+// card per programme on the right (issued: download / copy verify link /
+// correction; not yet: the requirement rows), then the public verify preview.
 function StudentCertificates() {
   const navigate = useNavigate();
+  const admin = useSelector(selectCurrentAdmin) || {};
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState(0);
   useEffect(() => {
     lmsApi.myCertificates().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
+
+  const issued = rows.filter((c) => c.eligible);
+  const cur = rows[sel] || issued[0] || rows[0];
+  const learner = [admin.name, admin.surname].filter(Boolean).join(' ') || 'Learner';
+  const verifyLink = (c) => (c.verificationUrl ? new URL(c.verificationUrl, window.location.origin).href : '');
+  const copyLink = (c) => {
+    const link = verifyLink(c);
+    if (!link) return;
+    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => message.success('Verify link copied')).catch(() => message.info(link));
+  };
+  const correction = (c) =>
+    navigate('/learn/support', {
+      state: {
+        raise: {
+          category: 'Certificate',
+          subject: `Certificate correction · ${c.certificateId}`,
+          reference: [c.title, c.certificateId].filter(Boolean).join(' · '),
+          description: 'What is wrong on the certificate (name spelling, programme, date…):',
+          expected: 'It should read:',
+        },
+      },
+    });
+  const masked = learner.split(' ').map((p, i) => (i === 0 ? p : `${p[0]}.`)).join(' ');
+
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><TrophyOutlined /> My Certificates</h2><p>Your program certificates — unlocks once your duration is complete and your project is submitted.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="Not enrolled in any internship yet." /></Card> : (
-        <Row gutter={[16, 16]}>
-          {rows.map((c) => (
-            <Col xs={24} sm={12} lg={8} key={c.course}>
-              <Card>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
-                  {!c.eligible && <Tag icon={<LockOutlined />} color="default">Not unlocked yet</Tag>}
-                </div>
-                <Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>{c.title}</Title>
-                <Text strong>{c.course}</Text>
-                <Paragraph type="secondary" style={{ margin: '4px 0 10px' }}>{c.track}</Paragraph>
+    <div className="ld-page">
+      <div className="ld-head">
+        <div>
+          <h1>My certificates</h1>
+          <div className="ld-muted ld-sub">Unlocks itself once your programme duration is complete and your capstone project is submitted</div>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="ld-card"><div className="ld-empty">Not enrolled in any internship yet.</div></div>
+      ) : (
+        <div className="ld-grid" style={{ gridTemplateColumns: '520px minmax(0, 1fr)', flex: 1 }}>
+          <div className="ld-card" style={{ alignItems: 'center', justifyContent: 'center', background: '#0b1a33', borderColor: '#0b1a33' }} aria-label="Certificate preview">
+            <div style={{ width: '100%', maxWidth: 440, minHeight: 600, background: '#fbf6ea', border: '6px double #b08d3c', padding: '36px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', opacity: cur && cur.eligible ? 1 : 0.6 }}>
+              <div style={{ fontSize: 12, letterSpacing: '.2em', fontWeight: 700, color: '#0b1a33' }}>CAREER LAB CONSULTING</div>
+              <div style={{ fontSize: 13, letterSpacing: '.15em', fontWeight: 700, color: '#0b1a33' }}>INTERN<span style={{ color: '#b08d3c' }}>X</span>-AI</div>
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 44, fontWeight: 700, color: '#0b1a33', marginTop: 18 }}>CERTIFICATE</div>
+              <div style={{ fontSize: 14, letterSpacing: '.25em', color: '#8a6d2b', fontWeight: 600 }}>OF COMPLETION</div>
+              <div style={{ fontSize: 13, fontStyle: 'italic', color: '#334155', marginTop: 14 }}>This certificate is proudly presented to</div>
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 30, color: '#0b1a33', borderBottom: '1px solid #b08d3c', padding: '0 24px 6px' }}>{learner}</div>
+              <div style={{ fontSize: 12, fontStyle: 'italic', color: '#334155' }}>For successfully completing the</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#0b1a33', textTransform: 'uppercase' }}>{cur ? cur.title || cur.course : ''}</div>
+              <div style={{ display: 'flex', gap: 24, marginTop: 'auto', fontSize: 11, color: '#334155' }}>
+                <div><b style={{ color: '#0b1a33' }}>CERTIFICATE ID</b><br />{cur && cur.eligible ? cur.certificateId : 'issued on completion'}</div>
+                <div><b style={{ color: '#0b1a33' }}>DATE</b><br />{cur && cur.issuedOn ? dayjs(cur.issuedOn).format('D MMM YYYY') : '—'}</div>
+              </div>
+              {!(cur && cur.eligible) && <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 600 }}>PREVIEW — not unlocked yet</div>}
+            </div>
+          </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                  <RequirementRow ok={c.durationOk} icon={<ClockCircleOutlined />} label={`${c.durationMonths}-month duration complete`} />
-                  <RequirementRow ok={c.projectOk} icon={<FileDoneOutlined />} label="Capstone project submitted" />
-                </div>
-
-                {c.eligible && (
-                  <Paragraph type="secondary" style={{ margin: '0 0 10px', fontSize: 12.5 }}>
-                    ID {c.certificateId}<br />Grade {c.grade} · {c.score}%<br />Issued {c.issuedOn ? dayjs(c.issuedOn).format('D MMM YYYY') : '—'}
-                  </Paragraph>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+            {rows.map((c, i) => (
+              <section className="ld-card" key={c.course} aria-label={c.title} style={{ outline: cur === c ? '2px solid #0e7490' : 'none', cursor: 'pointer' }} onClick={() => setSel(i)}>
+                <div className="ld-hd"><b>{c.title}{c.track ? ` · ${c.track}` : ''}</b><span className={`ld-chip ${c.eligible ? 'hai' : 'gray'}`}>{c.eligible ? 'Issued' : 'Not yet eligible'}</span></div>
+                {c.eligible ? (
+                  <>
+                    <div className="ld-muted" style={{ fontSize: 13 }}>Issued by Career Lab · {c.issuedOn ? dayjs(c.issuedOn).format('D MMM YYYY') : '—'} · ID {c.certificateId}{c.grade ? ` · Grade ${c.grade}` : ''}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="ld-btn md" onClick={() => lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`))}>Download PDF</button>
+                      {c.verificationUrl && <button type="button" className="ld-btn2" onClick={() => copyLink(c)}>Copy verify link</button>}
+                      <button type="button" className="ld-btn2" onClick={() => correction(c)}>Name correction request</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="ld-li"><span>{c.durationMonths}-month duration complete</span>{c.durationOk ? <b style={{ color: '#166534' }}>done</b> : <span style={{ color: '#991b1b', fontWeight: 600 }}>missing</span>}</div>
+                    <div className="ld-li"><span>Capstone project submitted</span>{c.projectOk ? <b style={{ color: '#166534' }}>done</b> : <span style={{ color: '#991b1b', fontWeight: 600 }}>pending</span>}</div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="ld-btn2 sm" onClick={() => lmsApi.previewCertificatePdf(c.courseId)}>Preview PDF</button>
+                    </div>
+                  </>
                 )}
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {c.eligible ? (
-                    <Button
-                      size="small"
-                      type="primary"
-                      icon={<DownloadOutlined />}
-                      onClick={() => lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`))}
-                    >
-                      Download
-                    </Button>
-                  ) : (
-                    <Tooltip title="View-only until both requirements above are complete — downloading unlocks automatically">
-                      <Button size="small" icon={<EyeOutlined />} onClick={() => lmsApi.previewCertificatePdf(c.courseId)}>Preview</Button>
-                    </Tooltip>
-                  )}
-                  {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
-                  {c.eligible && (
-                    <Button
-                      size="small"
-                      type="link"
-                      onClick={() =>
-                        navigate('/learn/support', {
-                          state: {
-                            raise: {
-                              category: 'Certificate',
-                              subject: `Certificate correction · ${c.certificateId}`,
-                              reference: [c.title, c.certificateId].filter(Boolean).join(' · '),
-                              description: 'What is wrong on the certificate (name spelling, programme, date…):',
-                              expected: 'It should read:',
-                            },
-                          },
-                        })
-                      }
-                    >
-                      Request correction
-                    </Button>
-                  )}
+              </section>
+            ))}
+            {issued[0] && (
+              <section className="ld-card" aria-label="Public verify page">
+                <div className="ld-hd"><b>Public verify page (preview)</b></div>
+                <div className="ld-soft" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <b style={{ color: '#166534' }}>Valid certificate</b>
+                  <span>{issued[0].title} · Career Lab Consulting Pvt. Ltd.</span>
+                  <span>Issued {issued[0].issuedOn ? dayjs(issued[0].issuedOn).format('D MMM YYYY') : '—'} · {masked}</span>
+                  <span className="ld-muted">Marks, contact, login details kabhi nahi dikhte</span>
                 </div>
-              </Card>
-            </Col>
-          ))}
-        </Row>
+              </section>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
