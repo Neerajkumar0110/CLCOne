@@ -14,6 +14,7 @@ import lmsApi from '../api';
 import DriveImportModal from './DriveImportModal';
 import './driveImport.css';
 import './Recordings.css';
+import '../components/LearnerDesign.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD', NOT_STARTED: 'NOT STARTED' };
@@ -98,6 +99,7 @@ export default function Recordings() {
   const [bulkImporting, setBulkImporting] = useState(false);
   const [driveOpen, setDriveOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [lFilter, setLFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const fileInputRef = useRef(null);
@@ -376,6 +378,104 @@ export default function Recordings() {
     }
     return items;
   };
+
+  // ── learner view — design board L5: filters, recordings table | player card ──
+  if (isLearnerPanel && !isManager) {
+    const L_STATUS = {
+      AVAILABLE: ['hai', 'Ready'],
+      PROCESSING: ['naya', 'Processing'],
+      RECORDING: ['naya', 'Recording'],
+      NOT_STARTED: ['gray', 'Queued'],
+      AWAITING_UPLOAD: ['gray', 'Queued'],
+      FAILED: ['red', 'Failed'],
+      DELETED: ['adh', 'Source unavailable'],
+    };
+    const bucket = (r) => (r.status === 'AVAILABLE' ? 'Ready' : ['FAILED', 'DELETED'].includes(r.status) ? 'Problem' : 'In progress');
+    const shown = filteredRows.filter((r) => lFilter === 'All' || bucket(r) === lFilter);
+    const isFrame = playing && (playing.provider === 'bigbluebutton' || playing.provider === 'external');
+    return (
+      <div className="ld-page">
+        <div className="ld-head">
+          <div>
+            <h1>Recordings &amp; study material</h1>
+            <div className="ld-muted ld-sub">Sirf aapke batch ki recordings · Ready tabhi jab playback verify ho chuka ho</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input className="ld-inp" style={{ width: 260 }} placeholder="Search topic or batch…" aria-label="Search recordings" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select className="ld-inp" aria-label="Module" value={f.courseTitle} onChange={(e) => setF((x) => ({ ...x, courseTitle: e.target.value }))}>
+            <option value="">All modules</option>
+            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {batches.length > 1 && (
+            <select className="ld-inp" aria-label="Batch" value={f.batchName} onChange={(e) => setF((x) => ({ ...x, batchName: e.target.value }))}>
+              <option value="">All batches</option>
+              {batches.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          )}
+          <div style={{ width: 12 }} />
+          {['All', 'Ready', 'In progress', 'Problem'].map((l) => (
+            <button key={l} type="button" className={`ld-pill${lFilter === l ? ' on' : ''}`} onClick={() => setLFilter(l)}>{l}</button>
+          ))}
+        </div>
+
+        <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 420px', flex: 1 }}>
+          <section className="ld-card" aria-label="Recordings" style={{ gap: 12, overflow: 'hidden' }}>
+            {err && <div className="ld-warn">{err}</div>}
+            <div className="ld-tablewrap">
+              <table className="ld-table rec-table">
+                <thead><tr><th>Session</th><th>Date</th><th>Topic</th><th>Duration</th><th>Status</th><th>CC / transcript</th></tr></thead>
+                <tbody>
+                  {!loading && shown.length === 0 && <tr><td colSpan={6} className="ld-empty">No recordings here.</td></tr>}
+                  {shown.map((r) => {
+                    const st = L_STATUS[r.status] || ['gray', r.status];
+                    return (
+                      <tr key={r.id} onClick={() => r.canPlay && play(r)} style={{ cursor: r.canPlay ? 'pointer' : 'default', background: playing && playing.id === r.id ? '#f0fdfa' : undefined }}>
+                        <td><b>{r.batchName || '—'}</b></td>
+                        <td>{r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</td>
+                        <td>{r.className || r.courseTitle || '—'}</td>
+                        <td>{fmtDuration(r.durationMin)}</td>
+                        <td><span className={`ld-chip ${st[0]}`}>{st[1]}</span></td>
+                        <td className="ld-muted">{r.status === 'AVAILABLE' ? 'transcript not available' : r.status === 'DELETED' ? 'recording removed' : 'after processing'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Recording missing ya galat topic? <button type="button" className="ld-link" onClick={reportRecording}>Report karein</button> — content owner ko task jaata hai.</div>
+          </section>
+
+          <section className="ld-card" aria-label="Player" style={{ gap: 12 }}>
+            <div style={{ height: 210, background: '#0f172a', borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {playing && playing.url ? (
+                isFrame ? (
+                  <iframe ref={mediaRef} title="recording" src={playing.url} style={{ width: '100%', height: '100%', border: 0, display: 'block' }} allowFullScreen />
+                ) : (
+                  <video ref={mediaRef} controls src={playing.url} style={{ width: '100%', height: '100%', background: '#000' }} allowFullScreen />
+                )
+              ) : (
+                <span style={{ color: '#e2e8f0', fontSize: 13, padding: 16, textAlign: 'center' }}>Ready recording par click karein — yahin chalegi</span>
+              )}
+            </div>
+            <b style={{ fontSize: 15 }}>{playing ? recTitle(playing) : 'No recording selected'}</b>
+            {playing && (
+              <div style={{ display: 'flex', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
+                <button type="button" className="ld-link" onClick={goFullscreen}>Fullscreen</button>
+                {canDownload(playing) && <button type="button" className="ld-link" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>{downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}</button>}
+                <span className="ld-muted">· captions / transcript abhi available nahi</span>
+              </div>
+            )}
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <b style={{ fontSize: 14 }}>Session material</b>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/material')}>Study material for your batch →</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   const totalBytes = fmtBytes;
 
