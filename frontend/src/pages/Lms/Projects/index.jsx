@@ -9,7 +9,9 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import './projects.css';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
@@ -425,7 +427,23 @@ function ManageProjects() {
 }
 
 /* ═══════════ STUDENT — my project(s) ═══════════ */
+// design L6 lifecycle, mapped from Project.status
+const LIFECYCLE = ['Assigned', 'In progress', 'Submitted', 'Under review', 'Approved'];
+const LIFECYCLE_STEP = { assigned: 0, in_progress: 1, submitted: 2, in_review: 3, revision_requested: 3, rejected: 3, approved: 4 };
+
 function MyProjects() {
+  const navigate = useNavigate();
+  const requestExtension = (p) =>
+    navigate('/learn/support', {
+      state: {
+        raise: {
+          category: 'Internship Content',
+          subject: `Project extension request · ${p.title}`,
+          reference: [p.code, p.title, p.dueDate && `due ${dayjs(p.dueDate).format('D MMM YYYY')}`].filter(Boolean).join(' · '),
+          description: 'Which milestone:\nReason:\nNew date I can commit to:',
+        },
+      },
+    });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitOpen, setSubmitOpen] = useState(null); // project
@@ -465,15 +483,30 @@ function MyProjects() {
           title={<Space>{p.code && <Tag color="purple">{p.code}</Tag>}<b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
           extra={p.status !== 'approved' && <Button type="primary" icon={<SendOutlined />} onClick={() => { setSubmitOpen(p); setTimeout(() => form.setFieldsValue({ githubUrl: p.githubUrl, deploymentUrl: p.deploymentUrl }), 0); }}>Submit</Button>}>
           <Paragraph type="secondary">{p.problemStatement}</Paragraph>
-          {p.mentor && <Text type="secondary">Project Manager: {p.mentor}</Text>}
+          <Text type="secondary">
+            {[p.mentor && `Project Manager: ${p.mentor}`, p.dueDate && `Final due ${dayjs(p.dueDate).format('D MMM YYYY')}`].filter(Boolean).join(' · ')}
+          </Text>
+          {/* design L6: where the project is in its review lifecycle */}
+          <Steps
+            size="small"
+            style={{ margin: '14px 0 6px' }}
+            current={LIFECYCLE_STEP[p.status] ?? 0}
+            status={p.status === 'rejected' ? 'error' : p.status === 'revision_requested' ? 'warning' : undefined}
+            items={LIFECYCLE.map((t) => ({ title: p.status === 'revision_requested' && t === 'Under review' ? 'Changes requested' : t }))}
+          />
           <Divider style={{ margin: '10px 0' }} />
           <List size="small" header={<b>Milestones</b>} dataSource={p.milestones || []} renderItem={(m, idx) => (
-            <List.Item>
+            <List.Item extra={<Tag color={m.status === 'done' ? 'green' : m.status === 'in_progress' ? 'blue' : 'default'}>{(m.status || 'pending').replace('_', ' ')}</Tag>}>
               <Checkbox checked={m.status === 'done'} onChange={(e) => toggleMilestone(p, idx, e.target.checked)}>
                 {m.title} {m.dueDate && <Text type="secondary">— due {dayjs(m.dueDate).format('D MMM')}</Text>}
               </Checkbox>
             </List.Item>
           )} />
+          {p.status !== 'approved' && (
+            <Button type="link" style={{ paddingLeft: 0 }} onClick={() => requestExtension(p)}>
+              Extension chahiye? Project Manager ko request bhejein
+            </Button>
+          )}
           {p.submissions && p.submissions.length > 0 && (
             <>
               <Divider style={{ margin: '10px 0' }} />
@@ -481,8 +514,47 @@ function MyProjects() {
               {(() => {
                 const last = p.submissions[p.submissions.length - 1];
                 if (!last.review) return <div><Text type="secondary">Awaiting review (v{last.version}).</Text></div>;
-                return <Alert style={{ marginTop: 6 }} type={last.review.decision === 'approved' ? 'success' : last.review.decision === 'rejected' ? 'error' : 'warning'} message={`${last.review.decision.replace('_', ' ')} by ${last.review.byName}`} description={last.review.feedback} />;
+                const scores = last.review.rubricScores || [];
+                return (
+                  <>
+                    <Alert style={{ marginTop: 6 }} type={last.review.decision === 'approved' ? 'success' : last.review.decision === 'rejected' ? 'error' : 'warning'} message={`${last.review.decision.replace('_', ' ')} by ${last.review.byName}`} description={last.review.feedback} />
+                    {scores.length > 0 && (
+                      <div className="pj-rubric">
+                        {scores.map((s) => {
+                          const max = ((p.rubric || []).find((r) => r.criterion === s.criterion) || {}).maxMarks;
+                          return (
+                            <div key={s.criterion}>
+                              <Text type="secondary">{s.criterion}</Text>
+                              <b>
+                                {s.marks}
+                                {max ? ` / ${max}` : ''}
+                              </b>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
               })()}
+              <Divider style={{ margin: '10px 0' }} />
+              <Text strong>Version history</Text>
+              <List
+                size="small"
+                dataSource={[...p.submissions].reverse()}
+                renderItem={(s, i) => (
+                  <List.Item extra={s.review ? <Tag color={s.review.decision === 'approved' ? 'green' : s.review.decision === 'rejected' ? 'red' : 'orange'}>{s.review.decision.replace('_', ' ')}</Tag> : <Tag>awaiting review</Tag>}>
+                    <Space wrap size={10}>
+                      <b>v{s.version}</b>
+                      <Text type="secondary">{dayjs(s.submittedAt).format('D MMM, h:mm A')}</Text>
+                      {i === 0 && <Tag color="blue">current</Tag>}
+                      {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> repo</a>}
+                      {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer"><LinkOutlined /> live</a>}
+                      {s.demoUrl && <a href={s.demoUrl} target="_blank" rel="noopener noreferrer">demo video</a>}
+                    </Space>
+                  </List.Item>
+                )}
+              />
             </>
           )}
         </Card>
@@ -513,6 +585,9 @@ function MyProjects() {
               <Input placeholder="https://github.com/..." />
             </Form.Item>
             <Form.Item name="deploymentUrl" label={<Lbl icon={<LinkOutlined />}>Deployment / live URL</Lbl>} className="crud-form-full">
+              <Input placeholder="https://..." />
+            </Form.Item>
+            <Form.Item name="demoUrl" label={<Lbl icon={<LinkOutlined />}>Demo video (Loom / Drive link)</Lbl>} className="crud-form-full">
               <Input placeholder="https://..." />
             </Form.Item>
             <Form.Item name="note" label={<Lbl icon={<FileTextOutlined />}>Notes for your project manager</Lbl>} className="crud-form-full">

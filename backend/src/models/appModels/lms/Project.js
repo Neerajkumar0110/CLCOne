@@ -40,6 +40,7 @@ const submissionSchema = new mongoose.Schema(
     note: String,
     githubUrl: String,
     deploymentUrl: String,
+    demoUrl: String, // demo video (Loom / Drive) — design L6
     files: [{ name: String, url: String, _id: false }],
     review: reviewSchema,
   },

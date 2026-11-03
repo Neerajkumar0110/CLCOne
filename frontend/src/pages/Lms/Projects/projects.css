@@ -1,0 +1,16 @@
+/* learner project rubric scores (design L6) */
+.pj-rubric {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.pj-rubric > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+  font-size: 13px;
+}

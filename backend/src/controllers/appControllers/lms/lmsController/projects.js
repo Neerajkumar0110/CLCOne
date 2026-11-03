@@ -283,6 +283,7 @@ async function submit(req, res) {
     note: b.note || '',
     githubUrl: b.githubUrl || '',
     deploymentUrl: b.deploymentUrl || '',
+    demoUrl: String(b.demoUrl || '').slice(0, 500),
     files: Array.isArray(b.files) ? b.files.slice(0, 20) : [],
   });
   p.currentVersion = version;
