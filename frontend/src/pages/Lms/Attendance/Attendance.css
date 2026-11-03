@@ -866,3 +866,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* design L13: gap to the attendance requirement + correction request */
+.attendance-gap {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.attendance-gap.is-short { background: #fff7ed; color: #9a3412; }
+.attendance-gap.is-ok { background: #f0fdf4; color: #166534; }
+:root[data-theme='dark'] .attendance-gap.is-short { background: rgba(251, 146, 60, 0.14); color: #fdba74; }
+:root[data-theme='dark'] .attendance-gap.is-ok { background: rgba(34, 197, 94, 0.14); color: #4ade80; }
+.attendance-correct-link {
+  display: block;
+  margin-top: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: #0e7490;
+  cursor: pointer;
+}
+.attendance-correct-link:hover { text-decoration: underline; }
+:root[data-theme='dark'] .attendance-correct-link { color: #22d3ee; }

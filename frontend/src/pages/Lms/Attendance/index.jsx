@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { Row, Table, Tag, Input, Select, Button, Space, DatePicker, Alert, Progress, Modal, Form, message, Tooltip } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, CheckSquareOutlined, EditOutlined, FileTextOutlined, CalendarOutlined,
@@ -236,6 +237,19 @@ function MyAttendance() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [required, setRequired] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    lmsApi
+      .myEligibility()
+      .then((r) => {
+        const first = r && r.success !== false && Array.isArray(r.result) ? r.result[0] : null;
+        const item = first && (first.items || []).find((x) => x.key === 'attendance' && x.applicable);
+        setRequired(item ? item.required : null);
+      })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -277,6 +291,27 @@ function MyAttendance() {
 
   const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
   const fmtWeekday = (v) => (v ? new Date(v).toLocaleDateString(undefined, { weekday: 'short' }) : '');
+
+  // design L13: a correction request goes to Support as a prefilled ticket
+  // (Support / Ops correct it with reason + audit on their attendance screen)
+  const requestCorrection = (c) =>
+    navigate('/learn/support', {
+      state: {
+        raise: {
+          category: 'Live Class',
+          subject: `Attendance correction · ${fmtDate(c.date)}`,
+          reference: [c.className, c.batchName, fmtDate(c.date)].filter(Boolean).join(' · '),
+          description: `Recorded: ${c.status} (${c.attendedMin || 0} of ${c.scheduledDurationMin || '?'} min).\nWhat happened:`,
+          expected: 'Attendance should be marked as …',
+        },
+      },
+    });
+
+  // Gap to the attendance requirement in the learner's eligibility rule
+  // (spec D-01 — proposed 90%), and roughly how many more full classes close it.
+  const counted = Math.max(0, (s.totalClasses || 0) - (s.excused || 0));
+  const gap = required && s.attendancePct < required ? required - s.attendancePct : 0;
+  const moreClasses = gap && required < 100 ? Math.ceil((required * counted - (s.attendancePct || 0) * counted) / (100 - required)) : 0;
 
   return (
     <div className="attendance-page">
@@ -332,6 +367,15 @@ function MyAttendance() {
             <span className="attendance-stat-sub">Classes marked absent</span>
           </div>
         </div>
+
+        {required ? (
+          <div className={`attendance-gap ${gap ? 'is-short' : 'is-ok'}`}>
+            {gap
+              ? `Required ${required}% · you are ${gap} points short — about ${moreClasses} more full class${moreClasses === 1 ? '' : 'es'} attended in full would close the gap.`
+              : `Required ${required}% · you are meeting the attendance requirement.`}
+            {s.excused ? ` ${s.excused} excused class${s.excused === 1 ? '' : 'es'} not counted.` : ''}
+          </div>
+        ) : null}
 
         <div className="attendance-filter">
           <div className="attendance-select-wrap">
@@ -433,6 +477,11 @@ function MyAttendance() {
                     </td>
                     <td>
                       <span className={`attendance-status ${STATUS_CLASS[c.status] || ''}`}>{c.status}</span>
+                      {['ABSENT', 'PARTIAL', 'LATE'].includes(c.status) && (
+                        <button type="button" className="attendance-correct-link" onClick={() => requestCorrection(c)}>
+                          Request correction
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
