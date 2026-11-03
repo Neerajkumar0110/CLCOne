@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
@@ -248,6 +249,7 @@ function RequirementRow({ ok, icon, label }) {
 }
 
 function StudentCertificates() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -297,6 +299,27 @@ function StudentCertificates() {
                     </Tooltip>
                   )}
                   {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
+                  {c.eligible && (
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() =>
+                        navigate('/learn/support', {
+                          state: {
+                            raise: {
+                              category: 'Certificate',
+                              subject: `Certificate correction · ${c.certificateId}`,
+                              reference: [c.title, c.certificateId].filter(Boolean).join(' · '),
+                              description: 'What is wrong on the certificate (name spelling, programme, date…):',
+                              expected: 'It should read:',
+                            },
+                          },
+                        })
+                      }
+                    >
+                      Request correction
+                    </Button>
+                  )}
                 </div>
               </Card>
             </Col>

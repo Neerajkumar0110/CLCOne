@@ -117,6 +117,7 @@ module.exports = {
   studentDashboard: panel.studentDashboard,
   lmsMyUpdates: panel.myUpdates,
   lmsMyFees: panel.myFees,
+  lmsMyFeesReceipt: panel.myFeesReceipt,
   lmsMyTickets: supportTickets.mine,
   lmsMyTicketPayments: supportTickets.payments,
   lmsMyTicketCreate: supportTickets.create,

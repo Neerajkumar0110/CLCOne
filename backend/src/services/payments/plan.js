@@ -50,6 +50,8 @@ function buildPlanSummary(doc, siblings) {
         status: s.status,
         dueAt: s.dueAt,
         paidAt: s.paidAt,
+        // gateway payment id of a verified payment — shown to the learner as the reference
+        reference: s.status === 'paid' ? s.razorpayPaymentId || null : null,
         emailSent: s.emailSent,
         emailSentAt: s.emailSentAt,
         reminderCount: (s.reminderLog || []).length,

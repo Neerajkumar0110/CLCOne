@@ -615,3 +615,8 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.txn-date-sub {
+  font-size: 11px;
+  color: #8b94a3;
+}

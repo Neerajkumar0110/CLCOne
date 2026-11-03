@@ -263,6 +263,23 @@ const lmsApi = {
   // PDF download -> fetch with the bearer (binary, so it can't go through a
   // plain <a href>), then trigger a client download. Same pattern as
   // attendanceExport/learner360Export above.
+  // Enrollment receipt with the current payment plan (same PDF the welcome email attaches).
+  downloadFeeReceipt: async (filename) => {
+    let token = '';
+    try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
+    const res = await axios.get(`${API_BASE_URL}lms/my/fees/receipt`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename || 'receipt'}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
   downloadCertificatePdf: async (id, mine, filename) => {
     let token = '';
     try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }

@@ -442,15 +442,13 @@ async function myUpdates(req, res) {
 // — see plan.js's buildPlanSummary) when their enrollment came with a
 // payment plan. A manager may look at any student via ?studentEmail=,
 // mirroring studentDashboard above.
-async function myFees(req, res) {
-  const admin = req.admin;
+// The roster row + EMI plan behind /my/fees and its receipt download.
+async function feeContext(admin, query) {
   const Student = mongoose.model('Student');
   const PaymentRequest = mongoose.model('PaymentRequest');
-
-  const email = (isManager(admin) && req.query.studentEmail ? req.query.studentEmail : admin.email || '').toLowerCase();
+  const email = (isManager(admin) && query.studentEmail ? query.studentEmail : admin.email || '').toLowerCase();
   const student = email ? await Student.findOne({ removed: false, email: rx(email) }).lean() : null;
-  if (!student) return res.status(200).json({ success: true, result: null });
-
+  if (!student) return { student: null, plan: null };
   let plan = null;
   if (student.paymentRequest) {
     const doc = await PaymentRequest.findOne({ _id: student.paymentRequest, removed: false }).lean();
@@ -459,14 +457,33 @@ async function myFees(req, res) {
         ? await PaymentRequest.find({ planGroupId: doc.planGroupId, removed: false }).sort({ installmentNo: 1 }).lean()
         : [doc];
       plan = buildPlanSummary(doc, siblings);
-      // Only a real, already-created PaymentRequest doc has a payable link —
-      // an installment still shown as "upcoming" (projected: true) hasn't
-      // been auto-created yet (see jobs/financeEmiTick.js, 10 days before
-      // due), so there's nothing to pay against it right now.
       const nextUnpaid = siblings.find((s) => s.status !== 'paid');
       plan.shortUrl = nextUnpaid ? nextUnpaid.razorpayShortUrl || '' : '';
     }
   }
+  return { student, plan };
+}
+
+// GET /api/lms/my/fees/receipt — the same enrollment receipt PDF the welcome
+// email attaches (services/lms/studentReceiptPdf.js), regenerated with the
+// current payment plan. Never includes a password.
+async function myFeesReceipt(req, res) {
+  const { student, plan } = await feeContext(req.admin, req.query);
+  if (!student) return res.status(404).json({ success: false, result: null, message: 'No enrollment found for your account.' });
+  const { renderReceiptPdf } = require('../../../../services/lms/studentReceiptPdf');
+  const buffer = await renderReceiptPdf(student, { plan, crmLink: 'https://clcone.careerlabconsulting.com/learn' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="receipt-${student.enrollmentId || student._id}.pdf"`);
+  return res.status(200).send(buffer);
+}
+
+async function myFees(req, res) {
+  // plan.shortUrl is only set from a real, already-created PaymentRequest —
+  // an installment still "upcoming" (projected: true) hasn't been
+  // auto-created yet (jobs/financeEmiTick.js, 10 days before due), so there's
+  // nothing to pay against it right now.
+  const { student, plan } = await feeContext(req.admin, req.query);
+  if (!student) return res.status(200).json({ success: true, result: null });
 
   return res.status(200).json({
     success: true,
@@ -572,4 +589,4 @@ async function teacherLiveAnalytics(req, res) {
   });
 }
 
-module.exports = { teacherDashboard, teacherStudents, studentDashboard, myUpdates, myFees, teacherLiveAnalytics };
+module.exports = { teacherDashboard, teacherStudents, studentDashboard, myUpdates, myFees, myFeesReceipt, teacherLiveAnalytics };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Empty, Skeleton, Alert } from 'antd';
+import { Empty, Skeleton, Alert, message } from 'antd';
 import {
   WalletOutlined,
   BookOutlined,
@@ -39,6 +39,7 @@ export default function MyFees() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [d, setD] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +68,18 @@ export default function MyFees() {
   const feeDue = Number(plan ? plan.remaining : d.feeDue) || 0;
   const payUrl = plan && plan.remaining > 0 ? plan.shortUrl : '';
   const pct = feeGrandTotal > 0 ? Math.round((feePaid / feeGrandTotal) * 100) : feeDue <= 0 ? 100 : 0;
-  const paidInstallments = plan ? plan.installments.filter((i) => !i.projected) : [];
+  // design L12: the whole schedule — paid, created and still-upcoming installments
+  const allInstallments = plan ? plan.installments : [];
+  const downloadReceipt = async () => {
+    setDownloading(true);
+    try {
+      await lmsApi.downloadFeeReceipt(`receipt-${d.enrollmentId || 'enrollment'}`);
+    } catch (e) {
+      message.error('Could not download the receipt.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="fees-page">
@@ -200,8 +212,8 @@ export default function MyFees() {
             <h2>Transaction / Fee Details</h2>
           </div>
           <div className="transaction-actions">
-            <button type="button" className="download-button" disabled={!paidInstallments.length}>
-              <DownloadOutlined /> Download Receipt
+            <button type="button" className="download-button" onClick={downloadReceipt} disabled={downloading}>
+              <DownloadOutlined /> {downloading ? 'Preparing…' : 'Download Receipt'}
             </button>
           </div>
         </div>
@@ -213,15 +225,14 @@ export default function MyFees() {
                 <th>DATE</th>
                 <th>DESCRIPTION</th>
                 <th>AMOUNT</th>
-                <th>PAYMENT MODE</th>
+                <th>REFERENCE</th>
                 <th>STATUS</th>
-                <th>RECEIPT</th>
               </tr>
             </thead>
             <tbody>
-              {paidInstallments.length === 0 ? (
+              {allInstallments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="empty-table">
+                  <td colSpan={5} className="empty-table">
                     <div className="empty-icon">
                       <FileTextOutlined />
                     </div>
@@ -231,18 +242,21 @@ export default function MyFees() {
                   </td>
                 </tr>
               ) : (
-                paidInstallments.map((ins) => (
-                  <tr key={ins.id || ins.installmentNo}>
-                    <td>{formatDate(ins.paidAt || ins.dueAt)}</td>
+                allInstallments.map((ins) => (
+                  <tr key={ins.id || `n${ins.installmentNo}`}>
+                    <td>
+                      {formatDate(ins.paidAt || ins.dueAt)}
+                      <br />
+                      <span className="txn-date-sub">{ins.paidAt ? 'paid on' : 'due'}</span>
+                    </td>
                     <td>
                       Installment {ins.installmentNo}/{plan.installmentCount}
                     </td>
                     <td>{money(ins.amount)}</td>
-                    <td>—</td>
+                    <td>{ins.reference || '—'}</td>
                     <td>
                       <span className={STATUS_CLASS[ins.status] || 'txn-status pending'}>{ins.status}</span>
                     </td>
-                    <td>—</td>
                   </tr>
                 ))
               )}
