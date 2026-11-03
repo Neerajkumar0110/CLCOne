@@ -23,6 +23,11 @@ const shape = (t) => ({
   paymentSnapshot: t.payment ? t.paymentSnapshot : null,
   resolutionNote: t.resolutionNote || null,
   resolvedAt: t.resolvedAt || null,
+  reference: t.reference || null,
+  expected: t.expected || null,
+  history: t.history || [],
+  learnerConfirmedAt: t.learnerConfirmedAt || null,
+  reopenCount: t.reopenCount || 0,
   created: t.created,
   updated: t.updated,
 });
@@ -76,7 +81,10 @@ async function create(req, res) {
     raisedByName: [req.admin.name, req.admin.surname].filter(Boolean).join(' '),
     raisedByEmail: req.admin.email,
     raisedByPhone: req.admin.phone || undefined,
+    reference: String(b.reference || '').trim().slice(0, 200) || undefined,
+    expected: String(b.expected || '').trim().slice(0, 1000) || undefined,
   };
+  doc.history = [{ at: new Date(), action: 'created', status: 'Open', byName: doc.raisedByName }];
 
   // Only one of the caller's OWN payments may be attached, and only on a
   // payment/invoice ticket.
@@ -122,4 +130,43 @@ async function create(req, res) {
   return res.status(200).json({ success: true, result: shape(ticket), message: `Ticket ${no} raised — Support has been notified.` });
 }
 
-module.exports = { mine, payments, create };
+// POST /api/lms/my/tickets/:id/confirm { resolved: true|false } — the raiser's
+// answer once Support marks their ticket Resolved: confirm it, or reopen it
+// (back to Open, Support notified).
+async function confirm(req, res) {
+  const Ticket = mongoose.model('Ticket');
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false, result: null, message: 'Ticket not found.' });
+  const t = await Ticket.findOne({ _id: req.params.id, createdBy: req.admin._id, removed: false });
+  if (!t) return res.status(404).json({ success: false, result: null, message: 'Ticket not found.' });
+  if (t.status !== 'Resolved') return res.status(409).json({ success: false, result: null, message: 'Only a resolved ticket can be confirmed or reopened.' });
+  const byName = [req.admin.name, req.admin.surname].filter(Boolean).join(' ');
+  const now = new Date();
+  const note = String((req.body && req.body.note) || '').trim().slice(0, 1000) || undefined;
+  if (!t.history) t.history = [];
+
+  if (req.body && req.body.resolved === true) {
+    t.learnerConfirmedAt = now;
+    t.history.push({ at: now, action: 'confirmed', status: 'Resolved', byName });
+  } else {
+    t.status = 'Open';
+    t.learnerConfirmedAt = undefined;
+    t.reopenCount = (t.reopenCount || 0) + 1;
+    t.history.push({ at: now, action: 'reopened', status: 'Open', byName, note });
+    const no = ticketNo(t);
+    notify({
+      audience: 'support',
+      actorId: req.admin._id,
+      actorName: byName,
+      module: 'Support',
+      type: 'ticket.reopened',
+      title: `Ticket ${no} reopened by the learner`,
+      body: note || t.subject,
+      link: '/support',
+    });
+  }
+  t.updated = now;
+  await t.save();
+  return res.status(200).json({ success: true, result: shape(t), message: t.status === 'Open' ? 'Ticket reopened — Support has been notified.' : 'Thanks for confirming.' });
+}
+
+module.exports = { mine, payments, create, confirm };

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Input, Select, Button, Space, Alert, message, Modal, DatePicker, Tooltip, Pagination, Dropdown } from 'antd';
 import {
   ReloadOutlined, PlaySquareOutlined, PlayCircleOutlined, DeleteOutlined, SearchOutlined, UploadOutlined,
@@ -77,6 +78,14 @@ function thumbFor(text) {
 export default function Recordings() {
   const admin = useSelector(selectCurrentAdmin) || {};
   const isManager = MGR.includes(admin.role);
+  const navigate = useNavigate();
+  // Learners in the panel get a way to report a missing / wrong recording
+  // straight to Support (design L5) and a link to the study material.
+  const isLearnerPanel = useLocation().pathname.startsWith('/learn');
+  const reportRecording = () =>
+    navigate('/learn/support', {
+      state: { raise: { category: 'Live Class', subject: 'Recording missing or wrong topic', description: 'Class date / batch:\nWhat is wrong:' } },
+    });
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -445,6 +454,19 @@ export default function Recordings() {
             onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))}
           />
         </div>
+
+        {isLearnerPanel && (
+          <div className="rec-learner-note">
+            Recording missing ya galat topic?{' '}
+            <button type="button" onClick={reportRecording}>
+              Report karein
+            </button>{' '}
+            · Notes aur PDFs:{' '}
+            <button type="button" onClick={() => navigate('/learn/material')}>
+              Study material
+            </button>
+          </div>
+        )}
 
         <div className="recordings-table-wrapper">
           <table className="recordings-table">

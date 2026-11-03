@@ -118,6 +118,7 @@ module.exports = {
   lmsMyTickets: supportTickets.mine,
   lmsMyTicketPayments: supportTickets.payments,
   lmsMyTicketCreate: supportTickets.create,
+  lmsMyTicketConfirm: supportTickets.confirm,
   teacherLiveAnalytics: panel.teacherLiveAnalytics,
 
   // curriculum builder (Course -> Module -> Chapter -> Lesson) — teacher/manager

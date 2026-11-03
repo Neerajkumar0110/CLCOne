@@ -27,17 +27,35 @@ const update = async (req, res) => {
 
   req.body.removed = false;
   // Raiser identity / source / attached payment are fixed at creation.
-  ['createdBy', 'raisedByName', 'raisedByEmail', 'raisedByPhone', 'source', 'payment', 'paymentSnapshot'].forEach(
+  // …and the raiser's timeline / confirmation are only ever appended here
+  // or by the raiser themselves (lmsController/supportTickets.js confirm).
+  ['createdBy', 'raisedByName', 'raisedByEmail', 'raisedByPhone', 'source', 'payment', 'paymentSnapshot', 'history', 'learnerConfirmedAt', 'reopenCount'].forEach(
     (k) => delete req.body[k]
   );
   const resolvingNow = req.body.status === 'Resolved' && existing.status !== 'Resolved';
+  const actorName = [req.admin.name, req.admin.surname].filter(Boolean).join(' ');
   if (resolvingNow) {
     req.body.resolvedAt = new Date();
-    req.body.resolvedByName = [req.admin.name, req.admin.surname].filter(Boolean).join(' ');
+    req.body.resolvedByName = actorName;
   }
   req.body.updated = new Date();
+  const statusChanged = req.body.status && req.body.status !== existing.status;
+  const changes = statusChanged
+    ? {
+        ...req.body,
+        $push: {
+          history: {
+            at: new Date(),
+            action: 'status',
+            status: req.body.status,
+            byName: actorName,
+            note: resolvingNow ? req.body.resolutionNote || existing.resolutionNote || undefined : undefined,
+          },
+        },
+      }
+    : req.body;
 
-  const result = await Model.findOneAndUpdate({ _id: req.params.id, removed: false }, req.body, {
+  const result = await Model.findOneAndUpdate({ _id: req.params.id, removed: false }, changes, {
     new: true,
     runValidators: true,
   }).exec();

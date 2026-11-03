@@ -138,6 +138,7 @@ router.route('/my/fees').get(catchErrors(lms.lmsMyFees));
 // Student support tickets (Help & Support) — see lmsController/supportTickets.js.
 router.route('/my/tickets').get(catchErrors(lms.lmsMyTickets)).post(catchErrors(lms.lmsMyTicketCreate));
 router.route('/my/tickets/payments').get(catchErrors(lms.lmsMyTicketPayments));
+router.route('/my/tickets/:id/confirm').post(catchErrors(lms.lmsMyTicketConfirm));
 
 // ── doubts (Q&A) ───────────────────────────────────────────────────
 router.route('/doubts').get(catchErrors(lms.doubtList)).post(catchErrors(lms.doubtAsk));

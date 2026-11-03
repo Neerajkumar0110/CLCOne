@@ -199,7 +199,15 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
                 </button>
               </div>
               {base === '/learn' && (
-                <button type="button" className="sh-link" onClick={() => navigate('/learn/support')}>
+                <button
+                  type="button"
+                  className="sh-link"
+                  onClick={() =>
+                    navigate('/learn/support', {
+                      state: { raise: { category: 'Login / Technical', subject: `Technical problem during ${title}`, description: 'Date / time of the attempt:\nWhat happened:' } },
+                    })
+                  }
+                >
                   Exception / technical issue? Ticket raise karein
                 </button>
               )}

@@ -60,6 +60,30 @@ const schema = new mongoose.Schema({
   resolvedAt: Date,
   resolvedByName: String,
 
+  // Learner tickets (design L9): which session / test / project it's about
+  // and what they expected to happen, alongside `description` (what happened).
+  reference: String,
+  expected: String,
+  // Status timeline shown to the raiser — appended on create, on every
+  // status change by Support, and when the learner confirms or reopens.
+  history: {
+    type: [
+      {
+        _id: false,
+        at: { type: Date, default: Date.now },
+        action: { type: String, enum: ['created', 'status', 'confirmed', 'reopened'] },
+        status: String,
+        byName: String,
+        note: String,
+      },
+    ],
+    default: undefined,
+  },
+  // Raiser's answer after Support resolves: "yes, solved" (confirmedAt) or
+  // "still an issue" (back to Open, reopenCount + 1).
+  learnerConfirmedAt: Date,
+  reopenCount: { type: Number, default: 0 },
+
   created: {
     type: Date,
     default: Date.now,

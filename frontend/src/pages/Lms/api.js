@@ -309,6 +309,7 @@ const lmsApi = {
   myTickets: () => request.get({ entity: 'lms/my/tickets' }),
   myTicketPayments: () => request.get({ entity: 'lms/my/tickets/payments' }),
   createTicket: (b) => request.post({ entity: 'lms/my/tickets', jsonData: b }),
+  confirmTicket: (id, resolved, note) => request.post({ entity: `lms/my/tickets/${id}/confirm`, jsonData: { resolved, note } }),
 
   // ── policy & acknowledgement centre ──────────────────────────
   listPolicies: (f = {}) => request.get({ entity: `lms/policies${qs(f)}` }),

@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Tag, Button, Modal, Form, Input, Select, Space, Empty, Skeleton, message, Typography, Segmented, Descriptions } from 'antd';
 import { CustomerServiceOutlined, PlusOutlined, TagOutlined, FileTextOutlined, WalletOutlined, FlagOutlined, CheckCircleFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getSocket } from '@/socket';
 import lmsApi from '../api';
+import './support.css';
 
 const { Text, Paragraph } = Typography;
 
@@ -18,6 +20,23 @@ const Lbl = ({ icon, children }) => (
 );
 
 const STATUS_COLOR = { Open: 'blue', 'In Progress': 'orange', Resolved: 'green' };
+const HISTORY_LABEL = {
+  created: () => 'Ticket raised',
+  status: (h) => (h.status === 'Resolved' ? 'Resolved' : `Moved to ${h.status}`),
+  confirmed: () => 'You confirmed it is solved',
+  reopened: () => 'Reopened',
+};
+
+// First-line answers per category (spec §25 FAQ) shown while raising a
+// ticket — "That solved it" closes the form without creating a ticket.
+const FAQ = {
+  'Payment / Fees': 'Payments show as paid once the gateway confirms them (usually within minutes). If money was debited but the fee still shows due after an hour, attach the payment here and Finance will match it.',
+  'Invoice / Receipt': 'Receipts for paid installments are under My Fees. If one is missing or has wrong details, attach the payment and tell us what should change.',
+  'Live Class': 'Refresh the class page and use Join again — the link is issued fresh each time. If the class shows the wrong state or a recording is missing, send the class date and what you see; the team verifies the session and escalates confirmed issues.',
+  'Internship Content': 'Study material and recordings for your batch are under Study Material and Recordings. Tell us the module / class if something is missing or wrong.',
+  Certificate: 'Certificates are issued once every eligibility requirement is met — see My Eligibility. For a name or detail correction, tell us exactly what should change.',
+  'Login / Technical': 'Try a hard refresh (Ctrl + Shift + R), another browser, or clearing site data. If it continues, tell us the device/browser and the exact error.',
+};
 const PRIORITY_COLOR = { Low: 'default', Medium: 'blue', High: 'orange', Urgent: 'red' };
 const PAY_STATUS_COLOR = { paid: 'green', created: 'blue', expired: 'default', cancelled: 'default', failed: 'red' };
 const inr = (n) => (typeof n === 'number' ? `₹${n.toLocaleString('en-IN')}` : '—');
@@ -74,9 +93,39 @@ export default function SupportTickets() {
   const [saving, setSaving] = useState(false);
   const [payments, setPayments] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [reopenNote, setReopenNote] = useState('');
+  const [confirming, setConfirming] = useState(null); // 'yes' | 'no' while saving
   const [form] = Form.useForm();
+
+  // The learner's answer once Support resolves a ticket (backend
+  // supportTickets.confirm): confirm, or reopen it back to Support.
+  const answer = async (resolved) => {
+    setConfirming(resolved ? 'yes' : 'no');
+    const r = await lmsApi.confirmTicket(viewing._id, resolved, resolved ? undefined : reopenNote);
+    setConfirming(null);
+    if (!r || r.success === false) {
+      message.error((r && r.message) || 'Could not save your answer.');
+      return;
+    }
+    message.success(r.message);
+    setReopenNote('');
+    setViewing(r.result);
+    setTickets((xs) => xs.map((x) => (x._id === r.result._id ? r.result : x)));
+  };
   const category = Form.useWatch('category', form);
   const needsPayment = paymentCategories.includes(category);
+  // Other pages link here with { state: { raise: { category, subject, description } } }
+  // (e.g. "report a missing recording") — open the form already filled in.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [prefill, setPrefill] = useState(null);
+  useEffect(() => {
+    const raise = location.state && location.state.raise;
+    if (!raise) return;
+    setPrefill(raise);
+    setRaising(true);
+    navigate(location.pathname, { replace: true, state: null }); // a refresh shouldn't reopen it
+  }, [location.state, location.pathname, navigate]);
 
   const load = useCallback(async () => {
     const r = await lmsApi.myTickets();
@@ -117,6 +166,7 @@ export default function SupportTickets() {
     if (r?.success) {
       message.success(r.message || 'Ticket raised.');
       setRaising(false);
+      setPrefill(null);
       form.resetFields();
       load();
     } else {
@@ -174,7 +224,10 @@ export default function SupportTickets() {
             </span>
           </span>
         }
-        onCancel={() => setRaising(false)}
+        onCancel={() => {
+          setRaising(false);
+          setPrefill(null);
+        }}
         onOk={submit}
         okText="Submit ticket"
         confirmLoading={saving}
@@ -182,7 +235,7 @@ export default function SupportTickets() {
         maskClosable={false}
         width={600}
       >
-        <Form form={form} layout="vertical" preserve={false} className="crud-form" initialValues={{ priority: 'Medium' }}>
+        <Form form={form} layout="vertical" preserve={false} className="crud-form" initialValues={{ priority: 'Medium', ...(prefill || {}) }}>
           <div className="crud-form-grid">
             <Form.Item name="category" label={<Lbl icon={<TagOutlined />}>Category</Lbl>} rules={[{ required: true, message: 'Pick a category.' }]}>
               <Select placeholder="What is this about?" options={categories.map((c) => ({ value: c, label: c }))} />
@@ -213,10 +266,35 @@ export default function SupportTickets() {
             >
               <Input maxLength={200} placeholder="e.g. Paid my fee but it still shows as due" />
             </Form.Item>
-            <Form.Item name="description" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Details</Lbl>}>
-              <Input.TextArea rows={4} maxLength={5000} placeholder="Tell us what happened — dates, amounts, screenshots you can describe…" />
+            <Form.Item name="reference" className="crud-form-full" label={<Lbl icon={<TagOutlined />}>Session / test / project</Lbl>}>
+              <Input maxLength={200} placeholder="e.g. S78 · 28 Oct, Major Test attempt 2, Project milestone 3" />
+            </Form.Item>
+            <Form.Item name="description" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Kya hua?</Lbl>}>
+              <Input.TextArea rows={4} maxLength={5000} placeholder="Tell us what happened — dates, amounts, what you saw on screen…" />
+            </Form.Item>
+            <Form.Item name="expected" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Kya hona chahiye tha?</Lbl>}>
+              <Input maxLength={1000} placeholder="e.g. The Join button should show" />
             </Form.Item>
           </div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Password, OTP ya card details kabhi mat bhejein.
+          </Text>
+          {FAQ[category] && (
+            <div style={{ ...SECTION, marginTop: 12, marginBottom: 0, background: 'var(--hub-blue-soft, #eff6ff)', borderColor: 'transparent' }}>
+              <Text strong>Suggested answer</Text>
+              <Paragraph style={{ margin: '4px 0 8px' }}>{FAQ[category]}</Paragraph>
+              <Button
+                size="small"
+                onClick={() => {
+                  setRaising(false);
+                  setPrefill(null);
+                  message.success('Glad that helped.');
+                }}
+              >
+                Isse solve ho gaya
+              </Button>
+            </div>
+          )}
         </Form>
       </Modal>
 
@@ -248,8 +326,24 @@ export default function SupportTickets() {
             </div>
 
             <Section icon={<FileTextOutlined />} title="Details">
+              {viewing.reference && <Paragraph style={{ margin: '0 0 6px' }}><Text type="secondary">About: </Text>{viewing.reference}</Paragraph>}
               <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{viewing.description || <Text type="secondary">No extra details added.</Text>}</Paragraph>
+              {viewing.expected && <Paragraph style={{ margin: '6px 0 0' }}><Text type="secondary">Expected: </Text>{viewing.expected}</Paragraph>}
             </Section>
+
+            {(viewing.history || []).length > 0 && (
+              <Section icon={<FlagOutlined />} title="History">
+                <ol className="tk-history">
+                  {viewing.history.map((h, i) => (
+                    <li key={i}>
+                      <b>{HISTORY_LABEL[h.action] ? HISTORY_LABEL[h.action](h) : h.status}</b> · {when(h.at)}
+                      {h.byName && <Text type="secondary"> · {h.byName}</Text>}
+                      {h.note && <div className="tk-history-note">{h.note}</div>}
+                    </li>
+                  ))}
+                </ol>
+              </Section>
+            )}
 
             {viewing.paymentSnapshot && (
               <Section icon={<WalletOutlined />} title="Payment">
@@ -261,6 +355,18 @@ export default function SupportTickets() {
               <div style={{ ...SECTION, background: '#f6ffed', borderColor: '#b7eb8f' }}>
                 <Text strong style={{ color: '#389e0d' }}><CheckCircleFilled /> Resolved · {when(viewing.resolvedAt)}</Text>
                 <Paragraph style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{viewing.resolutionNote || 'Support has marked this ticket resolved.'}</Paragraph>
+                {viewing.learnerConfirmedAt ? (
+                  <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>You confirmed this on {when(viewing.learnerConfirmedAt)}.</Text>
+                ) : (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <Text>Is your issue solved?</Text>
+                    <Input.TextArea rows={2} maxLength={1000} value={reopenNote} onChange={(e) => setReopenNote(e.target.value)} placeholder="If not — what is still wrong? (optional)" />
+                    <Space wrap>
+                      <Button type="primary" loading={confirming === 'yes'} disabled={!!confirming} onClick={() => answer(true)}>Haan, solve ho gaya</Button>
+                      <Button loading={confirming === 'no'} disabled={!!confirming} onClick={() => answer(false)}>Abhi bhi issue hai (reopen)</Button>
+                    </Space>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ ...SECTION, background: 'var(--hub-blue-soft, #eff6ff)', borderColor: 'transparent' }}>

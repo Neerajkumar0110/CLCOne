@@ -396,7 +396,11 @@ function StudentPolicies() {
               </div>
             </div>
             <div className="sh-card-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
-              <button type="button" className="sh-link" onClick={() => navigate('/learn/support')}>
+              <button
+                type="button"
+                className="sh-link"
+                onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Question about a policy', description: 'Policy name:\nMy question:' } } })}
+              >
                 Kuch samajh nahi aaya? Support se poochein
               </button>
               <Button type="primary" disabled={!agree} loading={accepting} onClick={acceptAll}>

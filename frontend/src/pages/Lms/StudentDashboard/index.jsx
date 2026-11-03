@@ -147,7 +147,15 @@ export default function StudentDashboard() {
               <button type="button" className="sh-link" onClick={() => navigate('/learn/overview')}>
                 Full breakdown →
               </button>
-              <button type="button" className="sh-link" onClick={() => navigate('/learn/support')}>
+              <button
+                type="button"
+                className="sh-link"
+                onClick={() =>
+                  navigate('/learn/support', {
+                    state: { raise: { category: 'Internship Content', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } },
+                  })
+                }
+              >
                 Calculation galat lagi? Review request karein
               </button>
             </>
