@@ -1,5 +1,4 @@
 import React from 'react';
-import { useSearchParams } from 'react-router-dom';
 import OpsApprovals from './OpsApprovals';
 import Mgmt from './Mgmt';
 import Reports from './Reports';
@@ -13,10 +12,11 @@ import PolicyCentre from './PolicyCentre';
 import SystemHealth from '../SystemHealth';
 import './AdminOps.css';
 
-// LMS → Admin & Ops — design canvas page 6 ("Ops, Finance, Admin &
-// Management"), boards A1–A11, with the board's own sidebar in the same
-// order. The open screen lives in ?screen= so a link / refresh keeps it.
-const SCREENS = [
+// Admin & Ops — design canvas page 6 ("Ops, Finance, Admin & Management"),
+// boards A1–A11. Its own section in the CRM sidebar (config/featureSections
+// 'admin-ops'): one sub-tab per screen, in the board's sidebar order, each
+// rendering <AdminOpsScreen screen=…/> in the board's look.
+export const SCREENS = [
   { key: 'approvals', label: 'Ops approvals', C: OpsApprovals },
   { key: 'kpis', label: 'Management KPIs', C: Mgmt },
   { key: 'reports', label: 'Reports & exports', C: Reports },
@@ -30,22 +30,13 @@ const SCREENS = [
   { key: 'health', label: 'System health', C: SystemHealth },
 ];
 
-export default function AdminOps() {
-  const [params, setParams] = useSearchParams();
-  const cur = SCREENS.find((s) => s.key === params.get('screen')) || SCREENS[0];
+export default function AdminOpsScreen({ screen }) {
+  const cur = SCREENS.find((s) => s.key === screen) || SCREENS[0];
   const Screen = cur.C;
   return (
     <div className="ao-root">
-      <nav className="ao-side" aria-label="Admin & Ops">
-        <div className="ao-brand">Career Lab · <span>Admin &amp; Ops</span></div>
-        {SCREENS.map((s) => (
-          <button key={s.key} type="button" className={`ao-nav${s.key === cur.key ? ' on' : ''}`} aria-current={s.key === cur.key ? 'page' : undefined} onClick={() => setParams({ screen: s.key })}>
-            {s.label}
-          </button>
-        ))}
-      </nav>
       <main className={`ao-main${cur.tight ? ' tight' : ''}`}>
-        <Screen key={cur.key} />
+        <Screen />
       </main>
     </div>
   );

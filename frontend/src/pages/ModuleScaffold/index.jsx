@@ -47,7 +47,10 @@ const LmsCertificates = lazy(() => import('@/pages/Lms/Certificates'));
 const LmsStudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 const LmsSystemHealth = lazy(() => import('@/pages/Lms/SystemHealth'));
 const LmsFeedbackCentre = lazy(() => import('@/pages/Lms/Feedback/FeedbackCentre'));
-const LmsAdminOps = lazy(() => import('@/pages/Lms/AdminOps'));
+// Admin & Ops section: one embed per screen (lmsAo_<screen>).
+const LmsAdminOpsScreen = lazy(() => import('@/pages/Lms/AdminOps'));
+const AO_SCREENS = ['approvals', 'kpis', 'reports', 'automation', 'security', 'evidence', 'rules', 'finance', 'roles', 'policies', 'health'];
+const AO_EMBEDS = Object.fromEntries(AO_SCREENS.map((k) => [`lmsAo_${k}`, () => <LmsAdminOpsScreen screen={k} />]));
 const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
 const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
@@ -90,7 +93,7 @@ const EMBED = {
   lmsStudyMaterial: LmsStudyMaterial,
   lmsSystemHealth: LmsSystemHealth,
   lmsFeedbackCentre: LmsFeedbackCentre,
-  lmsAdminOps: LmsAdminOps,
+  ...AO_EMBEDS,
   lmsLearner360: LmsLearner360,
   lmsCurriculum: LmsCurriculum,
   lmsAttemptsAdmin: LmsAttemptsAdmin,

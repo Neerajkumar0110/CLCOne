@@ -85,7 +85,7 @@ async function toggleIncidentMode(req, res) {
       type: active ? 'incident.started' : 'incident.ended',
       title: active ? `Incident mode activated by ${row.incidentSetByName}` : `Incident mode cleared by ${row.incidentSetByName}`,
       body: active ? message || 'No details given.' : 'Marked resolved.',
-      link: '/lms/admin-ops?screen=health',
+      link: '/admin-ops/health',
     });
   } catch (e) {
     /* best-effort */

@@ -328,7 +328,8 @@ function Sidebar({ collapsible, isMobile = false }) {
       item.children ? { ...item, children: item.children.filter((c) => canSeeKey(c.key)) } : item
     )
     .filter((item) => {
-      const mod = NAV_KEY_MODULE[item.key];
+      // a feature section without its own nav key (Admin & Ops) is gated by its module
+      const mod = NAV_KEY_MODULE[item.key] || (FEATURE_SECTIONS.find((s) => s.key === item.key) || {}).module;
       if (mod && OPEN_TABS[item.key]) return true; // has open tabs (Team Chat)
       if (mod) return canView(mod); // parent-gated (feature sections)
       if (item.children) return item.children.length > 0; // pure grouping node

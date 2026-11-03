@@ -1081,17 +1081,6 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsStudyMaterial',
       },
       {
-        key: 'admin-ops',
-        label: 'Admin & Ops',
-        Icon: HeartOutlined,
-        // Design canvas page 6 (A1–A11): ops approvals, management KPIs,
-        // reports, automation, security & audit, evidence, assessment rules,
-        // finance, roles, policy centre and System Health (moved in here
-        // from its own tab — same component, pages/Lms/SystemHealth). See
-        // pages/Lms/AdminOps + /api/lms/admin/ops/*.
-        embed: 'lmsAdminOps',
-      },
-      {
         key: 'feedback',
         label: 'Feedback Centre',
         Icon: CommentOutlined,
@@ -1210,6 +1199,33 @@ export const FEATURE_SECTIONS = [
         Icon: TrophyOutlined,
         embed: 'lmsCertificates',
       },
+    ],
+  },
+
+  // ===========================================================================
+  // Design canvas page 6 (A1–A11), one sub-tab per board in the board's own
+  // sidebar order. Same LMS permission it had as an LMS tab. See
+  // pages/Lms/AdminOps + /api/lms/admin/ops/*; System health is the same
+  // component as before (pages/Lms/SystemHealth).
+  {
+    key: 'admin-ops',
+    label: 'Admin & Ops',
+    module: 'LMS',
+    route: '/admin-ops',
+    Icon: AuditOutlined,
+    blurb: 'Exception approvals, KPIs, reports, automation, audit, evidence, rules, finance, roles, policies and system health.',
+    tabs: [
+      { key: 'approvals', label: 'Ops approvals', Icon: CheckSquareOutlined, embed: 'lmsAo_approvals' },
+      { key: 'kpis', label: 'Management KPIs', Icon: BarChartOutlined, embed: 'lmsAo_kpis' },
+      { key: 'reports', label: 'Reports & exports', Icon: FileTextOutlined, embed: 'lmsAo_reports' },
+      { key: 'automation', label: 'Automation', Icon: DeploymentUnitOutlined, embed: 'lmsAo_automation' },
+      { key: 'security', label: 'Security & audit', Icon: SafetyCertificateOutlined, embed: 'lmsAo_security' },
+      { key: 'evidence', label: 'Evidence repository', Icon: FolderOpenOutlined, embed: 'lmsAo_evidence' },
+      { key: 'rules', label: 'Assessment rules', Icon: ExperimentOutlined, embed: 'lmsAo_rules' },
+      { key: 'finance', label: 'Finance & payments', Icon: WalletOutlined, embed: 'lmsAo_finance' },
+      { key: 'roles', label: 'Roles & permissions', Icon: TeamOutlined, embed: 'lmsAo_roles' },
+      { key: 'policies', label: 'Policy centre', Icon: FileProtectOutlined, embed: 'lmsAo_policies' },
+      { key: 'health', label: 'System health', Icon: HeartOutlined, embed: 'lmsAo_health' },
     ],
   },
 

@@ -24,7 +24,14 @@ const featureRoutes = [
       </RequirePermission>
     ),
   })),
+  // Admin & Ops used to be an LMS tab with ?screen= — old links / bookmarks
+  { path: '/lms/admin-ops', element: <OldAdminOps /> },
 ];
+
+function OldAdminOps() {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  return <Navigate to={`/admin-ops/${screen ? screen.replace(/[^a-z]/g, '') : 'approvals'}`} replace />;
+}
 
 const Logout = lazy(() => import('@/pages/Logout.jsx'));
 const NotFound = lazy(() => import('@/pages/NotFound.jsx'));
