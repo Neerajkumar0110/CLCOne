@@ -22,6 +22,7 @@ const assessments = require('./assessments');
 const policies = require('./policies');
 const classNotes = require('./classNotes');
 const feedback = require('./feedback');
+const onboarding = require('./onboarding');
 const eligibility = require('./eligibility');
 const projects = require('./projects');
 const health = require('./health');
@@ -228,6 +229,8 @@ module.exports = {
   liveJoinPolicy: scope.joinPolicy,
   liveAttendanceCorrect: scope.correctAttendanceHandler,
   liveDeviceCheck: liveclass.deviceCheck,
+  onboardingMine: onboarding.mine,
+  onboardingMark: onboarding.mark,
   feedbackMine: feedback.mine,
   feedbackSubmit: feedback.submit,
   feedbackMySummary: feedback.mySummary,

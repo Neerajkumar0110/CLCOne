@@ -95,6 +95,7 @@ const DB_MAP = {
   WeeklyFeedback: 'lmsDb',
   FeedbackReminder: 'lmsDb',
   FeedbackAction: 'lmsDb',
+  OnboardingProgress: 'lmsDb',
   LmsJoinAttempt: 'lmsDb',
   LmsSetting: 'lmsDb',
   LmsSyncJob: 'lmsDb',

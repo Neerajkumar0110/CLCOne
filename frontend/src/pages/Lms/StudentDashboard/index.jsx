@@ -39,6 +39,7 @@ export default function StudentDashboard() {
   const [d, setD] = useState(null);
   const [ov, setOv] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [onboarding, setOnboarding] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,12 +47,13 @@ export default function StudentDashboard() {
     (async () => {
       // Each source is optional except the dashboard itself — a failure in
       // one (say tickets) just leaves its card empty instead of blanking Home.
-      const [dash, overview, tk] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets()]);
+      const [dash, overview, tk, ob] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets(), lmsApi.myOnboarding()]);
       if (!alive) return;
       if (dash.status !== 'fulfilled') setErr('Could not load your dashboard.');
       setD(settledResult(dash));
       setOv(settledResult(overview));
       setTickets((settledResult(tk) || {}).tickets || []);
+      setOnboarding(settledResult(ob));
       setLoading(false);
     })();
     return () => {
@@ -238,6 +240,31 @@ export default function StudentDashboard() {
               </div>
             )}
           </section>
+          {onboarding && onboarding.steps && (
+            <section className="sh-card" aria-label="Onboarding checklist">
+              <div className="sh-card-hd">
+                <b>Onboarding checklist</b>
+                <span className={`sh-chip ${onboarding.done === onboarding.total ? 'ok' : 'info'}`}>
+                  {onboarding.done} / {onboarding.total}
+                </span>
+              </div>
+              <div>
+                {onboarding.steps
+                  .filter((s) => s.state !== 'done')
+                  .slice(0, 3)
+                  .map((s) => (
+                    <div className="sh-row small" key={s.key}>
+                      <span>{s.title}</span>
+                      <span className={`sh-chip ${s.state === 'blocked' ? 'bad' : 'gray'}`}>{s.state === 'blocked' ? 'Blocked' : 'Pending'}</span>
+                    </div>
+                  ))}
+                {onboarding.done === onboarding.total && <div className="sh-muted">Setup complete.</div>}
+              </div>
+              <button type="button" className="sh-link" onClick={() => navigate('/learn/onboarding')}>
+                Open checklist →
+              </button>
+            </section>
+          )}
         </div>
       </div>
 

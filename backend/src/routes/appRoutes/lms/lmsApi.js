@@ -332,6 +332,10 @@ router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.polic
 router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));
 router.route('/policies/:id/report').get(requireManager, catchErrors(lms.policyReport));
 router.route('/policies/:id/acknowledge').post(catchErrors(lms.policyAcknowledge));
+// ── learner onboarding checklist ─────────────────────────────────────
+router.route('/my/onboarding').get(catchErrors(lms.onboardingMine));
+router.route('/my/onboarding/:step').post(catchErrors(lms.onboardingMark));
+
 // ── weekly feedback (learner form, PM summary, Feedback centre) ──────
 router.route('/my/feedback').get(catchErrors(lms.feedbackMine)).post(catchErrors(lms.feedbackSubmit));
 router.route('/feedback/my-summary').get(catchErrors(lms.feedbackMySummary));

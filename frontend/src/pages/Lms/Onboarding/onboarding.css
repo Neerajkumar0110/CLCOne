@@ -1,0 +1,62 @@
+/* Onboarding checklist (design L10) — layout; colours from StudentHome.css. */
+.ob-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .ob-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.ob-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ob-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sh-line);
+  flex-wrap: wrap;
+}
+.ob-steps li:last-child {
+  border-bottom: 0;
+}
+.ob-ic {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--sh-gray-bg);
+  color: var(--sh-gray);
+}
+.ob-steps li.done .ob-ic { background: var(--sh-ok-bg); color: var(--sh-ok); }
+.ob-steps li.blocked .ob-ic { background: var(--sh-bad-bg); color: var(--sh-bad); }
+.ob-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 14px;
+}
+.ob-act {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ob-guide {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 24px;
+}

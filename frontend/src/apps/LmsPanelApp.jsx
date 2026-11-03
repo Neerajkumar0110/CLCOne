@@ -67,6 +67,7 @@ const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
 const Quizzes = lazy(() => import('@/pages/Lms/Quizzes'));
 const Doubts = lazy(() => import('@/pages/Lms/Doubts'));
 const WeeklyFeedback = lazy(() => import('@/pages/Lms/Feedback'));
+const Onboarding = lazy(() => import('@/pages/Lms/Onboarding'));
 const PMFeedback = lazy(() => import('@/pages/Lms/Feedback/PMFeedback'));
 const AnnouncementsPage = lazy(() => import('@/pages/Lms/Announcements'));
 const Certificates = lazy(() => import('@/pages/Lms/Certificates'));
@@ -352,6 +353,7 @@ const TEACHER_NAV = [
 
 const STUDENT_NAV = [
   ['/learn', 'Home', <DashboardOutlined />, <StudentDashboard />],
+  ['/learn/onboarding', 'Onboarding', <ScheduleOutlined />, <Onboarding />],
   ['/learn/overview', 'My Overview', <TrophyOutlined />, <LearnerOverview />],
   ['/learn/fees', 'My Fees', <WalletOutlined />, <MyFees />],
   ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
@@ -538,7 +540,7 @@ export default function LmsPanelApp() {
   // pages' data (requirePoliciesAccepted); send the learner to the consent
   // page instead of showing them broken.
   const policyGate = !isTeacher && updates.policies && updates.policies.pendingMandatory > 0;
-  const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes'];
+  const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes', '/learn/tests'];
   const gate = (path, element) =>
     policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : element;
   const routes = (
