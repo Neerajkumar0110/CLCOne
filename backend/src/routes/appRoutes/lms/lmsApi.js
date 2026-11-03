@@ -66,6 +66,8 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id/attendance/correct`).post(requireManager, catchErrors(lms.liveAttendanceCorrect));
   router.route(`${base}/:id/device-check`).post(catchErrors(lms.liveDeviceCheck));
   router.route(`${base}/:id/my-note`).get(catchErrors(lms.liveMyNoteGet)).post(catchErrors(lms.liveMyNoteSave));
+  router.route(`${base}/:id/chat`).get(catchErrors(lms.liveChatList)).post(catchErrors(lms.liveChatPost));
+  router.route(`${base}/:id/chat/:msgId`).delete(catchErrors(lms.liveChatRemove));
   router.route(`${base}/:id/regenerate`).post(requireManager, catchErrors(lms.liveRegenerate));
   router.route(`${base}/:id/open`).get(catchErrors(lms.liveOpenEntry));
   // Paste in an already-hosted recording (Google Drive, etc.) for this one

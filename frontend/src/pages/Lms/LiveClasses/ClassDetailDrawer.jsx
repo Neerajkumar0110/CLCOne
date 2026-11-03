@@ -95,6 +95,99 @@ async function permissionsGranted() {
   }
 }
 
+// Class chat (design L4 "Chat sirf is batch ko dikhti hai") — backend
+// classChat.js; polls for new messages every 4 s while the tab is open.
+function ClassChat({ id }) {
+  const [msgs, setMsgs] = useState(null); // null = loading
+  const [err, setErr] = useState('');
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const boxRef = React.useRef(null);
+  const lastRef = React.useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    lastRef.current = null;
+    setMsgs(null);
+    const pull = async () => {
+      const r = await lmsApi.liveChat(id, lastRef.current).catch(() => null);
+      if (!alive) return;
+      if (!r || r.success === false) {
+        setErr((r && r.message) || 'Chat load nahi hua.');
+        setMsgs((m) => m || []);
+        return;
+      }
+      setErr('');
+      const add = r.result.messages || [];
+      if (add.length) lastRef.current = add[add.length - 1].created;
+      setMsgs((m) => {
+        const have = new Set((m || []).map((x) => x.id));
+        return [...(m || []), ...add.filter((x) => !have.has(x.id))];
+      });
+    };
+    pull();
+    const t = setInterval(pull, 4000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
+  }, [msgs && msgs.length]);
+
+  const send = async () => {
+    const v = text.trim();
+    if (!v) return;
+    setSending(true);
+    const r = await lmsApi.sendLiveChat(id, v).catch(() => null);
+    setSending(false);
+    if (!r || r.success === false) return message.error((r && r.message) || 'Message nahi gaya.');
+    setText('');
+    lastRef.current = r.result.created;
+    setMsgs((m) => [...(m || []), r.result]);
+    return null;
+  };
+  const remove = async (m) => {
+    const r = await lmsApi.removeLiveChat(id, m.id).catch(() => null);
+    if (r && r.success !== false) setMsgs((xs) => xs.filter((x) => x.id !== m.id));
+  };
+
+  if (msgs === null) return <Skeleton active paragraph={{ rows: 3 }} title={false} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+      <div ref={boxRef} className="cd-chat" aria-live="polite">
+        {msgs.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Abhi koi message nahi. Pehla sawaal poochiye!</div>}
+        {msgs.map((m) => (
+          <div key={m.id} className={`cd-cmsg${m.mine ? ' mine' : ''}`}>
+            <b>{m.mine ? 'You' : m.authorName}{m.authorRole === 'teacher' ? ' (PM)' : ''}:</b> {m.text}
+            <span className="ld-muted"> · {clock(m.created)}</span>
+            {m.canDelete && (
+              <button type="button" className="ld-link" style={{ marginLeft: 6, fontSize: 12 }} aria-label="Remove message" onClick={() => remove(m)}>Remove</button>
+            )}
+          </div>
+        ))}
+      </div>
+      {err && <div className="ld-warn">{err}</div>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          className="ld-inp"
+          style={{ flex: 1, minWidth: 0 }}
+          aria-label="Chat message"
+          maxLength={500}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Message likhein…"
+        />
+        <button type="button" className="ld-btn sm" disabled={sending || !text.trim()} onClick={send}>Send</button>
+      </div>
+      <div className="ld-muted" style={{ fontSize: 12 }}>Chat sirf is batch ko dikhti hai · Project Manager messages hata sakte hain</div>
+    </div>
+  );
+}
+
 export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, onOpenRecordings, onOpenMaterial, onClose, beforeClose }) {
   const [att, setAtt] = useState(undefined); // undefined = loading, null = none
   const [note, setNote] = useState('');
@@ -216,11 +309,16 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
           <div className="cd-stage" aria-label="Class room">
             <div className="cd-tile cd-main">
               <span className="cd-msg">{statusLine}</span>
-              <span>{row.teacherName || 'Project Manager'}{isLive ? ' (host)' : ''}</span>
+              <span>{row.teacherName || 'Project Manager'} · {isLive ? 'host · class live' : step >= 4 ? 'host · class ended' : 'host'}</span>
             </div>
-            <div className="cd-tile">{meName ? `${meName} (you)` : 'You'}</div>
-            <div className="cd-tile">{isLive ? `${online} online now` : row.batchName || 'Your batch'}</div>
-            <div className="cd-tile">{learners ? `${learners} learner${learners === 1 ? '' : 's'} in this class` : 'Learners join here'}</div>
+            <div className="cd-tile">
+              {meName ? `${meName} (you)` : 'You'}
+              {att && att.firstJoinAt ? ` · joined ${clock(att.firstJoinAt)}` : isLive ? ' · not joined yet' : ''}
+            </div>
+            <div className="cd-tile">{isLive ? `${online} online now` : `Batch ${row.batchName || ''}`}</div>
+            <div className="cd-tile">
+              {learners ? `${learners} joined this class` : step >= 4 ? 'Is class mein koi join nahi hua' : 'Abhi tak koi join nahi hua'}
+            </div>
           </div>
           <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <section className="ld-card" aria-label="Pre-join check">
@@ -270,7 +368,7 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
               {row.description && <div><span className="ld-muted">About this class</span><br />{row.description}</div>}
             </div>
           )}
-          {tab === 'chat' && <div className="ld-muted" style={{ fontSize: 13 }}>Chat class ke andar (BigBlueButton) hoti hai aur sirf is batch ko dikhti hai.</div>}
+          {tab === 'chat' && <ClassChat id={row.id} />}
           {tab === 'notes' &&
             (noteLoading ? (
               <Skeleton active paragraph={{ rows: 3 }} title={false} />

@@ -95,6 +95,7 @@ const DB_MAP = {
   LmsEnrolment: 'lmsDb',
   LmsLiveSession: 'lmsDb',
   LiveClassNote: 'lmsDb',
+  LiveClassChat: 'lmsDb', // per-class batch chat (design L4)
   WeeklyFeedback: 'lmsDb',
   FeedbackReminder: 'lmsDb',
   FeedbackAction: 'lmsDb',

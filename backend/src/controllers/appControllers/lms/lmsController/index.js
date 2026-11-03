@@ -21,6 +21,7 @@ const analytics = require('./analytics');
 const assessments = require('./assessments');
 const policies = require('./policies');
 const classNotes = require('./classNotes');
+const classChat = require('./classChat');
 const feedback = require('./feedback');
 const adminOps = require('./adminOps');
 const adminOps2 = require('./adminOps2');
@@ -272,6 +273,9 @@ module.exports = {
   opsRulesDiscard: adminOps2.rulesDiscard,
   feedbackAdminRemind: feedback.adminRemind,
   liveMyNoteGet: classNotes.getMine,
+  liveChatList: classChat.list,
+  liveChatPost: classChat.post,
+  liveChatRemove: classChat.remove,
   liveMyNoteSave: classNotes.saveMine,
 
   // assessments (ported from the python-test-platform reference project) —

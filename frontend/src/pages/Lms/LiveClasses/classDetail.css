@@ -40,3 +40,7 @@
   .cd-stage { min-height: 260px; grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr 1fr; }
   .cd-main { grid-row: auto; grid-column: 1 / span 2; }
 }
+/* class chat (L4 Chat tab) */
+.cd-chat { display: flex; flex-direction: column; gap: 8px; max-height: 340px; min-height: 120px; overflow-y: auto; font-size: 13px; line-height: 19px; padding-right: 4px; }
+.cd-cmsg { word-break: break-word; }
+.cd-cmsg.mine b { color: #0e7490; }
