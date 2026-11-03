@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Skeleton } from 'antd';
-import { PlayCircleOutlined, FormOutlined } from '@ant-design/icons';
+import { Skeleton } from 'antd';
+import { PlayCircleOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AssessmentRunner from './AssessmentRunner';
 import lmsApi from '../api';
-import '../StudentDashboard/StudentHome.css';
-import './testIntro.css';
+import '../components/LearnerDesign.css';
 
 /**
  * Landing page for one test type (design L2 "readiness" layout, used by every
@@ -22,12 +21,14 @@ const fmtDay = (v) => (v ? new Date(v).toLocaleDateString('en-IN', { day: 'numer
 const MIX_LABEL = { MCQ: 'MCQ', OUTPUT_BASED: 'output-based', PROGRAMMING: 'programming' };
 
 function statusChip(a) {
-  if (a.status === 'SUBMITTED') return a.qualified ? <span className="sh-chip ok">Passed</span> : <span className="sh-chip bad">Not passed</span>;
-  if (a.status === 'SUSPENDED') return <span className="sh-chip warn">Suspended</span>;
-  if (a.status === 'IN_PROGRESS') return <span className="sh-chip info">In progress</span>;
-  return <span className="sh-chip gray">{String(a.status || '').replace(/_/g, ' ').toLowerCase()}</span>;
+  if (a.status === 'SUBMITTED') return a.qualified ? <span className="ld-chip hai">Passed</span> : <span className="ld-chip red">Not passed</span>;
+  if (a.status === 'SUSPENDED') return <span className="ld-chip adh">Suspended</span>;
+  if (a.status === 'IN_PROGRESS') return <span className="ld-chip naya">In progress</span>;
+  return <span className="ld-chip gray">{String(a.status || '').replace(/_/g, ' ').toLowerCase()}</span>;
 }
 
+// `icon` is still passed by the nav entries; the board layout doesn't show it.
+// eslint-disable-next-line no-unused-vars
 export default function TestIntro({ icon, eyebrow, title, description, testType }) {
   const [started, setStarted] = useState(false);
   const [data, setData] = useState(null);
@@ -70,75 +71,42 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
   const mix = t && t.mix ? Object.entries(t.mix).filter(([, n]) => n > 0) : [];
   const totalQ = mix.reduce((s, [, n]) => s + n, 0);
 
+  // design board L2 — eyebrow + title, 1fr | 460px: why/rules + attempt history | result
   return (
-    <div className="sh-root lms-portal">
-      <div className="sh-head">
-        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <div className="ti-icon" aria-hidden="true">
-            {icon || <FormOutlined />}
-          </div>
-          <div>
-            <div className="sh-muted" style={{ fontWeight: 700, letterSpacing: '0.06em', fontSize: 12, textTransform: 'uppercase' }}>
-              {eyebrow}
-            </div>
-            <h1>{title}</h1>
-          </div>
+    <div className="ld-page" style={{ padding: '32px 36px', gap: 20 }}>
+      <div className="ld-head">
+        <div style={{ gap: 6 }}>
+          <div className="ld-eyebrow">{eyebrow}</div>
+          <h1 style={{ fontSize: 30 }}>{title}</h1>
         </div>
-        <Button type="primary" size="large" icon={<PlayCircleOutlined />} disabled={!!blockReason} onClick={() => setStarted(true)}>
-          {attempts.length ? 'Start next attempt' : 'Start Test'}
-        </Button>
+        <button type="button" className="ld-btn" disabled={!!blockReason} onClick={() => setStarted(true)}>
+          <PlayCircleOutlined /> {attempts.length ? 'Start next attempt' : 'Start Test'}
+        </button>
       </div>
 
-      <div className="ti-grid">
-        <div className="sh-stack">
-          <section className="sh-card" aria-label="About this test">
-            <div className="sh-card-hd">
-              <b>Test kyun?</b>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 460px', gap: 20, flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <section className="ld-card p20" aria-label="About this test" style={{ gap: 14 }}>
+            <b style={{ fontSize: 16 }}>Test kyun?</b>
+            <div className="ld-muted" style={{ fontSize: 14, lineHeight: '21px' }}>{description}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+              <div className="ld-kv"><span className="ld-muted">Questions</span><b>{totalQ ? `${totalQ} · ${mix.map(([k, n]) => `${n} ${MIX_LABEL[k] || k}`).join(' · ')}` : 'Project-style task'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Pass mark</span><b>{rules ? `${rules.qualifyPct}%` : '—'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Attempts left</span><b>{t ? `${t.remaining} of ${t.max}` : rules ? `${rules.maxAttempts}` : '—'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays} din` : '—'}</b></div>
             </div>
-            <div style={{ fontSize: 14, lineHeight: '22px' }}>{description}</div>
-            <div className="ti-facts">
-              <div>
-                <div className="sh-muted">Questions</div>
-                <b>{totalQ ? `${totalQ} · ${mix.map(([k, n]) => `${n} ${MIX_LABEL[k] || k}`).join(' · ')}` : 'Project-style task'}</b>
-              </div>
-              <div>
-                <div className="sh-muted">Pass mark</div>
-                <b>{rules ? `${rules.qualifyPct}%` : '—'}</b>
-              </div>
-              <div>
-                <div className="sh-muted">Attempts</div>
-                <b>{t ? `${t.remaining} of ${t.max} left` : rules ? `${rules.maxAttempts}` : '—'}</b>
-              </div>
-              <div>
-                <div className="sh-muted">Cooldown</div>
-                <b>{rules ? `${rules.cooldownDays} day${rules.cooldownDays === 1 ? '' : 's'} between attempts` : '—'}</b>
-              </div>
-            </div>
-            <div className="ti-note">
-              Proctored — camera, microphone and screen sharing stay on and the test runs in fullscreen. Tab switches are logged as a
-              review signal only. A technical failure doesn&apos;t use up an attempt — raise a ticket if it happens.
-            </div>
-            {blockReason && <div className="sh-chip warn ti-block">{blockReason}</div>}
+            <div className="ld-muted" style={{ fontSize: 13 }}>Camera on rahega · tab switch log hota hai (sirf review signal) · technical failure par attempt count nahi hoga.</div>
+            {blockReason && <span className="ld-chip adh" style={{ alignSelf: 'flex-start', height: 'auto', padding: '4px 10px', whiteSpace: 'normal' }}>{blockReason}</span>}
           </section>
 
-          <section className="sh-card" aria-label="Attempt history">
-            <div className="sh-card-hd">
-              <b>Attempt history</b>
-            </div>
+          <section className="ld-card p20" aria-label="Attempt history">
+            <b style={{ fontSize: 16 }}>Attempt history</b>
             {attempts.length === 0 ? (
-              <div className="sh-muted">No attempts yet.</div>
+              <div className="ld-empty">No attempts yet.</div>
             ) : (
-              <div className="ti-table-wrap">
-                <table className="ti-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Started</th>
-                      <th>Submitted</th>
-                      <th>Score</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
+              <div className="ld-tablewrap">
+                <table className="ld-table">
+                  <thead><tr><th>#</th><th>Started</th><th>Submitted</th><th>Score</th><th>Status</th></tr></thead>
                   <tbody>
                     {attempts.map((a, i) => (
                       <tr key={a.attemptId || i}>
@@ -156,58 +124,30 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
           </section>
         </div>
 
-        <section className={`sh-card ti-result ${latest ? (passed ? 'ok' : 'bad') : ''}`} aria-label="Result">
-          <div className="sh-card-hd">
-            <b>Result</b>
-          </div>
-          {!latest && <div className="sh-muted">Your result will show here after you submit an attempt.</div>}
+        <section className="ld-card p20" aria-label="Result" style={{ gap: 16 }}>
+          <b style={{ fontSize: 16 }}>Result</b>
+          {!latest && <div className="ld-muted" style={{ fontSize: 14 }}>Your result will show here after you submit an attempt.</div>}
           {latest && passed && (
             <>
-              <span className="sh-chip ok" style={{ alignSelf: 'flex-start' }}>
-                Passed · {latest.score} / {latest.totalCount}
-              </span>
-              <div className="sh-big">Well done!</div>
-              <div className="sh-muted" style={{ fontSize: 14 }}>
-                Submitted {fmt(latest.submittedAt)}. Your result is saved on your record.
-              </div>
-              <button type="button" className="sh-link" onClick={() => navigate(`${base}/results`)}>
-                See full breakdown →
-              </button>
-              <button type="button" className="sh-link" onClick={() => navigate(`${base}/classes`)}>
-                Go to live classes →
-              </button>
+              <span className="ld-chip hai lg">Passed · {latest.score} / {latest.totalCount}</span>
+              <div style={{ fontSize: 22, fontWeight: 700 }}>Well done — result saved</div>
+              <div className="ld-muted" style={{ fontSize: 14, lineHeight: '21px' }}>Submitted {fmt(latest.submittedAt)}. Server ne aapka result record par save kar liya hai.</div>
+              <button type="button" className="ld-btn" style={{ alignSelf: 'flex-start' }} onClick={() => navigate(`${base}/classes`)}>Live class par jaayein →</button>
+              <button type="button" className="ld-link" style={{ fontSize: 14 }} onClick={() => navigate(`${base}/results`)}>See full breakdown →</button>
             </>
           )}
           {latest && !passed && (
             <>
-              <span className="sh-chip bad" style={{ alignSelf: 'flex-start' }}>
-                Not passed · {latest.score} / {latest.totalCount}
-              </span>
-              <div className="sh-big">
-                {t && t.remaining === 0 ? 'No attempts left' : coolingDown ? `Agla attempt: ${fmtDay(t.nextEligibleAt)} se` : 'Next attempt available now'}
-              </div>
-              <div className="ti-remedy">
-                <b>Remediation — pehle ye dekhein</b>
-                <button type="button" className="sh-link" onClick={() => navigate(`${base}/results`)}>
-                  Your topic-wise breakdown
-                </button>
-                <button type="button" className="sh-link" onClick={() => navigate(`${base}/material`)}>
-                  Study material for this unit
-                </button>
-                <button type="button" className="sh-link" onClick={() => navigate(`${base}/recordings`)}>
-                  Class recordings
-                </button>
+              <span className="ld-chip red lg">Not passed · {latest.score} / {latest.totalCount}</span>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{t && t.remaining === 0 ? 'No attempts left' : coolingDown ? `Agla attempt: ${fmtDay(t.nextEligibleAt)} se` : 'Next attempt available now'}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Remediation — pehle ye dekhein</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
+                <button type="button" className="ld-link" onClick={() => navigate(`${base}/results`)}>Your topic-wise breakdown</button>
+                <button type="button" className="ld-link" onClick={() => navigate(`${base}/material`)}>Study material for this unit</button>
+                <button type="button" className="ld-link" onClick={() => navigate(`${base}/recordings`)}>Class recordings</button>
               </div>
               {base === '/learn' && (
-                <button
-                  type="button"
-                  className="sh-link"
-                  onClick={() =>
-                    navigate('/learn/support', {
-                      state: { raise: { category: 'Login / Technical', subject: `Technical problem during ${title}`, description: 'Date / time of the attempt:\nWhat happened:' } },
-                    })
-                  }
-                >
+                <button type="button" className="ld-link" style={{ fontSize: 14 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: `Technical problem during ${title}`, description: 'Date / time of the attempt:\nWhat happened:' } } })}>
                   Exception / technical issue? Ticket raise karein
                 </button>
               )}

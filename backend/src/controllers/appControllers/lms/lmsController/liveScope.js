@@ -115,6 +115,10 @@ async function studentAttendance(req, res) {
       attendancePct: p.attendancePct || 0,
       status: p.attendanceStatus,
       joins: p.joinCount,
+      // join / leave columns on My Attendance (design L13)
+      firstJoinAt: p.firstJoinAt || null,
+      lastLeftAt: p.online ? null : p.lastLeftAt || null,
+      online: !!p.online,
     });
   }
   const attendancePct = countedClasses ? Math.round(sumPct / countedClasses) : 0;

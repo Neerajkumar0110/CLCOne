@@ -13,6 +13,7 @@ import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
 import StudentReport from './StudentReport';
 import './Attendance.css';
+import '../components/LearnerDesign.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const SC = { PRESENT: 'green', LATE: 'gold', PARTIAL: 'orange', ABSENT: 'default', EXCUSED: 'blue' };
@@ -225,7 +226,7 @@ function thumbFor(text) {
   return { colors: THUMB_PALETTE[idx], Icon };
 }
 
-const STATUS_CLASS = { PRESENT: '', LATE: 'is-late', PARTIAL: 'is-partial', ABSENT: 'is-absent', EXCUSED: 'is-excused' };
+const STATUS_CHIP = { PRESENT: 'hai', LATE: 'adh', PARTIAL: 'adh', ABSENT: 'red', EXCUSED: 'gray' };
 
 // ── student's own attendance ───────────────────────────────────────
 function MyAttendance() {
@@ -238,6 +239,8 @@ function MyAttendance() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [required, setRequired] = useState(null);
+  const [corrId, setCorrId] = useState('');
+  const [corrText, setCorrText] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -294,223 +297,120 @@ function MyAttendance() {
 
   // design L13: a correction request goes to Support as a prefilled ticket
   // (Support / Ops correct it with reason + audit on their attendance screen)
-  const requestCorrection = (c) =>
-    navigate('/learn/support', {
-      state: {
-        raise: {
-          category: 'Live Class',
-          subject: `Attendance correction · ${fmtDate(c.date)}`,
-          reference: [c.className, c.batchName, fmtDate(c.date)].filter(Boolean).join(' · '),
-          description: `Recorded: ${c.status} (${c.attendedMin || 0} of ${c.scheduledDurationMin || '?'} min).\nWhat happened:`,
-          expected: 'Attendance should be marked as …',
-        },
-      },
-    });
-
   // Gap to the attendance requirement in the learner's eligibility rule
   // (spec D-01 — proposed 90%), and roughly how many more full classes close it.
   const counted = Math.max(0, (s.totalClasses || 0) - (s.excused || 0));
   const gap = required && s.attendancePct < required ? required - s.attendancePct : 0;
   const moreClasses = gap && required < 100 ? Math.ceil((required * counted - (s.attendancePct || 0) * counted) / (100 - required)) : 0;
 
+  const clock = (v) => (v ? new Date(v).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '—');
+  const correctable = allClasses.filter((c) => ['ABSENT', 'PARTIAL', 'LATE'].includes(c.status));
+  const picked = correctable.find((c) => c.id === corrId) || correctable[0];
+  const sendCorrection = () => {
+    if (!picked) return;
+    navigate('/learn/support', {
+      state: {
+        raise: {
+          category: 'Live Class',
+          subject: `Attendance correction · ${fmtDate(picked.date)}`,
+          reference: [picked.className, picked.batchName, fmtDate(picked.date)].filter(Boolean).join(' · '),
+          description: `Recorded: ${picked.status} (${picked.attendedMin || 0} of ${picked.scheduledDurationMin || '?'} min).\nWhat happened: ${corrText}`,
+          expected: 'Attendance should be marked as …',
+        },
+      },
+    });
+  };
+
+  // design board L13 — 4 KPI tiles, session-wise table | "Attendance galat hai?" request card
   return (
-    <div className="attendance-page">
-      <div className="attendance-container">
-        <section className="attendance-hero">
-          <div className="attendance-hero-left">
-            <div className="attendance-hero-illustration">
-              <CalendarOutlined />
-              <span className="attendance-hero-check"><CheckOutlined /></span>
-            </div>
-            <div className="attendance-hero-content">
-              <span className="attendance-hero-badge"><CheckSquareOutlined /> ATTENDANCE PORTAL</span>
-              <h1>My Attendance</h1>
-              <p>Track your live class attendance and stay consistent with your learning journey.</p>
-            </div>
-          </div>
-        </section>
-
-        <div className="attendance-stats">
-          <div className="attendance-stat-card attendance">
-            <div className="attendance-stat-top">
-              <div className="attendance-stat-icon"><CalendarOutlined /></div>
-              <span className="attendance-stat-label">Attendance</span>
-            </div>
-            <strong className="attendance-stat-value">{s.attendancePct || 0}%</strong>
-            <span className="attendance-stat-sub">Your overall attendance rate</span>
-          </div>
-
-          <div className="attendance-stat-card classes">
-            <div className="attendance-stat-top">
-              <div className="attendance-stat-icon"><TeamOutlined /></div>
-              <span className="attendance-stat-label">Classes</span>
-            </div>
-            <strong className="attendance-stat-value">{s.totalClasses || 0}</strong>
-            <span className="attendance-stat-sub">Total classes scheduled</span>
-          </div>
-
-          <div className="attendance-stat-card present">
-            <div className="attendance-stat-top">
-              <div className="attendance-stat-icon"><CheckCircleOutlined /></div>
-              <span className="attendance-stat-label">Present</span>
-            </div>
-            <strong className="attendance-stat-value">{s.present || 0}</strong>
-            <span className="attendance-stat-sub">Classes marked present</span>
-          </div>
-
-          <div className="attendance-stat-card absent">
-            <div className="attendance-stat-top">
-              <div className="attendance-stat-icon"><CheckSquareOutlined /></div>
-              <span className="attendance-stat-label">Absent</span>
-            </div>
-            <strong className="attendance-stat-value">{s.absent || 0}</strong>
-            <span className="attendance-stat-sub">Classes marked absent</span>
-          </div>
+    <div className="ld-page">
+      <div className="ld-head">
+        <div>
+          <h1>My attendance</h1>
+          <div className="ld-muted ld-sub">Join/leave events se calculate · grace 10 min{required ? ` · threshold ${required}%` : ''}</div>
         </div>
+      </div>
 
-        {required ? (
-          <div className={`attendance-gap ${gap ? 'is-short' : 'is-ok'}`}>
-            {gap
-              ? `Required ${required}% · you are ${gap} points short — about ${moreClasses} more full class${moreClasses === 1 ? '' : 'es'} attended in full would close the gap.`
-              : `Required ${required}% · you are meeting the attendance requirement.`}
-            {s.excused ? ` ${s.excused} excused class${s.excused === 1 ? '' : 'es'} not counted.` : ''}
-          </div>
-        ) : null}
-
-        <div className="attendance-filter">
-          <div className="attendance-select-wrap">
-            <BookOutlined />
-            <select className="attendance-select" value={course} onChange={(e) => setCourse(e.target.value)}>
-              <option value="">Internship</option>
-              {courses.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="attendance-select-wrap">
-            <TeamOutlined />
-            <select className="attendance-select" value={batch} onChange={(e) => setBatch(e.target.value)}>
-              <option value="">Batch</option>
-              {batches.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="attendance-daterange">
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Start date" />
-            <span>→</span>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="End date" />
-            <CalendarOutlined />
-          </div>
-
-          <button type="button" className="attendance-refresh-btn" onClick={load}>
-            <ReloadOutlined /> Refresh
-          </button>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Overall</span><b style={{ fontSize: 26, color: gap ? '#9a3412' : '#166534' }}>{s.attendancePct || 0}%</b></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Attended / eligible</span><b style={{ fontSize: 26 }}>{(s.present || 0) + (s.late || 0)} / {counted}</b></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}><span>Excluded</span><b style={{ fontSize: 26 }}>{s.excused || 0}</b><span className="ld-muted" style={{ fontSize: 13 }}>excused sessions</span></div>
+        <div className="ld-card" style={{ gap: 4, padding: 16 }}>
+          <span>{required ? `Gap to ${required}%` : 'Requirement'}</span>
+          <b style={{ fontSize: 26 }}>{required ? (gap ? `${gap} pts` : 'Met') : '—'}</b>
+          <span className="ld-muted" style={{ fontSize: 13 }}>{required ? (gap ? `≈ ${moreClasses} more full session${moreClasses === 1 ? '' : 's'}` : 'requirement met') : 'no rule set yet'}</span>
         </div>
+      </div>
 
-        <div className="attendance-table-wrapper">
-          <table className="attendance-table">
-            <thead>
-              <tr>
-                <th>DATE</th>
-                <th>CLASS</th>
-                <th>INTERNSHIP</th>
-                <th>DURATION</th>
-                <th>ATTENDED</th>
-                <th>%</th>
-                <th>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!loading && pagedClasses.length === 0 && (
-                <tr>
-                  <td colSpan={7}>
-                    <div className="attendance-empty">
-                      <div className="attendance-empty-icon"><CalendarOutlined /></div>
-                      <p className="attendance-empty-title">No classes found</p>
-                      <p className="attendance-empty-text">Nothing matches your current filters yet.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {pagedClasses.map((c, i) => {
-                const thumb = thumbFor(c.className || c.courseTitle);
-                return (
-                  <tr key={`${c.className}-${i}`}>
+      <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px', flex: 1 }}>
+        <section className="ld-card" aria-label="Session-wise">
+          <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
+            <b style={{ fontSize: 16 }}>Session-wise</b>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {courses.length > 1 && <select className="ld-inp" aria-label="Internship" value={course} onChange={(e) => setCourse(e.target.value)}><option value="">All internships</option>{courses.map((c) => <option key={c} value={c}>{c}</option>)}</select>}
+              {batches.length > 1 && <select className="ld-inp" aria-label="Batch" value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">All batches</option>{batches.map((b) => <option key={b} value={b}>{b}</option>)}</select>}
+              <input className="ld-inp" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Start date" />
+              <input className="ld-inp" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="End date" />
+            </div>
+          </div>
+          <div className="ld-tablewrap">
+            <table className="ld-table attendance-table">
+              <thead><tr><th>Date</th><th>Session</th><th>Join</th><th>Leave</th><th>Minutes</th><th>Status</th></tr></thead>
+              <tbody>
+                {!loading && pagedClasses.length === 0 && <tr><td colSpan={6} className="ld-empty">No classes found</td></tr>}
+                {pagedClasses.map((c, i) => (
+                  <tr key={`${c.id || c.className}-${i}`}>
+                    <td>{fmtDate(c.date)}</td>
+                    <td>{c.className}</td>
+                    {c.status === 'EXCUSED' ? (
+                      <td colSpan={3} className="ld-muted">Excused — not counted</td>
+                    ) : (
+                      <>
+                        <td>{clock(c.firstJoinAt)}</td>
+                        <td>{c.online ? 'live' : clock(c.lastLeftAt)}</td>
+                        <td>{c.attendedMin || 0}{c.online ? '+' : ''}</td>
+                      </>
+                    )}
                     <td>
-                      <span className="attendance-date">{fmtDate(c.date)}</span>
-                      <span className="attendance-date-sub">{fmtWeekday(c.date)}</span>
-                    </td>
-                    <td>
-                      <div className="attendance-class-flex">
-                        <div className="attendance-thumb" style={{ background: `linear-gradient(135deg, ${thumb.colors[0]}, ${thumb.colors[1]})` }}>
-                          <thumb.Icon />
-                          {c.scheduledDurationMin ? <span className="attendance-thumb-duration">{c.scheduledDurationMin}m</span> : null}
-                        </div>
-                        <div>
-                          <span className="attendance-class">{c.className}</span>
-                          {c.batchName && <span className="attendance-class-sub">{c.batchName}</span>}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="attendance-course">
-                        <span className="attendance-course-icon"><BookOutlined /></span>
-                        {c.courseTitle}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="attendance-duration"><ClockCircleOutlined /> {c.scheduledDurationMin ? `${c.scheduledDurationMin} min` : '—'}</span>
-                    </td>
-                    <td>
-                      <span className="attendance-attended"><CheckCircleOutlined /> {c.attendedMin != null ? `${c.attendedMin} min` : '—'}</span>
-                    </td>
-                    <td>
-                      <div className="attendance-progress">
-                        <div className="attendance-progress-track">
-                          <div className="attendance-progress-fill" style={{ width: `${c.attendancePct || 0}%` }} />
-                        </div>
-                        <span className="attendance-progress-value">{c.attendancePct || 0}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`attendance-status ${STATUS_CLASS[c.status] || ''}`}>{c.status}</span>
-                      {['ABSENT', 'PARTIAL', 'LATE'].includes(c.status) && (
-                        <button type="button" className="attendance-correct-link" onClick={() => requestCorrection(c)}>
-                          Request correction
-                        </button>
-                      )}
+                      <span className={`ld-chip ${c.online ? 'naya' : STATUS_CHIP[c.status] || 'gray'}`}>{c.online ? 'In class' : c.status}</span>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="attendance-pagination">
-          <span className="attendance-pagination-count">
-            {classes.length === 0 ? 'No classes' : `Showing ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, classes.length)} of ${classes.length} classes`}
-          </span>
-          <div className="attendance-pagination-controls">
-            <button type="button" className="attendance-page-btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              <LeftOutlined />
-            </button>
-            <span className="attendance-page-number">{page}</span>
-            <button type="button" className="attendance-page-btn" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-              <RightOutlined />
-            </button>
-            <div className="attendance-pagesize-wrap">
-              <select className="attendance-pagesize" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                {[20, 50, 100].map((n) => (
-                  <option key={n} value={n}>{n} / page</option>
                 ))}
-              </select>
-            </div>
+              </tbody>
+            </table>
           </div>
-        </div>
+          {classes.length > pageSize && (
+            <div className="ld-hd" style={{ fontSize: 13 }}>
+              <span className="ld-muted">Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, classes.length)} of {classes.length}</span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <button type="button" className="ld-btn2 sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
+                <button type="button" className="ld-btn2 sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
+              </span>
+            </div>
+          )}
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Reconnects merge hote hain — duplicate attendance nahi banta · calculation basis har session par visible</div>
+        </section>
+
+        <section className="ld-card" aria-label="Attendance correction">
+          <b style={{ fontSize: 16 }}>Attendance galat hai?</b>
+          {correctable.length === 0 ? (
+            <div className="ld-muted" style={{ fontSize: 13 }}>Koi absent / partial / late session nahi — correction ki zaroorat nahi.</div>
+          ) : (
+            <>
+              <label className="ld-label">Session
+                <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={picked ? picked.id : ''} onChange={(e) => setCorrId(e.target.value)}>
+                  {correctable.map((c) => <option key={c.id} value={c.id}>{c.className} · {fmtDate(c.date)} · {c.status} ({c.attendedMin || 0} min)</option>)}
+                </select>
+              </label>
+              <label className="ld-label">Kya hua
+                <textarea className="ld-inp full" style={{ fontSize: 14 }} value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="e.g. Network drop hua, phir join kiya par record nahi hua." />
+              </label>
+              <div className="ld-muted" style={{ height: 60, border: '2px dashed #cbd5e1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, textAlign: 'center', padding: 8 }}>Screenshot / proof agle step (ticket) mein attach karein</div>
+              <button type="button" className="ld-btn" disabled={corrText.trim().length < 5} onClick={sendCorrection}>Send correction request</button>
+            </>
+          )}
+          <div className="ld-muted" style={{ fontSize: 12, lineHeight: '18px' }}>Correction sirf authorised staff karega — aapko result notification milega.</div>
+        </section>
       </div>
     </div>
   );
