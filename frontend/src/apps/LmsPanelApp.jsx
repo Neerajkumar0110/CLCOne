@@ -49,7 +49,6 @@ import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
-import useBrandLogo from '@/hooks/useBrandLogo';
 import '@/pages/Lms/components/LearnerDesign.css';
 
 const { Sider, Header, Content } = Layout;
@@ -373,29 +372,35 @@ function buildMenuItems(entries, unreadPaths) {
 }
 
 // [path, label, icon, element]
+// Project Manager sidebar — groups and order of the design canvas (R1 "Project
+// Manager": TODAY → LEARNERS → ASSESS → CONTENT). Every existing page kept.
 const TEACHER_NAV = [
+  ['#TODAY'],
   ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
-  ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
-  ['/teacher/courses', 'My Internships', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
+  ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
+  ['#LEARNERS'],
   ['/teacher/students', 'Candidates', <TeamOutlined />, <TeacherStudents />],
-  ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
-  ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
+  ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <Learner360 />],
+  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
+  ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
+  ['#ASSESS'],
+  ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
   ['/teacher/question-bank', 'Question Bank', <DatabaseOutlined />, <QuestionBank />],
+  ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
+  ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['#CONTENT'],
   ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
-  ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
-  ['/teacher/policies', 'Policies', <FileProtectOutlined />, <Policies />],
-  ['/teacher/eligibility', 'Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
-  ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <Learner360 />],
-  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
+  ['/teacher/courses', 'My Internships', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/my-feedback', 'My Feedback', <CommentOutlined />, <PMFeedback />],
+  ['/teacher/eligibility', 'Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
+  ['/teacher/policies', 'Policies', <FileProtectOutlined />, <Policies />],
   ['/teacher/analytics', 'Analytics', <BarChartOutlined />, <Analytics />],
-  ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
 ];
 
@@ -469,9 +474,6 @@ export default function LmsPanelApp() {
   // nesting depth.
   const leaves = useMemo(() => flattenNavLeaves(nav), [nav]);
   const collapsed = isMobile ? false : isNavMenuClose;
-  // Same two slots the CRM sidebar uses — see config/logoSlots.js.
-  const expandedLogo = useBrandLogo('logo_sidebar_expanded');
-  const collapsedLogo = useBrandLogo('logo_sidebar_collapsed');
   const sidebarGap = isMobile ? 0 : collapsed ? 80 : 256;
 
   const selectedKey = useMemo(() => {
@@ -643,32 +645,10 @@ export default function LmsPanelApp() {
 
   const sidebarInner = (isDrawer) => (
     <>
-      {!isTeacher ? (
-        // design L-boards: text brand on the learner sidebar
-        <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)}>
-          {!isDrawer && collapsed ? <span>CL</span> : <>Career Lab · <span>InternX-AI</span></>}
-        </div>
-      ) : (
-      <div
-        className="logo"
-        onClick={() => go(base)}
-        style={{
-          cursor: 'pointer',
-          ...(!isDrawer && collapsed && { margin: '15px auto 30px', width: 'auto', justifyContent: 'center' }),
-        }}
-      >
-        <img
-          src={!isDrawer && collapsed ? collapsedLogo : expandedLogo}
-          alt="Career Lab Consulting"
-          style={{
-            height: '40px',
-            width: 'auto',
-            objectFit: 'contain',
-            marginLeft: !isDrawer && collapsed ? 0 : '-5px',
-          }}
-        />
+      {/* design boards: text brand on the sidebar (learner L-boards / PM P-boards) */}
+      <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)}>
+        {!isDrawer && collapsed ? <span>CL</span> : <>Career Lab · <span>{isTeacher ? 'Project Manager' : 'InternX-AI'}</span></>}
       </div>
-      )}
       {updates.liveNow && updates.liveNow.length > 0 && (
         <div
           onClick={() => go(`${base}/classes`)}
@@ -722,7 +702,7 @@ export default function LmsPanelApp() {
           collapsed={collapsed}
           onCollapse={() => navMenu.collapse()}
           trigger={<div className="navigation-trigger">{collapsed ? '»' : '«'}</div>}
-          className={`navigation${isTeacher ? "" : " ld-sider"}`}
+          className={`navigation ${isTeacher ? "ld-sider pm" : "ld-sider"}`}
           width={256}
           style={{ overflow: 'hidden', height: '100vh', position: 'fixed', top: 0, left: 0, zIndex: 20 }}
           theme="dark"
@@ -740,7 +720,7 @@ export default function LmsPanelApp() {
         className="navigation-drawer"
         styles={{ body: { padding: 0 }, header: { display: 'none' } }}
       >
-        <Sider className={`navigation${isTeacher ? "" : " ld-sider"}`} theme="dark" collapsible={false} width={256} style={{ position: 'static', height: '100%' }}>
+        <Sider className={`navigation ${isTeacher ? "ld-sider pm" : "ld-sider"}`} theme="dark" collapsible={false} width={256} style={{ position: 'static', height: '100%' }}>
           {sidebarInner(true)}
         </Sider>
       </Drawer>

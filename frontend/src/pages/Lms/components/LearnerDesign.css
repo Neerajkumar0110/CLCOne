@@ -339,3 +339,29 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-tabbar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; border: 0; background: none; font: inherit; font-size: 11px; color: #475569; cursor: pointer; }
 .ld-tabbar button .anticon { font-size: 18px; }
 .ld-tabbar button.on { color: #0e7490; font-weight: 700; }
+/* ── Project Manager (P-boards): indigo sidebar #1e1b4b, active #4f46e5 ── */
+.ld-sider.pm.ant-layout-sider,
+.ld-sider.pm .ant-layout-sider-children,
+.navigation-drawer .ld-sider.pm { background: #1e1b4b !important; }
+.ld-sider.pm .ant-menu-item,
+.ld-sider.pm .ant-menu-submenu-title { color: #c7d2fe !important; }
+.ld-sider.pm .ant-menu-item:hover,
+.ld-sider.pm .ant-menu-submenu-title:hover { background: #312e81 !important; color: #fff !important; }
+.ld-sider.pm .ant-menu-item-selected { background: #4f46e5 !important; color: #fff !important; }
+.ld-sider.pm .ld-brand span { color: #a5b4fc; }
+.ld-sider.pm .ant-menu-item-group-title { color: #a5b4fc !important; }
+
+.ld-page.pm { background: #f5f6fb; }
+.ld-page.pm .ld-btn { background: #4f46e5; height: 36px; padding: 0 14px; font-size: 13px; }
+.ld-page.pm .ld-btn:hover { background: #4338ca; }
+.ld-page.pm .ld-btn:disabled { background: #cbd5e1; }
+.ld-page.pm .ld-btn.danger { background: #b91c1c; }
+.ld-page.pm .ld-stp.done, .ld-page.pm .ld-stp.past { background: #e0e7ff; color: #3730a3; }
+.ld-page.pm .ld-pill.on { background: #1e1b4b; border-color: #1e1b4b; }
+.ld-k { display: flex; flex-direction: column; gap: 2px; padding: 14px; border-radius: 12px; background: #fff; border: 1px solid #e2e8f0; min-width: 0; }
+.ld-k b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.ld-k span { font-size: 12px; color: #475569; }
+.ld-qi { display: flex; flex-direction: column; gap: 3px; padding: 10px; border-radius: 8px; font-size: 13px; border: 1px solid #e2e8f0; background: #fff; text-align: left; font-family: inherit; color: #0f172a; cursor: pointer; width: 100%; }
+.ld-qi.on { border-color: #4f46e5; background: #eef2ff; }
+.ld-sc { width: 30px; height: 30px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; padding: 0; }
+.ld-sc.on { background: #4f46e5; border-color: #4f46e5; color: #fff; }
