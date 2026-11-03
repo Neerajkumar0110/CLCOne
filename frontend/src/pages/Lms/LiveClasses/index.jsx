@@ -44,7 +44,7 @@ import lmsApi from '../api';
 const MANAGER_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
 import DevicePreflightModal from '../components/DevicePreflightModal';
-import ClassDetailDrawer from './ClassDetailDrawer';
+import ClassDetailDrawer, { ClassBoard, classTitle } from './ClassDetailDrawer';
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -174,6 +174,11 @@ export default function LiveClasses() {
   const openRecordings = () => (panelBase ? navigate(`${panelBase}/recordings`) : (window.location.hash = '#/lms/recordings'));
   const admin = useSelector(selectCurrentAdmin) || {};
   const isManager = MANAGER_ROLES.includes(admin.role);
+  const isLearner = panelBase === '/learn';
+  const meName = `${admin.name || ''} ${admin.surname || ''}`.trim();
+  const [focusId, setFocusId] = useState(null); // learner board: class picked from the list
+  const [listTab, setListTab] = useState('upcoming');
+  const [listMore, setListMore] = useState(false);
   const [paused, setPaused] = useState([]); // batches whose classes are switched off
 
   const loadPaused = useCallback(async () => {
@@ -397,6 +402,142 @@ export default function LiveClasses() {
   };
 
   const liveNow = rows.filter((r) => r.status === 'LIVE');
+
+  const joinModals = (
+    <>
+      <DevicePreflightModal
+        open={!!preflight}
+        sessionId={preflight && preflight.id}
+        policy={policy}
+        onCancel={() => setPreflight(null)}
+        onConfirm={() => {
+          const id = preflight && preflight.id;
+          setPreflight(null);
+          if (id) onJoin(id);
+        }}
+      />
+      <Modal
+        open={!!waiting}
+        onCancel={() => setWaiting(null)}
+        footer={null}
+        centered
+        width={420}
+        title={waiting && waiting.url ? 'Your trainer has joined' : 'Waiting for your trainer'}
+      >
+        <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+          {waiting && waiting.url ? (
+            <>
+              <CheckCircleOutlined style={{ fontSize: 44, color: '#16a34a' }} />
+              <p style={{ margin: '12px 0 18px', color: '#475569' }}>The class is open — you can go in now.</p>
+              <Button
+                type="primary"
+                size="large"
+                icon={<LoginOutlined />}
+                onClick={() => {
+                  openMeeting(waiting.url);
+                  setWaiting(null);
+                  load(true);
+                }}
+              >
+                Join class
+              </Button>
+            </>
+          ) : (
+            <>
+              <ClockCircleOutlined spin style={{ fontSize: 40, color: '#2563eb' }} />
+              <p style={{ margin: '12px 0 4px', color: '#475569' }}>The class opens for students once the trainer is in.</p>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: 12.5 }}>Keep this window open — we'll let you in automatically.</p>
+            </>
+          )}
+        </div>
+      </Modal>
+    </>
+  );
+
+  // Learner (/learn/classes) = design board L4: the page IS the class board —
+  // live now → open for join → next upcoming → the last one — with the
+  // rest of the batch's classes in a list below to switch to.
+  if (isLearner) {
+    if (loading) return <div className="ld-page"><Skeleton active paragraph={{ rows: 8 }} /></div>;
+    const nowMs = Date.now();
+    const startOf = (r) => new Date(r.scheduledStart || 0).getTime();
+    const endOf = (r) => new Date(r.scheduledEnd || r.scheduledStart || 0).getTime();
+    const ACTIVE = ['LIVE', 'STARTING', 'ENDING'];
+    const upcoming = rows.filter((r) => r.status !== 'CANCELLED' && !ACTIVE.includes(r.status) && ['SCHEDULED', 'UPCOMING'].includes(r.status) && endOf(r) > nowMs).sort((a, b) => startOf(a) - startOf(b));
+    const past = rows.filter((r) => !upcoming.includes(r) && !ACTIVE.includes(r.status)).sort((a, b) => startOf(b) - startOf(a));
+    const auto = rows.find((r) => r.status === 'LIVE') || rows.find((r) => ACTIVE.includes(r.status)) || rows.find((r) => r.canJoin) || upcoming[0] || past[0] || null;
+    const focus = (focusId && rows.find((r) => r.id === focusId)) || auto;
+    const list = listTab === 'past' ? past : upcoming;
+    const shown = list.slice(0, listMore ? 60 : 8);
+    const chip = (r) => {
+      const m = {
+        LIVE: ['red', 'Live'], STARTING: ['naya', 'Open for join'], ENDING: ['adh', 'Closing'], ENDED: ['gray', 'Ended'],
+        RECORDING_PROCESSING: ['gray', 'Recording processing'], RECORDING_AVAILABLE: ['hai', 'Recording ready'], CANCELLED: ['gray', 'Cancelled'],
+      }[r.status] || ['naya', 'Scheduled'];
+      return <span className={`ld-chip ${m[0]}`}>{m[1]}</span>;
+    };
+    return (
+      <>
+        {error && <div className="ld-page" style={{ paddingBottom: 0 }}><div className="ld-warn">{error}</div></div>}
+        {focus ? (
+          <ClassBoard
+            key={focus.id}
+            row={focus}
+            meName={meName}
+            onJoin={handleJoin}
+            joining={busyId === focus.id}
+            deviceCheckRequired={!!(policy && policy.deviceCheckRequired)}
+            onOpenRecordings={openRecordings}
+            onOpenMaterial={() => navigate('/learn/material')}
+          />
+        ) : (
+          <div className="ld-page">
+            <div className="ld-head"><div><h1>Live classes</h1><div className="ld-muted ld-sub">Aapke batch ki classes yahan dikhengi.</div></div></div>
+            <div className="ld-card"><div className="ld-empty">Abhi koi class schedule nahi hai. Batch assign hone ke baad classes yahan aayengi.</div></div>
+          </div>
+        )}
+        {rows.length > 0 && (
+          <div className="ld-page" style={{ paddingTop: 0 }}>
+            <section className="ld-card" aria-label="All classes">
+              <div className="ld-hd">
+                <b>Batch ki classes</b>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" className={`ld-pill${listTab === 'upcoming' ? ' on' : ''}`} onClick={() => { setListTab('upcoming'); setListMore(false); }}>Upcoming ({upcoming.length})</button>
+                  <button type="button" className={`ld-pill${listTab === 'past' ? ' on' : ''}`} onClick={() => { setListTab('past'); setListMore(false); }}>Past ({past.length})</button>
+                </span>
+              </div>
+              {shown.length === 0 ? (
+                <div className="ld-empty">{listTab === 'past' ? 'Abhi tak koi class nahi hui.' : 'Koi upcoming class nahi.'}</div>
+              ) : (
+                <div className="ld-tablewrap">
+                  <table className="ld-table cd-list">
+                    <thead><tr><th>Class</th><th>Date &amp; time</th><th>Project Manager</th><th>Status</th><th aria-label="Open" /></tr></thead>
+                    <tbody>
+                      {shown.map((r) => (
+                        <tr key={r.id} className={focus && focus.id === r.id ? 'on' : ''}>
+                          <td><b>{classTitle(r)}</b></td>
+                          <td>{d(r.scheduledStart)} · {t(r.scheduledStart)}{r.scheduledEnd ? `–${t(r.scheduledEnd)}` : ''}</td>
+                          <td>{r.teacherName || '—'}</td>
+                          <td>{chip(r)}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button type="button" className="ld-btn2 sm" onClick={() => { setFocusId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Open</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {list.length > shown.length && (
+                <button type="button" className="ld-link" onClick={() => setListMore(true)}>Show more ({list.length - shown.length})</button>
+              )}
+            </section>
+          </div>
+        )}
+        {joinModals}
+      </>
+    );
+  }
 
   if (loading) {
     return (
@@ -718,17 +859,7 @@ export default function LiveClasses() {
         />
       </Modal>
 
-      <DevicePreflightModal
-        open={!!preflight}
-        sessionId={preflight && preflight.id}
-        policy={policy}
-        onCancel={() => setPreflight(null)}
-        onConfirm={() => {
-          const id = preflight && preflight.id;
-          setPreflight(null);
-          if (id) onJoin(id);
-        }}
-      />
+      {joinModals}
 
       <ClassDetailDrawer
         row={detailFor && (rows.find((x) => x.id === detailFor.id) || detailFor)}
@@ -737,43 +868,8 @@ export default function LiveClasses() {
         joining={!!detailFor && busyId === detailFor.id}
         deviceCheckRequired={!!(policy && policy.deviceCheckRequired)}
         onOpenRecordings={openRecordings}
+        meName={meName}
       />
-
-      <Modal
-        open={!!waiting}
-        onCancel={() => setWaiting(null)}
-        footer={null}
-        centered
-        width={420}
-        title={waiting && waiting.url ? 'Your trainer has joined' : 'Waiting for your trainer'}
-      >
-        <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-          {waiting && waiting.url ? (
-            <>
-              <CheckCircleOutlined style={{ fontSize: 44, color: '#16a34a' }} />
-              <p style={{ margin: '12px 0 18px', color: '#475569' }}>The class is open — you can go in now.</p>
-              <Button
-                type="primary"
-                size="large"
-                icon={<LoginOutlined />}
-                onClick={() => {
-                  openMeeting(waiting.url);
-                  setWaiting(null);
-                  load(true);
-                }}
-              >
-                Join class
-              </Button>
-            </>
-          ) : (
-            <>
-              <ClockCircleOutlined spin style={{ fontSize: 40, color: '#2563eb' }} />
-              <p style={{ margin: '12px 0 4px', color: '#475569' }}>The class opens for students once the trainer is in.</p>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: 12.5 }}>Keep this window open — we'll let you in automatically.</p>
-            </>
-          )}
-        </div>
-      </Modal>
     </div>
   );
 }

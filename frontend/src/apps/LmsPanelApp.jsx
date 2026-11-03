@@ -129,7 +129,7 @@ const LD_THEME = {
 };
 // Learner routes already rebuilt to their board (they render their own
 // .ld-page); every other learner route gets the board shell around it.
-const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
+const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/classes', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
 const isBoardBuilt = (path) => BOARD_BUILT.some((p) => path === p || (p !== '/learn' && path.startsWith(`${p}/`)));
 
 const ComingSoon = ({ title }) => (
