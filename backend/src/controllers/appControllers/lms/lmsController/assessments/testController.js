@@ -51,6 +51,14 @@ async function resumePayload(attempt) {
   };
 }
 
+// "Attempt 2 of 3" + the rules line on the test screen (design L11): the
+// open attempt is the one after every closed one.
+async function attemptMeta(candidateId, testType) {
+  const { qualifyThreshold, maxAttemptsPerType, cooldownDays } = await assessmentSettings.get();
+  const closed = await mongoose.model('AssessmentAttempt').countDocuments({ candidate: candidateId, testType, status: { $in: ['SUBMITTED', 'SUSPENDED'] } });
+  return { attemptNumber: closed + 1, maxAttempts: maxAttemptsPerType, passPct: Math.round(qualifyThreshold * 100), cooldownDays };
+}
+
 async function startTest(req, res) {
   try {
     const { testType } = req.params;
@@ -76,7 +84,7 @@ async function startTest(req, res) {
     // An attempt left open (tab closed, refresh, network drop) is resumed
     // with the same questions instead of locking the candidate out.
     if (existing) {
-      return res.status(200).json({ success: true, result: await resumePayload(existing) });
+      return res.status(200).json({ success: true, result: { ...(await resumePayload(existing)), ...(await attemptMeta(admin._id, testType)) } });
     }
 
     const totalAttempts = await AssessmentAttempt.countDocuments({
@@ -156,7 +164,7 @@ async function startTest(req, res) {
       // above already returns for the non-racing case.
       if (e.code === 11000) {
         const raced = await AssessmentAttempt.findOne({ candidate: admin._id, testType, status: 'IN_PROGRESS' });
-        if (raced) return res.status(200).json({ success: true, result: await resumePayload(raced) });
+        if (raced) return res.status(200).json({ success: true, result: { ...(await resumePayload(raced)), ...(await attemptMeta(admin._id, testType)) } });
         return res.status(409).json({ success: false, message: 'You already have an in-progress attempt for this test.' });
       }
       throw e;
@@ -185,7 +193,7 @@ async function startTest(req, res) {
 
     return res.status(201).json({
       success: true,
-      result: { attemptId: attempt._id, testType: attempt.testType, questions: safeQuestions },
+      result: { attemptId: attempt._id, testType: attempt.testType, questions: safeQuestions, ...(await attemptMeta(admin._id, testType)) },
     });
   } catch (err) {
     console.error('Start assessment error:', err);

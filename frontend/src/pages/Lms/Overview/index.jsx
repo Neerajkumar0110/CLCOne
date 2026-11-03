@@ -13,7 +13,13 @@ import '../components/LearnerDesign.css';
 
 const TEST_LABEL = { BASIC: 'Readiness test', MAJOR: 'Major test', MICRO: 'Micro test', NLP_MICRO: 'NLP micro test', NLP_MAJOR: 'NLP major test', LLM_MAJOR: 'LLM major test' };
 const when = (v) => (v ? new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' }) : '');
-const asList = (v) => (Array.isArray(v) ? v : (v && v.result) || []);
+// timeline stamp as on the board: "28 Oct 6:02"
+const evWhen = (v) => {
+  if (!v) return '';
+  const x = new Date(v);
+  return `${x.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} ${x.getHours()}:${String(x.getMinutes()).padStart(2, '0')}`;
+};
+const asList =(v) => (Array.isArray(v) ? v : (v && v.result) || []);
 const moduleOf = (s) => String(s.code || '').replace(/[-_\s]*\d+.*$/, '') || 'Sessions';
 
 export default function LearnerOverview() {
@@ -102,7 +108,7 @@ export default function LearnerOverview() {
               (elig.items || []).map((i) => (
                 <div className="ld-li" key={i.key}>
                   <span>{i.label}{i.applicable && i.required ? ` ≥ ${i.required}${i.key === 'attendance' || i.key === 'curriculum' ? '%' : ''}` : ''}</span>
-                  {!i.applicable ? <span className="ld-muted">n/a</span> : i.passed ? <b style={{ color: '#166534' }}>Pass</b> : <b style={{ color: '#991b1b' }}>{i.achieved} · missing</b>}
+                  {!i.applicable ? <span className="ld-muted">n/a</span> : i.passed ? <b style={{ color: '#166534' }}>Pass{i.achieved != null && i.achieved !== '' && typeof i.achieved !== 'boolean' ? ` · ${i.achieved}` : ''}</b> : <b style={{ color: '#991b1b' }}>{i.achieved} · missing</b>}
                 </div>
               ))}
             {elig && (
@@ -128,7 +134,7 @@ export default function LearnerOverview() {
         </div>
 
         <section className="ld-card" aria-label="Quizzes and documents">
-          <div className="ld-hd"><b>Quizzes &amp; tests</b></div>
+          <div className="ld-hd"><b>Quizzes &amp; surprise tests</b></div>
           {quizzes.length === 0 && results.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>No quiz or test taken yet.</div>}
           {quizzes.map((q) => (
             <div className="ld-li" key={q.id || q._id || q.title}>
@@ -155,7 +161,7 @@ export default function LearnerOverview() {
           {events.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Your activity will appear here.</div>}
           {events.slice(0, 14).map((e, i) => (
             <div key={i} className="ov-ev" style={{ display: 'grid', gridTemplateColumns: '96px 12px 1fr', gap: 8, fontSize: 13, lineHeight: '18px' }}>
-              <span className="ld-muted">{when(e.at)}</span>
+              <span className="ld-muted">{evWhen(e.at)}</span>
               <div style={{ width: 10, height: 10, borderRadius: 5, marginTop: 4, background: e.color }} />
               <span>{e.text}</span>
             </div>

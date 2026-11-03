@@ -72,6 +72,9 @@ export default function WeeklyFeedback() {
   const complete = qs.length > 0 && qs.every((_, i) => mine[i]);
   const done = d.submitted && d.submitted[tab];
   const win = d.window;
+  // "Week 9" like the board — the history label of this window's week (W9)
+  const curWeek = win && (d.history || []).find((h) => h.weekKey === win.weekKey);
+  const weekName = curWeek && /^W\d+$/.test(curWeek.label) ? `Week ${curWeek.label.slice(1)}` : win ? `week of ${win.weekKey}` : '';
 
   const submit = async () => {
     setSaving(true);
@@ -102,7 +105,7 @@ export default function WeeklyFeedback() {
       </div>
 
       <section className="ld-card" aria-label="Week-by-week history">
-        <div className="ld-hd"><b style={{ fontSize: 14 }}>Week-by-week history</b><span className="ld-muted" style={{ fontSize: 13 }}>{d.batch}</span></div>
+        <div className="ld-hd"><b style={{ fontSize: 14 }}>Week-by-week history</b></div>
         {d.history.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Your weekly history will appear here after the first feedback week.</div>}
         <ol className="ld-weeks fb-weeks">
           {d.history.map((h) => {
@@ -126,16 +129,12 @@ export default function WeeklyFeedback() {
         <section className="ld-card" aria-label="This week's feedback" style={{ flex: 1 }}>
           <div className="ld-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={tab === 'weekly'} className={`ld-tab lg${tab === 'weekly' ? ' on' : ''}`} onClick={() => setTab('weekly')}>
-              Weekly feedback · week of {win.weekKey} {d.submitted.weekly && '✓'}
+              Weekly feedback · {weekName} {d.submitted.weekly && '✓'}
             </button>
             <button type="button" role="tab" aria-selected={tab === 'pm'} className={`ld-tab lg${tab === 'pm' ? ' on' : ''}`} onClick={() => setTab('pm')}>
               Project Manager feedback{d.pmName ? ` · ${d.pmName}` : ''} {d.submitted.pm && '✓'}
             </button>
           </div>
-          <div className="ld-muted" style={{ fontSize: 13 }}>
-            {win.late ? `Late submission for the week of ${win.weekKey} — accepted until ${when(win.lateUntil)}.` : `Due ${when(win.dueAt)}.`}
-          </div>
-
           {done ? (
             <div className="fb-done ld-soft" style={{ color: '#166534', fontWeight: 600 }}>Submitted for this week — thank you.</div>
           ) : (
@@ -176,7 +175,7 @@ export default function WeeklyFeedback() {
               )}
               <div className="ld-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
                 <span className="ld-muted" style={{ fontSize: 13 }}>
-                  Form v{d.formVersion} ·{' '}
+                  Form v{d.formVersion} · {win.late ? `late — accepted till ${when(win.lateUntil)}` : `due ${when(win.dueAt)}`} ·{' '}
                   <button type="button" className="ld-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: 'Problem with the weekly feedback form' } } })}>
                     form me problem?
                   </button>

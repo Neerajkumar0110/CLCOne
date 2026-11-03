@@ -52,7 +52,7 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
   }, [started]);
 
   if (started) {
-    return <AssessmentRunner testType={testType} onExit={() => setStarted(false)} />;
+    return <AssessmentRunner testType={testType} title={title} onExit={() => setStarted(false)} />;
   }
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 

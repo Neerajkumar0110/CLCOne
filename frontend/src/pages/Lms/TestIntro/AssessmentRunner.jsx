@@ -17,7 +17,7 @@ const TYPE_LABELS = { MCQ: 'Multiple choice', OUTPUT_BASED: 'Predict the output'
 const TIME_LIMITS = { MCQ: 45, OUTPUT_BASED: 60, PROGRAMMING: 210, DEFAULT: 60 };
 const TEST_TYPE_LABELS = { BASIC: 'Basic', MAJOR: 'Major', MICRO: 'Micro', NLP_MICRO: 'NLP Micro', NLP_MAJOR: 'NLP Major', LLM_MAJOR: 'LLM Major' };
 
-export default function AssessmentRunner({ testType, onExit }) {
+export default function AssessmentRunner({ testType, title, onExit }) {
   const [phase, setPhase] = useState('gate'); // gate | loading | testing | suspended | result | error
   const [error, setError] = useState('');
   const [attemptId, setAttemptId] = useState(null);
@@ -31,7 +31,9 @@ export default function AssessmentRunner({ testType, onExit }) {
   const [submitting, setSubmitting] = useState(false);
   const [lastWarning, setLastWarning] = useState(null);
   const [timeLeft, setTimeLeft] = useState({});
+  const [meta, setMeta] = useState({}); // attemptNumber / maxAttempts / passPct / cooldownDays
   const streamsRef = useRef(null);
+  const camRef = useRef(null);
 
   const { warningCount } = useAssessmentProctor(attemptId, {
     onSuspended: () => {
@@ -49,6 +51,13 @@ export default function AssessmentRunner({ testType, onExit }) {
   }
 
   useEffect(() => () => stopAllMedia(), []);
+
+  // the proctoring camera, shown live in the side card (board L11)
+  useEffect(() => {
+    const v = camRef.current;
+    const s = streamsRef.current && streamsRef.current.cameraStream;
+    if (phase === 'testing' && v && s && v.srcObject !== s) v.srcObject = s;
+  });
 
   useEffect(() => {
     if (lastWarning === null) return undefined;
@@ -99,6 +108,7 @@ export default function AssessmentRunner({ testType, onExit }) {
       }
       setAttemptId(data.attemptId);
       setQuestions(data.questions);
+      setMeta({ attemptNumber: data.attemptNumber, maxAttempts: data.maxAttempts, passPct: data.passPct, cooldownDays: data.cooldownDays });
 
       const initialCode = {};
       const initialTime = {};
@@ -239,40 +249,42 @@ export default function AssessmentRunner({ testType, onExit }) {
   ).length;
   const selected = answers[q.attemptQuestionId];
 
+  const isAnswered = (x) =>
+    x.questionType === 'PROGRAMMING' ? !!(code[x.attemptQuestionId] ?? '').trim() && (code[x.attemptQuestionId] ?? '') !== (x.starterCode || '') : answers[x.attemptQuestionId] != null;
+  const mmss = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+
+  // design board L11 — full-screen: white bar (chip · title · attempt · topic | timer),
+  // progress line, question card | camera + question palette
   return (
-    <div className="lms-portal ar-wrap">
-      <div className="ar-shell">
-        {lastWarning !== null && (
-          <Alert type="error" showIcon banner message={`Warning ${lastWarning}/3 — proctoring violation detected`} className="ar-alert" />
-        )}
-
-        <div className="ar-top">
-          <div className="ar-top-left">
-            <span className="ar-test">{TEST_TYPE_LABELS[testType] || testType}</span>
-            <span className="ar-topic" title={q.topic}>{q.topic}</span>
-          </div>
-          <div className="ar-top-right">
-            {warningCount > 0 && <span className="ar-warn">Warnings {warningCount}/3</span>}
-            <span className={`ar-timer${urgent ? ' urgent' : ''}`} title="Time left for this question">
-              <ClockCircleOutlined />
-              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-            </span>
-          </div>
+    <div className="ar-wrap ar-l11">
+      <header className="ar-bar64">
+        <div className="ar-bar64-l">
+          <span className="ld-chip naya">{TEST_TYPE_LABELS[testType] || testType} test</span>
+          <b>{title || `${TEST_TYPE_LABELS[testType] || testType} test`}{meta.attemptNumber ? ` · Attempt ${meta.attemptNumber}${meta.maxAttempts ? ` of ${meta.maxAttempts}` : ''}` : ''}</b>
+          {q.topic && <span className="ar-topic" title={q.topic}>· {q.topic}</span>}
         </div>
-
-        <div className="ar-progress">
-          <div className="ar-progress-meta">
-            <span>Question <b>{current + 1}</b> of {questions.length}</span>
-            <span>{answeredCount} answered</span>
-          </div>
-          <div className="ar-bar"><div style={{ width: `${((current + 1) / questions.length) * 100}%` }} /></div>
+        <div className="ar-bar64-r">
+          {warningCount > 0 && <span className="ar-warn">Warnings {warningCount}/3</span>}
+          <span className={`ar-timer${urgent ? ' urgent' : ''}`} title="Time left for this question">
+            <ClockCircleOutlined /> {mmss} left
+          </span>
         </div>
+      </header>
+      <div className="ar-line"><div style={{ width: `${(answeredCount / questions.length) * 100}%` }} /></div>
 
+      {lastWarning !== null && (
+        <Alert type="error" showIcon banner message={`Warning ${lastWarning}/3 — proctoring violation detected`} className="ar-alert" />
+      )}
+
+      <div className="ar-body">
+        <div className="ar-main">
         <div className="ar-card">
           <div className="ar-qhead">
-            <span className={`ar-type t-${q.questionType.toLowerCase()}`}>{TYPE_LABELS[q.questionType] || q.questionType}</span>
-            <span className="ar-qtime"><span style={{ width: `${Math.max(0, Math.min(100, (secondsLeft / limit) * 100))}%` }} className={urgent ? 'urgent' : ''} /></span>
+            <span className="ar-qno">QUESTION {current + 1} OF {questions.length}</span>
+            <span className="ld-chip gray">{q.questionType === 'MCQ' ? 'MCQ' : TYPE_LABELS[q.questionType] || q.questionType}</span>
+            <span className="ar-answered">{answeredCount} answered</span>
           </div>
+          <span className="ar-qtime"><span style={{ width: `${Math.max(0, Math.min(100, (secondsLeft / limit) * 100))}%` }} className={urgent ? 'urgent' : ''} /></span>
           {(() => {
             // "What does this print?\n\n<code>" — the part after the first blank line is a code snippet
             const text = String(q.text || '');
@@ -324,24 +336,58 @@ export default function AssessmentRunner({ testType, onExit }) {
               ))}
             </div>
           )}
+
+          {error && <Alert type="error" showIcon message={error} className="ar-alert" />}
+
+          <div className="ar-nav">
+            <button type="button" className="ld-btn2 ar-navbtn" disabled={current === 0} onClick={() => setCurrent((c) => Math.max(0, c - 1))}>
+              <LeftOutlined /> Previous
+            </button>
+            {isLast ? (
+              <button type="button" className="ld-btn ar-navbtn" disabled={submitting} onClick={handleSubmit}>
+                {submitting ? 'Submitting…' : 'Submit test'}
+              </button>
+            ) : (
+              <button type="button" className="ld-btn ar-navbtn" onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}>
+                Next <RightOutlined />
+              </button>
+            )}
+          </div>
+        </div>
         </div>
 
-        {error && <Alert type="error" showIcon message={error} className="ar-alert" />}
-
-        <div className="ar-nav">
-          <Button size="large" icon={<LeftOutlined />} disabled={current === 0} onClick={() => setCurrent((c) => Math.max(0, c - 1))}>
-            Previous
-          </Button>
-          {isLast ? (
-            <Button size="large" type="primary" loading={submitting} onClick={handleSubmit} className="ar-primary">
-              Submit test
-            </Button>
-          ) : (
-            <Button size="large" type="primary" onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))} className="ar-primary">
-              Next <RightOutlined />
-            </Button>
-          )}
-        </div>
+        <aside className="ar-side">
+          <section className="ar-scard" aria-label="Proctoring">
+            <div className="ar-cam">
+              <video ref={camRef} autoPlay muted playsInline />
+              <span>Camera · proctoring on</span>
+            </div>
+            <div className="ar-kv"><span>Proctoring warnings</span><b>{warningCount}/3</b></div>
+            <div className="ld-muted" style={{ fontSize: 12, lineHeight: '17px' }}>Tab switch, fullscreen se bahar jaana ya camera band karna warning hai — 3 warnings par test suspend ho jaata hai.</div>
+          </section>
+          <section className="ar-scard" aria-label="Questions">
+            <b style={{ fontSize: 14 }}>Questions</b>
+            <div className="ar-pal">
+              {questions.map((x, i) => (
+                <button
+                  key={x.attemptQuestionId}
+                  type="button"
+                  className={`ar-num${i === current ? ' cur' : isAnswered(x) ? ' ans' : ''}`}
+                  aria-label={`Question ${i + 1}${isAnswered(x) ? ', answered' : ''}`}
+                  aria-current={i === current ? 'step' : undefined}
+                  onClick={() => setCurrent(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            {meta.maxAttempts ? (
+              <div className="ld-muted" style={{ fontSize: 12 }}>
+                Rules: {questions.length} questions · pass {meta.passPct}% · {meta.maxAttempts} attempts{meta.cooldownDays ? ` · ${meta.cooldownDays} din cooldown` : ''}
+              </div>
+            ) : null}
+          </section>
+        </aside>
       </div>
     </div>
   );
