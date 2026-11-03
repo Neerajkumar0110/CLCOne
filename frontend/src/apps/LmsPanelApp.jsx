@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Layout, Menu, Button, Grid, Drawer, Empty, message } from 'antd';
+import { Layout, Menu, Button, Grid, Drawer, Empty, message, ConfigProvider, theme as antdTheme } from 'antd';
 import axios from 'axios';
 import lmsApi from '@/pages/Lms/api';
 import { getSocket } from '@/socket';
@@ -91,6 +91,46 @@ const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 const MyFees = lazy(() => import('@/pages/Lms/MyFees'));
 const SupportTickets = lazy(() => import('@/pages/Lms/Support'));
+
+// Learner side = the design canvas L-boards: light only, #0e7490 accent,
+// Inter, 8px controls / 12px cards. Every learner route renders inside this
+// so antd pieces of the pages that predate the boards (material, curriculum,
+// tests, assignments, calendar, doubts, results…) come out in the same look.
+const LD_THEME = {
+  algorithm: antdTheme.defaultAlgorithm,
+  token: {
+    colorPrimary: '#0e7490',
+    colorLink: '#0e7490',
+    colorLinkHover: '#155e75',
+    colorText: '#0f172a',
+    colorTextSecondary: '#475569',
+    colorTextTertiary: '#64748b',
+    colorTextPlaceholder: '#64748b',
+    colorBorder: '#cbd5e1',
+    colorBorderSecondary: '#e2e8f0',
+    colorBgContainer: '#ffffff',
+    colorBgElevated: '#ffffff',
+    colorBgLayout: '#f4f6f8',
+    colorSuccess: '#16a34a',
+    colorWarning: '#d97706',
+    colorError: '#b91c1c',
+    borderRadius: 8,
+    borderRadiusLG: 12,
+    fontFamily: 'Inter, system-ui, sans-serif',
+  },
+  components: {
+    Button: { controlHeight: 40, fontWeight: 600, primaryShadow: 'none', defaultShadow: 'none' },
+    Card: { paddingLG: 18, headerFontSize: 15 },
+    Table: { headerBg: '#ffffff', headerColor: '#475569', headerSplitColor: 'transparent', borderColor: '#f1f5f9', rowHoverBg: '#f8fafc', cellFontSize: 13 },
+    Tabs: { itemColor: '#475569', itemSelectedColor: '#0e7490', inkBarColor: '#0e7490' },
+    Segmented: { itemSelectedBg: '#0f172a', itemSelectedColor: '#ffffff' },
+    Progress: { defaultColor: '#0e7490', remainingColor: '#e2e8f0' },
+  },
+};
+// Learner routes already rebuilt to their board (they render their own
+// .ld-page); every other learner route gets the board shell around it.
+const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
+const isBoardBuilt = (path) => BOARD_BUILT.some((p) => path === p || (p !== '/learn' && path.startsWith(`${p}/`)));
 
 const ComingSoon = ({ title }) => (
   <div style={{ padding: 48 }}>
@@ -408,9 +448,14 @@ export default function LmsPanelApp() {
   const { state: stateApp, appContextAction } = useAppContext();
   const { isNavMenuClose } = stateApp;
   const { navMenu } = appContextAction;
-  const { isDark, toggleTheme, palette, setPalette, palettes } = useTheme();
+  const { isDark, toggleTheme, palette, setPalette, setTheme, palettes } = useTheme();
 
   const isTeacher = LMS_TEACHER_ROLES.includes(admin.role);
+  // The learner boards are light-only (and the older pages hard-code dark
+  // colours under data-theme="dark"), so a learner always gets light mode.
+  useEffect(() => {
+    if (!isTeacher && isDark) setTheme('light');
+  }, [isTeacher, isDark, setTheme]);
   const base = isTeacher ? '/teacher' : '/learn';
   const nav = isTeacher ? TEACHER_NAV : STUDENT_NAV;
   // A "group:" entry (Quizzes & Exams / Major / Micro) has no route of its
@@ -558,8 +603,14 @@ export default function LmsPanelApp() {
   // page instead of showing them broken.
   const policyGate = !isTeacher && updates.policies && updates.policies.pendingMandatory > 0;
   const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes', '/learn/tests'];
+  const shell = (path, element) =>
+    isTeacher ? element : (
+      <ConfigProvider theme={LD_THEME}>
+        <div className={isBoardBuilt(path) ? 'ld-root' : 'ld-root ld-page ld-legacy'}>{element}</div>
+      </ConfigProvider>
+    );
   const gate = (path, element) =>
-    policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : element;
+    policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : shell(path, element);
   const routes = (
     <Suspense fallback={<PageLoader />}>
       {accessHold ? (
@@ -667,7 +718,7 @@ export default function LmsPanelApp() {
       </Drawer>
 
       <Layout style={{ marginLeft: sidebarGap, height: '100vh', overflowY: 'auto', transition: 'margin-left .2s ease-in-out' }}>
-        <Header className="app-header" style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+        <Header className={`app-header${isTeacher ? '' : ' ld-topbar'}`} style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: isMobile ? '0 0 auto' : '1 1 auto' }}>
             {isMobile && <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawer(true)} style={{ color: 'var(--nav-text)', flexShrink: 0 }} />}
             {/* one line — on a phone a wrapped name spilled out of the header over the page */}
@@ -685,6 +736,7 @@ export default function LmsPanelApp() {
             <Button type="text" icon={<UserOutlined />} onClick={() => go(base)} style={{ color: 'var(--nav-text)' }} title={admin.email}>
               {isMobile ? null : admin.email}
             </Button>
+            {isTeacher && (<>
             <button
               type="button"
               className={`theme-toggle ${isDark ? 'is-dark' : ''}`}
@@ -713,6 +765,7 @@ export default function LmsPanelApp() {
                 </option>
               ))}
             </select>
+            </>)}
             <Button className="lms-logout-btn" type="text" icon={<LogoutOutlined />} onClick={() => dispatch(logoutAction())}>
               Logout
             </Button>

@@ -120,3 +120,206 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-wk.warn i { background: #f59e0b; }
 .ld-wk.bad i { background: #dc2626; }
 .ld-wk.info i { background: #0e7490; }
+
+/* ══ Learner shell (LmsPanelApp `shell`) ═══════════════════════════════════
+   .ld-root wraps every learner route; .ld-legacy additionally wraps the pages
+   that predate the boards (material, curriculum, tests, assignments,
+   internships, calendar, doubts, results, eligibility, announcements, class
+   list) so they read like the L-boards: plain h1 + muted line, white 12px
+   cards with a #e2e8f0 border, no shadows / gradients / decoration, #0e7490
+   accent, board chips. Markup and behaviour of those pages are untouched. */
+.ld-root {
+  --hub-text: #0f172a; --hub-text-soft: #334155; --hub-muted: #475569;
+  --hub-border: #e2e8f0; --hub-border-strong: #cbd5e1;
+  --hub-bg-soft: #f8fafc; --hub-page-bg: #f4f6f8; --hub-surface: #fff; --hub-surface-2: #f8fafc;
+  --hub-blue: #0e7490; --hub-blue-dark: #155e75; --hub-blue-soft: #ecfeff;
+  --hub-cyan: #0e7490; --hub-cyan-soft: #ecfeff;
+  --hub-card-blue: #fff; --hub-card-yellow: #fff; --hub-card-green: #fff; --hub-card-hover: #f8fafc;
+  --hub-card-text: #0f172a; --hub-card-muted: #475569;
+  --hub-r-sm: 8px; --hub-r-md: 12px; --hub-r-lg: 12px; --hub-r-xl: 12px;
+  --hub-shadow-xs: none; --hub-shadow-sm: none; --hub-shadow-md: none; --hub-shadow-lg: none;
+  --hub-focus-ring: 0 0 0 3px rgba(14, 116, 144, .15);
+  --lms-accent: #0e7490; --lms-accent-soft: #ecfeff;
+  font-family: Inter, system-ui, sans-serif;
+  min-height: 100%;
+}
+
+/* top bar + content frame: the boards are flush, light, no outer margin */
+.ld-topbar.app-header { --nav-text: #0f172a; background: #fff !important; border-bottom: 1px solid #e2e8f0; box-shadow: none !important; }
+.ld-topbar ~ .ant-layout-content { margin: 0 !important; width: 100% !important; }
+.ant-layout:has(> .ld-topbar) { background: #f4f6f8 !important; }
+
+/* page roots of the older pages: let .ld-page do the padding / background */
+.ld-legacy > .lms-portal,
+.ld-legacy .study-material-container,
+.ld-legacy .assignments-page,
+.ld-legacy .assignments-page > .page,
+.ld-legacy .elig-page,
+.ld-legacy .assessment-dashboard-v2,
+.ld-legacy .announcements-page,
+.ld-legacy .courses-layout,
+.ld-legacy .lms-cal { background: transparent !important; padding: 0 !important; margin: 0 !important; max-width: none !important; min-height: 0 !important; box-shadow: none !important; border: 0 !important; }
+.ld-legacy .lms-section-live,
+.ld-legacy .lms-section-student,
+.ld-legacy .lms-section-recordings,
+.ld-legacy .lms-section-attendance { padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; overflow: visible; }
+.ld-legacy .lms-section-live::before,
+.ld-legacy .lms-section-recordings::before,
+.ld-legacy .lms-section-attendance::before { display: none; }
+
+/* heroes / page heads → board head (h1 28/700 + 14px muted line) */
+.ld-legacy .lms-portal-head,
+.ld-legacy .lms-live-hero,
+.ld-legacy .study-material-header,
+.ld-legacy .assignments-page .page-header,
+.ld-legacy .elig-hero,
+.ld-legacy .asm-hero,
+.ld-legacy .courses-hero,
+.ld-legacy .announcement-hero,
+.ld-legacy .lms-student-hero {
+  background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
+  padding: 0 !important; margin: 0 0 4px !important; min-height: 0 !important; overflow: visible !important;
+  color: #0f172a !important; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.ld-legacy .lms-portal-head h2,
+.ld-legacy .lms-live-hero h2,
+.ld-legacy .study-material-title,
+.ld-legacy .page-header h1,
+.ld-legacy .elig-hero h1,
+.ld-legacy .asm-hero h1,
+.ld-legacy .courses-hero h1,
+.ld-legacy .announcement-hero h1,
+.ld-legacy .lms-student-hero h2 {
+  margin: 0 !important; font-size: 28px !important; font-weight: 700 !important; line-height: 1.25 !important; letter-spacing: 0 !important;
+  color: #0f172a !important; background: none !important; -webkit-text-fill-color: currentColor !important;
+}
+.ld-legacy .asm-hero h1 span,
+.ld-legacy .courses-hero h1 span { color: inherit !important; background: none !important; -webkit-text-fill-color: currentColor !important; }
+.ld-legacy .lms-portal-head p,
+.ld-legacy .lms-live-hero p,
+.ld-legacy .study-material-subtitle,
+.ld-legacy .page-header .subtitle,
+.ld-legacy .elig-hero p,
+.ld-legacy .asm-hero p,
+.ld-legacy .courses-hero p,
+.ld-legacy .announcement-hero p,
+.ld-legacy .lms-student-hero p { margin: 4px 0 0 !important; font-size: 14px !important; line-height: 1.5 !important; color: #475569 !important; opacity: 1 !important; max-width: none !important; }
+.ld-legacy .asm-hero-label,
+.ld-legacy .hero-small-title,
+.ld-legacy .announcement-kicker { display: inline-flex; gap: 6px; align-items: center; font-size: 13px !important; font-weight: 600 !important; color: #0e7490 !important; text-transform: uppercase; letter-spacing: 0 !important; background: none !important; padding: 0 !important; margin: 0 0 4px !important; }
+.ld-legacy .asm-hero-left,
+.ld-legacy .hero-content,
+.ld-legacy .announcement-hero-left,
+.ld-legacy .elig-hero-content,
+.ld-legacy .lms-live-hero-info,
+.ld-legacy .page-header .title { display: flex; flex-direction: column; gap: 0; align-items: flex-start; padding: 0 !important; background: none !important; }
+/* decoration the boards don't have */
+.ld-legacy .lms-portal-head h2 .anticon,
+.ld-legacy .study-material-title .anticon,
+.ld-legacy .lms-live-hero-icon,
+.ld-legacy .page-header .title-icon,
+.ld-legacy .elig-hero-icon,
+.ld-legacy .asm-hero-dot,
+.ld-legacy .asm-hero-illustration,
+.ld-legacy .asm-keepgoing,
+.ld-legacy .asm-card-decoration,
+.ld-legacy .hero-illustration,
+.ld-legacy .decoration-one,
+.ld-legacy .decoration-two,
+.ld-legacy .explore-decoration,
+.ld-legacy .announcement-icon,
+.ld-legacy .stay-updated { display: none !important; }
+
+/* cards */
+.ld-legacy .ant-card { border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: none !important; background: #fff; }
+.ld-legacy .ant-card-head { border-bottom-color: #f1f5f9; min-height: 48px; }
+.ld-legacy .ant-card-head-title { font-size: 15px; font-weight: 700; }
+.ld-legacy .live-class-card,
+.ld-legacy .material-file-card,
+.ld-legacy .lms-cal-card,
+.ld-legacy .elig-card,
+.ld-legacy .elig-missing-card,
+.ld-legacy .asm-card,
+.ld-legacy .course-card,
+.ld-legacy .additional-course-card,
+.ld-legacy .explore-card,
+.ld-legacy .detail-card,
+.ld-legacy .filter-card,
+.ld-legacy .score-card,
+.ld-legacy .announcement-filter,
+.ld-legacy .announcement-list > *,
+.ld-legacy .hero-stat,
+.ld-legacy .lms-livenow2,
+.ld-legacy .lms-paused,
+.ld-legacy .asm-batchbar,
+.ld-legacy .info-box { background: #fff !important; background-image: none !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: none !important; transform: none !important; }
+.ld-legacy .live-class-card:hover,
+.ld-legacy .material-file-card:hover,
+.ld-legacy .asm-card:hover,
+.ld-legacy .course-card:hover,
+.ld-legacy .announcement-list > *:hover { border-color: #94a3b8 !important; box-shadow: none !important; transform: none !important; }
+.ld-legacy .asm-card { min-height: 0 !important; }
+.ld-legacy .asm-card h3,
+.ld-legacy .course-card-heading,
+.ld-legacy .card-title,
+.ld-legacy .announcement-card-title { color: #0f172a !important; font-weight: 700 !important; }
+.ld-legacy .asm-card-icon,
+.ld-legacy .announcement-card-icon,
+.ld-legacy .info-icon,
+.ld-legacy .hero-stat-icon { background: #ecfeff !important; color: #0e7490 !important; box-shadow: none !important; }
+.ld-legacy .asm-type { background: #dbeafe !important; color: #1e40af !important; border-radius: 11px !important; height: 22px; display: inline-flex; align-items: center; padding: 0 8px !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .04em; text-transform: uppercase; }
+.ld-legacy .asm-start-btn,
+.ld-legacy .create-btn,
+.ld-legacy .save-btn,
+.ld-legacy .continue-course-btn,
+.ld-legacy .explore-button,
+.ld-legacy .lms-livenow2-btn,
+.ld-legacy .material-download-btn { background: #0e7490 !important; background-image: none !important; border-color: #0e7490 !important; color: #fff !important; border-radius: 8px !important; box-shadow: none !important; font-weight: 600; }
+.ld-legacy .asm-start-btn:hover,
+.ld-legacy .create-btn:hover,
+.ld-legacy .save-btn:hover,
+.ld-legacy .continue-course-btn:hover,
+.ld-legacy .explore-button:hover,
+.ld-legacy .lms-livenow2-btn:hover,
+.ld-legacy .material-download-btn:hover { background: #155e75 !important; }
+.ld-legacy .asm-progress-circle,
+.ld-legacy .asm-progress-line { --card-color: #0e7490 !important; }
+.ld-legacy .material-progress-fill { background: #0e7490 !important; }
+
+/* chips: antd <Tag> → board .chip (hai / adh / naya / gray / red) */
+.ld-legacy .ant-tag { height: 22px; line-height: 22px; padding: 0 8px; border: 0 !important; border-radius: 11px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: #f1f5f9; color: #334155; margin-inline-end: 6px; }
+.ld-legacy .ant-tag-green, .ld-legacy .ant-tag-success, .ld-legacy .ant-tag-lime { background: #dcfce7 !important; color: #166534 !important; }
+.ld-legacy .ant-tag-orange, .ld-legacy .ant-tag-gold, .ld-legacy .ant-tag-warning, .ld-legacy .ant-tag-yellow { background: #ffedd5 !important; color: #9a3412 !important; }
+.ld-legacy .ant-tag-blue, .ld-legacy .ant-tag-geekblue, .ld-legacy .ant-tag-processing, .ld-legacy .ant-tag-cyan, .ld-legacy .ant-tag-purple { background: #dbeafe !important; color: #1e40af !important; }
+.ld-legacy .ant-tag-red, .ld-legacy .ant-tag-error, .ld-legacy .ant-tag-volcano, .ld-legacy .ant-tag-magenta { background: #fee2e2 !important; color: #991b1b !important; }
+.ld-legacy .lms-pill { border: 0; border-radius: 11px; height: 22px; padding: 0 8px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.ld-legacy .lms-pill[data-tone='success'] { background: #dcfce7; color: #166534; }
+.ld-legacy .lms-pill[data-tone='warning'] { background: #ffedd5; color: #9a3412; }
+.ld-legacy .lms-pill[data-tone='info'] { background: #dbeafe; color: #1e40af; }
+.ld-legacy .lms-pill[data-tone='danger'] { background: #fee2e2; color: #991b1b; }
+.ld-legacy .lms-pill[data-tone='neutral'] { background: #f1f5f9; color: #334155; }
+
+/* tables, stats, inputs — board sizes */
+.ld-legacy .ant-table { font-size: 13px; background: transparent; }
+.ld-legacy .ant-table-thead > tr > th { font-weight: 600 !important; padding: 8px !important; border-bottom: 1px solid #e2e8f0 !important; background: #fff !important; }
+.ld-legacy .ant-table-tbody > tr > td { padding: 9px 8px !important; }
+.ld-legacy .ant-statistic-title { font-size: 12px; color: #475569; margin-bottom: 2px; }
+.ld-legacy .ant-statistic-content { font-size: 26px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+.ld-legacy .lms-stat.ant-card { border-left: 1px solid #e2e8f0 !important; }
+.ld-legacy .lms-stat-icon { background: #ecfeff; color: #0e7490; }
+.ld-legacy .lms-stat-value { font-size: 26px; }
+.ld-legacy .material-search,
+.ld-legacy .material-input,
+.ld-legacy .search-box,
+.ld-legacy .filter-select,
+.ld-legacy .course-search-box,
+.ld-legacy .announcement-search { border-radius: 8px !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
+.ld-legacy .ant-segmented { background: #f1f5f9; }
+.ld-legacy .ant-alert { border-radius: 8px; }
+.ld-legacy .ant-empty-description { color: #64748b; font-size: 13px; }
+
+@media (max-width: 760px) {
+  .ld-legacy .lms-portal-head h2, .ld-legacy .lms-live-hero h2, .ld-legacy .study-material-title,
+  .ld-legacy .page-header h1, .ld-legacy .elig-hero h1, .ld-legacy .asm-hero h1,
+  .ld-legacy .courses-hero h1, .ld-legacy .announcement-hero h1 { font-size: 22px !important; }
+}
