@@ -209,7 +209,7 @@ function RoomFrame({ url, title, onPopOut, onLeave }) {
   return (
     <div className="cd-room" ref={boxRef}>
       <div className="cd-roombar">
-        <span><i className="cd-dot" /> Class chal rahi hai</span>
+        <span><i className="cd-dot" /> Class chal rahi hai <span style={{ color: '#94a3b8', marginLeft: 6 }}>· yahan load na ho to "Naye tab mein kholo"</span></span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="cd-rbtn" onClick={full}>Full screen</button>
           <button type="button" className="cd-rbtn" onClick={onPopOut}>Naye tab mein kholo</button>
