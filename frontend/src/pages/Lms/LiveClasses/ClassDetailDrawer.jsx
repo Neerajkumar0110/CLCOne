@@ -7,8 +7,8 @@ import './classDetail.css';
 // Learner's view of one class (design L4): where the class is in its
 // lifecycle, the same Join flow the card uses (device pre-check + wait for
 // host live in the parent), their own attendance for it, details and private
-// notes. Chat and captions live inside the meeting itself (BigBlueButton), so
-// they aren't duplicated here. ClassBoard is the board itself (the learner's
+// notes and the batch chat. On the learner page the meeting itself runs in
+// the room area (RoomFrame). ClassBoard is the board itself (the learner's
 // Live Classes page renders it inline); the default export wraps it in a
 // drawer for the class list.
 
@@ -188,7 +188,46 @@ function ClassChat({ id }) {
   );
 }
 
-export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, onOpenRecordings, onOpenMaterial, onClose, beforeClose }) {
+// The live meeting inside the room area. BBB needs camera/mic/screen-share
+// and fullscreen granted to the frame explicitly.
+function RoomFrame({ url, title, onPopOut, onLeave }) {
+  const boxRef = React.useRef(null);
+  const frameRef = React.useRef(null);
+  // BBB's Leave / meeting-ended redirects the frame to /api/lms/live/left,
+  // which posts lmsLeftClass back here.
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data && e.data.lmsLeftClass && frameRef.current && e.source === frameRef.current.contentWindow) onLeave();
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [onLeave]);
+  const full = () => {
+    const el = boxRef.current;
+    if (el && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  };
+  return (
+    <div className="cd-room" ref={boxRef}>
+      <div className="cd-roombar">
+        <span><i className="cd-dot" /> Class chal rahi hai</span>
+        <span style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="cd-rbtn" onClick={full}>Full screen</button>
+          <button type="button" className="cd-rbtn" onClick={onPopOut}>Naye tab mein kholo</button>
+          <button type="button" className="cd-rbtn leave" onClick={onLeave}>Leave</button>
+        </span>
+      </div>
+      <iframe
+        ref={frameRef}
+        title={title}
+        src={url}
+        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *; clipboard-write *; speaker-selection *"
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoomBack, onLeaveRoom, deviceCheckRequired, onOpenRecordings, onOpenMaterial, onClose, beforeClose }) {
   const [att, setAtt] = useState(undefined); // undefined = loading, null = none
   const [note, setNote] = useState('');
   const [savedNote, setSavedNote] = useState('');
@@ -272,7 +311,7 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
   const online = Number(row.participantsOnline) || 0;
   const learners = Number(row.participantCount) || 0;
   const statusLine = isLive
-    ? 'Class live hai — "Join class" dabane par BigBlueButton naye tab mein khulega.'
+    ? 'Class live hai — "Join class" dabane par class yahin khulegi. Chahein to naye tab mein bhi khol sakte hain.'
     : cancelled
       ? 'Yeh class cancel ho gayi.'
       : step >= 4
@@ -306,9 +345,20 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
 
       <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px', flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+          {room && room.url ? (
+            <RoomFrame url={room.url} title={title} onPopOut={onPopOut} onLeave={onLeaveRoom} />
+          ) : (
           <div className="cd-stage" aria-label="Class room">
             <div className="cd-tile cd-main">
-              <span className="cd-msg">{statusLine}</span>
+              {room && room.popped ? (
+                <span className="cd-msg" style={{ flexDirection: 'column', gap: 12 }}>
+                  Class naye tab mein chal rahi hai.
+                  <button type="button" className="cd-rbtn" disabled={joining} onClick={onRoomBack}>{joining ? 'Joining…' : 'Yahin wapas lao'}</button>
+                  <small style={{ color: '#94a3b8' }}>Wapas laane ke baad naya tab band kar dein, warna awaaz do baar aayegi.</small>
+                </span>
+              ) : (
+                <span className="cd-msg">{statusLine}</span>
+              )}
               <span>{row.teacherName || 'Project Manager'} · {isLive ? 'host · class live' : step >= 4 ? 'host · class ended' : 'host'}</span>
             </div>
             <div className="cd-tile">
@@ -320,6 +370,7 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
               {learners ? `${learners} joined this class` : step >= 4 ? 'Is class mein koi join nahi hua' : 'Abhi tak koi join nahi hua'}
             </div>
           </div>
+          )}
           <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <section className="ld-card" aria-label="Pre-join check">
               <div className="ld-hd"><b>Pre-join check</b><button type="button" className="ld-btn2 sm" disabled={check === 'running'} onClick={runCheck}>{check === 'running' ? 'Checking…' : check ? 'Check again' : 'Run check'}</button></div>
@@ -333,7 +384,13 @@ export function ClassBoard({ row, meName, onJoin, joining, deviceCheckRequired, 
               {row.canJoin ? (
                 <>
                   <div className="ld-muted" style={{ fontSize: 13 }}>{deviceCheckRequired ? 'Pehle camera / mic check chalega. ' : ''}One-time secure ticket · link kabhi page par nahi dikhta. Error aaye to support ticket banayein.</div>
-                  <button type="button" className="ld-btn" disabled={joining} onClick={() => onJoin(row)}>{joining ? 'Joining…' : 'Join class'}</button>
+                  {room && room.url ? (
+                    <button type="button" className="ld-btn2" onClick={onPopOut}>Naye tab mein kholo</button>
+                  ) : room && room.popped ? (
+                    <button type="button" className="ld-btn2" disabled={joining} onClick={onRoomBack}>Yahin wapas lao</button>
+                  ) : (
+                    <button type="button" className="ld-btn" disabled={joining} onClick={() => onJoin(row)}>{joining ? 'Joining…' : 'Join class'}</button>
+                  )}
                 </>
               ) : row.status === 'RECORDING_AVAILABLE' ? (
                 <button type="button" className="ld-btn2" onClick={onOpenRecordings}>Watch recording</button>

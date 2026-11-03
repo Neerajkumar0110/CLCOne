@@ -40,6 +40,17 @@
   .cd-stage { min-height: 260px; grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr 1fr; }
   .cd-main { grid-row: auto; grid-column: 1 / span 2; }
 }
+/* the live meeting inside the room area */
+.cd-room { display: flex; flex-direction: column; background: #0f172a; border-radius: 12px; overflow: hidden; min-height: 600px; height: 72vh; }
+.cd-room:fullscreen { height: 100vh; border-radius: 0; }
+.cd-roombar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; color: #e2e8f0; font-size: 13px; flex-wrap: wrap; }
+.cd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 4px; }
+.cd-rbtn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.cd-rbtn:hover { background: #334155; }
+.cd-rbtn:disabled { opacity: .6; cursor: default; }
+.cd-rbtn.leave { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.cd-room iframe { flex: 1; width: 100%; border: 0; background: #0f172a; }
+@media (max-width: 760px) { .cd-room { min-height: 420px; height: 70vh; } }
 /* class chat (L4 Chat tab) */
 .cd-chat { display: flex; flex-direction: column; gap: 8px; max-height: 340px; min-height: 120px; overflow-y: auto; font-size: 13px; line-height: 19px; padding-right: 4px; }
 .cd-cmsg { word-break: break-word; }

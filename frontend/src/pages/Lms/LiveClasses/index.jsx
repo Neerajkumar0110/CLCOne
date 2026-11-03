@@ -219,6 +219,28 @@ export default function LiveClasses() {
   }, [load]);
 
   const openMeeting = (url) => url && window.open(url, '_blank', 'noopener');
+  // Learners run the class inside the L4 board (BBB in the room area).
+  // "Naye tab" moves it to a tab with a fresh ticket and drops the iframe,
+  // so they're in the meeting once. room = { id, url } | { id, popped }
+  const [room, setRoom] = useState(null);
+  const enter = (id, url) => (isLearner ? setRoom({ id, url }) : openMeeting(url));
+  const popOut = async (id) => {
+    const w = window.open('', '_blank'); // inside the click, before the await — not popup-blocked
+    setRoom({ id, popped: true });
+    const res = await lmsApi.liveClassJoin(id).catch(() => null);
+    const url = res && res.result && res.result.url;
+    if (w && url) {
+      w.opener = null;
+      w.location.href = url;
+      return;
+    }
+    if (w) w.close();
+    if (url) setRoom({ id, url });
+    else {
+      setRoom(null);
+      message.warning((res && res.message) || 'Naya tab nahi khul paya — dobara "Join class" dabayein.');
+    }
+  };
 
   // Students can't enter before the host (backend issueJoin → waitForHost):
   // a waiting modal re-checks every 12s and offers Join the moment the
@@ -238,10 +260,10 @@ export default function LiveClasses() {
     setBusyId(id);
     try {
       const res = await lmsApi.liveClassJoin(id);
-      // Everyone — teacher and student — joins in a real new tab (BBB's own
-      // client; role-based toolbar/moderator controls come from the
-      // provider itself, see BigBlueButtonProvider.getJoinUrl).
-      if (res && res.result && res.result.url) openMeeting(res.result.url);
+      // Staff join in a real new tab (BBB's own client; role-based toolbar /
+      // moderator controls come from the provider itself, see
+      // BigBlueButtonProvider.getJoinUrl); learners inside the L4 board.
+      if (res && res.result && res.result.url) enter(id, res.result.url);
       else if (res && res.waitForHost) setWaiting({ id });
       else message.warning((res && res.message) || 'Could not join.');
     } catch (e) {
@@ -434,7 +456,7 @@ export default function LiveClasses() {
                 size="large"
                 icon={<LoginOutlined />}
                 onClick={() => {
-                  openMeeting(waiting.url);
+                  enter(waiting.id, waiting.url);
                   setWaiting(null);
                   load(true);
                 }}
@@ -466,7 +488,8 @@ export default function LiveClasses() {
     const upcoming = rows.filter((r) => r.status !== 'CANCELLED' && !ACTIVE.includes(r.status) && ['SCHEDULED', 'UPCOMING'].includes(r.status) && endOf(r) > nowMs).sort((a, b) => startOf(a) - startOf(b));
     const past = rows.filter((r) => !upcoming.includes(r) && !ACTIVE.includes(r.status)).sort((a, b) => startOf(b) - startOf(a));
     const auto = rows.find((r) => r.status === 'LIVE') || rows.find((r) => ACTIVE.includes(r.status)) || rows.find((r) => r.canJoin) || upcoming[0] || past[0] || null;
-    const focus = (focusId && rows.find((r) => r.id === focusId)) || auto;
+    // the class the learner is sitting in stays on the board through refreshes
+    const focus = (focusId && rows.find((r) => r.id === focusId)) || (room && rows.find((r) => r.id === room.id)) || auto;
     const list = listTab === 'past' ? past : upcoming;
     const shown = list.slice(0, listMore ? 60 : 8);
     const chip = (r) => {
@@ -486,6 +509,10 @@ export default function LiveClasses() {
             meName={meName}
             onJoin={handleJoin}
             joining={busyId === focus.id}
+            room={room && room.id === focus.id ? room : null}
+            onPopOut={() => popOut(focus.id)}
+            onRoomBack={() => onJoin(focus.id)}
+            onLeaveRoom={() => setRoom(null)}
             deviceCheckRequired={!!(policy && policy.deviceCheckRequired)}
             onOpenRecordings={openRecordings}
             onOpenMaterial={() => navigate('/learn/material')}

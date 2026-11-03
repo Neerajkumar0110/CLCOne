@@ -269,8 +269,12 @@ async function left(req, res) {
   const sid = req.query.s || (req.body && req.body.s);
   const uid = req.query.u || (req.body && req.body.u);
   if (sid && uid) await liveClassService.recordLeave(sid, uid).catch(() => {});
-  // BBB redirects the browser here — send them somewhere friendly
-  return res.status(200).type('html').send('<!doctype html><meta charset=utf-8><title>Left class</title><p style="font:16px system-ui;margin:40px">You left the class. You can close this tab.</p>');
+  // BBB redirects the browser here — send them somewhere friendly. Inside the
+  // learner board (iframe) it also tells the page, which closes the room.
+  return res
+    .status(200)
+    .type('html')
+    .send('<!doctype html><meta charset=utf-8><title>Left class</title><p style="font:16px system-ui;margin:40px">You left the class. You can close this tab.</p><script>try{if(parent!==window)parent.postMessage({lmsLeftClass:true},"*")}catch(e){}</script>');
 }
 
 // GET /api/lms/live/mock/:id?k=<publicKey>&role=teacher|student&u=<crmUserId>
