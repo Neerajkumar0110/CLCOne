@@ -344,6 +344,32 @@ router.route('/feedback/actions').get(catchErrors(lms.feedbackActions)).post(cat
 router.route('/feedback/actions/:id').patch(catchErrors(lms.feedbackActionUpdate));
 router.route('/feedback/admin/overview').get(requireManager, catchErrors(lms.feedbackAdminOverview));
 router.route('/feedback/admin/remind').post(requireManager, catchErrors(lms.feedbackAdminRemind));
+// LMS → Admin & Ops (design page 6, A1–A11) — see lmsController/adminOps*.js
+router.route('/admin/ops/approvals').get(requireManager, catchErrors(lms.opsApprovals)).post(requireManager, catchErrors(lms.opsApprovalCreate));
+router.route('/admin/ops/approvals/:id/decide').post(requireManager, catchErrors(lms.opsApprovalDecide));
+router.route('/admin/ops/decisions/:code').post(requireManager, catchErrors(lms.opsDecisionSet));
+router.route('/admin/ops/kpis').get(requireManager, catchErrors(lms.opsKpis));
+router.route('/admin/ops/kpis/export').get(requireManager, catchErrors(lms.opsKpisExport));
+router.route('/admin/ops/payments').get(requireManager, catchErrors(lms.opsPayments));
+router.route('/admin/ops/payments/:id').get(requireManager, catchErrors(lms.opsPaymentDetail));
+router.route('/admin/ops/payments/:id/recheck').post(requireManager, catchErrors(lms.opsPaymentRecheck));
+router.route('/admin/ops/payments/:id/provision').post(requireManager, catchErrors(lms.opsPaymentProvision));
+router.route('/admin/ops/roles').get(requireManager, catchErrors(lms.opsRoles));
+router.route('/admin/ops/roles/:role/draft').post(requireManager, catchErrors(lms.opsRoleDraft));
+router.route('/admin/ops/roles/:role/approve').post(requireManager, catchErrors(lms.opsRoleApprove));
+router.route('/admin/ops/policies').get(requireManager, catchErrors(lms.opsPolicies));
+router.route('/admin/ops/policies/:id/send-for-approval').post(requireManager, catchErrors(lms.opsPolicySendForApproval));
+router.route('/admin/ops/health').get(requireManager, catchErrors(lms.opsHealth));
+router.route('/admin/ops/reports').get(requireManager, catchErrors(lms.opsReports));
+router.route('/admin/ops/reports/:key').get(requireManager, catchErrors(lms.opsReportDownload));
+router.route('/admin/ops/automation').get(requireManager, catchErrors(lms.opsAutomation));
+router.route('/admin/ops/automation/:key').post(requireManager, catchErrors(lms.opsAutomationToggle));
+router.route('/admin/ops/security').get(requireManager, catchErrors(lms.opsSecurity));
+router.route('/admin/ops/evidence').get(requireManager, catchErrors(lms.opsEvidence));
+router.route('/admin/ops/rules').get(requireManager, catchErrors(lms.opsRules));
+router.route('/admin/ops/rules/proposal').post(requireManager, catchErrors(lms.opsRulesPropose));
+router.route('/admin/ops/rules/approve').post(requireManager, catchErrors(lms.opsRulesApprove));
+router.route('/admin/ops/rules/discard').post(requireManager, catchErrors(lms.opsRulesDiscard));
 
 router.route('/my/policies').get(catchErrors(lms.myPolicies));
 router.route('/my/policies/:id/open').post(catchErrors(lms.policyMarkOpened));

@@ -298,6 +298,8 @@ async function runOnce() {
     require('../services/lms/health').ping('lmsDailySummaryTick');
     const now = new Date();
     if (now.getHours() !== SEND_HOUR) return;
+    // paused from LMS → Admin & Ops → Automation (design A8)
+    if (await require('../services/lms/automation').isPaused('daily-report')) return;
     const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
     if (!(await claimToday(dayKey))) return;
     await sendSummary();

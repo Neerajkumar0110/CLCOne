@@ -1,0 +1,152 @@
+/* LMS → Admin & Ops — copied from the design canvas (page 6, boards A1–A11):
+   same colours, sizes, radii and spacing as the .dc.html boards. Everything
+   is scoped under .ao-root so nothing leaks into the CRM shell. */
+.ao-root {
+  display: flex;
+  min-height: 960px;
+  background: #f6f5f3;
+  font-family: Inter, system-ui, sans-serif;
+  color: #0f172a;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ao-root a { color: #0e7490; }
+.ao-root a:hover { color: #155e75; }
+.ao-root *, .ao-root *::before, .ao-root *::after { box-sizing: border-box; }
+
+/* sidebar */
+.ao-side { width: 240px; flex-shrink: 0; background: #1f2937; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+.ao-brand { color: #fff; font-weight: 700; font-size: 16px; padding: 4px 14px 18px; }
+.ao-brand span { color: #fcd34d; }
+.ao-nav { display: flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; color: #e5e7eb; font-size: 14px; background: none; border: 0; text-align: left; font-family: inherit; cursor: pointer; width: 100%; }
+.ao-nav:hover { background: #374151; color: #fff; }
+.ao-nav.on { background: #b45309; color: #fff; font-weight: 600; }
+
+.ao-main { flex: 1; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 14px; }
+.ao-main.tight { padding: 24px 28px; gap: 12px; }
+
+.ao-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ao-head h1 { margin: 0; font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.25; }
+.ao-head .ao-sub { font-size: 14px; margin-top: 4px; }
+.ao-muted { color: #475569; }
+
+.ao-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; text-transform: uppercase; }
+.ao-chip.hai { background: #dcfce7; color: #166534; }
+.ao-chip.adh { background: #ffedd5; color: #9a3412; }
+.ao-chip.naya { background: #dbeafe; color: #1e40af; }
+.ao-chip.gray { background: #f1f5f9; color: #334155; }
+.ao-chip.red { background: #fee2e2; color: #991b1b; }
+
+.ao-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ao-hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ao-hd > b, .ao-hd b.t { font-size: 15px; }
+
+.ao-btn { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 14px; border-radius: 8px; background: #b45309; color: #fff; font-weight: 600; font-size: 13px; border: 0; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.ao-btn.sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 7px; }
+.ao-btn:disabled, .ao-btn2:disabled { opacity: .55; cursor: not-allowed; }
+.ao-btn2 { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border-radius: 8px; background: #fff; color: #0f172a; border: 1px solid #cbd5e1; font-weight: 600; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.ao-btn2.sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 7px; }
+.ao-btn2.md { height: 30px; font-size: 12px; border-radius: 7px; }
+
+.ao-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.ao-table.small { font-size: 12px; }
+.ao-table th { text-align: left; color: #475569; font-weight: 600; padding: 7px; border-bottom: 1px solid #e2e8f0; }
+.ao-table td { padding: 9px 7px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.ao-table.small th { padding: 6px; }
+.ao-table.small td { padding: 7px 6px; }
+.ao-table.num td { font-variant-numeric: tabular-nums; }
+.ao-tablewrap { overflow-x: auto; }
+.ao-table code, .ao-root code { font-family: ui-monospace, monospace; font-size: 12px; color: #334155; }
+
+.ao-li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+.ao-li:last-child { border-bottom: 0; }
+
+.ao-k { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; min-width: 0; }
+.ao-k b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.ao-k span { font-size: 12px; color: #475569; }
+.ao-k small { font-size: 11px; color: #64748b; }
+.ao-kgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+
+.ao-bar { display: grid; grid-template-columns: 150px 1fr 48px; gap: 10px; align-items: center; font-size: 13px; }
+.ao-bar.narrow { grid-template-columns: 110px 1fr 70px; }
+.ao-trk { height: 12px; background: #e2e8f0; border-radius: 6px; position: relative; overflow: hidden; }
+.ao-fill { height: 12px; border-radius: 6px; background: #0e7490; }
+.ao-fill.green { background: #16a34a; }
+.ao-fill.warn { background: #c2410c; }
+
+.ao-inp { height: 34px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 10px; font-family: inherit; font-size: 13px; background: #fff; color: #0f172a; }
+.ao-inp.full { width: 100%; }
+.ao-inp.sm { height: 30px; font-size: 12px; border-radius: 7px; padding: 0 8px; }
+textarea.ao-inp { height: 70px; padding: 8px; resize: none; }
+.ao-label { font-size: 12px; font-weight: 600; color: #475569; display: flex; flex-direction: column; gap: 4px; }
+
+/* role / policy pickers */
+.ao-r { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; gap: 8px; background: #fff; font-family: inherit; color: #0f172a; cursor: pointer; text-align: left; width: 100%; }
+.ao-r.on { border-color: #b45309; background: #fffbeb; }
+.ao-ck { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: #fff; padding: 0; }
+.ao-ck.on { background: #b45309; border-color: #b45309; }
+.ao-table.center th, .ao-table.center td { text-align: center; }
+.ao-table.center th:first-child, .ao-table.center td:first-child { text-align: left; }
+
+/* policy workflow steps */
+.ao-steps { display: flex; gap: 4px; }
+.ao-stp { flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 6px; background: #f1f5f9; color: #475569; text-align: center; }
+.ao-stp.done { background: #fde68a; color: #78350f; }
+.ao-stp.on { background: #b45309; color: #fff; }
+.ao-tog { width: 44px; height: 24px; border-radius: 12px; border: 0; cursor: pointer; position: relative; flex-shrink: 0; background: #cbd5e1; }
+.ao-tog.on { background: #b45309; }
+.ao-tog span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9px; background: #fff; transition: left .15s; }
+.ao-tog.on span { left: 23px; }
+.ao-soft { padding: 12px; border-radius: 8px; background: #f8fafc; font-size: 13px; line-height: 19px; }
+
+/* finance fix chain */
+.ao-node { padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+.ao-node.bad { border-color: #fca5a5; background: #fef2f2; }
+.ao-node b.ok { color: #166534; }
+.ao-node b.no { color: #991b1b; }
+.ao-table tr.sel td { background: #fff7ed; }
+.ao-table tr.click { cursor: pointer; }
+
+/* system health */
+.ao-svc { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; font-size: 13px; min-width: 0; }
+.ao-dot { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 6px; }
+.ao-incident { padding: 12px 16px; border-radius: 10px; background: #b91c1c; color: #fff; font-size: 14px; font-weight: 600; }
+
+/* reports */
+.ao-rp { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.ao-rp:last-child { border-bottom: 0; }
+
+/* automation */
+.ao-ph { flex: 1; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; font-size: 12px; line-height: 17px; }
+.ao-ph.now { border-color: #0e7490; }
+.ao-tg { height: 26px; padding: 0 10px; border-radius: 13px; border: 0; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.ao-tg.on { background: #16a34a; color: #fff; }
+.ao-tg.off { background: #e2e8f0; color: #334155; }
+.ao-tg:disabled { cursor: default; }
+
+/* evidence */
+.ao-pill { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid #cbd5e1; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; }
+.ao-pill.on { background: #0f172a; border-color: #0f172a; color: #fff; }
+
+/* assessment rules */
+.ao-f { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.ao-f:last-child { border-bottom: 0; }
+.ao-f code { font-size: 11px; }
+
+.ao-grid-2 { display: grid; gap: 14px; flex: 1; min-height: 0; }
+.ao-empty { color: #64748b; font-size: 13px; padding: 12px 0; }
+.ao-err { padding: 10px 12px; border-radius: 8px; background: #fee2e2; color: #991b1b; font-size: 13px; }
+
+/* phone / narrow: sidebar becomes a scrolling strip, grids stack */
+@media (max-width: 1100px) {
+  .ao-kgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ao-grid-2 { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 760px) {
+  .ao-root { flex-direction: column; min-height: 0; }
+  .ao-side { width: auto; flex-direction: row; overflow-x: auto; padding: 10px; }
+  .ao-brand { display: none; }
+  .ao-nav { width: auto; white-space: nowrap; }
+  .ao-main { padding: 16px; }
+  .ao-kgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

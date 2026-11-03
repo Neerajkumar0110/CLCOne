@@ -36,6 +36,15 @@ const schema = new mongoose.Schema({
   recipientsCount: { type: Number, default: 0 },
   acknowledgedCount: { type: Number, default: 0 },
 
+  // Draft → review → management approval → published (design A5). Set by
+  // adminOps.js#policySendForApproval; publishing still goes through
+  // policies.js#publish.
+  changeSummary: { type: String, default: '' },
+  materialChange: { type: Boolean, default: true },
+  approverName: { type: String, default: '' },
+  approvalRequestedAt: Date,
+  approvalRequestedByName: String,
+
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
 });

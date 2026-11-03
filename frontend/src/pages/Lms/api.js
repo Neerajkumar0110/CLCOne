@@ -375,6 +375,51 @@ const lmsApi = {
   saveLiveMyNote: (id, text) => request.post({ entity: `lms/live-classes/${id}/my-note`, jsonData: { text } }),
   correctAttendance: (sessionId, b) => request.post({ entity: `lms/live-classes/${sessionId}/attendance/correct`, jsonData: b }),
   systemHealth: () => request.get({ entity: 'lms/admin/system-health' }),
+  toggleIncidentMode: (active, message) => request.post({ entity: 'lms/admin/incident-mode', jsonData: { active, message } }),
+  // ── LMS → Admin & Ops (design page 6, A1–A11) ────────────────
+  opsApprovals: () => request.get({ entity: 'lms/admin/ops/approvals' }),
+  opsApprovalCreate: (b) => request.post({ entity: 'lms/admin/ops/approvals', jsonData: b }),
+  opsApprovalDecide: (id, decision, reason) => request.post({ entity: `lms/admin/ops/approvals/${id}/decide`, jsonData: { decision, reason } }),
+  opsDecisionSet: (code, status, note) => request.post({ entity: `lms/admin/ops/decisions/${code}`, jsonData: { status, note } }),
+  opsKpis: (month) => request.get({ entity: `lms/admin/ops/kpis${qs({ month })}` }),
+  opsPayments: (q) => request.get({ entity: `lms/admin/ops/payments${qs({ q })}` }),
+  opsPaymentDetail: (id) => request.get({ entity: `lms/admin/ops/payments/${id}` }),
+  opsPaymentRecheck: (id) => request.post({ entity: `lms/admin/ops/payments/${id}/recheck`, jsonData: {} }),
+  opsPaymentProvision: (id, b) => request.post({ entity: `lms/admin/ops/payments/${id}/provision`, jsonData: b }),
+  opsRoles: (role) => request.get({ entity: `lms/admin/ops/roles${qs({ role })}` }),
+  opsRoleDraft: (role, matrix) => request.post({ entity: `lms/admin/ops/roles/${encodeURIComponent(role)}/draft`, jsonData: { matrix } }),
+  opsRoleApprove: (role) => request.post({ entity: `lms/admin/ops/roles/${encodeURIComponent(role)}/approve`, jsonData: {} }),
+  opsPolicies: (id) => request.get({ entity: `lms/admin/ops/policies${qs({ id })}` }),
+  opsPolicySendForApproval: (id, b) => request.post({ entity: `lms/admin/ops/policies/${id}/send-for-approval`, jsonData: b }),
+  opsHealth: () => request.get({ entity: 'lms/admin/ops/health' }),
+  opsReports: () => request.get({ entity: 'lms/admin/ops/reports' }),
+  opsAutomation: () => request.get({ entity: 'lms/admin/ops/automation' }),
+  opsAutomationToggle: (key, running) => request.post({ entity: `lms/admin/ops/automation/${key}`, jsonData: { running } }),
+  opsSecurity: (f = {}) => request.get({ entity: `lms/admin/ops/security${qs(f)}` }),
+  opsEvidence: (type) => request.get({ entity: `lms/admin/ops/evidence${qs({ type })}` }),
+  opsRules: () => request.get({ entity: 'lms/admin/ops/rules' }),
+  opsRulesPropose: (values) => request.post({ entity: 'lms/admin/ops/rules/proposal', jsonData: { values } }),
+  opsRulesApprove: () => request.post({ entity: 'lms/admin/ops/rules/approve', jsonData: {} }),
+  opsRulesDiscard: () => request.post({ entity: 'lms/admin/ops/rules/discard', jsonData: {} }),
+  // file downloads (reports, KPI export) — same blob pattern as the receipt
+  opsDownload: async (path, params, filename) => {
+    let token = '';
+    try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
+    // '/lms/…' = any LMS path; otherwise relative to lms/admin/ops/
+    const rel = path.startsWith('/') ? path.slice(1) : `lms/admin/ops/${path}`;
+    const res = await axios.get(`${API_BASE_URL}${rel}${qs(params)}`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 
   // ── learner 360 report ────────────────────────────────────────
   learner360: (courseId) => request.get({ entity: `lms/admin/learner-360/${courseId}` }),

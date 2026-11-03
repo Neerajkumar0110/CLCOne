@@ -13,6 +13,8 @@ const CYCLE_HOURS = Number(process.env.LMS_POLICY_REMINDER_CYCLE_HOURS || 48); /
 
 async function tick() {
   require('../services/lms/health').ping('lmsPolicyReminderTick');
+  // paused from LMS → Admin & Ops → Automation (design A8)
+  if (await require('../services/lms/automation').isPaused('policy-reminder')) return;
   try {
     const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
     const PolicyDocument = mongoose.model('PolicyDocument');

@@ -22,6 +22,8 @@ const assessments = require('./assessments');
 const policies = require('./policies');
 const classNotes = require('./classNotes');
 const feedback = require('./feedback');
+const adminOps = require('./adminOps');
+const adminOps2 = require('./adminOps2');
 const onboarding = require('./onboarding');
 const eligibility = require('./eligibility');
 const projects = require('./projects');
@@ -239,6 +241,33 @@ module.exports = {
   feedbackActionCreate: feedback.createAction,
   feedbackActionUpdate: feedback.updateAction,
   feedbackAdminOverview: feedback.adminOverview,
+  // LMS → Admin & Ops (design page 6)
+  opsApprovals: adminOps.approvalsList,
+  opsApprovalCreate: adminOps.approvalCreate,
+  opsApprovalDecide: adminOps.approvalDecide,
+  opsDecisionSet: adminOps.decisionSet,
+  opsKpis: adminOps.kpis,
+  opsKpisExport: adminOps.kpisExport,
+  opsPayments: adminOps.payments,
+  opsPaymentDetail: adminOps.paymentDetail,
+  opsPaymentRecheck: adminOps.paymentRecheck,
+  opsPaymentProvision: adminOps.paymentProvision,
+  opsRoles: adminOps.roles,
+  opsRoleDraft: adminOps.roleDraft,
+  opsRoleApprove: adminOps.roleApprove,
+  opsPolicies: adminOps.policies,
+  opsPolicySendForApproval: adminOps.policySendForApproval,
+  opsHealth: adminOps2.healthExtras,
+  opsReports: adminOps2.reportsOverview,
+  opsReportDownload: adminOps2.reportDownload,
+  opsAutomation: adminOps2.automationList,
+  opsAutomationToggle: adminOps2.automationToggle,
+  opsSecurity: adminOps2.security,
+  opsEvidence: adminOps2.evidence,
+  opsRules: adminOps2.rules,
+  opsRulesPropose: adminOps2.rulesPropose,
+  opsRulesApprove: adminOps2.rulesApprove,
+  opsRulesDiscard: adminOps2.rulesDiscard,
   feedbackAdminRemind: feedback.adminRemind,
   liveMyNoteGet: classNotes.getMine,
   liveMyNoteSave: classNotes.saveMine,

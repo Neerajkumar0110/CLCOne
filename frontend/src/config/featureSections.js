@@ -1081,12 +1081,15 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsStudyMaterial',
       },
       {
-        key: 'system-health',
-        label: 'System Health',
+        key: 'admin-ops',
+        label: 'Admin & Ops',
         Icon: HeartOutlined,
-        // Spec §18 health checks + §2 "admin availability... monitoring".
-        // See pages/Lms/SystemHealth + /api/lms/admin/system-health.
-        embed: 'lmsSystemHealth',
+        // Design canvas page 6 (A1–A11): ops approvals, management KPIs,
+        // reports, automation, security & audit, evidence, assessment rules,
+        // finance, roles, policy centre and System Health (moved in here
+        // from its own tab — same component, pages/Lms/SystemHealth). See
+        // pages/Lms/AdminOps + /api/lms/admin/ops/*.
+        embed: 'lmsAdminOps',
       },
       {
         key: 'feedback',
