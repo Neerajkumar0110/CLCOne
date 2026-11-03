@@ -15,6 +15,7 @@ import './projects.css';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import '../components/LearnerDesign.css';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -427,13 +428,46 @@ function ManageProjects() {
 }
 
 /* ═══════════ STUDENT — my project(s) ═══════════ */
-// design L6 lifecycle, mapped from Project.status
-const LIFECYCLE = ['Assigned', 'In progress', 'Submitted', 'Under review', 'Approved'];
-const LIFECYCLE_STEP = { assigned: 0, in_progress: 1, submitted: 2, in_review: 3, revision_requested: 3, rejected: 3, approved: 4 };
+// design board L6 "Project 360": lifecycle bar, then Milestones | Submission | Review
+const STAGES = ['Assigned', 'In progress', 'Submitted', 'Under review', 'Changes requested', 'Approved', 'Eligibility updated'];
+const STAGE_AT = { assigned: 0, in_progress: 1, submitted: 2, in_review: 3, revision_requested: 4, rejected: 4, approved: 6 };
+const MS_CHIP = { done: ['hai', 'Done'], in_progress: ['naya', 'In progress'], pending: ['gray', 'Not started'] };
+const DECISION_CHIP = { approved: 'hai', rejected: 'red', revision_requested: 'adh' };
 
-function MyProjects() {
+function ProjectBlock({ p, onChanged }) {
   const navigate = useNavigate();
-  const requestExtension = (p) =>
+  const last = (p.submissions || [])[p.submissions.length - 1];
+  const [f, setF] = useState({ githubUrl: (last && last.githubUrl) || p.githubUrl || '', deploymentUrl: (last && last.deploymentUrl) || p.deploymentUrl || '', demoUrl: (last && last.demoUrl) || '', note: '' });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const at = STAGE_AT[p.status] ?? 0;
+  const nextVersion = (p.submissions || []).length + 1;
+  const review = last && last.review;
+  const scores = (review && review.rubricScores) || [];
+
+  const toggleMilestone = async (idx, checked) => {
+    try {
+      await lmsApi.updateMilestone(p.id, { index: idx, status: checked ? 'done' : 'in_progress' });
+      onChanged();
+    } catch (e) {
+      message.error('Update failed');
+    }
+  };
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const res = await lmsApi.submitProject(p.id, f);
+      if (res && res.success === false) throw new Error(res.message);
+      message.success((res && res.message) || 'Submitted.');
+      setF((x) => ({ ...x, note: '' }));
+      onChanged();
+    } catch (e) {
+      message.error((e && e.message) || 'Submit failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+  const requestExtension = () =>
     navigate('/learn/support', {
       state: {
         raise: {
@@ -444,158 +478,103 @@ function MyProjects() {
         },
       },
     });
+
+  return (
+    <div className="pj-block" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="ld-hd">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <h1>{p.title}</h1>
+          <div className="ld-muted" style={{ fontSize: 14 }}>
+            {[p.mentor && `Project Manager: ${p.mentor}`, p.created && `Assigned ${dayjs(p.created).format('D MMM')}`, p.dueDate && `Final due ${dayjs(p.dueDate).format('D MMM YYYY')}`].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+        <span className={`ld-chip ${DECISION_CHIP[p.status] || 'gray'}`}>{STATUS_LABEL[p.status] || p.status}</span>
+      </div>
+      <div className="ld-steps" aria-label="Project lifecycle">
+        {STAGES.map((s, i) => (
+          <div key={s} className={`ld-stp${i < at ? ' done' : i === at ? ' on' : ''}`}>{s === 'Submitted' && (p.submissions || []).length ? `Submitted v${p.submissions.length}` : s}</div>
+        ))}
+      </div>
+
+      <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <section className="ld-card" aria-label="Milestones" style={{ gap: 12 }}>
+          <div className="ld-hd"><b>Milestones</b></div>
+          {p.problemStatement && <div className="ld-muted" style={{ fontSize: 13 }}>{p.problemStatement}</div>}
+          <table className="ld-table">
+            <thead><tr><th>Milestone</th><th>Due</th><th>Status</th></tr></thead>
+            <tbody>
+              {(p.milestones || []).length === 0 && <tr><td colSpan={3} className="ld-empty">No milestones set.</td></tr>}
+              {(p.milestones || []).map((m, idx) => (
+                <tr key={idx}>
+                  <td><label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}><input type="checkbox" checked={m.status === 'done'} onChange={(e) => toggleMilestone(idx, e.target.checked)} /> {idx + 1} · {m.title}</label></td>
+                  <td>{m.dueDate ? dayjs(m.dueDate).format('D MMM') : '—'}</td>
+                  <td><span className={`ld-chip ${(MS_CHIP[m.status] || MS_CHIP.pending)[0]}`}>{(MS_CHIP[m.status] || MS_CHIP.pending)[1]}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {p.status !== 'approved' && <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={requestExtension}>Extension chahiye? PM ko request (approval recorded)</button>}
+        </section>
+
+        <section className="ld-card" aria-label="Submission" style={{ gap: 12 }}>
+          <div className="ld-hd"><b>Submission{p.status === 'approved' ? '' : ` · v${nextVersion}`}</b></div>
+          <label className="ld-label">GitHub repo + commit<input className="ld-inp full" name="githubUrl" value={f.githubUrl} onChange={set('githubUrl')} placeholder="https://github.com/…" disabled={p.status === 'approved'} /></label>
+          <label className="ld-label">Deployment URL<input className="ld-inp full" name="deploymentUrl" value={f.deploymentUrl} onChange={set('deploymentUrl')} placeholder="https://…" disabled={p.status === 'approved'} /></label>
+          <label className="ld-label">Demo video<input className="ld-inp full" name="demoUrl" value={f.demoUrl} onChange={set('demoUrl')} placeholder="Loom / Drive link" disabled={p.status === 'approved'} /></label>
+          {p.status !== 'approved' && <label className="ld-label">Note for your Project Manager<textarea className="ld-inp full" name="note" style={{ height: 60 }} value={f.note} onChange={set('note')} /></label>}
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Version history</div>
+          <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {(p.submissions || []).length === 0 && <span className="ld-muted">No submission yet.</span>}
+            {[...(p.submissions || [])].reverse().map((s, i) => (
+              <div key={s.version} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span>v{s.version} · {dayjs(s.submittedAt).format('D MMM h:mm A')}{s.githubUrl ? <> · <a href={s.githubUrl} target="_blank" rel="noopener noreferrer">repo</a></> : null}{s.deploymentUrl ? <> · <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer">live</a></> : null}{s.demoUrl ? <> · <a href={s.demoUrl} target="_blank" rel="noopener noreferrer">demo</a></> : null}</span>
+                <span className="ld-muted">{i === 0 ? 'current' : 'kept'}</span>
+              </div>
+            ))}
+          </div>
+          {p.status !== 'approved' && <button type="button" className="ld-btn md" style={{ marginTop: 'auto' }} disabled={saving} onClick={submit}>{saving ? 'Submitting…' : `Submit v${nextVersion}`}</button>}
+        </section>
+
+        <section className="ld-card" aria-label="Review" style={{ gap: 12 }}>
+          <div className="ld-hd"><b>Review{last ? ` (v${last.version})` : ''}</b>{review && <span className={`ld-chip ${DECISION_CHIP[review.decision] || 'gray'}`}>{review.decision.replace('_', ' ')}</span>}</div>
+          {!last && <div className="ld-muted" style={{ fontSize: 13 }}>Review appears here after your first submission.</div>}
+          {last && !review && <div className="ld-muted" style={{ fontSize: 13 }}>Awaiting review (v{last.version}).</div>}
+          {scores.map((s) => {
+            const max = ((p.rubric || []).find((r) => r.criterion === s.criterion) || {}).maxMarks || 10;
+            return (
+              <div className="ld-rb" key={s.criterion}>
+                <span>{s.criterion}</span>
+                <div className="ld-track"><div style={{ width: `${Math.min(100, (s.marks / max) * 100)}%` }} /></div>
+                <b>{s.marks}/{max}</b>
+              </div>
+            );
+          })}
+          {review && review.feedback && <div className="ld-soft">&quot;{review.feedback}&quot; — {review.byName}{review.at ? `, ${dayjs(review.at).format('D MMM')}` : ''}</div>}
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval sirf Project Manager / authorised approver · eligibility update audit me log hota hai</div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function MyProjects() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [submitOpen, setSubmitOpen] = useState(null); // project
-  const [form] = Form.useForm();
-  const [saving, setSaving] = useState(false);
-
   const load = useCallback(() => {
-    setLoading(true);
     lmsApi.myProjects().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
-
-  const toggleMilestone = async (project, idx, checked) => {
-    try {
-      await lmsApi.updateMilestone(project.id, { index: idx, status: checked ? 'done' : 'in_progress' });
-      load();
-    } catch (e) { message.error('Update failed'); }
-  };
-
-  const doSubmit = async () => {
-    let v; try { v = await form.validateFields(); } catch (e) { return; }
-    setSaving(true);
-    try {
-      const res = await lmsApi.submitProject(submitOpen.id, v);
-      message.success(res?.message || 'Submitted.');
-      setSubmitOpen(null); form.resetFields(); load();
-    } catch (e) { message.error('Submit failed.'); } finally { setSaving(false); }
-  };
-
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
-
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><ProjectOutlined /> My Projects</h2><p>Only you, your project manager and admin can see your project.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="No project assigned yet." /></Card> : rows.map((p) => (
-        <Card key={p.id} style={{ marginBottom: 16 }}
-          title={<Space>{p.code && <Tag color="purple">{p.code}</Tag>}<b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
-          extra={p.status !== 'approved' && <Button type="primary" icon={<SendOutlined />} onClick={() => { setSubmitOpen(p); setTimeout(() => form.setFieldsValue({ githubUrl: p.githubUrl, deploymentUrl: p.deploymentUrl }), 0); }}>Submit</Button>}>
-          <Paragraph type="secondary">{p.problemStatement}</Paragraph>
-          <Text type="secondary">
-            {[p.mentor && `Project Manager: ${p.mentor}`, p.dueDate && `Final due ${dayjs(p.dueDate).format('D MMM YYYY')}`].filter(Boolean).join(' · ')}
-          </Text>
-          {/* design L6: where the project is in its review lifecycle */}
-          <Steps
-            size="small"
-            style={{ margin: '14px 0 6px' }}
-            current={LIFECYCLE_STEP[p.status] ?? 0}
-            status={p.status === 'rejected' ? 'error' : p.status === 'revision_requested' ? 'warning' : undefined}
-            items={LIFECYCLE.map((t) => ({ title: p.status === 'revision_requested' && t === 'Under review' ? 'Changes requested' : t }))}
-          />
-          <Divider style={{ margin: '10px 0' }} />
-          <List size="small" header={<b>Milestones</b>} dataSource={p.milestones || []} renderItem={(m, idx) => (
-            <List.Item extra={<Tag color={m.status === 'done' ? 'green' : m.status === 'in_progress' ? 'blue' : 'default'}>{(m.status || 'pending').replace('_', ' ')}</Tag>}>
-              <Checkbox checked={m.status === 'done'} onChange={(e) => toggleMilestone(p, idx, e.target.checked)}>
-                {m.title} {m.dueDate && <Text type="secondary">— due {dayjs(m.dueDate).format('D MMM')}</Text>}
-              </Checkbox>
-            </List.Item>
-          )} />
-          {p.status !== 'approved' && (
-            <Button type="link" style={{ paddingLeft: 0 }} onClick={() => requestExtension(p)}>
-              Extension chahiye? Project Manager ko request bhejein
-            </Button>
-          )}
-          {p.submissions && p.submissions.length > 0 && (
-            <>
-              <Divider style={{ margin: '10px 0' }} />
-              <Text strong>Latest feedback</Text>
-              {(() => {
-                const last = p.submissions[p.submissions.length - 1];
-                if (!last.review) return <div><Text type="secondary">Awaiting review (v{last.version}).</Text></div>;
-                const scores = last.review.rubricScores || [];
-                return (
-                  <>
-                    <Alert style={{ marginTop: 6 }} type={last.review.decision === 'approved' ? 'success' : last.review.decision === 'rejected' ? 'error' : 'warning'} message={`${last.review.decision.replace('_', ' ')} by ${last.review.byName}`} description={last.review.feedback} />
-                    {scores.length > 0 && (
-                      <div className="pj-rubric">
-                        {scores.map((s) => {
-                          const max = ((p.rubric || []).find((r) => r.criterion === s.criterion) || {}).maxMarks;
-                          return (
-                            <div key={s.criterion}>
-                              <Text type="secondary">{s.criterion}</Text>
-                              <b>
-                                {s.marks}
-                                {max ? ` / ${max}` : ''}
-                              </b>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-              <Divider style={{ margin: '10px 0' }} />
-              <Text strong>Version history</Text>
-              <List
-                size="small"
-                dataSource={[...p.submissions].reverse()}
-                renderItem={(s, i) => (
-                  <List.Item extra={s.review ? <Tag color={s.review.decision === 'approved' ? 'green' : s.review.decision === 'rejected' ? 'red' : 'orange'}>{s.review.decision.replace('_', ' ')}</Tag> : <Tag>awaiting review</Tag>}>
-                    <Space wrap size={10}>
-                      <b>v{s.version}</b>
-                      <Text type="secondary">{dayjs(s.submittedAt).format('D MMM, h:mm A')}</Text>
-                      {i === 0 && <Tag color="blue">current</Tag>}
-                      {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> repo</a>}
-                      {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer"><LinkOutlined /> live</a>}
-                      {s.demoUrl && <a href={s.demoUrl} target="_blank" rel="noopener noreferrer">demo video</a>}
-                    </Space>
-                  </List.Item>
-                )}
-              />
-            </>
-          )}
-        </Card>
-      ))}
-
-      <Modal
-        className="crud-modal"
-        open={!!submitOpen}
-        title={
-          <span className="crud-modal-title">
-            <span className="crud-modal-title-icon"><SendOutlined /></span>
-            <span>
-              <span className="crud-modal-title-kicker">Submit for review</span>
-              <span className="crud-modal-title-main">{submitOpen?.title}</span>
-            </span>
-          </span>
-        }
-        onCancel={() => setSubmitOpen(null)}
-        onOk={doSubmit}
-        confirmLoading={saving}
-        okText="Submit for review"
-        destroyOnClose
-        maskClosable={false}
-      >
-        <Form form={form} layout="vertical" className="crud-form" preserve={false}>
-          <div className="crud-form-grid">
-            <Form.Item name="githubUrl" label={<Lbl icon={<GithubOutlined />}>GitHub repository URL</Lbl>} className="crud-form-full">
-              <Input placeholder="https://github.com/..." />
-            </Form.Item>
-            <Form.Item name="deploymentUrl" label={<Lbl icon={<LinkOutlined />}>Deployment / live URL</Lbl>} className="crud-form-full">
-              <Input placeholder="https://..." />
-            </Form.Item>
-            <Form.Item name="demoUrl" label={<Lbl icon={<LinkOutlined />}>Demo video (Loom / Drive link)</Lbl>} className="crud-form-full">
-              <Input placeholder="https://..." />
-            </Form.Item>
-            <Form.Item name="note" label={<Lbl icon={<FileTextOutlined />}>Notes for your project manager</Lbl>} className="crud-form-full">
-              <Input.TextArea rows={3} />
-            </Form.Item>
-          </div>
-        </Form>
-      </Modal>
+    <div className="ld-page">
+      {rows.length === 0 ? (
+        <>
+          <div className="ld-head"><div><h1>My project</h1><div className="ld-muted ld-sub">Only you, your project manager and admin can see your project.</div></div></div>
+          <div className="ld-card"><div className="ld-empty">No project assigned yet.</div></div>
+        </>
+      ) : (
+        rows.map((p) => <ProjectBlock key={p.id} p={p} onChanged={load} />)
+      )}
     </div>
   );
 }
