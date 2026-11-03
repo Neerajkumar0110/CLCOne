@@ -21,6 +21,7 @@ const analytics = require('./analytics');
 const assessments = require('./assessments');
 const policies = require('./policies');
 const classNotes = require('./classNotes');
+const feedback = require('./feedback');
 const eligibility = require('./eligibility');
 const projects = require('./projects');
 const health = require('./health');
@@ -227,6 +228,14 @@ module.exports = {
   liveJoinPolicy: scope.joinPolicy,
   liveAttendanceCorrect: scope.correctAttendanceHandler,
   liveDeviceCheck: liveclass.deviceCheck,
+  feedbackMine: feedback.mine,
+  feedbackSubmit: feedback.submit,
+  feedbackMySummary: feedback.mySummary,
+  feedbackActions: feedback.listActions,
+  feedbackActionCreate: feedback.createAction,
+  feedbackActionUpdate: feedback.updateAction,
+  feedbackAdminOverview: feedback.adminOverview,
+  feedbackAdminRemind: feedback.adminRemind,
   liveMyNoteGet: classNotes.getMine,
   liveMyNoteSave: classNotes.saveMine,
 

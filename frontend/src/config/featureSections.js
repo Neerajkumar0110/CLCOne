@@ -1089,6 +1089,15 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsSystemHealth',
       },
       {
+        key: 'feedback',
+        label: 'Feedback Centre',
+        Icon: CommentOutlined,
+        // Weekly learner feedback — response rates, non-respondents +
+        // reminders, low scores, serious concerns (management only). See
+        // pages/Lms/Feedback/FeedbackCentre + /api/lms/feedback/admin/*.
+        embed: 'lmsFeedbackCentre',
+      },
+      {
         key: 'learner-360',
         label: 'Learner 360',
         Icon: ProfileOutlined,

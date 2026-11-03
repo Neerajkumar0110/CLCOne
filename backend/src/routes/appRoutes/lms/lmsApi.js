@@ -332,6 +332,14 @@ router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.polic
 router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));
 router.route('/policies/:id/report').get(requireManager, catchErrors(lms.policyReport));
 router.route('/policies/:id/acknowledge').post(catchErrors(lms.policyAcknowledge));
+// ── weekly feedback (learner form, PM summary, Feedback centre) ──────
+router.route('/my/feedback').get(catchErrors(lms.feedbackMine)).post(catchErrors(lms.feedbackSubmit));
+router.route('/feedback/my-summary').get(catchErrors(lms.feedbackMySummary));
+router.route('/feedback/actions').get(catchErrors(lms.feedbackActions)).post(catchErrors(lms.feedbackActionCreate));
+router.route('/feedback/actions/:id').patch(catchErrors(lms.feedbackActionUpdate));
+router.route('/feedback/admin/overview').get(requireManager, catchErrors(lms.feedbackAdminOverview));
+router.route('/feedback/admin/remind').post(requireManager, catchErrors(lms.feedbackAdminRemind));
+
 router.route('/my/policies').get(catchErrors(lms.myPolicies));
 router.route('/my/policies/:id/open').post(catchErrors(lms.policyMarkOpened));
 

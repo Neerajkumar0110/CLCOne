@@ -38,6 +38,7 @@ import {
   ProjectOutlined,
   LockOutlined,
   WalletOutlined,
+  CommentOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -65,6 +66,8 @@ const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
 const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
 const Quizzes = lazy(() => import('@/pages/Lms/Quizzes'));
 const Doubts = lazy(() => import('@/pages/Lms/Doubts'));
+const WeeklyFeedback = lazy(() => import('@/pages/Lms/Feedback'));
+const PMFeedback = lazy(() => import('@/pages/Lms/Feedback/PMFeedback'));
 const AnnouncementsPage = lazy(() => import('@/pages/Lms/Announcements'));
 const Certificates = lazy(() => import('@/pages/Lms/Certificates'));
 const Analytics = lazy(() => import('@/pages/Lms/Analytics'));
@@ -341,6 +344,7 @@ const TEACHER_NAV = [
   ['/teacher/eligibility', 'Eligibility', <SafetyCertificateOutlined />, <Eligibility />],
   ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <Learner360 />],
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
+  ['/teacher/my-feedback', 'My Feedback', <CommentOutlined />, <PMFeedback />],
   ['/teacher/analytics', 'Analytics', <BarChartOutlined />, <Analytics />],
   ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/teacher/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
@@ -356,6 +360,7 @@ const STUDENT_NAV = [
   ['/learn/classes', 'My Classes', <VideoCameraOutlined />, <LiveClasses />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/attendance', 'My Attendance', <CheckSquareOutlined />, <Attendance />],
+  ['/learn/feedback', 'Weekly Feedback', <CommentOutlined />, <WeeklyFeedback />],
   ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/learn/curriculum', 'Curriculum Progress', <ScheduleOutlined />, <Curriculum />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
