@@ -123,3 +123,26 @@
   .ar-topic { max-width: 100%; white-space: normal; font-size: 13px; }
   .ar-nav .ant-btn { min-width: 0; flex: 1; }
 }
+
+/* ── design board L11 (assessment attempt) — same colours / sizes as the board ── */
+.ar-wrap { background: #eef2f6; font-family: Inter, system-ui, sans-serif; align-items: flex-start; padding: 28px 32px 40px; }
+.ar-shell { max-width: 820px; }
+.ar-top { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 0; }
+.ar-test { background: #dbeafe; color: #1e40af; font-size: 11px; letter-spacing: .04em; height: 22px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 11px; }
+.ar-topic { font-size: 14px; color: #475569; font-weight: 400; }
+.ar-timer { height: 34px; padding: 0 14px; border-radius: 17px; background: #fee2e2; color: #991b1b; border: 0; font-family: Inter, system-ui, sans-serif !important; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ar-timer .anticon { color: #991b1b; }
+.ar-progress { margin: 0 0 16px; }
+.ar-bar { height: 6px; border-radius: 0; background: #e2e8f0; }
+.ar-bar > div { background: #0e7490; border-radius: 0; }
+.ar-card { border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: none; padding: 18px; }
+.ar-qhead { font-size: 14px; color: #475569; font-weight: 700; }
+.ar-type { background: #f1f5f9 !important; color: #334155 !important; font-size: 11px; height: 22px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 11px; }
+.ar-qtime > span { background: #f59e0b; }
+.ar-qtext { font-size: 20px; font-weight: 600; line-height: 30px; }
+.ar-option { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 16px; font-size: 15px; }
+.ar-option.on { border-color: #0e7490; background: #f0fdfa; }
+.ar-letter { width: 28px; height: 28px; border-radius: 14px; background: #f1f5f9; border: 0; color: #334155; }
+.ar-option.on .ar-letter { background: #0e7490; color: #fff; }
+.ar-nav .ant-btn { height: 44px; border-radius: 8px !important; }
+.ar-nav .ant-btn-primary { background: #0e7490; border-color: #0e7490; }
