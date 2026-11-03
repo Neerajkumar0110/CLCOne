@@ -291,9 +291,60 @@ async function myPolicies(req, res) {
         effectiveDate: d.effectiveDate,
         status: r.status,
         acknowledgedAt: r.acknowledgedAt,
+        openedAt: r.openedAt,
       };
     })
   );
+}
+
+// POST /api/lms/my/policies/:id/open — the learner opened this policy's text.
+// Only the first open is kept; it never changes the acknowledgement itself.
+async function markOpened(req, res) {
+  if (!isStudent(req.admin)) return bad(res, 403, 'Candidates only.');
+  const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
+  await PolicyAcknowledgement.updateOne(
+    { policy: req.params.id, student: req.admin._id, removed: { $ne: true }, openedAt: null },
+    { $set: { openedAt: new Date() } }
+  );
+  return ok(res, null);
+}
+
+// How many mandatory, published, already-effective policies this learner
+// still has to acknowledge. Drives the server gate below and the panel's
+// redirect to the consent page.
+async function pendingMandatoryCount(admin) {
+  if (!isStudent(admin)) return 0;
+  const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
+  const PolicyDocument = mongoose.model('PolicyDocument');
+  const pending = await PolicyAcknowledgement.find({ student: admin._id, status: 'pending', removed: { $ne: true } }).select('policy').lean();
+  if (!pending.length) return 0;
+  const now = new Date();
+  return PolicyDocument.countDocuments({
+    _id: { $in: pending.map((p) => p.policy) },
+    removed: { $ne: true },
+    status: 'published',
+    mandatory: true,
+    $or: [{ effectiveDate: null }, { effectiveDate: { $lte: now } }],
+  });
+}
+
+// Route guard for what the consent page promises stays locked until every
+// mandatory policy is accepted: live classes, recordings, tests, projects.
+// Staff are never gated; support, policies and the dashboard stay open.
+async function requirePoliciesAccepted(req, res, next) {
+  try {
+    if (!isStudent(req.admin)) return next();
+    const n = await pendingMandatoryCount(req.admin);
+    if (!n) return next();
+    return res.status(403).json({
+      success: false,
+      result: null,
+      code: 'POLICY_PENDING',
+      message: `Please accept your pending polic${n === 1 ? 'y' : 'ies'} first (My Policies).`,
+    });
+  } catch (e) {
+    return next(); // never lock learners out because the check itself failed
+  }
 }
 
 async function acknowledge(req, res) {
@@ -323,4 +374,18 @@ async function acknowledge(req, res) {
   return ok(res, { id: String(row._id) }, 'Acknowledged.');
 }
 
-module.exports = { create, list, getOne, publish, archive, remove, acknowledgementReport, myPolicies, acknowledge, CATEGORIES };
+module.exports = {
+  create,
+  list,
+  getOne,
+  publish,
+  archive,
+  remove,
+  acknowledgementReport,
+  myPolicies,
+  acknowledge,
+  markOpened,
+  pendingMandatoryCount,
+  requirePoliciesAccepted,
+  CATEGORIES,
+};

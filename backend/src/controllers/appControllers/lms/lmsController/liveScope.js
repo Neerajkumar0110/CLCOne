@@ -105,6 +105,7 @@ async function studentAttendance(req, res) {
       sumPct += p.attendancePct || 0;
     }
     classes.push({
+      id: String(s._id),
       date: s.scheduledStart,
       className: s.title,
       courseTitle: s.courseTitle,

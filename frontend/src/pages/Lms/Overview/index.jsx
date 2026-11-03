@@ -95,6 +95,8 @@ export default function LearnerOverview() {
   const policiesPending = policies.filter((p) => p.status !== 'acknowledged').length;
   const certificates = Array.isArray(d.certificates) ? d.certificates : d.certificates?.result || [];
   const notifications = d.notifications || {};
+  // /my/updates returns the list as `notifications`, not `recent`.
+  const recentNotifications = notifications.notifications || [];
   const pendingPolicies = policies.filter((p) => p.status !== 'acknowledged').slice(0, 6);
   const firstName = (admin.name || 'there').split(' ')[0];
 
@@ -311,11 +313,11 @@ export default function LearnerOverview() {
               <ArrowRightOutlined />
             </button>
           </div>
-          {(notifications.recent || []).length === 0 ? (
+          {recentNotifications.length === 0 ? (
             <div className="ov-empty-note">No notifications</div>
           ) : (
             <div className="ov-simple-list">
-              {(notifications.recent || []).slice(0, 6).map((n) => (
+              {recentNotifications.slice(0, 6).map((n) => (
                 <div className={`ov-simple-list-item ${!n.read ? 'unread' : ''}`} key={n.id}>
                   <strong>{n.title}</strong>
                 </div>

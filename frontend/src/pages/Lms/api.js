@@ -319,6 +319,7 @@ const lmsApi = {
   policyReport: (id) => request.get({ entity: `lms/policies/${id}/report` }),
   myPolicies: () => request.get({ entity: 'lms/my/policies' }),
   acknowledgePolicy: (id) => request.post({ entity: `lms/policies/${id}/acknowledge`, jsonData: {} }),
+  markPolicyOpened: (id) => request.post({ entity: `lms/my/policies/${id}/open`, jsonData: {} }),
   deletePolicy: (id) => request.del({ entity: `lms/policies/${id}` }),
 
   // ── eligibility / placement readiness engine ─────────────────
@@ -342,6 +343,8 @@ const lmsApi = {
   // ── camera/mic pre-join + attendance correction + system health ──
   joinPolicy: () => request.get({ entity: 'lms/live-settings/join-policy' }),
   deviceCheckLog: (id, b) => request.post({ entity: `lms/live-classes/${id}/device-check`, jsonData: b }),
+  liveMyNote: (id) => request.get({ entity: `lms/live-classes/${id}/my-note` }),
+  saveLiveMyNote: (id, text) => request.post({ entity: `lms/live-classes/${id}/my-note`, jsonData: { text } }),
   correctAttendance: (sessionId, b) => request.post({ entity: `lms/live-classes/${sessionId}/attendance/correct`, jsonData: b }),
   systemHealth: () => request.get({ entity: 'lms/admin/system-health' }),
 

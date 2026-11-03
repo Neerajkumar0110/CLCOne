@@ -1,0 +1,36 @@
+/* Consent page (design L1) — layout only; colours/cards come from
+   StudentDashboard/StudentHome.css (.sh-*). */
+.pc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .pc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.pc-text {
+  font-size: 14px;
+  line-height: 22px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--sh-border);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.pc-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  font-size: 13px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--sh-gray-bg);
+}
+@media (max-width: 520px) {
+  .pc-meta {
+    grid-template-columns: 1fr;
+  }
+}

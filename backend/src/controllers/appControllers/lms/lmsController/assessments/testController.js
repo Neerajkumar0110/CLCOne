@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { assignQuestions } = require('../../../../../services/lms/assessments/roundRobinService');
+const { assignQuestions, TYPE_MIX } = require('../../../../../services/lms/assessments/roundRobinService');
 const { runPythonCode, normalizeOutput } = require('../../../../../services/lms/assessments/codeExecutionService');
 const assessmentSettings = require('../../../../../services/lms/assessmentSettingsService');
 const { curriculumTracker, chapterProgress } = require('../../../../../services/lms');
@@ -404,10 +404,17 @@ async function getMyResults(req, res) {
         nextEligibleAt,
         unlocked,
         requiredPercent,
+        // question composition the test draws (MCQ / output / programming) —
+        // shown on the test intro; absent for project-style micro tests
+        mix: TYPE_MIX[testType] || null,
       };
     }
 
-    return res.status(200).json({ success: true, result: { results, attemptsByType, curriculumPercent } });
+    // The rules a learner is held to, so the intro page can state them
+    // instead of hard-coding numbers that management may change.
+    const rules = { qualifyPct: Math.round(qualifyThreshold * 100), maxAttempts: maxAttemptsPerType, cooldownDays };
+
+    return res.status(200).json({ success: true, result: { results, attemptsByType, curriculumPercent, rules } });
   } catch (err) {
     console.error('Get assessment results error:', err);
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });

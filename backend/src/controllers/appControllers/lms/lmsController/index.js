@@ -20,6 +20,7 @@ const certificates = require('./certificates');
 const analytics = require('./analytics');
 const assessments = require('./assessments');
 const policies = require('./policies');
+const classNotes = require('./classNotes');
 const eligibility = require('./eligibility');
 const projects = require('./projects');
 const health = require('./health');
@@ -225,6 +226,8 @@ module.exports = {
   liveJoinPolicy: scope.joinPolicy,
   liveAttendanceCorrect: scope.correctAttendanceHandler,
   liveDeviceCheck: liveclass.deviceCheck,
+  liveMyNoteGet: classNotes.getMine,
+  liveMyNoteSave: classNotes.saveMine,
 
   // assessments (ported from the python-test-platform reference project) —
   // distinct from the generic quizzes/* system above
@@ -263,6 +266,7 @@ module.exports = {
   myDataExport: learnerOverview.exportMyData,
   myDataDeletionRequest: learnerOverview.requestDataDeletion,
   policyAcknowledge: policies.acknowledge,
+  policyMarkOpened: policies.markOpened,
 
   // eligibility / placement readiness engine
   eligibilityRuleGet: eligibility.getRule,

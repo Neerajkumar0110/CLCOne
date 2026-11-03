@@ -430,6 +430,9 @@ async function myUpdates(req, res) {
       finance,
       // roster hold / deactivated — the panel shows only the reactivation screen
       access: await require('../../../../services/lms/candidateAccess').accessState(admin).catch(() => ({ hold: !!admin.rosterHold })),
+      // mandatory policies still to accept — the panel sends learners to the
+      // consent page for the routes requirePoliciesAccepted locks
+      policies: { pendingMandatory: await require('./policies').pendingMandatoryCount(admin).catch(() => 0) },
     },
   });
 }

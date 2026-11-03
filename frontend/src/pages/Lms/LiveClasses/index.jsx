@@ -35,6 +35,7 @@ import {
   PauseCircleOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
 
@@ -43,6 +44,7 @@ import lmsApi from '../api';
 const MANAGER_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
 import DevicePreflightModal from '../components/DevicePreflightModal';
+import ClassDetailDrawer from './ClassDetailDrawer';
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -162,7 +164,14 @@ export default function LiveClasses() {
   const [addFor, setAddFor] = useState(null);
   const [policy, setPolicy] = useState(null);
   const [preflight, setPreflight] = useState(null); // row awaiting device check
+  const [detailFor, setDetailFor] = useState(null); // learner's class detail drawer
   const timer = useRef(null);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // The panel (/learn, /teacher) routes with paths; the CRM's LMS module
+  // still uses its hash route for Recordings.
+  const panelBase = pathname.startsWith('/learn') ? '/learn' : pathname.startsWith('/teacher') ? '/teacher' : null;
+  const openRecordings = () => (panelBase ? navigate(`${panelBase}/recordings`) : (window.location.hash = '#/lms/recordings'));
   const admin = useSelector(selectCurrentAdmin) || {};
   const isManager = MANAGER_ROLES.includes(admin.role);
   const [paused, setPaused] = useState([]); // batches whose classes are switched off
@@ -505,7 +514,7 @@ export default function LiveClasses() {
               : r.canJoin
               ? { icon: <LoginOutlined />, label: r.myRole === 'teacher' ? 'Join as host' : 'Join Live Class', onClick: () => handleJoin(r) }
               : r.status === 'RECORDING_AVAILABLE'
-              ? { icon: <PlaySquareOutlined />, label: 'Watch Recording', href: '#/lms/recordings' }
+              ? { icon: <PlaySquareOutlined />, label: 'Watch Recording', onClick: openRecordings }
               : r.canAddStudent
               ? { icon: <UserAddOutlined />, label: 'Add candidate', onClick: () => openAdd(r) }
               : r.myRole === 'student' && ['SCHEDULED', 'UPCOMING'].includes(r.status)
@@ -519,6 +528,7 @@ export default function LiveClasses() {
               secondaryButtons.push({ key: 'add', icon: <UserAddOutlined />, label: 'Add candidate', onClick: () => openAdd(r) });
             }
             if (r.myRole === 'teacher') secondaryButtons.push({ key: 'att', icon: <TeamOutlined />, label: 'Attendance', onClick: () => showAtt(r) });
+            if (r.myRole === 'student') secondaryButtons.push({ key: 'details', icon: <CalendarOutlined />, label: 'Details & notes', onClick: () => setDetailFor(r) });
             if (isManager && ['SCHEDULED', 'UPCOMING'].includes(r.status)) {
               secondaryButtons.push({ key: 'delete', danger: true, icon: <DeleteOutlined />, label: 'Delete', onClick: () => onDelete(r) });
               if (r.batchId) {
@@ -718,6 +728,15 @@ export default function LiveClasses() {
           setPreflight(null);
           if (id) onJoin(id);
         }}
+      />
+
+      <ClassDetailDrawer
+        row={detailFor && (rows.find((x) => x.id === detailFor.id) || detailFor)}
+        onClose={() => setDetailFor(null)}
+        onJoin={handleJoin}
+        joining={!!detailFor && busyId === detailFor.id}
+        deviceCheckRequired={!!(policy && policy.deviceCheckRequired)}
+        onOpenRecordings={openRecordings}
       />
 
       <Modal

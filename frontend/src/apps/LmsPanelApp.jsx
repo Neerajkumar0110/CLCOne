@@ -441,6 +441,8 @@ export default function LmsPanelApp() {
     // also refresh when a live-class socket event bubbles (VPS deployments)
     const onLive = () => pollUpdates();
     window.addEventListener('lms:liveclass', onLive);
+    // a page changed something the panel gates on (e.g. policies accepted)
+    window.addEventListener('lms:updates', onLive);
 
     const socket = getSocket();
     const onNotification = (doc) => {
@@ -454,6 +456,7 @@ export default function LmsPanelApp() {
       clearInterval(iv);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('lms:liveclass', onLive);
+      window.removeEventListener('lms:updates', onLive);
       socket?.off('notification:new', onNotification);
       socket?.off('lms:announcement', pollUpdates);
       socket?.off('lms:doubt', pollUpdates);
@@ -526,6 +529,13 @@ export default function LmsPanelApp() {
   // fragment, or nothing below the sidebar will ever match a click.
   const financeHold = updates.finance && updates.finance.hold;
   const accessHold = updates.access && updates.access.hold;
+  // Mandatory policies not yet accepted: the server already refuses these
+  // pages' data (requirePoliciesAccepted); send the learner to the consent
+  // page instead of showing them broken.
+  const policyGate = !isTeacher && updates.policies && updates.policies.pendingMandatory > 0;
+  const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes'];
+  const gate = (path, element) =>
+    policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : element;
   const routes = (
     <Suspense fallback={<PageLoader />}>
       {accessHold ? (
@@ -535,11 +545,11 @@ export default function LmsPanelApp() {
       ) : (
         <Routes>
           {leaves.map(([path, , , element]) => (
-            <Route key={path} path={path} element={element} />
+            <Route key={path} path={path} element={gate(path, element)} />
           ))}
           {/* Not in the sidebar (dropped along with "All Quizzes"), but every
               Test Intro card's "Go to Quizzes & Exams" button still points here. */}
-          <Route path={`${base}/quizzes`} element={<Quizzes />} />
+          <Route path={`${base}/quizzes`} element={gate(`${base}/quizzes`, <Quizzes />)} />
           <Route path="*" element={<Navigate to={base} replace />} />
         </Routes>
       )}

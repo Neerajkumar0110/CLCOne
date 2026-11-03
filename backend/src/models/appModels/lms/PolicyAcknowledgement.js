@@ -19,6 +19,9 @@ const schema = new mongoose.Schema({
 
   status: { type: String, enum: ['pending', 'acknowledged'], default: 'pending', index: true },
   acknowledgedAt: Date,
+  // first time the learner opened the policy text (consent page shows
+  // Read / Not opened per policy) — kept even after acknowledging
+  openedAt: Date,
   // Only captured on the acknowledge action itself (not general browsing) —
   // spec §12: "IP/device metadata only if legally appropriate".
   ip: String,

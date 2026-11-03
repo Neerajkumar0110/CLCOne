@@ -2,6 +2,9 @@ const express = require('express');
 const { catchErrors } = require('../../../handlers/errorHandlers');
 const lms = require('../../../controllers/appControllers/lms/lmsController/index');
 const { requireManager } = require('../../../controllers/appControllers/lms/lmsController/permissions');
+// Learners only: live classes, recordings, tests and projects stay locked
+// until every mandatory policy is accepted (staff pass straight through).
+const { requirePoliciesAccepted } = require('../../../controllers/appControllers/lms/lmsController/policies');
 const { singleStorageUpload } = require('../../../middlewares/uploadMiddleware');
 
 // Mounted at /api/lms — behind adminAuth.isValidAuthToken (see app.js), so
@@ -30,13 +33,14 @@ router.route('/sso/logout-url').get(catchErrors(lms.ssoLogoutUrl));
   router.route(`${base}/:id/postpone`).post(catchErrors(lms.livePostpone));
   router.route(`${base}/:id/start`).post(catchErrors(lms.liveStart));
   router.route(`${base}/:id/end`).post(catchErrors(lms.liveEnd));
-  router.route(`${base}/:id/join`).post(catchErrors(lms.liveJoin));
-  router.route(`${base}/:id/join/teacher`).post(catchErrors(lms.liveJoin));
-  router.route(`${base}/:id/join/student`).post(catchErrors(lms.liveJoin));
+  router.route(`${base}/:id/join`).post(requirePoliciesAccepted, catchErrors(lms.liveJoin));
+  router.route(`${base}/:id/join/teacher`).post(requirePoliciesAccepted, catchErrors(lms.liveJoin));
+  router.route(`${base}/:id/join/student`).post(requirePoliciesAccepted, catchErrors(lms.liveJoin));
   router.route(`${base}/:id/leave`).post(catchErrors(lms.liveLeave));
   router.route(`${base}/:id/attendance`).get(catchErrors(lms.liveAttendance));
   router.route(`${base}/:id/attendance/correct`).post(requireManager, catchErrors(lms.liveAttendanceCorrect));
   router.route(`${base}/:id/device-check`).post(catchErrors(lms.liveDeviceCheck));
+  router.route(`${base}/:id/my-note`).get(catchErrors(lms.liveMyNoteGet)).post(catchErrors(lms.liveMyNoteSave));
   router.route(`${base}/:id/regenerate`).post(requireManager, catchErrors(lms.liveRegenerate));
   router.route(`${base}/:id/open`).get(catchErrors(lms.liveOpenEntry));
   // Paste in an already-hosted recording (Google Drive, etc.) for this one
@@ -96,7 +100,7 @@ router.route('/my/quizzes').get(catchErrors(lms.quizMyList));
 router.route('/question-bank').get(catchErrors(lms.quizQuestionBank));
 router.route('/quizzes/:id').get(catchErrors(lms.quizGet)).patch(catchErrors(lms.quizUpdate)).delete(catchErrors(lms.quizDelete));
 router.route('/quizzes/:id/questions').post(catchErrors(lms.quizAddQuestion));
-router.route('/quizzes/:id/start').post(catchErrors(lms.quizStart));
+router.route('/quizzes/:id/start').post(requirePoliciesAccepted, catchErrors(lms.quizStart));
 router.route('/quizzes/:id/results').get(catchErrors(lms.quizResults));
 router.route('/questions/:id').patch(catchErrors(lms.quizUpdateQuestion)).delete(catchErrors(lms.quizDeleteQuestion));
 router.route('/attempts/:id/submit').post(catchErrors(lms.quizSubmit));
@@ -104,8 +108,8 @@ router.route('/attempts/:id/result').get(catchErrors(lms.quizAttemptResult));
 router.route('/attempts/:id/evaluate').post(catchErrors(lms.quizEvaluateAttempt));
 
 // ── recordings (role-scoped inside the handler) ─────────────────────
-router.route('/recordings').get(catchErrors(lms.liveRecordings));
-router.route('/recordings/:id/play').get(catchErrors(lms.liveRecordingPlay));
+router.route('/recordings').get(requirePoliciesAccepted, catchErrors(lms.liveRecordings));
+router.route('/recordings/:id/play').get(requirePoliciesAccepted, catchErrors(lms.liveRecordingPlay));
 // Manual recording upload — fallback for the mock provider (BigBlueButton
 // records automatically). The class teacher (or a manager) uploads the file
 // they recorded themselves (OBS/Zoom/browser capture) and it's attached to
@@ -117,7 +121,7 @@ router
 
 // ── student self-service ───────────────────────────────────────────
 router.route('/student/live-classes').get(catchErrors(lms.studentLiveClasses));
-router.route('/student/recordings').get(catchErrors(lms.liveRecordings));
+router.route('/student/recordings').get(requirePoliciesAccepted, catchErrors(lms.liveRecordings));
 router.route('/student/attendance').get(catchErrors(lms.studentAttendance));
 
 // ── teacher ────────────────────────────────────────────────────────
@@ -279,7 +283,7 @@ router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTi
   router.route('/assessments/bank/questions').get(catchErrors(bank.list));
   router.route('/assessments/bank/questions/:id').patch(catchErrors(bank.setRetired));
 }
-router.route('/assessments/start/:testType').post(catchErrors(lms.assessmentStart));
+router.route('/assessments/start/:testType').post(requirePoliciesAccepted, catchErrors(lms.assessmentStart));
 router.route('/assessments/gate-issue').post(catchErrors(lms.assessmentGateIssue));
 router.route('/assessments/run-code').post(catchErrors(lms.assessmentRunCode));
 router.route('/assessments/my-results').get(catchErrors(lms.assessmentMyResults));
@@ -328,6 +332,7 @@ router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.polic
 router.route('/policies/:id/report').get(requireManager, catchErrors(lms.policyReport));
 router.route('/policies/:id/acknowledge').post(catchErrors(lms.policyAcknowledge));
 router.route('/my/policies').get(catchErrors(lms.myPolicies));
+router.route('/my/policies/:id/open').post(catchErrors(lms.policyMarkOpened));
 
 // ── eligibility / placement readiness engine ────────────────────────
 router.route('/courses/:courseId/eligibility-rule').get(catchErrors(lms.eligibilityRuleGet)).post(requireManager, catchErrors(lms.eligibilityRuleUpsert));
@@ -338,9 +343,9 @@ router.route('/my/eligibility').get(catchErrors(lms.myEligibility));
 router.route('/projects').get(catchErrors(lms.projectList)).post(catchErrors(lms.projectAssign));
 router.route('/projects/:id').get(catchErrors(lms.projectGet)).patch(catchErrors(lms.projectUpdate)).delete(requireManager, catchErrors(lms.projectDelete));
 router.route('/projects/:id/milestones').post(catchErrors(lms.projectUpdateMilestone));
-router.route('/projects/:id/submit').post(catchErrors(lms.projectSubmit));
+router.route('/projects/:id/submit').post(requirePoliciesAccepted, catchErrors(lms.projectSubmit));
 router.route('/projects/:id/review').post(catchErrors(lms.projectReview));
-router.route('/my/projects').get(catchErrors(lms.projectMyList));
+router.route('/my/projects').get(requirePoliciesAccepted, catchErrors(lms.projectMyList));
 router.route('/teacher/projects').get(catchErrors(lms.projectList));
 
 // ── PILOT / internal test (management only) — see deploy/moodle/PILOT.md ──

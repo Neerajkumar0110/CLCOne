@@ -8,10 +8,13 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import '../StudentDashboard/StudentHome.css';
+import './StudentConsent.css';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -248,73 +251,174 @@ function ViewPolicies() {
   );
 }
 
-/* ═══════════ STUDENT — acknowledge ═══════════ */
+/* ═══════════ STUDENT — consent page (design L1) ═══════════ */
+// One page lists every policy that applies to the learner (Accepted / Read /
+// Not opened), each readable in a modal, and a single acknowledgement accepts
+// all pending ones — each still goes through POST /policies/:id/acknowledge,
+// so every policy keeps its own version + time + IP record. Until mandatory
+// ones are accepted the server keeps classes, recordings, tests and projects
+// locked (requirePoliciesAccepted) and the panel redirects here.
 function StudentPolicies() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState(null);
-  const [acking, setAcking] = useState(false);
   const [agree, setAgree] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const navigate = useNavigate();
 
   const load = useCallback(() => {
     setLoading(true);
-    lmsApi.myPolicies().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
+    lmsApi
+      .myPolicies()
+      .then((r) => setRows((r && r.result) || []))
+      .catch(() => message.error('Load failed'))
+      .finally(() => setLoading(false));
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const acknowledge = async () => {
-    if (!view) return;
-    setAcking(true);
-    try {
-      await lmsApi.acknowledgePolicy(view.policyId);
-      message.success('Acknowledged.');
-      setView(null); setAgree(false); load();
-    } catch (e) { message.error('Could not acknowledge.'); } finally { setAcking(false); }
+  const open = (r) => {
+    setView(r);
+    if (!r.openedAt) {
+      lmsApi.markPolicyOpened(r.policyId).catch(() => {});
+      setRows((xs) => xs.map((x) => (x.id === r.id ? { ...x, openedAt: new Date().toISOString() } : x)));
+    }
+  };
+
+  const pending = rows.filter((r) => r.status === 'pending');
+
+  const acceptAll = async () => {
+    setAccepting(true);
+    let failed = 0;
+    for (const r of pending) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await lmsApi.acknowledgePolicy(r.policyId).catch(() => null);
+      if (!res || res.success === false) failed += 1;
+    }
+    setAccepting(false);
+    setAgree(false);
+    window.dispatchEvent(new Event('lms:updates'));
+    if (failed) {
+      message.error(`${failed} polic${failed === 1 ? 'y' : 'ies'} could not be accepted — please try again.`);
+      load();
+      return;
+    }
+    message.success('Policies accepted.');
+    navigate('/learn');
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
-  const pending = rows.filter((r) => r.status === 'pending');
-  const done = rows.filter((r) => r.status === 'acknowledged');
+
+  const chipFor = (r) => {
+    if (r.status === 'acknowledged') return <span className="sh-chip ok">Accepted</span>;
+    if (r.openedAt) return <span className="sh-chip info">Read</span>;
+    return <span className="sh-chip gray">Not opened</span>;
+  };
+  const mandatoryPending = pending.filter((r) => r.mandatory !== false).length;
 
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><FileProtectOutlined /> Policies & Agreements</h2><p>Read and acknowledge each policy that applies to you.</p></div></div>
+    <div className="sh-root lms-portal">
+      <div className="sh-head">
+        <div>
+          <div className="sh-muted" style={{ fontWeight: 700, letterSpacing: '0.06em', fontSize: 12 }}>ACCOUNT ACTIVATION</div>
+          <h1>{pending.length ? 'LMS shuru karne se pehle policies accept karein' : 'Policies & agreements'}</h1>
+          <div className="sh-sub">
+            {mandatoryPending
+              ? 'Jab tak accept nahi hota, classes, recordings, tests aur projects band rahenge — direct link se bhi.'
+              : 'Aapne saari zaroori policies accept kar li hain.'}
+          </div>
+        </div>
+      </div>
 
-      {pending.length > 0 && (
-        <>
-          <h4 style={{ margin: '4px 0 8px' }}>Pending ({pending.length})</h4>
-          {pending.map((r) => (
-            <Card key={r.id} size="small" style={{ marginBottom: 10, borderColor: r.mandatory ? '#fa8c16' : undefined }}
-              title={<Space><b>{r.title}</b><Tag>{r.category}</Tag>{r.mandatory && <Tag color="volcano">Mandatory</Tag>}</Space>}
-              extra={<Button type="primary" icon={<InboxOutlined />} onClick={() => setView(r)}>Read & Acknowledge</Button>}>
-              <Paragraph type="secondary" style={{ marginBottom: 0 }} ellipsis={{ rows: 2 }}>{r.content}</Paragraph>
-            </Card>
-          ))}
-        </>
-      )}
+      <div className="pc-grid">
+        <section className="sh-card" aria-label="Your policies">
+          <div className="sh-card-hd">
+            <b>Aapke liye policies ({rows.length})</b>
+          </div>
+          {rows.length === 0 ? (
+            <Empty description="No policies have been published for you yet." />
+          ) : (
+            <div>
+              {rows.map((r) => (
+                <div className="sh-row" key={r.id}>
+                  <span style={{ minWidth: 0 }}>
+                    <b>{r.title}</b> <span className="sh-muted">v{r.version}</span>
+                    {r.mandatory === false && <span className="sh-muted"> · optional</span>}
+                    {r.status === 'acknowledged' && r.acknowledgedAt && (
+                      <div className="sh-muted">Accepted {dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm')}</div>
+                    )}
+                  </span>
+                  <span style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                    {chipFor(r)}
+                    <button type="button" className="sh-link" onClick={() => open(r)}>
+                      Open
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {mandatoryPending > 0 && (
+            <div className="sh-muted">
+              Locked till accepted: <b>Live Classes · Recordings · Tests · Projects</b>. Support aur yeh page khule rahenge.
+            </div>
+          )}
+        </section>
 
-      <h4 style={{ margin: '16px 0 8px' }}>Acknowledged ({done.length})</h4>
-      {done.length === 0 ? <Card><Empty description="Nothing acknowledged yet." /></Card> : done.map((r) => (
-        <Card key={r.id} size="small" style={{ marginBottom: 8 }} title={<Space><b>{r.title}</b><Tag color="green">v{r.version}</Tag></Space>}>
-          <Text type="secondary">Acknowledged {r.acknowledgedAt ? dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm') : ''}</Text>
-        </Card>
-      ))}
+        {pending.length > 0 && (
+          <section className="sh-card" aria-label="Learner policy acknowledgement">
+            <div className="sh-card-hd">
+              <b>Learner Policy Acknowledgement</b>
+            </div>
+            <div className="pc-text">
+              I confirm that I have been given access to the policies listed here, provided by Career Lab Consulting. I have had the
+              opportunity to read them and seek clarification where needed. I agree to follow the applicable policies and use the LMS
+              responsibly. I will keep my login credentials confidential, provide accurate information, follow assessment instructions,
+              and report technical issues through the designated support channels. I understand that mandatory policy acceptance is
+              required before my LMS access is activated.
+            </div>
+            <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
+              Maine upar di gayi sabhi policies padh li hain aur main inhe accept karta/karti hoon.
+            </Checkbox>
+            <div className="pc-meta">
+              <div>
+                <div className="sh-muted">Saved with acceptance</div>
+                <b>Learner ID + version</b>
+              </div>
+              <div>
+                <div className="sh-muted">Timestamp</div>
+                <b>Time of accepting (IST)</b>
+              </div>
+              <div>
+                <div className="sh-muted">Audit ref</div>
+                <b>IP + device, logged</b>
+              </div>
+            </div>
+            <div className="sh-card-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
+              <button type="button" className="sh-link" onClick={() => navigate('/learn/support')}>
+                Kuch samajh nahi aaya? Support se poochein
+              </button>
+              <Button type="primary" disabled={!agree} loading={accepting} onClick={acceptAll}>
+                Accept &amp; continue →
+              </Button>
+            </div>
+          </section>
+        )}
+      </div>
 
-      <Modal
-        open={!!view} title={view?.title} width={640} destroyOnClose
-        onCancel={() => { setView(null); setAgree(false); }}
-        footer={[
-          <Button key="c" onClick={() => { setView(null); setAgree(false); }}>Cancel</Button>,
-          <Button key="a" type="primary" disabled={!agree} loading={acking} onClick={acknowledge}>I Agree — Acknowledge</Button>,
-        ]}
-      >
-        <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid #e3e8ef', borderRadius: 8, padding: 14, marginBottom: 12, whiteSpace: 'pre-wrap' }}>
+      <Modal open={!!view} title={view ? `${view.title} · v${view.version}` : ''} width={680} destroyOnClose onCancel={() => setView(null)} footer={<Button onClick={() => setView(null)}>Close</Button>}>
+        <div style={{ maxHeight: 420, overflowY: 'auto', border: '1px solid #e3e8ef', borderRadius: 8, padding: 14, marginBottom: 12, whiteSpace: 'pre-wrap' }}>
           {view?.content || 'No content provided.'}
         </div>
-        {view?.fileUrl && <p><a href={view.fileUrl} target="_blank" rel="noopener noreferrer">View attached document</a></p>}
-        <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
-          I have read and understood this policy (version {view?.version}) and agree to it.
-        </Checkbox>
+        {view?.fileUrl && (
+          <p>
+            <a href={view.fileUrl} target="_blank" rel="noopener noreferrer">
+              View attached document
+            </a>
+          </p>
+        )}
+        {view?.effectiveDate && <Text type="secondary">Effective from {dayjs(view.effectiveDate).format('D MMM YYYY')}</Text>}
       </Modal>
     </div>
   );
