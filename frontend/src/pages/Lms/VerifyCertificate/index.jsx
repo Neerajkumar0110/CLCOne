@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { API_BASE_URL } from '@/config/serverApiConfig';
-import '../StudentDashboard/StudentHome.css';
-import './verify.css';
 
 // Public certificate verification (design L15) — no login. Shows only what a
 // verifier needs; backend routes/appRoutes/lms/lmsCertVerifyPublicApi.js.
@@ -40,64 +38,63 @@ export default function VerifyCertificate() {
   };
 
   const r = state && state !== 'loading' && !state.error ? state : null;
+  const ok = r && r.valid;
+  const banner = ok ? { background: '#f0fdf4', color: '#166534' } : { background: '#fef2f2', color: '#991b1b' };
+  const row = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid #f1f5f9', fontSize: 15 };
+  // design board L15 — navy brand bar, ID form on the left, result card on the right
   return (
-    <div className="sh-root vf-root">
-      <header className="vf-brand">Career Lab Consulting · Certificate verification</header>
-      <main className="vf-main">
-        <h1>Kya ye certificate asli hai?</h1>
-        <p className="sh-sub">
-          Certificate ID daalein ya certificate par bana QR scan karein. Login ki zaroorat nahi. Sirf zaroori jaankari dikhegi — marks, contact ya internal notes
-          kabhi nahi.
-        </p>
-        <form className="vf-form" onSubmit={submit}>
-          <label htmlFor="vf-id">Certificate ID</label>
-          <div className="vf-row">
-            <input id="vf-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="CLC-2026-XXXXXXXX" autoComplete="off" />
-            <button type="submit" disabled={!id.trim() || state === 'loading'}>
+    <div className="vf-root" style={{ minHeight: '100vh', background: '#f6f3ea', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>
+      <header style={{ minHeight: 68, background: '#0b1a33', display: 'flex', alignItems: 'center', padding: '0 40px', color: '#fff', fontWeight: 700, fontSize: 17, letterSpacing: '.04em' }}>
+        CAREER LAB CONSULTING · <span style={{ color: '#e9c46a', marginLeft: 6 }}>Certificate verification</span>
+      </header>
+      <main className="vf-main" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 40, padding: 'clamp(24px, 5vw, 48px) clamp(16px, 5vw, 72px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 44, fontWeight: 700, color: '#0b1a33', lineHeight: '52px' }}>Kya ye certificate asli hai?</h1>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: '25px', color: '#475569' }}>
+            Certificate ID daalein ya certificate par bana QR scan karein. Login ki zaroorat nahi. Sirf zaroori jaankari dikhegi — marks, contact ya internal notes kabhi nahi.
+          </p>
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <label htmlFor="vf-id" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569' }}>
+              Certificate ID
+              <input id="vf-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="CLC-2026-XXXXXXXX" autoComplete="off" style={{ height: 52, border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '0 16px', fontFamily: 'inherit', fontSize: 18, letterSpacing: '.06em', background: '#fff' }} />
+            </label>
+            <button type="submit" disabled={!id.trim() || state === 'loading'} style={{ alignSelf: 'flex-start', height: 48, padding: '0 22px', borderRadius: 10, background: '#0b1a33', color: '#fff', fontWeight: 600, fontSize: 15, border: 0, fontFamily: 'inherit', cursor: 'pointer', opacity: !id.trim() ? 0.6 : 1 }}>
               {state === 'loading' ? 'Checking…' : 'Verify'}
             </button>
+          </form>
+          <div style={{ fontSize: 13, lineHeight: '20px', marginTop: 'auto', color: '#475569' }}>
+            IBM / Microsoft jaise external certificates ko unke apne provider ke verification link se check karein — Career Lab third-party credential issue ya revoke nahi karta.
           </div>
-        </form>
+        </div>
 
-        {state && state.error && (
-          <section className="sh-card vf-result bad" role="status">
-            <b>{state.error === 'notfound' ? 'No certificate found with this ID' : 'Could not check right now'}</b>
-            <span className="sh-muted">
-              {state.error === 'notfound' ? 'Check the ID for typos. If it was issued recently, try again later or contact Career Lab Consulting.' : state.message || 'Please try again in a moment.'}
-            </span>
-          </section>
-        )}
-
-        {r && (
-          <section className={`sh-card vf-result ${r.valid ? 'ok' : 'bad'}`} role="status">
-            <div className="vf-head">
-              <span className="vf-ic" aria-hidden="true">
-                {r.valid ? '✓' : '!'}
-              </span>
-              <span>
-                <b>{r.valid ? 'Valid certificate' : 'This certificate has been revoked'}</b>
-                <span className="sh-muted" style={{ display: 'block' }}>
-                  {r.valid ? 'Issued by Career Lab Consulting and currently valid.' : 'It is no longer valid. Contact Career Lab Consulting for details.'}
-                </span>
-              </span>
+        {(r || (state && state.error)) && (
+          <section className={`vf-result ${ok ? 'ok' : 'bad'}`} role="status" style={{ background: '#fff', borderRadius: 16, border: '1px solid #e7e1cf', padding: 32, display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, ...banner }}>
+              <div aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', background: ok ? '#16a34a' : '#dc2626', flexShrink: 0 }}>{ok ? '✓' : '!'}</div>
+              <div>
+                <b style={{ fontSize: 18 }}>{r ? (ok ? 'Valid certificate' : 'This certificate has been revoked') : state.error === 'notfound' ? 'No certificate found with this ID' : 'Could not check right now'}</b>
+                <div style={{ fontSize: 13 }}>
+                  {r
+                    ? ok
+                      ? 'Issued by Career Lab Consulting and currently valid.'
+                      : 'It is no longer valid. Contact Career Lab Consulting for details.'
+                    : state.error === 'notfound'
+                      ? 'Check the ID for typos. If it was issued recently, try again later or contact Career Lab Consulting.'
+                      : state.message || 'Please try again in a moment.'}
+                </div>
+              </div>
             </div>
-            <dl className="vf-facts">
-              <dt>Certificate</dt>
-              <dd>{r.title}</dd>
-              <dt>Issued to</dt>
-              <dd>{r.issuedTo}</dd>
-              <dt>Issue date</dt>
-              <dd>{day(r.issuedOn)}</dd>
-              {r.validUntil && (
-                <>
-                  <dt>Valid until</dt>
-                  <dd>{day(r.validUntil)}</dd>
-                </>
-              )}
-              <dt>Certificate ID</dt>
-              <dd>{r.certificateId}</dd>
-            </dl>
-            <span className="sh-muted">Verified {day(r.checkedAt)} · verification request logged</span>
+            {r && (
+              <>
+                <div style={row}><span style={{ color: '#475569' }}>Certificate</span><b>{r.title}</b></div>
+                <div style={row}><span style={{ color: '#475569' }}>Issued by</span><b>Career Lab Consulting Pvt. Ltd.</b></div>
+                <div style={row}><span style={{ color: '#475569' }}>Issued to</span><b>{r.issuedTo}</b></div>
+                <div style={row}><span style={{ color: '#475569' }}>Issue date</span><b>{day(r.issuedOn)}</b></div>
+                {r.validUntil && <div style={row}><span style={{ color: '#475569' }}>Valid until</span><b>{day(r.validUntil)}</b></div>}
+                <div style={row}><span style={{ color: '#475569' }}>Certificate ID</span><b>{r.certificateId}</b></div>
+                <div style={{ fontSize: 12, marginTop: 10, color: '#475569' }}>Verified {day(r.checkedAt)} · verification request logged</div>
+              </>
+            )}
           </section>
         )}
       </main>
