@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Checkbox, Empty, Input, Skeleton, message } from 'antd';
+import { Empty, Skeleton, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
-import '../StudentDashboard/StudentHome.css';
-import './feedback.css';
+import '../components/LearnerDesign.css';
 
 // Learner weekly feedback (design L7, backend lmsController/feedback.js):
 // week-by-week history, then this week's two short forms — the week in
@@ -23,9 +22,9 @@ const weekState = (h) => (RANK[h.weekly] <= RANK[h.pm] ? h.weekly : h.pm);
 
 function RatingRow({ text, value, onChange }) {
   return (
-    <div className="fb-q">
-      <div className="fb-q-text">{text}</div>
-      <div className="fb-scale" role="radiogroup" aria-label={text}>
+    <div className="ld-q fb-q">
+      <span>{text}</span>
+      <div className="ld-scale" role="radiogroup" aria-label={text}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
@@ -33,7 +32,7 @@ function RatingRow({ text, value, onChange }) {
             role="radio"
             aria-checked={value === n}
             aria-label={`${text} ${n} of 5`}
-            className={value === n ? 'on' : ''}
+            className={value === n ? 'ld-r on' : 'ld-r'}
             onClick={() => onChange(n)}
           >
             {n}
@@ -92,28 +91,26 @@ export default function WeeklyFeedback() {
     load();
   };
 
+  // design board L7 — week-by-week bars, then one card with the two tabs
   return (
-    <div className="sh-root lms-portal">
-      <div className="sh-head">
+    <div className="ld-page">
+      <div className="ld-head">
         <div>
           <h1>Feedback</h1>
-          <div className="sh-sub">Har hafte mandatory · 2–3 minute · aapka feedback batch ke Project Manager aur management tak pahunchta hai</div>
+          <div className="ld-muted ld-sub">Har hafte mandatory · 2–3 minute · aapka feedback batch ke Project Manager aur management tak pahunchta hai</div>
         </div>
       </div>
 
-      <section className="sh-card" aria-label="Week-by-week history">
-        <div className="sh-card-hd">
-          <b>Week-by-week history</b>
-          <span className="sh-muted">{d.batch}</span>
-        </div>
-        {d.history.length === 0 && <div className="sh-muted">Your weekly history will appear here after the first feedback week.</div>}
-        <ol className="fb-weeks">
+      <section className="ld-card" aria-label="Week-by-week history">
+        <div className="ld-hd"><b style={{ fontSize: 14 }}>Week-by-week history</b><span className="ld-muted" style={{ fontSize: 13 }}>{d.batch}</span></div>
+        {d.history.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Your weekly history will appear here after the first feedback week.</div>}
+        <ol className="ld-weeks fb-weeks">
           {d.history.map((h) => {
             const st = STATE[weekState(h)];
             return (
-              <li key={h.weekKey} className={st.cls} title={`Week of ${h.weekKey} · weekly: ${h.weekly} · PM: ${h.pm}`}>
-                <b>{h.label}</b>
-                {st.label && <span>{st.label}</span>}
+              <li key={h.weekKey} className={`ld-wk ${st.cls}`} title={`Week of ${h.weekKey} · weekly: ${h.weekly} · PM: ${h.pm}`}>
+                <i />
+                <span>{st.cls === 'info' ? <b>{h.label} {st.label}</b> : `${h.label}${st.label ? ` ${st.label}` : ''}`}</span>
               </li>
             );
           })}
@@ -121,26 +118,26 @@ export default function WeeklyFeedback() {
       </section>
 
       {!win ? (
-        <section className="sh-card">
-          <b>This week&apos;s feedback opens {when(d.nextOpensAt)}.</b>
-          <div className="sh-muted">Each week the form opens on Friday evening and is due Sunday night.</div>
+        <section className="ld-card">
+          <b style={{ fontSize: 15 }}>This week&apos;s feedback opens {when(d.nextOpensAt)}.</b>
+          <div className="ld-muted" style={{ fontSize: 13 }}>Each week the form opens on Friday evening and is due Sunday night.</div>
         </section>
       ) : (
-        <section className="sh-card" aria-label="This week's feedback">
-          <div className="fb-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === 'weekly'} className={tab === 'weekly' ? 'on' : ''} onClick={() => setTab('weekly')}>
-              Weekly feedback {d.submitted.weekly && '✓'}
+        <section className="ld-card" aria-label="This week's feedback" style={{ flex: 1 }}>
+          <div className="ld-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'weekly'} className={`ld-tab lg${tab === 'weekly' ? ' on' : ''}`} onClick={() => setTab('weekly')}>
+              Weekly feedback · week of {win.weekKey} {d.submitted.weekly && '✓'}
             </button>
-            <button type="button" role="tab" aria-selected={tab === 'pm'} className={tab === 'pm' ? 'on' : ''} onClick={() => setTab('pm')}>
+            <button type="button" role="tab" aria-selected={tab === 'pm'} className={`ld-tab lg${tab === 'pm' ? ' on' : ''}`} onClick={() => setTab('pm')}>
               Project Manager feedback{d.pmName ? ` · ${d.pmName}` : ''} {d.submitted.pm && '✓'}
             </button>
           </div>
-          <div className="sh-muted">
+          <div className="ld-muted" style={{ fontSize: 13 }}>
             {win.late ? `Late submission for the week of ${win.weekKey} — accepted until ${when(win.lateUntil)}.` : `Due ${when(win.dueAt)}.`}
           </div>
 
           {done ? (
-            <div className="fb-done">Submitted for this week — thank you.</div>
+            <div className="fb-done ld-soft" style={{ color: '#166534', fontWeight: 600 }}>Submitted for this week — thank you.</div>
           ) : (
             <>
               {qs.map((q, i) => (
@@ -157,35 +154,36 @@ export default function WeeklyFeedback() {
                   }
                 />
               ))}
-              <Input.TextArea
+              <textarea
                 aria-label="Comments"
-                rows={3}
+                className="ld-inp full"
+                style={{ height: 80, fontSize: 14, resize: 'none' }}
                 maxLength={2000}
                 value={comment[tab]}
                 onChange={(e) => setComment((c) => ({ ...c, [tab]: e.target.value }))}
                 placeholder="Kya achha raha, kya badalna chahiye?"
               />
               {tab === 'pm' && (
-                <div className="fb-concern">
-                  <Checkbox checked={concern} onChange={(e) => setConcern(e.target.checked)}>
-                    Mujhe ek gambhir concern report karna hai (conduct / safety) — sirf authorised management dekhega
-                  </Checkbox>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="checkbox" checked={concern} onChange={(e) => setConcern(e.target.checked)} /> Mujhe ek gambhir concern report karna hai (conduct / safety) — sirf authorised management dekhega
+                  </label>
                   {concern && (
-                    <Input.TextArea aria-label="Concern details" rows={3} maxLength={2000} value={concernText} onChange={(e) => setConcernText(e.target.value)} placeholder="What happened? Only management will read this." />
+                    <textarea aria-label="Concern details" className="ld-inp full" maxLength={2000} value={concernText} onChange={(e) => setConcernText(e.target.value)} placeholder="What happened? Only management will read this." />
                   )}
-                  <div className="sh-muted">Confidential: aapka naam Project Manager ko nahi dikhega. Sirf category averages aur trends share hote hain.</div>
+                  <div className="ld-muted">Confidential: aapka naam Project Manager ko nahi dikhega. Sirf category averages aur trends share hote hain.</div>
                 </div>
               )}
-              <div className="sh-card-hd" style={{ flexWrap: 'wrap' }}>
-                <span className="sh-muted">
+              <div className="ld-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
+                <span className="ld-muted" style={{ fontSize: 13 }}>
                   Form v{d.formVersion} ·{' '}
-                  <button type="button" className="sh-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: 'Problem with the weekly feedback form' } } })}>
+                  <button type="button" className="ld-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: 'Problem with the weekly feedback form' } } })}>
                     form me problem?
                   </button>
                 </span>
-                <Button type="primary" disabled={!complete || (concern && !concernText.trim())} loading={saving} onClick={submit}>
-                  Submit
-                </Button>
+                <button type="button" className="ld-btn" disabled={!complete || (concern && !concernText.trim()) || saving} onClick={submit}>
+                  {saving ? 'Submitting…' : 'Submit'}
+                </button>
               </div>
             </>
           )}

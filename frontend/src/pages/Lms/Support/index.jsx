@@ -1,25 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Tag, Button, Modal, Form, Input, Select, Space, Empty, Skeleton, message, Typography, Segmented, Descriptions } from 'antd';
-import { CustomerServiceOutlined, PlusOutlined, TagOutlined, FileTextOutlined, WalletOutlined, FlagOutlined, CheckCircleFilled } from '@ant-design/icons';
+import { Tag, Skeleton, message, Descriptions } from 'antd';
+import { CheckCircleFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getSocket } from '@/socket';
 import lmsApi from '../api';
-import './support.css';
-
-const { Text, Paragraph } = Typography;
+import '../components/LearnerDesign.css';
 
 // Student Help & Support (LMS panel). Tickets land on the CRM Support page;
 // Support is emailed + notified live, and the student is emailed + notified
 // live (bell/toast) when it's resolved — backend lmsController/
 // supportTickets.js and ticketController/update.js.
 
-// Same label-with-icon treatment as the other LMS modals (Doubts, Projects…).
-const Lbl = ({ icon, children }) => (
-  <span className="crud-lbl"><span className="crud-lbl-icon">{icon}</span>{children}</span>
-);
-
-const STATUS_COLOR = { Open: 'blue', 'In Progress': 'orange', Resolved: 'green' };
+const STATUS_CHIP = { Open: 'naya', 'In Progress': 'adh', Resolved: 'hai' };
 const HISTORY_LABEL = {
   created: () => 'Ticket raised',
   status: (h) => (h.status === 'Resolved' ? 'Resolved' : `Moved to ${h.status}`),
@@ -37,7 +30,6 @@ const FAQ = {
   Certificate: 'Certificates are issued once every eligibility requirement is met — see My Eligibility. For a name or detail correction, tell us exactly what should change.',
   'Login / Technical': 'Try a hard refresh (Ctrl + Shift + R), another browser, or clearing site data. If it continues, tell us the device/browser and the exact error.',
 };
-const PRIORITY_COLOR = { Low: 'default', Medium: 'blue', High: 'orange', Urgent: 'red' };
 const PAY_STATUS_COLOR = { paid: 'green', created: 'blue', expired: 'default', cancelled: 'default', failed: 'red' };
 const inr = (n) => (typeof n === 'number' ? `₹${n.toLocaleString('en-IN')}` : '—');
 const when = (v) => (v ? dayjs(v).format('D MMM YYYY, h:mm A') : '—');
@@ -46,29 +38,6 @@ const paymentLabel = (p) =>
   `${inr(p.amount)}${p.installmentCount > 1 ? ` · installment ${p.installmentNo}/${p.installmentCount}` : ''} · ${p.status}${
     p.paidAt ? ` · paid ${dayjs(p.paidAt).format('D MMM YYYY')}` : ` · ${dayjs(p.created).format('D MMM YYYY')}`
   }`;
-
-// Ticket detail modal building blocks — same tokens as the crud-modal
-// (featureHub.css) so the view sits in the same family as every form modal.
-const TILE_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap: 10, marginBottom: 14 };
-const SECTION = { border: '1px solid var(--hub-border, #e5e7eb)', borderRadius: 12, padding: '12px 14px', marginBottom: 12 };
-
-function InfoTile({ label, children }) {
-  return (
-    <div style={{ background: 'var(--hub-bg-soft, #f8fafc)', border: '1px solid var(--hub-border, #e5e7eb)', borderRadius: 12, padding: '10px 12px', minWidth: 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--hub-muted, #8c8c8c)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontWeight: 600, color: 'var(--hub-text, #111827)', overflowWrap: 'anywhere' }}>{children}</div>
-    </div>
-  );
-}
-
-function Section({ icon, title, children }) {
-  return (
-    <div style={SECTION}>
-      <div style={{ marginBottom: 8 }}><Lbl icon={icon}>{title}</Lbl></div>
-      {children}
-    </div>
-  );
-}
 
 function PaymentInfo({ snap }) {
   if (!snap) return null;
@@ -89,13 +58,16 @@ export default function SupportTickets() {
   const [categories, setCategories] = useState([]);
   const [paymentCategories, setPaymentCategories] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [raising, setRaising] = useState(false);
   const [saving, setSaving] = useState(false);
   const [payments, setPayments] = useState(null);
-  const [viewing, setViewing] = useState(null);
+  const [viewingId, setViewingId] = useState(null);
   const [reopenNote, setReopenNote] = useState('');
   const [confirming, setConfirming] = useState(null); // 'yes' | 'no' while saving
-  const [form] = Form.useForm();
+  const EMPTY = { category: '', priority: 'Medium', subject: '', reference: '', description: '', expected: '', payment: '' };
+  const [f, setF] = useState(EMPTY);
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+
+  const viewing = tickets.find((t) => t._id === viewingId) || tickets[0] || null;
 
   // The learner's answer once Support resolves a ticket (backend
   // supportTickets.confirm): confirm, or reopen it back to Support.
@@ -109,22 +81,18 @@ export default function SupportTickets() {
     }
     message.success(r.message);
     setReopenNote('');
-    setViewing(r.result);
     setTickets((xs) => xs.map((x) => (x._id === r.result._id ? r.result : x)));
   };
-  const category = Form.useWatch('category', form);
-  const needsPayment = paymentCategories.includes(category);
+  const needsPayment = paymentCategories.includes(f.category);
   // Other pages link here with { state: { raise: { category, subject, description } } }
-  // (e.g. "report a missing recording") — open the form already filled in.
+  // (e.g. "report a missing recording") — the form opens already filled in.
   const location = useLocation();
   const navigate = useNavigate();
-  const [prefill, setPrefill] = useState(null);
   useEffect(() => {
     const raise = location.state && location.state.raise;
     if (!raise) return;
-    setPrefill(raise);
-    setRaising(true);
-    navigate(location.pathname, { replace: true, state: null }); // a refresh shouldn't reopen it
+    setF((x) => ({ ...x, ...raise }));
+    navigate(location.pathname, { replace: true, state: null }); // a refresh shouldn't refill it
   }, [location.state, location.pathname, navigate]);
 
   const load = useCallback(async () => {
@@ -153,231 +121,163 @@ export default function SupportTickets() {
   }, [load]);
 
   useEffect(() => {
-    if (raising && needsPayment && payments === null) {
+    if (needsPayment && payments === null) {
       lmsApi.myTicketPayments().then((r) => setPayments(r?.success ? r.result : []));
     }
-  }, [raising, needsPayment, payments]);
+  }, [needsPayment, payments]);
 
   const submit = async () => {
-    const v = await form.validateFields();
+    if (!f.category) return message.error('Pick a category.');
+    if (!f.subject.trim()) return message.error('Add a short subject.');
     setSaving(true);
-    const r = await lmsApi.createTicket({ ...v, payment: needsPayment ? v.payment : undefined });
+    const r = await lmsApi.createTicket({ ...f, payment: needsPayment && f.payment ? f.payment : undefined });
     setSaving(false);
     if (r?.success) {
       message.success(r.message || 'Ticket raised.');
-      setRaising(false);
-      setPrefill(null);
-      form.resetFields();
+      setF(EMPTY);
+      if (r.result && r.result._id) setViewingId(r.result._id);
       load();
     } else {
       message.error(r?.message || 'Could not raise the ticket.');
     }
+    return undefined;
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
   const rows = filter === 'all' ? tickets : tickets.filter((t) => (filter === 'open' ? t.status !== 'Resolved' : t.status === 'Resolved'));
+  const history = (viewing && viewing.history) || [];
 
+  // design board L9 — "Naya ticket" form | my tickets + selected ticket history
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div>
-          <h2><CustomerServiceOutlined /> Help &amp; Support</h2>
-          <p>Raise a ticket about payments, invoices, classes or anything else — we&rsquo;ll email you when it&rsquo;s resolved.</p>
-        </div>
-        <Space>
-          <Segmented value={filter} onChange={setFilter} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Resolved', value: 'resolved' }]} />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setRaising(true)}>Raise a ticket</Button>
-        </Space>
+    <div className="ld-page">
+      <div className="ld-head">
+        <h1>Support</h1>
       </div>
 
-      {rows.length === 0 ? (
-        <Card><Empty description={tickets.length ? 'No tickets here.' : 'You have not raised any tickets yet.'} /></Card>
-      ) : (
-        <Card bodyStyle={{ padding: 0 }}>
-          <Table
-            rowKey="_id"
-            dataSource={rows}
-            pagination={{ pageSize: 10, hideOnSinglePage: true }}
-            onRow={(t) => ({ onClick: () => setViewing(t), style: { cursor: 'pointer' } })}
-            columns={[
-              { title: 'Ticket', dataIndex: 'ticketNo', width: 120, render: (v) => <Text strong>{v}</Text> },
-              { title: 'Subject', dataIndex: 'subject', render: (v, t) => <>{v}{t.paymentSnapshot && <Tag icon={<WalletOutlined />} style={{ marginLeft: 8 }}>{inr(t.paymentSnapshot.amount)}</Tag>}</> },
-              { title: 'Category', dataIndex: 'category', width: 170 },
-              { title: 'Priority', dataIndex: 'priority', width: 100, render: (v) => <Tag color={PRIORITY_COLOR[v]}>{v}</Tag> },
-              { title: 'Status', dataIndex: 'status', width: 120, render: (v) => <Tag color={STATUS_COLOR[v]}>{v}</Tag> },
-              { title: 'Raised', dataIndex: 'created', width: 180, render: when },
-            ]}
-          />
-        </Card>
-      )}
-
-      <Modal
-        className="crud-modal"
-        open={raising}
-        title={
-          <span className="crud-modal-title">
-            <span className="crud-modal-title-icon"><CustomerServiceOutlined /></span>
-            <span>
-              <span className="crud-modal-title-kicker">New ticket</span>
-              <span className="crud-modal-title-main">Raise a ticket</span>
-            </span>
-          </span>
-        }
-        onCancel={() => {
-          setRaising(false);
-          setPrefill(null);
-        }}
-        onOk={submit}
-        okText="Submit ticket"
-        confirmLoading={saving}
-        destroyOnClose
-        maskClosable={false}
-        width={600}
-      >
-        <Form form={form} layout="vertical" preserve={false} className="crud-form" initialValues={{ priority: 'Medium', ...(prefill || {}) }}>
-          <div className="crud-form-grid">
-            <Form.Item name="category" label={<Lbl icon={<TagOutlined />}>Category</Lbl>} rules={[{ required: true, message: 'Pick a category.' }]}>
-              <Select placeholder="What is this about?" options={categories.map((c) => ({ value: c, label: c }))} />
-            </Form.Item>
-            <Form.Item name="priority" label={<Lbl icon={<FlagOutlined />}>Priority</Lbl>}>
-              <Select options={['Low', 'Medium', 'High', 'Urgent'].map((p) => ({ value: p, label: p }))} />
-            </Form.Item>
-            {needsPayment && (
-              <Form.Item
-                name="payment"
-                className="crud-form-full"
-                label={<Lbl icon={<WalletOutlined />}>Which payment?</Lbl>}
-                extra="Optional — pick the payment this is about so Support sees its details straight away."
-              >
-                <Select
-                  allowClear
-                  loading={payments === null}
-                  placeholder={payments && payments.length === 0 ? 'No payments on your account yet' : 'Select a payment'}
-                  options={(payments || []).map((p) => ({ value: p._id, label: paymentLabel(p) }))}
-                />
-              </Form.Item>
-            )}
-            <Form.Item
-              name="subject"
-              className="crud-form-full"
-              label={<Lbl icon={<FileTextOutlined />}>Subject</Lbl>}
-              rules={[{ required: true, whitespace: true, message: 'Add a short subject.' }]}
-            >
-              <Input maxLength={200} placeholder="e.g. Paid my fee but it still shows as due" />
-            </Form.Item>
-            <Form.Item name="reference" className="crud-form-full" label={<Lbl icon={<TagOutlined />}>Session / test / project</Lbl>}>
-              <Input maxLength={200} placeholder="e.g. S78 · 28 Oct, Major Test attempt 2, Project milestone 3" />
-            </Form.Item>
-            <Form.Item name="description" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Kya hua?</Lbl>}>
-              <Input.TextArea rows={4} maxLength={5000} placeholder="Tell us what happened — dates, amounts, what you saw on screen…" />
-            </Form.Item>
-            <Form.Item name="expected" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Kya hona chahiye tha?</Lbl>}>
-              <Input maxLength={1000} placeholder="e.g. The Join button should show" />
-            </Form.Item>
+      <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr', flex: 1 }}>
+        <section className="ld-card" aria-label="New ticket" style={{ gap: 12 }}>
+          <b style={{ fontSize: 16 }}>Naya ticket</b>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <label className="ld-label">Category
+              <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={f.category} onChange={set('category')}>
+                <option value="">What is this about?</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="ld-label">Session / test / project ID
+              <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={200} name="reference" value={f.reference} onChange={set('reference')} placeholder="e.g. S78 · 28 Oct" />
+            </label>
           </div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Password, OTP ya card details kabhi mat bhejein.
-          </Text>
-          {FAQ[category] && (
-            <div style={{ ...SECTION, marginTop: 12, marginBottom: 0, background: 'var(--hub-blue-soft, #eff6ff)', borderColor: 'transparent' }}>
-              <Text strong>Suggested answer</Text>
-              <Paragraph style={{ margin: '4px 0 8px' }}>{FAQ[category]}</Paragraph>
-              <Button
-                size="small"
-                onClick={() => {
-                  setRaising(false);
-                  setPrefill(null);
-                  message.success('Glad that helped.');
-                }}
-              >
-                Isse solve ho gaya
-              </Button>
+          <label className="ld-label">Subject
+            <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={200} name="subject" value={f.subject} onChange={set('subject')} placeholder="e.g. Join button missing" />
+          </label>
+          {needsPayment && (
+            <label className="ld-label">Which payment? (optional)
+              <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={f.payment} onChange={set('payment')}>
+                <option value="">{payments && payments.length === 0 ? 'No payments on your account yet' : 'Select a payment'}</option>
+                {(payments || []).map((p) => <option key={p._id} value={p._id}>{paymentLabel(p)}</option>)}
+              </select>
+            </label>
+          )}
+          <label className="ld-label">Kya hua?
+            <textarea className="ld-inp full" style={{ height: 80, fontSize: 14, resize: 'none' }} maxLength={5000} name="description" value={f.description} onChange={set('description')} placeholder="Tell us what happened — dates, amounts, what you saw on screen…" />
+          </label>
+          <label className="ld-label">Kya hona chahiye tha?
+            <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={1000} name="expected" value={f.expected} onChange={set('expected')} placeholder="e.g. Join button dikhna chahiye" />
+          </label>
+          <div style={{ padding: 12, borderRadius: 8, background: '#fef2f2', fontSize: 13, color: '#991b1b' }}>Password, OTP ya card details kabhi mat bhejein.</div>
+          {FAQ[f.category] && (
+            <div style={{ padding: 14, borderRadius: 8, background: '#eff6ff', fontSize: 13, lineHeight: '19px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <b style={{ color: '#1e40af' }}>Suggested answer (FAQ)</b>
+              <span>{FAQ[f.category]}</span>
             </div>
           )}
-        </Form>
-      </Modal>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto' }}>
+            {FAQ[f.category] && (
+              <button type="button" className="ld-btn2" style={{ height: 42 }} onClick={() => { setF(EMPTY); message.success('Glad that helped.'); }}>Isse solve ho gaya</button>
+            )}
+            <button type="button" className="ld-btn" style={{ height: 42 }} disabled={saving} onClick={submit}>{saving ? 'Submitting…' : 'Ticket submit'}</button>
+          </div>
+        </section>
 
-      <Modal
-        className="crud-modal"
-        open={!!viewing}
-        onCancel={() => setViewing(null)}
-        width={620}
-        title={
-          viewing && (
-            <span className="crud-modal-title">
-              <span className="crud-modal-title-icon"><CustomerServiceOutlined /></span>
-              <span style={{ minWidth: 0 }}>
-                <span className="crud-modal-title-kicker">Ticket · {viewing.ticketNo}</span>
-                <span className="crud-modal-title-main">{viewing.subject}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
+          <section className="ld-card" aria-label="My tickets" style={{ gap: 8 }}>
+            <div className="ld-hd">
+              <b style={{ fontSize: 16 }}>Mere tickets</b>
+              <span style={{ display: 'flex', gap: 6 }}>
+                {[['all', 'All'], ['open', 'Open'], ['resolved', 'Resolved']].map(([k, l]) => (
+                  <button key={k} type="button" className={`ld-pill${filter === k ? ' on' : ''}`} style={{ height: 28, fontSize: 12 }} onClick={() => setFilter(k)}>{l}</button>
+                ))}
               </span>
-            </span>
-          )
-        }
-        footer={<Button onClick={() => setViewing(null)}>Close</Button>}
-      >
-        {viewing && (
-          <>
-            <div style={TILE_GRID}>
-              <InfoTile label="Status"><Tag color={STATUS_COLOR[viewing.status]} style={{ margin: 0 }}>{viewing.status}</Tag></InfoTile>
-              <InfoTile label="Priority"><Tag color={PRIORITY_COLOR[viewing.priority]} style={{ margin: 0 }}>{viewing.priority}</Tag></InfoTile>
-              <InfoTile label="Category">{viewing.category}</InfoTile>
-              <InfoTile label="Raised on">{when(viewing.created)}</InfoTile>
             </div>
+            {rows.length === 0 && <div className="ld-empty">{tickets.length ? 'No tickets here.' : 'You have not raised any tickets yet.'}</div>}
+            {rows.map((t) => (
+              <button
+                key={t._id}
+                type="button"
+                className="tk-row"
+                onClick={() => setViewingId(t._id)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 12px', border: `1px solid ${viewing && viewing._id === t._id ? '#0e7490' : '#e2e8f0'}`, borderRadius: 8, fontSize: 13, background: '#fff', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer', color: '#0f172a' }}
+              >
+                <span><b>{t.ticketNo}</b> · {t.subject}{t.paymentSnapshot ? ` · ${inr(t.paymentSnapshot.amount)}` : ''}</span>
+                <span className={`ld-chip ${STATUS_CHIP[t.status] || 'gray'}`}>{t.status}</span>
+              </button>
+            ))}
+          </section>
 
-            <Section icon={<FileTextOutlined />} title="Details">
-              {viewing.reference && <Paragraph style={{ margin: '0 0 6px' }}><Text type="secondary">About: </Text>{viewing.reference}</Paragraph>}
-              <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{viewing.description || <Text type="secondary">No extra details added.</Text>}</Paragraph>
-              {viewing.expected && <Paragraph style={{ margin: '6px 0 0' }}><Text type="secondary">Expected: </Text>{viewing.expected}</Paragraph>}
-            </Section>
-
-            {(viewing.history || []).length > 0 && (
-              <Section icon={<FlagOutlined />} title="History">
-                <ol className="tk-history">
-                  {viewing.history.map((h, i) => (
-                    <li key={i}>
+          {viewing && (
+            <section className="ld-card" aria-label="Ticket history" style={{ flex: 1 }}>
+              <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 16 }}>{viewing.ticketNo} · history</b>
+                <span className="ld-muted" style={{ fontSize: 13 }}>{viewing.priority} · {viewing.category}</span>
+              </div>
+              {(viewing.reference || viewing.description || viewing.expected) && (
+                <div className="ld-soft" style={{ whiteSpace: 'pre-wrap' }}>
+                  {viewing.reference && <div><span className="ld-muted">About: </span>{viewing.reference}</div>}
+                  {viewing.description && <div>{viewing.description}</div>}
+                  {viewing.expected && <div><span className="ld-muted">Expected: </span>{viewing.expected}</div>}
+                </div>
+              )}
+              <ol className="tk-history" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(history.length ? history : [{ action: 'created', at: viewing.created }]).map((h, i, arr) => (
+                  <li key={i} style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: '18px' }}>
+                    <i style={{ width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0, background: i === arr.length - 1 && viewing.status !== 'Resolved' ? '#0e7490' : '#16a34a' }} />
+                    <div>
                       <b>{HISTORY_LABEL[h.action] ? HISTORY_LABEL[h.action](h) : h.status}</b> · {when(h.at)}
-                      {h.byName && <Text type="secondary"> · {h.byName}</Text>}
-                      {h.note && <div className="tk-history-note">{h.note}</div>}
-                    </li>
-                  ))}
-                </ol>
-              </Section>
-            )}
-
-            {viewing.paymentSnapshot && (
-              <Section icon={<WalletOutlined />} title="Payment">
-                <PaymentInfo snap={viewing.paymentSnapshot} />
-              </Section>
-            )}
-
-            {viewing.status === 'Resolved' ? (
-              <div style={{ ...SECTION, background: '#f6ffed', borderColor: '#b7eb8f' }}>
-                <Text strong style={{ color: '#389e0d' }}><CheckCircleFilled /> Resolved · {when(viewing.resolvedAt)}</Text>
-                <Paragraph style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{viewing.resolutionNote || 'Support has marked this ticket resolved.'}</Paragraph>
-                {viewing.learnerConfirmedAt ? (
-                  <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>You confirmed this on {when(viewing.learnerConfirmedAt)}.</Text>
-                ) : (
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <Text>Is your issue solved?</Text>
-                    <Input.TextArea rows={2} maxLength={1000} value={reopenNote} onChange={(e) => setReopenNote(e.target.value)} placeholder="If not — what is still wrong? (optional)" />
-                    <Space wrap>
-                      <Button type="primary" loading={confirming === 'yes'} disabled={!!confirming} onClick={() => answer(true)}>Haan, solve ho gaya</Button>
-                      <Button loading={confirming === 'no'} disabled={!!confirming} onClick={() => answer(false)}>Abhi bhi issue hai (reopen)</Button>
-                    </Space>
-                  </div>
+                      {h.byName && <span className="ld-muted"> · {h.byName}</span>}
+                      {h.note && <><br /><span className="ld-muted">{h.note}</span></>}
+                    </div>
+                  </li>
+                ))}
+                {viewing.status !== 'Resolved' && (
+                  <li style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: '18px' }}>
+                    <i style={{ width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0, background: '#cbd5e1' }} />
+                    <div><b>Resolved → aapka confirmation</b><br /><span className="ld-muted">You&rsquo;ll get an email and a notification here once it&rsquo;s resolved.</span></div>
+                  </li>
                 )}
-              </div>
-            ) : (
-              <div style={{ ...SECTION, background: 'var(--hub-blue-soft, #eff6ff)', borderColor: 'transparent' }}>
-                <Text type="secondary">
-                  {viewing.status === 'In Progress' ? 'Support is working on this.' : 'Support has been notified.'} You&rsquo;ll get an email and a notification here once it&rsquo;s resolved.
-                </Text>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
+              </ol>
+              {viewing.paymentSnapshot && <PaymentInfo snap={viewing.paymentSnapshot} />}
+              {viewing.status === 'Resolved' && (
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ color: '#166534', fontWeight: 600, fontSize: 13 }}><CheckCircleFilled /> Resolved · {when(viewing.resolvedAt)}{viewing.resolutionNote ? ` — ${viewing.resolutionNote}` : ''}</div>
+                  {viewing.learnerConfirmedAt ? (
+                    <span className="ld-muted" style={{ fontSize: 13 }}>You confirmed this on {when(viewing.learnerConfirmedAt)}.</span>
+                  ) : (
+                    <>
+                      <textarea className="ld-inp full" style={{ height: 60 }} maxLength={1000} value={reopenNote} onChange={(e) => setReopenNote(e.target.value)} placeholder="If not — what is still wrong? (optional)" />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="ld-btn2" disabled={!!confirming} onClick={() => answer(false)}>Abhi bhi issue hai (reopen)</button>
+                        <button type="button" className="ld-btn" style={{ height: 40 }} disabled={!!confirming} onClick={() => answer(true)}>Haan, solve ho gaya</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -106,3 +106,17 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
   .ld-page { padding: 16px; }
   .ld-page h1 { font-size: 22px; }
 }
+
+/* feedback (board L7) */
+.ld-tab.lg { height: 40px; padding: 0 16px; font-size: 14px; }
+.ld-q { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; flex-wrap: wrap; }
+.ld-scale { display: flex; gap: 6px; }
+.ld-r { width: 44px; height: 44px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-family: inherit; font-size: 14px; font-weight: 600; color: #334155; cursor: pointer; }
+.ld-r.on { background: #0e7490; border-color: #0e7490; color: #fff; }
+.ld-weeks { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; overflow-x: auto; }
+.ld-wk { flex: 1; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; }
+.ld-wk i { width: 100%; height: 10px; border-radius: 5px; background: #94a3b8; }
+.ld-wk.ok i { background: #16a34a; }
+.ld-wk.warn i { background: #f59e0b; }
+.ld-wk.bad i { background: #dc2626; }
+.ld-wk.info i { background: #0e7490; }
