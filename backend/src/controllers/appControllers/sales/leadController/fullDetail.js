@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
+const { agentNotes } = require('../../../../services/calling/callingShared');
 
 const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 
@@ -52,7 +53,7 @@ const fullDetail = async (req, res) => {
       answered: !!c.answeredAt,
       talkSeconds: c.duration || 0,
       response: c.disposition ? (BY_CODE[c.disposition] ? BY_CODE[c.disposition].label : c.disposition) : null,
-      notes: c.notes || '',
+      notes: agentNotes(c.notes) || '',
       instantLead: !!c.instantLead,
       missedByAgent: !!c.missedByAgent,
       transferredTo: c.transferredTo || null,

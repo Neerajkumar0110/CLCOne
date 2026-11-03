@@ -14,6 +14,19 @@ const last10 = (s) => {
 };
 const secs = (from, to) => Math.max(0, Math.round((new Date(to) - new Date(from)) / 1000));
 
+// The pool dialer stamps its own line on a call's notes (see
+// CloudCallProvider.dialLeadPoolNext) — drop it for display, keep what the
+// agent wrote.
+const POOL_STAMP_RX = /Instant Lead Pool\s*[—-]\s*agent assigned on answer\.?/gi;
+const agentNotes = (n) => {
+  const t = String(n || '')
+    .replace(POOL_STAMP_RX, '')
+    .replace(/\s*[—-]\s*(\n|$)/g, '$1')
+    .replace(/^\s*[—-]\s*/, '')
+    .trim();
+  return t || null;
+};
+
 // ── agent capacity / dial pacing ────────────────────────────────────────
 //
 // A CallRecord in any of these states is occupying its agent's one and only
@@ -585,6 +598,7 @@ module.exports = {
   last10,
   resolveCallOwner,
   secs,
+  agentNotes,
   LIVE_CALL_STATUSES,
   BUSY_AGENT_STATUSES,
   RESERVATION_TTL_MS,

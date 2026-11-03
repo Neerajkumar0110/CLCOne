@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const wd = require('../../../services/hr/workday');
 const { SALES_ROLES } = require('../../../config/roles');
+const { agentNotes } = require('../../../services/calling/callingShared');
 
 // /api/workday/admin/360* — the Sales 360° report: everything one Sales user
 // (or the whole team) did over any range, from one minute of a day to a year.
@@ -1035,7 +1036,7 @@ async function calls(req, res) {
         at: r.created,
         endedAt: r.endedAt,
         disposition: r.disposition || null,
-        notes: r.notes || null,
+        notes: agentNotes(r.notes),
         campaign: r.campaign && r.campaign.name,
         stage: lead ? [lead.stage, lead.subStatus].filter(Boolean).join(' · ') : null,
         recording: (r.recording && r.recording.status) || 'unavailable',
