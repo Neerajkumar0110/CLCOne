@@ -117,7 +117,7 @@ export default function CallHistory() {
                     <td>{fmtDateTime(r.endedAt || r.created)}</td>
                     <td>{r.duration ? fmtDuration(r.duration) : "—"}</td>
                     <td>
-                      <span className={`hub-badge ${CALL_STATUS_BADGE[r.status]}`}>{r.status}</span>
+                      <span className={`hub-badge ${CALL_STATUS_BADGE[r.status] || "hub-badge-gray"}`}>{r.status}</span>
                       {r.missedByAgent && (
                         <span className="hub-badge hub-badge-red" style={{ marginLeft: 6 }} title="Routed to this agent — never picked up">
                           Missed

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const wd = require('../../../services/hr/workday');
 const { SALES_ROLES } = require('../../../config/roles');
-const { agentNotes, NOT_PLACED_RX } = require('../../../services/calling/callingShared');
+const { agentNotes, NOT_PLACED_RX, shownCallStatus, CALL_RESULT_FIELDS } = require('../../../services/calling/callingShared');
 const policy = require('../../../services/hr/attendancePolicy');
 const { attendancePolicy: POLICY } = require('../../../config/shiftSchedule');
 const { resolveScope } = require('../../../services/access/salesScope');
@@ -129,6 +129,8 @@ function leadMatch(q) {
   if (Array.isArray(q._payTails)) and.push({ phoneNormalized: { $in: q._payTails } });
   return and.length ? { $and: and } : null;
 }
+// What the provider said for calls stored as status 'failed' (shownCallStatus).
+const PROVIDER_SAID = ['busy', 'no-answer', 'timeout'];
 // Extra conditions for a CallRecord query over these users and this range.
 async function callFilter(q, ids, from, to) {
   // A call the provider refused for lack of balance never went out: not a call.
@@ -137,6 +139,8 @@ async function callFilter(q, ids, from, to) {
   if (q.outcome === 'connected') and.push({ $expr: CONNECTED });
   else if (q.outcome === 'missed') and.push({ missedByAgent: true });
   else if (q.outcome === 'not-connected') and.push({ $expr: { $not: [CONNECTED] } });
+  else if (PROVIDER_SAID.includes(q.outcome)) and.push({ $or: [{ status: q.outcome }, { status: 'failed', 'providerRaw.CallStatus': q.outcome }], missedByAgent: { $ne: true }, $expr: { $not: [CONNECTED] } });
+  else if (q.outcome === 'failed') and.push({ status: 'failed', 'providerRaw.CallStatus': { $nin: PROVIDER_SAID }, missedByAgent: { $ne: true }, $expr: { $not: [CONNECTED] } });
   else if (q.outcome) and.push({ status: q.outcome, missedByAgent: { $ne: true }, $expr: { $not: [CONNECTED] } });
   if (q.recorded === '1') and.push({ 'recording.status': 'available' });
   if (q.disposition) and.push({ disposition: q.disposition });
@@ -747,7 +751,7 @@ async function build(q) {
   const [facets, att, pay, responses, prevCalls] = await Promise.all([
     mongoose.model('CallRecord').aggregate([
       { $match: match },
-      { $project: { agent: 1, created: 1, direction: 1, answeredAt: 1, agentLegAnswered: 1, duration: 1, missedByAgent: 1, status: 1, disposition: 1, phone: 1, 'recording.status': 1, 'recording.durationSec': 1 } },
+      { $project: { agent: 1, created: 1, direction: 1, answeredAt: 1, agentLegAnswered: 1, duration: 1, missedByAgent: 1, status: 1, disposition: 1, phone: 1, 'recording.status': 1, 'recording.durationSec': 1, 'providerRaw.CallStatus': 1 } },
       {
         $facet: {
           totals: [{ $group: { _id: null, ...callTotals } }, { $addFields: { unique: { $size: '$numbers' } } }, { $project: { numbers: 0 } }],
@@ -755,7 +759,7 @@ async function build(q) {
           trend: [{ $group: { _id: { $dateToString: { format: fmt, date: '$created', timezone: TZ } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED), talkSec: callTotals.talkSec } }],
           byDay: [{ $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$created', timezone: TZ } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED), talkSec: callTotals.talkSec, missed: callTotals.missed } }],
           heat: [{ $group: { _id: { d: { $dayOfWeek: { date: '$created', timezone: TZ } }, h: { $hour: { date: '$created', timezone: TZ } } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED) } }],
-          outcomes: [{ $group: { _id: { $cond: [CONNECTED, 'connected', { $cond: [{ $eq: ['$missedByAgent', true] }, 'missed', '$status'] }] }, n: { $sum: 1 } } }],
+          outcomes: [{ $group: { _id: { $cond: [CONNECTED, 'connected', { $cond: [{ $eq: ['$missedByAgent', true] }, 'missed', { $cond: [{ $and: [{ $eq: ['$status', 'failed'] }, { $in: ['$providerRaw.CallStatus', PROVIDER_SAID] }] }, '$providerRaw.CallStatus', '$status'] }] }] }, n: { $sum: 1 } } }],
           dispositions: [{ $match: { disposition: { $nin: [null, ''] } } }, { $group: { _id: '$disposition', n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 12 }],
           talkBands: [
             { $match: { $expr: CONNECTED } },
@@ -1195,7 +1199,7 @@ async function exportXlsx(req, res) {
       { $group: { _id: { a: '$agent', d: { $dateToString: { format: '%Y-%m-%d', date: '$created', timezone: TZ } } }, calls: { $sum: 1 }, connected: sumIf(CONNECTED), talkSec: callTotals.talkSec, missed: callTotals.missed } },
     ]),
     CallRecord.find({ removed: false, agent: { $in: ids }, created: { $gte: from, $lte: to }, ...onlyCalls })
-      .select('agentName contactName phone direction status duration answeredAt agentLegAnswered missedByAgent created endedAt disposition recording.status')
+      .select(`agentName contactName phone direction status duration answeredAt agentLegAnswered missedByAgent created endedAt disposition recording.status notes ${CALL_RESULT_FIELDS}`)
       .sort({ created: -1 })
       .limit(20000)
       .lean(),
@@ -1294,7 +1298,7 @@ async function exportXlsx(req, res) {
       Contact: c.contactName || '',
       Phone: c.phone,
       Type: c.direction,
-      Result: ok ? 'Connected' : c.missedByAgent ? 'Missed by user' : c.status,
+      Result: ok ? 'Connected' : c.missedByAgent ? 'Missed by user' : shownCallStatus(c),
       'Talk (s)': ok ? c.duration : 0,
       Disposition: c.disposition || '',
       Recording: (c.recording && c.recording.status) === 'available' ? 'Yes' : '',
@@ -1397,7 +1401,7 @@ async function calls(req, res) {
   const filter = { $and: and };
   const [rows, count] = await Promise.all([
     CallRecord.find(filter)
-      .select('contactName phone direction status duration answeredAt agentLegAnswered created endedAt ringingAt disposition notes agentName missedByAgent recording.status recording.durationSec campaign transferredTo')
+      .select(`contactName phone direction status duration answeredAt agentLegAnswered created endedAt ringingAt disposition notes agentName missedByAgent recording.status recording.durationSec campaign transferredTo ${CALL_RESULT_FIELDS}`)
       .populate('campaign', 'name')
       .sort({ created: -1 })
       .skip((page - 1) * items)
@@ -1420,7 +1424,7 @@ async function calls(req, res) {
         phone: r.phone,
         user: r.agentName,
         direction: r.direction,
-        status: r.status,
+        status: shownCallStatus(r),
         connected,
         missed: !!r.missedByAgent,
         talkSec: connected ? r.duration : 0,
@@ -2098,7 +2102,7 @@ const ACTIVITY_LABEL = {
   leave_pause: 'Dialer paused for leave', leave_applied: 'Leave applied', leave_decided: 'Leave decided',
 };
 const kindsOf = (group) => Object.keys(ACTIVITY_GROUP).filter((k) => ACTIVITY_GROUP[k] === group);
-const CALL_TITLE = { 'no-answer': 'No answer', busy: 'Busy', failed: 'Failed', voicemail: 'Voicemail', cancelled: 'Cancelled', completed: 'Ended, no talk' };
+const CALL_TITLE = { timeout: 'No response from network', 'switched-off': 'Switched off', 'not-placed': 'Call not placed', 'no-callback': 'No update from provider', 'no-answer': 'No answer', busy: 'Busy', failed: 'Failed', voicemail: 'Voicemail', cancelled: 'Cancelled', completed: 'Ended, no talk' };
 
 // GET /workday/admin/360/activity?from=&to=&adminId=&team=&role=&types=call,click&q=&stage=&sub=&outcome=&direction=&path=&page=&items=
 // One merged, newest-first list: every login, dialer switch, break, leave,
@@ -2139,10 +2143,10 @@ async function activity(req, res) {
     const filter = { $and: [{ removed: false, agent: { $in: ids }, created: { $gte: from, $lte: to } }, ...(await callFilter(q, ids, from, to))] };
     counts.call = await CallRecord.countDocuments(filter);
     if (want('call')) {
-      const rows = await CallRecord.find(filter).select('contactName phone direction status duration answeredAt agentLegAnswered created disposition agentName missedByAgent recording.status').sort({ created: -1 }).limit(cap).lean();
+      const rows = await CallRecord.find(filter).select(`contactName phone direction status duration answeredAt agentLegAnswered created disposition agentName missedByAgent recording.status notes ${CALL_RESULT_FIELDS}`).sort({ created: -1 }).limit(cap).lean();
       for (const c of rows) {
         const ok = !!(c.answeredAt && c.agentLegAnswered !== false && c.duration > 0);
-        const outcome = ok ? 'Connected' : c.missedByAgent ? 'Missed by user' : CALL_TITLE[c.status] || c.status;
+        const outcome = ok ? 'Connected' : c.missedByAgent ? 'Missed by user' : CALL_TITLE[shownCallStatus(c)] || shownCallStatus(c);
         out.push({ id: String(c._id), type: 'call', at: c.created, user: c.agentName, title: `${c.direction === 'Inbound' ? 'Incoming from' : 'Outgoing to'} ${c.contactName || c.phone} · ${outcome}`, detail: [ok ? `Talk ${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : null, c.disposition].filter(Boolean).join(' · '), phone: c.phone, leadName: c.contactName });
       }
     }

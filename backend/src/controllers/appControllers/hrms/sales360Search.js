@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const sales360 = require('./sales360');
-const { agentNotes } = require('../../../services/calling/callingShared');
+const { agentNotes, shownCallStatus, CALL_RESULT_FIELDS } = require('../../../services/calling/callingShared');
 const { ACTIVE_DISPOSITIONS } = require('../../../services/calling/dispositions');
 
 // GET /workday/admin/360/search?q=&dated=&group=&skip=&…360 filters…
@@ -92,7 +92,7 @@ const GROUPS = [
       return codes.length ? [{ disposition: { $in: codes } }] : [];
     },
     sort: { created: -1 },
-    select: 'contactName phone agentName disposition notes status direction duration created',
+    select: `contactName phone agentName disposition notes status direction duration created ${CALL_RESULT_FIELDS}`,
     where: async (c) => {
       const { q: _q, ...rest } = c.q;
       const and = await sales360.callFilter(rest, c.ids, c.dated ? c.from : new Date(0), c.dated ? c.to : new Date());
@@ -102,7 +102,7 @@ const GROUPS = [
       id: r._id,
       title: r.contactName || r.phone,
       sub: joined(r.phone, r.direction, r.agentName, r.duration ? clockLength(r.duration) : null),
-      pill: labelOf.get(r.disposition) || r.disposition || r.status,
+      pill: labelOf.get(r.disposition) || r.disposition || shownCallStatus(r),
       at: r.created,
       match: foundIn(c.words, [['Note', agentNotes(r.notes)]]),
       action: { type: 'lead', phone: r.phone, name: r.contactName },

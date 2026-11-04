@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
-const { agentNotes, NOT_PLACED_RX } = require('../../../../services/calling/callingShared');
+const { agentNotes, NOT_PLACED_RX, shownCallStatus, CALL_RESULT_FIELDS } = require('../../../../services/calling/callingShared');
 
 const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 
@@ -33,7 +33,7 @@ const fullDetail = async (req, res) => {
         .model('CallRecord')
         .find({ removed: false, phone: { $regex: `(${phones.join('|')})$` } })
         .select(
-          'agent agentName ownerAgent ownerAgentName direction status created answeredAt endedAt duration disposition notes contactName instantLead missedByAgent transferredTo recording.status recording.url'
+          `${CALL_RESULT_FIELDS} agent agentName ownerAgent ownerAgentName direction status created answeredAt endedAt duration disposition notes contactName instantLead missedByAgent transferredTo recording.status recording.url'
         )
         .sort({ created: -1 })
         .limit(200)
@@ -51,7 +51,7 @@ const fullDetail = async (req, res) => {
       at: c.created,
       direction: c.direction || 'Outbound',
       agentName: c.agentName || c.ownerAgentName || (c.agent ? '' : 'Auto-dialer'),
-      status: c.status,
+      status: shownCallStatus(c),
       answered: !!c.answeredAt,
       talkSeconds: c.duration || 0,
       response: c.disposition ? (BY_CODE[c.disposition] ? BY_CODE[c.disposition].label : c.disposition) : null,

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { getProvider, readTick } = require('../../../../services/calling');
+const { shownCallStatus } = require('../../../../services/calling/callingShared');
 const { callingTier, campaignScope } = require('./permissions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 
@@ -33,7 +34,10 @@ const list = async (req, res) => {
 
   if (q.campaign) filter.campaign = q.campaign;
   if (q.agent && mongoose.isValidObjectId(q.agent)) and.push(callsOf(new mongoose.Types.ObjectId(q.agent)));
-  if (q.status && q.status !== 'All') filter.status = q.status;
+  // Busy and no-answer are stored as failed + what the provider said.
+  if (['busy', 'no-answer'].includes(q.status)) {
+    and.push({ $or: [{ status: q.status }, { status: 'failed', 'providerRaw.CallStatus': q.status }] });
+  } else if (q.status && q.status !== 'All') filter.status = q.status;
   if (q.disposition) filter.disposition = q.disposition;
   if (q.direction) filter.direction = q.direction;
   if (q.q) {
@@ -70,6 +74,7 @@ const list = async (req, res) => {
   }
   // A call nobody took shows the user it's filed under.
   for (const r of result) {
+    r.status = shownCallStatus(r);
     if (!r.agentName && r.ownerAgentName) {
       r.agentName = r.ownerAgentName;
       r.ownerOnly = true;

@@ -4,6 +4,7 @@ const shiftSchedule = require('../../../config/shiftSchedule');
 const { FULL_ACCESS_ROLES } = require('../../../services/access/salesScope');
 const { SALES_ROLES, MANAGEMENT_ROLES } = require('../../../config/roles');
 const sales360 = require('./sales360');
+const { shownCallStatus, CALL_RESULT_FIELDS } = require('../../../services/calling/callingShared');
 const policyOps = require('./policyOps');
 const { search: sales360Search } = require('./sales360Search');
 
@@ -297,7 +298,7 @@ const timeline = selfOrManager(async (req, res) => {
     mongoose
       .model('CallRecord')
       .find({ removed: false, agent: adminId, created: { $gte: start, $lte: end } })
-      .select('contactName phone direction status duration answeredAt agentLegAnswered created endedAt disposition missedByAgent recording.status')
+      .select(`contactName phone direction status duration answeredAt agentLegAnswered created endedAt disposition missedByAgent recording.status notes ${CALL_RESULT_FIELDS}`)
       .sort({ created: 1 })
       .lean(),
     mongoose.model('Admin').findById(adminId).select('name surname role email').lean(),
@@ -311,7 +312,7 @@ const timeline = selfOrManager(async (req, res) => {
       { $limit: 500 },
     ]),
   ]);
-  return ok(res, { dayKey, user: user ? { name: wd.fullName(user), role: user.role, email: user.email } : null, session, events, calls, responses });
+  return ok(res, { dayKey, user: user ? { name: wd.fullName(user), role: user.role, email: user.email } : null, session, events, calls: calls.map(({ providerRaw, notes, ...c }) => ({ ...c, status: shownCallStatus({ ...c, providerRaw, notes }) })), responses });
 });
 
 // GET /workday/admin/report?month=YYYY-MM&adminId=  → .xlsx

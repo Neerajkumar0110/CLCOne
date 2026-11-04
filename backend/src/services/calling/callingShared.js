@@ -304,6 +304,23 @@ const CALL_NOT_REACHED = {
   ],
 };
 
+// What to show for a call. The webhook files busy, no-answer and the rest under
+// status 'failed' (dialer rules and reports rely on that), so the provider's own
+// answer on the record says what really happened. Select CALL_RESULT_FIELDS.
+const CALL_RESULT_FIELDS = 'providerRaw.CallStatus providerRaw.HangupCauseName providerRaw.HangupCause';
+function shownCallStatus(rec) {
+  if (!rec || rec.status !== 'failed') return rec ? rec.status : undefined;
+  const raw = rec.providerRaw || {};
+  const cause = String(raw.HangupCauseName || raw.HangupCause || '');
+  if (/SUBSCRIBER.?ABSENT|switch(ed)?.?off|out.?of.?coverage/i.test(cause)) return 'switched-off';
+  const said = String(raw.CallStatus || '').toLowerCase();
+  if (['busy', 'no-answer', 'timeout'].includes(said)) return said;
+  if (said === 'cancel') return 'cancelled';
+  if (NOT_PLACED_RX.test(rec.notes || '')) return 'not-placed';
+  if (/no provider callback/i.test(rec.notes || '')) return 'no-callback';
+  return cause ? cause.replace(/_/g, ' ').toLowerCase() : 'failed';
+}
+
 // Which "No Response" sub-status an unanswered call gets, read from the
 // provider's hangup reason (Plivo HangupCause / HangupCauseName, kept on the
 // CallRecord as providerRaw, and in notes by cloudWebhook.js):
@@ -608,6 +625,8 @@ module.exports = {
   secs,
   agentNotes,
   NOT_PLACED_RX,
+  shownCallStatus,
+  CALL_RESULT_FIELDS,
   LIVE_CALL_STATUSES,
   BUSY_AGENT_STATUSES,
   RESERVATION_TTL_MS,

@@ -17,6 +17,7 @@ const { fillLeadPoolNow, stageQueueSummary, stagesOf, stageLeadFilter } = requir
 const MAX_POOL_STAGES = 5;
 const connectModes = require('../../../../services/calling/connectModes');
 const { fixMojibake } = require('../../../../utils/fixMojibake');
+const { shownCallStatus, CALL_RESULT_FIELDS } = require('../../../../services/calling/callingShared');
 const { logActivity } = require('../../../../services/activity/agentActivity');
 const { CRM_ADMIN_ROLES } = require('../../../../config/roles');
 
@@ -286,7 +287,7 @@ const status = async (req, res) => {
     CallRecord.find({ campaign: camp._id, agent: req.admin._id, removed: false, created: { $gte: todayStart } })
       .sort({ created: -1 })
       .limit(50)
-      .select('contactName phone status disposition duration answeredAt endedAt')
+      .select(`contactName phone status disposition duration answeredAt endedAt notes ${CALL_RESULT_FIELDS}`)
       .lean(),
   ]);
 
@@ -315,7 +316,7 @@ const status = async (req, res) => {
         _id: c._id,
         contactName: c.contactName,
         phone: c.phone,
-        status: c.status,
+        status: shownCallStatus(c),
         disposition: c.disposition,
         durationSec: c.duration || 0,
         answeredAt: c.answeredAt,

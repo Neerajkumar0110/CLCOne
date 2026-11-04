@@ -846,7 +846,7 @@ function InstantLeadPool() {
                 <tr key={c._id}>
                   <td>{c.contactName}<div style={{ fontSize: 11, color: "#94a3b8" }}>{c.phone}</div></td>
                   <td>{fmtDuration(c.durationSec)}</td>
-                  <td><span className={`hub-badge ${CALL_STATUS_BADGE[c.status]}`}>{c.status}</span></td>
+                  <td><span className={`hub-badge ${CALL_STATUS_BADGE[c.status] || "hub-badge-gray"}`}>{c.status}</span></td>
                   <td>{c.disposition || "—"}</td>
                 </tr>
               ))}
