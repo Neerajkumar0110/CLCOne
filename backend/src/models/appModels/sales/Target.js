@@ -17,6 +17,16 @@ const schema = new mongoose.Schema({
   targetCalls: Number,
   targetDeals: Number,
   targetRevenue: Number,
+  // CLC-POL-001 section 7: verified prospects due this month, plus any part of
+  // the carried backlog the Sales Manager waived, with why.
+  targetProspects: Number,
+  backlogWaived: Number,
+  backlogWaivedReason: String,
+  // Section 7: every change of the prospect target, with who and why.
+  targetProspectsHistory: {
+    type: [{ _id: false, from: Number, to: Number, reason: String, byName: String, at: { type: Date, default: Date.now } }],
+    default: [],
+  },
 
   setBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   setByName: String,

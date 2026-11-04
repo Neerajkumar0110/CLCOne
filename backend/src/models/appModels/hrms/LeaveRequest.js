@@ -29,6 +29,9 @@ module.exports = mongoose.model(
     { name: 'adminId', type: 'String' },
     { name: 'durationType', type: 'String', enum: ['hours', 'half', 'full', 'multi'] },
     { name: 'hours', type: 'Number' },
+    { name: 'emergency', type: 'Boolean' },
+    // Planned leave applied with under 24 hours' notice (section 11).
+    { name: 'lateNotice', type: 'Boolean' },
     { name: 'halfPart', type: 'String', enum: ['first', 'second'] },
     { name: 'fromTime', type: 'String' },
     { name: 'decisionToken', type: 'String' }, // one-click Approve/Reject link from the email

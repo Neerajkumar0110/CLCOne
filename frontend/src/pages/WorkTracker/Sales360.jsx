@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { DatePicker, Input, Modal, Tooltip, message } from "antd";
+import { useNavigate } from "react-router-dom";
+import { DatePicker, Input, Modal, Select, Tooltip, message } from "antd";
 import dayjs from "dayjs";
 import axios from "axios";
 import {
@@ -36,6 +37,7 @@ import {
   FunnelPlotOutlined,
   AimOutlined,
   BellOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 import { request } from "@/request";
 import { getSocket } from "@/socket";
@@ -45,6 +47,11 @@ import storePersist from "@/redux/storePersist";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import ChartCanvas, { PALETTE, fillRgba } from "@/components/dashboard/ChartCanvas";
 import { rowsToCsv, downloadCsv } from "@/components/dashboard/csvExport";
+import { STAGE_NAMES } from "@/config/leadStages";
+import filterScope from "./salesFilterScope";
+import Sales360Search from "./Sales360Search";
+import { CasesPanel, CorrectionsPanel, OutagesPanel, OverduePanel } from "./Sales360Ops";
+import { ActivityLog, PolicyAttendance, ProspectQueue, StageExplorer, TargetsBoard } from "./Sales360Policy";
 import "./sales360.css";
 
 // Sales 360° Performance (backend /api/workday/admin/360*). Everything a Sales
@@ -56,6 +63,56 @@ import "./sales360.css";
 
 // Mirrors backend services/access/salesScope.js FULL_ACCESS_ROLES.
 const FULL_ACCESS = ["owner", "Super Admin", "Admin", "Sales Manager", "Team Manager"];
+// CLC-POL-001: corrections / waivers are the Sales Manager's, Team Leaders verify prospects.
+const POLICY_ADMIN = ["owner", "Super Admin", "Admin", "Sales Manager"];
+const NO_FILTERS = { disposition: "", callType: "", talkBand: "", campaign: "", payStatus: "", late: "", lifecycle: "", overdue: "", caseType: "", caseStatus: "", outageKind: "", show: [], dealStage: "", quoteStatus: "", orderStatus: "", orderPayment: "", stage: "", sub: "", prospect: "", source: "", outcome: "", direction: "", recorded: "", attendance: "", short: "", dayType: "", target: "", path: "", types: [], q: "" };
+const FILTER_LABEL = {
+  callType: { pool: "Lead pool", facebook: "Facebook lead", dialer: "Dialer", inbound: "Inbound" },
+  payStatus: { paid: "Paid", created: "Link sent, unpaid", expired: "Expired", failed: "Failed", cancelled: "Cancelled" },
+  late: { 1: "Late login" },
+  lifecycle: { new: "New Lead", assigned: "Assigned", attempted: "Contact Attempted", contacted: "Contacted", qualified: "Qualified", supervisor: "Supervisor Verification", verified: "Verified Prospect", demo: "Counselling / Demo", followup: "Follow-up", "payment-pending": "Payment Pending", "payment-received": "Payment Received", enrolled: "Enrolled / Closed Won", lost: "Closed Lost" },
+  overdue: { open: "Open", explained: "Reason given", excluded: "Excluded", recorded: "Short leave recorded" },
+  caseType: { dispute: "Dispute", review: "Performance review", conduct: "Conduct" },
+  caseStatus: { open: "Open", accepted: "Accepted", rejected: "Rejected", closed: "Closed" },
+  outageKind: { outage: "Technical outage", training: "Approved training", meeting: "Official meeting", emergency: "Emergency" },
+  prospect: { sent: "Sent to me", pending: "Waiting", verified: "Verified", rejected: "Rejected" },
+  outcome: { connected: "Connected", "not-connected": "Not connected", missed: "Missed by user", "no-answer": "No answer", busy: "Busy", failed: "Failed", voicemail: "Voicemail", cancelled: "Cancelled", completed: "Ended, no talk" },
+  direction: { Outbound: "Outgoing", Inbound: "Incoming" },
+  recorded: { 1: "With recording" },
+  attendance: { present: "Full day", "half-day": "Half day", absent: "Absent", "in-progress": "In progress", leave: "Leave" },
+  short: { 1: "Has short leave" },
+  dayType: { working: "Scheduled working days", recovery: "Recovery Sundays" },
+  target: { behind: "Behind target", backlog: "Has backlog", recovery: "Recovery Sunday", overdue: "2+ overdue" },
+  dealStage: { Qualification: "Qualification", "Needs Analysis": "Needs Analysis", Proposal: "Proposal", Negotiation: "Negotiation", "Closed Won": "Closed Won", "Closed Lost": "Closed Lost" },
+  quoteStatus: { Draft: "Draft", "Pending Approval": "Pending Approval", Sent: "Sent", Accepted: "Accepted", Rejected: "Rejected", Expired: "Expired" },
+  orderStatus: { Draft: "Draft", Confirmed: "Confirmed", Processing: "Processing", Fulfilled: "Fulfilled", "Partially Fulfilled": "Partially Fulfilled", Invoiced: "Invoiced", Cancelled: "Cancelled" },
+  orderPayment: { Unpaid: "Unpaid", Partial: "Partial", Paid: "Paid" },
+};
+// The Show filter: every card and section of the page. Nothing picked = all.
+const SHOW_GROUPS = [
+  ["Summary", [["summary", "Summary band"], ["glance", "Today at a glance"]]],
+  ["Attendance", [["calendar", "Attendance calendar"], ["exceptions", "Missed login / logout"], ["policy", "Attendance by policy"]]],
+  ["Prospects & targets", [["prospects", "Prospect verification"], ["targets", "Targets, backlog & recovery"]]],
+  ["Compliance", [["overdueTasks", "Overdue tasks"], ["cases", "Disputes, reviews & conduct"], ["corrections", "Attendance corrections"], ["outages", "Outages, training & meetings"]]],
+  ["Calls & time", [["calls", "Total calls"], ["connected", "Connected"], ["talk", "Total talk time"], ["avgtalk", "Avg talk / call"], ["missed", "Missed by user"], ["active", "Active time"], ["dialer", "Dialer on"], ["break", "Break time"], ["onphone", "On phone"], ["cph", "Calls / hour"], ["responses", "Lead responses"], ["recordings", "Recordings"]]],
+  ["Sales results", [["demos", "Demos booked"], ["demoAttended", "Demos attended"], ["demoMissed", "Demos not attended"], ["interested", "Interested"], ["prospectCard", "Prospects"], ["future", "Future prospects"], ["enrolled", "Enrolled"], ["paid", "Payment received"], ["pending", "Pending payment"], ["notInterested", "Not interested"], ["noResponse", "No response"], ["callback", "Callback"]]],
+  ["Deals, quotes & orders", [["deals", "Deals"], ["dealValue", "Deal value"], ["dealsWon", "Deals won"], ["quotes", "Quotes"], ["quoteValue", "Quote value"], ["orders", "Orders"], ["orderValue", "Order value"], ["products", "Products"]]],
+  ["Charts", [["trend", "Calls & talk time chart"], ["outcomes", "Call outcomes"], ["heat", "When calls happen"], ["talkLength", "Talk length"], ["funnel", "Sales funnel"], ["money", "Money"]]],
+  ["Leads", [["stages", "All lead stages"], ["usedLeads", "Used leads"], ["pipeline", "Pipeline & due (one user)"]]],
+  ["Lists", [["leaderboard", "Leaderboard"], ["days", "Day by day (one user)"], ["activity", "Activity log"], ["callList", "All calls & recordings"]]],
+];
+
+const FILTER_NAME = { disposition: "Disposition", callType: "Call type", talkBand: "Talk length", campaign: "Campaign", payStatus: "Payment", late: "Late", lifecycle: "Lifecycle", overdue: "Overdue task", caseType: "Case type", caseStatus: "Case status", outageKind: "Log kind", dealStage: "Deal stage", quoteStatus: "Quote status", orderStatus: "Order status", orderPayment: "Order payment", stage: "Stage", sub: "Sub-status", prospect: "Prospect", source: "Source", outcome: "Call result", direction: "Direction", recorded: "Recording", attendance: "Attendance", short: "Short leave", dayType: "Day type", target: "Target", path: "Screen", q: "Search" };
+// The filter bar's rows. "All …" is the text of each dropdown with nothing picked.
+const FILTER_GROUPS = [
+  ["Leads", [["stage", "All stages"], ["sub", "All sub-statuses"], ["lifecycle", "All lifecycle steps"], ["prospect", "All prospects"], ["source", "All sources"], ["payStatus", "All payments"]]],
+  ["Calls", [["outcome", "All call results"], ["direction", "Outgoing + incoming"], ["callType", "All call types"], ["disposition", "All dispositions"], ["talkBand", "All talk lengths"], ["campaign", "All campaigns"], ["recorded", "All recordings"]]],
+  ["Attendance", [["attendance", "All attendance"], ["late", "Late: all"], ["short", "Short leave: all"], ["dayType", "All day types"]]],
+  ["Targets & compliance", [["target", "All targets"], ["overdue", "All overdue tasks"], ["caseType", "All case types"], ["caseStatus", "All case statuses"], ["outageKind", "All outage logs"]]],
+  ["Deals, quotes & orders", [["dealStage", "All deal stages"], ["quoteStatus", "All quote statuses"], ["orderStatus", "All order statuses"], ["orderPayment", "All order payments"]]],
+  ["Activity", [["path", "All screens"]]],
+];
+const ACTIVITY_TYPES = [["session", "Login"], ["dialer", "Dialer"], ["break", "Break"], ["leave", "Leave"], ["call", "Call"], ["response", "Response"], ["payment", "Payment"], ["screen", "Screen"], ["click", "Click"], ["search", "Search"], ["idle", "Idle"]];
 
 const PRESETS = [
   { key: "today", label: "Today", range: () => [dayjs().startOf("day"), dayjs()] },
@@ -79,7 +136,9 @@ const OUTCOME = {
 };
 const DAY_STATUS = {
   present: ["Present", "#15803D"],
-  "half-day": ["Half day (late login)", "#0D9488"],
+  "in-progress": ["In progress", "#0369A1"],
+  "rest-day": ["Substitute rest day", "#64748B"],
+  "half-day": ["Half day", "#0D9488"],
   "late-leave": ["Leave (late login)", "#9333EA"],
   auto: ["Auto-started", "#2563EB"],
   absent: ["Absent", "#B91C1C"],
@@ -98,7 +157,7 @@ const NOW_STATUS = {
 const EVENT = {
   shift_login: ["Logged in", "#15803D"],
   shift_logout: ["Logged out", "#64748B"],
-  auto_start: ["Dialer auto-started (11:00)", "#2563EB"],
+  auto_start: ["Dialer auto-started", "#2563EB"],
   pool_on: ["Dialer on", "#15803D"],
   pool_off: ["Dialer off", "#64748B"],
   break_start: ["Break started", "#B45309"],
@@ -164,6 +223,13 @@ const dialerSpans = (events, end) => {
   }
   if (on && end && new Date(end) > new Date(on)) out.push({ startAt: on, endAt: end });
   return out;
+};
+// Dialer time without the breaks that fall inside it — the same as the report's.
+const dialerOnMin = (spans, breaks) => {
+  const start = (x) => new Date(x.startAt).getTime();
+  const end = (x) => (x.endAt ? new Date(x.endAt).getTime() : Date.now());
+  const ms = spans.reduce((t, s) => t + (end(s) - start(s)) - (breaks || []).reduce((c, b) => c + Math.max(0, Math.min(end(s), end(b)) - Math.max(start(s), start(b))), 0), 0);
+  return Math.max(0, Math.floor(ms / 60000));
 };
 const spansMin = (spans) => spans.reduce((t, x) => t + Math.max(0, Math.round((new Date(x.endAt) - new Date(x.startAt)) / 60000)), 0);
 
@@ -233,14 +299,13 @@ function Wave({ id, active }) {
 }
 
 // ── small pieces ─────────────────────────────────────────────────────────
-function Kpi({ icon, label, value, sub, color, tone, delta, i = 0, active, onOpen }) {
+function Kpi({ icon, label, value, color, delta, i = 0, active, onOpen }) {
   return (
     <button type="button" className={`s3-kpi ${active ? "on" : ""}`} style={{ "--c": color, animationDelay: `${i * 30}ms` }} onClick={onOpen} aria-pressed={!!active} title={`Show ${label.toLowerCase()} in detail`}>
       <span className="s3-kpi-ico">{icon}</span>
       <div className="s3-kpi-txt">
         <b>{value}</b>
         <span>{label}</span>
-        {sub && <small className={tone ? `t-${tone}` : ""}>{sub}</small>}
         {delta && <small className={`s3-kpi-delta ${delta.good == null ? "" : delta.good ? "t-up" : "t-down"}`}>{delta.text}</small>}
       </div>
     </button>
@@ -249,22 +314,19 @@ function Kpi({ icon, label, value, sub, color, tone, delta, i = 0, active, onOpe
 
 // Every stage change behind a sales card (Demos / Interested / Enrolled …),
 // newest first, with a sub-status filter.
-function LeadLog({ base, stages, showUser }) {
+function LeadLog({ base, stages, showUser, initialSub = "" }) {
   const stageKey = stages.join(","); // a fresh array each render — depend on its text
   const [view, setView] = useState(null); // row clicked → full lead detail
-  const [sub, setSub] = useState("");
-  const [q, setQ] = useState("");
-  const [qDraft, setQDraft] = useState("");
+  const sub = initialSub;
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(25);
   const [data, setData] = useState(null);
-  useEffect(() => setPage(1), [base, stageKey, sub, q, items]);
+  useEffect(() => setPage(1), [base, stageKey, sub, items]);
   useEffect(() => {
     let live = true;
     const p = new URLSearchParams({ ...base, page: String(page), items: String(items) });
     if (stageKey) p.set("stages", stageKey);
     if (sub) p.set("sub", sub);
-    if (q) p.set("q", q);
     setData((d) => (d ? { ...d, loading: true } : d));
     request.get({ entity: `workday/admin/360/leads?${p}` }).then((r) => {
       if (live) setData(r?.success ? { rows: r.result, subs: r.subs, count: r.pagination.count, pages: r.pagination.pages } : { rows: [], subs: [], count: 0, pages: 0 });
@@ -272,31 +334,10 @@ function LeadLog({ base, stages, showUser }) {
     return () => {
       live = false;
     };
-  }, [base, stageKey, sub, q, page, items]);
-  const total = (data?.subs || []).reduce((t, x) => t + x.n, 0);
+  }, [base, stageKey, sub, page, items]);
   return (
     <>
       <LeadFullDetailModal lead={view} onClose={() => setView(null)} />
-      <div className="s3-detail-tools">
-        <div className="s3-chips">
-          <button type="button" className={!sub ? "on" : ""} onClick={() => setSub("")}>All <em>{n(total)}</em></button>
-          {(data?.subs || []).map((x) => (
-            <button key={x.key} type="button" className={sub === x.key ? "on" : ""} onClick={() => setSub(x.key)}>{x.key} <em>{n(x.n)}</em></button>
-          ))}
-        </div>
-        <Input
-          allowClear
-          prefix={<SearchOutlined />}
-          placeholder="Lead name, phone or email"
-          value={qDraft}
-          onChange={(e) => {
-            setQDraft(e.target.value);
-            if (!e.target.value) setQ("");
-          }}
-          onPressEnter={() => setQ(qDraft.trim())}
-          className="s3-detail-search"
-        />
-      </div>
       <div className={`hub-table-wrapper ${data?.loading ? "is-loading" : ""}`}>
         <table className="hub-table s3-table">
           <thead>
@@ -546,7 +587,7 @@ function AttendanceExceptions({ base, people, canManage }) {
           <div className="s3-empty">Everyone who logged in also logged out.</div>
         )
       )}
-      <p className="s3-note">No login = worked without pressing Login (the dialer was switched on, auto-started at 11:00, or calls were made). Mark present counts the day from when the dialer came on. No logout = logged in but never pressed Logout — they get an email at {"8:00 PM"}.</p>
+      <p className="s3-note">No login = worked without pressing Login (the dialer was switched on, auto-started at 10:35, or calls were made). Mark present fills in the missed Login; from the policy's start date the day's status comes from Attendance by policy. No logout = logged in but never pressed Logout — they get an email at {"8:30 PM"}.</p>
     </Panel>
   );
 }
@@ -556,9 +597,11 @@ function AttendanceExceptions({ base, people, canManage }) {
 // as the report above. Its own month, independent of the range picker.
 const ATT = {
   present: ["Present", "#16A34A"],
+  "in-progress": ["In progress", "#0284C7"],
   "half-day": ["Half day", "#0D9488"],
   "late-leave": ["Leave (late login)", "#9333EA"],
   auto: ["Auto-started", "#2563EB"],
+  "rest-day": ["Substitute rest day", "#64748B"],
   absent: ["Absent", "#DC2626"],
   leave: ["Leave", "#7C3AED"],
   holiday: ["Holiday", "#DB2777"],
@@ -566,7 +609,7 @@ const ATT = {
   upcoming: ["Not started", "#94A3B8"],
 };
 
-function AttendanceCalendar({ adminId, team, monthHint }) {
+function AttendanceCalendar({ adminId, team, role, monthHint }) {
   const [month, setMonth] = useState(() => dayjs(monthHint || undefined).startOf("month"));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -590,6 +633,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
     const p = new URLSearchParams({ month: month.format("YYYY-MM") });
     if (adminId) p.set("adminId", adminId);
     if (team && !adminId) p.set("team", team);
+    if (role && !adminId) p.set("role", role);
     request.get({ entity: `workday/admin/360/attendance?${p}` }).then((r) => {
       if (!live) return;
       setData(r?.success ? r.result : { days: [], people: [] });
@@ -598,7 +642,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
     return () => {
       live = false;
     };
-  }, [month, adminId, team, tick]);
+  }, [month, adminId, team, role, tick]);
 
   const single = !!adminId && data?.people?.length === 1;
   const byKey = new Map((data?.days || []).map((d) => [d.dayKey, d]));
@@ -714,7 +758,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
         </>
       );
     }
-    const groups = ["present", "half-day", "auto", "late-leave", "leave", "absent"].map((k) => [k, d.people.filter((u) => u.status === k)]).filter(([, l]) => l.length);
+    const groups = ["present", "half-day", "in-progress", "auto", "late-leave", "leave", "absent"].map((k) => [k, d.people.filter((u) => u.status === k)]).filter(([, l]) => l.length);
     return (
       <>
         <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b>
@@ -755,6 +799,7 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
             <span style={{ "--c": ATT.absent[1] }}><b>{me.absent}</b> absent</span>
             <span style={{ "--c": ATT.leave[1] }}><b>{me.leave}</b> leave</span>
             <span style={{ "--c": "#B45309" }}><b>{me.late}</b> late</span>
+            <span style={{ "--c": "#C2410C" }}><b>{me.shortLeave || 0}</b> short leave</span>
             <span style={{ "--c": "#0F172A" }}><b>{pctOf(me)}%</b> of {me.workingDays} working days</span>
           </div>
         ) : (
@@ -767,10 +812,11 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
             <span style={{ "--c": ATT.absent[1] }}><b>{sum("absent")}</b> absent</span>
             <span style={{ "--c": ATT.leave[1] }}><b>{sum("leave")}</b> leave</span>
             <span style={{ "--c": "#B45309" }}><b>{sum("late")}</b> late</span>
+            <span style={{ "--c": "#C2410C" }}><b>{sum("shortLeave")}</b> short leave</span>
           </div>
         )}
         <div className="s3-att-legend">
-          {["present", "half-day", "auto", "late-leave", "absent", "leave", "holiday", "weekly-off"].map((k) => (
+          {["present", "half-day", "in-progress", "auto", "late-leave", "absent", "leave", "holiday", "weekly-off", "rest-day"].map((k) => (
             <span key={k}><i style={{ background: ATT[k][1] }} />{ATT[k][0]}</span>
           ))}
         </div>
@@ -815,15 +861,15 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
               <span className="s3-att-num">{c.date()}</span>
               {d && !future && (off && !d.present && !d.auto ? (
                 <span className="s3-att-offlabel">{d.holiday || "Weekly off"}</span>
-              ) : !(d.present + d.auto + d.absent + d.leave + (d.halfDay || 0) + (d.lateLeave || 0)) ? (
+              ) : !(d.present + d.auto + d.absent + d.leave + (d.halfDay || 0) + (d.lateLeave || 0) + (d.inProgress || 0)) ? (
                 <span className="s3-att-offlabel">Not started yet</span>
               ) : (
                 <>
                   <div className="s3-att-bar">
-                    {[["present", "present"], ["halfDay", "half-day"], ["auto", "auto"], ["lateLeave", "late-leave"], ["leave", "leave"], ["absent", "absent"]].map(([k, a]) => d[k] ? <i key={k} style={{ width: `${(d[k] / total) * 100}%`, background: ATT[a][1] }} /> : null)}
+                    {[["present", "present"], ["halfDay", "half-day"], ["inProgress", "in-progress"], ["auto", "auto"], ["lateLeave", "late-leave"], ["leave", "leave"], ["absent", "absent"]].map(([k, a]) => d[k] ? <i key={k} style={{ width: `${(d[k] / total) * 100}%`, background: ATT[a][1] }} /> : null)}
                   </div>
                   <div className="s3-att-counts">
-                    <span style={{ color: ATT.present[1] }}>{d.present + d.auto + (d.halfDay || 0)}</span>
+                    <span style={{ color: ATT.present[1] }}>{d.present + d.auto + (d.halfDay || 0) + (d.inProgress || 0)}</span>
                     <span>/{total}</span>
                     {d.absent > 0 && <em style={{ color: ATT.absent[1] }}>{d.absent} absent</em>}
                   </div>
@@ -874,15 +920,15 @@ function AttendanceCalendar({ adminId, team, monthHint }) {
           </table>
         </div>
       )}
-      <p className="s3-note">Login after 11:00 = half day · after 2:00 PM = full-day leave (not when approved part-day leave covers the day). Present = logged in · Auto-started = the dialer started at 11:00 without a login · Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
+      <p className="s3-note">From the policy's start date: Present = full day and Half day come from the daily check below (dialer hours, prospects, demos, attempts, talk), and In progress = the shift isn't over yet. Earlier days keep the old rule: login after 11:00 = half day, after 2:00 PM = full-day leave. Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
     </Panel>
   );
 }
 
 // ── call list (table for the team, cards for one user) ───────────────────
 function CallLog({ base, title, cards, initial }) {
-  const [f, setF] = useState({ q: "", outcome: "", direction: "", recorded: false, ...initial });
-  const [qDraft, setQDraft] = useState("");
+  // A card's own list (Connected, Missed…) on top of the page's filters.
+  const f = useMemo(() => ({ outcome: "", recorded: false, ...initial }), [initial]);
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(25);
   const [data, setData] = useState({ rows: [], count: 0, pages: 0 });
@@ -898,9 +944,7 @@ function CallLog({ base, title, cards, initial }) {
     (async () => {
       setLoading(true);
       const p = new URLSearchParams({ ...base, page: String(page), items: String(items) });
-      if (f.q) p.set("q", f.q);
       if (f.outcome) p.set("outcome", f.outcome);
-      if (f.direction) p.set("direction", f.direction);
       if (f.recorded) p.set("recorded", "1");
       const r = await request.get({ entity: `workday/admin/360/calls?${p}` });
       if (!live) return;
@@ -935,31 +979,6 @@ function CallLog({ base, title, cards, initial }) {
       icon={<PhoneOutlined />}
       extra={<button type="button" className="hub-btn" onClick={exportCsv} disabled={!data.rows.length}><DownloadOutlined /> CSV</button>}
     >
-      <div className="s3-log-filters">
-        <Input
-          prefix={<SearchOutlined />}
-          placeholder="Name, number or disposition — Enter"
-          value={qDraft}
-          allowClear
-          onChange={(e) => {
-            setQDraft(e.target.value);
-            if (!e.target.value) setF((p) => ({ ...p, q: "" }));
-          }}
-          onPressEnter={() => setF((p) => ({ ...p, q: qDraft.trim() }))}
-        />
-        <div className="s3-chips">
-          {[["", "All"], ["connected", "Connected"], ["not-connected", "Not connected"], ["missed", "Missed"]].map(([k, l]) => (
-            <button key={k || "all"} type="button" className={f.outcome === k ? "on" : ""} onClick={() => setF({ ...f, outcome: k })}>{l}</button>
-          ))}
-          <span className="s3-chip-sep" />
-          {[["", "Both"], ["Outbound", "Outgoing"], ["Inbound", "Incoming"]].map(([k, l]) => (
-            <button key={k || "both"} type="button" className={f.direction === k ? "on" : ""} onClick={() => setF({ ...f, direction: k })}>{l}</button>
-          ))}
-          <span className="s3-chip-sep" />
-          <button type="button" className={f.recorded ? "on" : ""} onClick={() => setF({ ...f, recorded: !f.recorded })}><AudioOutlined /> With recording</button>
-        </div>
-      </div>
-
       {loading && <div className="s3-skel-rows">{[0, 1, 2, 3].map((i) => <i key={i} />)}</div>}
       {!loading && !data.rows.length && <div className="s3-empty">No calls match.</div>}
 
@@ -1132,7 +1151,7 @@ function DayModal({ target, onClose }) {
   const missed = calls.filter((c) => c.missedByAgent);
   const st = DAY_STATUS[day.status] || [day.status, "#64748B"];
   const dialer = dialerSpans(data?.events, day.endAt);
-  const dialerMin = Math.min(day.activeMin || 0, spansMin(dialer));
+  const dialerMin = Math.min(day.activeMin || 0, dialerOnMin(dialer, day.breaks));
 
   // hourly cards over the strip's window
   const { t0, t1 } = dayWindow(day.dayKey, [day.loginAt, day.autoStartedAt, day.endAt, ...calls.map((c) => c.created)]);
@@ -1261,7 +1280,7 @@ function DayModal({ target, onClose }) {
                   <div className="s3-sessions-head">
                     <b>Dialer sessions &amp; breaks</b>
                     <span>
-                      {dialer.length ? `${dialer.length} session${dialer.length > 1 ? "s" : ""} · ${hm(spansMin(dialer))} on` : "Dialer not switched on"}
+                      {dialer.length ? `${dialer.length} session${dialer.length > 1 ? "s" : ""} · ${hm(dialerMin)} on` : "Dialer not switched on"}
                       {` · ${brk.length ? `${brk.length} break${brk.length > 1 ? "s" : ""} · ${hm(breakMin)}` : "no break taken"}`}
                       {outsideCalls > 0 ? ` · ${outsideCalls} call${outsideCalls > 1 ? "s" : ""} made with the dialer off` : ""}
                     </span>
@@ -1346,7 +1365,7 @@ function TodayGlance({ user, onOpen, tick }) {
       <div className="s3-glance-facts">
         <span>Login <b>{s?.loginAt ? clock(s.loginAt) : s?.autoStartedAt ? `auto ${clock(s.autoStartedAt)}` : "—"}</b></span>
         <span>Active <b>{hm(activeMin)}</b></span>
-        <span>Dialer on <b>{hm(Math.min(activeMin, spansMin(dialer)))}</b></span>
+        <span>Dialer on <b>{hm(Math.min(activeMin, dialerOnMin(dialer, breaks)))}</b></span>
         <span>Break <b>{hm(breakMin)}</b></span>
         <span>Calls <b>{calls.length}</b></span>
         <span>Connected <b>{conn.length}</b></span>
@@ -1394,8 +1413,6 @@ function Spark({ data, color }) {
 function LeadsSection({ base, who }) {
   const [rep, setRep] = useState(null);
   const [pick, setPick] = useState({}); // { kpi | stage | source | teamPick | by }
-  const [q, setQ] = useState("");
-  const [qDraft, setQDraft] = useState("");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(25);
   const [list, setList] = useState(null);
@@ -1411,11 +1428,10 @@ function LeadsSection({ base, who }) {
       live = false;
     };
   }, [base]);
-  useEffect(() => setPage(1), [base, pick, q, items]);
+  useEffect(() => setPage(1), [base, pick, items]);
   useEffect(() => {
     let live = true;
     const p = new URLSearchParams({ ...base, page: String(page), items: String(items), ...pick });
-    if (q) p.set("q", q);
     setList((d) => (d ? { ...d, loading: true } : d));
     request.get({ entity: `workday/admin/360/lead-list?${p}` }).then((r) => {
       if (live) setList(r?.success ? { rows: r.result, count: r.pagination.count, pages: r.pagination.pages } : { rows: [], count: 0, pages: 0 });
@@ -1423,7 +1439,7 @@ function LeadsSection({ base, who }) {
     return () => {
       live = false;
     };
-  }, [base, pick, q, page, items]);
+  }, [base, pick, page, items]);
 
   const choose = (next) => {
     const same = Object.keys(next).every((k) => pick[k] === next[k]) && Object.keys(next).length === Object.keys(pick).length;
@@ -1497,18 +1513,6 @@ function LeadsSection({ base, who }) {
         <header>
           <h4><span className="s3-detail-ico"><FormOutlined /></span> {pickLabel} {list ? <span className="s3-muted">· {n(list.count)}</span> : null}</h4>
           {Object.keys(pick).length > 0 && <button type="button" className="hub-btn" onClick={() => setPick({})}>Show all used leads</button>}
-          <Input
-            allowClear
-            prefix={<SearchOutlined />}
-            placeholder="Name, phone or email"
-            value={qDraft}
-            onChange={(e) => {
-              setQDraft(e.target.value);
-              if (!e.target.value) setQ("");
-            }}
-            onPressEnter={() => setQ(qDraft.trim())}
-            className="s3-detail-search"
-          />
         </header>
         <div className={`hub-table-wrapper ${list?.loading ? "is-loading" : ""}`}>
           <table className="hub-table s3-table">
@@ -1550,9 +1554,66 @@ function LeadsSection({ base, who }) {
 }
 
 // ── main ─────────────────────────────────────────────────────────────────
+// Filters the main report doesn't read: each only changes its own panel.
+const NOT_IN_REPORT = ["q", "types", "path", "attendance", "short", "dayType", "late", "target", "overdue", "caseType", "caseStatus", "outageKind", "dealStage", "quoteStatus", "orderStatus", "orderPayment"];
+const RECORD_CARDS = ["deals", "dealValue", "dealsWon", "quotes", "quoteValue", "orders", "orderValue", "products"];
+const RECORD_KEYS = ["from", "to", "adminId", "team", "role", "dealStage", "quoteStatus", "orderStatus", "orderPayment"];
+
+// Holds a panel back until it is near the screen, so opening the page or
+// clearing a filter doesn't ask for every panel at once.
+function WhenNear({ children }) {
+  const ref = useRef(null);
+  const [near, setNear] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (near || !ref.current) return undefined;
+    const seen = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setNear(true);
+    }, { rootMargin: "300px" });
+    seen.observe(ref.current);
+    return () => seen.disconnect();
+  }, [near]);
+  return near ? children : <div ref={ref} className="s3-panel s3-later"><div className="s3-skel-rows"><i /><i /><i /></div></div>;
+}
+
 export default function Sales360({ initialUser }) {
   const me = useSelector(selectCurrentAdmin);
   const manager = FULL_ACCESS.includes(me?.role);
+  const policyAdmin = POLICY_ADMIN.includes(me?.role);
+  const canVerify = manager || me?.role === "Team Leader";
+  const [role, setRole] = useState("");
+  // The filter bar: empty = all. Every section below reads these through `base`.
+  const [fx, setFx] = useState(NO_FILTERS);
+  const navigate = useNavigate();
+  // Picks made one after another are fetched once, for the last one.
+  const [applied, setApplied] = useState(NO_FILTERS);
+  useEffect(() => {
+    const id = setTimeout(() => setApplied(fx), 200);
+    return () => clearTimeout(id);
+  }, [fx]);
+  const scope = useMemo(() => filterScope(applied), [applied]);
+  const scopeNoSearch = useMemo(() => filterScope({ ...applied, q: "" }), [applied]);
+  const choicesFor = (k) => {
+    const o = data?.filterOptions || {};
+    const pairs = (list) => (list || []).map((x) => [x.key, x.label]);
+    if (k === "stage") return STAGE_NAMES.map((x) => [x, x]);
+    if (k === "sub") return ((data?.stageTree || []).find((s) => s.stage === fx.stage)?.subs || []).map((x) => [x.key, x.key]);
+    if (k === "source") return (o.sources || []).map((x) => [x, x]);
+    if (k === "path") return (o.paths || []).map((x) => [x, x]);
+    if (k === "disposition") return pairs(o.dispositions);
+    if (k === "campaign") return pairs(o.campaigns);
+    if (k === "talkBand") return pairs(o.talkBands);
+    const all = Object.entries(FILTER_LABEL[k] || {});
+    return k === "prospect" && !canVerify ? all.filter(([x]) => x !== "sent") : all;
+  };
+  // A search replaces the page with its results.
+  const show = (k) => !applied.q && (!applied.show.length || applied.show.includes(k)) && (!scope || scope.has(k));
+  const nothingShown = !applied.q && !SHOW_GROUPS.some(([, items]) => items.some(([k]) => show(k)));
+  const [searchDraft, setSearchDraft] = useState("");
+  const setFilter = (k, v) => setFx((x) => ({ ...x, [k]: v, ...(k === "stage" ? { sub: "" } : {}) }));
+  useEffect(() => {
+    const id = setTimeout(() => setFx((x) => (x.q === searchDraft.trim() ? x : { ...x, q: searchDraft.trim() })), 150);
+    return () => clearTimeout(id);
+  }, [searchDraft]);
   const [preset, setPreset] = useState("today");
   const [range, setRange] = useState(PRESETS[0].range());
   const [userId, setUserId] = useState(initialUser || "");
@@ -1581,14 +1642,39 @@ export default function Sales360({ initialUser }) {
     const p = { from: range[0].toISOString(), to: range[1].toISOString() };
     if (effectiveUser) p.adminId = effectiveUser;
     if (team && !effectiveUser) p.team = team;
+    if (role && !effectiveUser) p.role = role;
+    Object.entries(applied).forEach(([k, v]) => {
+      if (k === "show") return; // decides what's on screen, not what's fetched
+      if (Array.isArray(v) ? v.length : v) p[k] = Array.isArray(v) ? v.join(",") : v;
+    });
     return p;
-  }, [range, effectiveUser, team]);
+  }, [range, effectiveUser, team, role, applied]);
+  const reportQuery = useMemo(() => {
+    const p = new URLSearchParams(base);
+    NOT_IN_REPORT.forEach((k) => p.delete(k));
+    return p.toString();
+  }, [base]);
+  const recordQuery = useMemo(() => new URLSearchParams(Object.entries(base).filter(([k]) => RECORD_KEYS.includes(k))).toString(), [base]);
+  const searchBase = useMemo(() => {
+    const { q: _q, ...rest } = base; // eslint-disable-line no-unused-vars
+    return rest;
+  }, [base]);
+  // A Team Leader's own 360° is theirs, but they verify everyone's prospects.
+  const prospectBase = useMemo(() => {
+    if (!canVerify || manager) return base;
+    const { adminId, ...everyone } = base; // eslint-disable-line no-unused-vars
+    return everyone;
+  }, [base, canVerify, manager]);
 
+  const tickSeen = useRef(tick);
   useEffect(() => {
     let live = true;
+    // Refresh means now: nothing kept on the server is good enough.
+    const fresh = tickSeen.current !== tick ? "&fresh=1" : "";
+    tickSeen.current = tick;
     (async () => {
       setLoading(true);
-      const r = await request.get({ entity: `workday/admin/360?${new URLSearchParams(base)}` });
+      const r = await request.get({ entity: `workday/admin/360?${reportQuery}${fresh}` });
       if (!live) return;
       if (r?.success) setData(r.result);
       else message.error(r?.message || "Could not load the report.");
@@ -1597,7 +1683,18 @@ export default function Sales360({ initialUser }) {
     return () => {
       live = false;
     };
-  }, [base, tick]);
+  }, [reportQuery, tick]);
+
+  const [rec, setRec] = useState({});
+  const recordsShown = RECORD_CARDS.some((k) => show(k));
+  useEffect(() => {
+    if (!recordsShown) return undefined;
+    let live = true;
+    request.get({ entity: `workday/admin/360/records?${recordQuery}` }).then((r) => live && r?.success && setRec(r.result));
+    return () => {
+      live = false;
+    };
+  }, [recordQuery, recordsShown, tick]);
 
   const pick = (p) => {
     setPreset(p.key);
@@ -1672,37 +1769,40 @@ export default function Sales360({ initialUser }) {
     downloadCsv(`sales-360-leaderboard-${range[0].format("YYYYMMDD")}-${range[1].format("YYYYMMDD")}.csv`, rowsToCsv(out, cols));
   };
 
-  // KPI cards — on one user, the comparable ones show the team average too.
+  // KPI cards: just the number and its name; a click opens the detail.
   const cmp = one ? data?.compare : null;
-  const vs = (mine, team, fmt, label = "team") => (cmp ? { sub: `${label} ${fmt(team)}`, tone: mine === team ? null : mine > team ? "up" : "down" } : {});
   const kpis = [
-    { icon: <PhoneOutlined />, id: "calls", label: "Total calls", value: n(t.calls), color: "#2563EB", ...(cmp ? vs(t.calls, cmp.avg.callsPerUser, n, "team avg") : {}), sub: `${n(t.unique)} numbers${cmp ? ` · team avg ${n(cmp.avg.callsPerUser)}` : ` · ${n(t.outbound)} out · ${n(t.inbound)} in`}` },
-    { icon: <CheckCircleOutlined />, label: "Connected", value: n(t.connected), color: "#15803D", ...(cmp ? { ...vs(t.connectRate, cmp.avg.connectRate, (v) => `${v}%`), sub: `${t.connectRate}% · team ${cmp.avg.connectRate}%` } : { sub: `${t.connectRate ?? 0}% connect rate` }) },
-    { icon: <FieldTimeOutlined />, id: "talk", label: "Total talk time", value: dur(t.talkSec), sub: cmp ? `${cmp.talkShare}% of team talk` : `longest ${dur(t.longestSec)}`, color: "#7C3AED" },
-    { icon: <ClockCircleOutlined />, id: "avgtalk", label: "Avg talk / call", value: dur(t.avgTalkSec), color: "#0E7490", ...(cmp ? vs(t.avgTalkSec, cmp.avg.avgTalkSec, dur) : { sub: `${n(t.shortCalls)} under 30s` }) },
-    { icon: <CloseCircleOutlined />, id: "missed", label: "Missed by user", value: n(t.missed), sub: "rang, not picked", color: "#B91C1C" },
-    { icon: <ThunderboltOutlined />, id: "active", label: "Active time", value: hm(t.activeMin), sub: `${n(t.worked)} day${t.worked === 1 ? "" : "s"} worked · login ${hm(t.loginMin)}`, color: "#15803D" },
-    { icon: <DashboardOutlined />, id: "dialer", label: "Dialer on", value: t.dialerDays ? hm(t.dialerMin) : "—", sub: !t.dialerDays ? "no dialer log for these days" : `off ${hm(t.offMin)} while working${t.dialerDays < t.worked ? ` · logged ${t.dialerDays} of ${t.worked} days` : ""}`, tone: t.offMin > (t.dialerMin + t.offMin) * 0.25 ? "down" : null, color: "#2563EB" },
-    { icon: <CoffeeOutlined />, id: "break", label: "Break time", value: hm(t.breakMin), sub: "tea + lunch", color: "#B45309" },
-    { icon: <PieChartOutlined />, id: "onphone", label: "On phone", value: `${t.talkPct ?? 0}%`, color: "#0369A1", ...(cmp ? vs(t.talkPct, cmp.avg.talkPct, (v) => `${v}%`) : { sub: `idle ${hm(t.idleMin)}` }) },
-    { icon: <PhoneOutlined />, id: "cph", label: "Calls / hour", value: t.callsPerHour ?? 0, color: "#4338CA", ...(cmp ? vs(t.callsPerHour, cmp.avg.callsPerHour, (v) => v) : { sub: "of active time" }) },
-    { icon: <FormOutlined />, id: "responses", label: "Lead responses", value: n(t.responses), sub: `${n(t.leadsResponded)} leads`, color: "#C2410C" },
-    { icon: <AudioOutlined />, id: "recordings", label: "Recordings", value: n(t.recorded), sub: `${dur(t.recordedSec)}${t.recordedMissed ? ` · ${n(t.recordedMissed)} on missed calls` : " recorded"}`, color: "#0F766E" },
+    { icon: <PhoneOutlined />, id: "calls", label: "Total calls", value: n(t.calls), color: "#2563EB" },
+    { icon: <CheckCircleOutlined />, id: "connected", label: "Connected", value: n(t.connected), color: "#15803D" },
+    { icon: <FieldTimeOutlined />, id: "talk", label: "Total talk time", value: dur(t.talkSec), color: "#7C3AED" },
+    { icon: <ClockCircleOutlined />, id: "avgtalk", label: "Avg talk / call", value: dur(t.avgTalkSec), color: "#0E7490" },
+    { icon: <CloseCircleOutlined />, id: "missed", label: "Missed by user", value: n(t.missed), color: "#B91C1C" },
+    { icon: <ThunderboltOutlined />, id: "active", label: "Active time", value: hm(t.activeMin), color: "#15803D" },
+    { icon: <DashboardOutlined />, id: "dialer", label: "Dialer on", value: t.dialerDays ? hm(t.dialerMin) : "—", color: "#2563EB" },
+    { icon: <CoffeeOutlined />, id: "break", label: "Break time", value: hm(t.breakMin), color: "#B45309" },
+    { icon: <PieChartOutlined />, id: "onphone", label: "On phone", value: `${t.talkPct ?? 0}%`, color: "#0369A1" },
+    { icon: <PhoneOutlined />, id: "cph", label: "Calls / hour", value: t.callsPerHour ?? 0, color: "#4338CA" },
+    { icon: <FormOutlined />, id: "responses", label: "Lead responses", value: n(t.responses), color: "#C2410C" },
+    { icon: <AudioOutlined />, id: "recordings", label: "Recordings", value: n(t.recorded), color: "#0F766E" },
   ];
 
   // What the calls turned into — Lead stage changes + payments in the range.
   const sl = t.sales || {};
   const py = t.pay || {};
-  const sAvg = cmp?.salesAvg;
-  const vsS = (mine, key) => (sAvg ? { sub: `team avg ${sAvg[key]}`, tone: mine === sAvg[key] ? null : mine > sAvg[key] ? "up" : "down" } : {});
-  const topNo = (sl.notInterestedWhy || [])[0];
+  // What used to sit in small text under Demos / Interested has its own card.
   const salesKpis = [
-    { icon: <ScheduleOutlined />, id: "demos", label: "Demos booked", value: n(sl.demoBooked), color: "#6366F1", ...vsS(sl.demoBooked || 0, "demoBooked"), ...(sAvg ? {} : { sub: `${n(sl.demoAttended)} attended · ${n(sl.demoMissed)} missed` }) },
-    { icon: <StarOutlined />, id: "interested", label: "Interested", value: n(sl.interested), color: "#F97316", sub: `+ ${n(sl.prospects)} prospects · ${n(sl.future)} future` },
-    { icon: <TrophyOutlined />, id: "enrolled", label: "Enrolled", value: n(sl.enrolled), color: "#16A34A", ...vsS(sl.enrolled || 0, "enrolled"), ...(sAvg ? {} : { sub: (sl.enrolledPlans || [])[0] ? (sl.enrolledPlans[0].key.split(" - ")[0]) : "registrations done" }) },
-    { icon: <WalletOutlined />, id: "paid", label: "Payment received", value: inr(py.collected), color: "#0F766E", sub: `${n(py.paid)} payment${py.paid === 1 ? "" : "s"} · ${n(py.newEnrolments)} new plan${py.newEnrolments === 1 ? "" : "s"}` },
-    { icon: <HourglassOutlined />, id: "pending", label: "Pending payment", value: inr(py.pendingAmount), color: "#B45309", sub: `${n(py.pending)} unpaid link${py.pending === 1 ? "" : "s"} · ${n(py.links)} sent` },
-    { icon: <DislikeOutlined />, id: "notInterested", label: "Not interested", value: n(sl.notInterested), color: "#B91C1C", sub: topNo ? `top: ${topNo.key} (${n(topNo.n)})` : `${n(sl.noResponse)} no response` },
+    { icon: <ScheduleOutlined />, id: "demos", label: "Demos booked", value: n(sl.demoBooked), color: "#6366F1" },
+    { icon: <ScheduleOutlined />, id: "demoAttended", label: "Demos attended", value: n(sl.demoAttended), color: "#4F46E5" },
+    { icon: <ScheduleOutlined />, id: "demoMissed", label: "Demos not attended", value: n(sl.demoMissed), color: "#64748B" },
+    { icon: <StarOutlined />, id: "interested", label: "Interested", value: n(sl.interested), color: "#F97316" },
+    { icon: <StarOutlined />, id: "prospectCard", label: "Prospects", value: n(sl.prospects), color: "#10B981" },
+    { icon: <StarOutlined />, id: "future", label: "Future prospects", value: n(sl.future), color: "#14B8A6" },
+    { icon: <TrophyOutlined />, id: "enrolled", label: "Enrolled", value: n(sl.enrolled), color: "#16A34A" },
+    { icon: <WalletOutlined />, id: "paid", label: "Payment received", value: inr(py.collected), color: "#0F766E" },
+    { icon: <HourglassOutlined />, id: "pending", label: "Pending payment", value: inr(py.pendingAmount), color: "#B45309" },
+    { icon: <DislikeOutlined />, id: "notInterested", label: "Not interested", value: n(sl.notInterested), color: "#B91C1C" },
+    { icon: <CloseCircleOutlined />, id: "noResponse", label: "No response", value: n(sl.noResponse), color: "#EA580C" },
+    { icon: <PhoneOutlined />, id: "callback", label: "Callback", value: n(sl.callback), color: "#EC4899" },
   ];
   // Funnel: every step as a share of connected calls (stages can be skipped,
   // so step-to-step % would jump above 100).
@@ -1734,6 +1834,20 @@ export default function Sales360({ initialUser }) {
   };
   for (const k of kpis) if (DELTAS[k.id]) k.delta = DELTAS[k.id];
 
+  // The rest of the Sales section; a click opens that tab.
+  const recordKpis = [
+    { icon: <TrophyOutlined />, id: "deals", label: "Deals", value: n(rec.deals), color: "#2563EB", to: "/sales/deals" },
+    { icon: <WalletOutlined />, id: "dealValue", label: "Deal value", value: inr(rec.dealValue), color: "#0F766E", to: "/sales/deals" },
+    { icon: <TrophyOutlined />, id: "dealsWon", label: "Deals won", value: n(rec.dealsWon), color: "#16A34A", to: "/sales/deals" },
+    { icon: <FormOutlined />, id: "quotes", label: "Quotes", value: n(rec.quotes), color: "#7C3AED", to: "/sales/quotes" },
+    { icon: <WalletOutlined />, id: "quoteValue", label: "Quote value", value: inr(rec.quoteValue), color: "#6366F1", to: "/sales/quotes" },
+    { icon: <ScheduleOutlined />, id: "orders", label: "Orders", value: n(rec.orders), color: "#C2410C", to: "/sales/orders" },
+    { icon: <WalletOutlined />, id: "orderValue", label: "Order value", value: inr(rec.orderValue), color: "#B45309", to: "/sales/orders" },
+    { icon: <AimOutlined />, id: "products", label: "Products", value: n(rec.products), color: "#0E7490", to: "/sales/products" },
+  ];
+  const shownKpis = kpis.filter((k) => show(k.id));
+  const shownSales = salesKpis.filter((k) => show(k.id));
+  const shownRecords = recordKpis.filter((k) => show(k.id));
   const allCards = [...kpis, ...salesKpis];
   const card = allCards.find((k) => k.id === focus);
   const DETAIL = {
@@ -1749,8 +1863,14 @@ export default function Sales360({ initialUser }) {
     onphone: { kind: "time", title: one ? "On phone · day by day" : "On phone · by user", sortKey: "talkPct" },
     cph: { kind: "time", title: one ? "Calls per hour · day by day" : "Calls per hour · by user", sortKey: "callsPerHour" },
     responses: { kind: "leads", title: "Lead responses · every stage change", stages: [] },
-    demos: { kind: "leads", title: "Demos", stages: ["Demo Booking"] },
-    interested: { kind: "leads", title: "Interested, prospects & future", stages: ["Interested Leads", "Prospects", "Future Prospect"] },
+    demos: { kind: "leads", title: "Demos booked", stages: ["Demo Booking"], sub: "Demo Booked" },
+    demoAttended: { kind: "leads", title: "Demos attended", stages: ["Demo Booking"], sub: "Demo Attended" },
+    demoMissed: { kind: "leads", title: "Demos not attended", stages: ["Demo Booking"], sub: "Demo Not Attended" },
+    interested: { kind: "leads", title: "Interested", stages: ["Interested Leads"] },
+    prospectCard: { kind: "leads", title: "Prospects", stages: ["Prospects"] },
+    future: { kind: "leads", title: "Future prospects", stages: ["Future Prospect"] },
+    noResponse: { kind: "leads", title: "No response", stages: ["No Response"] },
+    callback: { kind: "leads", title: "Callback", stages: ["Callback"] },
     enrolled: { kind: "leads", title: "Enrolled", stages: ["Enrolled"] },
     notInterested: { kind: "leads", title: "Not interested · with reasons", stages: ["Not Interested Leads"] },
     paid: { kind: "pay", title: "Payments received", status: "paid" },
@@ -1820,18 +1940,88 @@ export default function Sales360({ initialUser }) {
               {(data?.teams || []).map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
           )}
+          {manager && !userId && (
+            <select className="hub-select" value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
+              <option value="">All roles</option>
+              {(data?.roles || []).map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          )}
           <button type="button" className="hub-btn s3-sq" onClick={refresh} aria-label="Refresh"><ReloadOutlined spin={loading} /></button>
           <button type="button" className="s3-export" onClick={exportXlsx} disabled={exporting}>
             <FileExcelOutlined /> {exporting ? "Preparing…" : "Export Excel"}
           </button>
         </div>
+        <div className="s3-filter-grid">
+          <Select
+            className="s3-filter-show"
+            mode="multiple"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            maxTagCount="responsive"
+            placeholder="Show: everything (pick Total calls, Connected, any card or section)"
+            aria-label="Show"
+            value={fx.show}
+            onChange={(v) => setFilter("show", v)}
+            options={SHOW_GROUPS.map(([label, items]) => ({ label, options: items.map(([value, text]) => ({ value, label: text })) }))}
+          />
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Search all of Sales: name, phone, email, remark, deal, payment, user" aria-label="Search" className="s3-filter-show" value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+        </div>
+        <div className="s3-filter-groups">
+          {FILTER_GROUPS.map(([group, items]) => (
+            <div key={group} className="s3-filter-group">
+              <span className="s3-filter-group-name">{group}</span>
+              <div className="s3-filter-grid">
+                {items.map(([k, all]) => (
+                  <select key={k} className="hub-select" value={fx[k]} disabled={k === "sub" && !fx.stage} onChange={(e) => setFilter(k, e.target.value)} aria-label={FILTER_NAME[k]}>
+                    <option value="">{all}</option>
+                    {choicesFor(k).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                ))}
+                {group === "Activity" && <Select mode="multiple" allowClear maxTagCount="responsive" placeholder="All activity" aria-label="Activity type" value={fx.types} onChange={(v) => setFilter("types", v)} options={ACTIVITY_TYPES.map(([value, label]) => ({ value, label }))} />}
+              </div>
+            </div>
+          ))}
+        </div>
+        {(() => {
+          const on = Object.entries(fx).filter(([k, v]) => k !== "types" && k !== "show" && v);
+          const extra = [...(userId ? [["user", (data?.people || []).find((u) => u.adminId === userId)?.name || "User"]] : []), ...(team ? [["team", team]] : []), ...(role ? [["role", role]] : [])];
+          if (!on.length && !extra.length && !fx.types.length && !fx.show.length) return <div className="s3-range-text">No filter applied: showing everything.</div>;
+          return (
+            <div className="s3-chips">
+              {extra.map(([k, label]) => <button key={k} type="button" className="on" onClick={() => (k === "user" ? setUserId("") : k === "team" ? setTeam("") : setRole(""))} aria-label={`Remove ${label}`}>{label} <CloseOutlined /></button>)}
+              {on.map(([k, v]) => <button key={k} type="button" className="on" onClick={() => { setFilter(k, ""); if (k === "q") setSearchDraft(""); }} aria-label={`Remove ${FILTER_NAME[k]}`}>{FILTER_NAME[k]}: {(choicesFor(k).find(([x]) => String(x) === String(v)) || [])[1] || v} <CloseOutlined /></button>)}
+              {fx.show.length > 0 && <button type="button" className="on" onClick={() => setFilter("show", [])} aria-label="Show everything">Showing {fx.show.length} of the page <CloseOutlined /></button>}
+              {fx.types.length > 0 && <button type="button" className="on" onClick={() => setFilter("types", [])} aria-label="Remove activity types">Activity: {fx.types.length} <CloseOutlined /></button>}
+              <button type="button" onClick={() => { setFx(NO_FILTERS); setSearchDraft(""); setTeam(""); setRole(""); if (manager) setUserId(""); }}>Clear all</button>
+            </div>
+          );
+        })()}
         <div className="s3-range-text"><ClockCircleOutlined /> {rangeText}{days ? ` · ${days} day${days === 1 ? "" : "s"}` : ""} · minute-level</div>
       </div>
 
+      {loading && data && !applied.q && <div className="s3-updating" role="status">Updating…</div>}
+
+      {applied.q && (
+        <Sales360Search
+          q={applied.q}
+          base={searchBase}
+          scope={scopeNoSearch}
+          rangeLabel={PRESETS.find((p) => p.key === preset)?.label || "Selected dates"}
+          onPickUser={(id) => {
+            setUserId(id);
+            setSearchDraft("");
+            setFx((x) => ({ ...x, q: "" }));
+          }}
+        />
+      )}
+
       {data && !data.rows.length && <div className="s3-panel"><div className="s3-empty">No Sales user to show here.</div></div>}
 
+      {nothingShown && <div className="s3-panel"><div className="s3-empty">These filters have no data in common. Remove one of them, for example a call filter together with a target filter.</div></div>}
+
       {/* hero */}
-      {one ? (
+      {!show("summary") ? null : one ? (
         <section className="s3-hero">
           <span className="s3-avatar big">{initials(one.name)}</span>
           <div className="s3-hero-txt">
@@ -1888,6 +2078,7 @@ export default function Sales360({ initialUser }) {
               <p>{n(t.staff)} people · {n(t.activeUsers)} made calls in this range · {days} day{days === 1 ? "" : "s"}</p>
               <div className="s3-hero-tags">
                 <span>{n(t.present)} present days</span>
+                {t.inProgress > 0 && <span>{n(t.inProgress)} in progress</span>}
                 <span>{n(t.auto)} auto-started</span>
                 <span>{n(t.absent)} absent</span>
                 <span>{t.leave || 0} leave</span>
@@ -1904,21 +2095,56 @@ export default function Sales360({ initialUser }) {
       )}
 
       {/* KPI cards */}
-      <div className="s3-section"><CalendarOutlined /> Attendance <span>month calendar — {effectiveUser ? "this user" : "everyone"} · hover a day for who and when</span></div>
-      <AttendanceCalendar adminId={effectiveUser} team={team} monthHint={range[1].format("YYYY-MM")} />
-      <AttendanceExceptions base={base} people={data?.people} canManage={manager} />
+      {show("calendar") && (
+        <>
+          <div className="s3-section"><CalendarOutlined /> Attendance <span>month calendar — {effectiveUser ? "this user" : "everyone"} · hover a day for who and when</span></div>
+          <WhenNear><AttendanceCalendar adminId={effectiveUser} team={team} role={role} monthHint={range[1].format("YYYY-MM")} /></WhenNear>
+        </>
+      )}
+      {show("exceptions") && <AttendanceExceptions base={base} people={data?.people} canManage={manager} />}
+      {show("policy") && (
+        <>
+          <div className="s3-section"><AuditOutlined /> Attendance by policy <span>CLC-POL-001 — every working day: dialer hours, attempts, talk, verified prospects, attended demos, short leave</span></div>
+          <PolicyAttendance base={base} single={!!one} canCorrect={policyAdmin} reloadKey={tick} />
+        </>
+      )}
+      {(show("prospects") || show("targets")) && <div className="s3-section"><TrophyOutlined /> Prospects &amp; targets <span>Team Leader verification, monthly target, backlog, recovery Sunday, overdue tasks, leave</span></div>}
+      {/* A Team Leader's own 360° is theirs, but they verify everyone's prospects. */}
+      {show("prospects") && <WhenNear><ProspectQueue base={prospectBase} canVerify={canVerify} onChanged={() => setTick((x) => x + 1)} /></WhenNear>}
+      {show("targets") && <WhenNear><TargetsBoard base={base} canManage={policyAdmin} canSetTargets={policyAdmin} /></WhenNear>}
+      {(show("overdueTasks") || show("cases") || show("corrections") || show("outages")) && <div className="s3-section"><AuditOutlined /> Compliance <span>overdue tasks, disputes and reviews, corrections, outages</span></div>}
+      {show("overdueTasks") && <WhenNear><OverduePanel base={base} meId={me?._id} canReview={canVerify} canRecord={policyAdmin} /></WhenNear>}
+      {show("cases") && <WhenNear><CasesPanel base={base} people={data?.people} canManage={policyAdmin} /></WhenNear>}
+      {show("corrections") && <WhenNear><CorrectionsPanel base={base} /></WhenNear>}
+      {show("outages") && <WhenNear><OutagesPanel base={base} people={data?.people} canManage={policyAdmin} /></WhenNear>}
 
-      <div className="s3-section"><PhoneOutlined /> Calls &amp; time</div>
-      <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
-        {kpis.map((k, i) => <Kpi key={k.id} i={i} {...k} active={focus === k.id} onOpen={() => setFocus(focus === k.id ? null : k.id)} />)}
-      </div>
-      <div className="s3-section"><TrophyOutlined /> Sales results <span>demos, interest, enrolments and money — from lead stages and payment links</span></div>
-      <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
-        {salesKpis.map((k, i) => <Kpi key={k.id} i={i} {...k} active={focus === k.id} onOpen={() => setFocus(focus === k.id ? null : k.id)} />)}
-      </div>
+      {shownKpis.length > 0 && (
+        <>
+          <div className="s3-section"><PhoneOutlined /> Calls &amp; time</div>
+          <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
+            {shownKpis.map((k, i) => <Kpi key={k.id} i={i} {...k} active={focus === k.id} onOpen={() => setFocus(focus === k.id ? null : k.id)} />)}
+          </div>
+        </>
+      )}
+      {shownSales.length > 0 && (
+        <>
+          <div className="s3-section"><TrophyOutlined /> Sales results <span>demos, interest, enrolments and money — from lead stages and payment links</span></div>
+          <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
+            {shownSales.map((k, i) => <Kpi key={k.id} i={i} {...k} active={focus === k.id} onOpen={() => setFocus(focus === k.id ? null : k.id)} />)}
+          </div>
+        </>
+      )}
+      {shownRecords.length > 0 && (
+        <>
+          <div className="s3-section"><WalletOutlined /> Deals, quotes &amp; orders <span>created in this range · click to open · money in INR</span></div>
+          <div className={`s3-kpis ${loading ? "is-loading" : ""}`}>
+            {shownRecords.map((k, i) => <Kpi key={k.id} i={i} {...k} onOpen={() => navigate(k.to)} />)}
+          </div>
+        </>
+      )}
 
       {/* the clicked card, in full */}
-      {focus && detail && (
+      {focus && detail && show(focus) && (
         <section ref={detailRef} className="s3-panel s3-detail" style={{ "--c": detail.color }}>
           <header>
             <h4><span className="s3-detail-ico">{detail.icon}</span> {detail.title}</h4>
@@ -1927,7 +2153,7 @@ export default function Sales360({ initialUser }) {
           </header>
           {detail.note && <p className="s3-note" style={{ marginTop: 0 }}>{detail.note}</p>}
           {detail.kind === "calls" && <CallLog key={focus} base={base} cards={!!one} title={detail.title} initial={detail.initial} />}
-          {detail.kind === "leads" && <LeadLog key={focus} base={base} stages={detail.stages} showUser={!one} />}
+          {detail.kind === "leads" && <LeadLog key={focus} base={base} stages={detail.stages} initialSub={detail.sub} showUser={!one} />}
           {detail.kind === "time" && (one ? (
             <div className="hub-table-wrapper">
               <table className="hub-table s3-table">
@@ -2013,21 +2239,23 @@ export default function Sales360({ initialUser }) {
         </section>
       )}
 
-      {one && <TodayGlance user={one} tick={tick} onOpen={(day) => setDayOpen({ day, user: one })} />}
+      {one && show("glance") && <TodayGlance user={one} tick={tick} onOpen={(day) => setDayOpen({ day, user: one })} />}
 
       {/* charts */}
       <div className="s3-grid">
-        <Panel title={`Calls & talk time · by ${data?.range?.bucket || "day"}`} icon={<PhoneOutlined />} className="s3-span2">
-          {data && <ChartCanvas type="bar" data={trendData} options={trendOpts} height={260} />}
-        </Panel>
-        {outcomesPanel}
-        {heatPanel}
-        {talkPanel}
+        {show("trend") && (
+          <Panel title={`Calls & talk time · by ${data?.range?.bucket || "day"}`} icon={<PhoneOutlined />} className="s3-span2">
+            {data && <ChartCanvas type="bar" data={trendData} options={trendOpts} height={260} />}
+          </Panel>
+        )}
+        {show("outcomes") && outcomesPanel}
+        {show("heat") && heatPanel}
+        {show("talkLength") && talkPanel}
       </div>
 
       {/* sales results */}
       <div className="s3-grid">
-        <Panel title="Sales funnel · calls to money" icon={<FunnelPlotOutlined />} className="s3-span2" extra={<span className="s3-muted">% of connected calls</span>}>
+        {show("funnel") && <Panel title="Sales funnel · calls to money" icon={<FunnelPlotOutlined />} className="s3-span2" extra={<span className="s3-muted">% of connected calls</span>}>
           <div className="s3-funnel">
             {funnel.map((x, i) => {
               const max = Math.max(1, funnel[0].n);
@@ -2042,8 +2270,8 @@ export default function Sales360({ initialUser }) {
             })}
           </div>
           <p className="s3-note">Steps come from the lead stage each lead was moved to in this range (unique leads). A lead can jump stages — e.g. straight from a call to Demo booked — so a later step can be bigger than an earlier one.</p>
-        </Panel>
-        <Panel title="Money" icon={<WalletOutlined />}>
+        </Panel>}
+        {show("money") && <Panel title="Money" icon={<WalletOutlined />}>
           <div className="s3-money">
             <div className="big"><span>New plans sold</span><b>{n(py.newEnrolments)}</b><small>deal value {inr(py.dealValue)} (plan totals incl. EMI)</small></div>
             <div><span>Links sent</span><b>{n(py.links)}</b><small>by {one ? one.name.split(" ")[0] : "the team"}</small></div>
@@ -2059,13 +2287,28 @@ export default function Sales360({ initialUser }) {
             </div>
           )}
           <p className="s3-note">Money received and pending are on the cards above — click them for every payment. EMI instalments count for whoever sold the plan.</p>
-        </Panel>
+        </Panel>}
       </div>
 
-      <LeadsSection base={base} who={one ? one.name : team ? `Team ${team}` : "Every Sales user"} />
+      {show("stages") && (
+        <>
+          <div className="s3-section"><AimOutlined /> Lead stages <span>all 12 stages and their sub-statuses — leads moved in this range</span></div>
+          <StageExplorer
+            tree={data?.stageTree}
+            rows={rows}
+            one={!!one}
+            only={fx.stage || (fx.prospect ? "Prospects" : "")}
+            onlySub={fx.sub}
+            onPickUser={setUserId}
+            renderList={(stage) => <LeadLog key={stage} base={base} stages={[stage]} showUser={!one} />}
+          />
+        </>
+      )}
+
+      {show("usedLeads") && <WhenNear><LeadsSection base={base} who={one ? one.name : team ? `Team ${team}` : "Every Sales user"} /></WhenNear>}
 
       {/* one user: their pipeline + what is due */}
-      {one && data?.pipeline && (
+      {one && data?.pipeline && show("pipeline") && (
         <div className="s3-grid">
           <Panel title={`Pipeline right now · ${n(data.pipeline.leads)} leads`} icon={<AimOutlined />} extra={<span className="s3-muted">last moved by {one.name.split(" ")[0]}</span>}>
             <Bars items={data.pipeline.byStage.map((x) => ({ ...x, color: STAGE_COLOR[x.key] }))} labelWidth={140} empty="No leads" />
@@ -2098,7 +2341,7 @@ export default function Sales360({ initialUser }) {
       )}
 
       {/* leaderboard (team) */}
-      {!one && rows.length > 0 && (
+      {!one && rows.length > 0 && show("leaderboard") && (
         <Panel title="Leaderboard · click a person for their 360°" icon={<TeamOutlined />} extra={<button type="button" className="hub-btn" onClick={exportUsers}><DownloadOutlined /> CSV</button>}>
           <div className="hub-table-wrapper">
             <table className="hub-table s3-table">
@@ -2162,7 +2405,7 @@ export default function Sales360({ initialUser }) {
       )}
 
       {/* day by day (one user) */}
-      {one && (
+      {one && show("days") && (
         <Panel
           title="Day by day · click a day for minute-by-minute"
           icon={<CalendarOutlined />}
@@ -2178,7 +2421,7 @@ export default function Sales360({ initialUser }) {
                 <tr><th>Date</th><th>Status</th><th>Login</th><th>Logout</th><th>Active</th><th>Dialer on</th><th>Break</th><th>Calls</th><th>Connected</th><th>Talk</th><th>Missed</th><th /></tr>
               </thead>
               <tbody>
-                {data.days.map((d) => {
+                {data.days.filter((d) => (!fx.attendance || d.status === fx.attendance) && (!fx.late || d.lateMin > 15)).map((d) => {
                   const st = DAY_STATUS[d.status] || [d.status, "#64748B"];
                   return (
                     <tr key={d.dayKey} className="s3-click" onClick={() => setDayOpen({ day: d, user: one })}>
@@ -2208,8 +2451,15 @@ export default function Sales360({ initialUser }) {
         </Panel>
       )}
 
-      {data && data.rows.length > 0 && (
-        <CallLog base={base} cards={!!one} title={one ? `${one.name.split(" ")[0]}'s calls & recordings` : "All calls & recordings"} />
+      {show("activity") && (
+        <>
+          <div className="s3-section"><ClockCircleOutlined /> Activity log <span>login to logout — every event</span></div>
+          <WhenNear><ActivityLog base={base} showUser={!one} whoName={one ? one.name : team || "All Sales users"} /></WhenNear>
+        </>
+      )}
+
+      {data && data.rows.length > 0 && show("callList") && (
+        <WhenNear><CallLog base={base} cards={!!one} title={one ? `${one.name.split(" ")[0]}'s calls & recordings` : "All calls & recordings"} /></WhenNear>
       )}
       <DayModal target={dayOpen} onClose={() => setDayOpen(null)} />
     </div>

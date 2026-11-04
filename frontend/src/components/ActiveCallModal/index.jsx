@@ -220,6 +220,10 @@ export default function ActiveCallModal() {
   const [currentCtc, setCurrentCtc] = useState("");
   const [painPoint, setPainPoint] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("");
+  const [college, setCollege] = useState("");
+  const [techBackground, setTechBackground] = useState("");
+  const [programInterest, setProgramInterest] = useState("");
+  const [consent, setConsent] = useState("");
 
   // Disposition catalogue (code + label + category + crmStage) from the API.
   const [dispositions, setDispositions] = useState(DISPOSITIONS_PLACEHOLDER);
@@ -290,6 +294,10 @@ export default function ActiveCallModal() {
     setCurrentCtc(crm?.currentCtc || "");
     setPainPoint(crm?.painPoint || "");
     setPreferredLanguage(crm?.preferredLanguage || "");
+    setCollege(crm?.college || "");
+    setTechBackground(crm?.techBackground || "");
+    setProgramInterest(crm?.programInterest || "");
+    setConsent(crm?.consent || "");
 
     setMuted(!!call.muted);
     setOnHold(!!call.onHold);
@@ -571,6 +579,10 @@ export default function ActiveCallModal() {
         currentCtc,
         painPoint,
         preferredLanguage,
+        college,
+        techBackground,
+        programInterest,
+        consent,
         hangupCall: hangup,
         // "Submit Outcome & Close" — frees the agent for their next call.
         submitOutcome: closeAfter,
@@ -1083,6 +1095,42 @@ export default function ActiveCallModal() {
                     placeholder="Select language"
                     allowClear
                     options={PREFERRED_LANGUAGES.map((l) => ({ label: l, value: l }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">College / Organisation</label>
+                  <Input value={college} onChange={(e) => setCollege(e.target.value)} placeholder="College or current organisation" />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Technical Background</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={techBackground || undefined}
+                    onChange={(v) => setTechBackground(v)}
+                    placeholder="Select background"
+                    allowClear
+                    options={["Technical", "Non-technical"].map((x) => ({ label: x, value: x }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Program Interest</label>
+                  <Input value={programInterest} onChange={(e) => setProgramInterest(e.target.value)} placeholder="Program they want" />
+                </div>
+
+                <div>
+                  <label className="incall-field-label">Communication Consent</label>
+                  <Select
+                    popupClassName="incall-popup"
+                    style={{ width: "100%" }}
+                    value={consent || undefined}
+                    onChange={(v) => setConsent(v)}
+                    placeholder="How may we contact them?"
+                    allowClear
+                    options={["Call + WhatsApp + Email", "Call only", "WhatsApp only", "Email only", "No consent"].map((x) => ({ label: x, value: x }))}
                   />
                 </div>
               </div>

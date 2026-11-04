@@ -18,8 +18,11 @@ const secs = (from, to) => Math.max(0, Math.round((new Date(to) - new Date(from)
 // CloudCallProvider.dialLeadPoolNext) — drop it for display, keep what the
 // agent wrote.
 const POOL_STAMP_RX = /Instant Lead Pool\s*[—-]\s*agent assigned on answer\.?/gi;
+// A call that never went out: the provider refused it for lack of balance.
+const NOT_PLACED_RX = /Insufficient balance/i;
 const agentNotes = (n) => {
   const t = String(n || '')
+    .replace(/\s*[—-]\s*provider raw:[\s\S]*$/, '')
     .replace(POOL_STAMP_RX, '')
     .replace(/\s*[—-]\s*(\n|$)/g, '$1')
     .replace(/^\s*[—-]\s*/, '')
@@ -329,6 +332,9 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord, f
   if (!lead || !fromStages.includes(lead.stage)) return;
 
   const d = dispositionCode && BY_CODE[dispositionCode];
+  // Another connected call with no response yet says nothing new about a lead
+  // already in Connected Leads: don't undo the Qualified a user chose.
+  if (!d && rawOutcome === 'connected' && lead.stage === 'Connected Leads') return;
   let stage, subStatus;
   if (d) {
     // dispositions.js owns the outcome → (stage, subStatus) mapping so the
@@ -336,7 +342,7 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord, f
     ({ stage, subStatus } = d.crmStage);
   } else if (rawOutcome === 'connected') {
     stage = 'Connected Leads';
-    subStatus = '1st Discussion Done - Qualified';
+    subStatus = 'Connected - Response Pending';
   } else {
     stage = 'No Response';
     subStatus = noResponseSubStatus(callRecord);
@@ -351,8 +357,10 @@ async function advanceCrmLead(leadId, dispositionCode, rawOutcome, callRecord, f
     fromStage,
     toStage: stage,
     toSubStatus: subStatus,
-    changedByName: callRecord.agentName || undefined,
-    remarks: `${callRecord.callLead ? 'Instant Lead Pool' : 'Dialer'} call outcome: ${outcomeLabel}`,
+    // The user's own response keeps their name; without one the system decided.
+    changedByName: d ? callRecord.agentName || undefined : 'System',
+    onCallOf: d ? undefined : callRecord.agentName || undefined,
+    remarks: `${callRecord.callLead ? 'Instant Lead Pool' : 'Dialer'} call outcome: ${outcomeLabel}${!d && callRecord.agentName ? ` · call by ${callRecord.agentName}` : ''}`,
     at: new Date(),
   });
   await lead.save();
@@ -599,6 +607,7 @@ module.exports = {
   resolveCallOwner,
   secs,
   agentNotes,
+  NOT_PLACED_RX,
   LIVE_CALL_STATUSES,
   BUSY_AGENT_STATUSES,
   RESERVATION_TTL_MS,

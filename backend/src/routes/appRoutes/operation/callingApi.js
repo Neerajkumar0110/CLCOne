@@ -47,6 +47,8 @@ router.route('/lead-pool/break/start').post(catchErrors(c.leadPoolBreakStart));
 router.route('/lead-pool/used-leads').get(catchErrors(c.leadPoolUsedLeads));
 router.route('/lead-pool/stage-stats').get(catchErrors(c.leadPoolStageStats));
 router.route('/my-calls/:id/detail').get(catchErrors(c.myCallDetail));
+router.route('/my-calls/:id/send-prospect').post(catchErrors(c.sendProspect));
+router.route('/prospect-recipients').get(catchErrors(c.prospectRecipients));
 router.route('/lead-pool/connect-mode').post(catchErrors(c.leadPoolSetConnectMode));
 router.route('/lead-pool/line/connect').post(catchErrors(c.leadPoolLineConnect));
 router.route('/browser-phone/credentials').get(catchErrors(c.browserPhoneCredentials));

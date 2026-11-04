@@ -4,6 +4,7 @@ const {
   callReachedCustomer,
   last10,
   agentNotes,
+  NOT_PLACED_RX,
   CALL_REACHED,
   CALL_NOT_REACHED,
 } = require('../../../../services/calling/callingShared');
@@ -561,7 +562,7 @@ const usedLeads = async (req, res) => {
 
 // The agent's own view of Used Leads: EVERY call of theirs that has
 // finished — auto-dialer pool, manual dialer, callbacks, any campaign — in
-// the last ?days= (7 | 15 | 30, default 7), narrowed by ?outcome=:
+// the ?range= (see myCallsRange, default the last 7 days), narrowed by ?outcome=:
 //   connected → the customer answered
 //   notpicked → they dialed, the customer never answered
 //   missed    → routed to them, they never picked up (CallRecord.missedByAgent)
@@ -569,15 +570,40 @@ const usedLeads = async (req, res) => {
 //   interested / demo / enrolled → the agent's response put the lead in
 //              Interested Leads / Demo Booking / Enrolled (disposition), or
 //              the lead on that number is in that stage right now
+//   prospect  → the lead is in Prospects now or has been verified / rejected
+//              as one; one row per number (its latest call)
 // Each row also carries the lead's current `stage` (looked up by phone).
 // Same row shape as the pool-wide list, plus `outcome`.
-const MY_USED_DAYS = [7, 15, 30];
+// ?range= today | yesterday | month | lastmonth | a number of days (7 | 15 | 30
+// | 90 | 365) | custom with ?from=&to= (YYYY-MM-DD). Days are IST days.
+function myCallsRange(q, now = new Date()) {
+  const isDay = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  const startOf = (key) => new Date(`${key}T00:00:00+05:30`);
+  const endOf = (key) => new Date(`${key}T23:59:59.999+05:30`);
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  if (q.range === 'today') return { $gte: startOf(today), $lte: now };
+  if (q.range === 'yesterday') {
+    const key = new Date(startOf(today).getTime() - 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    return { $gte: startOf(key), $lte: endOf(key) };
+  }
+  if (q.range === 'month') return { $gte: startOf(`${today.slice(0, 7)}-01`), $lte: now };
+  if (q.range === 'lastmonth') {
+    const first = startOf(`${today.slice(0, 7)}-01`);
+    const lastDay = new Date(first.getTime() - 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    return { $gte: startOf(`${lastDay.slice(0, 7)}-01`), $lte: endOf(lastDay) };
+  }
+  if (q.range === 'custom' && isDay(q.from) && isDay(q.to)) return { $gte: startOf(q.from), $lte: endOf(q.to) };
+  const days = [7, 15, 30, 90, 365].includes(Number(q.range)) ? Number(q.range) : 7;
+  return { $gte: new Date(now.getTime() - days * 864e5), $lte: now };
+}
 const IN_PROGRESS = ['queued', 'dialing', 'ringing'];
-const OUTCOME_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by me' };
+const OUTCOME_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by me', notPlaced: 'Failed: no balance' };
 const STAGE_OUTCOMES = { interested: 'Interested Leads', demo: 'Demo Booking', enrolled: 'Enrolled' };
+const { missingDetails, prospectStatus, prospectCallStats } = require('../../../../services/sales/prospectDetails');
 const phoneVariants = (p10) => [p10, `91${p10}`, `+91${p10}`, `0${p10}`];
 
 function outcomeOf(r) {
+  if (r.status === 'failed' && NOT_PLACED_RX.test(r.notes || '')) return 'notPlaced';
   if (r.missedByAgent) return 'missed';
   if (callReachedCustomer(r)) return 'connected';
   return 'notpicked';
@@ -585,13 +611,12 @@ function outcomeOf(r) {
 
 async function myUsedLeads(req, res, page, items) {
   const CallRecord = mongoose.model('CallRecord');
-  const days = MY_USED_DAYS.includes(Number(req.query.days)) ? Number(req.query.days) : 7;
-  const since = new Date(Date.now() - days * 86400000);
+  const created = myCallsRange(req.query);
 
-  const filter = { agent: req.admin._id, removed: false, created: { $gte: since }, status: { $nin: IN_PROGRESS } };
+  const filter = { agent: req.admin._id, removed: false, created, status: { $nin: IN_PROGRESS } };
   const and = [];
   if (req.query.outcome === 'connected') and.push({ missedByAgent: { $ne: true } }, CALL_REACHED);
-  else if (req.query.outcome === 'notpicked') and.push({ missedByAgent: { $ne: true } }, CALL_NOT_REACHED);
+  else if (req.query.outcome === 'notpicked') and.push({ missedByAgent: { $ne: true }, notes: { $not: NOT_PLACED_RX } }, CALL_NOT_REACHED);
   else if (req.query.outcome === 'missed') filter.missedByAgent = true;
   else if (req.query.outcome === 'callback') filter.disposition = 'CALLBACK';
   else if (STAGE_OUTCOMES[req.query.outcome]) {
@@ -599,12 +624,24 @@ async function myUsedLeads(req, res, page, items) {
     const { BY_CODE } = require('../../../../services/calling/dispositions');
     const codes = Object.keys(BY_CODE).filter((c) => BY_CODE[c].crmStage && BY_CODE[c].crmStage.stage === stage);
     // Numbers I called in the range whose lead sits in that stage now.
-    const phones = await CallRecord.distinct('phone', { agent: req.admin._id, removed: false, created: { $gte: since } });
+    const phones = await CallRecord.distinct('phone', { agent: req.admin._id, removed: false, created });
     const p10 = [...new Set(phones.map((p) => last10(p)).filter((p) => p.length === 10))];
     const inStage = p10.length
       ? await mongoose.model('Lead').distinct('phoneNormalized', { removed: false, stage, phoneNormalized: { $in: p10 } })
       : [];
     and.push({ $or: [{ disposition: { $in: codes } }, { phone: { $in: inStage.flatMap(phoneVariants) } }] });
+  }
+  else if (req.query.outcome === 'prospect') {
+    const phones = await CallRecord.distinct('phone', { agent: req.admin._id, removed: false, created });
+    const p10 = [...new Set(phones.map((p) => last10(p)).filter((p) => p.length === 10))];
+    const prospects = p10.length
+      ? await mongoose.model('Lead').distinct('phoneNormalized', { removed: false, phoneNormalized: { $in: p10 }, $or: [{ stage: 'Prospects' }, { 'prospectVerification.status': { $exists: true } }] })
+      : [];
+    const calls = prospects.length
+      ? await CallRecord.find({ ...filter, phone: { $in: prospects.flatMap(phoneVariants) } }).sort({ created: -1 }).select('phone').lean()
+      : [];
+    const seen = new Set();
+    filter._id = { $in: calls.filter((c) => !seen.has(last10(c.phone)) && seen.add(last10(c.phone))).map((c) => c._id) };
   }
   if (and.length) filter.$and = and;
 
@@ -613,7 +650,7 @@ async function myUsedLeads(req, res, page, items) {
       .sort({ created: -1 })
       .skip((page - 1) * items)
       .limit(items)
-      .select('contactName phone status disposition agentName duration missedByAgent created endedAt')
+      .select('contactName phone status disposition notes agentName duration missedByAgent created endedAt')
       .lean(),
     CallRecord.countDocuments(filter),
   ]);
@@ -622,10 +659,15 @@ async function myUsedLeads(req, res, page, items) {
   const rowP10 = [...new Set(rows.map((r) => last10(r.phone)).filter(Boolean))];
   const leadsByPhone = new Map(
     (rowP10.length
-      ? await mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: rowP10 } }).select('phoneNormalized stage subStatus').lean()
+      ? await mongoose.model('Lead').find({ removed: false, phoneNormalized: { $in: rowP10 } }).select('phoneNormalized stage subStatus prospectVerification.status prospectVerification.by prospectVerification.byName prospectHandoffs').lean()
       : []
     ).map((l) => [l.phoneNormalized, l])
   );
+  // For a prospect I sent: has the person I sent it to spoken to the customer?
+  const sent = [...leadsByPhone.values()].filter((l) => (l.prospectHandoffs || []).length);
+  const reviewCalls = sent.length
+    ? await CallRecord.find({ removed: false, agent: { $ne: req.admin._id }, phone: { $regex: `(${sent.map((l) => l.phoneNormalized).join('|')})$` } }).select('agent agentName phone created answeredAt agentLegAnswered duration').lean()
+    : [];
 
   return res.status(200).json({
     success: true,
@@ -638,6 +680,9 @@ async function myUsedLeads(req, res, page, items) {
         phone: r.phone,
         stage: lead ? lead.stage : null,
         subStatus: lead ? lead.subStatus : null,
+        prospect: lead ? prospectStatus(lead) : null,
+        sentTo: lead && lead.prospectHandoffs ? lead.prospectHandoffs.map((h) => h.toName) : [],
+        reviewers: lead && (lead.prospectHandoffs || []).length ? prospectCallStats(lead, reviewCalls.filter((c) => last10(c.phone) === lead.phoneNormalized), req.admin._id).filter((p) => p.reviewer) : [],
         outcome,
         response: OUTCOME_LABEL[outcome],
         disposition: r.disposition || null,
@@ -687,7 +732,7 @@ async function allCalls(req, res, page, items, poolId) {
   // ?outcome= narrows further (the chips' counts ignore it).
   const filter = { ...scoped, $and: [...(scoped.$and || [])] };
   if (q.outcome === 'connected') filter.$and.push({ missedByAgent: { $ne: true } }, CALL_REACHED);
-  else if (q.outcome === 'notpicked') filter.$and.push({ missedByAgent: { $ne: true } }, CALL_NOT_REACHED);
+  else if (q.outcome === 'notpicked') filter.$and.push({ missedByAgent: { $ne: true }, notes: { $not: NOT_PLACED_RX } }, CALL_NOT_REACHED);
   else if (q.outcome === 'missed') filter.missedByAgent = true;
   else if (q.outcome === 'callback') filter.disposition = 'CALLBACK';
   else if (STAGE_OUTCOMES[q.outcome]) {
@@ -708,7 +753,7 @@ async function allCalls(req, res, page, items, poolId) {
       .lean(),
     CallRecord.countDocuments(filter),
     CallRecord.countDocuments(and2([{ missedByAgent: { $ne: true } }, CALL_REACHED])),
-    CallRecord.countDocuments(and2([{ missedByAgent: { $ne: true } }, CALL_NOT_REACHED])),
+    CallRecord.countDocuments(and2([{ missedByAgent: { $ne: true }, notes: { $not: NOT_PLACED_RX } }, CALL_NOT_REACHED])),
     CallRecord.countDocuments({ ...scoped, missedByAgent: true }),
     CallRecord.countDocuments(scoped),
     CallRecord.distinct('agent', { removed: false }),
@@ -727,7 +772,7 @@ async function allCalls(req, res, page, items, poolId) {
   );
   const typeOf = (r) =>
     r.instantLead ? 'Facebook lead' : r.direction === 'Inbound' ? 'Inbound' : poolId && String(r.campaign) === String(poolId) ? 'Lead pool' : 'Dialer';
-  const ANY_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by agent' };
+  const ANY_LABEL = { connected: 'Connected', notpicked: 'Not picked up', missed: 'Missed by agent', notPlaced: 'Failed: no balance' };
 
   return res.status(200).json({
     success: true,
@@ -783,21 +828,26 @@ const myCallDetail = async (req, res) => {
         .select('-rawMetaData -rawGoogleData -rawLinkedInData')
         .lean()
     : null;
+  // A prospect I sent: I also see the calls of whoever reviews it.
+  const shared = lead ? (lead.prospectHandoffs || []).filter((h) => String(h.by) === String(req.admin._id)).map((h) => h.to) : [];
+  const verifier = shared.length && lead.prospectVerification && lead.prospectVerification.by;
   const calls = p10
     ? await CallRecord.find({
         removed: false,
         phone: { $in: phoneVariants(p10) },
-        ...(mineOnly ? { agent: req.admin._id } : {}),
+        ...(mineOnly ? { agent: { $in: [req.admin._id, ...shared, ...(verifier ? [verifier] : [])] } } : {}),
       })
         .sort({ created: -1 })
         .limit(30)
-        .select('status disposition duration missedByAgent agentLegAnswered agentName created endedAt notes recording.url recording.status')
+        .select('status disposition duration answeredAt missedByAgent agentLegAnswered agent agentName created endedAt notes recording.url recording.status')
         .lean()
     : [];
   return res.status(200).json({
     success: true,
     result: {
       lead,
+      shared: shared.length > 0,
+      prospect: lead && prospectStatus(lead) ? { status: prospectStatus(lead), missing: missingDetails(lead), verification: lead.prospectVerification || null, reviewers: prospectCallStats(lead, calls, req.admin._id).filter((p) => p.reviewer) } : null,
       calls: calls.map((c) => ({
         _id: c._id,
         at: c.endedAt || c.created,

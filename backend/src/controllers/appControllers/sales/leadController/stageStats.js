@@ -40,7 +40,7 @@ const stageStats = async (req, res) => {
                 $map: {
                   input: { $ifNull: ['$stageHistory', []] },
                   as: 'h',
-                  in: { $or: [{ $in: ['$$h.changedBy', m.ids] }, { $in: ['$$h.changedByName', m.names] }] },
+                  in: { $or: [{ $in: ['$$h.changedBy', m.ids] }, { $in: ['$$h.changedByName', m.names] }, { $in: ['$$h.onCallOf', m.names] }] },
                 },
               },
             ],

@@ -299,7 +299,7 @@ export default function Dialer() {
       const stage = contact.stage || "New Lead";
       if (stage === "New Lead" || stage === "No Response") {
         const next = wasAnswered
-          ? { stage: "Connected Leads", subStatus: "1st Discussion Done - Qualified" }
+          ? { stage: "Connected Leads", subStatus: "Connected - Response Pending" }
           : { stage: "No Response", subStatus: "Not Reachable" };
         request.update({ entity: "lead", id: contact._id, jsonData: next, notify: false }).catch(() => {});
       }

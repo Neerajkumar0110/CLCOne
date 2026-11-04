@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 const wd = require('../../../services/hr/workday');
 const shiftSchedule = require('../../../config/shiftSchedule');
 const { FULL_ACCESS_ROLES } = require('../../../services/access/salesScope');
-const { SALES_ROLES } = require('../../../config/roles');
+const { SALES_ROLES, MANAGEMENT_ROLES } = require('../../../config/roles');
 const sales360 = require('./sales360');
+const policyOps = require('./policyOps');
+const { search: sales360Search } = require('./sales360Search');
 
 // /api/workday — the header Login / break / leave widget (any CRM user) and
 // the admin "Work & Leave Tracker" (management). Logic lives in
@@ -37,7 +39,7 @@ const me = async (req, res) => {
   ]);
   const openBreak = session && (session.breaks || []).find((b) => !b.endAt && now < wd.plannedEnd(b));
   const dialerOn = !!(st && st.campaign && st.status !== 'Offline');
-  // On the dialer (switched on by hand or the 11:00 auto-start) but never
+  // On the dialer (switched on by hand or the auto-start) but never
   // pressed Login today → the header pops the login prompt every 5 minutes.
   const loginReminder =
     wd.isSales(a) &&
@@ -94,6 +96,8 @@ const guard = (fn) => async (req, res) => (isManager(req) ? fn(req, res) : bad(r
 // Management sees anyone; everyone else only themselves (their own 360°,
 // day timeline and month report) — adminId is forced to the caller.
 const selfOrManager = (fn) => async (req, res) => {
+  req.query.me = String(req.admin._id);
+  await sales360.prepareFilters(req.query);
   if (!isManager(req)) {
     req.query.adminId = String(req.admin._id);
     req.query.team = '';
@@ -102,6 +106,20 @@ const selfOrManager = (fn) => async (req, res) => {
   return fn(req, res);
 };
 const minutes = (a, b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
+// CLC-POL-001 section 15: corrections and waivers are the Sales Manager's.
+const policyAdmin = (fn) => async (req, res) => (MANAGEMENT_ROLES.includes(req.admin.role) ? fn(req, res) : bad(res, 'Only the Sales Manager can do this.', 403));
+// Section 7: Team Leaders verify prospects, so they see every pending one.
+const canVerify = (req) => isManager(req) || req.admin.role === 'Team Leader';
+const verifierOrSelf = (fn) => async (req, res) => {
+  req.query.me = String(req.admin._id);
+  await sales360.prepareFilters(req.query);
+  if (!canVerify(req)) {
+    req.query.adminId = String(req.admin._id);
+    req.query.team = '';
+    req.query.self = '1';
+  }
+  return fn(req, res);
+};
 
 // GET /workday/admin/board?date=YYYY-MM-DD&role=&team=&status=&q=
 const board = guard(async (req, res) => {
@@ -380,7 +398,8 @@ const report = selfOrManager(async (req, res) => {
   const t12 = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' }) : '');
   const hmStr = (min) => (min ? `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m` : '');
   const hrs = (min) => Math.round((min / 60) * 100) / 100;
-  const W = wd.W;
+  const policyRows = await sales360.attendance(users, dayKeys, from, to);
+  const POLICY_STATUS = { present: 'Full day', 'half-day': 'Half day', absent: 'Absent', 'in-progress': 'In progress', 'rest-day': 'Substitute rest day' };
 
   const summary = [];
   const daily = [];
@@ -389,9 +408,11 @@ const report = selfOrManager(async (req, res) => {
     const name = wd.fullName(u) || u.email;
     const myLeaves = leaves.filter((l) => l.adminId === uid);
     const approved = myLeaves.filter((l) => l.status === 'Approved');
-    const t = { working: 0, present: 0, auto: 0, absent: 0, leave: 0, late: 0, worked: 0, brk: 0, calls: 0, conn: 0, talk: 0, loginMins: [] };
+    const t = { fullDays: 0, halfDays: 0, weeklyOffs: 0, recovery: 0, restDays: 0, working: 0, present: 0, auto: 0, absent: 0, leave: 0, late: 0, shortLeave: 0, worked: 0, brk: 0, calls: 0, conn: 0, talk: 0, loginMins: [] };
 
     for (const dk of dayKeys) {
+      const W = wd.scheduleFor(dk);
+      const pd = (policyRows.get(uid) || []).find((d) => d.dayKey === dk);
       const cRaw = cBy.get(sKey(uid, dk));
       const c = cRaw || { calls: 0, connected: 0, talkSec: 0 };
       const s = sBy.get(sKey(uid, dk)) || derivedSession(uid, dk, cRaw);
@@ -424,11 +445,28 @@ const report = selfOrManager(async (req, res) => {
       // late login → half day / full-day leave (shiftSchedule.workday.lateLogin)
       const penalty = status === 'Present' && !weeklyOff ? wd.lateLoginPenalty(dk, s.loginAt, { derived: !!s.derived || !!s.markedPresentBy, leaveDay }) : null;
       if (penalty) status = penalty.label;
+      // From the policy's start date its result is the day's status.
+      const policyDay = wd.policyApplies(dk) && pd && POLICY_STATUS[pd.status] ? pd : null;
+      if (policyDay) status = POLICY_STATUS[policyDay.status];
 
-      const workingDay = !holiday && !weeklyOff;
+      const workingDay = pd ? pd.workingDay : !holiday && !weeklyOff;
+      // Section 5: the register keeps each kind of day apart.
+      if (pd) {
+        if (pd.status === 'present') t.fullDays += 1;
+        if (pd.status === 'half-day') t.halfDays += 1;
+        if (pd.dayType === 'weekly-off') t.weeklyOffs += 1;
+        if (pd.dayType === 'recovery') t.recovery += 1;
+        if (pd.dayType === 'substitute-rest') t.restDays += 1;
+      }
       if (workingDay) t.working += 1;
       if (penalty && workingDay) t.leave += penalty.leave;
-      if (s && s.loginAt) {
+      if (policyDay) {
+        t.present += policyDay.status === 'present' ? 1 : policyDay.status === 'half-day' ? 0.5 : 0;
+        if (policyDay.status === 'absent' && workingDay) t.absent += 1;
+        if (s && s.loginAt) t.loginMins.push(minutes(wd.istAt(dk, '00:00'), s.loginAt));
+        if (s && s.loginAt && lateMin > 15) t.late += 1;
+        t.shortLeave += policyDay.shortLeave || 0;
+      } else if (s && s.loginAt) {
         t.present += penalty ? 1 - penalty.leave : 1;
         t.loginMins.push(minutes(wd.istAt(dk, '00:00'), s.loginAt));
         if (lateMin > 15) t.late += 1;
@@ -459,6 +497,12 @@ const report = selfOrManager(async (req, res) => {
         Calls: c.calls || '',
         Connected: c.connected || '',
         'Talk (min)': c.talkSec ? Math.round(c.talkSec / 60) : '',
+        'Dialer qualifying (h)': pd && pd.policy ? hrs(pd.policy.metrics.dialerMin) : '',
+        'Call attempts': pd && pd.policy ? pd.policy.metrics.attempts : '',
+        'Verified prospects': pd && pd.policy ? pd.policy.metrics.verifiedProspects : '',
+        'Attended demos': pd && pd.policy ? pd.policy.metrics.attendedDemos : '',
+        'Short-leave events': pd && pd.shortLeave ? pd.shortLeave : '',
+        Correction: pd && pd.correction ? `${pd.correction.originalStatus} → ${pd.correction.revisedStatus || 'same'}: ${pd.correction.reason} (${pd.correction.by})` : '',
       });
     }
 
@@ -469,12 +513,18 @@ const report = selfOrManager(async (req, res) => {
       Role: u.role,
       Email: u.email,
       'Working days': t.working,
+      'Full days': t.fullDays,
+      'Half days': t.halfDays,
+      'Weekly offs': t.weeklyOffs,
+      'Recovery Sundays': t.recovery,
+      'Substitute rest days': t.restDays,
       Present: t.present,
       'Auto-started only': t.auto,
       Absent: t.absent,
       'Leave (days)': Math.round(t.leave * 100) / 100,
       'Attendance %': expected > 0 ? Math.round((t.present / expected) * 100) : '',
       'Late days (15m+)': t.late,
+      'Short-leave events': t.shortLeave,
       'Avg login': avgLogin === null ? '' : `${((Math.floor(avgLogin / 60) + 11) % 12) + 1}:${String(avgLogin % 60).padStart(2, '0')} ${avgLogin < 720 ? 'AM' : 'PM'}`,
       'Worked (h)': hrs(t.worked),
       'Avg / present day (h)': t.present ? hrs(t.worked / t.present) : '',
@@ -583,11 +633,35 @@ module.exports = {
   timeline,
   report,
   sales360: selfOrManager(sales360.summary),
+  sales360Search: selfOrManager(sales360Search),
+  sales360Records: selfOrManager(sales360.records),
   sales360Calls: selfOrManager(sales360.calls),
   sales360Leads: selfOrManager(sales360.leads),
   sales360LeadList: selfOrManager(sales360.leadList),
   sales360LeadsReport: selfOrManager(sales360.leadsSection),
   sales360Export: selfOrManager(sales360.exportXlsx),
   sales360Attendance: selfOrManager(sales360.attendanceMonth),
+  sales360PolicyDays: selfOrManager(sales360.policyDays),
+  sales360Corrections: selfOrManager(sales360.corrections),
+  sales360Correct: policyAdmin(sales360.correct),
+  sales360Prospects: verifierOrSelf(sales360.prospects),
+  sales360DecideProspect: async (req, res) => (canVerify(req) ? sales360.decideProspect(req, res) : bad(res, 'Only a Team Leader or manager can verify a prospect.', 403)),
+  sales360Targets: selfOrManager(sales360.targets),
+  sales360TargetDetail: selfOrManager(sales360.targetDetail),
+  sales360WaiveBacklog: policyAdmin(sales360.waiveBacklog),
+  sales360Roster: policyAdmin(sales360.rosterSunday),
+  sales360RosterCancel: policyAdmin(sales360.cancelRoster),
+  sales360Activity: selfOrManager(sales360.activity),
+  track: salesOnly(sales360.track),
+  overdueList: selfOrManager(policyOps.overdueList),
+  overdueExplain: policyOps.overdueExplain,
+  overdueExclude: async (req, res) => (canVerify(req) ? policyOps.overdueExclude(req, res) : bad(res, 'Only a Team Leader or manager can do this.', 403)),
+  overdueRecord: policyAdmin(policyOps.overdueRecord),
+  caseList: selfOrManager(policyOps.caseList),
+  caseCreate: async (req, res) => policyOps.caseCreate(req, res, MANAGEMENT_ROLES.includes(req.admin.role)),
+  caseDecide: policyAdmin(policyOps.caseDecide),
+  outageList: selfOrManager(policyOps.outageList),
+  outageCreate: policyAdmin(policyOps.outageCreate),
+  outageRemove: policyAdmin(policyOps.outageRemove),
   publicDecision,
 };

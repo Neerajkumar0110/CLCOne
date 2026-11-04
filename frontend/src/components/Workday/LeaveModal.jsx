@@ -56,6 +56,7 @@ export default function LeaveModal({ open, onClose, data, onChanged }) {
   const [halfPart, setHalfPart] = useState("first");
   const [leaveType, setLeaveType] = useState("Casual");
   const [reason, setReason] = useState("");
+  const [emergency, setEmergency] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [tab, setTab] = useState("apply");
@@ -133,7 +134,7 @@ export default function LeaveModal({ open, onClose, data, onChanged }) {
     setSaving(true);
     const res = await request.post({
       entity: "workday/leave",
-      jsonData: { durationType: d.type, date: ymd(date), toDate: toDate ? ymd(toDate) : undefined, hours: d.hours, fromTime, halfPart, leaveType, reason: reason.trim() },
+      jsonData: { durationType: d.type, date: ymd(date), toDate: toDate ? ymd(toDate) : undefined, hours: d.hours, fromTime, halfPart, leaveType, reason: reason.trim(), emergency },
     });
     setSaving(false);
     if (res?.success) {
@@ -337,6 +338,10 @@ export default function LeaveModal({ open, onClose, data, onChanged }) {
               <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value.slice(0, 1000))} placeholder="A line for your manager — e.g. doctor's appointment" />
               <span>{reason.length}/1000</span>
             </div>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, margin: "4px 0 12px" }}>
+              <input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} />
+              Emergency leave (planned leave needs 24 hours' notice)
+            </label>
 
             <div key={`${summary.big}${summary.small}`} className="lv-ticket lv-pop">
               <span className="lv-ticket-ico">{(TYPE_STYLE[leaveType] || ["📅"])[0]}</span>

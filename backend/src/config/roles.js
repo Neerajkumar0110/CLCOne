@@ -11,6 +11,7 @@ const ROLES = [
   'Executive',
   'Support',
   'Team Leader',
+  'Assistant Team Leader',
   'Sales Intern',
   'Finance',
   // LMS-only roles. These accounts see ONLY their LMS panel (/teacher or
@@ -61,6 +62,8 @@ const CRM_ADMIN_ROLES = ['owner', 'Super Admin', 'Admin'];
 // Sales Manager ended up with blanket LMS/Finance/Marketing access it was
 // never meant to have.
 const MANAGEMENT_ROLES = [...CRM_ADMIN_ROLES, 'Sales Manager'];
+// Who a prospect can be sent to, and who gets the daily team email.
+const REVIEWER_ROLES = [...MANAGEMENT_ROLES, 'Team Manager', 'Team Leader'];
 
 // CRM_ADMIN_ROLES, plus 'Support' — every LMS controller/service's local
 // "isManager" admin-access check should be built from this instead, not
@@ -97,10 +100,11 @@ const SALES_ROLES = ROLES.filter(
 // viewer without walking the Admin.reportsTo graph a second time; SALES_ROLE_PARENT
 // is which role a given tier's "Reports To" picker should be filtered to in
 // the Add/Edit User forms.
-const SALES_ROLE_ORDER = ['Sales Manager', 'Team Manager', 'Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'];
+const SALES_ROLE_ORDER = ['Sales Manager', 'Team Manager', 'Team Leader', 'Assistant Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'];
 const SALES_ROLE_PARENT = {
   'Team Manager': 'Sales Manager',
   'Team Leader': 'Team Manager',
+  'Assistant Team Leader': 'Team Leader',
   'Senior Executive': 'Team Leader',
   Executive: 'Senior Executive',
   'Sales Intern': 'Executive',
@@ -110,7 +114,7 @@ const SALES_ROLE_PARENT = {
 // Used for the "one email, two accounts" rule (services/auth/accounts.js)
 // and the department welcome email.
 const DEPARTMENT_ROLES = {
-  Sales: ['Sales Manager', 'Team Manager', 'Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'],
+  Sales: ['Sales Manager', 'Team Manager', 'Team Leader', 'Assistant Team Leader', 'Senior Executive', 'Executive', 'Sales Intern'],
   Finance: ['Finance'],
   Support: ['Support'],
   Admin: ['Admin', 'Super Admin', 'owner'],
@@ -133,6 +137,7 @@ module.exports = {
   STAFF_CREATOR_ROLES,
   CRM_ADMIN_ROLES,
   MANAGEMENT_ROLES,
+  REVIEWER_ROLES,
   LMS_FULL_ACCESS_ROLES,
   NON_SALES_ROLES,
   SALES_ROLES,

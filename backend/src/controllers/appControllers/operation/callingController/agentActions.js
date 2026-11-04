@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { attendancePolicy: POLICY } = require('../../../../config/shiftSchedule');
+const { missingDetails } = require('../../../../services/sales/prospectDetails');
 const { getProvider, readTick } = require('../../../../services/calling');
 const {
   notifyAgentCallEvent,
@@ -264,9 +266,22 @@ const logDetails = async (req, res) => {
     currentCtc,
     painPoint,
     preferredLanguage,
+    college,
+    techBackground,
+    programInterest,
+    consent,
     meetingAt,
     futureFollowUpAt,
   } = b;
+
+  // Section 12: details first, then Prospects. Anything saved earlier counts.
+  if (POLICY.requireDetailsForProspect && (b.stage === 'Prospects' || (!b.stage && dispCode && BY_CODE[dispCode] && BY_CODE[dispCode].crmStage.stage === 'Prospects'))) {
+    const tail = last10(phone || rec.phone);
+    const saved = tail ? await mongoose.model('Lead').findOne({ removed: false, phoneNormalized: tail }).lean() : null;
+    const merged = { ...(saved || {}), ...Object.fromEntries(Object.entries(b).filter(([, v]) => v)), name: contactName || (saved && saved.name) || rec.contactName, phone: phone || rec.phone, budgetRange: budget || (saved && saved.budgetRange), remarks: notes || (saved && saved.remarks), source: (saved && saved.source) || 'Calling' };
+    const missing = missingDetails(merged).filter((x) => x !== 'Email' && x !== 'Next follow-up');
+    if (missing.length) return res.status(400).json({ success: false, result: null, message: `Fill these before marking a prospect: ${missing.join(', ')}.` });
+  }
 
   if (contactName) rec.contactName = String(contactName).trim();
   if (notes != null) rec.notes = String(notes);
@@ -365,6 +380,10 @@ const logDetails = async (req, res) => {
       currentCtc: currentCtc || undefined,
       painPoint: painPoint || undefined,
       preferredLanguage: preferredLanguage || undefined,
+      college: college || undefined,
+      techBackground: techBackground || undefined,
+      programInterest: programInterest || undefined,
+      consent: consent || undefined,
       meetingAt: meetingAt || undefined,
       futureFollowUpAt: futureFollowUpAt || undefined,
       source: 'Calling',
@@ -410,6 +429,10 @@ const logDetails = async (req, res) => {
     if (currentCtc) crmLead.currentCtc = currentCtc;
     if (painPoint) crmLead.painPoint = painPoint;
     if (preferredLanguage) crmLead.preferredLanguage = preferredLanguage;
+    if (college) crmLead.college = college;
+    if (techBackground) crmLead.techBackground = techBackground;
+    if (programInterest) crmLead.programInterest = programInterest;
+    if (consent) crmLead.consent = consent;
     if (meetingAt) crmLead.meetingAt = meetingAt;
     if (futureFollowUpAt) crmLead.futureFollowUpAt = futureFollowUpAt;
 

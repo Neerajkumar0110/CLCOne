@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const wd = require('../services/hr/workday');
 
 // Every minute (services/hr/workday.js):
-//   • from 11:00 IST, anyone in Sales who hasn't pressed Login today is put
+//   • from 10:35 IST (shiftSchedule.workday.autoStartAt), anyone in Sales who hasn't pressed Login today is put
 //     on the auto-dialer — skipped on holidays, weekly off and approved
 //     leave; each person at most once a day (WorkSession.autoStartedAt)
 //   • approved leave running right now pauses (hours / half day) or stops

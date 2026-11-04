@@ -227,8 +227,8 @@ export default function LeadFullDetailModal({ lead: row, phone: phoneProp, onClo
                         </td>
                         <td>{c.agentName || "—"}</td>
                         <td>
-                          <span className={`hub-badge ${c.answered ? "hub-badge-green" : "hub-badge-yellow"}`}>
-                            {c.answered ? "Spoke" : c.missedByAgent ? "User missed" : "Not picked"}
+                          <span className={`hub-badge ${c.answered ? "hub-badge-green" : c.notPlaced ? "hub-badge-gray" : "hub-badge-yellow"}`}>
+                            {c.answered ? "Spoke" : c.notPlaced ? "Failed: no balance" : c.missedByAgent ? "User missed" : "Not picked"}
                           </span>
                           {c.transferredTo && <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>→ {c.transferredTo}</div>}
                         </td>

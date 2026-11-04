@@ -1,7 +1,7 @@
 import { PERMISSION_MODULES, FULL_ACCESS_ROLES } from "@/config/permissionModules";
 
 // Roles that lead a team/desk — broad view/edit access short of the full-access tier.
-const LEAD_TIER_ROLES = ["Team Manager", "Team Leader"];
+const LEAD_TIER_ROLES = ["Team Manager", "Team Leader", "Assistant Team Leader"];
 // Individual-contributor roles — restricted to the modules they work in day to day.
 const FRONTLINE_ROLES = ["Senior Executive", "Executive", "Sales Intern"];
 // Sales department head — full visibility across the whole sales org chart

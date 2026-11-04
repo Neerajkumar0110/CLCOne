@@ -22,6 +22,7 @@ import storePersist from '@/redux/storePersist';
 import ActiveCallModal from '@/components/ActiveCallModal';
 import InstantLeadAlert from '@/components/InstantLeadAlert';
 import BrowserPhone from '@/components/BrowserPhone';
+import useActivityTracker from '@/hooks/useActivityTracker';
 
 export default function ErpCrmApp() {
   const { Content } = Layout;
@@ -32,6 +33,9 @@ export default function ErpCrmApp() {
   const { isMobile } = useResponsive();
 
   const dispatch = useDispatch();
+
+  // Every Sales user's screens / clicks / idle time (the server ignores anyone else).
+  useActivityTracker(true);
 
   useLayoutEffect(() => {
     dispatch(settingsAction.list({ entity: 'setting' }));

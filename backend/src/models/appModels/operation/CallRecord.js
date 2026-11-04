@@ -187,5 +187,9 @@ const schema = new mongoose.Schema({
 
 schema.index({ campaign: 1, created: -1 });
 schema.index({ agent: 1, status: 1 });
+// Sales 360°: one user's calls over a range, every call newest first, one number's calls.
+schema.index({ agent: 1, created: -1 });
+schema.index({ created: -1 });
+schema.index({ phone: 1, created: -1 });
 
 module.exports = mongoose.model('CallRecord', schema);

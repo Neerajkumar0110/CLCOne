@@ -62,12 +62,18 @@ async function fullDayLeave(adminId, dayKey) {
   return Leave().findOne({ removed: false, adminId: String(adminId), status: 'Approved', fromDate: { $lte: ws }, toDate: { $gte: we } }).lean();
 }
 
-// A real login (not one rebuilt from dialer activity) after the late-login
-// cut-offs: after halfDayAfter = half day, after fullDayAfter = full-day
-// leave. A day already covered by approved part-day leave isn't penalised.
+// Which work-day frame a date is read with: days before the attendance policy
+// keep the old shift, so history doesn't change.
+const policyApplies = (dayKey) => dayKey >= shiftSchedule.attendancePolicy.effectiveFrom;
+const scheduleFor = (dayKey) => (policyApplies(dayKey) ? W : shiftSchedule.legacyWorkday);
+
+// Days before the policy only: a real login (not one rebuilt from dialer
+// activity) after the late-login cut-offs: after halfDayAfter = half day, after
+// fullDayAfter = full-day leave. A day already covered by approved part-day
+// leave isn't penalised.
 // → null | { kind: 'half-day' | 'late-leave', leave: 0.5 | 1, label }
 function lateLoginPenalty(dayKey, loginAt, { derived = false, leaveDay = 0 } = {}) {
-  const rule = W.lateLogin;
+  const rule = scheduleFor(dayKey).lateLogin;
   if (!rule || !loginAt || derived || leaveDay > 0) return null;
   const at = new Date(loginAt);
   if (rule.fullDayAfter && at > istAt(dayKey, rule.fullDayAfter)) return { kind: 'late-leave', leave: 1, label: `Full-day leave (logged in after ${rule.fullDayAfter})` };
@@ -76,7 +82,11 @@ function lateLoginPenalty(dayKey, loginAt, { derived = false, leaveDay = 0 } = {
 }
 
 async function dayOff(admin, dayKey) {
-  if (W.weeklyOff.includes(weekday(dayKey))) return { kind: 'weekly-off', label: 'Weekly off' };
+  // A recovery Sunday is a working day for that person; its substitute rest
+  // day isn't (CLC-POL-001 section 4).
+  const roster = admin ? await mongoose.model('SundayRoster').findOne({ admin: admin._id, removed: false, $or: [{ sundayKey: dayKey }, { restDayKey: dayKey }] }).lean() : null;
+  if (roster && roster.restDayKey === dayKey) return { kind: 'weekly-off', label: 'Substitute rest day' };
+  if (W.weeklyOff.includes(weekday(dayKey)) && !roster) return { kind: 'weekly-off', label: 'Weekly off' };
   const h = await holidayOn(dayKey);
   if (h) return { kind: 'holiday', label: h.name, holiday: h };
   const l = admin ? await fullDayLeave(admin._id, dayKey) : null;
@@ -146,7 +156,7 @@ async function login(admin) {
     if (!s.startSource) s.startSource = 'login';
     await s.save();
   }
-  logActivity(admin, 'shift_login', { by: admin, detail: s.autoStartedAt ? 'after 11:00 auto-start' : 'header Login' });
+  logActivity(admin, 'shift_login', { by: admin, detail: s.autoStartedAt ? `after ${W.autoStartAt} auto-start` : 'header Login' });
   const dialer = await startDialer(admin, admin, 'login');
   return { session: s.toObject(), dialer };
 }
@@ -454,6 +464,8 @@ async function applyLeave(admin, b) {
     appliedOn: new Date(),
     adminId: String(admin._id),
     durationType: ['hours', 'half', 'multi'].includes(b.durationType) ? b.durationType : 'full',
+    emergency: !!b.emergency,
+    lateNotice: !b.emergency && win.from.getTime() - Date.now() < 24 * 3600e3,
     hours: win.hours,
     halfPart: win.halfPart,
     fromTime: win.fromTime,
@@ -567,11 +579,14 @@ async function cancelLeave(admin, leaveId) {
 async function autoStartTick(now = new Date()) {
   const dayKey = istDateKey(now);
   if (now < istAt(dayKey, W.autoStartAt) || now > istAt(dayKey, W.end)) return 0;
-  if (W.weeklyOff.includes(weekday(dayKey)) || (await holidayOn(dayKey))) return 0;
+  if (await holidayOn(dayKey)) return 0;
+  // A Sunday: only those rostered for a recovery day.
+  const rostered = W.weeklyOff.includes(weekday(dayKey)) ? await mongoose.model('SundayRoster').distinct('admin', { removed: false, sundayKey: dayKey }) : null;
+  if (rostered && !rostered.length) return 0;
   const admins = await mongoose
     .model('Admin')
     // dialerAutoStartOff: management turned the auto-start off for them (Team Activity)
-    .find({ removed: false, enabled: true, role: { $in: SALES_ROLES }, dialerAutoStartOff: { $ne: true } })
+    .find({ removed: false, enabled: true, role: { $in: SALES_ROLES }, dialerAutoStartOff: { $ne: true }, ...(rostered ? { _id: { $in: rostered } } : {}) })
     .select('name surname role phone mobile contactNumber email')
     .lean();
   const sessions = await Session().find({ dayKey, admin: { $in: admins.map((a) => a._id) } }).select('admin loginAt autoStartedAt').lean();
@@ -626,6 +641,8 @@ module.exports = {
   decideLeave,
   cancelLeave,
   durationLabel,
+  policyApplies,
+  scheduleFor,
   lateLoginPenalty,
   markPresent,
   remindLogin,

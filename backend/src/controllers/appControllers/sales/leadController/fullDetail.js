@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
-const { agentNotes } = require('../../../../services/calling/callingShared');
+const { agentNotes, NOT_PLACED_RX } = require('../../../../services/calling/callingShared');
 
 const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 
@@ -41,7 +41,9 @@ const fullDetail = async (req, res) => {
     : [];
 
   const me = String(req.admin._id);
-  const seesAll = FULL_ACCESS_ROLES.includes(req.admin.role);
+  // Both sides of a sent prospect hear everything: who it was sent to, and who sent it.
+  const sharedWithMe = !!(lead && (lead.prospectHandoffs || []).some((h) => String(h.to) === me || String(h.by) === me));
+  const seesAll = FULL_ACCESS_ROLES.includes(req.admin.role) || sharedWithMe;
   const rows = calls.map((c) => {
     const mine = String(c.agent) === me || (!c.agent && String(c.ownerAgent) === me);
     return {
@@ -56,6 +58,7 @@ const fullDetail = async (req, res) => {
       notes: agentNotes(c.notes) || '',
       instantLead: !!c.instantLead,
       missedByAgent: !!c.missedByAgent,
+      notPlaced: c.status === 'failed' && NOT_PLACED_RX.test(c.notes || ''),
       transferredTo: c.transferredTo || null,
       recordingUrl: (seesAll || mine) && c.recording && c.recording.url ? c.recording.url : null,
     };

@@ -31,6 +31,7 @@ export const LEAD_STAGES = [
       "Wrong Number",
       "Did not Inquire",
       "Language Barrier",
+      "Duplicate",
     ],
   },
   {
@@ -60,7 +61,7 @@ export const LEAD_STAGES = [
     color: "#06B6D4",
     badgeClass: "hub-badge-blue",
     description: "First real discussion has happened.",
-    subStatuses: ["1st Discussion Done - Qualified", "1st Discussion Done - Non Qualified"],
+    subStatuses: ["1st Discussion Done - Qualified", "1st Discussion Done - Non Qualified", "Connected - Response Pending"],
   },
   {
     stage: "Demo Booking",
@@ -108,6 +109,7 @@ export const LEAD_STAGES = [
       "Pay After Placement",
       "Looking for Offline",
       "Reason Not Clear",
+      "Not Eligible",
     ],
   },
   {

@@ -11,6 +11,7 @@ export const ROLES = [
   "Sales Manager",
   "Team Manager",
   "Team Leader",
+  "Assistant Team Leader",
   "Support",
   "Senior Executive",
   "Executive",
@@ -49,6 +50,7 @@ export const ROLE_COLORS = {
   "Sales Manager": "#c2410c",
   "Team Manager": "#7c3aed",
   "Team Leader": "#0f766e",
+  "Assistant Team Leader": "#0d9488",
   Support: "#0369a1",
   "Senior Executive": "#4f46e5",
   Executive: "#475569",
@@ -78,7 +80,7 @@ export const BUSINESS_SEGMENTS = ["B2B Segment", "B2C Segment"];
 // unchanged) since "Finance" itself is only one role with several positions
 // under it, unlike Sales where each position is already its own role.
 export const DEPARTMENT_ROLES = {
-  Sales: ["Sales Manager", "Team Manager", "Team Leader", "Senior Executive", "Executive", "Sales Intern"],
+  Sales: ["Sales Manager", "Team Manager", "Team Leader", "Assistant Team Leader", "Senior Executive", "Executive", "Sales Intern"],
   Finance: ["Finance"],
   Support: ["Support"],
   Admin: ["Admin"],
@@ -105,6 +107,7 @@ export const NO_EDIT_ROLES = [...KNOWN_NON_SELECTABLE_ROLES, "Admin", "Sales Man
 // Roles ranked below Team Manager — the pool a manager can assign into their team.
 export const BELOW_TEAM_MANAGER_ROLES = [
   "Team Leader",
+  "Assistant Team Leader",
   "Support",
   "Senior Executive",
   "Executive",
@@ -117,10 +120,11 @@ export const BELOW_TEAM_MANAGER_ROLES = [
 // Users.jsx) — it's filtered to people already holding the selected role's
 // parent tier, e.g. an Executive's "Reports To" picker only offers Senior
 // Executives. Sales Manager has no parent — it's the top of the chain.
-export const SALES_ROLE_ORDER = ["Sales Manager", "Team Manager", "Team Leader", "Senior Executive", "Executive", "Sales Intern"];
+export const SALES_ROLE_ORDER = ["Sales Manager", "Team Manager", "Team Leader", "Assistant Team Leader", "Senior Executive", "Executive", "Sales Intern"];
 export const SALES_ROLE_PARENT = {
   "Team Manager": "Sales Manager",
   "Team Leader": "Team Manager",
+  "Assistant Team Leader": "Team Leader",
   "Senior Executive": "Team Leader",
   Executive: "Senior Executive",
   "Sales Intern": "Executive",

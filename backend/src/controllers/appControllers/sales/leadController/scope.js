@@ -15,7 +15,7 @@ const NOT_ENTERED = 'Response Not Entered';
 async function userLeadMatch(users) {
   const ids = users.map((u) => u._id);
   const names = [...new Set(users.flatMap((u) => [u.name, `${u.name || ''} ${u.surname || ''}`.trim()]).filter(Boolean))];
-  const responded = { $or: [{ 'stageHistory.changedBy': { $in: ids } }, { 'stageHistory.changedByName': { $in: names } }] };
+  const responded = { $or: [{ 'stageHistory.changedBy': { $in: ids } }, { 'stageHistory.changedByName': { $in: names } }, { 'stageHistory.onCallOf': { $in: names } }] };
   const phones = await mongoose
     .model('CallRecord')
     .distinct('phone', { removed: false, answeredAt: { $ne: null }, $or: [{ agent: { $in: ids } }, { agent: null, ownerAgent: { $in: ids } }] });

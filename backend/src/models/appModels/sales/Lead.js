@@ -11,6 +11,9 @@ const stageHistorySchema = new mongoose.Schema(
     toSubStatus: String,
     changedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
     changedByName: String,
+    // A move the system made when a call ended (changedByName 'System'): whose
+    // call it was, so the lead stays on that user's boards.
+    onCallOf: String,
     remarks: String,
     at: { type: Date, default: Date.now },
   },
@@ -113,6 +116,40 @@ const schema = new mongoose.Schema({
   stageHistory: { type: [stageHistorySchema], default: [] },
   callHistory: { type: [callLogSchema], default: [] },
 
+  // CLC-POL-001 section 7: a prospect counts only once a Team Leader (never
+  // the executive who raised it) has called and recorded the outcome here.
+  // owner = whoever moved the lead into Prospects; `at` = the day it counts.
+  prospectVerification: {
+    status: { type: String, enum: ['verified', 'rejected'] },
+    owner: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    ownerName: String,
+    by: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    byName: String,
+    at: Date,
+    notes: String,
+    callFound: Boolean, // the reviewer's own call to this number is on record
+    checks: { genuine: Boolean, suitable: Boolean, interested: Boolean },
+    // Sales Manager level only: why it was verified despite a failed check.
+    exception: String,
+    missingAtVerify: [String],
+  },
+  // Who the prospect was sent to from My Calls, one row per person.
+  prospectHandoffs: {
+    type: [
+      {
+        _id: false,
+        to: { type: mongoose.Schema.ObjectId, ref: 'Admin', index: true },
+        toName: String,
+        toRole: String,
+        by: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+        byName: String,
+        note: String,
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
+
   // Team name (matches Team.name) this lead has been assigned/contributed to.
   team: String,
   position: String,
@@ -145,6 +182,11 @@ const schema = new mongoose.Schema({
   currentCtc: String, // free text — "Current CTC / Monthly Income", not a fixed range
   painPoint: String, // e.g. "Job into AI", "Upgradation for High CTC"
   preferredLanguage: String,
+  // CLC-POL-001 section 12 mandatory details.
+  college: String, // college or current organisation
+  techBackground: String, // Technical | Non-technical
+  programInterest: String,
+  consent: String, // communication preference / consent
 
   importBatch: { type: mongoose.Schema.ObjectId, ref: 'LeadImportBatch' },
 
@@ -247,6 +289,9 @@ function normalizeLeadPhone(p) {
   const d = String(p == null ? '' : p).replace(/\D/g, '');
   return d.length > 10 ? d.slice(-10) : d;
 }
+
+// Sales 360°: the responses one user made over a range.
+schema.index({ 'stageHistory.changedBy': 1, 'stageHistory.at': -1 });
 
 schema.pre('save', function derivePhoneNormalized(next) {
   if (this.isModified('phone')) {

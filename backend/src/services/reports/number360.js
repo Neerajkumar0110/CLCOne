@@ -122,7 +122,7 @@ async function build(q) {
     if (!u.last || new Date(c.at) > new Date(u.last)) u.last = c.at;
     if (c.disposition) u.dispositions[c.disposition] = (u.dispositions[c.disposition] || 0) + 1;
   }
-  for (const l of leads) for (const h of l.stageHistory || []) if (h.changedByName) userRow(h.changedByName).stageMoves += 1;
+  for (const l of leads) for (const h of l.stageHistory || []) if (h.changedByName && h.changedByName !== 'System') userRow(h.changedByName).stageMoves += 1;
 
   const connected = allCalls.filter((c) => c.outcome === 'Connected');
   const lead = leads.sort((a, b) => new Date(b.updated || b.created) - new Date(a.updated || a.created))[0] || null;

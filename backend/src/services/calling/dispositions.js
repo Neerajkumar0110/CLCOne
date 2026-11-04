@@ -50,6 +50,7 @@ const CALL_DISPOSITIONS = [
   { code: 'NOT_INTERESTED', label: 'Not Interested', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Reason Not Clear' } },
   { code: 'PRICE_TOO_HIGH', label: 'Price Too High', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Price Too High' } },
   { code: 'JOINED_ELSEWHERE', label: 'Joined Somewhere else', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Joined Somewhere else' } },
+  { code: 'NOT_ELIGIBLE', label: 'Not Eligible', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Not Eligible' } },
   { code: 'NOT_INTERESTED_DEMO', label: 'Not Interested for Demo', category: 'not-interested', final: true, crmStage: { stage: 'Not Interested Leads', subStatus: 'Not Interested for Demo' } },
 
   // ── Could not reach ────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ const CALL_DISPOSITIONS = [
   { code: 'DOES_NOT_EXIST', label: 'Number Does not Exist', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Number Does not Exist' } },
   { code: 'INCOMING_NOT_AVAILABLE', label: 'Incoming Not Available', category: 'no-contact', final: false, crmStage: { stage: 'Invalid Leads', subStatus: 'Incoming Not Available' } },
   { code: 'DID_NOT_INQUIRE', label: 'Did not Inquire', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Did not Inquire' } },
+  { code: 'DUPLICATE', label: 'Duplicate', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Duplicate' } },
   { code: 'LANG_BARRIER', label: 'Language Barrier', category: 'no-contact', final: true, crmStage: { stage: 'Invalid Leads', subStatus: 'Language Barrier' } },
 
   // ── Do not call ────────────────────────────────────────────────────────

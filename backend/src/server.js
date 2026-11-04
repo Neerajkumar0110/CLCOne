@@ -165,6 +165,9 @@ if (!RUN_BACKGROUND_JOBS) {
   const startMissedCallDailySummaryTick = require('./jobs/missedCallDailySummaryTick');
   startMissedCallDailySummaryTick();
 
+  // Each Sales user's prospects + callbacks, and the team table for management.
+  require('./jobs/salesDailyMailTick')();
+
   // LMS ⇄ Moodle sync worker — drains the outbound queue (LmsSyncJob), retries
   // failed inbound webhook events, runs the nightly reconcile. No-op until
   // MOODLE_WS_URL / MOODLE_WS_TOKEN are set (see services/lms/, config/lms.js).

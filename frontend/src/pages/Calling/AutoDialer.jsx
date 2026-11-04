@@ -6,6 +6,7 @@ import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, usePoll } from "./shared";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import PoolStagesModal from "./PoolStagesModal";
 import CallerDetailModal from "./CallerDetailModal";
+import SendProspectModal from "./SendProspectModal";
 import IncomingCalls from "./IncomingCalls";
 import { STAGE_NAMES } from "@/config/leadStages";
 import "./dialerReport.css";
@@ -40,13 +41,22 @@ const MY_OUTCOMES = [
   { key: "missed", label: "Missed by me" },
   { key: "callback", label: "Callback" },
   { key: "interested", label: "Interested" },
+  { key: "prospect", label: "Prospects" },
   { key: "demo", label: "Demo Booking" },
   { key: "enrolled", label: "Enrolled" },
 ];
+const PROSPECT_BADGE = { pending: ["Verification waiting", "hub-badge-yellow"], verified: ["Verified prospect", "hub-badge-green"], rejected: ["Prospect rejected", "hub-badge-red"] };
 const MY_RANGES = [
-  { key: 7, label: "1 Week" },
-  { key: 15, label: "15 Days" },
-  { key: 30, label: "1 Month" },
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "7", label: "1 Week" },
+  { key: "15", label: "15 Days" },
+  { key: "30", label: "30 Days" },
+  { key: "month", label: "This Month" },
+  { key: "lastmonth", label: "Last Month" },
+  { key: "90", label: "3 Months" },
+  { key: "365", label: "1 Year" },
+  { key: "custom", label: "Custom dates" },
 ];
 const OUTCOME_BADGE = { connected: "hub-badge-green", notpicked: "hub-badge-yellow", missed: "hub-badge-red" };
 
@@ -199,17 +209,18 @@ function AllCallsList() {
 // already attempted, pool-wide — the system-recorded response plus whatever
 // disposition the agent picked. Everyone else gets every finished call of
 // their own — auto-dialer, manual dialer, callbacks (server decides; the
-// response says scope: "mine"), filterable by outcome and by the last
-// week / 15 days / month.
+// response says scope: "mine"), filterable by outcome and date range.
 function UsedLeads() {
   const [data, setData] = useState(null);
   const [mine, setMine] = useState(false);
   // Management: "pool" = Instant Lead Pool leads, "calls" = every call by every user.
   const [view, setView] = useState("calls");
   const [outcome, setOutcome] = useState("");
-  const [days, setDays] = useState(7);
+  const [range, setRange] = useState("7");
+  const [custom, setCustom] = useState({ from: "", to: "" });
   const [dialingId, setDialingId] = useState(null);
   const [openCall, setOpenCall] = useState(null); // { id, name }
+  const [sending, setSending] = useState(null); // { id, name } — Send prospect
   // Management filters (pool-wide list) — backend leadPool.js usedLeads.
   const [f, setF] = useState({ response: "", stage: "", agent: "", disposition: "", from: "", to: "", q: "" });
   const [qInput, setQInput] = useState("");
@@ -238,14 +249,16 @@ function UsedLeads() {
     // Management on the "All calls" tab: that list polls itself.
     if (view === "calls" && data && !mine) return;
     const extra = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
-    const qs = new URLSearchParams({ items: "50", page: String(page), days: String(days), ...(outcome ? { outcome } : {}), ...extra });
+    // Custom dates wait until both are picked (the list stays as it was).
+    if (range === "custom" && !(custom.from && custom.to)) return;
+    const qs = new URLSearchParams({ items: "50", page: String(page), range, ...(outcome ? { outcome } : {}), ...(range === "custom" ? custom : {}), ...extra });
     const r = await request.get({ entity: `calling/lead-pool/used-leads?${qs}` });
     if (r?.success) {
       setData(r.result);
       setMine(r.scope === "mine");
       setMeta({ facets: r.facets || null, pagination: r.pagination || null });
     }
-  }, 8000, [outcome, days, f, page, view]);
+  }, 8000, [outcome, range, custom, f, page, view]);
   const facets = meta.facets;
   const pg = meta.pagination;
   const anyFilter = Object.values(f).some(Boolean);
@@ -283,12 +296,18 @@ function UsedLeads() {
       <>
       {mine && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-          <select className="hub-select" style={{ width: 170 }} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+          <select className="hub-select" style={{ width: 170 }} value={outcome} onChange={(e) => { setOutcome(e.target.value); setPage(1); }}>
             {MY_OUTCOMES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
-          <select className="hub-select" style={{ width: 130 }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <select className="hub-select" style={{ width: 150 }} value={range} onChange={(e) => { setRange(e.target.value); setPage(1); }}>
             {MY_RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
+          {range === "custom" && (
+            <>
+              <input type="date" className="hub-input" style={{ width: 150 }} aria-label="From date" value={custom.from} max={custom.to || undefined} onChange={(e) => { setCustom((c) => ({ ...c, from: e.target.value })); setPage(1); }} />
+              <input type="date" className="hub-input" style={{ width: 150 }} aria-label="To date" value={custom.to} min={custom.from || undefined} onChange={(e) => { setCustom((c) => ({ ...c, to: e.target.value })); setPage(1); }} />
+            </>
+          )}
         </div>
       )}
       {!mine && (
@@ -342,10 +361,11 @@ function UsedLeads() {
         </div>
       )}
       {mine && <CallerDetailModal callId={openCall?.id} title={openCall?.name} onClose={() => setOpenCall(null)} />}
+      {mine && <SendProspectModal call={sending} onClose={() => setSending(null)} onSent={() => setSending(null)} />}
       <div className="hub-table-wrapper">
         <table className="hub-table">
           <thead>
-            <tr><th>Contact</th><th>Response</th><th>Stage</th><th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th>{mine && <th>Call</th>}</tr>
+            <tr><th>Contact</th><th>Response</th><th>Stage</th><th>Disposition</th>{!mine && <th>Agent</th>}<th>Last Attempt</th>{mine && <th>Action</th>}</tr>
           </thead>
           <tbody>
             {(!data || data.length === 0) && (
@@ -367,12 +387,21 @@ function UsedLeads() {
                 <td style={{ fontSize: 12 }}>
                   <div style={{ fontWeight: 700 }}>{l.stage || "—"}</div>
                   {mine && l.subStatus && <div style={{ color: "#94a3b8" }}>{l.subStatus}</div>}
+                  {mine && PROSPECT_BADGE[l.prospect] && <span className={`hub-badge ${PROSPECT_BADGE[l.prospect][1]}`} style={{ marginTop: 4 }}>{PROSPECT_BADGE[l.prospect][0]}</span>}
+                  {mine && (l.reviewers || []).map((p) => (
+                    <div key={p.agent} style={{ color: p.connected ? "#15803d" : "#475569", marginTop: 4 }}>
+                      {p.name}: {p.connected ? `talked ${fmtDuration(p.talkSec)}` : p.calls ? "called, no answer" : "not called yet"}
+                    </div>
+                  ))}
                 </td>
                 <td>{l.disposition || "—"}</td>
                 {!mine && <td>{l.agentName || "—"}</td>}
                 <td>{l.lastAttemptAt ? fmtDateTime(l.lastAttemptAt) : "—"}</td>
                 {mine && (
-                  <td onClick={(e) => e.stopPropagation()}>
+                  <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
+                    {l.prospect === "pending" && (
+                      <button type="button" className="hub-btn hub-btn-primary" style={{ marginRight: 6 }} title={`Send ${l.name || l.phone} for verification`} onClick={() => setSending({ id: l._id, name: l.name })}>Send</button>
+                    )}
                     {CALLABLE_STAGES.includes(l.stage) && (
                     <button
                       type="button"
@@ -392,10 +421,10 @@ function UsedLeads() {
           </tbody>
         </table>
       </div>
-      {!mine && pg && pg.pages > 1 && (
+      {pg && pg.pages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 10, fontSize: 13 }}>
           <span style={{ color: "var(--hub-muted)" }}>
-            {pg.count} leads · page {pg.page} of {pg.pages}
+            {pg.count} {mine ? "calls" : "leads"} · page {pg.page} of {pg.pages}
           </span>
           <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             <LeftOutlined />

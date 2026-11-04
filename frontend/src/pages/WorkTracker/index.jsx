@@ -47,7 +47,7 @@ const LEAVE_COLOR = { Approved: "green", Pending: "gold", Rejected: "red", Cance
 const EVENT = {
   shift_login: ["Logged in", "green"],
   shift_logout: ["Logged out", "gray"],
-  auto_start: ["Dialer auto-started (11:00)", "blue"],
+  auto_start: ["Dialer auto-started", "blue"],
   pool_on: ["Dialer on", "green"],
   pool_off: ["Dialer off", "gray"],
   break_start: ["Break started", "orange"],

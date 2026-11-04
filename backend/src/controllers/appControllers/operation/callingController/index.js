@@ -13,6 +13,7 @@ const manualDial = require('./manualDial');
 const supportDial = require('./supportDial');
 const ivrFlows = require('./ivrFlows');
 const leadPool = require('./leadPool');
+const prospectSend = require('./prospectSend');
 const teamActivity = require('./teamActivity');
 const missedCalls = require('./missedCalls');
 
@@ -72,6 +73,8 @@ module.exports = {
   leadPoolUsedLeads: leadPool.usedLeads,
   leadPoolStageStats: leadPool.stageStats,
   myCallDetail: leadPool.myCallDetail,
+  prospectRecipients: prospectSend.recipients,
+  sendProspect: prospectSend.send,
   leadPoolSetConnectMode: leadPool.setConnectMode,
   leadPoolLineConnect: leadPool.lineConnect,
   browserPhoneCredentials: leadPool.browserCredentials,

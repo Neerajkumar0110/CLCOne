@@ -112,7 +112,7 @@ function Detail({ u, todayKey, busy, onAutoStart }) {
           <dt>Business</dt><dd>{[u.businessName, u.businessSegment].filter(Boolean).join(" · ") || "—"}</dd>
           <dt>Joined CRM</dt><dd>{u.joined ? new Date(u.joined).toLocaleDateString("en-IN") : "—"}</dd>
           <dt>Last seen</dt><dd>{u.online ? "Online now" : ago(u.lastSeenAt)}</dd>
-          <dt>Skip 11:00 auto-start</dt>
+          <dt>Skip the auto-start</dt>
           <dd>
             <div className="ta-autostart">
               <Switch
@@ -123,7 +123,7 @@ function Detail({ u, todayKey, busy, onAutoStart }) {
                 onChange={(v) => onAutoStart(v)}
               />
               <span className={skipOn ? "on" : ""}>
-                {as.onLeave ? `${as.onLeave} — no auto-start today` : as.off ? "Dialer won't auto-start" : "Dialer auto-starts at 11:00"}
+                {as.onLeave ? `${as.onLeave} — no auto-start today` : as.off ? "Dialer won't auto-start" : "Dialer auto-starts at 10:35"}
               </span>
             </div>
           </dd>
@@ -213,7 +213,7 @@ export default function TeamActivity() {
     setBusyId(null);
   };
 
-  // "Skip 11:00 auto-start" switch in the user's detail panel.
+  // "Skip the auto-start" switch in the user's detail panel.
   const toggleAutoStart = async (u, off) => {
     if (busyId) return;
     setBusyId(u._id);

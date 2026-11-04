@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Shared modal for all Hub pages (Calls, Leads, Reports, User Management...).
@@ -31,7 +32,8 @@ export default function HubModal({
 
   if (!open) return null;
 
-  return (
+  // On <body>: inside an animated panel "fixed" would only cover that panel.
+  return createPortal(
     <div
       className="hub-modal-overlay"
       onMouseDown={(e) => {
@@ -58,6 +60,7 @@ export default function HubModal({
 
         {footer && <div className="hub-modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
