@@ -1358,6 +1358,9 @@ async function startSession(id, admin, { auto = false, force = false } = {}) {
 
   session.status = 'live';
   session.actualStart = session.actualStart || new Date();
+  // A resume starts the moderator-absent clock over — otherwise the old value
+  // would end the class again before the teacher's join finishes.
+  session.moderatorLastSeenAt = new Date();
   // Guard only 'AVAILABLE' so resuming doesn't clobber a recording that
   // already finished processing. 'PROCESSING' does NOT skip this: resuming
   // means BBB starts recording a new segment too (ensureProviderRoom passes
@@ -1937,6 +1940,8 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
 }
 
 /* ───────────────────────── background ticks ───────────────────────── */
+const MODERATOR_ABSENT_END_MS = 3 * 60000;
+
 async function autoLifecycleTick() {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
   const s = await settingsService.get();
@@ -2005,7 +2010,10 @@ async function autoLifecycleTick() {
     // connected gets ended (which stops/finalizes the recording) the same
     // as a fully-empty one. Its own shorter grace period (vs. the 5-minute
     // one above) still gives the teacher's own join a moment to finish its
-    // handshake right after Start before this looks for them.
+    // handshake right after Start before this looks for them. One missed poll
+    // is not "left": 5 Nov 2026 a class with 5 learners inside was ended 59 min
+    // early because the only teacher was missing from a single poll, so they
+    // must be gone for MODERATOR_ABSENT_END_MS in a row.
     const modGraceCutoff = new Date(now.getTime() - 2 * 60000);
     const liveNeedingModCheck = await LmsLiveSession.find({
       removed: false,
@@ -2020,7 +2028,13 @@ async function autoLifecycleTick() {
       if (!participants || participants.length === 0) continue; // covered by the isRunning check above
       await stampBbbPresence(d._id, participants, now).catch(() => {});
       const hasModerator = participants.some((p) => p.role === 'MODERATOR');
-      if (!hasModerator) await endSession(d._id, null, { auto: true }).catch(() => {});
+      if (hasModerator) {
+        // Targeted, for the same reason as stampBbbPresence.
+        await LmsLiveSession.updateOne({ _id: d._id }, { $set: { moderatorLastSeenAt: now } }).catch(() => {});
+        continue;
+      }
+      const lastSeen = d.moderatorLastSeenAt || d.actualStart;
+      if (now - lastSeen >= MODERATOR_ABSENT_END_MS) await endSession(d._id, null, { auto: true }).catch(() => {});
     }
   }
 }

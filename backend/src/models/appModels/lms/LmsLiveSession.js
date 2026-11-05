@@ -201,6 +201,10 @@ const schema = new mongoose.Schema({
   notifiedEmail10min: { type: Boolean, default: false },
   autoCreated: { type: Boolean, default: false },
   autoEnded: { type: Boolean, default: false },
+  // Last time BBB listed a moderator in the room (autoLifecycleTick). The class
+  // only auto-ends once this is MODERATOR_ABSENT_END_MS old, so a teacher's
+  // short network drop doesn't end it for everyone.
+  moderatorLastSeenAt: { type: Date },
 
   // Single-session cancel (spec §13 "Session Management: create/edit/cancel/
   // reschedule") — previously the only way `status:'cancelled'` was ever set
