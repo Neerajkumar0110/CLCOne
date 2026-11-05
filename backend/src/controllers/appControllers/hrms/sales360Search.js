@@ -3,14 +3,16 @@ const sales360 = require('./sales360');
 const { agentNotes, shownCallStatus, CALL_RESULT_FIELDS } = require('../../../services/calling/callingShared');
 const { ACTIVE_DISPOSITIONS } = require('../../../services/calling/dispositions');
 
-// GET /workday/admin/360/search?q=&dated=&group=&skip=&…360 filters…
+// GET /workday/admin/360/search?q=&dated=&group=&skip=&limit=&…360 filters…
 // The search box on Sales 360°: one word or number looked up across the whole
 // Sales side. Every word has to match somewhere in a row. All dates unless
 // dated=1. A user who isn't management (workdayController forces adminId) only
 // finds their own records. A section that takes too long is reported as such,
-// so one slow collection never costs the rest of the results.
+// so one slow collection never costs the rest of the results. limit= is the
+// as-you-type suggestions: fewer rows per section and a shorter wait.
 const PAGE = 20;
 const TIME_LIMIT_MS = 8000;
+const SUGGEST_TIME_LIMIT_MS = 3000;
 const escapeRx = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const asRx = (w) => new RegExp(escapeRx(w), 'i');
 const joined = (...parts) => parts.filter(Boolean).join(' · ');
@@ -199,6 +201,16 @@ const GROUPS = [
     row: (d, c) => ({ id: d._id, title: d.adminName, sub: joined(d.type, d.topic, d.raisedByName), pill: d.status, at: d.created, match: foundIn(c.words, [['Message', d.message], ['Decision', d.decision]]) }),
   },
   {
+    key: 'corrections',
+    label: 'Attendance corrections',
+    model: 'AttendanceCorrection',
+    fields: ['adminName', 'dayKey', 'originalStatus', 'revisedStatus', 'reason', 'requestedBy', 'approvedByName'],
+    sort: { created: -1 },
+    select: 'adminName dayKey originalStatus revisedStatus reason requestedBy approvedByName created',
+    where: (c) => ({ ...oneOf(c, 'admin'), ...inRange(c, 'created') }),
+    row: (d, c) => ({ id: d._id, title: d.adminName, sub: joined(d.dayKey, d.approvedByName), pill: d.revisedStatus, at: d.created, match: foundIn(c.words, [['Reason', d.reason], ['Asked by', d.requestedBy], ['Was', d.originalStatus]]) }),
+  },
+  {
     key: 'outages',
     label: 'Outage log',
     model: 'OutageLog',
@@ -224,8 +236,8 @@ async function runGroup(g, c, skip) {
   try {
     const where = await g.where(c);
     const words = c.words.map((w) => ({ $or: [...g.fields.map((f) => ({ [f]: asRx(w) })), ...(g.also ? g.also(w) : [])] }));
-    const docs = await mongoose.model(g.model).find({ $and: [where, ...words] }).select(g.select).sort(g.sort).skip(skip).limit(PAGE + 1).maxTimeMS(TIME_LIMIT_MS).lean();
-    return { key: g.key, label: g.label, rows: docs.slice(0, PAGE).map((d) => g.row(d, c)), more: docs.length > PAGE };
+    const docs = await mongoose.model(g.model).find({ $and: [where, ...words] }).select(g.select).sort(g.sort).skip(skip).limit(c.limit + 1).maxTimeMS(c.timeLimit).lean();
+    return { key: g.key, label: g.label, rows: docs.slice(0, c.limit).map((d) => g.row(d, c)), more: docs.length > c.limit };
   } catch (err) {
     console.error(`[sales360Search] ${g.key}:`, err.message);
     return { key: g.key, label: g.label, rows: [], more: false, failed: true };
@@ -240,8 +252,8 @@ function usersGroup(users, c, skip) {
   return {
     key: 'users',
     label: 'Sales users',
-    rows: rows.slice(skip, skip + PAGE).map((u) => ({ id: u.adminId, title: u.name, sub: joined(u.role, u.team, u.email), action: { type: 'user', adminId: u.adminId } })),
-    more: rows.length > skip + PAGE,
+    rows: rows.slice(skip, skip + c.limit).map((u) => ({ id: u.adminId, title: u.name, sub: joined(u.role, u.team, u.email), action: { type: 'user', adminId: u.adminId } })),
+    more: rows.length > skip + c.limit,
   };
 }
 
@@ -251,9 +263,12 @@ async function search(req, res) {
   if (!words.length || words.join('').length < 2) return res.status(200).json({ success: true, message: 'ok', result: { groups: [] } });
   const { from, to } = sales360.parseRange(q);
   const { users } = await sales360.salesUsers(q);
+  const wanted = parseInt(q.limit, 10);
   const c = {
     q,
     words,
+    limit: wanted > 0 ? Math.min(wanted, PAGE) : PAGE,
+    timeLimit: wanted > 0 ? SUGGEST_TIME_LIMIT_MS : TIME_LIMIT_MS,
     from,
     to,
     dated: q.dated === '1',

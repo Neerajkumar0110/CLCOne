@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { DatePicker, Input, Modal, Select, Tooltip, message } from "antd";
+import { DatePicker, Modal, Select, Tooltip, message } from "antd";
 import dayjs from "dayjs";
 import axios from "axios";
 import {
@@ -16,7 +16,6 @@ import {
   FormOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
-  SearchOutlined,
   CloseOutlined,
   PlayCircleFilled,
   PauseCircleFilled,
@@ -49,7 +48,9 @@ import ChartCanvas, { PALETTE, fillRgba } from "@/components/dashboard/ChartCanv
 import { rowsToCsv, downloadCsv } from "@/components/dashboard/csvExport";
 import { STAGE_NAMES } from "@/config/leadStages";
 import filterScope from "./salesFilterScope";
-import Sales360Search from "./Sales360Search";
+import Sales360Search, { Sales360SearchBox } from "./Sales360Search";
+import { FEATURE_SECTIONS } from "@/config/featureSections";
+import rankRows from "./salesTopPerformers";
 import { CasesPanel, CorrectionsPanel, OutagesPanel, OverduePanel } from "./Sales360Ops";
 import { ActivityLog, PolicyAttendance, ProspectQueue, StageExplorer, TargetsBoard } from "./Sales360Policy";
 import "./sales360.css";
@@ -90,7 +91,7 @@ const FILTER_LABEL = {
 };
 // The Show filter: every card and section of the page. Nothing picked = all.
 const SHOW_GROUPS = [
-  ["Summary", [["summary", "Summary band"], ["glance", "Today at a glance"]]],
+  ["Summary", [["summary", "Summary band"], ["topPerformers", "Top performers"], ["glance", "Today at a glance"]]],
   ["Attendance", [["calendar", "Attendance calendar"], ["exceptions", "Missed login / logout"], ["policy", "Attendance by policy"]]],
   ["Prospects & targets", [["prospects", "Prospect verification"], ["targets", "Targets, backlog & recovery"]]],
   ["Compliance", [["overdueTasks", "Overdue tasks"], ["cases", "Disputes, reviews & conduct"], ["corrections", "Attendance corrections"], ["outages", "Outages, training & meetings"]]],
@@ -112,6 +113,7 @@ const FILTER_GROUPS = [
   ["Deals, quotes & orders", [["dealStage", "All deal stages"], ["quoteStatus", "All quote statuses"], ["orderStatus", "All order statuses"], ["orderPayment", "All order payments"]]],
   ["Activity", [["path", "All screens"]]],
 ];
+const SALES_PAGES = FEATURE_SECTIONS.find((s) => s.key === "sales").tabs;
 const ACTIVITY_TYPES = [["session", "Login"], ["dialer", "Dialer"], ["break", "Break"], ["leave", "Leave"], ["call", "Call"], ["response", "Response"], ["payment", "Payment"], ["screen", "Screen"], ["click", "Click"], ["search", "Search"], ["idle", "Idle"]];
 
 const PRESETS = [
@@ -1579,6 +1581,58 @@ function WhenNear({ children }) {
   return near ? children : <div ref={ref} className="s3-panel s3-later"><div className="s3-skel-rows"><i /><i /><i /></div></div>;
 }
 
+// Who led the range: the same per-user numbers as the Leaderboard. A user with
+// no dialer log isn't ranked on dialer time (the Leaderboard says "no log").
+const TOP_CARDS = [
+  { key: "calls", title: "Most calls", color: "#4338CA", empty: "No calls in this range.", valueOf: (r) => r.calls, text: (r) => n(r.calls), note: (r) => `${n(r.connected)} of ${n(r.calls)} connected` },
+  { key: "dialer", title: "Longest dialer on", color: "#0F766E", empty: "No dialer log in this range.", valueOf: (r) => (r.dialerDays ? r.dialerMin : 0), text: (r) => hm(r.dialerMin), note: (r) => `Logged on ${r.dialerDays} day${r.dialerDays === 1 ? "" : "s"}` },
+  { key: "talk", title: "Most talk time", color: "#7C3AED", empty: "No talk time in this range.", valueOf: (r) => r.talkSec, text: (r) => dur(r.talkSec), note: (r) => `Avg ${dur(r.avgTalkSec)} per connected call` },
+];
+
+function TopPerformers({ rows, loading, onPick, onLeaderboard }) {
+  return (
+    <>
+      <div className="s3-section s3-top-head">
+        <TrophyOutlined /> Top performers <span>who led in this range · click a person for their 360°</span>
+        {onLeaderboard && <button type="button" className="s3-link" onClick={onLeaderboard}>Full leaderboard</button>}
+      </div>
+      <div className={`s3-top${loading ? " is-loading" : ""}`}>
+        {TOP_CARDS.map((card) => {
+          const { top, winners, more } = rankRows(rows, card.valueOf);
+          const first = winners[0]?.row;
+          return (
+            <article key={card.key} className="s3-top-card" style={{ "--c": card.color }}>
+              <div className="s3-top-title">{card.title}</div>
+              {!first && <div className="s3-empty">{card.empty}</div>}
+              {first && (
+                <>
+                  <div className="s3-top-win">
+                    <b>{first.name}{winners.length > 1 ? ` +${winners.length - 1} tied` : ""}</b>
+                    <strong>{card.text(first)}</strong>
+                  </div>
+                  <div className="s3-muted">{card.note(first)}</div>
+                  <div className="s3-top-list">
+                    {top.map(({ row, rank, pct }) => (
+                      <button key={row.adminId} type="button" className="s3-top-row" onClick={() => onPick(row.adminId)}>
+                        <span className={`s3-top-rank${rank === 1 ? " first" : ""}`}>{rank}</span>
+                        <span className="s3-top-who">
+                          <span className="s3-top-line"><span className="s3-top-name">{row.name}</span><span className="s3-top-value">{card.text(row)}</span></span>
+                          <span className="s3-top-bar"><i style={{ width: `${pct}%` }} /></span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {more > 0 && <div className="s3-muted s3-top-more">+{more} more in the leaderboard</div>}
+                </>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 export default function Sales360({ initialUser }) {
   const me = useSelector(selectCurrentAdmin);
   const manager = FULL_ACCESS.includes(me?.role);
@@ -1609,15 +1663,11 @@ export default function Sales360({ initialUser }) {
     const all = Object.entries(FILTER_LABEL[k] || {});
     return k === "prospect" && !canVerify ? all.filter(([x]) => x !== "sent") : all;
   };
-  // A search replaces the page with its results.
-  const show = (k) => !applied.q && (!applied.show.length || applied.show.includes(k)) && (!scope || scope.has(k));
+  // A submitted search replaces the page with its results; typing only suggests.
+  const show =(k) => !applied.q && (!applied.show.length || applied.show.includes(k)) && (!scope || scope.has(k));
   const nothingShown = !applied.q && !SHOW_GROUPS.some(([, items]) => items.some(([k]) => show(k)));
   const [searchDraft, setSearchDraft] = useState("");
   const setFilter = (k, v) => setFx((x) => ({ ...x, [k]: v, ...(k === "stage" ? { sub: "" } : {}) }));
-  useEffect(() => {
-    const id = setTimeout(() => setFx((x) => (x.q === searchDraft.trim() ? x : { ...x, q: searchDraft.trim() })), 150);
-    return () => clearTimeout(id);
-  }, [searchDraft]);
   const [preset, setPreset] = useState("today");
   const [range, setRange] = useState(PRESETS[0].range());
   const [userId, setUserId] = useState(initialUser || "");
@@ -1653,6 +1703,28 @@ export default function Sales360({ initialUser }) {
     });
     return p;
   }, [range, effectiveUser, team, role, applied]);
+  // What the search box can jump to besides records: everything on this page,
+  // every filter choice, and the other Sales pages.
+  const resultsTopRef = useRef(null);
+  const leaderboardRef = useRef(null);
+  const shortcuts = useMemo(() => {
+    const apply = (change) => () => {
+      setFx((x) => ({ ...x, q: "", ...change }));
+      setSearchDraft("");
+      setTimeout(() => resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
+    };
+    const sections = SHOW_GROUPS.flatMap(([group, items]) => items
+      .filter(([k]) => !scopeNoSearch || scopeNoSearch.has(k))
+      .map(([k, title]) => ({ id: `show-${k}`, group: "Sections on this page", title, sub: group, run: apply({ show: [k] }) })));
+    const filters = FILTER_GROUPS.flatMap(([group, items]) => items
+      .filter(([k]) => k !== "sub" && k !== "path")
+      .flatMap(([k]) => choicesFor(k).map(([value, label]) => ({ id: `${k}-${value}`, group: "Filters", title: `${FILTER_NAME[k]}: ${label}`, sub: group, run: apply({ [k]: value, ...(k === "stage" ? { sub: "" } : {}) }) }))));
+    const subs = (data?.stageTree || []).flatMap((s) => (s.subs || [])
+      .map((x) => ({ id: `sub-${s.stage}-${x.key}`, group: "Filters", title: `Stage: ${s.stage} › ${x.key}`, sub: "Leads", run: apply({ stage: s.stage, sub: x.key }) })));
+    const pages = SALES_PAGES.map((t) => ({ id: `page-${t.key}`, group: "Sales pages", title: t.label, sub: "Sales", run: () => navigate(`/sales/${t.key}`) }));
+    return [...sections, ...filters, ...subs, ...pages];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, scopeNoSearch, canVerify]);
   const reportQuery = useMemo(() => {
     const p = new URLSearchParams(base);
     NOT_IN_REPORT.forEach((k) => p.delete(k));
@@ -1969,7 +2041,22 @@ export default function Sales360({ initialUser }) {
             onChange={(v) => setFilter("show", v)}
             options={SHOW_GROUPS.map(([label, items]) => ({ label, options: items.map(([value, text]) => ({ value, label: text })) }))}
           />
-          <Input allowClear prefix={<SearchOutlined />} placeholder="Search all of Sales: name, phone, email, remark, deal, payment, user" aria-label="Search" className="s3-filter-show" value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+          <Sales360SearchBox
+            value={searchDraft}
+            onChange={(v) => {
+              setSearchDraft(v);
+              if (!v.trim()) setFilter("q", "");
+            }}
+            onSearch={(v) => setFilter("q", v)}
+            base={searchBase}
+            scope={scopeNoSearch}
+            shortcuts={shortcuts}
+            onPickUser={(id) => {
+              setUserId(id);
+              setSearchDraft("");
+              setFilter("q", "");
+            }}
+          />
         </div>
         <div className="s3-filter-groups">
           {FILTER_GROUPS.map(([group, items]) => (
@@ -2004,6 +2091,7 @@ export default function Sales360({ initialUser }) {
         <div className="s3-range-text"><ClockCircleOutlined /> {rangeText}{days ? ` · ${days} day${days === 1 ? "" : "s"}` : ""} · minute-level</div>
       </div>
 
+      <div ref={resultsTopRef} className="s3-results-top" />
       {loading && data && !applied.q && <div className="s3-updating" role="status">Updating…</div>}
 
       {applied.q && (
@@ -2096,6 +2184,15 @@ export default function Sales360({ initialUser }) {
             </div>
           </section>
         )
+      )}
+
+      {!one && data && data.rows.length > 0 && show("topPerformers") && (
+        <TopPerformers
+          rows={data.rows}
+          loading={loading}
+          onPick={setUserId}
+          onLeaderboard={show("leaderboard") ? () => leaderboardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) : null}
+        />
       )}
 
       {/* KPI cards */}
@@ -2344,6 +2441,7 @@ export default function Sales360({ initialUser }) {
         </div>
       )}
 
+      <div ref={leaderboardRef} className="s3-results-top" />
       {/* leaderboard (team) */}
       {!one && rows.length > 0 && show("leaderboard") && (
         <Panel title="Leaderboard · click a person for their 360°" icon={<TeamOutlined />} extra={<button type="button" className="hub-btn" onClick={exportUsers}><DownloadOutlined /> CSV</button>}>

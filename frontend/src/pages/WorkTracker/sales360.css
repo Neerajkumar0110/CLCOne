@@ -1405,7 +1405,220 @@
 .s3-search.is-loading {
   opacity: .55;
 }
-.s3-search mark {
+.s3-top-head .s3-link {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.s3-top {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.s3-top.is-loading {
+  opacity: .55;
+}
+.s3-top-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--hub-border);
+  border-radius: 16px;
+  color: var(--hub-text);
+  background: var(--hub-surface);
+  animation: s3-rise 0.4s ease backwards;
+}
+.s3-top-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--c) 72%, var(--hub-text));
+}
+.s3-top-win {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin-top: 6px;
+}
+.s3-top-win b {
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.s3-top-win strong {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.s3-top-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hub-border);
+}
+.s3-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.s3-top-row:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+.s3-top-rank {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--s3-soft);
+}
+.s3-top-rank.first {
+  color: #713f12;
+  background: #fde68a;
+}
+.s3-top-who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.s3-top-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.s3-top-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s3-top-value {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.s3-top-bar {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--s3-soft);
+}
+.s3-top-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--c);
+}
+.s3-top-more {
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+/* Out of the page's flow so it adds no gap; only a place to scroll to. */
+.s3-results-top {
+  position: absolute;
+  scroll-margin-top: 72px;
+}
+.s3-suggest-box {
+  position: relative;
+  z-index: 40;
+  min-width: 0;
+}
+.s3-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(460px, 70vh);
+  border: 1px solid var(--hub-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--hub-surface);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .18);
+}
+.s3-suggest.is-loading .s3-suggest-list {
+  opacity: .55;
+}
+.s3-suggest-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+.s3-suggest-group {
+  padding: 10px 12px 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--hub-muted);
+}
+.s3-suggest-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.s3-suggest-row.on {
+  background: rgba(99, 102, 241, 0.1);
+}
+.s3-suggest-row .s3-muted {
+  font-size: 12.5px;
+}
+.s3-suggest-row .s3-pill {
+  flex: 0 0 auto;
+  max-width: 40%;
+}
+.s3-suggest-note {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--hub-muted);
+}
+.s3-suggest-all {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border: 0;
+  border-top: 1px solid var(--hub-border);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  color: var(--hub-text);
+  background: var(--hub-surface);
+}
+.s3-suggest-all:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+.s3-search mark,
+.s3-suggest mark {
   padding: 0 1px;
   border-radius: 2px;
   color: inherit;

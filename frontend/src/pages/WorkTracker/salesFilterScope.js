@@ -50,7 +50,7 @@ function scopeOf(key, value) {
     case "callType":
     case "talkBand":
     case "campaign":
-      return [...CALL_CARDS, "trend", "outcomes", "heat", "talkLength", "leaderboard", "usedLeads", "activity", "callList"];
+      return [...CALL_CARDS, "trend", "outcomes", "heat", "talkLength", "leaderboard", "topPerformers", "usedLeads", "activity", "callList"];
     case "attendance":
     case "short":
     case "dayType":

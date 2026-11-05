@@ -1,20 +1,176 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Input } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { request } from "@/request";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
+import matchShortcuts from "./salesSearchMatch";
 
 // The search box's results: everything on the Sales side that matches, one
 // section per kind of record. All dates unless the user narrows it. Any filter
 // in the bar still applies: it leaves the sections it belongs to.
 // Which page section a result group follows; no entry = only with no filter on.
-const FOLLOWS = { leads: "usedLeads", calls: "callList", demos: "demos", payments: "money", deals: "deals", quotes: "quotes", orders: "orders", overdue: "overdueTasks", cases: "cases", outages: "outages", activity: "activity" };
+const FOLLOWS = { leads: "usedLeads", calls: "callList", demos: "demos", payments: "money", deals: "deals", quotes: "quotes", orders: "orders", overdue: "overdueTasks", cases: "cases", corrections: "corrections", outages: "outages", activity: "activity" };
 const when = (d) => (d ? new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "");
 const wordsIn = (q) => (/^[\d\s+()-]+$/.test(q) ? [q.replace(/\D/g, "").slice(-10)] : q.split(/\s+/)).filter(Boolean);
 
 function Marked({ text, rx }) {
   if (!text) return null;
   return String(text).split(rx).map((part, i) => (i % 2 ? <mark key={i}>{part}</mark> : part));
+}
+
+const highlighter = (q) => new RegExp(`(${wordsIn(q).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "$^"})`, "ig");
+const SUGGEST_ROWS = 4;
+const SUGGEST_WAIT_MS = 250;
+
+// The search box: as you type, the matching sections, filters and pages open
+// under it (`shortcuts`, each with its own `run`), then the top matches among
+// the records. A click opens that one. Enter or "See all results" opens the
+// full results.
+export function Sales360SearchBox({ value, onChange, onSearch, base, scope, shortcuts, onPickUser }) {
+  const navigate = useNavigate();
+  const boxRef = useRef(null);
+  const listRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [found, setFound] = useState(null);
+  const [active, setActive] = useState(-1);
+  const [view, setView] = useState(null);
+  const q = value.trim();
+  const ready = wordsIn(q).join("").length >= 2; // the search itself ignores less
+  const query = useMemo(() => new URLSearchParams({ ...base, q, limit: String(SUGGEST_ROWS) }).toString(), [base, q]);
+  const rx = useMemo(() => highlighter(q), [q]);
+
+  useEffect(() => {
+    if (!ready) {
+      setFound(null);
+      return undefined;
+    }
+    if (!open) return undefined;
+    let live = true;
+    setFound((f) => (f ? { ...f, loading: true } : f));
+    const id = setTimeout(() => {
+      request.get({ entity: `workday/admin/360/search?${query}` }).catch(() => null).then((r) => {
+        if (!live) return;
+        setFound({ list: r?.success ? r.result.groups : [], error: !r?.success });
+        setActive(-1);
+      });
+    }, SUGGEST_WAIT_MS);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [query, ready, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => {
+      if (!boxRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+
+  useEffect(() => {
+    listRef.current?.querySelector(".s3-suggest-row.on")?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
+  const list = (found?.list || []).filter((g) => !scope || scope.has(FOLLOWS[g.key]));
+  const direct = useMemo(() => (ready ? matchShortcuts(shortcuts, q) : []), [shortcuts, q, ready]);
+  const shown = [...direct, ...list.filter((g) => g.rows.length)];
+  const rows = shown.flatMap((g) => g.rows);
+  const anyFailed = list.some((g) => g.failed);
+  const seeAll = () => {
+    setOpen(false);
+    onSearch(q);
+  };
+  // Every suggestion opens something: a record with no page of its own (a
+  // dispute, an outage, an activity) opens in the full results.
+  const pick = (row) => {
+    const a = row.action;
+    setOpen(false);
+    if (row.run) row.run();
+    else if (a?.type === "lead" && a.phone) setView({ phone: a.phone, name: a.name });
+    else if (a?.type === "user") onPickUser(a.adminId);
+    else if (a?.type === "go") navigate(a.to);
+    else onSearch(q);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+    } else if (e.key === "Enter") {
+      if (open && rows[active]) pick(rows[active]);
+      else seeAll();
+    } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && rows.length) {
+      e.preventDefault();
+      setOpen(true);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActive((i) => (i < 0 && step < 0 ? rows.length - 1 : (i + step + rows.length) % rows.length));
+    }
+  };
+
+  let at = -1;
+  return (
+    <div ref={boxRef} className="s3-suggest-box s3-filter-show">
+      <LeadFullDetailModal lead={view} onClose={() => setView(null)} />
+      <Input
+        allowClear
+        prefix={<SearchOutlined />}
+        placeholder="Search all of Sales: name, phone, email, remark, deal, payment, user"
+        aria-label="Search"
+        role="combobox"
+        aria-expanded={open && ready}
+        aria-autocomplete="list"
+        aria-controls="s3-suggest-list"
+        aria-activedescendant={open && rows[active] ? `s3-suggest-${active}` : undefined}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setActive(-1);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onKeyDown={onKey}
+      />
+      {open && ready && (
+        <div className={`s3-suggest${found?.loading ? " is-loading" : ""}`}>
+          <div id="s3-suggest-list" ref={listRef} className="s3-suggest-list" role="listbox" aria-label="Suggestions">
+            {found?.error && <div className="s3-suggest-note">Records could not be searched. Please try again.</div>}
+            {found && !found.error && !rows.length && !anyFailed && <div className="s3-suggest-note">Nothing on the Sales side matches this.</div>}
+            {shown.map((g) => (
+              <div key={g.key} role="group" aria-label={g.label}>
+                <div className="s3-suggest-group">{g.label}</div>
+                {g.rows.map((row) => {
+                  at += 1;
+                  const i = at;
+                  return (
+                    <div
+                      key={`${g.key}-${row.id}`}
+                      id={`s3-suggest-${i}`}
+                      role="option"
+                      aria-selected={i === active}
+                      className={`s3-suggest-row${i === active ? " on" : ""}`}
+                      onMouseEnter={() => setActive(i)}
+                      onClick={() => pick(row)}
+                    >
+                      <div className="s3-search-main">
+                        <b><Marked text={row.title} rx={rx} /></b>
+                        {(row.match || row.sub) && <div className="s3-muted"><Marked text={row.match || row.sub} rx={rx} /></div>}
+                      </div>
+                      {row.pill && <span className="s3-pill" style={{ "--c": "#64748B" }}><Marked text={row.pill} rx={rx} /></span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            {!found && <div className="s3-suggest-note">Searching records…</div>}
+            {anyFailed && <div className="s3-suggest-note">Some sections took too long. See all results to search them again.</div>}
+          </div>
+          <button type="button" className="s3-suggest-all" onClick={seeAll}><SearchOutlined /> See all results for “{q}”</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Sales360Search({ q, base, scope, rangeLabel, onPickUser }) {
@@ -24,7 +180,7 @@ export default function Sales360Search({ q, base, scope, rangeLabel, onPickUser 
   const [view, setView] = useState(null);
   const [more, setMore] = useState("");
   const query = useMemo(() => new URLSearchParams({ ...base, q, ...(dated ? { dated: "1" } : {}) }).toString(), [base, q, dated]);
-  const rx = useMemo(() => new RegExp(`(${wordsIn(q).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "$^"})`, "ig"), [q]);
+  const rx = useMemo(() => highlighter(q), [q]);
 
   useEffect(() => {
     let live = true;
