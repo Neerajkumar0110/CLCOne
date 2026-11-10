@@ -66,7 +66,7 @@ function Board() {
       <section className="ld-card pm-scroll" style={{ gap: 8 }} aria-label="Assessments">
         <div className="ld-hd"><b style={{ fontSize: 14 }}>Assessments · {data.batch || '—'}</b></div>
         <BatchSelect batches={data.batches} value={data.batch} onChange={(b) => { setSel(''); setBatch(b); }} />
-        {tests.length === 0 && <div className="ld-empty">Is batch mein abhi tak koi test attempt nahi hua.</div>}
+        {tests.length === 0 && <div className="ld-empty">No test attempt in this batch yet.</div>}
         {tests.map((x) => (
           <button key={x.testType} type="button" className={`pm-a${x.testType === sel ? ' on' : ''}`} onClick={() => setSel(x.testType)}>
             <b>{x.label}</b>
@@ -117,10 +117,10 @@ function Board() {
               </tbody>
             </table>
           </div>
-          <div className="ld-soft">Tab-switch sirf <b>review signal</b> hai, misconduct ka proof nahi. Marks / attempts badalne ke liye reason zaroori — purana attempt history kabhi overwrite nahi hota.</div>
+          <div className="ld-soft">A tab switch is only a <b>review signal</b>, not proof of misconduct. Changing marks / attempts needs a reason — old attempt history is never overwritten.</div>
           <div className="ld-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
             <span className="ld-muted" style={{ fontSize: 13 }}>
-              {needsVerify(t) ? 'Draft report criteria se bana · publish se pehle responsible person verify kare' : `Verified ${fmtDayTime(t.verified.at)} by ${t.verified.byName}`}
+              {needsVerify(t) ? 'Draft report built from the criteria · the responsible person verifies before publishing' : `Verified ${fmtDayTime(t.verified.at)} by ${t.verified.byName}`}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="ld-btn2" disabled={busy === 'xlsx'} onClick={download}>Download draft (XLSX)</button>
@@ -129,7 +129,7 @@ function Board() {
           </div>
         </section>
       ) : (
-        <section className="ld-card"><div className="ld-empty">Test chunein.</div></section>
+        <section className="ld-card"><div className="ld-empty">Pick a test.</div></section>
       )}
     </div>
   );

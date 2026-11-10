@@ -331,16 +331,16 @@ function StudentPolicies() {
       <div className="ld-head">
         <div style={{ gap: 6 }}>
           <div className="ld-eyebrow">{stepNo ? `Step ${stepNo} of ${ob.total} · ` : ''}Account activation</div>
-          <h1 style={{ fontSize: 32 }}>{pending.length ? 'LMS shuru karne se pehle policies accept karein' : 'Policies & agreements'}</h1>
+          <h1 style={{ fontSize: 32 }}>{pending.length ? 'Accept the policies before starting the LMS' : 'Policies & agreements'}</h1>
           <div className="ld-muted" style={{ fontSize: 15 }}>
-            {mandatoryPending ? 'Jab tak accept nahi hota, classes, recordings aur tests band rahenge — direct link se bhi.' : 'Aapne saari zaroori policies accept kar li hain.'}
+            {mandatoryPending ? 'Until you accept, classes, recordings and tests stay locked — even through a direct link.' : 'You have accepted all required policies.'}
           </div>
         </div>
       </div>
 
       <div className="ld-grid" style={{ gridTemplateColumns: pending.length ? '460px minmax(0, 1fr)' : 'minmax(0, 720px)', gap: 20, flex: 1 }}>
         <section className="ld-card p20" aria-label="Your policies" style={{ gap: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Aapke liye policies ({rows.length})</div>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Policies for you ({rows.length})</div>
           {ob && ob.batch && (
             <div className="ld-muted" style={{ fontSize: 13, marginBottom: 8 }}>Batch: {ob.batch}{ob.batchTime ? ` · ${ob.batchTime}` : ''}</div>
           )}
@@ -365,7 +365,7 @@ function StudentPolicies() {
           )}
           {mandatoryPending > 0 && (
             <div className="ld-soft ld-muted" style={{ marginTop: 'auto', padding: 14, borderRadius: 10 }}>
-              Locked till accepted: <b style={{ color: '#0f172a' }}>Live Classes · Recordings · Tests · Projects</b>. Support aur yeh page khule rahenge.
+              Locked till accepted: <b style={{ color: '#0f172a' }}>Live Classes · Recordings · Tests · Projects</b>. Support and this page stay open.
             </div>
           )}
         </section>
@@ -378,7 +378,7 @@ function StudentPolicies() {
             </div>
             <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, cursor: 'pointer' }}>
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ width: 20, height: 20, margin: '2px 0 0' }} />
-              <span>Maine upar di gayi sabhi policies padh li hain aur main inhe accept karta/karti hoon.</span>
+              <span>I have read all the policies above and I accept them.</span>
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, fontSize: 13 }}>
               <div className="ld-kv"><div className="ld-muted">Saved with acceptance</div><b>Learner ID + version</b></div>
@@ -387,7 +387,7 @@ function StudentPolicies() {
             </div>
             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <button type="button" className="ld-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Question about a policy', description: 'Policy name:\nMy question:' } } })}>
-                Kuch samajh nahi aaya? Support se poochein
+                Something unclear? Ask Support
               </button>
               <button type="button" className="ld-btn" style={{ fontSize: 15, padding: '0 20px' }} disabled={!agree || accepting} onClick={acceptAll}>
                 {accepting ? 'Accepting…' : 'Accept & continue →'}

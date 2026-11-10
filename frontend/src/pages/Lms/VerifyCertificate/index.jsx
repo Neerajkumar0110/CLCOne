@@ -49,9 +49,9 @@ export default function VerifyCertificate() {
       </header>
       <main className="vf-main" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 40, padding: 'clamp(24px, 5vw, 48px) clamp(16px, 5vw, 72px)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 44, fontWeight: 700, color: '#0b1a33', lineHeight: '52px' }}>Kya ye certificate asli hai?</h1>
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 44, fontWeight: 700, color: '#0b1a33', lineHeight: '52px' }}>Is this certificate genuine?</h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: '25px', color: '#475569' }}>
-            Certificate ID daalein ya certificate par bana QR scan karein. Login ki zaroorat nahi. Sirf zaroori jaankari dikhegi — marks, contact ya internal notes kabhi nahi.
+            Enter the certificate ID or scan the QR on the certificate. No login needed. Only the essentials are shown — never marks, contact details or internal notes.
           </p>
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <label htmlFor="vf-id" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#475569' }}>
@@ -63,7 +63,7 @@ export default function VerifyCertificate() {
             </button>
           </form>
           <div style={{ fontSize: 13, lineHeight: '20px', marginTop: 'auto', color: '#475569' }}>
-            IBM / Microsoft jaise external certificates ko unke apne provider ke verification link se check karein — Career Lab third-party credential issue ya revoke nahi karta.
+            Check external certificates such as IBM / Microsoft with their own provider's verification link — Career Lab does not issue or revoke third-party credentials.
           </div>
         </div>
 

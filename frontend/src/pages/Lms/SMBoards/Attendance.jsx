@@ -15,7 +15,7 @@ function Correction({ session, row, onClose, onSaved }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const save = async () => {
-    if (reason.trim().length < 5) return message.warning('Reason likhein (required).');
+    if (reason.trim().length < 5) return message.warning('Write a reason (required).');
     setBusy(true);
     try {
       const r = await lmsApi.smCorrect(session.id, { crmUserId: row.crmUserId, status, reason: reason.trim() });
@@ -75,7 +75,7 @@ function Escalations() {
           <button key={n} type="button" className={`ld-seg${lv === n ? ' on' : ''}`} onClick={() => { setLv(n); setIdx(0); }}>Level {n} · {count(n)}</button>
         ))}
       </div>
-      {!cur && <div className="ld-empty">Is level par koi learner nahi.</div>}
+      {!cur && <div className="ld-empty">No learner at this level.</div>}
       {cur && (
         <>
           <div style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
@@ -123,7 +123,7 @@ export default function SMAttendance() {
       <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 470px', gap: 14, flex: 1, minHeight: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <section className="ld-card" aria-label="Class attendance">
-            {!s && <div className="ld-empty">Abhi tak koi class nahi hui.</div>}
+            {!s && <div className="ld-empty">No class has happened yet.</div>}
             {s && (
               <div style={{ overflowX: 'auto' }}>
                 <table className="ld-table">
@@ -131,7 +131,7 @@ export default function SMAttendance() {
                   <tbody>
                     {data.rows.map((r) =>
                       r.dropped ? (
-                        <tr key={r.email}><td className="ld-muted">{r.name}</td><td colSpan={5} className="ld-muted">Dropped — denominator se bahar, reminders band</td><td className="ld-muted">—</td><td /></tr>
+                        <tr key={r.email}><td className="ld-muted">{r.name}</td><td colSpan={5} className="ld-muted">Dropped — out of the denominator, reminders off</td><td className="ld-muted">—</td><td /></tr>
                       ) : (
                         <tr key={r.email} className={fix && fix.email === r.email ? 'sm-rowsel' : ''}>
                           <td><b>{r.name}</b></td>

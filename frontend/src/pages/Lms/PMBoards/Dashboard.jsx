@@ -61,7 +61,7 @@ export default function PMDashboard() {
   const lastDelivered = cur && (cur.rows || []).filter((r) => r.state === 'DELIVERED').slice(-1)[0];
 
   const sendNote = async () => {
-    if (note.trim().length < 5) return message.warning('Announcement likhein (kam se kam 5 characters).');
+    if (note.trim().length < 5) return message.warning('Write the announcement (at least 5 characters).');
     setSending(true);
     try {
       const r = await lmsApi.pmAnnounce({ text: note.trim() });
@@ -102,7 +102,7 @@ export default function PMDashboard() {
       <div className="pm-g" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card" aria-label="Today's classes">
           <div className="ld-hd"><b>Today's classes</b><button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/teacher/classes?tab=all')}>All classes →</button></div>
-          {classes.length === 0 && <div className="ld-empty">Aaj koi class schedule nahi hai.</div>}
+          {classes.length === 0 && <div className="ld-empty">No class scheduled today.</div>}
           {classes.map((c, i) => {
             const st = statusOf(c);
             const live = LIVE.includes(st);
@@ -120,7 +120,7 @@ export default function PMDashboard() {
                     <b style={{ color: recOn ? '#166534' : '#991b1b' }}>{recOn ? 'ON' : 'OFF'}</b>
                   </div>
                 )}
-                {!recOn && !over && <div style={{ fontSize: 13, color: '#991b1b', fontWeight: 600 }}>Recording OFF hai — class se pehle ON karein (OPS-02)</div>}
+                {!recOn && !over && <div style={{ fontSize: 13, color: '#991b1b', fontWeight: 600 }}>Recording is OFF — turn it ON before the class (OPS-02)</div>}
                 {(next || live) && (
                   <button type="button" className="ld-btn" style={{ alignSelf: 'flex-start' }} onClick={() => navigate(`/teacher/classes?class=${c.id}`)}>
                     {live ? 'Open class' : 'Start class'}
@@ -140,7 +140,7 @@ export default function PMDashboard() {
 
         <section className="ld-card" aria-label="Review queue">
           <div className="ld-hd"><b>Review queue</b><button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/teacher/projects')}>Open →</button></div>
-          {queue.length === 0 && <div className="ld-empty">Koi submission review ke liye pending nahi hai.</div>}
+          {queue.length === 0 && <div className="ld-empty">No submission pending review.</div>}
           {queue.slice(0, 6).map((p) => (
             <div className="ld-li" key={p.id}>
               <button type="button" className="ld-link" style={{ color: '#0f172a' }} onClick={() => navigate(`/teacher/projects?review=${p.id}`)}>
@@ -159,16 +159,16 @@ export default function PMDashboard() {
 
         <section className="ld-card" aria-label="At-risk learners">
           <div className="ld-hd"><b>At-risk learners</b><span className="ld-muted" style={{ fontSize: 12 }}>{atRisk.length} learners</span></div>
-          {atRisk.length === 0 && <div className="ld-empty">Abhi koi at-risk learner nahi.</div>}
+          {atRisk.length === 0 && <div className="ld-empty">No at-risk learner right now.</div>}
           {atRisk.slice(0, 5).map((s) => (
             <div className="ld-li" key={s.email || s.name}>
               <button type="button" className="ld-link" onClick={() => navigate(`/teacher/learner-360?email=${encodeURIComponent(s.email || '')}`)}>{s.name}</button>
               <span className="ld-muted">{s.attendancePct}% attendance · {s.progress}% progress</span>
             </div>
           ))}
-          <div className="ld-muted" style={{ fontSize: 12 }}>Signal hai, decision nahi — Support Manager ke saath follow-up</div>
+          <div className="ld-muted" style={{ fontSize: 12 }}>A signal, not a decision — follow up with the Support Manager</div>
           <div className="ld-hd" style={{ marginTop: 'auto' }}><b>Quick announcement</b><span className="ld-chip adh">OPS APPROVAL</span></div>
-          <input className="ld-inp" aria-label="Announcement" placeholder="Kal class 15 min pehle shuru hogi" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendNote()} />
+          <input className="ld-inp" aria-label="Announcement" placeholder="Tomorrow's class starts 15 min early" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendNote()} />
           <button type="button" className="ld-btn2 sm" style={{ alignSelf: 'flex-start' }} disabled={sending || !note.trim()} onClick={sendNote}>{sending ? 'Sending…' : 'Send for approval'}</button>
         </section>
       </div>

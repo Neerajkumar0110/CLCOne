@@ -36,7 +36,7 @@ export default function Roles() {
 
   return (
     <>
-      <Head title="Roles & permissions" sub="LMS Admin only · har grant approved + logged · koi bhi khud ko Super Admin nahi bana sakta" />
+      <Head title="Roles & permissions" sub="LMS Admin only · every grant approved + logged · nobody can make themselves Super Admin" />
       <Loading loading={loading} err={err} data={data}>
         {data && m && (
           <div className="ao-grid-2" style={{ gridTemplateColumns: '240px minmax(0, 1fr) 320px' }}>
@@ -67,7 +67,7 @@ export default function Roles() {
                 </table>
               </div>
               <div className="ao-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
-                <span className="ao-muted" style={{ fontSize: 12 }}>{n ? `${n} unsaved change(s) · Management approval chahiye` : data.approvedByName ? `Last approved by ${data.approvedByName} · ${fmtDate(data.approvedAt)}` : 'No changes'}</span>
+                <span className="ao-muted" style={{ fontSize: 12 }}>{n ? `${n} unsaved change(s) · needs Management approval` : data.approvedByName ? `Last approved by ${data.approvedByName} · ${fmtDate(data.approvedAt)}` : 'No changes'}</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="ao-btn2" onClick={() => setPreview(true)}>Test as {role}</button>
                   {data.draft && data.canApprove && !n ? (
@@ -96,7 +96,7 @@ export default function Roles() {
               <div style={{ fontSize: 12, lineHeight: '18px' }} className="ao-muted">
                 {data.recentChanges.length === 0 ? 'None yet.' : data.recentChanges.map((c, i) => <div key={i}>{fmtDate(c.at)} · {c.text} · by {c.by}{c.reason ? ` · ${c.reason}` : ''}</div>)}
               </div>
-              <div className="ao-soft" style={{ fontSize: 12, lineHeight: '18px', marginTop: 'auto' }}>Secrets (API keys, DB, OAuth, payment) kisi role ke UI mein kabhi nahi dikhte.</div>
+              <div className="ao-soft" style={{ fontSize: 12, lineHeight: '18px', marginTop: 'auto' }}>Secrets (API keys, DB, OAuth, payment) are never shown in any role's UI.</div>
             </div>
           </div>
         )}

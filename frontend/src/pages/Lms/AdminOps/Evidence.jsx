@@ -19,7 +19,7 @@ export default function Evidence() {
       <div className="ao-head" style={{ alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Central evidence repository</h1>
-          <div className="ao-muted ao-sub">Spec §11.1 · har decision ka saboot ek jagah · version, source, access scope, retention class</div>
+          <div className="ao-muted ao-sub">Spec §11.1 · proof of every decision in one place · version, source, access scope, retention class</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -40,7 +40,7 @@ export default function Evidence() {
                     <span className={`ao-chip ${v.ok && !stale ? 'hai' : 'red'}`} style={{ alignSelf: 'flex-start' }}>{v.ok ? (stale ? 'Stale' : 'OK') : 'Failed'}</span>
                     <span className="ao-muted" style={{ fontSize: 12 }}>{fmtDate(v.at)} {fmtTime(v.at)} · {v.summary || ''}</span>
                   </>
-                ) : <span className="ao-muted" style={{ fontSize: 12 }}>Abhi tak report nahi aayi — deploy/vps scripts ka cron set karein</span>}
+                ) : <span className="ao-muted" style={{ fontSize: 12 }}>No report yet — set up the cron jobs for the deploy/vps scripts</span>}
               </div>
             );
           })}
@@ -74,7 +74,7 @@ export default function Evidence() {
                 ))}
                 <div className="ao-li"><span className="ao-muted">Source</span><b>{cur.src}</b></div>
                 <div className="ao-li"><span className="ao-muted">Retention</span><b>{cur.ret}</b></div>
-                <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Learner sirf apna, PM sirf assigned, security events sirf authorised roles</div>
+                <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Learners see only their own, PMs only assigned learners, security events only authorised roles</div>
               </>
             ) : (
               <div className="ao-empty">Select a row.</div>

@@ -363,7 +363,7 @@ export default function AssessmentRunner({ testType, title, onExit }) {
               <span>Camera · proctoring on</span>
             </div>
             <div className="ar-kv"><span>Proctoring warnings</span><b>{warningCount}/3</b></div>
-            <div className="ld-muted" style={{ fontSize: 12, lineHeight: '17px' }}>Tab switch, fullscreen se bahar jaana ya camera band karna warning hai — 3 warnings par test suspend ho jaata hai.</div>
+            <div className="ld-muted" style={{ fontSize: 12, lineHeight: '17px' }}>Switching tabs, leaving full screen or turning the camera off is a warning — after 3 warnings the test is suspended.</div>
           </section>
           <section className="ar-scard" aria-label="Questions">
             <b style={{ fontSize: 14 }}>Questions</b>

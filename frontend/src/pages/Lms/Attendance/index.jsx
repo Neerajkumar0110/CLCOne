@@ -327,7 +327,7 @@ function MyAttendance() {
       <div className="ld-head">
         <div>
           <h1>My attendance</h1>
-          <div className="ld-muted ld-sub">Join/leave events se calculate · grace 10 min{required ? ` · threshold ${required}%` : ''}</div>
+          <div className="ld-muted ld-sub">Calculated from join/leave events · grace 10 min{required ? ` · threshold ${required}%` : ''}</div>
         </div>
       </div>
 
@@ -388,13 +388,13 @@ function MyAttendance() {
               </span>
             </div>
           )}
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Reconnects merge hote hain — duplicate attendance nahi banta · calculation basis har session par visible</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Reconnects are merged — no duplicate attendance · the calculation basis is visible for every session</div>
         </section>
 
         <section className="ld-card" aria-label="Attendance correction">
-          <b style={{ fontSize: 16 }}>Attendance galat hai?</b>
+          <b style={{ fontSize: 16 }}>Attendance wrong?</b>
           {correctable.length === 0 ? (
-            <div className="ld-muted" style={{ fontSize: 13 }}>Koi absent / partial / late session nahi — correction ki zaroorat nahi.</div>
+            <div className="ld-muted" style={{ fontSize: 13 }}>No absent / partial / late session — no correction needed.</div>
           ) : (
             <>
               <label className="ld-label">Session
@@ -402,14 +402,14 @@ function MyAttendance() {
                   {correctable.map((c) => <option key={c.id} value={c.id}>{c.className} · {fmtDate(c.date)} · {c.status} ({c.attendedMin || 0} min)</option>)}
                 </select>
               </label>
-              <label className="ld-label">Kya hua
-                <textarea className="ld-inp full" style={{ fontSize: 14 }} value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="e.g. Network drop hua, phir join kiya par record nahi hua." />
+              <label className="ld-label">What happened
+                <textarea className="ld-inp full" style={{ fontSize: 14 }} value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="e.g. My network dropped, I rejoined but it was not recorded." />
               </label>
-              <div className="ld-muted" style={{ height: 60, border: '2px dashed #cbd5e1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, textAlign: 'center', padding: 8 }}>Screenshot / proof agle step (ticket) mein attach karein</div>
+              <div className="ld-muted" style={{ height: 60, border: '2px dashed #cbd5e1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, textAlign: 'center', padding: 8 }}>Attach a screenshot / proof in the next step (ticket)</div>
               <button type="button" className="ld-btn" disabled={corrText.trim().length < 5} onClick={sendCorrection}>Send correction request</button>
             </>
           )}
-          <div className="ld-muted" style={{ fontSize: 12, lineHeight: '18px' }}>Correction sirf authorised staff karega — aapko result notification milega.</div>
+          <div className="ld-muted" style={{ fontSize: 12, lineHeight: '18px' }}>Only authorised staff make corrections — you will be notified of the result.</div>
         </section>
       </div>
     </div>

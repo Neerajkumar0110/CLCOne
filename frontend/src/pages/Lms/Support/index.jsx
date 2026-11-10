@@ -24,13 +24,13 @@ const HISTORY_LABEL = {
 // First-line answers per category (spec §25 FAQ) shown while raising a
 // ticket — "That solved it" closes the form without creating a ticket.
 const FAQ = {
-  'Live class / join': 'Screenshot aur session details bhejein. Refresh karke Join dobara try karein — link har baar naya banta hai. Team live-session state aur join access verify karegi; confirmed issue log aur escalate hoga.',
-  'Recording / material': 'Recordings class ke ~2 ghante baad Recordings page par aati hain; study material Study material page par hai. Kaunsi class / module missing ya galat hai, woh batayein.',
-  Attendance: 'Attendance join/leave events se calculate hoti hai. Galat lage to My Attendance page se us class ka correction request bhejein — ya yahan class date ke saath batayein.',
-  Assessment: 'Test ke dauran technical issue (network, camera) hua to date / time aur kya dikha woh batayein — technical failure par attempt count nahi hota, team review karegi.',
-  Project: 'Deadline extension ke liye My Project page par "Extension chahiye?" use karein. Review ya submission ka issue ho to project version batayein.',
-  Payment: 'Payment gateway confirm hote hi paid dikhta hai (usually kuch minute). Paisa kat gaya par fee due dikh rahi hai ek ghante baad bhi, to neeche payment select karein — Finance match karega. Receipts My Fees mein hain.',
-  'Policy / privacy': 'Yeh ticket sirf authorised management dekhta hai. Policy ya privacy concern detail mein likhein.',
+  'Live class / join': 'Send a screenshot and session details. Refresh and try Join again — a new link is made every time. The team will verify the live-session state and your join access; a confirmed issue is logged and escalated.',
+  'Recording / material': 'Recordings reach the Recordings page about 2 hours after class; study material is on the Study material page. Tell us which class / module is missing or wrong.',
+  Attendance: 'Attendance is calculated from join/leave events. If it looks wrong, send a correction request for that class from My Attendance — or tell us here with the class date.',
+  Assessment: 'If a technical issue (network, camera) happened during a test, tell us the date / time and what you saw — a technical failure does not use up an attempt; the team will review.',
+  Project: 'For a deadline extension use "Need an extension?" on My Project. For a review or submission issue, tell us the project version.',
+  Payment: 'A payment shows as paid as soon as the gateway confirms (usually a few minutes). If money was deducted but the fee still shows due after an hour, pick the payment below — Finance will match it. Receipts are in My Fees.',
+  'Policy / privacy': 'Only authorised management sees this ticket. Describe the policy or privacy concern in detail.',
   Certificate: 'Certificates are issued once every eligibility requirement is met — see My Eligibility. For a name or detail correction, tell us exactly what should change.',
   'Login / Technical': 'Try a hard refresh (Ctrl + Shift + R), another browser, or clearing site data. If it continues, tell us the device/browser and the exact error.',
 };
@@ -176,12 +176,12 @@ export default function SupportTickets() {
     <div className="ld-page">
       <div className="ld-head">
         <h1>Support</h1>
-        <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/doubts')}>Padhai ka doubt? Project Manager se poochein — My doubts →</button>
+        <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/doubts')}>A study doubt? Ask your Project Manager — My doubts →</button>
       </div>
 
       <div className="ld-grid" style={{ gridTemplateColumns: '1fr 1fr', flex: 1 }}>
         <section className="ld-card" aria-label="New ticket" style={{ gap: 12 }}>
-          <b style={{ fontSize: 16 }}>Naya ticket</b>
+          <b style={{ fontSize: 16 }}>New ticket</b>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <label className="ld-label">Category
               <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={f.category} onChange={set('category')}>
@@ -204,11 +204,11 @@ export default function SupportTickets() {
               </select>
             </label>
           )}
-          <label className="ld-label">Kya hua?
+          <label className="ld-label">What happened?
             <textarea className="ld-inp full" style={{ height: 80, fontSize: 14, resize: 'none' }} maxLength={5000} name="description" value={f.description} onChange={set('description')} placeholder="Tell us what happened — dates, amounts, what you saw on screen…" />
           </label>
-          <label className="ld-label">Kya hona chahiye tha?
-            <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={1000} name="expected" value={f.expected} onChange={set('expected')} placeholder="e.g. Join button dikhna chahiye" />
+          <label className="ld-label">What should have happened?
+            <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={1000} name="expected" value={f.expected} onChange={set('expected')} placeholder="e.g. The Join button should appear" />
           </label>
           <label
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 56, padding: 10, border: `1.5px dashed ${shotDrag ? '#0e7490' : '#cbd5e1'}`, borderRadius: 8, background: shotDrag ? '#ecfeff' : '#f8fafc', fontSize: 13, color: '#475569', cursor: 'pointer', textAlign: 'center' }}
@@ -217,7 +217,7 @@ export default function SupportTickets() {
             onDrop={(e) => { e.preventDefault(); setShotDrag(false); addShots(e.dataTransfer.files); }}
           >
             <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple style={{ display: 'none' }} onChange={(e) => { addShots(e.target.files); e.target.value = ''; }} />
-            {shotBusy ? 'Uploading…' : 'Screenshot attach karein (drag & drop)'}
+            {shotBusy ? 'Uploading…' : 'Attach a screenshot (drag & drop)'}
           </label>
           {shots.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
@@ -229,7 +229,7 @@ export default function SupportTickets() {
               ))}
             </div>
           )}
-          <div style={{ padding: 12, borderRadius: 8, background: '#fef2f2', fontSize: 13, color: '#991b1b' }}>Password, OTP ya card details kabhi mat bhejein.</div>
+          <div style={{ padding: 12, borderRadius: 8, background: '#fef2f2', fontSize: 13, color: '#991b1b' }}>Never send passwords, OTPs or card details.</div>
           {FAQ[f.category] && (
             <div style={{ padding: 14, borderRadius: 8, background: '#eff6ff', fontSize: 13, lineHeight: '19px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <b style={{ color: '#1e40af' }}>Suggested answer (FAQ)</b>
@@ -306,7 +306,7 @@ export default function SupportTickets() {
                 {viewing.status !== 'Resolved' && (
                   <li style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: '18px' }}>
                     <i style={{ width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0, background: '#cbd5e1' }} />
-                    <div><b>Resolved → aapka confirmation</b><br /><span className="ld-muted">You&rsquo;ll get an email and a notification here once it&rsquo;s resolved.</span></div>
+                    <div><b>Resolved → your confirmation</b><br /><span className="ld-muted">You&rsquo;ll get an email and a notification here once it&rsquo;s resolved.</span></div>
                   </li>
                 )}
               </ol>
@@ -320,8 +320,8 @@ export default function SupportTickets() {
                     <>
                       <textarea className="ld-inp full" style={{ height: 60 }} maxLength={1000} value={reopenNote} onChange={(e) => setReopenNote(e.target.value)} placeholder="If not — what is still wrong? (optional)" />
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="button" className="ld-btn2" disabled={!!confirming} onClick={() => answer(false)}>Abhi bhi issue hai (reopen)</button>
-                        <button type="button" className="ld-btn" style={{ height: 40 }} disabled={!!confirming} onClick={() => answer(true)}>Haan, solve ho gaya</button>
+                        <button type="button" className="ld-btn2" disabled={!!confirming} onClick={() => answer(false)}>Still an issue (reopen)</button>
+                        <button type="button" className="ld-btn" style={{ height: 40 }} disabled={!!confirming} onClick={() => answer(true)}>Yes, it is solved</button>
                       </div>
                     </>
                   )}

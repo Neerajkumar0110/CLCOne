@@ -40,7 +40,7 @@ export default function SMScheduler() {
   const events = useMemo(() => ((cal.data || []).filter((c) => b && c.batchName === b.name)), [cal.data, b]);
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} style={{ margin: 24 }} />;
-  if (!b) return <SMPage title="Batches & live-class scheduler"><section className="ld-card"><div className="ld-empty">Koi batch nahi.</div></section></SMPage>;
+  if (!b) return <SMPage title="Batches & live-class scheduler"><section className="ld-card"><div className="ld-empty">No batch.</div></section></SMPage>;
 
   const hours = [...new Set(events.map((e) => new Date(e.scheduledStart).getHours()))].sort((x, y) => x - y);
   const rowsH = hours.length ? hours : [Number(String(b.classTime || '18').slice(0, 2))];
@@ -52,10 +52,10 @@ export default function SMScheduler() {
   const curName = rename === null ? b.name : rename;
 
   const applyTime = () => {
-    if (!curTime.classTime || !curTime.endTime || (curTime.classTime === b.classTime && curTime.endTime === b.endTime)) return message.warning('Naya time chunein.');
+    if (!curTime.classTime || !curTime.endTime || (curTime.classTime === b.classTime && curTime.endTime === b.endTime)) return message.warning('Pick a new time.');
     Modal.confirm({
       title: `Change ${b.name} to ${curTime.classTime}–${curTime.endTime}?`,
-      content: `Future classes, calendar, reminders, BBB rooms aur learner view sab update honge · ${b.learners} learners ko notice jayega.`,
+      content: `Future classes, calendar, reminders, BBB rooms and the learner view all update · ${b.learners} learners will be notified.`,
       okText: `Apply & notify ${b.learners} learners`,
       onOk: async () => {
         const r = await lmsApi.smBatchTime(b.id, curTime).catch((e) => ({ success: false, message: errText(e, 'Failed.') }));
@@ -89,8 +89,8 @@ export default function SMScheduler() {
   const startT = form.start || b.classTime || '';
   const endT = form.end || b.endTime || '';
   const create = async () => {
-    if (!form.title.trim() || !form.date || !startT || !endT) return message.warning('Topic, date aur time bharein.');
-    if (endT <= startT) return message.warning('End time start ke baad hona chahiye.');
+    if (!form.title.trim() || !form.date || !startT || !endT) return message.warning('Fill in the topic, date and time.');
+    if (endT <= startT) return message.warning('The end time must be after the start time.');
     const dates = [];
     const first = new Date(`${form.date}T00:00:00`);
     if (form.repeat === '0') dates.push(first);
@@ -162,7 +162,7 @@ export default function SMScheduler() {
               </React.Fragment>
             ))}
           </div>
-          {events.length === 0 && <div className="ld-empty">Is hafte {b.name} ki koi class nahi.</div>}
+          {events.length === 0 && <div className="ld-empty">No class this week for {b.name}.</div>}
 
           <div className="ld-hd" style={{ marginTop: 8 }}><b style={{ fontSize: 15 }}>Change class time · {b.name}</b></div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -171,7 +171,7 @@ export default function SMScheduler() {
             <input className="ld-inp" type="time" aria-label="New end" value={curTime.endTime} onChange={(e) => setTime({ ...curTime, endTime: e.target.value })} />
           </div>
           {time && (curTime.classTime !== b.classTime || curTime.endTime !== b.endTime) && (
-            <div className="ld-warn">{b.classTime}–{b.endTime} → <b>{curTime.classTime}–{curTime.endTime}</b> · {b.learners} learners · calendar, reminders, BBB room aur learner view sab ek saath update honge</div>
+            <div className="ld-warn">{b.classTime}–{b.endTime} → <b>{curTime.classTime}–{curTime.endTime}</b> · {b.learners} learners · calendar, reminders, BBB room and learner view all update together</div>
           )}
           <div style={{ display: 'flex', gap: 8 }}><button type="button" className="ld-btn" disabled={!time} onClick={applyTime}>Apply &amp; notify {b.learners} learners</button></div>
 

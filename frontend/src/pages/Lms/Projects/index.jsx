@@ -470,11 +470,11 @@ function ProjectBlock({ p, onChanged }) {
     setUploading(true);
     for (const file of picked) {
       if (!/\.(zip|pdf|ipynb)$/i.test(file.name)) {
-        message.error(`${file.name}: sirf zip / pdf / ipynb`);
+        message.error(`${file.name}: only zip / pdf / ipynb`);
         continue;
       }
       if (file.size > 50 * 1024 * 1024) {
-        message.error(`${file.name}: 50 MB se bada hai`);
+        message.error(`${file.name}: larger than 50 MB`);
         continue;
       }
       // eslint-disable-next-line no-await-in-loop
@@ -567,18 +567,18 @@ function ProjectBlock({ p, onChanged }) {
           </table>
           {p.blocker ? (
             <div className="ld-warn">
-              <b>Blocker:</b> {p.blocker.text} — PM ko flag kiya ({dayjs(p.blocker.at).format('D MMM')}){' '}
+              <b>Blocker:</b> {p.blocker.text} — flagged to the PM ({dayjs(p.blocker.at).format('D MMM')}){' '}
               {p.status !== 'approved' && <button type="button" className="ld-link" onClick={() => sendBlocker('')}>Resolved</button>}
             </div>
           ) : p.status !== 'approved' && (blockerOpen ? (
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="ld-inp" style={{ flex: 1 }} aria-label="Blocker" maxLength={500} value={blockerText} onChange={(e) => setBlockerText(e.target.value)} placeholder="Kya atka hai? (e.g. API key limit)" />
+              <input className="ld-inp" style={{ flex: 1 }} aria-label="Blocker" maxLength={500} value={blockerText} onChange={(e) => setBlockerText(e.target.value)} placeholder="What's blocking you? (e.g. API key limit)" />
               <button type="button" className="ld-btn2 sm" disabled={!blockerText.trim()} onClick={() => sendBlocker(blockerText)}>Flag to PM</button>
             </div>
           ) : (
-            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => setBlockerOpen(true)}>Koi blocker hai? PM ko flag karein</button>
+            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => setBlockerOpen(true)}>Blocked? Flag it to the PM</button>
           ))}
-          {p.status !== 'approved' && <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={requestExtension}>Extension chahiye? PM ko request (approval recorded)</button>}
+          {p.status !== 'approved' && <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={requestExtension}>Need an extension? Request it from the PM (approval recorded)</button>}
         </section>
 
         <section className="ld-card" aria-label="Submission" style={{ gap: 12 }}>
@@ -651,7 +651,7 @@ function ProjectBlock({ p, onChanged }) {
               </div>
             );
           })()}
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval sirf Project Manager / authorised approver · eligibility update audit me log hota hai</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval only by the Project Manager / authorised approver · the eligibility update is logged in the audit</div>
         </section>
       </div>
     </div>

@@ -11,9 +11,9 @@ const AllDoubts = lazy(() => import('../Doubts'));
 // stays on the "All doubts" tab.
 
 const F = [
-  ['open', 'Waiting for my reply', 'Learner ne poocha, aapne abhi jawab nahi diya', ['adh', 'Needs reply']],
-  ['answered', 'Answered · waiting for learner', 'Aapne reply kiya, learner ke confirm ka intezaar', ['naya', 'Answered']],
-  ['resolved', 'Resolved', 'Learner ne confirm kiya ya resolved mark hua', ['hai', 'Resolved']],
+  ['open', 'Waiting for my reply', 'The learner asked, you haven\'t answered yet', ['adh', 'Needs reply']],
+  ['answered', 'Answered · waiting for learner', 'You replied, waiting for the learner to confirm', ['naya', 'Answered']],
+  ['resolved', 'Resolved', 'The learner confirmed or it was marked resolved', ['hai', 'Resolved']],
 ];
 const ROLE = { teacher: 'you', manager: 'manager', student: 'learner' };
 
@@ -52,7 +52,7 @@ function Thread({ id, onChanged }) {
         </div>
       ))}
       {d.canReply && d.status !== 'resolved' && (
-        <textarea className="ld-inp" aria-label="Reply" style={{ height: 110, padding: 10, resize: 'none' }} placeholder="Reply likhein…" value={reply} onChange={(e) => setReply(e.target.value)} />
+        <textarea className="ld-inp" aria-label="Reply" style={{ height: 110, padding: 10, resize: 'none' }} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 'auto', flexWrap: 'wrap' }}>
         {d.canModerate && <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => run('pin', () => lmsApi.pinDoubt(id), d.pinned ? 'Unpinned.' : 'Pinned for the batch.')}>{d.pinned ? 'Unpin' : 'Pin for batch'}</button>}
@@ -74,7 +74,7 @@ function Thread({ id, onChanged }) {
           </button>
         )}
       </div>
-      <div className="ld-muted" style={{ fontSize: 12 }}>Reply bhejne par status "Answered — waiting for learner"; learner ya aap resolve mark karein</div>
+      <div className="ld-muted" style={{ fontSize: 12 }}>After you reply the status is "Answered — waiting for learner"; the learner or you mark it resolved</div>
     </section>
   );
 }
@@ -104,7 +104,7 @@ function Board() {
       </div>
       <div className="pm-g" style={{ display: 'grid', gridTemplateColumns: '420px minmax(0, 1fr)', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card pm-scroll" style={{ gap: 8 }} aria-label="Doubts list">
-          {items.length === 0 && <div className="ld-empty">Is filter mein koi doubt nahi.</div>}
+          {items.length === 0 && <div className="ld-empty">No doubt in this filter.</div>}
           {items.map((q) => (
             <button key={q.id} type="button" className={`pm-q${sel === q.id ? ' on' : ''}`} onClick={() => setSel(q.id)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, width: '100%' }}><b>{q.title}</b><span className={`ld-chip ${chip[0]}`}>{chip[1]}</span></div>
@@ -112,7 +112,7 @@ function Board() {
             </button>
           ))}
         </section>
-        {sel ? <Thread key={sel} id={sel} onChanged={reload} /> : <section className="ld-card"><div className="ld-empty">List se doubt chunein.</div></section>}
+        {sel ? <Thread key={sel} id={sel} onChanged={reload} /> : <section className="ld-card"><div className="ld-empty">Pick a doubt from the list.</div></section>}
       </div>
     </>
   );
@@ -121,7 +121,7 @@ function Board() {
 export default function PMDoubts() {
   const [tab, setTab] = useTab('board');
   return (
-    <PMPage title="Doubts" sub='Har filter apna matlab khud batata hai' right={<PMTabs tabs={[['board', 'Doubts'], ['all', 'All doubts (table)']]} value={tab} onChange={setTab} />}>
+    <PMPage title="Doubts" sub="Every filter explains what it means" right={<PMTabs tabs={[['board', 'Doubts'], ['all', 'All doubts (table)']]} value={tab} onChange={setTab} />}>
       {tab === 'board' ? <Board /> : <Legacy><AllDoubts /></Legacy>}
     </PMPage>
   );

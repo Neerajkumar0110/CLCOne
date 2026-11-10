@@ -95,7 +95,7 @@ export default function LearnerOverview() {
       <div className="ld-hd">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>My progress</h1>
-          <div className="ld-muted" style={{ fontSize: 14 }}>Explainable scorecard — har gate ka reason aur source dikhta hai · calculated {when(new Date())}</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>Explainable scorecard — each gate shows its reason and source · calculated {when(new Date())}</div>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function LearnerOverview() {
               ))}
             {elig && (
               <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Eligibility review / appeal', description: `My scorecard shows ${elig.score}%. What looks wrong:` } } })}>
-                Galat lag raha hai? Review / appeal request →
+                Looks wrong? Request a review / appeal →
               </button>
             )}
           </section>
@@ -157,7 +157,7 @@ export default function LearnerOverview() {
         </section>
 
         <section className="ld-card" aria-label="My timeline">
-          <div className="ld-hd"><b>My timeline</b><span className="ld-muted" style={{ fontSize: 12 }}>sirf aapke events</span></div>
+          <div className="ld-hd"><b>My timeline</b><span className="ld-muted" style={{ fontSize: 12 }}>your events only</span></div>
           {events.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Your activity will appear here.</div>}
           {events.slice(0, 14).map((e, i) => (
             <div key={i} className="ov-ev" style={{ display: 'grid', gridTemplateColumns: '96px 12px 1fr', gap: 8, fontSize: 13, lineHeight: '18px' }}>

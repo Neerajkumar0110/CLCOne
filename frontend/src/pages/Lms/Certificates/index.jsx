@@ -301,7 +301,7 @@ function ExternalCertificates() {
       })}
       {open ? (
         <section className="ld-card" aria-label="Add external certificate">
-          <b>External certificate add karein</b>
+          <b>Add an external certificate</b>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <label className="ld-label">Provider<input className="ld-inp full" maxLength={80} value={f.provider} onChange={set('provider')} placeholder="IBM / Microsoft / Google" /></label>
             <label className="ld-label">Issued on<input className="ld-inp full" type="date" value={f.issuedOn} onChange={set('issuedOn')} /></label>
@@ -319,7 +319,7 @@ function ExternalCertificates() {
           </div>
         </section>
       ) : (
-        <button type="button" className="ld-link" style={{ fontSize: 13, alignSelf: 'flex-start' }} onClick={() => setOpen(true)}>+ External certificate (IBM / Microsoft…) add karein</button>
+        <button type="button" className="ld-link" style={{ fontSize: 13, alignSelf: 'flex-start' }} onClick={() => setOpen(true)}>+ Add an external certificate (IBM / Microsoft…)</button>
       )}
     </>
   );
@@ -434,7 +434,7 @@ function StudentCertificates() {
       <div className="ld-head">
         <div>
           <h1>My certificates</h1>
-          <div className="ld-muted ld-sub">Career Lab ke certificates aur external (IBM / Microsoft) alag dikhte hain</div>
+          <div className="ld-muted ld-sub">Career Lab certificates and external ones (IBM / Microsoft) are shown separately</div>
         </div>
       </div>
       {rows.length === 0 ? (
@@ -491,7 +491,7 @@ function StudentCertificates() {
                   <b style={{ color: '#166534' }}>Valid certificate</b>
                   <span>{issued[0].title} · Career Lab Consulting Pvt. Ltd.</span>
                   <span>Issued {issued[0].issuedOn ? dayjs(issued[0].issuedOn).format('D MMM YYYY') : '—'} · {masked}</span>
-                  <span className="ld-muted">Marks, contact, login details kabhi nahi dikhte</span>
+                  <span className="ld-muted">Marks, contact and login details are never shown</span>
                 </div>
               </section>
             )}

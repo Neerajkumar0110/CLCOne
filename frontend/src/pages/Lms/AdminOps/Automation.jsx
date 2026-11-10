@@ -17,7 +17,7 @@ export default function Automation() {
       <div className="ao-head" style={{ alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Automation catalogue</h1>
-          <div className="ao-muted ao-sub">Spec §17.1 · routine kaam automatic, final adverse decision hamesha human · har rule idempotent + logged</div>
+          <div className="ao-muted ao-sub">Spec §17.1 · routine work is automatic, a final adverse decision is always made by a person · every rule idempotent + logged</div>
         </div>
         {data && <span className="ao-chip naya" style={{ height: 24, fontSize: 12 }}>{data.running} / {data.total} running</span>}
       </div>

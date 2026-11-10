@@ -117,8 +117,8 @@ export default function MyFees() {
               </tbody>
             </table>
           </div>
-          <div className="ld-soft">Payment tabhi &quot;Paid&quot; dikhega jab server ne gateway se verify kar liya ho — sirf success screen kaafi nahi.</div>
-          <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Fees, EMI, refund aur cancellation terms: <button type="button" className="ld-link" onClick={() => navigate('/learn/policies')}>Course terms</button></div>
+          <div className="ld-soft">A payment shows "Paid" only after the server has verified it with the gateway — the success screen alone is not enough.</div>
+          <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Fees, EMI, refund and cancellation terms: <button type="button" className="ld-link" onClick={() => navigate('/learn/policies')}>Course terms</button></div>
         </section>
 
         <section className="ld-card" aria-label="Pay next installment">
@@ -132,7 +132,7 @@ export default function MyFees() {
               ) : (
                 <button type="button" className="ld-btn" disabled>Payment link not ready yet</button>
               )}
-              <div className="ld-warn">Due date ke baad payment na ho to LMS access hold par ja sakta hai (finance policy ke hisaab se). Hold par bhi Support aur Fees page khule rehte hain.</div>
+              <div className="ld-warn">If payment is not made after the due date, LMS access may be put on hold (per the finance policy). Support and Fees stay open even on hold.</div>
             </>
           ) : (
             <>
@@ -142,7 +142,7 @@ export default function MyFees() {
             </>
           )}
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Payment issue?</div>
-          <div className="ld-muted" style={{ fontSize: 13 }}>Order / reference ID ke saath ticket banayein. Card details kabhi mat bhejein.</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>Raise a ticket with the order / reference ID. Never send card details.</div>
           <button type="button" className="ld-link" style={{ fontSize: 13, marginTop: 'auto' }} onClick={paymentTicket}>Raise payment ticket →</button>
         </section>
       </div>

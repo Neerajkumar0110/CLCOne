@@ -46,7 +46,7 @@ export default function AssessRules() {
     <>
       <Head
         title="Readiness, assessment & attendance rules"
-        sub="Spec §6.2, §5.4, §7.3 · proposed values tab tak enforce nahi hote jab tak management approve na kare"
+        sub="Spec §6.2, §5.4, §7.3 · proposed values are not enforced until management approves them"
         right={
           data && (
             <>
@@ -89,7 +89,7 @@ export default function AssessRules() {
               <Field label="Overall threshold"><input className="ao-inp full" readOnly value={`${data.current.attendance.overallPct}% (eligibility rule)`} /></Field>
               <Field label="Dropped in denominator?"><select className="ao-inp full" disabled><option>Excluded</option></select></Field>
               <Field label="Cancelled sessions"><select className="ao-inp full" disabled><option>Excluded</option></select></Field>
-              <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Change = new rule version · {data.proposedAt ? `proposed ${fmtTime(data.proposedAt)}` : 'purane results purane version par hi rehte hain'}</div>
+              <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Change = new rule version · {data.proposedAt ? `proposed ${fmtTime(data.proposedAt)}` : 'old results stay on their old version'}</div>
             </div>
           </div>
         )}

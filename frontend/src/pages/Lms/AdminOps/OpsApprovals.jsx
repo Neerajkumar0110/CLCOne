@@ -42,7 +42,7 @@ export default function OpsApprovals() {
 
   return (
     <>
-      <Head title="Operations Manager — exception approvals" sub="Automation sirf detect karta hai · final adverse / consequential decision human approve karta hai" right={<button type="button" className="ao-btn2 md" onClick={() => setRaising(true)}>+ Raise request</button>} />
+      <Head title="Operations Manager — exception approvals" sub="Automation only detects · a person approves any final adverse / consequential decision" right={<button type="button" className="ao-btn2 md" onClick={() => setRaising(true)}>+ Raise request</button>} />
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <div className="ao-grid-2" style={{ gridTemplateColumns: 'minmax(0, 1fr) 360px' }}>
@@ -85,7 +85,7 @@ export default function OpsApprovals() {
                   </tbody>
                 </table>
               </div>
-              <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Bulk / high-risk (mass message, bulk status, content delete) par second approver bhi chahiye — D-13</div>
+              <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Bulk / high-risk requests (mass message, bulk status, content delete) also need a second approver — D-13</div>
             </div>
             <div className="ao-card">
               <div className="ao-hd"><b>Decision register</b><span className="ao-muted" style={{ fontSize: 12 }}>spec §22.1</span></div>

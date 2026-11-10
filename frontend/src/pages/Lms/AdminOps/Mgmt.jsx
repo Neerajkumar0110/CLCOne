@@ -16,7 +16,7 @@ export default function Mgmt() {
     <>
       <Head
         title={`Management — ${data ? data.month : ''}`}
-        sub="All programmes · drill-down sirf authorised users ke liye"
+        sub="All programmes · drill-down only for authorised users"
         right={
           <>
             <input type="month" aria-label="Month" className="ao-inp sm" value={month} onChange={(e) => setMonth(e.target.value)} />
@@ -55,7 +55,7 @@ export default function Mgmt() {
                   {data.signals.map((s) => (
                     <div key={s.text} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between' }}><span>{s.text}</span><span className="ao-chip adh">{s.label}</span></div>
                   ))}
-                  <div className="ao-muted" style={{ fontSize: 12 }}>Signals sirf review ke liye, proof nahi · IP/device data restricted roles · retention D-09</div>
+                  <div className="ao-muted" style={{ fontSize: 12 }}>Signals are for review only, not proof · IP/device data restricted to some roles · retention D-09</div>
                 </div>
               </div>
               <div className="ao-card">

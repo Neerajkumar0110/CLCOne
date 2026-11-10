@@ -100,7 +100,7 @@ export default function WeeklyFeedback({ initialTab = 'weekly' }) {
       <div className="ld-head">
         <div>
           <h1>Feedback</h1>
-          <div className="ld-muted ld-sub">Har hafte mandatory · 2–3 minute · aapka feedback batch ke Project Manager aur management tak pahunchta hai</div>
+          <div className="ld-muted ld-sub">Mandatory every week · 2–3 minutes · your feedback reaches the batch's Project Manager and management</div>
         </div>
       </div>
 
@@ -160,17 +160,17 @@ export default function WeeklyFeedback({ initialTab = 'weekly' }) {
                 maxLength={2000}
                 value={comment[tab]}
                 onChange={(e) => setComment((c) => ({ ...c, [tab]: e.target.value }))}
-                placeholder="Kya achha raha, kya badalna chahiye?"
+                placeholder="What went well, what should change?"
               />
               {tab === 'pm' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input type="checkbox" checked={concern} onChange={(e) => setConcern(e.target.checked)} /> Mujhe ek gambhir concern report karna hai (conduct / safety) — sirf authorised management dekhega
+                    <input type="checkbox" checked={concern} onChange={(e) => setConcern(e.target.checked)} /> I want to report a serious concern (conduct / safety) — only authorised management will see it
                   </label>
                   {concern && (
                     <textarea aria-label="Concern details" className="ld-inp full" maxLength={2000} value={concernText} onChange={(e) => setConcernText(e.target.value)} placeholder="What happened? Only management will read this." />
                   )}
-                  <div className="ld-muted">Confidential: aapka naam Project Manager ko nahi dikhega. Sirf category averages aur trends share hote hain.</div>
+                  <div className="ld-muted">Confidential: your name is not shown to the Project Manager. Only category averages and trends are shared.</div>
                 </div>
               )}
               <div className="ld-hd" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>

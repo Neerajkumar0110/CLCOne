@@ -53,7 +53,7 @@ export default function Finance() {
   const needsFix = detail && detail.chain.some((c) => !c.ok) && detail.row.gateway === 'VERIFIED';
   return (
     <>
-      <Head title="Finance — payments & provisioning" sub="Spec §16 · card data / gateway secrets kabhi nahi dikhte · sirf order / reference ID" />
+      <Head title="Finance — payments & provisioning" sub="Spec §16 · card data / gateway secrets are never shown · only order / reference ID" />
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <>
@@ -95,7 +95,7 @@ export default function Finance() {
                     </tbody>
                   </table>
                 </div>
-                <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Browser success screen par trust nahi · same webhook do baar aaye to bhi ek hi learner banta hai (idempotent)</div>
+                <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>The browser success screen is not trusted · the same webhook arriving twice still creates only one learner (idempotent)</div>
               </div>
               <div className="ao-card">
                 {!detail ? (
@@ -119,7 +119,7 @@ export default function Finance() {
                         </label>
                         <label className="ao-label">Reason (audit)<input className="ao-inp full" value={reason} onChange={(e) => setReason(e.target.value)} /></label>
                         <button type="button" className="ao-btn" style={{ marginTop: 'auto' }} disabled={busy || reason.trim().length < 3} onClick={retry}>{busy ? 'Working…' : 'Retry provisioning'}</button>
-                        <div className="ao-muted" style={{ fontSize: 12 }}>Welcome email sirf provisioning success ke baad jaayega</div>
+                        <div className="ao-muted" style={{ fontSize: 12 }}>The welcome email goes only after provisioning succeeds</div>
                       </>
                     )}
                   </>

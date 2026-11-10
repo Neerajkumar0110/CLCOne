@@ -55,8 +55,8 @@ function ReviewPane({ id, onDone }) {
   const ms = (p.milestones || []).findIndex((m) => m.status !== 'done');
 
   const decide = async (decision) => {
-    if (decision === 'approved' && rubric.length && !allScored) return message.warning('Approve se pehle har rubric criterion ka score dein.');
-    if (decision !== 'approved' && !comment.trim()) return message.warning('Comment mein batayein kya badalna hai.');
+    if (decision === 'approved' && rubric.length && !allScored) return message.warning('Score every rubric criterion before approving.');
+    if (decision !== 'approved' && !comment.trim()) return message.warning('Say in the comment what needs to change.');
     setBusy(decision);
     try {
       const r = await lmsApi.reviewProject(id, {
@@ -122,12 +122,12 @@ function ReviewPane({ id, onDone }) {
             </div>
           </>
         )}
-        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Learner ka code kabhi production server par execute nahi hota · secrets field mein nahi maange jaate</div>
+        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>A learner's code is never executed on the production server · secrets are never asked for in fields</div>
       </section>
 
       <section className="ld-card" aria-label="Rubric">
         <div className="ld-hd"><b>Rubric</b><span style={{ fontSize: 18, fontWeight: 700 }}>{total}<span className="ld-muted" style={{ fontSize: 13 }}> / {max}</span></span></div>
-        {rubric.length === 0 && <div className="ld-empty">Is project ka rubric set nahi hai.</div>}
+        {rubric.length === 0 && <div className="ld-empty">No rubric is set for this project.</div>}
         {rubric.map((c) => (
           <div key={c.criterion} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="ld-hd"><span style={{ fontSize: 13, fontWeight: 600 }}>{c.criterion}</span><b style={{ fontSize: 13 }}>{scores[c.criterion] != null ? scores[c.criterion] : '–'}/{c.maxMarks}</b></div>
@@ -138,13 +138,13 @@ function ReviewPane({ id, onDone }) {
             </div>
           </div>
         ))}
-        <textarea className="ld-inp" aria-label="Review comment" style={{ height: 64, padding: 8, resize: 'none' }} placeholder="Ranking logic solid. Sample output screenshots add karo, phir approve." value={comment} onChange={(e) => setComment(e.target.value)} />
+        <textarea className="ld-inp" aria-label="Review comment" style={{ height: 64, padding: 8, resize: 'none' }} placeholder="Ranking logic is solid. Add sample output screenshots, then approve." value={comment} onChange={(e) => setComment(e.target.value)} />
         <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
           <button type="button" className="ld-btn2" disabled={!last || !!busy} onClick={() => decide('rejected')}>Not approved</button>
           <button type="button" className="ld-btn2" disabled={!last || !!busy} onClick={() => decide('revision_requested')}>Request changes</button>
           <button type="button" className="ld-btn" disabled={!last || !!busy} onClick={() => decide('approved')}>{busy === 'approved' ? 'Saving…' : 'Approve milestone'}</button>
         </div>
-        <div className="ld-muted" style={{ fontSize: 12 }}>Approve → eligibility recalculated · approver + reason audit mein</div>
+        <div className="ld-muted" style={{ fontSize: 12 }}>Approve → eligibility recalculated · approver + reason in the audit log</div>
       </section>
     </>
   );
@@ -195,7 +195,7 @@ function ReviewBoard() {
           }}
         />
       ) : (
-        <section className="ld-card" style={{ gridColumn: 'span 2' }}><div className="ld-empty">Queue se submission chunein.</div></section>
+        <section className="ld-card" style={{ gridColumn: 'span 2' }}><div className="ld-empty">Pick a submission from the queue.</div></section>
       )}
     </div>
   );

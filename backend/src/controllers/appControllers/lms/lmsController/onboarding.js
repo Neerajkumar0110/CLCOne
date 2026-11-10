@@ -89,7 +89,7 @@ async function mark(req, res) {
   return res.status(200).json({
     success: true,
     result: { ...(await build(req.admin)), autoTicket: ticket },
-    message: ticket ? `Device check blocked — ticket ${ticket} Support ko chala gaya.` : undefined,
+    message: ticket ? `Device check blocked — ticket ${ticket} was sent to Support.` : undefined,
   });
 }
 

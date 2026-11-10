@@ -26,7 +26,7 @@ function Editor({ tpl, onSaved }) {
   const unknown = vars.filter((v) => !KNOWN.includes(v));
   const fill = (s) => String(s || '').replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_, k) => SAMPLE[k] || `{{${k}}}`);
   const save = async (asNew) => {
-    if (!t.name.trim()) return message.warning('Template ka naam likhein.');
+    if (!t.name.trim()) return message.warning('Write the template name.');
     if (unknown.length) return message.warning(`Unknown variable: ${unknown.join(', ')}`);
     setBusy(asNew ? 'new' : 'save');
     try {
@@ -58,7 +58,7 @@ function Editor({ tpl, onSaved }) {
       ) : (
         <textarea className="ld-inp" aria-label="Body" style={{ flex: 1, minHeight: 200, padding: 12, lineHeight: '20px', resize: 'vertical' }} placeholder={'Dear {{learner_name}},\n…'} value={t.html} onChange={(e) => setT({ ...t, html: e.target.value })} />
       )}
-      {unknown.length > 0 && <div className="pm-alert">Validation: <b>{unknown.join(', ')}</b> — unknown variable, send blocked jab tak theek na ho</div>}
+      {unknown.length > 0 && <div className="pm-alert">Validation: <b>{unknown.join(', ')}</b> — unknown variable, sending is blocked until it is fixed</div>}
       <label className="pm-check"><input type="checkbox" checked={t.enabled} onChange={(e) => setT({ ...t, enabled: e.target.checked })} /> Enabled (unchecked = draft)</label>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <button type="button" className="ld-btn2" onClick={() => setPreview(!preview)}>{preview ? 'Edit' : 'Preview for Arjun D.'}</button>
@@ -93,7 +93,7 @@ export default function SMComms() {
       <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr) 400px', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card" style={{ gap: 4 }} aria-label="Templates">
           <div className="ld-hd" style={{ marginBottom: 6 }}><b style={{ fontSize: 14 }}>Templates</b><button type="button" className="ld-link" style={{ fontSize: 12 }} onClick={() => setSel('new')}>+ New</button></div>
-          {data.templates.length === 0 && <div className="ld-empty">Abhi koi saved template nahi — system emails code mein hain. Naya template banayein.</div>}
+          {data.templates.length === 0 && <div className="ld-empty">No saved template yet — system emails live in code. Create a new template.</div>}
           {data.templates.map((t) => (
             <button key={t.id} type="button" className={`sm-tp${sel === t.id ? ' on' : ''}`} onClick={() => setSel(t.id)}>
               <b>{t.name}</b>
@@ -118,11 +118,11 @@ export default function SMComms() {
                 )}
               </div>
             ))}
-            <div className="ld-muted" style={{ fontSize: 12 }}>{data.canToggle ? 'Pause karne par naam log hota hai' : 'Pause / resume sirf LMS admin (Admin & Ops → Automation)'} · Dropped / archived learners auto-excluded</div>
+            <div className="ld-muted" style={{ fontSize: 12 }}>{data.canToggle ? 'Pausing logs your name' : 'Pause / resume by LMS admin only (Admin & Ops → Automation)'} · Dropped / archived learners auto-excluded</div>
           </section>
           <section className="ld-card" style={{ flex: 1 }} aria-label="Delivery log">
             <div className="ld-hd"><b style={{ fontSize: 14 }}>Delivery log (today)</b><span className="ld-muted" style={{ fontSize: 12 }}>{data.totals.sent} sent · {data.totals.failed} failed</span></div>
-            {data.log.length === 0 && <div className="ld-empty">Aaj abhi tak koi email nahi gaya.</div>}
+            {data.log.length === 0 && <div className="ld-empty">No email has gone out today yet.</div>}
             {data.log.length > 0 && (
               <table className="ld-table" style={{ fontSize: 12 }}>
                 <thead><tr><th>Time</th><th>Template</th><th>To</th><th>Status</th></tr></thead>

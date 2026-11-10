@@ -43,7 +43,7 @@ function Board() {
   const mats = useLoad(async () => res(await lmsApi.materials()) || [], []);
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} />;
-  if (!data.batch) return <section className="ld-card"><div className="ld-empty">Aapko abhi koi batch assign nahi hai.</div></section>;
+  if (!data.batch) return <section className="ld-card"><div className="ld-empty">No batch is assigned to you yet.</div></section>;
   const rows = data.rows || [];
   const lastDone = rows.reduce((m, r, i) => (r.state !== 'PENDING' ? i : m), -1);
   const shown = all ? rows : rows.slice(Math.max(0, lastDone - 6), lastDone + 4);
@@ -58,13 +58,13 @@ function Board() {
   const choose = (list) => {
     const arr = Array.from(list || []);
     const big = arr.find((f) => f.size > MAX_MB * 1048576);
-    if (big) return message.error(`${big.name} ${MAX_MB} MB se bada hai.`);
+    if (big) return message.error(`${big.name} is larger than ${MAX_MB} MB.`);
     const dup = arr.find((f) => myMats.some((m) => m.originalName === f.name && m.sizeBytes === f.size));
-    if (dup) message.warning(`${dup.name} pehle se uploaded hai (same name + size) — phir bhi upload hoga as new version.`);
+    if (dup) message.warning(`${dup.name} is already uploaded (same name + size) — it will still be uploaded as a new version.`);
     setFiles(arr);
   };
   const upload = async () => {
-    if (!files.length) return message.warning('File chunein.');
+    if (!files.length) return message.warning('Pick a file.');
     setPct(0);
     let okCount = 0;
     for (let i = 0; i < files.length; i += 1) {
@@ -82,7 +82,7 @@ function Board() {
   return (
     <>
       <div className="ld-muted" style={{ fontSize: 14, marginTop: -8 }}>
-        {data.batch} · {data.delivered} of {data.total} planned sessions · status = actually delivered topic, calendar date nahi
+        {data.batch} · {data.delivered} of {data.total} planned sessions · status = the topic actually delivered, not the calendar date
       </div>
       <div className="pm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card pm-scroll" aria-label="Planned vs delivered">
@@ -113,7 +113,7 @@ function Board() {
               </tbody>
             </table>
           </div>
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>"auto" = class calendar se mark hua · PM ka delivery record (Live class → What was taught today) isse override karta hai</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>"auto" = marked from the class calendar · the PM's delivery record (Live class → What was taught today) overrides it</div>
         </section>
 
         <section className="ld-card" aria-label="Upload study material">
@@ -142,7 +142,7 @@ function Board() {
           <button type="button" className="ld-btn" disabled={!files.length || pct != null} onClick={upload}>Upload &amp; map to session</button>
           <div className="ld-hd" style={{ marginTop: 4 }}><b>Materials · {data.batch}</b><span className="ld-muted" style={{ fontSize: 12 }}>{myMats.length} files</span></div>
           <div className="pm-scroll" style={{ maxHeight: 320 }}>
-            {myMats.length === 0 && <div className="ld-empty">Is batch ke liye abhi koi material nahi.</div>}
+            {myMats.length === 0 && <div className="ld-empty">No material for this batch yet.</div>}
             {myMats.slice(0, 30).map((m) => (
               <div className="pm-mat" key={m.id}>
                 <span><a href={m.fileUrl} target="_blank" rel="noreferrer"><b>{m.originalName || m.title}</b></a> <span className="ld-muted">{m.curriculum && m.curriculum.label ? `${m.curriculum.label} · ` : ''}{fmtDay(m.uploadedAt)}{m.batch ? '' : ' · whole internship'}</span></span>

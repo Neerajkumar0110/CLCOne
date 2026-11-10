@@ -97,7 +97,7 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
               <div className="ld-kv"><span className="ld-muted">Pass mark</span><b>{rules ? `${rules.qualifyPct}%` : '—'}</b></div>
               <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays} din${t ? ` · ${t.remaining} left` : ''}` : '—'}</b></div>
             </div>
-            <div className="ld-muted" style={{ fontSize: 13 }}>Camera on rahega · tab switch log hota hai (sirf review signal) · technical failure par attempt count nahi hoga.</div>
+            <div className="ld-muted" style={{ fontSize: 13 }}>The camera stays on · tab switches are logged (review signal only) · a technical failure does not use up an attempt.</div>
             {blockReason && <span className="ld-chip adh" style={{ alignSelf: 'flex-start', height: 'auto', padding: '4px 10px', whiteSpace: 'normal' }}>{blockReason}</span>}
           </section>
 
@@ -133,7 +133,7 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
             <>
               <span className="ld-chip hai lg">Passed · {latest.score} / {latest.totalCount}</span>
               <div style={{ fontSize: 22, fontWeight: 700 }}>Well done — result saved</div>
-              <div className="ld-muted" style={{ fontSize: 14, lineHeight: '21px' }}>Submitted {fmt(latest.submittedAt)}. Server ne aapka result record par save kar liya hai.</div>
+              <div className="ld-muted" style={{ fontSize: 14, lineHeight: '21px' }}>Submitted {fmt(latest.submittedAt)}. The server has saved your result to your record.</div>
               <button type="button" className="ld-btn" style={{ alignSelf: 'flex-start' }} onClick={() => navigate(`${base}/classes`)}>Live class par jaayein →</button>
               <button type="button" className="ld-link" style={{ fontSize: 14 }} onClick={() => navigate(`${base}/results`)}>See full breakdown →</button>
             </>
@@ -141,8 +141,8 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
           {latest && !passed && (
             <>
               <span className="ld-chip red lg">Not passed · {latest.score} / {latest.totalCount}</span>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{t && t.remaining === 0 ? 'No attempts left' : coolingDown ? `Agla attempt: ${fmtDay(t.nextEligibleAt)} se` : 'Next attempt available now'}</div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Remediation — pehle ye dekhein</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{t && t.remaining === 0 ? 'No attempts left' : coolingDown ? `Next attempt from ${fmtDay(t.nextEligibleAt)}` : 'Next attempt available now'}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Remediation — look at these first</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
                 <button type="button" className="ld-link" onClick={() => navigate(`${base}/results`)}>Your topic-wise breakdown</button>
                 <button type="button" className="ld-link" onClick={() => navigate(`${base}/material`)}>Study material for this unit</button>
@@ -150,7 +150,7 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
               </div>
               {base === '/learn' && (
                 <button type="button" className="ld-link" style={{ fontSize: 14 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Login / Technical', subject: `Technical problem during ${title}`, description: 'Date / time of the attempt:\nWhat happened:' } } })}>
-                  Exception / technical issue? Ticket raise karein
+                  Exception / technical issue? Raise a ticket
                 </button>
               )}
             </>

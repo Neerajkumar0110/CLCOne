@@ -57,7 +57,7 @@ export default function DuplicateClassesAlert({ load, request, batch, onChanged 
           })}
         </div>
       ))}
-      <span className="ld-muted" style={{ fontSize: 12 }}>Ops approve karte hi extra class apne aap hat jaati hai · class number dobara sequence mein</span>
+      <span className="ld-muted" style={{ fontSize: 12 }}>Once Ops approves, the extra class is removed automatically · class numbers are put back in sequence</span>
     </div>
   );
 }

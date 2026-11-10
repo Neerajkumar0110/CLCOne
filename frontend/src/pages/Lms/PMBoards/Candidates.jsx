@@ -22,7 +22,7 @@ function Board() {
   const { data, loading, error } = useLoad(async () => res(await lmsApi.pmCandidates(batch ? { batch } : {})), [batch]);
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} />;
-  if (!data.batch) return <section className="ld-card"><div className="ld-empty">Aapko abhi koi batch assign nahi hai.</div></section>;
+  if (!data.batch) return <section className="ld-card"><div className="ld-empty">No batch is assigned to you yet.</div></section>;
   const k = data.kpis || {};
   const rows = data.rows.filter((r) => (!status || r.status === status) && (!q || `${r.name} ${r.enrollmentId} ${r.email}`.toLowerCase().includes(q.toLowerCase())));
   const statuses = [...new Set(data.rows.map((r) => r.status))];
@@ -33,12 +33,12 @@ function Board() {
       <div className="ld-hd" style={{ marginTop: -6 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Candidates · {data.batch} ({enrolled})</h1>
-          <div className="ld-muted" style={{ fontSize: 14 }}>Sirf aapke assigned batches · har number ka matlab saath mein likha hai</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>Your assigned batches only · every number has its meaning written next to it</div>
         </div>
         <BatchSelect batches={data.batches} value={data.batch} onChange={setBatch} />
       </div>
       <div className="pm-g4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-        <div className="pm-k"><span className="cap">Today's classes</span><b>{k.today ? `${k.today.held} / ${k.today.scheduled}` : '—'}</b><div className="pm-tip">held / scheduled today{k.today && k.today.scheduled > k.today.held ? ` · ${k.today.scheduled - k.today.held} abhi baaki` : ''}</div></div>
+        <div className="pm-k"><span className="cap">Today's classes</span><b>{k.today ? `${k.today.held} / ${k.today.scheduled}` : '—'}</b><div className="pm-tip">held / scheduled today{k.today && k.today.scheduled > k.today.held ? ` · ${k.today.scheduled - k.today.held} still to go` : ''}</div></div>
         <div className="pm-k"><span className="cap">Attendance · last class</span><b>{k.lastClass ? `${k.lastClass.joined} / ${k.lastClass.enrolled}` : '—'}</b><div className="pm-tip">joined / enrolled (Dropped excluded){k.lastClass ? ` · ${k.lastClass.title}` : ''}</div></div>
         <div className="pm-k"><span className="cap">Class progress{k.test ? ` · ${k.test.label}` : ''}</span><b>{k.test ? `${k.test.pct}%` : '—'}</b><div className="pm-tip">attempted / eligible learners for the latest test</div></div>
         <div className="pm-k"><span className="cap">At risk</span><b style={{ color: k.atRisk ? '#991b1b' : undefined }}>{k.atRisk}</b><div className="pm-tip">attendance &lt; 80% ya project overdue · signal only</div></div>
@@ -67,13 +67,13 @@ function Board() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={8} className="ld-muted">Koi candidate nahi mila.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={8} className="ld-muted">No candidate found.</td></tr>}
               {rows.map((r) =>
                 r.status === 'Dropped' ? (
                   <tr key={r.email}>
                     <td className="ld-muted"><b>{r.name}</b><br />{r.enrollmentId}</td>
                     <td><span className="ld-chip gray">Dropped</span></td>
-                    <td className="ld-muted" colSpan={5}>Dropped — attendance denominator se bahar</td>
+                    <td className="ld-muted" colSpan={5}>Dropped — out of the attendance denominator</td>
                     <td />
                   </tr>
                 ) : (

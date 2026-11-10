@@ -88,7 +88,7 @@ function Profile({ email }) {
     let text = '';
     Modal.confirm({
       title: 'Attendance review request',
-      content: <Input.TextArea rows={3} placeholder="Kaun si classes aur kyun (e.g. Safari issue, 3 classes partial)" onChange={(ev) => { text = ev.target.value; }} />,
+      content: <Input.TextArea rows={3} placeholder="Which classes and why (e.g. Safari issue, 3 classes partial)" onChange={(ev) => { text = ev.target.value; }} />,
       okText: 'Send to Support',
       onOk: () => run('att', () => lmsApi.pmAttendanceReview(l.email, text), 'Sent to Support / Ops.'),
     });
@@ -111,7 +111,7 @@ function Profile({ email }) {
           <div className="ld-li"><span>Project Manager</span><b>{[].concat(l.pm || []).join(', ') || '—'}</b></div>
           <div className="ld-li"><span>Contact</span><span className="ld-muted">{l.contact || '—'}</span></div>
           <div className="ld-hd" style={{ marginTop: 6 }}><b>Eligibility scorecard</b>{e && <span className={`ld-chip ${e.eligible ? 'hai' : 'adh'}`}>{e.eligible ? 'ELIGIBLE' : 'ACTION REQUIRED'}</span>}</div>
-          {!e && <div className="ld-empty">Is internship ka eligibility rule set nahi hai.</div>}
+          {!e && <div className="ld-empty">No eligibility rule is set for this internship.</div>}
           {e && (
             <>
               {row('Policies', item('acknowledgement'), (i) => (i.passed ? '✓ accepted' : `${i.achieved}%`))}
@@ -129,13 +129,13 @@ function Profile({ email }) {
         </section>
 
         <section className="ld-card pm-scroll" aria-label="Timeline">
-          <div className="ld-hd"><b>Timeline</b><span className="ld-muted" style={{ fontSize: 12 }}>security / IP events PM ko nahi dikhte</span></div>
+          <div className="ld-hd"><b>Timeline</b><span className="ld-muted" style={{ fontSize: 12 }}>security / IP events are not shown to PMs</span></div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {FILTERS.map(([k, label]) => (
               <button key={k} type="button" className={`ld-pill${filter === k ? ' on' : ''}`} style={{ height: 30, fontSize: 12 }} onClick={() => setFilter(k)}>{label}</button>
             ))}
           </div>
-          {shown.length === 0 && <div className="ld-empty">Is filter mein koi event nahi.</div>}
+          {shown.length === 0 && <div className="ld-empty">No event in this filter.</div>}
           {shown.slice(0, 40).map((x, i) => (
             <div className="pm-ev" key={i}>
               <span className="ld-muted">{evWhen(x.at)}</span>
@@ -147,7 +147,7 @@ function Profile({ email }) {
 
         <section className="ld-card" aria-label="Doubts and notes">
           <div className="ld-hd"><b>Doubts · {openDoubts.length} open</b></div>
-          {doubts.length === 0 && <div className="ld-empty">Koi doubt nahi poocha.</div>}
+          {doubts.length === 0 && <div className="ld-empty">No doubts asked.</div>}
           {doubts.slice(0, 3).map((d) => (
             <button key={d.id} type="button" className={`pm-q${doubtId === d.id ? ' on' : ''}`} onClick={() => setDoubtId(d.id)} style={{ background: '#f8fafc' }}>
               <b>"{d.title}"</b>
@@ -160,7 +160,7 @@ function Profile({ email }) {
               <button type="button" className="ld-btn2 sm" style={{ alignSelf: 'flex-end' }} disabled={!reply.trim() || busy === 'reply'} onClick={sendReply}>Send reply</button>
             </>
           )}
-          <div className="ld-hd" style={{ marginTop: 6 }}><b>PM notes</b><span className="ld-muted" style={{ fontSize: 12 }}>learner ko nahi dikhte</span></div>
+          <div className="ld-hd" style={{ marginTop: 6 }}><b>PM notes</b><span className="ld-muted" style={{ fontSize: 12 }}>not shown to the learner</span></div>
           {notes.slice(0, 3).map((n) => (
             <div key={n.id} className="ld-muted" style={{ fontSize: 13, lineHeight: '19px' }}>{n.text} <span style={{ fontSize: 11 }}>— {n.byName}, {evWhen(n.created)}</span></div>
           ))}
@@ -168,7 +168,7 @@ function Profile({ email }) {
             <input className="ld-inp" style={{ flex: 1, minWidth: 0 }} aria-label="New note" placeholder="Add a note…" value={note} onChange={(ev) => setNote(ev.target.value)} onKeyDown={(ev) => ev.key === 'Enter' && note.trim() && addNote()} />
             <button type="button" className="ld-btn2 sm" disabled={!note.trim() || busy === 'note'} onClick={addNote}>Save</button>
           </div>
-          <button type="button" className="ld-link" style={{ fontSize: 13, marginTop: 'auto' }} onClick={askReview}>Support Manager ko attendance review request →</button>
+          <button type="button" className="ld-link" style={{ fontSize: 13, marginTop: 'auto' }} onClick={askReview}>Attendance review request to the Support Manager →</button>
         </section>
       </div>
     </>
@@ -185,7 +185,7 @@ function Picker({ onPick }) {
   const rows = ((d && d.rows) || []).filter((r) => !q || `${r.name} ${r.email} ${r.enrollmentId}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <section className="ld-card">
-      <div className="ld-hd"><b>Learner chunein</b>
+      <div className="ld-hd"><b>Pick a learner</b>
         <div style={{ display: 'flex', gap: 8 }}>
           {d && d.batches && d.batches.length > 1 && (
             <select className="ld-inp" aria-label="Batch" value={d.batch || ''} onChange={(ev) => setBatch(ev.target.value)}>
@@ -195,7 +195,7 @@ function Picker({ onPick }) {
           <input className="ld-inp" style={{ width: 240 }} placeholder="Search name / ID" aria-label="Search" value={q} onChange={(ev) => setQ(ev.target.value)} />
         </div>
       </div>
-      {rows.length === 0 && <div className="ld-empty">Koi learner nahi mila.</div>}
+      {rows.length === 0 && <div className="ld-empty">No learner found.</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
         {rows.map((r) => (
           <button key={r.email} type="button" className="ld-qi" onClick={() => onPick(r.email)}>

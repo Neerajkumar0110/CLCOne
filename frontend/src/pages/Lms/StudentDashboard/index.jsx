@@ -147,9 +147,9 @@ export default function StudentDashboard() {
                 ))}
               </div>
               <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Eligibility calculation review', description: `My eligibility shows ${elig.score}%. What looks wrong:` } } })}>
-                Calculation galat lagi? Review request karein
+                Calculation looks wrong? Request a review
               </button>
-              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/eligibility')}>Har gate ki detail →</button>
+              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/eligibility')}>Details of every gate →</button>
             </>
           ) : (
             <div className="ld-muted" style={{ fontSize: 14 }}>No eligibility rule is set for your internship yet.</div>
@@ -166,7 +166,7 @@ export default function StudentDashboard() {
                 <div className="ld-track" role="img" aria-label={`Attendance ${att.attendancePct}%`}><div style={{ width: `${Math.min(att.attendancePct, 100)}%` }} /></div>
               </>
             )}
-            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/attendance')}>Session-wise dekhein →</button>
+            <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/attendance')}>View session-wise →</button>
           </section>
           <section className="ld-card" aria-label="Assessments">
             <div className="ld-hd"><b>Assessments</b></div>
@@ -197,7 +197,7 @@ export default function StudentDashboard() {
           <section className="ld-card" aria-label="Next actions">
             <div className="ld-hd"><b>Next actions</b></div>
             {actions.length === 0 ? (
-              <div className="ld-muted" style={{ fontSize: 13 }}>Sab up to date hai.</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>All up to date.</div>
             ) : (
               <div>
                 {actions.slice(0, 5).map((a) => (

@@ -113,7 +113,7 @@ function ClassChat({ id }) {
       const r = await lmsApi.liveChat(id, lastRef.current).catch(() => null);
       if (!alive) return;
       if (!r || r.success === false) {
-        setErr((r && r.message) || 'Chat load nahi hua.');
+        setErr((r && r.message) || 'Chat did not load.');
         setMsgs((m) => m || []);
         return;
       }
@@ -143,7 +143,7 @@ function ClassChat({ id }) {
     setSending(true);
     const r = await lmsApi.sendLiveChat(id, v).catch(() => null);
     setSending(false);
-    if (!r || r.success === false) return message.error((r && r.message) || 'Message nahi gaya.');
+    if (!r || r.success === false) return message.error((r && r.message) || 'Message not sent.');
     setText('');
     lastRef.current = r.result.created;
     setMsgs((m) => [...(m || []), r.result]);
@@ -158,7 +158,7 @@ function ClassChat({ id }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
       <div ref={boxRef} className="cd-chat" aria-live="polite">
-        {msgs.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>Abhi koi message nahi. Pehla sawaal poochiye!</div>}
+        {msgs.length === 0 && <div className="ld-muted" style={{ fontSize: 13 }}>No messages yet. Ask the first question!</div>}
         {msgs.map((m) => (
           <div key={m.id} className={`cd-cmsg${m.mine ? ' mine' : ''}`}>
             <b>{m.mine ? 'You' : m.authorName}{m.authorRole === 'teacher' ? ' (PM)' : ''}:</b> {m.text}
@@ -179,11 +179,11 @@ function ClassChat({ id }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Message likhein…"
+          placeholder="Write a message…"
         />
         <button type="button" className="ld-btn sm" disabled={sending || !text.trim()} onClick={send}>Send</button>
       </div>
-      <div className="ld-muted" style={{ fontSize: 12 }}>Chat sirf is batch ko dikhti hai · Project Manager messages hata sakte hain</div>
+      <div className="ld-muted" style={{ fontSize: 12 }}>Chat is visible to this batch only · Project Managers can remove messages</div>
     </div>
   );
 }
@@ -209,10 +209,10 @@ function RoomFrame({ url, title, onPopOut, onLeave }) {
   return (
     <div className="cd-room" ref={boxRef}>
       <div className="cd-roombar">
-        <span><i className="cd-dot" /> Class chal rahi hai <span style={{ color: '#94a3b8', marginLeft: 6 }}>· yahan load na ho to "Naye tab mein kholo"</span></span>
+        <span><i className="cd-dot" /> Class in progress <span style={{ color: '#94a3b8', marginLeft: 6 }}>· if it doesn't load here, use "Open in new tab"</span></span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="cd-rbtn" onClick={full}>Full screen</button>
-          <button type="button" className="cd-rbtn" onClick={onPopOut}>Naye tab mein kholo</button>
+          <button type="button" className="cd-rbtn" onClick={onPopOut}>Open in new tab</button>
           <button type="button" className="cd-rbtn leave" onClick={onLeave}>Leave</button>
         </span>
       </div>
@@ -311,12 +311,12 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
   const online = Number(row.participantsOnline) || 0;
   const learners = Number(row.participantCount) || 0;
   const statusLine = isLive
-    ? 'Class live hai — "Join class" dabane par class yahin khulegi. Chahein to naye tab mein bhi khol sakte hain.'
+    ? 'The class is live — "Join class" opens it right here. You can also open it in a new tab.'
     : cancelled
       ? 'Yeh class cancel ho gayi.'
       : step >= 4
-        ? 'Class khatam ho chuki hai.'
-        : 'Class shuru hone par yahin se join karein.';
+        ? 'The class has ended.'
+        : 'Join from here when the class starts.';
 
   // design board L4 — lifecycle bar, meeting area + pre-join check + join | side panel tabs
   return (
@@ -352,9 +352,9 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
             <div className="cd-tile cd-main">
               {room && room.popped ? (
                 <span className="cd-msg" style={{ flexDirection: 'column', gap: 12 }}>
-                  Class naye tab mein chal rahi hai.
-                  <button type="button" className="cd-rbtn" disabled={joining} onClick={onRoomBack}>{joining ? 'Joining…' : 'Yahin wapas lao'}</button>
-                  <small style={{ color: '#94a3b8' }}>Wapas laane ke baad naya tab band kar dein, warna awaaz do baar aayegi.</small>
+                  The class is running in a new tab.
+                  <button type="button" className="cd-rbtn" disabled={joining} onClick={onRoomBack}>{joining ? 'Joining…' : 'Bring it back here'}</button>
+                  <small style={{ color: '#94a3b8' }}>After bringing it back, close the other tab, or you will hear the audio twice.</small>
                 </span>
               ) : (
                 <span className="cd-msg">{statusLine}</span>
@@ -367,7 +367,7 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
             </div>
             <div className="cd-tile">{isLive ? `${online} online now` : `Batch ${row.batchName || ''}`}</div>
             <div className="cd-tile">
-              {learners ? `${learners} joined this class` : step >= 4 ? 'Is class mein koi join nahi hua' : 'Abhi tak koi join nahi hua'}
+              {learners ? `${learners} joined this class` : step >= 4 ? 'Nobody joined this class' : 'Nobody has joined yet'}
             </div>
           </div>
           )}
@@ -383,11 +383,11 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
               <div className="ld-hd"><b>Join</b></div>
               {row.canJoin ? (
                 <>
-                  <div className="ld-muted" style={{ fontSize: 13 }}>{deviceCheckRequired ? 'Pehle camera / mic check chalega. ' : ''}One-time secure ticket · link kabhi page par nahi dikhta. Error aaye to support ticket banayein.</div>
+                  <div className="ld-muted" style={{ fontSize: 13 }}>{deviceCheckRequired ? 'A camera / mic check runs first.' : ''}One-time secure ticket · the link is never shown on the page. If you see an error, raise a support ticket.</div>
                   {room && room.url ? (
-                    <button type="button" className="ld-btn2" onClick={onPopOut}>Naye tab mein kholo</button>
+                    <button type="button" className="ld-btn2" onClick={onPopOut}>Open in new tab</button>
                   ) : room && room.popped ? (
-                    <button type="button" className="ld-btn2" disabled={joining} onClick={onRoomBack}>Yahin wapas lao</button>
+                    <button type="button" className="ld-btn2" disabled={joining} onClick={onRoomBack}>Bring it back here</button>
                   ) : (
                     <button type="button" className="ld-btn" disabled={joining} onClick={() => onJoin(row)}>{joining ? 'Joining…' : 'Join class'}</button>
                   )}
@@ -438,7 +438,7 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
                 </div>
               </div>
             ))}
-          {tab === 'trans' && <div className="ld-muted" style={{ fontSize: 13 }}>Live captions / transcript abhi set up nahi hai — class ke baad recording Recordings mein milegi.</div>}
+          {tab === 'trans' && <div className="ld-muted" style={{ fontSize: 13 }}>Live captions / transcript are not set up yet — the recording will be in Recordings after the class.</div>}
         </section>
       </div>
     </div>

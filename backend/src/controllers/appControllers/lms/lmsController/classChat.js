@@ -17,7 +17,7 @@ async function access(req) {
   const session = await mongoose.model('LmsLiveSession').findOne({ _id: req.params.id, removed: { $ne: true } });
   if (!session) return { err: [404, 'Class not found.'] };
   const role = await liveClassService.resolveRole(session, req.admin);
-  if (role !== 'student' && role !== 'teacher') return { err: [403, 'Yeh chat sirf is batch ke liye hai.'] };
+  if (role !== 'student' && role !== 'teacher') return { err: [403, 'This chat is for this batch only.'] };
   return { session, role };
 }
 
@@ -45,7 +45,7 @@ async function post(req, res) {
   const a = await access(req);
   if (a.err) return bad(res, ...a.err);
   const text = String((req.body && req.body.text) || '').trim();
-  if (!text) return bad(res, 400, 'Message khaali hai.');
+  if (!text) return bad(res, 400, 'The message is empty.');
   if (text.length > 500) return bad(res, 400, 'Message 500 characters tak.');
   const key = String(req.admin._id);
   const now = Date.now();

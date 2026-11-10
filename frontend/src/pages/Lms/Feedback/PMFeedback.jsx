@@ -65,7 +65,7 @@ export default function PMFeedback() {
           <h1>
             My feedback — {weekLabel(first && first.weekKey)} to {weekLabel(last && last.weekKey)}
           </h1>
-          <div className="ld-muted" style={{ fontSize: 14 }}>Sirf aggregated scores · respondent ka naam kabhi nahi dikhta · minimum {s.minResponses} responses par hi score dikhega</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>Aggregated scores only · a respondent's name is never shown · a score appears only after at least {s.minResponses} responses</div>
         </div>
       </div>
 
@@ -91,9 +91,9 @@ export default function PMFeedback() {
         <section className="ld-card" aria-label="Themes">
           <div className="ld-hd"><b>Themes</b><span className="ld-chip gray">HUMAN REVIEW</span></div>
           <div className="ld-muted" style={{ fontSize: 13, lineHeight: '20px' }}>
-            Comments ke themes tabhi dikhte hain jab management unhe review karke share kare — abhi koi reviewed theme nahi hai. Naam ya exact comment kabhi nahi dikhte.
+            Comment themes appear only after management reviews and shares them — no reviewed theme yet. Names or exact comments are never shown.
           </div>
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Serious / conduct concerns yahan nahi aate — restricted management route</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Serious / conduct concerns don't come here — restricted management route</div>
         </section>
       </div>
 

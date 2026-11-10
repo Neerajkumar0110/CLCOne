@@ -398,13 +398,13 @@ export default function Recordings() {
     const shown = filteredRows.filter((r) => (lFilter === 'All' || bucket(r) === lFilter) && (!lMonth || monthKey(r.date) === lMonth));
     const ccNote = (r) =>
       ({
-        AVAILABLE: 'captions abhi nahi',
-        PROCESSING: 'processing ke baad',
-        RECORDING: 'class ke baad',
-        NOT_STARTED: 'class ke baad',
+        AVAILABLE: 'no captions yet',
+        PROCESSING: 'after processing',
+        RECORDING: 'after the class',
+        NOT_STARTED: 'after the class',
         AWAITING_UPLOAD: 'upload pending',
-        FAILED: 'team check kar rahi hai',
-        DELETED: 'recording available nahi',
+        FAILED: 'the team is checking it',
+        DELETED: 'recording not available',
       })[r.status] || '—';
     const isFrame = playing && (playing.provider === 'bigbluebutton' || playing.provider === 'external');
     return (
@@ -412,7 +412,7 @@ export default function Recordings() {
         <div className="ld-head">
           <div>
             <h1>Recordings &amp; study material</h1>
-            <div className="ld-muted ld-sub">Sirf aapke batch ki recordings · Ready tabhi jab playback verify ho chuka ho</div>
+            <div className="ld-muted ld-sub">Only your batch's recordings · Ready only once playback has been verified</div>
           </div>
         </div>
 
@@ -462,7 +462,7 @@ export default function Recordings() {
                 </tbody>
               </table>
             </div>
-            <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Recording missing ya galat topic? <button type="button" className="ld-link" onClick={reportRecording}>Report karein</button> — content owner ko task jaata hai.</div>
+            <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Recording missing ya galat topic? <button type="button" className="ld-link" onClick={reportRecording}>Report it</button> — a task goes to the content owner.</div>
           </section>
 
           <section className="ld-card" aria-label="Player" style={{ gap: 12 }}>
@@ -474,7 +474,7 @@ export default function Recordings() {
                   <video ref={mediaRef} controls src={playing.url} style={{ width: '100%', height: '100%', background: '#000' }} allowFullScreen />
                 )
               ) : (
-                <span style={{ color: '#e2e8f0', fontSize: 13, padding: 16, textAlign: 'center' }}>Ready recording par click karein — yahin chalegi</span>
+                <span style={{ color: '#e2e8f0', fontSize: 13, padding: 16, textAlign: 'center' }}>Click a Ready recording — it plays right here</span>
               )}
             </div>
             <b style={{ fontSize: 15 }}>{playing ? recTitle(playing) : 'No recording selected'}</b>
@@ -482,7 +482,7 @@ export default function Recordings() {
               <div style={{ display: 'flex', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
                 <button type="button" className="ld-link" onClick={goFullscreen}>Fullscreen</button>
                 {canDownload(playing) && <button type="button" className="ld-link" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>{downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}</button>}
-                <span className="ld-muted">· captions / transcript abhi available nahi</span>
+                <span className="ld-muted">· captions / transcript not available yet</span>
               </div>
             )}
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -577,9 +577,9 @@ export default function Recordings() {
           <div className="rec-learner-note">
             Recording missing ya galat topic?{' '}
             <button type="button" onClick={reportRecording}>
-              Report karein
+              Report it
             </button>{' '}
-            · Notes aur PDFs:{' '}
+            · Notes and PDFs:{' '}
             <button type="button" onClick={() => navigate('/learn/material')}>
               Study material
             </button>

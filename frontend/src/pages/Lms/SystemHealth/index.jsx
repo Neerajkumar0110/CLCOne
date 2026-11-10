@@ -42,7 +42,7 @@ export default function SystemHealth() {
 
   return (
     <>
-      <Head title="System health & incidents" sub="Support Manager: view only · LMS Admin: retry / incident mode · secrets kabhi nahi dikhte" right={<button type="button" className="ao-btn2 md" onClick={() => { base.reload(); extra.reload(); }}>Refresh</button>} />
+      <Head title="System health & incidents" sub="Support Manager: view only · LMS Admin: retry / incident mode · secrets are never shown" right={<button type="button" className="ao-btn2 md" onClick={() => { base.reload(); extra.reload(); }}>Refresh</button>} />
       {inc && <div className="ao-incident">Incident mode ON{b.incidentMode.message ? ` · ${b.incidentMode.message}` : ''} · set by {b.incidentMode.setByName} · management alerted</div>}
       <Loading loading={base.loading || extra.loading} err={base.err || extra.err} data={b && x}>
         {b && x && (
@@ -77,7 +77,7 @@ export default function SystemHealth() {
                 <div className="ao-li"><span>Last DB backup</span><b className="ao-muted">managed by MongoDB Atlas</b></div>
                 <div className="ao-li"><span>Last restore drill</span><b style={{ color: '#9a3412' }}>not recorded — schedule</b></div>
                 <div className="ao-hd" style={{ marginTop: 'auto' }}>
-                  <span className="ao-muted" style={{ fontSize: 12 }}>Checked {fmtTime(b.checkedAt)} · admin access learner session se alag</span>
+                  <span className="ao-muted" style={{ fontSize: 12 }}>Checked {fmtTime(b.checkedAt)} · admin access separate from learner sessions</span>
                   <button type="button" className="ao-btn" onClick={() => (inc ? toggleIncident(false, '') : setAsking(true))}>{inc ? 'Exit incident mode' : 'Enter incident mode'}</button>
                 </div>
               </div>

@@ -1759,7 +1759,21 @@ async function issueJoin(id, admin) {
   await writeAttendanceMirror(session, p);
 
   return {
-    result: { role, url: `${crmBase()}/api/lms/live/t/${ticket}`, expiresInSec: lmsConfig.meeting.joinTicketTtlSec },
+    result: {
+      role,
+      url: `${crmBase()}/api/lms/live/t/${ticket}`,
+      expiresInSec: lmsConfig.meeting.joinTicketTtlSec,
+      // the meeting server's host — the page embeds the room only when it is
+      // on the same site (else the browser drops BBB's session cookie inside
+      // the iframe and BBB shows "Oops, something went wrong")
+      meetingHost: (() => {
+        try {
+          return lmsConfig.bbb.url ? new URL(lmsConfig.bbb.url).hostname : null;
+        } catch (e) {
+          return null;
+        }
+      })(),
+    },
   };
 }
 

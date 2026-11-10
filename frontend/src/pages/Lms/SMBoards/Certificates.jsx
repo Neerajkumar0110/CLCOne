@@ -63,7 +63,7 @@ export default function SMCertificates() {
           <label className="ld-label">Name on certificate<Input defaultValue={f.name} onChange={(e) => { f.name = e.target.value; }} /></label>
           <label className="ld-label">Course<Input defaultValue={f.course} onChange={(e) => { f.course = e.target.value; }} /></label>
           <label className="ld-label">Reason + evidence<Input.TextArea rows={2} placeholder="Learner ID proof shows the correct spelling" onChange={(e) => { f.reason = e.target.value; }} /></label>
-          <span className="ld-muted" style={{ fontSize: 12 }}>{data.canCorrectDirect ? 'Naya ID turant issue hoga' : 'Ops approval ke baad naya ID apne aap issue hoga'} · purana ID verify page par "Replaced" dikhayega</span>
+          <span className="ld-muted" style={{ fontSize: 12 }}>{data.canCorrectDirect ? 'The new ID is issued right away' : 'The new ID is issued automatically after Ops approval'} · purana ID verify page par "Replaced" dikhayega</span>
         </div>
       ),
       okText: data.canCorrectDirect ? 'Issue corrected certificate' : 'Send for approval',
@@ -112,12 +112,12 @@ export default function SMCertificates() {
       </section>
 
       <section className="ld-card" style={{ flex: 1 }} aria-label="Approval queue">
-        <div className="ld-hd"><b style={{ fontSize: 15 }}>Approval queue</b><span className="ld-muted" style={{ fontSize: 12 }}>System sirf checklist banata hai · issue staff karta hai</span></div>
+        <div className="ld-hd"><b style={{ fontSize: 15 }}>Approval queue</b><span className="ld-muted" style={{ fontSize: 12 }}>The system only builds the checklist · staff issue the certificate</span></div>
         <div style={{ overflowX: 'auto' }}>
           <table className="ld-table">
             <thead><tr><th>Learner</th><th>Certificate</th><th>Pre-issue check</th><th>Evidence</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {data.queue.length === 0 && <tr><td colSpan={6} className="ld-muted">Queue khaali hai.</td></tr>}
+              {data.queue.length === 0 && <tr><td colSpan={6} className="ld-muted">The queue is empty.</td></tr>}
               {data.queue.map((q) => {
                 const [cls, label] = issuedNow[q.email] ? ['hai', 'Issued'] : STATE[q.state] || ['gray', q.state];
                 return (
@@ -162,7 +162,7 @@ export default function SMCertificates() {
             </table>
           </>
         )}
-        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Issue = unique ID + PDF + email · same learner + internship par dobara issue nahi hota · correct par naya ID, purana "Replaced" · revoke par purana record audit mein rehta hai</div>
+        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Issue = unique ID + PDF + email · never issued twice for the same learner + internship · a correction gives a new ID and the old one shows "Replaced" · on revoke the old record stays in the audit</div>
       </section>
     </SMPage>
   );

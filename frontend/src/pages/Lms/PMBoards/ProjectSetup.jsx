@@ -47,9 +47,9 @@ function NewProject({ batches }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
   const create = async () => {
-    if (!f.title.trim()) return message.warning('Title zaroori hai.');
-    if (!batchId) return message.warning('Batch chunein.');
-    if (rubric.some((r) => !r.criterion.trim())) return message.warning('Har rubric criterion ka naam likhein.');
+    if (!f.title.trim()) return message.warning('Title is required.');
+    if (!batchId) return message.warning('Pick a batch.');
+    if (rubric.some((r) => !r.criterion.trim())) return message.warning('Name every rubric criterion.');
     setBusy(true);
     try {
       const r = await lmsApi.assignProject({
@@ -88,7 +88,7 @@ function NewProject({ batches }) {
       <section className="ld-card pm-form" aria-label="Project details">
         <b style={{ fontSize: 15 }}>Project details</b>
         <label className="ld-label">Title *<input className="ld-inp" value={f.title} onChange={set('title')} placeholder="Multi-agent Research Assistant" /></label>
-        <label className="ld-label">Objectives<textarea className="ld-inp" value={f.objectives} onChange={set('objectives')} placeholder="Agents + tools + memory se research summary banana; deploy + demo." /></label>
+        <label className="ld-label">Objectives<textarea className="ld-inp" value={f.objectives} onChange={set('objectives')} placeholder="Build a research summary with agents + tools + memory; deploy + demo." /></label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <label className="ld-label">Batch *
             <select className="ld-inp" value={batchId} onChange={(e) => setF({ ...f, batch: e.target.value, learner: '' })}>
@@ -134,14 +134,14 @@ function NewProject({ batches }) {
 
       <section className="ld-card" aria-label="Extension requests">
         <div className="ld-hd"><b>Extension requests</b><span className="ld-muted" style={{ fontSize: 12 }}>{(ext.data || []).length}</span></div>
-        {(ext.data || []).length === 0 && <div className="ld-empty">Learners ki koi extension request nahi.</div>}
+        {(ext.data || []).length === 0 && <div className="ld-empty">No extension requests from learners.</div>}
         {(ext.data || []).slice(0, 5).map((x) => (
           <div className="ld-li" key={x.id}>
             <span><b>{x.learner}</b> · {x.reference || x.subject.replace(/^Project extension request\s*·\s*/i, '')}<br /><span className="ld-muted">{String(x.description || '').split('\n').find((l) => /reason/i.test(l)) || fmtDay(x.created)}</span></span>
             {x.sentToOps ? <span className={`ld-chip ${x.sentToOps === 'approved' ? 'hai' : x.sentToOps === 'rejected' ? 'red' : 'naya'}`}>{x.sentToOps === 'pending' ? 'With Ops' : x.sentToOps}</span> : <button type="button" className="ld-btn2 sm" onClick={() => send(x.id)}>Send to Ops</button>}
           </div>
         ))}
-        <div className="ld-muted" style={{ fontSize: 12 }}>Extension sirf approved rule se · Operations Manager approve karega</div>
+        <div className="ld-muted" style={{ fontSize: 12 }}>Extensions only by the approved rule · the Operations Manager approves</div>
         <button type="button" className="ld-btn" style={{ marginTop: 'auto' }} disabled={busy || !!done} onClick={create}>{done ? 'Assigned ✓' : busy ? 'Assigning…' : 'Create & assign project'}</button>
         {done && (
           <div className="pm-okbox">
@@ -167,7 +167,7 @@ function NewAssignment({ batches }) {
 
   const create = async () => {
     setTried(true);
-    if (missing.length || !batchId) return message.warning('Required (*) fields bharein.');
+    if (missing.length || !batchId) return message.warning('Fill in the required (*) fields.');
     setBusy(true);
     try {
       const r = await lmsApi.createAssignment({ batch: batchId, title: f.title.trim(), instructions: f.instructions.trim(), dueDate: f.due, maxMarks: Number(f.maxMarks) || 20, submissionType: f.submissionType });
@@ -191,7 +191,7 @@ function NewAssignment({ batches }) {
       <section className="ld-card pm-form" aria-label="Create assignment">
         <b style={{ fontSize: 15 }}>Create assignment</b>
         <label className="ld-label">Title *<input className="ld-inp" style={err('title') ? { borderColor: '#dc2626' } : undefined} value={f.title} onChange={set('title')} placeholder="Build a tool-using agent" /></label>
-        <label className="ld-label">Instructions *<textarea className="ld-inp" style={{ minHeight: 90, ...(err('instructions') ? { borderColor: '#dc2626' } : {}) }} value={f.instructions} onChange={set('instructions')} placeholder="LangChain se 2 tools wala agent banao aur 3 test queries ka output submit karo." /></label>
+        <label className="ld-label">Instructions *<textarea className="ld-inp" style={{ minHeight: 90, ...(err('instructions') ? { borderColor: '#dc2626' } : {}) }} value={f.instructions} onChange={set('instructions')} placeholder="Build a 2-tool agent with LangChain and submit the output of 3 test queries." /></label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <label className="ld-label">Batch *
             <select className="ld-inp" value={batchId} onChange={set('batch')}>{batches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
@@ -203,7 +203,7 @@ function NewAssignment({ batches }) {
           <select className="ld-inp" value={f.submissionType} onChange={set('submissionType')}>{SUBMISSION.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         </label>
         <button type="button" className="ld-btn" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={create}>{busy ? 'Creating…' : 'Create assignment'}</button>
-        {result && result.ok && <div className="pm-okbox">Assignment created ✓ {result.code ? `(${result.code}) ` : ''}— {result.inList ? 'list mein dikh raha hai' : 'saved'} · sirf {result.batch} ke learners ko visible</div>}
+        {result && result.ok && <div className="pm-okbox">Assignment created ✓ {result.code ? `(${result.code}) ` : ''}— {result.inList ? 'shows in the list' : 'saved'} · visible only to {result.batch} learners</div>}
         {result && !result.ok && <div className="pm-alert">{result.error}</div>}
       </section>
       <section className="ld-card" aria-label="Acceptance">
@@ -226,7 +226,7 @@ export default function PMProjectSetup() {
     <PMPage title="Projects & assignments — setup">
       <PMTabs tabs={[['project', 'New project'], ['assignment', 'New assignment'], ['all', 'All assignments']]} value={tab} onChange={setTab} />
       {tab === 'all' ? <Legacy><Assignments /></Legacy> : loading ? <Loading /> : list.length === 0 ? (
-        <section className="ld-card"><div className="ld-empty">Aapko abhi koi batch assign nahi hai — project / assignment ke liye batch chahiye.</div></section>
+        <section className="ld-card"><div className="ld-empty">No batch is assigned to you yet — a project / assignment needs a batch.</div></section>
       ) : tab === 'project' ? <NewProject batches={list} /> : <NewAssignment batches={list} />}
     </PMPage>
   );

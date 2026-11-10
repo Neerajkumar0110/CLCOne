@@ -47,7 +47,7 @@ export default function PolicyCentre() {
 
   return (
     <>
-      <Head title="Policy centre" sub="Support Manager draft banata hai · Management publish karta hai · purane versions aur acceptances kabhi delete nahi hote" />
+      <Head title="Policy centre" sub="Support Manager drafts · Management publishes · old versions and acceptances are never deleted" />
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <div className="ao-grid-2" style={{ gridTemplateColumns: '280px minmax(0, 1fr) 360px' }}>
@@ -82,7 +82,7 @@ export default function PolicyCentre() {
                     <button type="button" className={`ao-tog${f.materialChange ? ' on' : ''}`} disabled={!isDraft} aria-label="Material change" aria-pressed={f.materialChange} onClick={() => setF({ ...f, materialChange: !f.materialChange })}><span /></button>
                     <div>
                       <b>{f.materialChange ? 'Material change — re-acceptance required' : 'Minor change — no re-acceptance'}</b><br />
-                      <span className="ao-muted">{f.materialChange ? 'Publish par learners ko notice jaayega; accept karne tak restricted content band' : 'Learners ko sirf notice jaayega, access par asar nahi'}</span>
+                      <span className="ao-muted">{f.materialChange ? 'Learners are notified on publish; restricted content stays locked until they accept' : 'Learners only get a notice; access is not affected'}</span>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -90,7 +90,7 @@ export default function PolicyCentre() {
                     <label className="ao-label">Approver<select className="ao-inp full" disabled={!isDraft} value={f.approverName} onChange={(e) => setF({ ...f, approverName: e.target.value })}>{data.approvers.map((a) => <option key={a}>{a}</option>)}</select></label>
                   </div>
                   {sel.approvalRequestedAt && <div className="ao-muted" style={{ fontSize: 12 }}>Sent for approval by {sel.approvalRequestedByName} · {fmtDate(sel.approvalRequestedAt)}</div>}
-                  <div className="ao-muted" style={{ fontSize: 12 }}>Checkbox learner ke liye hamesha unticked · acceptance par learner ID + version + time save</div>
+                  <div className="ao-muted" style={{ fontSize: 12 }}>The checkbox is always unticked for the learner · on acceptance, learner ID + version + time are saved</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 'auto', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     <button type="button" className="ao-btn2" onClick={() => setPreview(true)}>Preview as learner</button>
                     {isDraft && <button type="button" className="ao-btn2" onClick={send}>{sel.approvalRequestedAt ? 'Update request' : 'Send for approval'}</button>}
@@ -114,7 +114,7 @@ export default function PolicyCentre() {
                   ))}
                   <div className="ao-hd" style={{ marginTop: 6 }}><b>Pending · {data.acks.pending.length}</b></div>
                   <div style={{ fontSize: 13, lineHeight: '20px' }}>{data.acks.pending.slice(0, 4).join(' · ')}{data.acks.pending.length > 4 ? ` · +${data.acks.pending.length - 4}` : ''}</div>
-                  <div className="ao-muted" style={{ fontSize: 12 }}>Pending learners ka LMS access gate se band hai (server-side) · daily reminder job</div>
+                  <div className="ao-muted" style={{ fontSize: 12 }}>Pending learners' LMS access is locked by the gate (server-side) · daily reminder job</div>
                   <button type="button" className="ao-btn2 sm" style={{ marginTop: 'auto', alignSelf: 'flex-start' }} onClick={exportCsv}>Export acceptance evidence (CSV) →</button>
                 </>
               )}

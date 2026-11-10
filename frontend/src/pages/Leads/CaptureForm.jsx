@@ -724,9 +724,9 @@ function CaptureForm() {
           })}
         </div>
         <div style={{ fontSize: 12, color: "var(--hub-muted)", marginTop: 10 }}>
-          <strong>Facebook / Google / LinkedIn Ads connections niche optional hain</strong> — sirf leads ke
-          auto-sync ke liye. Bina kisi account connect kiye, <strong>Website</strong> ka
-          <em> Hosted Landing Page</em> link ya <em>Embed Code</em> use karke abhi se ads chala ke leads le sakte ho.
+          <strong>The Facebook / Google / LinkedIn Ads connections below are optional</strong> — only for
+          auto-syncing leads. Without connecting any account, you can use the <strong>Website</strong>
+          <em> Hosted Landing Page</em> link or <em>Embed Code</em> to run ads and collect leads right away.
         </div>
       </div>
 
@@ -737,9 +737,9 @@ function CaptureForm() {
             <span className="hub-badge hub-badge-green">No connection needed</span>
           </div>
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 12 }}>
-            Ye ek ready lead-capture page hai jo aapke saved form fields se banta hai. Iska link
-            Facebook / Instagram / Google / YouTube ad ke <strong>destination URL</strong> me daalo —
-            leads seedhe CRM me aayenge, campaign ke naam se tag hoke (Marketing → Analytics Hub me dikhega).
+            This is a ready lead-capture page built from your saved form fields. Put its link in a
+            Facebook / Instagram / Google / YouTube ad's <strong>destination URL</strong> —
+            leads go straight into the CRM, tagged with the campaign name (shown in Marketing → Analytics Hub).
           </div>
           <div className="hub-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
             <div>
@@ -778,8 +778,8 @@ function CaptureForm() {
                   {lpCopyMessage && <span className="hub-badge hub-badge-blue">{lpCopyMessage}</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 8 }}>
-                  Tip: har alag ad ke liye alag <strong>Campaign name</strong> rakho — Analytics Hub me har campaign
-                  ki leads / cost / ROI alag dikhegi. Form fields niche "Form Fields" me on/off karke <strong>Save Form</strong> dabao.
+                  Tip: give each ad its own <strong>Campaign name</strong> — Analytics Hub then shows leads / cost / ROI
+                  per campaign. Turn form fields on/off under "Form Fields" below and click <strong>Save Form</strong>.
                 </div>
               </div>
             );

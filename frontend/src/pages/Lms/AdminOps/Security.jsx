@@ -13,7 +13,7 @@ export default function Security() {
 
   return (
     <>
-      <Head title="Security, login monitoring & audit" sub="Spec §18 · sirf authorised roles · signals review ke liye hain, proof nahi · scope / retention = D-09, D-15" />
+      <Head title="Security, login monitoring & audit" sub="Spec §18 · authorised roles only · signals are for review, not proof · scope / retention = D-09, D-15" />
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <div className="ao-grid-2" style={{ gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gridTemplateRows: 'auto auto', gap: 12 }}>
@@ -41,7 +41,7 @@ export default function Security() {
               {data.alerts.map((a) => (
                 <div className="ao-li" key={a.text}><span><b>{a.kind}</b> · {a.text}</span><span className="ao-chip adh">Review</span></div>
               ))}
-              <div className="ao-muted" style={{ fontSize: 12 }}>Alert par koi automatic action nahi — Ops review karta hai, decision log hota hai</div>
+              <div className="ao-muted" style={{ fontSize: 12 }}>No automatic action on an alert — Ops reviews it and the decision is logged</div>
             </div>
             <div className="ao-card">
               <div className="ao-hd">
@@ -65,14 +65,14 @@ export default function Security() {
                   </tbody>
                 </table>
               </div>
-              <div className="ao-muted" style={{ fontSize: 12 }}>Append-only · edit / delete kisi ke paas nahi</div>
+              <div className="ao-muted" style={{ fontSize: 12 }}>Append-only · nobody can edit / delete</div>
             </div>
             <div className="ao-card">
               <div className="ao-hd"><b>Notice &amp; retention</b><span className="ao-chip naya">D-09 · D-15</span></div>
               {data.retention.map((r) => (
                 <div className="ao-li" key={r.label}><span>{r.label}</span><b>{r.value}</b></div>
               ))}
-              <div className="ao-muted" style={{ fontSize: 12 }}>Raw video / audio ya personal-device data collect nahi hota</div>
+              <div className="ao-muted" style={{ fontSize: 12 }}>No raw video / audio or personal-device data is collected</div>
             </div>
           </div>
         )}

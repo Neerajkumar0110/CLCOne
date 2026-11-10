@@ -151,6 +151,23 @@ function getStatusPanel(r) {
   return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the project manager to start the class.' };
 }
 
+// registrable domain, e.g. clcone.careerlabconsulting.com → careerlabconsulting.com
+// (keeps one more label for co.in-style suffixes)
+function siteOf(host) {
+  const p = String(host || '').toLowerCase().split('.').filter(Boolean);
+  if (p.length <= 2) return p.join('.');
+  const two = p.slice(-2);
+  return (two[1].length === 2 && ['co', 'com', 'org', 'net', 'gov', 'ac', 'edu'].includes(two[0]) ? p.slice(-3) : two).join('.');
+}
+export function canEmbed(meetingHost) {
+  if (!meetingHost) return true; // no meeting server reported (mock rooms) — previous behaviour
+  try {
+    return siteOf(window.location.hostname) === siteOf(meetingHost);
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function LiveClasses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -223,7 +240,12 @@ export default function LiveClasses() {
   // "Naye tab" moves it to a tab with a fresh ticket and drops the iframe,
   // so they're in the meeting once. room = { id, url } | { id, popped }
   const [room, setRoom] = useState(null);
-  const enter = (id, url) => (isLearner ? setRoom({ id, url }) : openMeeting(url));
+  // The room is embedded only when this page and the meeting server are the
+  // same site (clcone + meet.careerlabconsulting.com). From any other host
+  // (localhost, a preview domain) the browser blocks BBB's session cookie
+  // inside the iframe and BBB shows "Oops, something went wrong" — there the
+  // class opens in a new tab instead.
+  const enter = (id, url, host) => (isLearner && canEmbed(host) ? setRoom({ id, url }) : openMeeting(url));
   const popOut = async (id) => {
     const w = window.open('', '_blank'); // inside the click, before the await — not popup-blocked
     setRoom({ id, popped: true });
@@ -238,7 +260,7 @@ export default function LiveClasses() {
     if (url) setRoom({ id, url });
     else {
       setRoom(null);
-      message.warning((res && res.message) || 'Naya tab nahi khul paya — dobara "Join class" dabayein.');
+      message.warning((res && res.message) || 'Could not open a new tab — click "Join class" again.');
     }
   };
 
@@ -251,7 +273,7 @@ export default function LiveClasses() {
     if (!waiting || waiting.url) return undefined;
     const t = setInterval(async () => {
       const res = await lmsApi.liveClassJoin(waiting.id).catch(() => null);
-      if (res && res.result && res.result.url) setWaiting((w) => (w && w.id === waiting.id ? { ...w, url: res.result.url } : w));
+      if (res && res.result && res.result.url) setWaiting((w) => (w && w.id === waiting.id ? { ...w, url: res.result.url, host: res.result.meetingHost } : w));
     }, 12000);
     return () => clearInterval(t);
   }, [waiting]);
@@ -263,7 +285,7 @@ export default function LiveClasses() {
       // Staff join in a real new tab (BBB's own client; role-based toolbar /
       // moderator controls come from the provider itself, see
       // BigBlueButtonProvider.getJoinUrl); learners inside the L4 board.
-      if (res && res.result && res.result.url) enter(id, res.result.url);
+      if (res && res.result && res.result.url) enter(id, res.result.url, res.result.meetingHost);
       else if (res && res.waitForHost) setWaiting({ id });
       else message.warning((res && res.message) || 'Could not join.');
     } catch (e) {
@@ -456,7 +478,7 @@ export default function LiveClasses() {
                 size="large"
                 icon={<LoginOutlined />}
                 onClick={() => {
-                  enter(waiting.id, waiting.url);
+                  enter(waiting.id, waiting.url, waiting.host);
                   setWaiting(null);
                   load(true);
                 }}
@@ -519,8 +541,8 @@ export default function LiveClasses() {
           />
         ) : (
           <div className="ld-page">
-            <div className="ld-head"><div><h1>Live classes</h1><div className="ld-muted ld-sub">Aapke batch ki classes yahan dikhengi.</div></div></div>
-            <div className="ld-card"><div className="ld-empty">Abhi koi class schedule nahi hai. Batch assign hone ke baad classes yahan aayengi.</div></div>
+            <div className="ld-head"><div><h1>Live classes</h1><div className="ld-muted ld-sub">Your batch's classes will appear here.</div></div></div>
+            <div className="ld-card"><div className="ld-empty">No class is scheduled yet. Classes will appear here once a batch is assigned.</div></div>
           </div>
         )}
         {rows.length > 0 && (
@@ -528,7 +550,7 @@ export default function LiveClasses() {
             <section className="ld-card" aria-label="All classes">
               <div className="ld-hd">
                 <span style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                  <b>Batch ki classes</b>
+                  <b>Batch classes</b>
                   <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/calendar')}>Calendar view →</button>
                 </span>
                 <span style={{ display: 'flex', gap: 6 }}>
@@ -537,7 +559,7 @@ export default function LiveClasses() {
                 </span>
               </div>
               {shown.length === 0 ? (
-                <div className="ld-empty">{listTab === 'past' ? 'Abhi tak koi class nahi hui.' : 'Koi upcoming class nahi.'}</div>
+                <div className="ld-empty">{listTab === 'past' ? 'No class has happened yet.' : 'No upcoming class.'}</div>
               ) : (
                 <div className="ld-tablewrap">
                   <table className="ld-table cd-list">

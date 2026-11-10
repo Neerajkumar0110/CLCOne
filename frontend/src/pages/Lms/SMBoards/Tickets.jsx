@@ -112,7 +112,7 @@ function Problems({ data, reload }) {
           <table className="ld-table">
             <thead><tr><th>PRB</th><th>Problem</th><th>Category</th><th>Tickets</th><th>Status</th></tr></thead>
             <tbody>
-              {data.rows.length === 0 && <tr><td colSpan={5} className="ld-muted">Abhi koi problem record nahi · ticket se "New problem from this ticket" dabayein.</td></tr>}
+              {data.rows.length === 0 && <tr><td colSpan={5} className="ld-muted">No problem record yet · click "New problem from this ticket" on a ticket.</td></tr>}
               {data.rows.map((p) => (
                 <tr key={p.id} className={`click${cur && cur.id === p.id ? ' sm-rowsel' : ''}`} onClick={() => setSel(p.id)}>
                   <td><b>{p.code}</b></td>
@@ -125,13 +125,13 @@ function Problems({ data, reload }) {
             </tbody>
           </table>
         </div>
-        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Ek root cause, kai tickets · PRB resolve karne par har linked open ticket ko wahi jawab jaata hai — learner confirm / reopen kar sakta hai</div>
+        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>One root cause, many tickets · resolving the PRB sends the same answer to every linked open ticket — the learner can still confirm / reopen</div>
       </section>
       {cur ? (
         <section className="ld-card" aria-label="Problem detail">
           <div className="ld-hd"><b style={{ fontSize: 15 }}>{cur.code} · {cur.title}</b><span className="ld-chip gray">{cur.status}</span></div>
           <label className="ld-label">Root cause<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} disabled={cur.status === 'Resolved'} value={f.rootCause || ''} onChange={(e) => setF({ ...f, rootCause: e.target.value })} /></label>
-          <label className="ld-label">Workaround (linked tickets ke internal note mein jaata hai)<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} disabled={cur.status === 'Resolved'} value={f.workaround || ''} onChange={(e) => setF({ ...f, workaround: e.target.value })} /></label>
+          <label className="ld-label">Workaround (goes into the linked tickets' internal note)<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} disabled={cur.status === 'Resolved'} value={f.workaround || ''} onChange={(e) => setF({ ...f, workaround: e.target.value })} /></label>
           {cur.status !== 'Resolved' && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => run('save', () => lmsApi.smProblemUpdate(cur.id, f), 'Saved.')}>Save</button>
@@ -140,7 +140,7 @@ function Problems({ data, reload }) {
           )}
           <div className="sm-cap">Linked tickets · {cur.tickets.length}</div>
           <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {cur.tickets.length === 0 && <span className="ld-muted">Koi ticket linked nahi.</span>}
+            {cur.tickets.length === 0 && <span className="ld-muted">No ticket linked.</span>}
             {cur.tickets.map((x) => <span key={x.id}><b>{x.code}</b> · {shortName(x.learner)} · {x.subject} · <span className="ld-muted">{x.status}</span></span>)}
           </div>
           {cur.status === 'Resolved' ? (
@@ -152,7 +152,7 @@ function Problems({ data, reload }) {
             </>
           )}
         </section>
-      ) : <section className="ld-card"><div className="ld-empty">Problem chunein.</div></section>}
+      ) : <section className="ld-card"><div className="ld-empty">Pick a problem.</div></section>}
     </div>
   );
 }
@@ -191,8 +191,8 @@ function Detail({ t, owners, problems, onSaved }) {
   };
   const move = () => {
     if (!next) return save('move', { stage: 'In progress' }, 'Reopened.');
-    if (next === 'Assigned' && !f.ownerId) return message.warning('Pehle owner chunein.');
-    if (next === 'Resolved' && !reply.trim()) return message.warning('Resolve se pehle learner ko reply likhein.');
+    if (next === 'Assigned' && !f.ownerId) return message.warning('Pick an owner first.');
+    if (next === 'Resolved' && !reply.trim()) return message.warning('Write a reply to the learner before resolving.');
     return save('move', { stage: next, ...(next === 'Resolved' ? { reply: reply.trim() } : {}) }, `Moved to ${next}.`);
   };
   return (
@@ -219,8 +219,8 @@ function Detail({ t, owners, problems, onSaved }) {
           {t.internalNotes.slice(-3).map((n, k) => <span key={k} className="ld-muted"><b>{n.byName}</b> · {fmtDayTime(n.at)}: {n.text}</span>)}
         </div>
       )}
-      <label className="ld-label">Internal note<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Staff-only, learner ko nahi dikhta" value={note} onChange={(e) => setNote(e.target.value)} /></label>
-      <label className="ld-label">Reply to learner<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Learner ko dikhega (Resolve ke saath ya alag se)" value={reply} onChange={(e) => setReply(e.target.value)} /></label>
+      <label className="ld-label">Internal note<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Staff only, not shown to the learner" value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      <label className="ld-label">Reply to learner<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="The learner sees this (with Resolve or separately)" value={reply} onChange={(e) => setReply(e.target.value)} /></label>
       {t.escalatedTo && <div style={{ fontSize: 13 }}>Escalated to <b>{t.escalatedTo}</b></div>}
       <ProblemLink t={t} problems={problems} onSaved={onSaved} />
       <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
@@ -267,7 +267,7 @@ export default function SMTickets() {
             <table className="ld-table">
               <thead><tr><th>ID</th><th>Learner / batch</th><th>Category</th><th>Pri</th><th>Owner</th><th>Status</th><th>SLA</th></tr></thead>
               <tbody>
-                {list.length === 0 && <tr><td colSpan={7} className="ld-muted">Is filter mein koi ticket nahi.</td></tr>}
+                {list.length === 0 && <tr><td colSpan={7} className="ld-muted">No ticket in this filter.</td></tr>}
                 {list.map((t) => (
                   <tr key={t.id} className={`click${sel === t.id ? ' sm-rowsel' : ''}`} onClick={() => setSel(t.id)}>
                     <td><b>{t.code}</b></td>
@@ -286,7 +286,7 @@ export default function SMTickets() {
             SLA targets (default until D-06): P0 {data.slaHours.Urgent}h · P1 {data.slaHours.High}h · P2 {data.slaHours.Medium}h · P3 {data.slaHours.Low}h · "Waiting" pauses the clock
           </div>
         </section>
-        {cur ? <Detail t={cur} owners={data.owners} problems={problems} onSaved={reloadAll} /> : <section className="ld-card"><div className="ld-empty">Ticket chunein.</div></section>}
+        {cur ? <Detail t={cur} owners={data.owners} problems={problems} onSaved={reloadAll} /> : <section className="ld-card"><div className="ld-empty">Pick a ticket.</div></section>}
       </div>
       )}
     </SMPage>

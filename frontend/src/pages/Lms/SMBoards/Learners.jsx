@@ -14,11 +14,11 @@ import { SMPage, useLoad, Loading, res, errText, downloadCsv } from './shared';
 const STATUSES = ['Active', 'On Hold', 'Dropped', 'Deferred', 'Completed', 'Suspended', 'Withdrawn', 'Archived'];
 const CHIP = { Active: 'hai', 'On Hold': 'adh', Dropped: 'gray', Deferred: 'naya', Completed: 'hai', Suspended: 'red', Withdrawn: 'gray', Archived: 'gray' };
 const RULES = {
-  'On Hold': ['Seedha apply (audit)', 'Access aur reminders approved rule se pause · withdrawal assume nahi hota.', 'Apply On Hold'],
-  Deferred: ['Seedha apply (audit)', 'Naye batch / schedule par shift · purani attendance history safe.', 'Apply Deferred'],
-  Active: ['Seedha apply (audit)', 'Access aur reminders wapas chalu.', 'Apply Active'],
-  Dropped: ['Ops Manager approval chahiye', 'Attendance denominator se bahar · class / feedback reminders band · access policy ke hisaab se · learner ko notice jaayega.', 'Send for approval'],
-  Suspended: ['Management approval chahiye', 'Access turant band · saare reminder jobs cancel.', 'Send for approval'],
+  'On Hold': ['Applied directly (audited)', 'Access and reminders paused by the approved rule · withdrawal is not assumed.', 'Apply On Hold'],
+  Deferred: ['Applied directly (audited)', 'Moved to a new batch / schedule · old attendance history is kept.', 'Apply Deferred'],
+  Active: ['Applied directly (audited)', 'Access and reminders back on.', 'Apply Active'],
+  Dropped: ['Needs Ops Manager approval', 'Out of the attendance denominator · class / feedback reminders stop · access per policy · the learner is notified.', 'Send for approval'],
+  Suspended: ['Needs Management approval', 'Access blocked immediately · all reminder jobs cancelled.', 'Send for approval'],
   Withdrawn: ['Ops + Finance check', 'Refund / dues Finance dekhega · access band · history retained.', 'Send for approval'],
 };
 
@@ -54,7 +54,7 @@ export default function SMLearners() {
   const rule = RULES[next];
 
   const apply = async () => {
-    if (reason.trim().length < 5) return message.warning('Reason + evidence likhein.');
+    if (reason.trim().length < 5) return message.warning('Write the reason + evidence.');
     setBusy('status');
     try {
       const r = await lmsApi.smLearnerStatus(cur.id, { status: next, reason: reason.trim() });
@@ -84,7 +84,7 @@ export default function SMLearners() {
     if (!file) return;
     const raw = await (file.text ? file.text() : new Promise((ok, fail) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result || '')); fr.onerror = fail; fr.readAsText(file); })).catch(() => '');
     const list = parseCsv(raw);
-    if (!list.length) return message.error('CSV khaali ya padha nahi ja saka.');
+    if (!list.length) return message.error('The CSV is empty or could not be read.');
     const known = new Set(data.rows.map((r) => r.email.toLowerCase()));
     const seen = new Set();
     const batches = new Set(data.batches);
@@ -119,7 +119,7 @@ export default function SMLearners() {
   const exportRows = () => downloadCsv('learners.csv', rows.map((r) => ({ Name: r.name, 'Learner ID': r.enrollmentId, Email: r.email, Batch: r.batch, Status: r.status, Onboarding: `${r.onboarding.done}/${r.onboarding.total}`, Consent: r.consent, 'Open tickets': r.openTickets })));
 
   return (
-    <SMPage title="Learner management" sub="Statuses · learner management · password kabhi dikhta / set nahi hota — sirf secure reset link">
+    <SMPage title="Learner management" sub="Statuses · learner management · passwords are never shown / set — only a secure reset link">
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button type="button" className={`ld-pill${!status ? ' on' : ''}`} style={{ height: 32, fontSize: 12 }} onClick={() => setStatus('')}>All · {data.total}</button>
         {STATUSES.map((s) => <button key={s} type="button" className={`ld-pill${status === s ? ' on' : ''}`} style={{ height: 32, fontSize: 12 }} onClick={() => setStatus(s)}>{s} · {data.counts[s] || 0}</button>)}
@@ -136,7 +136,7 @@ export default function SMLearners() {
             <table className="ld-table">
               <thead><tr><th /><th>Learner</th><th>Batch</th><th>Status</th><th>Onboarding</th><th>Consent</th><th>Open tickets</th></tr></thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={7} className="ld-muted">Koi learner nahi mila.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={7} className="ld-muted">No learner found.</td></tr>}
                 {rows.slice(0, 200).map((r) => (
                   <tr key={r.id} className={`click${sel === r.id ? ' sm-rowsel' : ''}`} onClick={() => { setSel(r.id); setNext(r.status === 'On Hold' ? 'Active' : 'On Hold'); }}>
                     <td><input type="checkbox" aria-label={`Select ${r.name}`} checked={sel === r.id} readOnly /></td>
@@ -153,7 +153,7 @@ export default function SMLearners() {
           </div>
           {imp && (
             <div className="ld-soft" style={{ marginTop: 'auto' }}>
-              <b>Bulk import preview ({imp.file}):</b> {imp.rows.length} rows · <span style={{ color: '#166534' }}>{imp.rows.filter((r) => !r.err).length} valid</span> · <span style={{ color: '#991b1b' }}>{imp.rows.filter((r) => r.err === 'duplicate email').length} duplicate emails</span> · <span style={{ color: '#9a3412' }}>{imp.rows.filter((r) => r.err && r.err !== 'duplicate email').length} other errors</span> — sirf valid rows import honge
+              <b>Bulk import preview ({imp.file}):</b> {imp.rows.length} rows · <span style={{ color: '#166534' }}>{imp.rows.filter((r) => !r.err).length} valid</span> · <span style={{ color: '#991b1b' }}>{imp.rows.filter((r) => r.err === 'duplicate email').length} duplicate emails</span> · <span style={{ color: '#9a3412' }}>{imp.rows.filter((r) => r.err && r.err !== 'duplicate email').length} other errors</span> — only valid rows will be imported
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button type="button" className="ld-btn sm" disabled={busy === 'import' || !imp.rows.some((r) => !r.err)} onClick={runImport}>{busy === 'import' ? 'Importing…' : 'Import valid rows'}</button>
                 <button type="button" className="ld-btn2 sm" disabled={!imp.rows.some((r) => r.err)} onClick={() => downloadCsv('import-errors.csv', imp.rows.filter((r) => r.err))}>Download error report</button>
@@ -164,7 +164,7 @@ export default function SMLearners() {
           )}
         </section>
         <section className="ld-card" aria-label="Change status">
-          {!cur && <div className="ld-empty">Table se learner chunein.</div>}
+          {!cur && <div className="ld-empty">Pick a learner from the table.</div>}
           {cur && (
             <>
               <div className="ld-hd"><b style={{ fontSize: 15 }}>{cur.name} · change status</b><span className={`ld-chip ${CHIP[cur.status] || 'gray'}`}>{cur.status}</span></div>

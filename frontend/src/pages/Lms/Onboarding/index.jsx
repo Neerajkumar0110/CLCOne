@@ -69,7 +69,7 @@ export default function Onboarding() {
     const r = await lmsApi.markOnboarding('device', { done: true, device }).catch(() => null);
     if (!r || r.success === false) return message.error((r && r.message) || 'Could not save.');
     setD(r.result);
-    if (r.result.autoTicket) message.warning(`Camera / mic nahi mila — ticket ${r.result.autoTicket} Support ko automatically chala gaya. Browser mein access allow karke "Check again" karein.`);
+    if (r.result.autoTicket) message.warning(`Camera / mic not found — ticket ${r.result.autoTicket} was sent to Support automatically. Allow access in your browser and click "Check again".`);
     return null;
   };
   const ticketFor = (s) =>
@@ -85,7 +85,7 @@ export default function Onboarding() {
       <div className="ld-hd">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div className="ld-eyebrow">Activation + onboarding</div>
-          <h1>Welcome, {(d.name || '').split(' ')[0]} — chaliye setup poora karein</h1>
+          <h1>Welcome, {(d.name || '').split(' ')[0]} — let's finish your setup</h1>
           <div className="ld-muted" style={{ fontSize: 14 }}>
             {[
               d.batch && `${d.batch} batch${d.batchTime ? ` (${d.batchTime})` : ''}`,
@@ -124,18 +124,18 @@ export default function Onboarding() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <section className="ld-card" aria-label="Setup guide">
             <b style={{ fontSize: 16 }}>Setup guide</b>
-            <div style={{ fontSize: 13, lineHeight: '21px' }}>1. Python 3.11 install karein<br />2. VS Code + Python extension<br />3. <code>pip install -r requirements.txt</code><br />4. Test notebook run karein</div>
+            <div style={{ fontSize: 13, lineHeight: '21px' }}>1. Install Python 3.11<br />2. VS Code + Python extension<br />3. <code>pip install -r requirements.txt</code><br />4. Run the test notebook</div>
             <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/material')}>Setup material →</button>
-            <div className="ld-muted" style={{ fontSize: 12 }}>Remote install sirf aapki explicit permission se</div>
+            <div className="ld-muted" style={{ fontSize: 12 }}>Remote install only with your explicit permission</div>
           </section>
           <section className="ld-card" aria-label="Supported devices">
             <b style={{ fontSize: 16 }}>Supported devices</b>
             <div style={{ fontSize: 13, lineHeight: '21px' }}>Chrome / Edge latest · 8 GB RAM · webcam + mic · 5 Mbps</div>
-            <div className="ld-warn">Safari par camera issue aate hain — Chrome use karein</div>
+            <div className="ld-warn">Safari has camera issues — use Chrome</div>
           </section>
           <section className="ld-card" aria-label="Stuck">
             <b style={{ fontSize: 16 }}>Atak gaye?</b>
-            <div className="ld-muted" style={{ fontSize: 13 }}>Blocked step ka ticket automatic ban jaata hai, Support Manager ko dikh jaata hai.</div>
+            <div className="ld-muted" style={{ fontSize: 13 }}>A ticket is created automatically for a blocked step and the Support Manager sees it.</div>
             <button type="button" className="ld-btn2" style={{ alignSelf: 'flex-start', height: 36 }} onClick={() => navigate('/learn/support')}>Raise a ticket</button>
           </section>
         </div>

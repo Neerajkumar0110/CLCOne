@@ -41,7 +41,7 @@ export default function Reports() {
 
   return (
     <>
-      <Head title="Reports & exports" sub="Spec §12.4, §19.1 · role ke hisaab se fields filter · har sensitive export log hota hai" />
+      <Head title="Reports & exports" sub="Spec §12.4, §19.1 · fields filtered by role · every sensitive export is logged" />
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <>

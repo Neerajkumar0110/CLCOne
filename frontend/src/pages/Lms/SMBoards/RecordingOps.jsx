@@ -70,7 +70,7 @@ export default function SMRecordingOps() {
   return (
     <SMPage
       title={`Recording recovery · ${data.batch} · ${fmtDay(data.from)} – ${fmtDay(data.to)}`}
-      sub='Har scheduled session ka status evidence ke saath · bina evidence "recovered" mark nahi hota'
+      sub={"Every scheduled session's status with evidence · nothing is marked \"recovered\" without evidence"}
     >
       <div className="sm-g6" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10 }}>
         <div className="sm-st"><b>{s.scheduled}</b><span>Scheduled sessions</span></div>
@@ -92,7 +92,7 @@ export default function SMRecordingOps() {
             <table className="ld-table" style={{ fontSize: 12 }}>
               <thead><tr><th>Session</th><th>Date</th><th>Topic (LMS)</th><th>Sources checked</th><th>Status</th><th>Views</th><th>Action</th></tr></thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={7} className="ld-muted">Is range mein koi session nahi.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={7} className="ld-muted">No session in this range.</td></tr>}
                 {rows.map((r) => {
                   const [cls, label] = STATE[r.state] || ['gray', r.state];
                   return (
@@ -113,11 +113,11 @@ export default function SMRecordingOps() {
               </tbody>
             </table>
           </div>
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>"Deleted" label ko proof nahi maana jaata — recording record + source check kiye jaate hain</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>A "Deleted" label is not taken as proof — the recording record + sources are checked</div>
         </section>
         <section className="ld-card" aria-label="Rename and import">
           <div className="ld-hd"><b style={{ fontSize: 15 }}>Rename with audit</b></div>
-          {!sel && <div className="ld-empty">Table se session ka "Rename" dabayein.</div>}
+          {!sel && <div className="ld-empty">Click "Rename" on a session in the table.</div>}
           {sel && (
             <>
               <div style={{ fontSize: 13 }}><span className="ld-muted">{sel.code} · {fmtDay(sel.date)} · {data.batch}</span></div>
