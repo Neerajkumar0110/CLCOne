@@ -481,3 +481,10 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-brand .ld-logo.mini { height: 36px; margin: 0 auto; }
 .ld-brand .ld-role { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #67e8f9; }
 .ld-sider.pm .ld-brand .ld-role { color: #a5b4fc; }
+
+/* UI-09: the LMS sidebar menu scrolls, but its scrollbar was hidden, so the
+   last items (Certificates) looked unreachable. Show a thin visible bar and
+   keep the bottom items clear of the collapse trigger. */
+.ld-sider .ant-menu-root { scrollbar-width: thin !important; scrollbar-color: rgba(203, 213, 225, .35) transparent; padding-bottom: 12px !important; min-height: 0; }
+.ld-sider .ant-menu-root::-webkit-scrollbar { display: block !important; width: 6px; }
+.ld-sider .ant-menu-root::-webkit-scrollbar-thumb { background: rgba(203, 213, 225, .35); border-radius: 3px; }
