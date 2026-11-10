@@ -3,6 +3,7 @@ import { Alert, Modal, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
 import { SMPage, useLoad, Loading, res, errText } from './shared';
+import DuplicateClassesAlert from '../components/DuplicateClassesAlert';
 
 // S6 — batches & live-class scheduler: batch list | week calendar of the
 // chosen batch + class-time change (calendar, reminders, rooms and learners
@@ -124,6 +125,7 @@ export default function SMScheduler() {
 
   return (
     <SMPage title="Batches & live-class scheduler">
+      <DuplicateClassesAlert load={lmsApi.smDuplicates} request={lmsApi.smDuplicateRequest} onChanged={cal.reload} />
       <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr) 360px', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card pm-scroll" style={{ gap: 8 }} aria-label="Batches">
           <b style={{ fontSize: 14 }}>Batches · {batches.length}</b>

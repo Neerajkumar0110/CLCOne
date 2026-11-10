@@ -38,6 +38,7 @@ const studentAlerts = require('./studentAlerts');
 const candidateDetail = require('./candidateDetail');
 const pmBoards = require('./pmBoards');
 const smBoards = require('./smBoards');
+const opsAuto = require('./opsAuto');
 const holidays = require('./holidays');
 const curriculumAdmin = require('./curriculumAdmin');
 
@@ -392,6 +393,15 @@ module.exports = {
   smCertificates: smBoards.certificateBoard,
   smCertificateRevoke: smBoards.certificateRevoke,
   smComms: smBoards.commsBoard,
+  smDuplicates: opsAuto.smDuplicates,
+  smDuplicateRequest: opsAuto.smDuplicateRequest,
+  pmDuplicates: opsAuto.pmDuplicates,
+  pmDuplicateRequest: opsAuto.pmDuplicateRequest,
+  smCertificateCorrect: opsAuto.smCertificateCorrect,
+  smProblems: opsAuto.problemList,
+  smProblemCreate: opsAuto.problemCreate,
+  smProblemUpdate: opsAuto.problemUpdate,
+  smOpsStatus: opsAuto.opsStatus,
 
   // study material
   materialUpload: studyMaterial.upload,

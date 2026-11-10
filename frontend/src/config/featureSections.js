@@ -938,7 +938,7 @@ export const FEATURE_SECTIONS = [
               hint: 'Only running or upcoming batches are listed.',
             }),
             DT('enrolledOn', 'Enrolled on', { table: false }),
-            SEL('status', 'Status', ['Active', 'On Hold', 'Completed', 'Dropped', 'Deferred']),
+            SEL('status', 'Status', ['Active', 'On Hold', 'Completed', 'Dropped', 'Deferred', 'Suspended', 'Withdrawn', 'Archived']),
             SEL('source', 'Source', ['Website', 'Referral', 'Walk-in', 'Ads', 'Counselor', 'Partner'], { table: false }),
             T('counselor', 'Counselor', { table: false }),
           ]),

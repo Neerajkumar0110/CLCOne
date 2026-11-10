@@ -60,6 +60,7 @@ const DB_MAP = {
   LmsApproval: 'lmsDb',
   LmsAdminConfig: 'lmsDb',
   LmsLearnerNote: 'lmsDb',
+  LmsProblem: 'lmsDb',
   EligibilityRule: 'lmsDb',
   PolicyAcknowledgement: 'lmsDb',
   PolicyDocument: 'lmsDb',

@@ -21,6 +21,9 @@ const RULES = [
   { key: 'daily-report', n: 'Daily operations report', t: 'Daily 9 AM', a: 'Sessions, absences, tickets, failed jobs', h: 'Owner records actions', job: 'lmsDailySummaryTick', pausable: true },
   { key: 'mgmt-report', n: 'Weekly / monthly mgmt report', t: 'Period closes', a: 'KPIs, trends, SLA, actions', h: 'Sensitive detail role-restricted' },
   { key: 'policy-reminder', n: 'Policy reminder', t: 'Pending acknowledgement', a: 'Daily reminder till accepted', h: 'Stops on Dropped / Archived', job: 'lmsPolicyReminderTick', pausable: true },
+  // gap fixes (DATA-02 / approvals): the system detects and carries out, a person approves
+  { key: 'duplicate-class', n: 'Duplicate class detection', t: 'Two classes of a batch overlap', a: 'Removal request to Ops (hourly)', h: 'Removed only after Ops approves', job: 'lmsOpsAutoTick', pausable: true },
+  { key: 'approval-execute', n: 'Approved request follow-through', t: 'Ops approval final', a: 'Status / message / extension / class / certificate applied', h: 'Only after the final approver', job: 'approvalExecutor', pausable: false },
 ];
 
 let cache = null;

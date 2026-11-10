@@ -28,7 +28,136 @@ const toLocal = (v) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-function Detail({ t, owners, onSaved }) {
+// §13.4 problem record on one ticket: linked PRB, or link to an open one /
+// open a new one from this ticket
+function ProblemLink({ t, problems, onSaved }) {
+  const [pick, setPick] = useState('');
+  const [busy, setBusy] = useState(false);
+  const open = problems.filter((p) => p.status !== 'Resolved');
+  const run = async (fn, ok) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (r && r.success === false) throw new Error(r.message);
+      message.success((r && r.message) || ok);
+      onSaved();
+    } catch (e) {
+      message.error(errText(e, 'Failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (t.problem) {
+    const p = problems.find((x) => x.id === t.problem.id);
+    return (
+      <div style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        Problem record <b>{t.problem.code}</b>{p ? ` · ${p.title} · ${p.status}` : ''}
+        <button type="button" className="ld-btn2 xs" disabled={busy} onClick={() => run(() => lmsApi.smProblemUpdate(t.problem.id, { unlinkTicket: t.id }), 'Unlinked.')}>Unlink</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+      <span className="ld-muted">Problem record (PRB):</span>
+      <select className="ld-inp" style={{ maxWidth: 220 }} aria-label="Problem record" value={pick} onChange={(e) => setPick(e.target.value)}>
+        <option value="">— link to an open problem</option>
+        {open.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.title}</option>)}
+      </select>
+      <button type="button" className="ld-btn2 xs" disabled={busy || !pick} onClick={() => run(() => lmsApi.smProblemUpdate(pick, { linkTicket: t.id }), 'Linked.')}>Link</button>
+      <button type="button" className="ld-btn2 xs" disabled={busy} onClick={() => run(() => lmsApi.smProblemCreate({ title: t.subject, category: t.category, ticketIds: [t.id] }), 'Problem opened.')}>New problem from this ticket</button>
+    </div>
+  );
+}
+
+// §13.4 problems view: records, linked tickets, "3+ tickets same category"
+// suggestions, and Resolve — which answers every linked open ticket
+function Problems({ data, reload }) {
+  const [sel, setSel] = useState('');
+  const [f, setF] = useState({});
+  const [answer, setAnswer] = useState('');
+  const [busy, setBusy] = useState('');
+  const cur = data.rows.find((p) => p.id === sel) || data.rows.find((p) => p.status !== 'Resolved') || data.rows[0];
+  useEffect(() => {
+    if (cur) setF({ rootCause: cur.rootCause, workaround: cur.workaround });
+    setAnswer('');
+  }, [cur && cur.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const run = async (key, fn, ok) => {
+    setBusy(key);
+    try {
+      const r = await fn();
+      if (r && r.success === false) throw new Error(r.message);
+      message.success((r && r.message) || ok);
+      reload();
+    } catch (e) {
+      message.error(errText(e, 'Failed.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 460px', gap: 14, flex: 1, minHeight: 0 }}>
+      <section className="ld-card" aria-label="Problem records">
+        {data.suggestions.length > 0 && (
+          <div className="ld-warn" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <b>Suggested problems (3+ open tickets, same category, 72h)</b>
+            {data.suggestions.map((s) => (
+              <span key={s.category} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {s.category} · {s.count} tickets ({s.subjects.join(' / ').slice(0, 80)})
+                <button type="button" className="ld-btn2 xs" disabled={!!busy} onClick={() => run('sug', () => lmsApi.smProblemCreate({ title: `${s.category}: ${s.subjects[0] || 'repeated issue'}`.slice(0, 200), category: s.category, ticketIds: s.ticketIds }), 'Problem opened.')}>Open PRB + link {s.count}</button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ overflowX: 'auto' }}>
+          <table className="ld-table">
+            <thead><tr><th>PRB</th><th>Problem</th><th>Category</th><th>Tickets</th><th>Status</th></tr></thead>
+            <tbody>
+              {data.rows.length === 0 && <tr><td colSpan={5} className="ld-muted">Abhi koi problem record nahi · ticket se "New problem from this ticket" dabayein.</td></tr>}
+              {data.rows.map((p) => (
+                <tr key={p.id} className={`click${cur && cur.id === p.id ? ' sm-rowsel' : ''}`} onClick={() => setSel(p.id)}>
+                  <td><b>{p.code}</b></td>
+                  <td>{p.title}</td>
+                  <td>{p.category || '—'}</td>
+                  <td>{p.tickets.length} · {p.tickets.filter((x) => x.status !== 'Resolved').length} open</td>
+                  <td><span className={`ld-chip ${p.status === 'Resolved' ? 'hai' : p.status === 'Known error' ? 'adh' : 'naya'}`}>{p.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Ek root cause, kai tickets · PRB resolve karne par har linked open ticket ko wahi jawab jaata hai — learner confirm / reopen kar sakta hai</div>
+      </section>
+      {cur ? (
+        <section className="ld-card" aria-label="Problem detail">
+          <div className="ld-hd"><b style={{ fontSize: 15 }}>{cur.code} · {cur.title}</b><span className="ld-chip gray">{cur.status}</span></div>
+          <label className="ld-label">Root cause<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} disabled={cur.status === 'Resolved'} value={f.rootCause || ''} onChange={(e) => setF({ ...f, rootCause: e.target.value })} /></label>
+          <label className="ld-label">Workaround (linked tickets ke internal note mein jaata hai)<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} disabled={cur.status === 'Resolved'} value={f.workaround || ''} onChange={(e) => setF({ ...f, workaround: e.target.value })} /></label>
+          {cur.status !== 'Resolved' && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => run('save', () => lmsApi.smProblemUpdate(cur.id, f), 'Saved.')}>Save</button>
+              <button type="button" className="ld-btn2" disabled={!!busy || cur.status === 'Known error'} onClick={() => run('ke', () => lmsApi.smProblemUpdate(cur.id, { ...f, status: 'Known error' }), 'Marked known error.')}>Mark known error</button>
+            </div>
+          )}
+          <div className="sm-cap">Linked tickets · {cur.tickets.length}</div>
+          <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {cur.tickets.length === 0 && <span className="ld-muted">Koi ticket linked nahi.</span>}
+            {cur.tickets.map((x) => <span key={x.id}><b>{x.code}</b> · {shortName(x.learner)} · {x.subject} · <span className="ld-muted">{x.status}</span></span>)}
+          </div>
+          {cur.status === 'Resolved' ? (
+            <div className="ld-soft"><b>Resolution:</b> {cur.resolution}<div className="ld-muted" style={{ fontSize: 12 }}>{fmtDayTime(cur.resolvedAt)}</div></div>
+          ) : (
+            <>
+              <label className="ld-label">Answer to learners (sab linked tickets par)<textarea className="ld-inp" style={{ height: 64, padding: 8, resize: 'none' }} placeholder="Fixed: BBB server update — please rejoin with Chrome." value={answer} onChange={(e) => setAnswer(e.target.value)} /></label>
+              <button type="button" className="ld-btn" style={{ marginTop: 'auto' }} disabled={!!busy || answer.trim().length < 5} onClick={() => run('res', () => lmsApi.smProblemUpdate(cur.id, { resolve: answer.trim() }), 'Resolved.')}>Resolve {cur.code} + {cur.tickets.filter((x) => x.status !== 'Resolved').length} linked tickets</button>
+            </>
+          )}
+        </section>
+      ) : <section className="ld-card"><div className="ld-empty">Problem chunein.</div></section>}
+    </div>
+  );
+}
+
+function Detail({ t, owners, problems, onSaved }) {
   const [f, setF] = useState({});
   const [note, setNote] = useState('');
   const [reply, setReply] = useState('');
@@ -93,6 +222,7 @@ function Detail({ t, owners, onSaved }) {
       <label className="ld-label">Internal note<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Staff-only, learner ko nahi dikhta" value={note} onChange={(e) => setNote(e.target.value)} /></label>
       <label className="ld-label">Reply to learner<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Learner ko dikhega (Resolve ke saath ya alag se)" value={reply} onChange={(e) => setReply(e.target.value)} /></label>
       {t.escalatedTo && <div style={{ fontSize: 13 }}>Escalated to <b>{t.escalatedTo}</b></div>}
+      <ProblemLink t={t} problems={problems} onSaved={onSaved} />
       <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
         <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => save('save', {}, 'Saved.')}>Save</button>
         <button type="button" className="ld-btn2" disabled={!!busy || t.escalatedTo === 'LMS tech'} onClick={() => save('esc', { escalateTo: 'LMS tech', waiting: 'tech' }, 'Escalated to LMS tech.')}>Escalate to LMS tech</button>
@@ -107,6 +237,12 @@ export default function SMTickets() {
   const [filter, setFilter] = useState('open');
   const [sel, setSel] = useState('');
   const { data, loading, error, reload } = useLoad(async () => res(await lmsApi.smTickets()), []);
+  const prb = useLoad(async () => res(await lmsApi.smProblems().catch(() => null)) || { rows: [], suggestions: [] }, []);
+  const problems = (prb.data && prb.data.rows) || [];
+  const reloadAll = () => {
+    reload();
+    prb.reload();
+  };
   const rows = (data && data.rows) || [];
   const fn = (FILTERS.find((x) => x[0] === filter) || FILTERS[0])[2];
   const list = rows.filter(fn).sort((a, b) => ({ breached: 0, risk: 1, ok: 2, paused: 3, done: 4 }[a.sla.state] - { breached: 0, risk: 1, ok: 2, paused: 3, done: 4 }[b.sla.state]));
@@ -122,7 +258,9 @@ export default function SMTickets() {
         {FILTERS.map(([k, label, f]) => (
           <button key={k} type="button" className={`ld-pill${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>{label} · {rows.filter(f).length}</button>
         ))}
+        <button type="button" className={`ld-pill${filter === 'prb' ? ' on' : ''}`} onClick={() => setFilter('prb')}>Problems (PRB) · {problems.filter((p) => p.status !== 'Resolved').length}{prb.data && prb.data.suggestions.length ? ' · ⚠' : ''}</button>
       </div>
+      {filter === 'prb' ? <Problems data={prb.data || { rows: [], suggestions: [] }} reload={reloadAll} /> : (
       <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 460px', gap: 14, flex: 1, minHeight: 0 }}>
         <section className="ld-card" aria-label="Tickets">
           <div style={{ overflowX: 'auto' }}>
@@ -148,8 +286,9 @@ export default function SMTickets() {
             SLA targets (default until D-06): P0 {data.slaHours.Urgent}h · P1 {data.slaHours.High}h · P2 {data.slaHours.Medium}h · P3 {data.slaHours.Low}h · "Waiting" pauses the clock
           </div>
         </section>
-        {cur ? <Detail t={cur} owners={data.owners} onSaved={reload} /> : <section className="ld-card"><div className="ld-empty">Ticket chunein.</div></section>}
+        {cur ? <Detail t={cur} owners={data.owners} problems={problems} onSaved={reloadAll} /> : <section className="ld-card"><div className="ld-empty">Ticket chunein.</div></section>}
       </div>
+      )}
     </SMPage>
   );
 }

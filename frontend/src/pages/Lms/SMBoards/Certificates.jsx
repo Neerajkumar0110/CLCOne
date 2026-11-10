@@ -51,6 +51,33 @@ export default function SMCertificates() {
       },
     });
   };
+  // §27 step 9: correct name / course → new certificate ID, old one Replaced
+  // (admin: applied now · Support: Ops approval, then applied automatically)
+  const correct = (c) => {
+    const f = { name: c.student, course: c.course || '', reason: '' };
+    Modal.confirm({
+      title: `Correct ${c.certificateId}`,
+      width: 480,
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label className="ld-label">Name on certificate<Input defaultValue={f.name} onChange={(e) => { f.name = e.target.value; }} /></label>
+          <label className="ld-label">Course<Input defaultValue={f.course} onChange={(e) => { f.course = e.target.value; }} /></label>
+          <label className="ld-label">Reason + evidence<Input.TextArea rows={2} placeholder="Learner ID proof shows the correct spelling" onChange={(e) => { f.reason = e.target.value; }} /></label>
+          <span className="ld-muted" style={{ fontSize: 12 }}>{data.canCorrectDirect ? 'Naya ID turant issue hoga' : 'Ops approval ke baad naya ID apne aap issue hoga'} · purana ID verify page par "Replaced" dikhayega</span>
+        </div>
+      ),
+      okText: data.canCorrectDirect ? 'Issue corrected certificate' : 'Send for approval',
+      onOk: async () => {
+        const r = await lmsApi.smCertificateCorrect(c.id, f).catch((e) => ({ success: false, message: errText(e, 'Failed.') }));
+        if (r && r.success === false) {
+          message.error(r.message);
+          throw new Error(r.message);
+        }
+        message.success(r.message || 'Done.');
+        reload();
+      },
+    });
+  };
   const sendBack = (q) => navigate('/support-mgr/learners', { state: { search: q.email } });
 
   return (
@@ -62,7 +89,7 @@ export default function SMCertificates() {
         <div className="sm-st"><b style={{ color: '#166534' }}>{s.issued}</b><span>Issued</span></div>
         <div className="sm-st"><b>{s.draft}</b><span>Draft (not sent)</span></div>
         <div className="sm-st"><b>{s.correction}</b><span>Correction requested</span></div>
-        <div className="sm-st"><b>{s.revoked}</b><span>Revoked</span></div>
+        <div className="sm-st"><b>{s.revoked}</b><span>Revoked{s.replaced ? ` · ${s.replaced} replaced` : ''}</span></div>
       </div>
 
       <section className="ld-card" aria-label="Catalogue">
@@ -122,17 +149,20 @@ export default function SMCertificates() {
                 {data.issued.slice(0, 8).map((c) => (
                   <tr key={c.id}>
                     <td><b>{c.student}</b></td>
-                    <td>{c.certificateId}</td>
+                    <td>{c.certificateId}{c.replacedBy ? <span className="ld-muted"> → {c.replacedBy}</span> : ''}{c.replaces ? <span className="ld-muted"> (corrects {c.replaces})</span> : ''}</td>
                     <td>{fmtDay(c.issuedOn)}</td>
-                    <td><span className={`ld-chip ${c.status === 'Revoked' ? 'red' : 'hai'}`}>{c.status}</span></td>
-                    <td>{c.status !== 'Revoked' && <button type="button" className="ld-btn2 sm" onClick={() => revoke(c)}>Revoke…</button>}</td>
+                    <td><span className={`ld-chip ${c.status === 'Revoked' ? 'red' : c.status === 'Replaced' ? 'gray' : 'hai'}`}>{c.status}</span></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {['Issued', 'Sent'].includes(c.status) && <button type="button" className="ld-btn2 sm" onClick={() => correct(c)}>Correct…</button>}
+                      {!['Revoked', 'Replaced'].includes(c.status) && <button type="button" className="ld-btn2 sm" style={{ marginLeft: 6 }} onClick={() => revoke(c)}>Revoke…</button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </>
         )}
-        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Issue = unique ID + PDF + email · same learner + internship par dobara issue nahi hota · revoke par purana record audit mein rehta hai</div>
+        <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Issue = unique ID + PDF + email · same learner + internship par dobara issue nahi hota · correct par naya ID, purana "Replaced" · revoke par purana record audit mein rehta hai</div>
       </section>
     </SMPage>
   );

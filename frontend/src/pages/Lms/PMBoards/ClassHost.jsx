@@ -182,17 +182,23 @@ function HostBoard({ classId, onPickAll }) {
         <section className="ld-card pm-scroll" aria-label="Attendance">
           <div className="ld-hd"><b>Waiting to join · 0</b><span className="ld-chip gray">LOBBY OFF</span></div>
           <div className="ld-muted" style={{ fontSize: 13 }}>Batch ke learners seedha join karte hain — waiting room band hai.</div>
-          <div className="ld-hd" style={{ marginTop: 6 }}><b>In class · live attendance</b><span className="ld-muted" style={{ fontSize: 12 }}>{online.length} online · {students.length} joined</span></div>
+          <div className="ld-hd" style={{ marginTop: 6 }}><b>In class · live attendance</b><span className="ld-muted" style={{ fontSize: 12 }}>{online.length} online · {students.length} joined{board.media ? ` · 📷 ${board.media.filter((m) => m.role !== 'MODERATOR' && m.video).length} cameras on` : ''}</span></div>
           {students.length === 0 && <div className="ld-empty">{over ? 'Is class mein koi learner join nahi hua.' : 'Abhi koi learner join nahi hua.'}</div>}
-          {students.slice(0, 12).map((a) => (
-            <div className="ld-li" key={a.crmUser || a.email || a.name}>
-              <span>
-                <b>{a.name}</b>
-                <span className="ld-muted"> · {a.online ? 'online' : 'left'} · {a.totalDurationMin || 0} min{a.firstJoinAt ? ` · joined ${fmtTime(a.firstJoinAt)}` : ''}</span>
-              </span>
-              <span className={`ld-chip ${ATT_CHIP[a.status] || 'gray'}`}>{a.status || '—'}</span>
-            </div>
-          ))}
+          {students.slice(0, 12).map((a) => {
+            // FUNC-04: camera / mic as BBB reports it from the learner's side
+            const m = board.media && a.online ? board.media.find((x) => (a.crmUser && x.userId === String(a.crmUser)) || x.name === a.name) : null;
+            return (
+              <div className="ld-li" key={a.crmUser || a.email || a.name}>
+                <span>
+                  <b>{a.name}</b>
+                  <span className="ld-muted"> · {a.online ? 'online' : 'left'} · {a.totalDurationMin || 0} min{a.firstJoinAt ? ` · joined ${fmtTime(a.firstJoinAt)}` : ''}</span>
+                  {m && <span className="ld-muted" title="BBB se live: learner ne camera / mic share kiya ya nahi"> · {m.video ? '📷 camera on' : '📷 camera off'} · {m.listenOnly ? '🎧 listen only' : m.voice ? '🎤 mic joined' : '🎤 no audio'}</span>}
+                </span>
+                <span className={`ld-chip ${ATT_CHIP[a.status] || 'gray'}`}>{a.status || '—'}</span>
+              </div>
+            );
+          })}
+          {board.media && <div className="ld-muted" style={{ fontSize: 12 }}>Camera "off" = learner ne share hi nahi kiya (unke browser permission / device). "On" par bhi na dikhe to BBB webcam list scroll karein.</div>}
           {students.length > 12 && (
             <div className="ld-li"><b>+ {students.length - 12} learners</b><span className="ld-muted">{students.reduce((n, a) => n + Math.max(0, (a.joinCount || 1) - 1), 0)} reconnects merged</span></div>
           )}

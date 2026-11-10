@@ -84,6 +84,7 @@ const approvalRow = (r) => ({
   decidedByName: r.decidedByName,
   decidedAt: r.decidedAt,
   decisionReason: r.decisionReason,
+  execution: r.execution && r.execution.status ? { status: r.execution.status, note: r.execution.note, at: r.execution.at } : null,
   created: r.created,
 });
 
@@ -152,7 +153,11 @@ async function approvalDecide(req, res) {
   doc.decisionReason = reason;
   await doc.save();
   await audit.record({ module: 'approval', action: b.decision === 'approved' ? 'approve' : 'reject', entityType: 'LmsApproval', entityId: doc._id, admin: req.admin, reason, before: { status: before }, after: { status: doc.status }, meta: { type: doc.type, learner: doc.learnerName } });
-  return ok(res, approvalRow(doc.toObject()));
+  // the system carries the decision out (status, message, extension, ...)
+  const execution = await require('../../../../services/lms/approvalExecutor')
+    .onDecided(doc, req.admin, reason)
+    .catch((e) => ({ status: 'failed', note: e.message }));
+  return ok(res, { ...approvalRow(doc.toObject()), execution: execution || null, message: execution ? execution.note : undefined });
 }
 
 // POST /api/lms/admin/ops/decisions/:code { status, note } — management only.

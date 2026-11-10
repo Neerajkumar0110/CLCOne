@@ -9,6 +9,8 @@ export default function Evidence() {
   const [type, setType] = useState('All');
   const [sel, setSel] = useState(null);
   const { data, loading, err } = useLoad(() => lmsApi.opsEvidence(type), [type]);
+  // spec §18 / §20: backup, restore drill, load test — written by deploy/vps scripts
+  const ops = useLoad(() => lmsApi.smOpsStatus().catch(() => null), []);
   const rows = (data && data.rows) || [];
   const cur = rows.find((r) => r.id === sel) || rows[0];
 
@@ -25,6 +27,25 @@ export default function Evidence() {
           <button key={t} type="button" className={`ao-pill${t === type ? ' on' : ''}`} onClick={() => { setType(t); setSel(null); }}>{t}</button>
         ))}
       </div>
+      {ops.data && (
+        <div className="ao-grid-2" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+          {[['backup', 'Daily backup (all 7 DBs + uploads)'], ['restoreDrill', 'Restore drill (scratch DB)'], ['loadTest', 'Load test']].map(([k, label]) => {
+            const v = ops.data[k];
+            const stale = v && v.at && Date.now() - new Date(v.at) > (k === 'backup' ? 2 : k === 'restoreDrill' ? 8 : 35) * 86400000;
+            return (
+              <div className="ao-card" key={k} style={{ gap: 4 }}>
+                <b>{label}</b>
+                {v ? (
+                  <>
+                    <span className={`ao-chip ${v.ok && !stale ? 'hai' : 'red'}`} style={{ alignSelf: 'flex-start' }}>{v.ok ? (stale ? 'Stale' : 'OK') : 'Failed'}</span>
+                    <span className="ao-muted" style={{ fontSize: 12 }}>{fmtDate(v.at)} {fmtTime(v.at)} · {v.summary || ''}</span>
+                  </>
+                ) : <span className="ao-muted" style={{ fontSize: 12 }}>Abhi tak report nahi aayi — deploy/vps scripts ka cron set karein</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <Loading loading={loading} err={err} data={data}>
         <div className="ao-grid-2" style={{ gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 12 }}>
           <div className="ao-card">

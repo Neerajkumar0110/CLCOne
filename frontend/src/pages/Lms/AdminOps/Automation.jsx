@@ -2,7 +2,7 @@ import React from 'react';
 import lmsApi from '../api';
 import { useLoad, act, Head, Loading, fmtTime } from './shared';
 
-// Design A8 · Automation catalogue — the 16 spec §17.1 workflows. Running /
+// Design A8 · Automation catalogue — the 16 spec §17.1 workflows plus the gap-fix rules (duplicate classes, approved-request follow-through). Running /
 // Paused is the real state of the background job; workflows with no job yet
 // say so instead of showing a toggle that does nothing.
 export default function Automation() {

@@ -48,6 +48,15 @@
 ###############################################################################
 set -euo pipefail
 
+# a failed run shows up as "Failed" on LMS → Admin & Ops → Evidence
+report_failure() {
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        ( cd "${APP_DIR:-/var/www/clccrm}/backend" && node scripts/opsReport.cjs backup fail "backup.sh exited with code $rc" ) || true
+    fi
+}
+trap report_failure EXIT
+
 APP_DIR="${APP_DIR:-/var/www/clccrm}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/clccrm}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
@@ -99,3 +108,9 @@ echo "==> Pruning backups older than $RETENTION_DAYS days"
 # 'clccrm-*.gz' already matches both clccrm-<stamp>.gz (DB) and
 # clccrm-uploads-<stamp>.tar.gz (uploads) — one pattern covers both.
 find "$BACKUP_DIR" -name 'clccrm-*.gz' -mtime "+$RETENTION_DAYS" -print -delete
+
+# Report the outcome to LMS → Admin & Ops → Evidence (spec §18 evidence).
+# set -e above means we only get here when every step succeeded; a failed
+# run is reported by the trap below.
+TOTAL=$(du -ch "$BACKUP_DIR"/clccrm-*"$STAMP"* 2>/dev/null | tail -1 | cut -f1)
+( cd "$APP_DIR/backend" && node scripts/opsReport.cjs backup ok "$(echo $DBS | wc -w) DBs + uploads · $TOTAL · $STAMP" ) || true

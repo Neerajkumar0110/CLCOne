@@ -376,6 +376,9 @@ async function verify(req, res) {
     validUntil: c.validUntil,
     issuedBy: c.issuedBy,
     status: c.status,
+    // §27 step 9: a corrected certificate points to its replacement
+    replacedBy: c.replacedBy || null,
+    replaces: c.replaces || null,
   });
 }
 

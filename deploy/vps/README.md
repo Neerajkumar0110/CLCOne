@@ -104,11 +104,31 @@ crontab -e
 0 2 * * * /var/www/clccrm/deploy/vps/backup.sh >> /var/log/clccrm-backup.log 2>&1
 ```
 
-**Test the restore path periodically** (a backup nobody has ever restored is
-not a real backup) — restore into a scratch database first, never straight
-into production:
+**The restore path is tested automatically every week** (a backup nobody has
+ever restored is not a real backup) — `deploy/vps/restore-drill.sh` restores the
+latest archive of lmsDb + coreDb into `<db>__restore_drill`, compares every
+collection's count with live, drops the scratch DBs and reports the result:
 ```bash
-mongorestore --uri="mongodb://localhost:27017/clccrm_restore_test" --gzip --archive=/var/backups/clccrm/clccrm-YYYYmmdd-HHMMSS.gz
+chmod +x /var/www/clccrm/deploy/vps/restore-drill.sh
+crontab -e
+# add:
+30 3 * * 0 /var/www/clccrm/deploy/vps/restore-drill.sh >> /var/log/clccrm-restore-drill.log 2>&1
+```
+
+Both scripts (and the load test below) write their outcome to
+**LMS → Admin & Ops → Evidence** (OK / Failed / Stale cards), via
+`backend/scripts/opsReport.cjs`.
+
+### Load test (spec §20)
+
+Read-only GETs, prints p50/p95/p99 + error rate and records it on Evidence.
+Run outside class hours:
+```bash
+cd /var/www/clccrm/backend
+node scripts/loadTest.cjs --base https://clcone.careerlabconsulting.com --concurrency 50 --requests 2000
+# with a staff token, real LMS reads:
+LOADTEST_TOKEN=... node scripts/loadTest.cjs --base https://clcone.careerlabconsulting.com --paths /api/lms/live-classes,/api/lms/admin/sm/dashboard
+# monthly cron:  0 4 1 * * cd /var/www/clccrm/backend && node scripts/loadTest.cjs --base https://clcone.careerlabconsulting.com >> /var/log/clccrm-loadtest.log 2>&1
 ```
 
 If the database is MongoDB Atlas rather than self-hosted, prefer Atlas's own

@@ -72,12 +72,14 @@ export default function VerifyCertificate() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, ...banner }}>
               <div aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', background: ok ? '#16a34a' : '#dc2626', flexShrink: 0 }}>{ok ? '✓' : '!'}</div>
               <div>
-                <b style={{ fontSize: 18 }}>{r ? (ok ? 'Valid certificate' : 'This certificate has been revoked') : state.error === 'notfound' ? 'No certificate found with this ID' : 'Could not check right now'}</b>
+                <b style={{ fontSize: 18 }}>{r ? (ok ? 'Valid certificate' : r.status === 'replaced' ? 'This certificate was replaced by a corrected one' : 'This certificate has been revoked') : state.error === 'notfound' ? 'No certificate found with this ID' : 'Could not check right now'}</b>
                 <div style={{ fontSize: 13 }}>
                   {r
                     ? ok
                       ? 'Issued by Career Lab Consulting and currently valid.'
-                      : 'It is no longer valid. Contact Career Lab Consulting for details.'
+                      : r.status === 'replaced' && r.replacedBy
+                        ? <>The corrected certificate is <a href={`/verify/${encodeURIComponent(r.replacedBy)}`}>{r.replacedBy}</a>.</>
+                        : 'It is no longer valid. Contact Career Lab Consulting for details.'
                     : state.error === 'notfound'
                       ? 'Check the ID for typos. If it was issued recently, try again later or contact Career Lab Consulting.'
                       : state.message || 'Please try again in a moment.'}

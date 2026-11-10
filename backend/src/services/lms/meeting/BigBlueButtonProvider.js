@@ -87,6 +87,10 @@ class BigBlueButtonProvider extends MeetingProvider {
       meta_courseName: session.courseTitle || '',
       meta_batchName: session.batchName || '',
       meta_crmSessionId: String(session._id),
+      // FUNC-04: learner cameras must reach the staff whatever the server
+      // defaults say — cameras are never locked at room creation, and
+      // moderators (trainer / Support) always see every webcam
+      lockSettingsDisableCam: 'false',
     };
     if (base) params.logoutURL = `${base}/api/lms/live/left?s=${session._id}`;
     if (session.scheduledEnd) {
@@ -180,6 +184,10 @@ class BigBlueButtonProvider extends MeetingProvider {
         userId: xmlVal(a, 'userID'),
         name: xmlVal(a, 'fullName'),
         role: xmlVal(a, 'role'),
+        // FUNC-04 debug: is the camera / mic actually shared from their side
+        hasVideo: xmlVal(a, 'hasVideo') === 'true',
+        hasVoice: xmlVal(a, 'hasJoinedVoice') === 'true',
+        listenOnly: xmlVal(a, 'isListeningOnly') === 'true',
       }));
     } catch (e) {
       return null;

@@ -171,6 +171,8 @@ router.route('/teacher/pm/extensions').get(catchErrors(lms.pmExtensions));
 router.route('/teacher/pm/extensions/:id/send').post(catchErrors(lms.pmExtensionSend));
 router.route('/teacher/pm/candidates').get(catchErrors(lms.pmCandidates));
 router.route('/teacher/pm/announce').post(catchErrors(lms.pmAnnounceRequest));
+router.route('/teacher/pm/classes/duplicates').get(catchErrors(lms.pmDuplicates));
+router.route('/teacher/pm/classes/:id/request-removal').post(catchErrors(lms.pmDuplicateRequest));
 router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/teacher/live-analytics').get(catchErrors(lms.teacherLiveAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));
@@ -332,6 +334,12 @@ router.route('/admin/sm/learners/:id/credentials').post(requireManager, catchErr
 router.route('/admin/sm/certificates').get(requireManager, catchErrors(lms.smCertificates));
 router.route('/admin/sm/certificates/:id/revoke').post(requireManager, catchErrors(lms.smCertificateRevoke));
 router.route('/admin/sm/comms').get(requireManager, catchErrors(lms.smComms));
+router.route('/admin/sm/classes/duplicates').get(requireManager, catchErrors(lms.smDuplicates));
+router.route('/admin/sm/classes/:id/request-removal').post(requireManager, catchErrors(lms.smDuplicateRequest));
+router.route('/admin/sm/certificates/:id/correct').post(requireManager, catchErrors(lms.smCertificateCorrect));
+router.route('/admin/sm/problems').get(requireManager, catchErrors(lms.smProblems)).post(requireManager, catchErrors(lms.smProblemCreate));
+router.route('/admin/sm/problems/:id').post(requireManager, catchErrors(lms.smProblemUpdate));
+router.route('/admin/sm/ops-status').get(requireManager, catchErrors(lms.smOpsStatus));
 
 // ── learner 360 report ───────────────────────────────────────────────
 router.route('/admin/learner-360/:courseId').get(catchErrors(lms.learner360Report));

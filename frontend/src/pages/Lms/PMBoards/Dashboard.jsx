@@ -3,6 +3,7 @@ import { Alert, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
 import { PMPage, useLoad, Loading, Legacy, res, fmtTime, shortName, errText } from './shared';
+import DuplicateClassesAlert from '../components/DuplicateClassesAlert';
 
 const OldDashboard = lazy(() => import('../TeacherDashboard'));
 
@@ -85,6 +86,7 @@ export default function PMDashboard() {
       right={<button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => setCharts(!charts)}>{charts ? 'Hide charts & tables' : 'Charts & tables →'}</button>}
       sub={`Project Manager · ${batches.length} batch${batches.length === 1 ? '' : 'es'}${batchLine ? ` (${batchLine}${batches.length > 3 ? ', …' : ''})` : ''} · ${k.totalStudents || 0} learners`}
     >
+      <DuplicateClassesAlert load={lmsApi.pmDuplicates} request={lmsApi.pmDuplicateRequest} />
       <div className="pm-g6" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12 }}>
         <div className="ld-k"><b>{classes.length}</b><span>Classes today</span></div>
         <div className="ld-k"><b style={{ color: queue.length ? '#9a3412' : undefined }}>{queue.length}</b><span>Project reviews pending</span></div>

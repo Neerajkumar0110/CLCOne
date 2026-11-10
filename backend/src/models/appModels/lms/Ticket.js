@@ -73,7 +73,7 @@ const schema = new mongoose.Schema({
       {
         _id: false,
         at: { type: Date, default: Date.now },
-        action: { type: String, enum: ['created', 'status', 'confirmed', 'reopened', 'assigned', 'note', 'escalated'] },
+        action: { type: String, enum: ['created', 'status', 'confirmed', 'reopened', 'assigned', 'note', 'escalated', 'problem'] },
         status: String,
         byName: String,
         note: String,
@@ -98,6 +98,9 @@ const schema = new mongoose.Schema({
   escalatedTo: String,
   closedAt: Date,
   internalNotes: { type: [{ _id: false, at: Date, byName: String, text: String }], default: undefined },
+  // spec §13.4 problem record (LmsProblem) this ticket is one symptom of
+  problem: { type: mongoose.Schema.ObjectId, ref: 'LmsProblem', index: true },
+  problemCode: String,
 
   created: {
     type: Date,

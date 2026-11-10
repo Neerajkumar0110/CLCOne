@@ -100,7 +100,14 @@ async function classBoard(req, res) {
   const s = await M('LmsLiveSession').findOne({ _id: req.params.id, removed: false }).lean();
   if (!s) return bad(res, 404, 'Live class not found.');
   if ((await liveClassService.resolveRole(s, req.admin)) !== 'teacher') return bad(res, 403, 'Project Managers only.');
-  const out = { classId: String(s._id), batch: s.batchName || '', recordingEnabled: s.recordingEnabled !== false, planned: null, options: [], record: null };
+  const out = { classId: String(s._id), batch: s.batchName || '', recordingEnabled: s.recordingEnabled !== false, planned: null, options: [], record: null, media: null };
+  // FUNC-04: while the class is live, ask BBB who has a camera / mic shared,
+  // so "learner ka camera nahi dikhta" is answered from the room itself
+  if (['live', 'starting', 'ending'].includes(s.status) && s.meetingProvider === 'bigbluebutton' && s.meetingId) {
+    const full = await M('LmsLiveSession').findById(s._id).select('+moderatorPW meetingId').lean();
+    const people = await require('../../../../services/lms/meeting').getMeetingProvider().getParticipants(full).catch(() => null);
+    if (Array.isArray(people)) out.media = people.map((p) => ({ userId: p.userId, name: p.name, role: p.role, video: !!p.hasVideo, voice: !!p.hasVoice, listenOnly: !!p.listenOnly }));
+  }
   if (!s.batchName) return ok(res, out);
   const { sessions } = await sessionsForBatch(s.batchName);
   const recs = sessions.filter((x) => x.record);
@@ -661,6 +668,7 @@ async function announceRequest(req, res) {
     detail: text.slice(0, 200),
     scope: scope ? scope.name : batches.map((x) => x.name).join(', ').slice(0, 120),
     evidence: `Announcement requested by PM ${req.admin.name}: ${text.slice(0, 900)}`,
+    payload: { text: text.slice(0, 4000), batches: scope ? [scope.name] : batches.map((x) => x.name) },
     highRisk: true,
     requestedBy: req.admin._id,
     requestedByName: req.admin.name,
@@ -671,6 +679,7 @@ async function announceRequest(req, res) {
 }
 
 module.exports = {
+  _myBatches: myBatches,
   announceRequest,
   recordingToggle,
   classBoard,

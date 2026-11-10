@@ -13,6 +13,8 @@ const TYPES = [
   'Eligibility override',
   'Mass message',
   'Status change',
+  'Duplicate class removal',
+  'Certificate correction',
   'Other',
 ];
 
@@ -28,6 +30,17 @@ const schema = new mongoose.Schema({
   // source record this request came from, e.g. the learner's Support ticket
   // a PM forwarded (design P8 "Send to Ops") — stops it being sent twice
   ref: { type: String, index: true },
+  // what to do once approved — read by services/lms/approvalExecutor.js,
+  // e.g. { studentId, to } for a status change, { batches, text } for a
+  // mass message, { sessionId } for a duplicate class
+  payload: { type: mongoose.Schema.Types.Mixed },
+  // the automatic follow-through after the final approval: done (applied by
+  // the system), manual (a person must act — the requester is told), failed
+  execution: {
+    status: { type: String, enum: ['done', 'manual', 'failed'] },
+    at: Date,
+    note: String,
+  },
 
   requestedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   requestedByName: String,

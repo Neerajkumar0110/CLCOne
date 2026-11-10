@@ -16,7 +16,7 @@ const studentSchema = featureSchema([
     { name: 'batch', type: 'String' },
     { name: 'enrollmentId', type: 'String' },
     { name: 'enrolledOn', type: 'Date' },
-    { name: 'status', type: 'String', enum: ["Active","On Hold","Completed","Dropped","Deferred"], default: "Active" },
+    { name: 'status', type: 'String', enum: ["Active","On Hold","Completed","Dropped","Deferred","Suspended","Withdrawn","Archived"], default: "Active" },
     { name: 'progress', type: 'Number', default: 0 },
     { name: 'attendancePct', type: 'Number', default: 0 },
     { name: 'avgScore', type: 'Number', default: 0 },

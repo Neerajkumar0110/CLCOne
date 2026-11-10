@@ -34,6 +34,7 @@ export default function OpsApprovals() {
   const [raising, setRaising] = useState(false);
   const decide = (row, decision) =>
     askReason(`${decision === 'approved' ? 'Approve' : 'Reject'} · ${row.type}`, async (reason) => {
+      // for a deadline extension the reason may carry the new date ("7 days" / "2026-11-20")
       const r = await act(lmsApi.opsApprovalDecide(row.id, decision, reason), decision === 'approved' ? 'Approved' : 'Rejected');
       if (r) reload();
     });
@@ -72,7 +73,11 @@ export default function OpsApprovals() {
                               <span className="ao-chip gray">{r.requestedBy === data.me ? 'Your request' : 'Pending'}</span>
                             )
                           ) : (
-                            <span className={`ao-chip ${r.status === 'approved' ? 'hai' : 'red'}`} title={`${r.decidedByName}: ${r.decisionReason}`}>{r.status}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                              <span className={`ao-chip ${r.status === 'approved' ? 'hai' : 'red'}`} title={`${r.decidedByName}: ${r.decisionReason}`}>{r.status}</span>
+                              {/* what the system did after the final approval */}
+                              {r.execution && <span style={{ fontSize: 11, color: r.execution.status === 'done' ? '#166534' : r.execution.status === 'failed' ? '#991b1b' : '#9a3412' }}>{r.execution.status === 'done' ? '✓ applied: ' : r.execution.status === 'failed' ? '✗ failed: ' : '⚠ manual: '}{r.execution.note}</span>}
+                            </div>
                           )}
                         </td>
                       </tr>

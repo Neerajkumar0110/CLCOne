@@ -78,6 +78,7 @@ function ticketRow(t, roster) {
     internalNotes: (t.internalNotes || []).slice(-10),
     history: (t.history || []).slice(-12),
     resolutionNote: t.resolutionNote || '',
+    problem: t.problem ? { id: String(t.problem), code: t.problemCode || '' } : null,
     restricted: t.category === require('../../../../config/supportTickets').RESTRICTED_TICKET_CATEGORY,
     sla: slaOf(t),
     created: t.created,
@@ -664,6 +665,7 @@ async function learnerStatus(req, res) {
     requestedByName: nameOf(req.admin),
     requestedByRole: req.admin.role,
     ref: `student:${s._id}`,
+    payload: { studentId: String(s._id), to: b.status },
   });
   await audit.record({ module: 'approval', action: 'request', entityType: 'LmsApproval', entityId: doc._id, admin: req.admin, reason, after: { type, learner: s.name, to: b.status } });
   return ok(res, { applied: false, approvalId: String(doc._id) }, 'Sent for approval — status changes once approved.');
@@ -691,7 +693,7 @@ async function learnerCredentials(req, res) {
 async function certificateBoard(req, res) {
   const [rules, certs, courses, ext] = await Promise.all([
     M('CertificateRule').find({}).lean().catch(() => []),
-    M('Certificate').find({ removed: false }).select('certificateId title type course student status issuedOn').sort({ issuedOn: -1 }).lean(),
+    M('Certificate').find({ removed: false }).select('certificateId title type course student status issuedOn replacedBy replaces batch').sort({ issuedOn: -1 }).lean(),
     M('Course').find({ removed: false }).select('title status').lean(),
     M('ExternalCertificate').find({ removed: { $ne: true } }).select('provider title status').lean().catch(() => []),
   ]);
@@ -734,6 +736,7 @@ async function certificateBoard(req, res) {
       issued: certs.filter((c) => ['Issued', 'Sent'].includes(c.status)).length,
       correction: queue.filter((q) => q.state === 'CORRECTION').length,
       revoked: certs.filter((c) => c.status === 'Revoked').length,
+      replaced: certs.filter((c) => c.status === 'Replaced').length,
       draft: certs.filter((c) => c.status === 'Draft').length,
     },
     catalogue: [
@@ -744,7 +747,8 @@ async function certificateBoard(req, res) {
       ...[...new Set(ext.map((x) => x.provider || x.title).filter(Boolean))].map((p) => ({ type: p, issuer: 'External provider', rule: 'record + verify only', status: 'EXTERNAL' })),
     ],
     queue: queue.slice(0, 60),
-    issued: certs.slice(0, 30).map((c) => ({ id: String(c._id), certificateId: c.certificateId, student: c.student, course: c.course, status: c.status, issuedOn: c.issuedOn })),
+    issued: certs.slice(0, 30).map((c) => ({ id: String(c._id), certificateId: c.certificateId, student: c.student, course: c.course, status: c.status, issuedOn: c.issuedOn, replacedBy: c.replacedBy || null, replaces: c.replaces || null })),
+    canCorrectDirect: CRM_ADMIN_ROLES.includes(req.admin.role),
   });
 }
 

@@ -16,9 +16,14 @@ module.exports = mongoose.model(
     { name: 'validUntil', type: 'Date' },
     { name: 'grade', type: 'String' },
     { name: 'score', type: 'Number', default: 0 },
-    { name: 'status', type: 'String', enum: ["Draft","Issued","Sent","Revoked"], default: "Draft" },
+    { name: 'status', type: 'String', enum: ["Draft","Issued","Sent","Revoked","Replaced"], default: "Draft" },
     { name: 'verificationUrl', type: 'String' },
     { name: 'issuedBy', type: 'String' },
     { name: 'notes', type: 'String' },
+    // §27 step 9 correction: the old record stays (status Replaced) and
+    // points at the new certificate ID; the new one points back
+    { name: 'replacedBy', type: 'String' },
+    { name: 'replaces', type: 'String' },
+    { name: 'correctionReason', type: 'String' },
   ])
 );

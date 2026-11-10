@@ -195,6 +195,11 @@ if (!RUN_BACKGROUND_JOBS) {
   const startLmsUnassignedBatchTick = require('./jobs/lmsUnassignedBatchTick');
   startLmsUnassignedBatchTick();
 
+  // Hourly: duplicate classes (DATA-02) → removal request to Ops approvals;
+  // the class is removed only once someone approves.
+  const startLmsOpsAutoTick = require('./jobs/lmsOpsAutoTick');
+  startLmsOpsAutoTick();
+
   // Finance EMI automation — auto-creates each installment's payment link 10
   // days before it's due, emails reminders (10/7/5 days before, then daily
   // through the due date), and puts a student's LMS access on hold 24h past

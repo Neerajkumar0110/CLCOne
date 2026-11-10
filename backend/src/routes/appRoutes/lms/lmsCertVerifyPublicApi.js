@@ -33,7 +33,9 @@ router.get(
       result: {
         found: true,
         valid: ['Issued', 'Sent'].includes(c.status),
-        status: c.status === 'Revoked' ? 'revoked' : 'valid',
+        status: c.status === 'Revoked' ? 'revoked' : c.status === 'Replaced' ? 'replaced' : 'valid',
+        // §27 step 9: a corrected certificate names the ID that replaced it
+        replacedBy: c.status === 'Replaced' ? c.replacedBy || null : null,
         certificateId: c.certificateId,
         title: c.title || c.course,
         course: c.course,
