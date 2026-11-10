@@ -68,7 +68,8 @@ const participantSchema = new mongoose.Schema(
 );
 
 const ticketSchema = new mongoose.Schema(
-  { ticket: String, crmUser: mongoose.Schema.ObjectId, role: String, exp: Date, used: { type: Boolean, default: false } },
+  // embed: the room runs inside the learner's class board (BBB side panel hidden, chat on the board)
+  { ticket: String, crmUser: mongoose.Schema.ObjectId, role: String, exp: Date, used: { type: Boolean, default: false }, embed: Boolean },
   { _id: false }
 );
 

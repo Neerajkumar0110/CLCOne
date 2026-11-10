@@ -3,6 +3,7 @@ import { Alert, Modal, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
 import { PMTabs, Legacy, Loading, useLoad, useTab, res, fmtDay, fmtTime, errText } from './shared';
+import { ClassChat } from '../LiveClasses/ClassDetailDrawer';
 
 const LiveClasses = lazy(() => import('../LiveClasses'));
 
@@ -202,6 +203,9 @@ function HostBoard({ classId, onPickAll }) {
           {students.length > 12 && (
             <div className="ld-li"><b>+ {students.length - 12} learners</b><span className="ld-muted">{students.reduce((n, a) => n + Math.max(0, (a.joinCount || 1) - 1), 0)} reconnects merged</span></div>
           )}
+          {/* the class chat learners use on their board (their BBB chat panel is hidden); also mirrored into BBB public chat */}
+          <div className="ld-hd" style={{ marginTop: 8 }}><b>Class chat</b><span className="ld-muted" style={{ fontSize: 12 }}>learners write here from their board</span></div>
+          <ClassChat id={cls.id} />
         </section>
 
         <section className="ld-card" aria-label="Delivery record">

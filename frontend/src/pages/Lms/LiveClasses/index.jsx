@@ -245,7 +245,23 @@ export default function LiveClasses() {
   // (localhost, a preview domain) the browser blocks BBB's session cookie
   // inside the iframe and BBB shows "Oops, something went wrong" — there the
   // class opens in a new tab instead.
-  const enter = (id, url, host) => (isLearner && canEmbed(host) ? setRoom({ id, url }) : openMeeting(url));
+  const enter = (id, url, host) => {
+    if (!isLearner) return openMeeting(url);
+    if (canEmbed(host)) return setRoom({ id, url });
+    // another site: the full BBB client in a new tab, on a fresh ticket
+    // (the one in hand was issued for the embedded layout)
+    const w = window.open('', '_blank');
+    return lmsApi
+      .liveClassJoin(id)
+      .then((r) => {
+        const u = r && r.result && r.result.url;
+        if (w && u) {
+          w.opener = null;
+          w.location.href = u;
+        } else if (w) w.close();
+      })
+      .catch(() => w && w.close());
+  };
   const popOut = async (id) => {
     const w = window.open('', '_blank'); // inside the click, before the await — not popup-blocked
     setRoom({ id, popped: true });
@@ -272,7 +288,7 @@ export default function LiveClasses() {
   useEffect(() => {
     if (!waiting || waiting.url) return undefined;
     const t = setInterval(async () => {
-      const res = await lmsApi.liveClassJoin(waiting.id).catch(() => null);
+      const res = await lmsApi.liveClassJoin(waiting.id, isLearner ? { embed: true } : {}).catch(() => null);
       if (res && res.result && res.result.url) setWaiting((w) => (w && w.id === waiting.id ? { ...w, url: res.result.url, host: res.result.meetingHost } : w));
     }, 12000);
     return () => clearInterval(t);
@@ -281,7 +297,7 @@ export default function LiveClasses() {
   const onJoin = async (id) => {
     setBusyId(id);
     try {
-      const res = await lmsApi.liveClassJoin(id);
+      const res = await lmsApi.liveClassJoin(id, isLearner ? { embed: true } : {});
       // Staff join in a real new tab (BBB's own client; role-based toolbar /
       // moderator controls come from the provider itself, see
       // BigBlueButtonProvider.getJoinUrl); learners inside the L4 board.

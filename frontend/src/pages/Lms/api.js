@@ -49,7 +49,8 @@ const lmsApi = {
     request.post({ entity: `lms/batches/${batchId}/students/remove`, jsonData }),
   liveClassStart: (id) => request.post({ entity: `lms/live-classes/${id}/start`, jsonData: {} }),
   liveClassEnd: (id) => request.post({ entity: `lms/live-classes/${id}/end`, jsonData: {} }),
-  liveClassJoin: (id) => request.post({ entity: `lms/live-classes/${id}/join`, jsonData: {} }),
+  // opts.embed: the room will run inside the learner's class board (BBB side panel hidden)
+  liveClassJoin: (id, opts = {}) => request.post({ entity: `lms/live-classes/${id}/join`, jsonData: opts }),
   liveClassLeave: (id) => request.post({ entity: `lms/live-classes/${id}/leave`, jsonData: {} }),
   liveClassAttendance: (id) => request.get({ entity: `lms/live-classes/${id}/attendance` }),
   liveClassRegenerate: (id, batchId) =>

@@ -46,10 +46,10 @@ async function post(req, res) {
   if (a.err) return bad(res, ...a.err);
   const text = String((req.body && req.body.text) || '').trim();
   if (!text) return bad(res, 400, 'The message is empty.');
-  if (text.length > 500) return bad(res, 400, 'Message 500 characters tak.');
+  if (text.length > 500) return bad(res, 400, 'A message can be up to 500 characters.');
   const key = String(req.admin._id);
   const now = Date.now();
-  if (now - (lastPost.get(key) || 0) < 1500) return bad(res, 429, 'Thoda dheere — ek second ruk kar bhejein.');
+  if (now - (lastPost.get(key) || 0) < 1500) return bad(res, 429, 'Slow down — wait a second before sending again.');
   lastPost.set(key, now);
   const m = await new (mongoose.model('LiveClassChat'))({
     liveSession: a.session._id,
@@ -58,13 +58,19 @@ async function post(req, res) {
     authorRole: a.role,
     text,
   }).save();
+  // mirror into the live BBB room's public chat, so people in the full BBB
+  // client (e.g. the trainer in a new tab) see the board chat too
+  if (['live', 'starting'].includes(a.session.status) && a.session.meetingProvider === 'bigbluebutton') {
+    const provider = require('../../../../services/lms/meeting').getMeetingProvider();
+    if (provider.sendChatMessage) provider.sendChatMessage(a.session, text, m.authorName + (a.role === 'teacher' ? ' (PM)' : '')).catch(() => {});
+  }
   return ok(res, shape(m.toObject(), req.admin, a.role));
 }
 
 async function remove(req, res) {
   const a = await access(req);
   if (a.err) return bad(res, ...a.err);
-  if (a.role !== 'teacher') return bad(res, 403, 'Sirf Project Manager message hata sakte hain.');
+  if (a.role !== 'teacher') return bad(res, 403, 'Only the Project Manager can remove messages.');
   if (!mongoose.isValidObjectId(req.params.msgId)) return bad(res, 404, 'Not found.');
   const r = await mongoose.model('LiveClassChat').updateOne({ _id: req.params.msgId, liveSession: a.session._id }, { $set: { removed: true, removedBy: req.admin._id } });
   if (!r.matchedCount) return bad(res, 404, 'Not found.');

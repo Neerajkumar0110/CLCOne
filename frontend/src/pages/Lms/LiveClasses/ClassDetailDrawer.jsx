@@ -97,7 +97,8 @@ async function permissionsGranted() {
 
 // Class chat (design L4 "Chat sirf is batch ko dikhti hai") — backend
 // classChat.js; polls for new messages every 4 s while the tab is open.
-function ClassChat({ id }) {
+// also used on the Project Manager host board (PMBoards/ClassHost)
+export function ClassChat({ id }) {
   const [msgs, setMsgs] = useState(null); // null = loading
   const [err, setErr] = useState('');
   const [text, setText] = useState('');
@@ -118,7 +119,7 @@ function ClassChat({ id }) {
         return;
       }
       setErr('');
-      const add = r.result.messages || [];
+      const add = (r.result && r.result.messages) || [];
       if (add.length) lastRef.current = add[add.length - 1].created;
       setMsgs((m) => {
         const have = new Set((m || []).map((x) => x.id));
@@ -143,7 +144,7 @@ function ClassChat({ id }) {
     setSending(true);
     const r = await lmsApi.sendLiveChat(id, v).catch(() => null);
     setSending(false);
-    if (!r || r.success === false) return message.error((r && r.message) || 'Message not sent.');
+    if (!r || r.success === false || !r.result) return message.error((r && r.message) || 'Message not sent.');
     setText('');
     lastRef.current = r.result.created;
     setMsgs((m) => [...(m || []), r.result]);
@@ -235,6 +236,11 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
   const [noteLoading, setNoteLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('details');
+  // the room hides BBB's own chat, so the board opens on Chat while the class runs here
+  const inRoom = !!(room && room.url);
+  useEffect(() => {
+    if (inRoom) setTab('chat');
+  }, [inRoom]);
   const [check, setCheck] = useState(null); // null | 'running' | { camera, microphone, speaker, browser }
   const [now, setNow] = useState(Date.now());
   const id = row && row.id;

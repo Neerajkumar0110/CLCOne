@@ -6,7 +6,7 @@ const { recordJoinAttempt } = require('../../../../services/lms/joinAttemptLog')
 // Every join entry point goes through here so each Join click (and why it
 // was refused) lands in LmsJoinAttempt — see the Candidates detail modal.
 async function joinAndLog(req, sessionId, admin, via) {
-  const out = await liveClassService.issueJoin(sessionId, admin);
+  const out = await liveClassService.issueJoin(sessionId, admin, { embed: !!(req.body && req.body.embed) });
   recordJoinAttempt({ req, sessionId, user: admin, step: 'join', via, ok: !out.error, errorCode: out.error, error: out.error ? out.message : undefined });
   return out;
 }

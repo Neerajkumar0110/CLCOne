@@ -127,7 +127,7 @@ class BigBlueButtonProvider extends MeetingProvider {
     };
   }
 
-  async getJoinUrl(session, { role = 'viewer', fullName = 'Guest', userId } = {}) {
+  async getJoinUrl(session, { role = 'viewer', fullName = 'Guest', userId, embedded = false } = {}) {
     const meetingId = session.meetingId || `clc-${session._id}`;
     const params = {
       fullName,
@@ -148,9 +148,32 @@ class BigBlueButtonProvider extends MeetingProvider {
     // one is only hidden inside the webcam list.
     params['userdata-bbb_custom_style'] =
       '[data-test="webcamsFullscreenButton"],[data-test="webcamVideoList"] [data-test="webcamFullscreenButton"]{display:none!important}';
+    // Inside the learner's class board: no Messages / Notes / Users side
+    // panel and no button to open it — the board's own Chat tab is the class
+    // chat (mirrored into BBB public chat, see sendChatMessage). A new tab
+    // gets the full BBB client.
+    if (embedded) {
+      params['userdata-bbb_show_participants_on_login'] = 'false';
+      params['userdata-bbb_show_public_chat_on_login'] = 'false';
+      params['userdata-bbb_override_default_locale'] = 'en';
+      params['userdata-bbb_custom_style'] +=
+        'button[aria-label^="Users and messages toggle"],[data-test="userListContainer"]{display:none!important}';
+    }
     const query = new URLSearchParams(params).toString();
     const checksum = this._checksum('join', query);
     return `${this.cfg.url}/api/join?${query}&checksum=${checksum}`;
+  }
+
+  // Post a line into the meeting's public chat (BBB 2.7+ sendChatMessage) —
+  // the board chat is mirrored here so people in the full BBB client see it.
+  async sendChatMessage(session, message, userName) {
+    if (!session.meetingId) return { ok: false };
+    try {
+      await this._call('sendChatMessage', { meetingID: session.meetingId, message: String(message).slice(0, 500), userName: String(userName || 'Class chat').slice(0, 60) });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
   }
 
   async endRoom(session) {

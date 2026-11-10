@@ -1645,7 +1645,7 @@ async function writeAttendanceMirror(session, p) {
 }
 
 /* ───────────────────────── join ───────────────────────── */
-async function issueJoin(id, admin) {
+async function issueJoin(id, admin, { embed = false } = {}) {
   const session = await loadFull(id);
   if (!session) return { error: 404, message: 'Live class not found.' };
   const role = await resolveRole(session, admin);
@@ -1751,6 +1751,7 @@ async function issueJoin(id, admin) {
     ticket,
     crmUser: admin._id,
     role: role === 'teacher' ? 'moderator' : 'viewer',
+    embed: !!embed && role !== 'teacher',
     exp: new Date(now.getTime() + lmsConfig.meeting.joinTicketTtlSec * 1000),
     used: false,
   });
@@ -1812,6 +1813,7 @@ async function redeemTicket(ticketStr) {
     fullName: user ? `${user.name || ''} ${user.surname || ''}`.trim() || user.email : 'Guest',
     email: user ? user.email : '',
     userId: String(t.crmUser),
+    embedded: !!t.embed,
   };
 
   const url = await provider.getJoinUrl(session, opts);
