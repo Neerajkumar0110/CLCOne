@@ -50,6 +50,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
 import '@/pages/Lms/components/LearnerDesign.css';
+import useSidebarLogo from '@/hooks/useSidebarLogo';
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -455,6 +456,9 @@ const STUDENT_MORE = [
 
 export default function LmsPanelApp() {
   const admin = useSelector(selectCurrentAdmin) || {};
+  // Same logo as the CRM sidebar — whatever is uploaded in Settings > Logo.
+  const logoWide = useSidebarLogo('logo_sidebar_expanded');
+  const logoMini = useSidebarLogo('logo_sidebar_collapsed');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -653,9 +657,16 @@ export default function LmsPanelApp() {
 
   const sidebarInner = (isDrawer) => (
     <>
-      {/* design boards: text brand on the sidebar (learner L-boards / PM P-boards) */}
-      <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)}>
-        {!isDrawer && collapsed ? <span>CL</span> : <>Career Lab · <span>{isTeacher ? 'Project Manager' : 'InternX-AI'}</span></>}
+      {/* uploaded company logo (Settings > Logo) + the panel's role, as on the boards */}
+      <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)} title={isTeacher ? 'Career Lab · Project Manager' : 'Career Lab · InternX-AI'}>
+        {!isDrawer && collapsed ? (
+          <img className="ld-logo mini" src={logoMini} alt="Career Lab Consulting" />
+        ) : (
+          <>
+            <img className="ld-logo" src={logoWide} alt="Career Lab Consulting" />
+            <span className="ld-role">{isTeacher ? 'Project Manager' : 'InternX-AI'}</span>
+          </>
+        )}
       </div>
       {updates.liveNow && updates.liveNow.length > 0 && (
         <div
@@ -691,7 +702,7 @@ export default function LmsPanelApp() {
     return (
       <div className="ld-activate">
         <header className="ld-actbar">
-          <div className="ld-brand" style={{ padding: 0 }}>Career Lab · <span>InternX-AI</span></div>
+          <div className="ld-brand" style={{ padding: 0 }}><img className="ld-logo" src={logoWide} alt="Career Lab Consulting" style={{ height: 34 }} /></div>
           <div className="ld-actbar-r">
             <span>{[`${admin.name || ''} ${admin.surname || ''}`.trim(), enrollmentId].filter(Boolean).join(' · ')}</span>
             <button type="button" onClick={() => dispatch(logoutAction())}>Logout</button>
