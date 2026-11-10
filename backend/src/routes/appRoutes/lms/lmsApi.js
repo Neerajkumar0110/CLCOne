@@ -154,6 +154,23 @@ router.route('/student/attendance').get(catchErrors(lms.studentAttendance));
 // ── teacher ────────────────────────────────────────────────────────
 router.route('/teacher/dashboard').get(catchErrors(lms.teacherDashboard));
 router.route('/teacher/students').get(catchErrors(lms.teacherStudents));
+// Project Manager boards (design P1–P10) — each handler scopes to the PM's
+// own batches (Batch.trainer); management sees all.
+['/liveclasses', '/live-classes'].forEach((base) => router.route(base + '/:id/recording').post(catchErrors(lms.pmRecordingToggle)));
+router.route('/teacher/pm/class/:id').get(catchErrors(lms.pmClassBoard));
+router.route('/teacher/pm/delivery').post(catchErrors(lms.pmSaveDelivery));
+router.route('/teacher/pm/curriculum').get(catchErrors(lms.pmCurriculum));
+router.route('/teacher/pm/projects/:id/link-check').get(catchErrors(lms.pmLinkCheck));
+router.route('/teacher/pm/assess').get(catchErrors(lms.pmAssess));
+router.route('/teacher/pm/assess/verify').post(catchErrors(lms.pmAssessVerify));
+router.route('/teacher/pm/assess/export').get(catchErrors(lms.pmAssessExport));
+router.route('/teacher/pm/learner').get(catchErrors(lms.pmLearner));
+router.route('/teacher/pm/learner/notes').post(catchErrors(lms.pmLearnerNoteAdd));
+router.route('/teacher/pm/learner/attendance-review').post(catchErrors(lms.pmAttendanceReview));
+router.route('/teacher/pm/extensions').get(catchErrors(lms.pmExtensions));
+router.route('/teacher/pm/extensions/:id/send').post(catchErrors(lms.pmExtensionSend));
+router.route('/teacher/pm/candidates').get(catchErrors(lms.pmCandidates));
+router.route('/teacher/pm/announce').post(catchErrors(lms.pmAnnounceRequest));
 router.route('/teacher/analytics').get(catchErrors(lms.teacherAnalytics));
 router.route('/teacher/live-analytics').get(catchErrors(lms.teacherLiveAnalytics));
 router.route('/student/dashboard').get(catchErrors(lms.studentDashboard));

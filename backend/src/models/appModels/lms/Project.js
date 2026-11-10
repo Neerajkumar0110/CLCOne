@@ -30,6 +30,8 @@ const reviewSchema = new mongoose.Schema(
     changes: [String], // "Requested changes" list on the learner's review card (design L6)
     rubricScores: [{ criterion: String, marks: Number, _id: false }],
     totalScore: Number, // % of rubric max
+    // documentation checklist the PM ticked (design P3)
+    checklist: [{ label: String, done: Boolean, _id: false }],
   },
   { _id: false }
 );

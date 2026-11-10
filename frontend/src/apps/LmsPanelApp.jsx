@@ -54,13 +54,11 @@ import '@/pages/Lms/components/LearnerDesign.css';
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
 
-const TeacherDashboard = lazy(() => import('@/pages/Lms/TeacherDashboard'));
 const StudentDashboard = lazy(() => import('@/pages/Lms/StudentDashboard'));
 const LearnerOverview = lazy(() => import('@/pages/Lms/Overview'));
 const LiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
 const Attendance = lazy(() => import('@/pages/Lms/Attendance'));
-const TeacherStudents = lazy(() => import('@/pages/Lms/TeacherStudents'));
 const CourseBuilder = lazy(() => import('@/pages/Lms/CourseBuilder'));
 const LearningPage = lazy(() => import('@/pages/Lms/LearningPage'));
 const Assignments = lazy(() => import('@/pages/Lms/Assignments'));
@@ -81,7 +79,6 @@ const TestIntro = lazy(() => import('@/pages/Lms/TestIntro'));
 const Policies = lazy(() => import('@/pages/Lms/Policies'));
 const Eligibility = lazy(() => import('@/pages/Lms/Eligibility'));
 const Projects = lazy(() => import('@/pages/Lms/Projects'));
-const Learner360 = lazy(() => import('@/pages/Lms/Learner360'));
 const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 // Same month-grid calendar the CRM's LMS → Calendar tab uses — the backend's
 // listFor()/resolveRole() already scope GET /lms/live-classes to "every batch
@@ -90,6 +87,17 @@ const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 const MyFees = lazy(() => import('@/pages/Lms/MyFees'));
 const SupportTickets = lazy(() => import('@/pages/Lms/Support'));
+// Project Manager boards (design canvas page 4, P1–P10). Each keeps the old
+// full page on a tab, so every existing teacher feature is still one click away.
+const PMDashboard = lazy(() => import('@/pages/Lms/PMBoards/Dashboard'));
+const PMClassHost = lazy(() => import('@/pages/Lms/PMBoards/ClassHost'));
+const PMReviews = lazy(() => import('@/pages/Lms/PMBoards/Reviews'));
+const PMAssess = lazy(() => import('@/pages/Lms/PMBoards/Assess'));
+const PMLearner360 = lazy(() => import('@/pages/Lms/PMBoards/Learner360'));
+const PMCurriculum = lazy(() => import('@/pages/Lms/PMBoards/Curriculum'));
+const PMCandidates = lazy(() => import('@/pages/Lms/PMBoards/Candidates'));
+const PMProjectSetup = lazy(() => import('@/pages/Lms/PMBoards/ProjectSetup'));
+const PMDoubts = lazy(() => import('@/pages/Lms/PMBoards/Doubts'));
 
 // Learner side = the design canvas L-boards: light only, #0e7490 accent,
 // Inter, 8px controls / 12px cards. Every learner route renders inside this
@@ -376,25 +384,25 @@ function buildMenuItems(entries, unreadPaths) {
 // Manager": TODAY → LEARNERS → ASSESS → CONTENT). Every existing page kept.
 const TEACHER_NAV = [
   ['#TODAY'],
-  ['/teacher', 'Dashboard', <DashboardOutlined />, <TeacherDashboard />],
-  ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <LiveClasses />],
+  ['/teacher', 'Dashboard', <DashboardOutlined />, <PMDashboard />],
+  ['/teacher/classes', 'Live Classes', <VideoCameraOutlined />, <PMClassHost />],
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['#LEARNERS'],
-  ['/teacher/students', 'Candidates', <TeamOutlined />, <TeacherStudents />],
-  ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <Learner360 />],
-  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <Doubts />],
+  ['/teacher/students', 'Candidates', <TeamOutlined />, <PMCandidates />],
+  ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <PMLearner360 />],
+  ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <PMDoubts />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
   ['#ASSESS'],
-  ['/teacher/assessment-dashboard', 'Assessment', <RocketOutlined />, <AssessmentDashboard />],
+  ['/teacher/assessment-dashboard', 'Assessments & results', <RocketOutlined />, <PMAssess />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
   ['/teacher/question-bank', 'Question Bank', <DatabaseOutlined />, <QuestionBank />],
-  ['/teacher/projects', 'Projects', <ProjectOutlined />, <Projects />],
-  ['/teacher/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
+  ['/teacher/projects', 'Project reviews', <ProjectOutlined />, <PMReviews />],
+  ['/teacher/assignments', 'Projects & assignments', <FileTextOutlined />, <PMProjectSetup />],
   ['#CONTENT'],
-  ['/teacher/curriculum', 'Curriculum Tracker', <ScheduleOutlined />, <Curriculum />],
+  ['/teacher/curriculum', 'Curriculum & material', <ScheduleOutlined />, <PMCurriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/teacher/courses', 'My Internships', <ReadOutlined />, <CourseBuilder />],
   ['/teacher/my-feedback', 'My Feedback', <CommentOutlined />, <PMFeedback />],

@@ -36,6 +36,7 @@ const communication = require('./communication');
 const studyMaterial = require('./studyMaterial');
 const studentAlerts = require('./studentAlerts');
 const candidateDetail = require('./candidateDetail');
+const pmBoards = require('./pmBoards');
 const holidays = require('./holidays');
 const curriculumAdmin = require('./curriculumAdmin');
 
@@ -357,6 +358,22 @@ module.exports = {
   learner360Report: learner360.courseReport,
   learner360Export: learner360.courseReportExport,
   learnerTimeline: learner360.learnerTimeline,
+  // Project Manager boards (design P1–P10)
+  pmRecordingToggle: pmBoards.recordingToggle,
+  pmAnnounceRequest: pmBoards.announceRequest,
+  pmClassBoard: pmBoards.classBoard,
+  pmSaveDelivery: pmBoards.saveDelivery,
+  pmCurriculum: pmBoards.curriculumBoard,
+  pmLinkCheck: pmBoards.linkCheck,
+  pmAssess: pmBoards.assessBoard,
+  pmAssessVerify: pmBoards.assessVerify,
+  pmAssessExport: pmBoards.assessExport,
+  pmLearner: pmBoards.learnerBoard,
+  pmLearnerNoteAdd: pmBoards.learnerNoteAdd,
+  pmAttendanceReview: pmBoards.attendanceReviewRequest,
+  pmExtensions: pmBoards.extensionList,
+  pmExtensionSend: pmBoards.extensionSend,
+  pmCandidates: pmBoards.candidatesBoard,
 
   // study material
   materialUpload: studyMaterial.upload,

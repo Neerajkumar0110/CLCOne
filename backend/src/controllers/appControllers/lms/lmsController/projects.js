@@ -338,6 +338,10 @@ async function review(req, res) {
       .map((x) => x.slice(0, 300)),
     rubricScores: rubricScores.map((r) => ({ criterion: r.criterion, marks: Number(r.marks) || 0 })),
     totalScore,
+    checklist: (Array.isArray(b.checklist) ? b.checklist : [])
+      .slice(0, 12)
+      .map((c) => ({ label: String((c && c.label) || '').slice(0, 120), done: !!(c && c.done) }))
+      .filter((c) => c.label),
   };
 
   p.status = b.decision === 'approved' ? 'approved' : b.decision === 'rejected' ? 'rejected' : 'revision_requested';

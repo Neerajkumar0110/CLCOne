@@ -59,6 +59,7 @@ const DB_MAP = {
   AuditLog: 'lmsDb',
   LmsApproval: 'lmsDb',
   LmsAdminConfig: 'lmsDb',
+  LmsLearnerNote: 'lmsDb',
   EligibilityRule: 'lmsDb',
   PolicyAcknowledgement: 'lmsDb',
   PolicyDocument: 'lmsDb',

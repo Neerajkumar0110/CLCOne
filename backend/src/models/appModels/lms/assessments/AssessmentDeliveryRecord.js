@@ -19,6 +19,14 @@ const schema = new mongoose.Schema({
   plannedDate: { type: Date },
   actualDate: { type: Date },
   notes: { type: String },
+  // "What was taught today" (design P2, DATA-03) — written by the PM after
+  // class: full / partial (carried to the next class) / a different topic.
+  coverage: { type: String, enum: ['full', 'partial', 'different'] },
+  deliveredTopic: { type: String },
+  liveClass: { type: String }, // LmsLiveSession id
+  recordingTitle: { type: String },
+  recordedBy: { type: String },
+  recordedByName: { type: String },
   updatedAt: { type: Date, default: Date.now },
 });
 

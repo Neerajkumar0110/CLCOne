@@ -97,6 +97,8 @@ async function getSessions(req, res) {
         plannedDate: record?.plannedDate || null,
         actualDate: record?.actualDate || null,
         notes: record?.notes || null,
+        coverage: record?.coverage || null,
+        deliveredTopic: record?.deliveredTopic || null,
       };
     });
 

@@ -445,6 +445,22 @@ const lmsApi = {
     window.URL.revokeObjectURL(url);
   },
 
+  // ── Project Manager boards (design P1–P10) ───────────────────
+  pmRecording: (id, enabled) => request.post({ entity: `lms/live-classes/${id}/recording`, jsonData: { enabled } }),
+  pmClass: (id) => request.get({ entity: `lms/teacher/pm/class/${id}` }),
+  pmSaveDelivery: (b) => request.post({ entity: 'lms/teacher/pm/delivery', jsonData: b }),
+  pmCurriculum: (f = {}) => request.get({ entity: `lms/teacher/pm/curriculum${qs(f)}` }),
+  pmLinkCheck: (projectId) => request.get({ entity: `lms/teacher/pm/projects/${projectId}/link-check` }),
+  pmAssess: (f = {}) => request.get({ entity: `lms/teacher/pm/assess${qs(f)}` }),
+  pmAssessVerify: (b) => request.post({ entity: 'lms/teacher/pm/assess/verify', jsonData: b }),
+  pmLearner: (email) => request.get({ entity: `lms/teacher/pm/learner${qs({ email })}` }),
+  pmLearnerNote: (email, text) => request.post({ entity: 'lms/teacher/pm/learner/notes', jsonData: { email, text } }),
+  pmAttendanceReview: (email, note) => request.post({ entity: 'lms/teacher/pm/learner/attendance-review', jsonData: { email, note } }),
+  pmExtensions: () => request.get({ entity: 'lms/teacher/pm/extensions' }),
+  pmExtensionSend: (id) => request.post({ entity: `lms/teacher/pm/extensions/${id}/send`, jsonData: {} }),
+  pmAnnounce: (b) => request.post({ entity: 'lms/teacher/pm/announce', jsonData: b }),
+  pmCandidates: (f = {}) => request.get({ entity: `lms/teacher/pm/candidates${qs(f)}` }),
+
   // ── learner 360 report ────────────────────────────────────────
   learner360: (courseId) => request.get({ entity: `lms/admin/learner-360/${courseId}` }),
   learner360Export: async (courseId, format = 'csv') => {

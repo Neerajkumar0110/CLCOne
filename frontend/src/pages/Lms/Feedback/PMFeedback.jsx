@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, DatePicker, Empty, Input, Select, Skeleton, message } from 'antd';
 import dayjs from 'dayjs';
 import lmsApi from '../api';
-import '../StudentDashboard/StudentHome.css';
+import '../components/LearnerDesign.css';
 import './feedback.css';
 
 // Project Manager's own feedback (design P7): category averages for the
@@ -57,58 +57,50 @@ export default function PMFeedback() {
   const last = s.weeks[s.weeks.length - 1];
   const latestWeek = s.weeks.find((w) => w.weekKey === s.latestWeek);
 
+  const chip = (st) => (st === 'Done' ? 'hai' : st === 'In progress' ? 'naya' : 'gray');
   return (
-    <div className="sh-root lms-portal">
-      <div className="sh-head">
-        <div>
+    <div className="ld-page pm">
+      <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>
             My feedback — {weekLabel(first && first.weekKey)} to {weekLabel(last && last.weekKey)}
           </h1>
-          <div className="sh-sub">Sirf aggregated scores · respondent ka naam kabhi nahi dikhta · minimum {s.minResponses} responses par hi score dikhega</div>
+          <div className="ld-muted" style={{ fontSize: 14 }}>Sirf aggregated scores · respondent ka naam kabhi nahi dikhta · minimum {s.minResponses} responses par hi score dikhega</div>
         </div>
       </div>
 
-      <section className="sh-card" aria-label="Category averages">
-        <div className="sh-card-hd">
-          <b>Category averages (out of 5)</b>
-          <span className="sh-muted">
-            {latestWeek ? `${latestWeek.responses} responses · week of ${weekLabel(latestWeek.weekKey)}` : 'Not enough responses yet'}
-          </span>
-        </div>
-        <div className="fb-table-wrap">
-          <table className="fb-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Avg</th>
-                <th>vs previous</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.categories.map((c) => (
-                <tr key={c.label}>
-                  <td>{c.label}</td>
-                  <td>
-                    <b>{c.avg === null ? '—' : c.avg.toFixed(1)}</b>
-                  </td>
-                  <td className={c.delta > 0 ? 'fb-up' : c.delta < 0 ? 'fb-down' : ''}>
-                    {c.delta === null ? '—' : `${c.delta > 0 ? '+' : c.delta < 0 ? '−' : ''}${Math.abs(c.delta).toFixed(1)}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="sh-muted">
-          Responses per week: {s.weeks.map((w) => `${weekLabel(w.weekKey)} · ${w.responses}`).join('  |  ')}. Serious / conduct concerns never appear here —
-          they go to management only.
-        </div>
-      </section>
+      <div className="pm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 14 }}>
+        <section className="ld-card" aria-label="Category averages" style={{ gap: 12 }}>
+          <div className="ld-hd">
+            <b>Category averages (out of 5)</b>
+            <span className="ld-muted" style={{ fontSize: 12 }}>
+              {latestWeek ? `${latestWeek.responses} responses · week of ${weekLabel(latestWeek.weekKey)}` : 'Not enough responses yet'}
+            </span>
+          </div>
+          <div className="fb-bar" style={{ color: '#475569', fontSize: 12, fontWeight: 600 }}><span>Category</span><span /><span>Avg</span><span>vs prev</span></div>
+          {s.categories.map((c) => (
+            <div className="fb-bar" key={c.label}>
+              <span>{c.label}</span>
+              <div className="fb-trk"><div className="fb-fill" style={{ width: `${c.avg == null ? 0 : (c.avg / 5) * 100}%`, background: c.avg != null && c.avg < 3.8 ? '#c2410c' : '#4f46e5' }} /></div>
+              <b>{c.avg === null ? '—' : c.avg.toFixed(1)}</b>
+              <span className={c.delta > 0 ? 'fb-up' : c.delta < 0 ? 'fb-down' : 'ld-muted'}>{c.delta === null ? '—' : `${c.delta > 0 ? '+' : c.delta < 0 ? '−' : ''}${Math.abs(c.delta).toFixed(1)}`}</span>
+            </div>
+          ))}
+          <div className="ld-muted" style={{ fontSize: 12 }}>Responses per week: {s.weeks.map((w) => `${weekLabel(w.weekKey)} · ${w.responses}`).join('  |  ')}</div>
+        </section>
+        <section className="ld-card" aria-label="Themes">
+          <div className="ld-hd"><b>Themes</b><span className="ld-chip gray">HUMAN REVIEW</span></div>
+          <div className="ld-muted" style={{ fontSize: 13, lineHeight: '20px' }}>
+            Comments ke themes tabhi dikhte hain jab management unhe review karke share kare — abhi koi reviewed theme nahi hai. Naam ya exact comment kabhi nahi dikhte.
+          </div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Serious / conduct concerns yahan nahi aate — restricted management route</div>
+        </section>
+      </div>
 
-      <section className="sh-card" aria-label="Improvement actions">
-        <div className="sh-card-hd">
+      <section className="ld-card" aria-label="Improvement actions" style={{ flex: 1 }}>
+        <div className="ld-hd">
           <b>Improvement actions</b>
-          <span className="sh-muted">owner · due · effect check</span>
+          <span className="ld-muted" style={{ fontSize: 12 }}>owner · due · evidence · effectiveness check</span>
         </div>
         <div className="fb-action-form">
           <Input aria-label="Action" placeholder="Action, e.g. Milestone reviews within 72 hours" value={draft.action} maxLength={300} onChange={(e) => setDraft((x) => ({ ...x, action: e.target.value }))} />
@@ -123,15 +115,15 @@ export default function PMFeedback() {
           <Input aria-label="Owner" placeholder="Owner" value={draft.owner} onChange={(e) => setDraft((x) => ({ ...x, owner: e.target.value }))} />
           <DatePicker aria-label="Due date" value={draft.due} onChange={(v) => setDraft((x) => ({ ...x, due: v }))} />
           <Input aria-label="Effect check" placeholder="Effect check, e.g. W11 score" value={draft.effectCheck} onChange={(e) => setDraft((x) => ({ ...x, effectCheck: e.target.value }))} />
-          <Button type="primary" disabled={!draft.action.trim()} loading={adding} onClick={add}>
+          <Button type="primary" disabled={!draft.action.trim()} loading={adding} onClick={add} style={{ background: '#4f46e5' }}>
             Add action
           </Button>
         </div>
         {actions.length === 0 ? (
-          <div className="sh-muted">No actions yet.</div>
+          <div className="ld-empty">No actions yet.</div>
         ) : (
-          <div className="fb-table-wrap">
-            <table className="fb-table">
+          <div style={{ overflowX: 'auto' }}>
+            <table className="ld-table">
               <thead>
                 <tr>
                   <th>Action</th>
@@ -150,17 +142,18 @@ export default function PMFeedback() {
                     <td>{a.owner || '—'}</td>
                     <td>{a.due ? dayjs(a.due).format('D MMM') : '—'}</td>
                     <td>
+                      <span className={`ld-chip ${chip(a.status)}`} style={{ marginRight: 6 }}>{a.status}</span>
                       <Select
                         size="small"
                         aria-label={`Status of ${a.action}`}
                         value={a.status}
                         onChange={(v) => setStatus(a, v)}
                         options={STATUSES.map((x) => ({ value: x, label: x }))}
-                        style={{ width: 130 }}
+                        style={{ width: 120 }}
                         className={`fb-status-${STATUS_CHIP[a.status]}`}
                       />
                     </td>
-                    <td>{a.effectCheck || '—'}</td>
+                    <td className="ld-muted">{a.effectCheck || '—'}</td>
                   </tr>
                 ))}
               </tbody>

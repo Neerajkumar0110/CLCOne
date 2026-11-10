@@ -25,6 +25,9 @@ const schema = new mongoose.Schema({
   evidence: { type: String, required: true },
   // a bulk / high-risk request needs a second approver (D-13)
   highRisk: { type: Boolean, default: false },
+  // source record this request came from, e.g. the learner's Support ticket
+  // a PM forwarded (design P8 "Send to Ops") — stops it being sent twice
+  ref: { type: String, index: true },
 
   requestedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   requestedByName: String,
