@@ -200,6 +200,10 @@ if (!RUN_BACKGROUND_JOBS) {
   const startLmsOpsAutoTick = require('./jobs/lmsOpsAutoTick');
   startLmsOpsAutoTick();
 
+  // BBB public chat → class board chat (the BBB server publishes its events
+  // on this box's Redis; subscribe only, see services/lms/bbbChatBridge.js)
+  if (require('./config/lms').lmsConfig.meeting.effectiveProvider === 'bigbluebutton') require('./services/lms/bbbChatBridge').start();
+
   // Finance EMI automation — auto-creates each installment's payment link 10
   // days before it's due, emails reminders (10/7/5 days before, then daily
   // through the due date), and puts a student's LMS access on hold 24h past

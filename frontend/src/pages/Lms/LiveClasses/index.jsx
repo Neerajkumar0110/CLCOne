@@ -482,9 +482,11 @@ export default function LiveClasses() {
         footer={null}
         centered
         width={420}
-        title={waiting && waiting.url ? 'Your trainer has joined' : 'Waiting for your trainer'}
+        title={null}
       >
-        <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+        {/* heading inside the body: the learner shell's modal skin leaves the antd title unpadded */}
+        <div style={{ textAlign: 'center', padding: '20px 16px 8px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 14 }}>{waiting && waiting.url ? 'Your trainer has joined' : 'Waiting for your trainer'}</div>
           {waiting && waiting.url ? (
             <>
               <CheckCircleOutlined style={{ fontSize: 44, color: '#16a34a' }} />

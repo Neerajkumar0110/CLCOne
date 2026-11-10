@@ -157,7 +157,7 @@ class BigBlueButtonProvider extends MeetingProvider {
       params['userdata-bbb_show_public_chat_on_login'] = 'false';
       params['userdata-bbb_override_default_locale'] = 'en';
       params['userdata-bbb_custom_style'] +=
-        'button[aria-label^="Users and messages toggle"],[data-test="userListContainer"]{display:none!important}';
+        'button[aria-label^="Users and messages toggle"],[data-test="userListContainer"],div:has(> button[aria-label^="Users and messages toggle"]) .icon-bbb-right_arrow,div:has(> button[aria-label^="Users and messages toggle"]) .icon-bbb-left_arrow{display:none!important}';
     }
     const query = new URLSearchParams(params).toString();
     const checksum = this._checksum('join', query);
