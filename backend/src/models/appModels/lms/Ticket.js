@@ -73,7 +73,7 @@ const schema = new mongoose.Schema({
       {
         _id: false,
         at: { type: Date, default: Date.now },
-        action: { type: String, enum: ['created', 'status', 'confirmed', 'reopened'] },
+        action: { type: String, enum: ['created', 'status', 'confirmed', 'reopened', 'assigned', 'note', 'escalated'] },
         status: String,
         byName: String,
         note: String,
@@ -85,6 +85,19 @@ const schema = new mongoose.Schema({
   // "still an issue" (back to Open, reopenCount + 1).
   learnerConfirmedAt: Date,
   reopenCount: { type: Number, default: 0 },
+
+  // Support Manager queue (design S3): owner, workflow stage, SLA, waiting
+  // state (pauses the SLA), escalation and staff-only notes. All optional —
+  // a ticket without them still reads exactly as before.
+  owner: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  ownerName: String,
+  stage: { type: String, enum: ['New', 'Triaged', 'Assigned', 'In progress', 'Resolved', 'Closed'] },
+  waiting: { type: String, enum: ['learner', 'tech'] },
+  slaDueAt: Date,
+  nextActionAt: Date,
+  escalatedTo: String,
+  closedAt: Date,
+  internalNotes: { type: [{ _id: false, at: Date, byName: String, text: String }], default: undefined },
 
   created: {
     type: Date,

@@ -1230,6 +1230,29 @@ export const FEATURE_SECTIONS = [
   },
 
   // ===========================================================================
+  // Support Manager (design canvas page 5, S1–S9): the Support role's own
+  // section, one screen per board in the board's sidebar order.
+  {
+    key: 'support-mgr',
+    label: 'Support Manager',
+    module: 'LMS',
+    route: '/support-mgr',
+    Icon: CustomerServiceOutlined,
+    blurb: 'Today, attendance & escalations, tickets with SLA, communications, certificates, learners, batches & classes, recordings and feedback.',
+    tabs: [
+      { key: 'dashboard', label: 'Support dashboard', Icon: DashboardOutlined, embed: 'lmsSm_dashboard' },
+      { key: 'attendance', label: 'Attendance', Icon: CheckSquareOutlined, embed: 'lmsSm_attendance' },
+      { key: 'tickets', label: 'Tickets', Icon: CustomerServiceOutlined, embed: 'lmsSm_tickets' },
+      { key: 'comms', label: 'Communications', Icon: MailOutlined, embed: 'lmsSm_comms' },
+      { key: 'certificates', label: 'Certificates', Icon: TrophyOutlined, embed: 'lmsSm_certificates' },
+      { key: 'learners', label: 'Learners', Icon: TeamOutlined, embed: 'lmsSm_learners' },
+      { key: 'classes', label: 'Batches & classes', Icon: CalendarOutlined, embed: 'lmsSm_classes' },
+      { key: 'recordings', label: 'Recording ops', Icon: VideoCameraOutlined, embed: 'lmsSm_recordings' },
+      { key: 'feedback', label: 'Feedback centre', Icon: CommentOutlined, embed: 'lmsSm_feedback' },
+    ],
+  },
+
+  // ===========================================================================
   {
     key: 'hr',
     label: 'HRMS',

@@ -315,6 +315,24 @@ router.route('/admin/communication/templates/:id').patch(requireManager, catchEr
 router.route('/admin/communication/templates/:id/delete').post(requireManager, catchErrors(lms.commTemplateRemove));
 router.route('/admin/communication/delivery-summary').get(requireManager, catchErrors(lms.commDeliverySummary));
 
+// ── Support Manager boards (design S1–S7, S9) ───────────────────────
+router.route('/admin/sm/dashboard').get(requireManager, catchErrors(lms.smDashboard));
+router.route('/admin/sm/tickets').get(requireManager, catchErrors(lms.smTickets));
+router.route('/admin/sm/tickets/:id').post(requireManager, catchErrors(lms.smTicketUpdate));
+router.route('/admin/sm/attendance').get(requireManager, catchErrors(lms.smAttendance));
+router.route('/admin/sm/escalations').get(requireManager, catchErrors(lms.smEscalations));
+router.route('/admin/sm/escalations/send').post(requireManager, catchErrors(lms.smEscalationSend));
+router.route('/admin/sm/batches').get(requireManager, catchErrors(lms.smBatches));
+router.route('/admin/sm/batches/:id/time').post(requireManager, catchErrors(lms.smBatchTime));
+router.route('/admin/sm/recordings').get(requireManager, catchErrors(lms.smRecordings));
+router.route('/admin/sm/recordings/:sessionId/rename').post(requireManager, catchErrors(lms.smRecordingRename));
+router.route('/admin/sm/learners').get(requireManager, catchErrors(lms.smLearners));
+router.route('/admin/sm/learners/:id/status').post(requireManager, catchErrors(lms.smLearnerStatus));
+router.route('/admin/sm/learners/:id/credentials').post(requireManager, catchErrors(lms.smLearnerCredentials));
+router.route('/admin/sm/certificates').get(requireManager, catchErrors(lms.smCertificates));
+router.route('/admin/sm/certificates/:id/revoke').post(requireManager, catchErrors(lms.smCertificateRevoke));
+router.route('/admin/sm/comms').get(requireManager, catchErrors(lms.smComms));
+
 // ── learner 360 report ───────────────────────────────────────────────
 router.route('/admin/learner-360/:courseId').get(catchErrors(lms.learner360Report));
 router.route('/admin/learner-360/:courseId/export').get(catchErrors(lms.learner360Export));

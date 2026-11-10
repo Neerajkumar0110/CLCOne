@@ -461,6 +461,29 @@ const lmsApi = {
   pmAnnounce: (b) => request.post({ entity: 'lms/teacher/pm/announce', jsonData: b }),
   pmCandidates: (f = {}) => request.get({ entity: `lms/teacher/pm/candidates${qs(f)}` }),
 
+  // ── Support Manager boards (design S1–S7, S9) ────────────────
+  smDashboard: (f = {}) => request.get({ entity: `lms/admin/sm/dashboard${qs(f)}` }),
+  smTickets: () => request.get({ entity: 'lms/admin/sm/tickets' }),
+  smTicketUpdate: (id, b) => request.post({ entity: `lms/admin/sm/tickets/${id}`, jsonData: b }),
+  smAttendance: (f = {}) => request.get({ entity: `lms/admin/sm/attendance${qs(f)}` }),
+  smCorrect: (sessionId, b) => request.post({ entity: `lms/live-classes/${sessionId}/attendance/correct`, jsonData: b }),
+  smEscalations: () => request.get({ entity: 'lms/admin/sm/escalations' }),
+  smEscalationSend: (b) => request.post({ entity: 'lms/admin/sm/escalations/send', jsonData: b }),
+  smBatches: () => request.get({ entity: 'lms/admin/sm/batches' }),
+  smBatchTime: (id, b) => request.post({ entity: `lms/admin/sm/batches/${id}/time`, jsonData: b }),
+  smBatchRename: (id, name) => request.post({ entity: `lms/batches/${id}/rename`, jsonData: { name } }),
+  smCreateClass: (b) => request.post({ entity: 'lms/live-classes', jsonData: b }),
+  smRecordings: (f = {}) => request.get({ entity: `lms/admin/sm/recordings${qs(f)}` }),
+  smRecordingRename: (sessionId, b) => request.post({ entity: `lms/admin/sm/recordings/${sessionId}/rename`, jsonData: b }),
+  smLearners: () => request.get({ entity: 'lms/admin/sm/learners' }),
+  smLearnerStatus: (id, b) => request.post({ entity: `lms/admin/sm/learners/${id}/status`, jsonData: b }),
+  smLearnerCredentials: (id) => request.post({ entity: `lms/admin/sm/learners/${id}/credentials`, jsonData: {} }),
+  smCertificates: () => request.get({ entity: 'lms/admin/sm/certificates' }),
+  smCertificateRevoke: (id, reason) => request.post({ entity: `lms/admin/sm/certificates/${id}/revoke`, jsonData: { reason } }),
+  smComms: () => request.get({ entity: 'lms/admin/sm/comms' }),
+  smTemplateCreate: (b) => request.post({ entity: 'lms/admin/communication/templates', jsonData: b }),
+  smTemplateUpdate: (id, b) => request.patch({ entity: `lms/admin/communication/templates/${id}`, jsonData: b }),
+
   // ── learner 360 report ────────────────────────────────────────
   learner360: (courseId) => request.get({ entity: `lms/admin/learner-360/${courseId}` }),
   learner360Export: async (courseId, format = 'csv') => {

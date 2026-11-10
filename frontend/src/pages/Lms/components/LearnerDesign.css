@@ -426,3 +426,52 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-page.pm .fb-up { color: #166534; }
 .ld-page.pm .fb-down { color: #991b1b; }
 @media (max-width: 640px) { .fb-bar { grid-template-columns: 1fr 60px 36px 44px; } }
+
+/* ── Support Manager boards S1–S9 (design page 5): teal staff look ────── */
+.ld-page.sm { gap: 14px; }
+.ld-page.sm .ld-card { padding: 16px; gap: 10px; }
+.ld-page.sm .ld-btn { height: 36px; padding: 0 14px; font-size: 13px; }
+.ld-page.sm .ld-btn.sm { height: 32px; padding: 0 12px; font-size: 12px; }
+.ld-page.sm .ld-btn2 { height: 36px; font-size: 13px; }
+.ld-page.sm .ld-btn2.sm { height: 30px; font-size: 12px; }
+.ld-page.sm .ld-btn2.xs { height: 28px; padding: 0 10px; font-size: 12px; }
+.ld-page.sm .ld-seg { height: 32px; padding: 0 12px; font-size: 12px; font-weight: 700; }
+.ld-page.sm .ld-li { padding: 5px 0; }
+.ld-page.sm .ld-li b { font-variant-numeric: tabular-nums; }
+.sm-kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sm-kpi .lab { font-size: 12px; color: #475569; }
+.sm-kpi .num { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sm-kpi .sub { font-size: 12px; color: #475569; }
+.sm-st { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; min-width: 0; }
+.sm-st b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.sm-st span { font-size: 12px; color: #475569; }
+.sm-tp { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 8px; font-size: 13px; border: 1px solid transparent; background: none; text-align: left; font-family: inherit; color: #0f172a; cursor: pointer; width: 100%; }
+.sm-tp.on { border-color: #0e7490; background: #f0fdfa; }
+.sm-var { display: inline-flex; height: 22px; align-items: center; padding: 0 6px; border-radius: 4px; background: #e0f2fe; color: #075985; font-family: ui-monospace, monospace; font-size: 12px; }
+.sm-var.bad { background: #fee2e2; color: #991b1b; }
+.sm-b { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; background: #fff; text-align: left; font-family: inherit; color: #0f172a; cursor: pointer; width: 100%; }
+.sm-b.on { border-color: #0e7490; background: #f0fdfa; }
+.sm-cal { display: grid; grid-template-columns: 64px repeat(6, minmax(0, 1fr)); gap: 4px; font-size: 11px; }
+.sm-cal .h { font-weight: 700; color: #475569; text-align: center; padding: 4px 0; }
+.sm-cal .t { color: #475569; padding-top: 4px; }
+.sm-cal .slot { min-height: 38px; border-radius: 6px; background: #f8fafc; }
+.sm-cal .ev { min-height: 38px; border-radius: 6px; padding: 4px 6px; font-weight: 600; line-height: 14px; overflow: hidden; }
+.sm-cal .ev.done { background: #ccfbf1; color: #115e59; }
+.sm-cal .ev.live { background: #fee2e2; color: #991b1b; }
+.sm-cal .ev.next { background: #e0e7ff; color: #3730a3; }
+.sm-cal .ev.off { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+.sm-mail { padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; line-height: 19px; background: #fcfdfe; display: flex; flex-direction: column; gap: 8px; }
+.sm-rowsel { background: #f0fdfa; }
+.sm-cap { font-size: 12px; font-weight: 700; color: #475569; }
+.ld-page.sm .ld-table tbody tr.click { cursor: pointer; }
+.ld-page.sm .ld-table tbody tr.click:hover { background: #f8fafc; }
+@media (max-width: 1180px) {
+  .ld-page.sm .sm-g { grid-template-columns: 1fr !important; }
+  .ld-page.sm .sm-g6, .ld-page.sm .sm-g7 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .ld-page.sm .sm-g3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  .ld-page.sm { padding: 16px; }
+  .ld-page.sm .sm-g6, .ld-page.sm .sm-g7, .ld-page.sm .sm-g3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .ld-page.sm .ld-hd { flex-wrap: wrap; }
+}

@@ -37,6 +37,7 @@ const studyMaterial = require('./studyMaterial');
 const studentAlerts = require('./studentAlerts');
 const candidateDetail = require('./candidateDetail');
 const pmBoards = require('./pmBoards');
+const smBoards = require('./smBoards');
 const holidays = require('./holidays');
 const curriculumAdmin = require('./curriculumAdmin');
 
@@ -374,6 +375,23 @@ module.exports = {
   pmExtensions: pmBoards.extensionList,
   pmExtensionSend: pmBoards.extensionSend,
   pmCandidates: pmBoards.candidatesBoard,
+  // Support Manager boards (design S1–S7, S9)
+  smDashboard: smBoards.dashboard,
+  smTickets: smBoards.ticketList,
+  smTicketUpdate: smBoards.ticketUpdate,
+  smAttendance: smBoards.attendanceBoard,
+  smEscalations: smBoards.escalationList,
+  smEscalationSend: smBoards.escalationSend,
+  smBatches: smBoards.batchList,
+  smBatchTime: smBoards.batchTime,
+  smRecordings: smBoards.recordingInventory,
+  smRecordingRename: smBoards.recordingRename,
+  smLearners: smBoards.learnerList,
+  smLearnerStatus: smBoards.learnerStatus,
+  smLearnerCredentials: smBoards.learnerCredentials,
+  smCertificates: smBoards.certificateBoard,
+  smCertificateRevoke: smBoards.certificateRevoke,
+  smComms: smBoards.commsBoard,
 
   // study material
   materialUpload: studyMaterial.upload,
