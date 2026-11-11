@@ -1848,14 +1848,9 @@ export const FEATURE_SECTIONS = [
     blurb: 'Team chat plus shared WhatsApp, SMS and email inboxes.',
     tabs: [
       { key: 'chat', label: 'Team Chat', Icon: CommentOutlined, embed: 'teamChat' },
-      {
-        key: 'whatsapp',
-        label: 'WhatsApp',
-        Icon: WhatsAppOutlined,
-        entity: 'messengerconversation',
-        fixedFilter: { field: 'channel', value: 'WhatsApp' },
-        fields: messengerConversationFields('Number'),
-      },
+      // Real WhatsApp (DeroPo) — pages/WhatsApp. Shown only to users an admin
+      // has given WhatsApp access (NavigationContainer + the page re-check).
+      { key: 'whatsapp', label: 'WhatsApp', Icon: WhatsAppOutlined, embed: 'whatsapp' },
       {
         key: 'sms',
         label: 'SMS',
@@ -1976,9 +1971,10 @@ function flattenTabRoutes(tabs, prefix = '') {
 // for a nested one. Consumed by router/routes.jsx, which also adds a
 // /<section> -> first-tab redirect.
 // Tabs every CRM user may open even without their section's permission —
-// Team Chat is for everyone; the rest of Messenger (WhatsApp, SMS, Email,
+// Team Chat is for everyone. WhatsApp has its own access (admin › WhatsApp ›
+// Access), not the Messenger permission. The rest of Messenger (SMS, Email,
 // Broadcasts) still needs the Messenger permission.
-export const OPEN_TABS = { messenger: ['chat'] };
+export const OPEN_TABS = { messenger: ['chat', 'whatsapp'] };
 export const isOpenTab = (sectionKey, tabKey) => (OPEN_TABS[sectionKey] || []).includes(tabKey);
 
 export const FEATURE_ROUTES = FEATURE_SECTIONS.flatMap((section) =>

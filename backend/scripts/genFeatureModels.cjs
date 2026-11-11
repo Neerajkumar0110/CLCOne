@@ -828,7 +828,7 @@ const MODELS = {
   ],
   MessengerConversation: [
     S('contact', { required: true }),
-    S('channel', { enum: ['WhatsApp', 'SMS', 'Email'], default: 'WhatsApp' }),
+    S('channel', { enum: ['SMS', 'Email'], default: 'SMS' }), // WhatsApp moved to its own module (pages/WhatsApp)
     S('handle'),
     S('subject'),
     S('assignedTo'),

@@ -527,9 +527,7 @@ export function TeamChat() {
   );
 }
 
-// WhatsApp isn't offered here — no approved WhatsApp Business/API provider is
-// configured for this deployment (see communication.js's connectionStatus),
-// so a "WhatsApp template" option would silently never be sendable.
+// Email templates only — WhatsApp has its own module (Messenger › WhatsApp).
 function NewTemplateModal({ open, onClose, onSave, saving }) {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
@@ -594,7 +592,7 @@ function NewTemplateModal({ open, onClose, onSave, saving }) {
 // Real backend behind this now (communication.js) — previously "Connect/
 // Disconnect" just flipped local component state and the template list was
 // a hardcoded array, with zero server calls of any kind.
-function EmailWhatsapp() {
+function EmailChannel() {
   const [status, setStatus] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [delivery, setDelivery] = useState(null);
@@ -637,7 +635,7 @@ function EmailWhatsapp() {
 
   return (
     <div className="hub-stack">
-      <div className="hub-grid-2">
+      <div>
         <div className="hub-card">
           <div className="hub-card-header">
             <h3>📧 Email</h3>
@@ -656,16 +654,6 @@ function EmailWhatsapp() {
               {delivery.totalSent + delivery.totalFailed > 0 ? ` (${delivery.failureRate}% failure rate)` : ""}
             </div>
           )}
-        </div>
-
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3>💬 WhatsApp</h3>
-            <span className="hub-badge hub-badge-gray">Not Connected</span>
-          </div>
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-            {status?.whatsapp?.note || "No WhatsApp Business/API provider is configured for this deployment."}
-          </div>
         </div>
       </div>
 
@@ -717,7 +705,7 @@ function EmailWhatsapp() {
 
 export default function Communication() {
   const [tab, setTab] = useState("chat");
-  // Sales users get Team Chat only — Email & WhatsApp stays with management.
+  // Sales users get Team Chat only — Email stays with management. (WhatsApp is Messenger › WhatsApp.)
   const currentAdmin = useSelector(selectCurrentAdmin);
   const chatOnly = DEPARTMENT_ROLES.Sales.includes(currentAdmin?.role);
   if (chatOnly) {
@@ -739,20 +727,20 @@ export default function Communication() {
       <div className="hub-header">
         <div>
           <h2>Communication</h2>
-          <p>Chat with your sales team internally, and manage Email & WhatsApp outreach</p>
+          <p>Chat with your sales team internally, and manage Email outreach</p>
         </div>
       </div>
 
       <HubTabs
         tabs={[
           { key: "chat", label: "Team Chat" },
-          { key: "channels", label: "Email & WhatsApp" },
+          { key: "channels", label: "Email" },
         ]}
         active={tab}
         onChange={setTab}
       />
 
-      {tab === "chat" ? <TeamChat /> : <EmailWhatsapp />}
+      {tab === "chat" ? <TeamChat /> : <EmailChannel />}
     </div>
   );
 }

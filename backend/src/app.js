@@ -35,6 +35,7 @@ const codeEditorPublicRouter = require('./routes/appRoutes/operation/codeEditorP
 const codeEditorApiRouter = require('./routes/appRoutes/operation/codeEditorApi');
 const cronApiRouter = require('./routes/appRoutes/cronApi');
 const workdayApi = require('./routes/appRoutes/workdayApi');
+const whatsappApi = require('./routes/appRoutes/operation/whatsappApi');
 
 const fileUpload = require('express-fileupload');
 // create our Express app
@@ -75,6 +76,10 @@ app.use(compression());
 // Cloud calling provider (Plivo) status callbacks — before the bearer
 // gate; the router checks its own shared secret.
 app.use('/api/cloud-call', cloudCallWebhookRouter);
+
+// DeroPo WhatsApp incoming-message webhook — before the bearer gate; the
+// secret in the path (WHATSAPP_WEBHOOK_SECRET) is the guard.
+app.use('/api/whatsapp-webhook', whatsappApi.publicRouter);
 
 // Moodle (local_crmbridge) → CRM event webhooks. Before the bearer gate;
 // every request is HMAC-signed with MOODLE_WEBHOOK_HMAC_SECRET.
@@ -121,6 +126,7 @@ app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 app.use('/api/workday', adminAuth.isValidAuthToken, workdayApi.router);
+app.use('/api/whatsapp', adminAuth.isValidAuthToken, whatsappApi.router);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token
 // (old links, bookmarks) — before the bearer gate; XHR + tokened calls pass through
 app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, financeHoldGuard, rosterHoldGuard, lmsApiRouter);

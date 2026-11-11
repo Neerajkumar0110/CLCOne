@@ -178,6 +178,11 @@ const DB_MAP = {
   OpsProject: 'operationDb',
   Vendor: 'operationDb',
   VercelConnection: 'operationDb',
+  WhatsAppAccess: 'operationDb',
+  WhatsAppChat: 'operationDb',
+  WhatsAppDevice: 'operationDb',
+  WhatsAppMessage: 'operationDb',
+  WhatsAppWebhookLog: 'operationDb',
 
   // ---- coreDb (shared / auth) ----
   Admin: 'coreDb',

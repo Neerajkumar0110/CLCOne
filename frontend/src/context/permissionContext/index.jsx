@@ -8,7 +8,7 @@ import { defaultMatrixForRole, fillMatrixDefaults } from '@/config/defaultPermis
 import { DEPARTMENT_ROLES } from '@/config/roles';
 
 // Every Sales user gets Team Chat (Communication → Team Chat only; the
-// Email & WhatsApp tab stays management-only — see pages/Communication).
+// Email tab stays management-only — see pages/Communication).
 //
 // The whole Reports area (Reports + Performance) is admins-only — turned off
 // for every other user on 2026-10-23, whatever their saved matrix says.

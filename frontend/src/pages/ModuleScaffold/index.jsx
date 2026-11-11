@@ -16,6 +16,7 @@ import lmsApi from '@/pages/Lms/api';
 import { request } from '@/request';
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
+const WhatsApp = lazy(() => import('@/pages/WhatsApp'));
 const TeamChat = lazy(() =>
   import('@/pages/Communication').then((m) => ({ default: m.TeamChat }))
 );
@@ -75,6 +76,7 @@ const HrmsUsers = lazy(() => import('@/pages/Hr/UsersTab'));
 const Payments = lazy(() => import('@/pages/Payments'));
 const EMBED = {
   teamChat: TeamChat,
+  whatsapp: WhatsApp,
   leads: Leads,
   workTracker: WorkTracker,
   customer: Customer,
@@ -149,7 +151,11 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
   // redundant second title stacked above it. Hide it there and let the
   // embed's own header be the top element (matches the standalone Executive
   // Overview at "/").
-  const hasOwnHeader = !!tab.dashboard || tab.embed === 'salesDashboard' || (typeof tab.embed === 'string' && tab.embed.startsWith('lms'));
+  const hasOwnHeader =
+    !!tab.dashboard ||
+    tab.embed === 'salesDashboard' ||
+    tab.embed === 'whatsapp' || // pages/WhatsApp draws the design's own header
+    (typeof tab.embed === 'string' && tab.embed.startsWith('lms'));
 
   return (
     <div className="hub-page" data-section={section.key}>

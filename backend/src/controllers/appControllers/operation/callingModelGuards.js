@@ -7,12 +7,12 @@
 
 const METHODS = ['create', 'read', 'update', 'delete', 'search', 'filter', 'summary', 'list', 'listAll'];
 
-function blockedController(entity) {
+function blockedController(entity, api = '/api/calling') {
   const blocked = (req, res) =>
     res.status(403).json({
       success: false,
       result: null,
-      message: `Direct ${entity} access is disabled — use the /api/calling endpoints.`,
+      message: `Direct ${entity} access is disabled — use the ${api} endpoints.`,
     });
   const obj = {};
   METHODS.forEach((m) => (obj[m] = blocked));
@@ -27,4 +27,10 @@ module.exports = {
   agentCallStateController: blockedController('agent state'),
   // Header Login / breaks — driven only through /api/workday (services/hr/workday.js).
   workSessionController: blockedController('work session'),
+  // WhatsApp — driven only through /api/whatsapp (access-checked, per user).
+  whatsAppAccessController: blockedController('WhatsApp access', '/api/whatsapp'),
+  whatsAppChatController: blockedController('WhatsApp chat', '/api/whatsapp'),
+  whatsAppDeviceController: blockedController('WhatsApp device', '/api/whatsapp'),
+  whatsAppMessageController: blockedController('WhatsApp message', '/api/whatsapp'),
+  whatsAppWebhookLogController: blockedController('WhatsApp webhook log', '/api/whatsapp'),
 };

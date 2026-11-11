@@ -9,6 +9,7 @@ import { useMessages } from '@/context/messagesContext';
 import { request } from '@/request';
 import { MODULE_NAV_KEY } from '@/config/permissionModules';
 import { FEATURE_SECTIONS, OPEN_TABS, isOpenTab } from '@/config/featureSections';
+import useWhatsAppAccess from '@/pages/WhatsApp/useWhatsAppAccess';
 
 import useLanguage from '@/locale/useLanguage';
 import useBrandLogo from '@/hooks/useBrandLogo';
@@ -104,6 +105,8 @@ function Sidebar({ collapsible, isMobile = false }) {
   // (no socket event exists for a roster edit); a 3-min interval matches the
   // LMS panel's own safety-net poll cadence (LmsPanelApp.jsx).
   const [unassignedCount, setUnassignedCount] = useState(0);
+  // Messenger › WhatsApp shows only for users an admin has given WhatsApp access.
+  const whatsApp = useWhatsAppAccess();
   useEffect(() => {
     let cancelled = false;
     const poll = () => {
@@ -186,6 +189,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     // No permission for the section, but some tabs are open to everyone
     // (Messenger → Team Chat): show just those.
     if (!canView(section.module) && OPEN_TABS[section.key]) tabs = tabs.filter((t) => isOpenTab(section.key, t.key));
+    if (section.key === 'messenger' && !whatsApp.hasAccess) tabs = tabs.filter((t) => t.key !== 'whatsapp');
     // Students needing a batch assigned — same badge treatment as Support's
     // open-ticket count and Messenger's unread count above.
     if (section.key === 'lms' && unassignedCount > 0) {

@@ -3,9 +3,8 @@ const mailer = require('../../../../services/lms/mailer');
 
 // Real backend for the Communication Centre (spec §13) — replaces what was
 // entirely frontend-mock state (frontend/src/pages/Communication/index.jsx).
-// WhatsApp is out of scope for this deployment (no approved WhatsApp
-// Business/API provider configured) — connectionStatus always reports it as
-// not connected, honestly, rather than faking a toggle.
+// WhatsApp lives in its own module now (Messenger › WhatsApp, /api/whatsapp),
+// so connectionStatus reports email only.
 
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
 const bad = (res, code, message) => res.status(code).json({ success: false, message });
@@ -14,7 +13,6 @@ const bad = (res, code, message) => res.status(code).json({ success: false, mess
 async function connectionStatus(req, res) {
   return ok(res, {
     email: { connected: mailer.ready(), provider: 'Gmail SMTP' },
-    whatsapp: { connected: false, provider: null, note: 'No WhatsApp Business/API provider is configured for this deployment.' },
   });
 }
 

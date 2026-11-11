@@ -212,6 +212,15 @@ function emitCallToAgent(agentId, event, payload) {
   io.to(`user:${String(agentId)}`).emit(event, payload);
 }
 
+// WhatsApp (services/whatsapp) — the chat owner's room plus every CRM admin,
+// so the admin Live Chats screen updates as messages come and go.
+function emitWhatsApp(userId, event, payload) {
+  if (!io) return;
+  let target = io.to('admins');
+  if (userId) target = io.to(`user:${String(userId)}`).to('admins');
+  target.emit(event, payload);
+}
+
 function emitCallBroadcast(event, payload) {
   if (!io) return;
   io.emit(event, payload);
@@ -244,5 +253,6 @@ module.exports = {
   emitLmsToUsers,
   emitCallToAgent,
   emitCallBroadcast,
+  emitWhatsApp,
   getOnlineUserIds,
 };

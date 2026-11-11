@@ -7,7 +7,7 @@ module.exports = mongoose.model(
   'MessengerConversation',
   featureSchema([
     { name: 'contact', type: 'String', required: true },
-    { name: 'channel', type: 'String', enum: ["WhatsApp","SMS","Email"], default: "WhatsApp" },
+    { name: 'channel', type: 'String', enum: ["SMS","Email"], default: "SMS" }, // WhatsApp has its own module (WhatsAppChat)
     { name: 'handle', type: 'String' },
     { name: 'subject', type: 'String' },
     { name: 'assignedTo', type: 'String' },
