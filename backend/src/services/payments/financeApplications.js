@@ -37,6 +37,8 @@ async function sendFinanceKycEmail(app) {
   return mailer.sendMail([app.studentEmail], {
     subject: `Finance (EMI) application — complete your KYC${app.course ? ` (${app.course})` : ''}`,
     html: financeKycEmailHtml(app),
+    templateKey: 'finance-kyc',
+    vars: { name: app.studentName, course: app.course || '', kycLink: kycLink(app.publicToken) },
   });
 }
 
@@ -82,4 +84,4 @@ function toRow(a) {
   };
 }
 
-module.exports = { kycLink, sendFinanceKycEmail, emailAndRecord, toRow, mask };
+module.exports = { kycLink, sendFinanceKycEmail, emailAndRecord, toRow, mask, _emailHtml: { financeKycEmailHtml } };

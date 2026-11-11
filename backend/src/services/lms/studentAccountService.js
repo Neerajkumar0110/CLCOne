@@ -191,6 +191,8 @@ async function sendEnrollmentEmail(studentDoc, { rawPassword } = {}) {
     subject: `Welcome to ${studentDoc.course || 'your internship'} — enrollment confirmed`,
     html: enrollmentEmailHtml(studentDoc, { crmLink, rawPassword, plan }),
     attachments,
+    templateKey: 'lms-enrolment-welcome',
+    vars: { name: studentDoc.name, course: studentDoc.course || '', batch: studentDoc.batch || '', loginEmail: email, password: rawPassword || '', portalLink: crmLink },
   });
 }
 
@@ -354,6 +356,7 @@ async function syncStudentRosterFromAdmin(admin, { prevEmail } = {}) {
 }
 
 module.exports = {
+  _emailHtml: { enrollmentEmailHtml },
   provisionLogin,
   sendEnrollmentEmail,
   onStudentCreated,

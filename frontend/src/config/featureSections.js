@@ -1133,44 +1133,13 @@ export const FEATURE_SECTIONS = [
         embed: 'lmsQuestionBank',
       },
       {
-        key: 'quizzes',
-        label: 'Quizzes & Exams',
-        Icon: FormOutlined,
-        // Reference nav's Basic/Major/Micro Test picker, as a nested dropdown
-        // (same shape as the Teacher/Student sidebar) — each opens the real,
-        // backend-wired proctored test flow. See pages/Lms/TestIntro.
-        children: [
-          {
-            key: 'basic',
-            label: 'Basic',
-            Icon: ProfileOutlined,
-            embed: 'lmsBasicTest',
-          },
-          {
-            key: 'major',
-            label: 'Major',
-            Icon: FormOutlined,
-            children: [
-              { key: 'python-sql', label: 'Python Programming Foundations & SQL Basics', Icon: FormOutlined, embed: 'lmsMajorTestPythonSql' },
-              { key: 'nlp', label: 'NLP Fundamentals & Introduction to LLMs', Icon: FormOutlined, embed: 'lmsMajorTestNlp' },
-              { key: 'llm', label: 'LLM APIs & Prompt Engineering', Icon: FormOutlined, embed: 'lmsMajorTestLlm' },
-            ],
-          },
-          {
-            key: 'micro',
-            label: 'Micro',
-            Icon: ExperimentOutlined,
-            children: [
-              { key: 'sql-db', label: 'SQL-Backed Keyword Database', Icon: ExperimentOutlined, embed: 'lmsMicroTestSqlDb' },
-              { key: 'nlp-serp', label: 'NLP on a SERP Dataset', Icon: ExperimentOutlined, embed: 'lmsMicroTestNlpSerp' },
-            ],
-          },
-        ],
-      },
-      {
         key: 'certificates',
         label: 'Certificates',
         Icon: TrophyOutlined,
+        // One tab for certificates: the Certificate Center page (rules, run,
+        // issue, history, external certificates) with the raw records below
+        // for edit / revoke. Was two menu items on the same data.
+        embed: 'lmsCertificates',
         entity: 'certificate',
         fields: [
           ...grp('Certificate', [
@@ -1192,12 +1161,6 @@ export const FEATURE_SECTIONS = [
             AREA('notes', 'Notes'),
           ]),
         ],
-      },
-      {
-        key: 'certificate-center',
-        label: 'Certificate Center',
-        Icon: TrophyOutlined,
-        embed: 'lmsCertificates',
       },
     ],
   },
@@ -1859,14 +1822,10 @@ export const FEATURE_SECTIONS = [
         fixedFilter: { field: 'channel', value: 'SMS' },
         fields: messengerConversationFields('Number'),
       },
-      {
-        key: 'email',
-        label: 'Email',
-        Icon: MailOutlined,
-        entity: 'messengerconversation',
-        fixedFilter: { field: 'channel', value: 'Email' },
-        fields: messengerConversationFields('Address'),
-      },
+      // Email centre — every email the system sends (who / when / how many),
+      // editable templates and admin-made scheduled emails: pages/EmailCenter
+      // + /api/email-center (admin only).
+      { key: 'email', label: 'Email', Icon: MailOutlined, embed: 'emailCenter' },
       {
         key: 'broadcasts',
         label: 'Broadcasts',
@@ -2000,7 +1959,7 @@ function findTabByParts(tabs, parts) {
 }
 
 // Resolve { section, tab } from a full path like '/hr/employees' or the
-// nested '/lms/quizzes/major/nlp'.
+// nested '/<section>/<group>/<tab>'.
 export function findFeatureTab(pathname) {
   const parts = String(pathname || '').replace(/^\//, '').split('/');
   const section = FEATURE_SECTIONS.find((s) => s.route === '/' + parts[0]);

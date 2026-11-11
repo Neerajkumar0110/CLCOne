@@ -63,7 +63,7 @@ function initSocket(server) {
     onlineCounts.set(adminId, (onlineCounts.get(adminId) || 0) + 1);
     if (wasOffline) {
       io.emit('presence:update', { userId: adminId, online: true });
-      startLoginSession(adminId, adminName);
+      startLoginSession(adminId, adminName, socket.handshake);
     }
     // Lets a newly-connected client paint every currently-online user
     // immediately, instead of waiting on each of their next presence event.
@@ -108,10 +108,11 @@ async function closeOrphanedLoginSessions() {
   }
 }
 
-async function startLoginSession(adminId, adminName) {
+async function startLoginSession(adminId, adminName, handshake) {
   try {
     const LoginActivity = mongoose.model('LoginActivity');
-    await new LoginActivity({ admin: adminId, adminName, loginAt: new Date() }).save();
+    const where = handshake ? await require('./services/security/loginDevice').describe(adminId, handshake.headers, handshake.address) : {};
+    await new LoginActivity({ admin: adminId, adminName, loginAt: new Date(), ...where }).save();
   } catch (err) {
     console.error('startLoginSession failed:', err.message);
   }

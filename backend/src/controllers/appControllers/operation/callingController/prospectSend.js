@@ -97,11 +97,11 @@ const send = async (req, res) => {
       link: '/sales',
     });
     if (mailReady() && a.email) {
-      sendMailWithRetry({ from: `"CLC One" <${process.env.GMAIL_USER}>`, to: a.email, subject: `Prospect to verify: ${lead.name} (from ${from})`, html }).catch((e) => console.error('[prospect] email failed:', e.message));
+      sendMailWithRetry({ from: `"CLC One" <${process.env.GMAIL_USER}>`, to: a.email, subject: `Prospect to verify: ${lead.name} (from ${from})`, html, templateKey: 'sales-prospect-verify', vars: { lead: lead.name, from } }).catch((e) => console.error('[prospect] email failed:', e.message));
     }
   }
   const names = fresh.map((a) => fullName(a) || a.email);
   return res.status(200).json({ success: true, result: { sentTo: names }, message: `Sent to ${names.join(', ')}.` });
 };
 
-module.exports = { recipients, send };
+module.exports = { recipients, send, _emailHtml: { emailHtml } };

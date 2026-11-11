@@ -59,6 +59,15 @@ const schema = new mongoose.Schema({
   resolutionNote: String,
   resolvedAt: Date,
   resolvedByName: String,
+  // the "resolved" email to the raiser — what happened to it (every resolve
+  // path: Support queue, SM board, problem record)
+  resolutionEmail: {
+    _id: false,
+    status: { type: String, enum: ['sent', 'failed', 'no-email', 'not-configured'] },
+    to: String,
+    at: Date,
+    error: String,
+  },
 
   // Learner tickets (design L9): which session / test / project it's about
   // and what they expected to happen, alongside `description` (what happened).
@@ -96,6 +105,17 @@ const schema = new mongoose.Schema({
   slaDueAt: Date,
   nextActionAt: Date,
   escalatedTo: String,
+  // automation (jobs/lmsAutomationTick.js): when the raiser got the
+  // "we have your ticket" acknowledgement, and a suggested answer for Support
+  // to review — never sent to the learner by itself
+  ackAt: Date,
+  suggestedAt: Date,
+  suggestion: {
+    _id: false,
+    kind: { type: String, enum: ['problem', 'similar-ticket'] },
+    ref: String,
+    text: String,
+  },
   closedAt: Date,
   internalNotes: { type: [{ _id: false, at: Date, byName: String, text: String }], default: undefined },
   // spec §13.4 problem record (LmsProblem) this ticket is one symptom of

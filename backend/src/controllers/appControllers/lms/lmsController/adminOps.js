@@ -193,7 +193,7 @@ async function attendanceByBatch(from, to) {
 async function securitySignals() {
   const since = new Date(Date.now() - 12 * 3600 * 1000);
   const open = await M('LoginActivity').aggregate([
-    { $match: { removed: false, logoutAt: null, loginAt: { $gte: since } } },
+    { $match: { removed: false, logoutAt: null, loginAt: { $gte: since }, admin: { $in: await lmsUserIds() } } },
     { $group: { _id: '$admin', name: { $first: '$adminName' }, n: { $sum: 1 } } },
     { $match: { n: { $gt: 1 } } },
     { $limit: 10 },
@@ -301,7 +301,7 @@ async function kpis(req, res) {
     kpiBlock(from, to),
     attendanceByBatch(from, to),
     securitySignals(),
-    M('AuditLog').find({ module: { $nin: NOISY_AUDIT } }).sort({ created: -1 }).limit(12).lean(),
+    M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(12).lean(),
   ]);
   const live = await require('../../../../services/lms/settingsService').get().catch(() => ({}));
   return ok(res, { month: label, ...block, threshold: live.presentThresholdPct || 90, batches, signals, audit: auditRows.map(auditRow) });
@@ -312,7 +312,7 @@ async function kpisExport(req, res) {
   const { from, to, label } = monthRange(req.query.month);
   const block = await kpiBlock(from, to);
   const batches = await attendanceByBatch(from, to);
-  const auditRows = (await M('AuditLog').find({ module: { $nin: NOISY_AUDIT } }).sort({ created: -1 }).limit(500).lean()).map(auditRow);
+  const auditRows = (await M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(500).lean()).map(auditRow);
   const sheets = {
     KPIs: block.kpis.map((k) => ({ KPI: k.label, Value: k.value || '—', Note: k.note })),
     Attendance: batches.map((b) => ({ Batch: b.batch, Present: b.present, Total: b.total, 'Percent': b.pct })),
@@ -477,6 +477,14 @@ const LMS_ROLES = [
   { key: 'LMS Admin', roles: ['Admin'] },
   { key: 'Management', roles: ['owner', 'Super Admin'] },
 ];
+// Admin & Ops shows LMS people only — logins, sessions and role changes of
+// Sales / Marketing / HR users (Executive etc.) stay out of it.
+const LMS_CRM_ROLES = [...new Set(LMS_ROLES.flatMap((r) => r.roles))];
+async function lmsUserIds() {
+  return (await M('Admin').find({ role: { $in: LMS_CRM_ROLES } }, { _id: 1 }).lean()).map((a) => a._id);
+}
+// audit rows: everything LMS, but a user-management role change only when an LMS role is involved
+const LMS_AUDIT_SCOPE = { $or: [{ module: { $ne: 'user-management' } }, { 'after.from': { $in: LMS_CRM_ROLES } }, { 'after.to': { $in: LMS_CRM_ROLES } }] };
 const PERM_MODULES = ['Learners', 'Batches & classes', 'Attendance correction', 'Recordings', 'Assessments & results', 'Tickets', 'Mass communication', 'Certificates', 'Payment status', 'Content delete'];
 const DEFAULT_MATRIX = {
   'Support Manager': { Learners: [1, 1, 1, 0], 'Batches & classes': [1, 1, 0, 1], 'Attendance correction': [1, 1, 1, 0], Recordings: [1, 1, 0, 0], 'Assessments & results': [1, 0, 1, 0], Tickets: [1, 1, 1, 0], 'Mass communication': [1, 1, 0, 1], Certificates: [1, 0, 1, 0], 'Payment status': [1, 0, 0, 0], 'Content delete': [0, 0, 0, 1] },
@@ -498,7 +506,7 @@ async function roles(req, res) {
   const users = pick.roles.length ? await M('Admin').find({ removed: false, role: { $in: pick.roles } }, { name: 1, surname: 1, email: 1, enabled: 1, lastSeenAt: 1, role: 1 }).sort({ name: 1 }).limit(60).lean() : [];
   const backup = await M('Admin').find({ removed: false, role: { $in: ['owner', 'Super Admin'] } }, { name: 1, email: 1, enabled: 1, role: 1 }).lean();
   const cfg = await getCfg(`roles:${pick.key}`, {});
-  const changes = await M('AuditLog').find({ module: { $in: ['user-management', 'lms-roles'] } }).sort({ created: -1 }).limit(6).lean();
+  const changes = await M('AuditLog').find({ module: { $in: ['user-management', 'lms-roles'] }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(6).lean();
   const incident = await M('LmsSetting').findOne({ key: 'incident' }).lean();
   return ok(res, {
     roles: LMS_ROLES.map((r) => ({ key: r.key, crmRoles: r.roles, count: r.roles.reduce((s, x) => s + ((counts.find((c) => c._id === x) || {}).n || 0), 0) })),
@@ -649,5 +657,5 @@ module.exports = {
   policies,
   policySendForApproval,
   // shared with adminOps2.js
-  _h: { M, ok, bad, isMgmt, nameOf, getCfg, setCfg, auditRow, sendSheets, monthRange, pct, NOISY_AUDIT, summarise },
+  _h: { M, ok, bad, isMgmt, nameOf, getCfg, setCfg, auditRow, sendSheets, monthRange, pct, NOISY_AUDIT, summarise, lmsUserIds, LMS_AUDIT_SCOPE },
 };

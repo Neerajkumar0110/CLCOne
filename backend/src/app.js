@@ -36,6 +36,7 @@ const codeEditorApiRouter = require('./routes/appRoutes/operation/codeEditorApi'
 const cronApiRouter = require('./routes/appRoutes/cronApi');
 const workdayApi = require('./routes/appRoutes/workdayApi');
 const whatsappApi = require('./routes/appRoutes/operation/whatsappApi');
+const emailCenterApi = require('./routes/appRoutes/operation/emailCenterApi');
 
 const fileUpload = require('express-fileupload');
 // create our Express app
@@ -127,6 +128,7 @@ app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 app.use('/api/workday', adminAuth.isValidAuthToken, workdayApi.router);
 app.use('/api/whatsapp', adminAuth.isValidAuthToken, whatsappApi.router);
+app.use('/api/email-center', adminAuth.isValidAuthToken, emailCenterApi);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token
 // (old links, bookmarks) — before the bearer gate; XHR + tokened calls pass through
 app.use('/api/lms', lmsBrowserGuard, adminAuth.isValidAuthToken, financeHoldGuard, rosterHoldGuard, lmsApiRouter);

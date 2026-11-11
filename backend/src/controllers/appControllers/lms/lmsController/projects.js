@@ -362,10 +362,8 @@ async function review(req, res) {
   });
   try {
     const mailer = require('../../../../services/lms/mailer');
-    await mailer.sendMail([p.studentEmail], {
-      subject: `Project review — ${p.title}: ${b.decision.replace('_', ' ')}`,
-      html: `<p>Your project <b>${p.title}</b> was reviewed.</p><p>Decision: <b>${b.decision.replace('_', ' ')}</b></p>${b.feedback ? `<p>${b.feedback}</p>` : ''}`,
-    });
+    const vars = { projectTitle: p.title, decision: b.decision.replace('_', ' '), feedback: b.feedback || '' };
+    await mailer.sendMail([p.studentEmail], { ...require('../../../../services/mail/inlineEmails').projectReview(vars), templateKey: 'lms-project-review', vars });
   } catch (e) {
     /* non-fatal */
   }

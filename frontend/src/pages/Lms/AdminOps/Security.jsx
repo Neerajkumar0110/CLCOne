@@ -18,16 +18,17 @@ export default function Security() {
         {data && (
           <div className="ao-grid-2" style={{ gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gridTemplateRows: 'auto auto', gap: 12 }}>
             <div className="ao-card">
-              <div className="ao-hd"><b>Login activity</b><span className="ao-muted" style={{ fontSize: 12 }}>device / IP not captured yet</span></div>
+              <div className="ao-hd"><b>Login activity</b><span className="ao-muted" style={{ fontSize: 12 }}>device + IP per session · new = not used in 30 days</span></div>
               <div className="ao-tablewrap">
                 <table className="ao-table">
-                  <thead><tr><th>Time</th><th>User</th><th>Result</th><th>Session</th></tr></thead>
+                  <thead><tr><th>Time</th><th>User</th><th>Device / IP</th><th>Result</th><th>Session</th></tr></thead>
                   <tbody>
                     {data.logins.map((l, i) => (
                       <tr key={i}>
                         <td>{fmtTime(l.at)}</td>
                         <td>{l.user}{l.role ? ` · ${l.role}` : ''}</td>
-                        <td><span className="ao-chip hai">OK</span></td>
+                        <td className="ao-muted">{l.device || '—'}{l.ip ? ` · ${l.ip}` : ''}</td>
+                        <td>{l.newDevice || l.newIp ? <span className="ao-chip adh">{l.newDevice ? 'New device' : 'New IP'}</span> : <span className="ao-chip hai">OK</span>}</td>
                         <td className="ao-muted">{l.open ? 'still open' : l.minutes !== null ? `${l.minutes} min` : 'closed'}</td>
                       </tr>
                     ))}
@@ -37,7 +38,7 @@ export default function Security() {
             </div>
             <div className="ao-card">
               <div className="ao-hd"><b>Suspicious-pattern alerts</b></div>
-              {data.alerts.length === 0 && <div className="ao-empty">No concurrent sessions in the last 12 hours.</div>}
+              {data.alerts.length === 0 && <div className="ao-empty">No concurrent sessions or new devices right now.</div>}
               {data.alerts.map((a) => (
                 <div className="ao-li" key={a.text}><span><b>{a.kind}</b> · {a.text}</span><span className="ao-chip adh">Review</span></div>
               ))}

@@ -189,6 +189,7 @@ async function ticketUpdate(req, res) {
       actorName: by,
     });
   }
+  if (resolvedNow) await require('../../../../services/support/ticketMail').sendResolvedAndRecord(t._id).catch((e) => console.error('[tickets] resolved mail:', e.message));
   await audit.record({ module: 'ticket', action: 'sm.update', entityType: 'Ticket', entityId: t._id, admin: req.admin, before, after: { stage: stageOf(t), owner: t.ownerName, priority: t.priority, escalatedTo: t.escalatedTo } });
   return ok(res, ticketRow(t.toObject(), await rosterMap()), 'Ticket updated.');
 }
@@ -334,10 +335,12 @@ async function escalationSend(req, res) {
   if (setting && setting.incidentMode) return bad(res, 409, 'Platform incident is active — escalations are on hold.');
   if (row.lastSent && Date.now() - new Date(row.lastSent.at).getTime() < 3 * DAY && row.lastSent.level >= row.level) return bad(res, 409, `Already sent on ${dmy(row.lastSent.at)}.`);
   const mailer = require('../../../../services/lms/mailer');
-  const html = `<p>${row.body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p><p>— Career Lab Support</p>`;
+  const m = require('../../../../services/mail/inlineEmails').attendanceEscalation({ subject: row.subject, body: row.body });
   let delivered = true;
   try {
-    const r = await mailer.sendMail([row.email], { subject: row.subject, html });
+    // the level's text is written by the queue (LEVEL_TEXT) — it goes in as {{bodyHtml}}
+    const bodyHtml = m.html.replace(/<p>— Career Lab Support<\/p>$/, '');
+    const r = await mailer.sendMail([row.email], { ...m, templateKey: 'lms-attendance-escalation', vars: { name: row.name, level: row.level, status: row.stat, bodyHtml } });
     if (r && r.ok === false) delivered = false;
   } catch (e) {
     delivered = false;

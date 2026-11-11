@@ -40,6 +40,8 @@ async function sendDepartmentWelcomeEmail(user, { hasLms = false } = {}) {
   return mailer.sendMail([user.email], {
     subject: `Your ${department} account is ready — login details inside`,
     html: html({ name: user.name, email: user.email, role: user.role, department, hasLms }),
+    templateKey: 'hr-account-welcome',
+    vars: { name: user.name, department, loginEmail: user.email, loginLink: loginUrl() },
   });
 }
 

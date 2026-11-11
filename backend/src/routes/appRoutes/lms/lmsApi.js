@@ -437,6 +437,7 @@ router.route('/admin/ops/policies/:id/send-for-approval').post(requireManager, c
 router.route('/admin/ops/health').get(requireManager, catchErrors(lms.opsHealth));
 router.route('/admin/ops/reports').get(requireManager, catchErrors(lms.opsReports));
 router.route('/admin/ops/reports/:key').get(requireManager, catchErrors(lms.opsReportDownload));
+router.route('/admin/ops/readiness-gate').get(requireManager, catchErrors(lms.opsReadinessGate)).post(requireManager, catchErrors(lms.opsReadinessGateSet));
 router.route('/admin/ops/automation').get(requireManager, catchErrors(lms.opsAutomation));
 router.route('/admin/ops/automation/:key').post(requireManager, catchErrors(lms.opsAutomationToggle));
 router.route('/admin/ops/security').get(requireManager, catchErrors(lms.opsSecurity));

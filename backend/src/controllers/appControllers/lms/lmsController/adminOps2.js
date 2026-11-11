@@ -7,7 +7,7 @@ const { _h } = require('./adminOps');
 
 // LMS → Admin & Ops, boards A6–A11 (system health extras, reports, automation,
 // security, evidence, assessment rules). Same guards as adminOps.js.
-const { M, ok, bad, isMgmt, nameOf, getCfg, setCfg, auditRow, sendSheets, pct, NOISY_AUDIT } = _h;
+const { M, ok, bad, isMgmt, nameOf, getCfg, setCfg, auditRow, sendSheets, pct, NOISY_AUDIT, lmsUserIds, LMS_AUDIT_SCOPE } = _h;
 
 const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const maskEmail = (e) => {
@@ -161,7 +161,7 @@ async function buildReport(key, q, admin) {
       return rows.map((r) => ({ Action: r.title || r.action || '', Category: r.category || '', Owner: r.ownerName || '', Due: d(r.dueDate), Status: r.status }));
     }
     case 'audit': {
-      const rows = await M('AuditLog').find({ created: { $gte: from, $lt: to }, module: { $nin: NOISY_AUDIT } }).sort({ created: -1 }).limit(5000).lean();
+      const rows = await M('AuditLog').find({ created: { $gte: from, $lt: to }, module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(5000).lean();
       return rows.map(auditRow).map((a) => ({ Event: a.eventId, Time: d(a.at), Actor: a.actor, Action: `${a.module} · ${a.action}`, Object: a.object, Change: a.change, Reason: a.reason }));
     }
     default:
@@ -228,7 +228,17 @@ async function reportDownload(req, res) {
 async function automationList(req, res) {
   const paused = await automation.pausedMap();
   const snap = require('../../../../services/lms/health').snapshot();
-  const rows = automation.RULES.map((r) => ({ ...r, automated: !!r.job, running: !!r.job && !paused[r.key], lastRun: r.job ? snap[r.job] || null : null }));
+  // what each rule of jobs/lmsAutomationTick.js last did (kept across restarts)
+  const runs = ((await M('LmsAdminConfig').findOne({ key: 'automation:runs' }).lean()) || {}).value || {};
+  const schedules = require('../../../../services/lms/automationRules').RUNNERS;
+  const rows = automation.RULES.map((r) => ({
+    ...r,
+    automated: !!r.job,
+    running: !!r.job && !paused[r.key],
+    lastRun: r.job ? snap[r.job] || (runs[r.key] && runs[r.key].at) || null : null,
+    lastResult: runs[r.key] || null,
+    schedule: (schedules[r.key] && schedules[r.key].schedule) || null,
+  }));
   return ok(res, { rows, running: rows.filter((r) => r.running).length, total: rows.length, canToggle: isMgmt(req.admin) });
 }
 
@@ -253,25 +263,30 @@ async function automationToggle(req, res) {
 
 // GET /api/lms/admin/ops/security?q=&module=
 async function security(req, res) {
-  const logins = await M('LoginActivity').find({ removed: false }).sort({ loginAt: -1 }).limit(25).lean();
+  const lmsUsers = await lmsUserIds();
+  const logins = await M('LoginActivity').find({ removed: false, admin: { $in: lmsUsers } }).sort({ loginAt: -1 }).limit(25).lean();
   const admins = await M('Admin').find({ _id: { $in: logins.map((l) => l.admin) } }, { role: 1 }).lean();
   const roleOf = new Map(admins.map((a) => [String(a._id), a.role]));
   const since = new Date(Date.now() - 12 * 3600 * 1000);
   const concurrent = await M('LoginActivity').aggregate([
-    { $match: { removed: false, logoutAt: null, loginAt: { $gte: since } } },
+    { $match: { removed: false, logoutAt: null, loginAt: { $gte: since }, admin: { $in: lmsUsers } } },
     { $group: { _id: '$admin', name: { $first: '$adminName' }, n: { $sum: 1 } } },
     { $match: { n: { $gt: 1 } } },
     { $limit: 10 },
   ]);
-  const aq = { module: { $nin: NOISY_AUDIT } };
+  const aq = { module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE };
   if (req.query.module && req.query.module !== 'all') aq.module = String(req.query.module);
   const term = String(req.query.q || '').trim().replace(/^ev_/, '');
   if (term) aq.$expr = { $regexMatch: { input: { $toString: '$_id' }, regex: `${esc(term)}$`, options: 'i' } };
   const [auditRows, modules] = await Promise.all([M('AuditLog').find(aq).sort({ created: -1 }).limit(12).lean(), M('AuditLog').distinct('module')]);
   const live = await liveSettings.get().catch(() => ({}));
   return ok(res, {
-    logins: logins.map((l) => ({ at: l.loginAt, user: l.adminName || 'user', role: roleOf.get(String(l.admin)) || '', open: !l.logoutAt, minutes: l.durationSeconds ? Math.round(l.durationSeconds / 60) : null })),
-    alerts: concurrent.map((c) => ({ kind: 'Concurrent sessions', text: `${c.name || 'user'} (${c.n} open sessions)` })),
+    logins: logins.map((l) => ({ at: l.loginAt, user: l.adminName || 'user', role: roleOf.get(String(l.admin)) || '', open: !l.logoutAt, minutes: l.durationSeconds ? Math.round(l.durationSeconds / 60) : null, ip: l.ip || null, device: l.device || null, newDevice: !!l.newDevice, newIp: !!l.newIp })),
+    alerts: [
+      ...concurrent.map((c) => ({ kind: 'Concurrent sessions', text: `${c.name || 'user'} (${c.n} open sessions)` })),
+      // D-09: a login from a device / IP this user has not used in 30 days (services/security/loginDevice.js)
+      ...logins.filter((l) => l.newDevice || l.newIp).slice(0, 10).map((l) => ({ kind: l.newDevice ? 'New device' : 'New IP', text: `${l.adminName || 'user'} · ${l.device || ''}${l.ip ? ` · ${l.ip}` : ''}` })),
+    ],
     audit: auditRows.map(auditRow),
     modules: modules.filter((m) => !NOISY_AUDIT.includes(m)).sort(),
     retention: [
@@ -331,7 +346,7 @@ async function evidence(req, res) {
     r.forEach((x) => out.push({ id: id('CRT', x._id), type: 'Certificate', who: x.studentName || '—', obj: x.certificateId || x.title || '', v: '1', src: 'approver', t: x.issuedAt || x.created, scope: 'Learner + SM', ret: 'permanent', detail: [['Certificate', x.certificateId || '—'], ['Status', x.status || '—']] }));
   }
   if (want('Security') && full) {
-    const r = await M('LoginActivity').aggregate([{ $match: { removed: false, logoutAt: null, loginAt: { $gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } } }, { $group: { _id: '$admin', name: { $first: '$adminName' }, n: { $sum: 1 }, t: { $max: '$loginAt' } } }, { $match: { n: { $gt: 1 } } }, { $limit: N }]);
+    const r = await M('LoginActivity').aggregate([{ $match: { removed: false, logoutAt: null, loginAt: { $gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) }, admin: { $in: await lmsUserIds() } } }, { $group: { _id: '$admin', name: { $first: '$adminName' }, n: { $sum: 1 }, t: { $max: '$loginAt' } } }, { $match: { n: { $gt: 1 } } }, { $limit: N }]);
     r.forEach((x) => out.push({ id: id('SEC', x._id), type: 'Security', who: x.name || '—', obj: 'Concurrent login', v: '—', src: 'monitor', t: x.t, scope: 'Admin only', ret: '180 days', detail: [['Open sessions', x.n]] }));
   }
   out.sort((a, b) => new Date(b.t || 0) - new Date(a.t || 0));

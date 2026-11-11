@@ -145,6 +145,12 @@ async function startTest(req, res) {
       }
     }
 
+    // D-02 readiness gate (only while Management has it switched on)
+    const gate = await require('../../../../../services/lms/readinessGate').check({ testType, candidateId: admin._id, email: admin.email, batch: student && student.batch });
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: gate.reason, readinessGate: true, readiness: gate.readiness });
+    }
+
     const questions = await assignQuestions(testType);
 
     let attempt;
@@ -306,10 +312,8 @@ async function submitTest(req, res) {
       });
       if (attempt.candidateEmail) {
         const mailer = require('../../../../../services/lms/mailer');
-        await mailer.sendMail([attempt.candidateEmail], {
-          subject: `${attempt.testType} result: ${attempt.qualified ? 'Qualified' : 'Not qualified'}`,
-          html: `<p>Hi ${attempt.candidateName || ''},</p><p>Your <b>${attempt.testType}</b> assessment has been evaluated.</p><p>Score: <b>${correctCount}/${attempt.totalCount}</b> (${pct}%)<br>Status: <b>${attempt.qualified ? 'Qualified' : 'Not qualified'}</b></p><p>Sign in to the portal to see the full topic-wise breakdown.</p>`,
-        });
+        const vars = { name: attempt.candidateName || '', testType: attempt.testType, score: correctCount, total: attempt.totalCount, pct, status: attempt.qualified ? 'Qualified' : 'Not qualified' };
+        await mailer.sendMail([attempt.candidateEmail], { ...require('../../../../../services/mail/inlineEmails').assessmentResult(vars), templateKey: 'lms-assessment-result', vars });
       }
     } catch (e) {
       console.error('[lms] assessment result notification failed:', e && e.message);
@@ -405,12 +409,17 @@ async function getMyResults(req, res) {
         batch: student && student.batch,
         candidateId: admin._id,
       });
+      // eslint-disable-next-line no-await-in-loop
+      const gate = unlocked ? await require('../../../../../services/lms/readinessGate').check({ testType, candidateId: admin._id, email: admin.email, batch: student && student.batch }) : { allowed: true };
       attemptsByType[testType] = {
         used,
         max: maxAttemptsPerType,
         remaining: Math.max(0, maxAttemptsPerType - used),
         nextEligibleAt,
-        unlocked,
+        unlocked: unlocked && gate.allowed,
+        // why it is locked: 'curriculum' (batch % not reached) or 'readiness' (D-02 gate)
+        lockReason: !unlocked ? 'curriculum' : gate.allowed ? null : 'readiness',
+        lockMessage: gate.allowed ? null : gate.reason,
         requiredPercent,
         // question composition the test draws (MCQ / output / programming) —
         // shown on the test intro; absent for project-style micro tests

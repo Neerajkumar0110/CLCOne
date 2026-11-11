@@ -242,15 +242,14 @@ async function logoutReminderTick(now = new Date()) {
     const a = await mongoose.model('Admin').findOne({ _id: s.admin, removed: false, enabled: true }).select('name surname email role').lean();
     if (!a || !a.email || !isSales(a)) continue;
     await Session().updateOne({ _id: s._id }, { $set: { logoutReminderAt: now } });
+    const m = noLogoutEmail({ name: a.name, loginTime: fmtTime(s.loginAt), shiftEnd: W.end, day: dayKey });
     await sendMailWithRetry({
       from: `"CLC One" <${process.env.GMAIL_USER}>`,
       to: a.email,
-      subject: `You didn't log out today — ${dayKey}`,
-      html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:14px">
-        <h2 style="margin:0 0 6px;color:#0f172a">You didn't log out today</h2>
-        <p style="margin:0 0 14px;color:#475569">Hi ${escapeHtml(a.name)}, you logged in at <b>${fmtTime(s.loginAt)}</b> but never pressed <b>Logout</b>. Your working time is counted to the end of the shift (${W.end}).</p>
-        <p style="margin:0;color:#475569">Please press <b>Logout</b> in CLC One at the end of every working day.</p>
-      </div>`,
+      subject: m.subject,
+      html: m.html,
+      templateKey: 'hr-no-logout',
+      vars: { name: a.name, loginTime: fmtTime(s.loginAt), shiftEnd: W.end, day: dayKey },
     }).catch((e) => console.error('[workday] logout reminder email failed:', e.message));
     sent += 1;
   }
@@ -492,29 +491,53 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 }
 
+// The two workday emails as plain builders — used to send them and by
+// Messenger › Email to show them.
+function noLogoutEmail({ name, loginTime, shiftEnd, day }) {
+  return {
+    subject: `You didn't log out today — ${day}`,
+    html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:14px">
+        <h2 style="margin:0 0 6px;color:#0f172a">You didn't log out today</h2>
+        <p style="margin:0 0 14px;color:#475569">Hi ${escapeHtml(name)}, you logged in at <b>${loginTime}</b> but never pressed <b>Logout</b>. Your working time is counted to the end of the shift (${shiftEnd}).</p>
+        <p style="margin:0;color:#475569">Please press <b>Logout</b> in CLC One at the end of every working day.</p>
+      </div>`,
+  };
+}
+
+function leaveEmail({ employee, role, leaveType, when, reason, approveLink, rejectLink }) {
+  const btn = (href, bg, label) =>
+    `<a href="${href}" style="display:inline-block;padding:12px 26px;border-radius:10px;background:${bg};color:#fff;font-weight:700;text-decoration:none;margin-right:10px">${label}</a>`;
+  const row = (k, v) => `<tr><td style="padding:6px 0;color:#64748b;width:130px">${k}</td><td style="padding:6px 0;color:#0f172a;font-weight:600">${v}</td></tr>`;
+  return {
+    subject: `Leave request — ${employee} · ${when}`,
+    html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:14px">
+      <h2 style="margin:0 0 4px;color:#0f172a">Leave request</h2>
+      <p style="margin:0 0 18px;color:#64748b">${escapeHtml(employee)} (${escapeHtml(role || '')}) has applied for leave.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${row('Employee', escapeHtml(employee))}
+        ${row('Type', escapeHtml(leaveType))}
+        ${row('When', escapeHtml(when))}
+        ${row('Reason', escapeHtml(reason || '—'))}
+      </table>
+      <div style="margin:24px 0 8px">${btn(approveLink, '#16a34a', 'Approve')}${btn(rejectLink, '#dc2626', 'Reject')}</div>
+      <p style="color:#94a3b8;font-size:12px;margin-top:18px">You can also decide from CLC One → HRMS → Work &amp; Leave Tracker.</p>
+    </div>`,
+  };
+}
+
 async function sendLeaveEmail(admin, leave) {
   const { mailReady, sendMailWithRetry } = require('../mail/transport');
   if (!mailReady()) return;
   const link = (action) => `${PUBLIC_BASE()}/api/workday-public/leave-decision?id=${leave._id}&token=${leave.decisionToken}&action=${action}`;
-  const btn = (href, bg, label) =>
-    `<a href="${href}" style="display:inline-block;padding:12px 26px;border-radius:10px;background:${bg};color:#fff;font-weight:700;text-decoration:none;margin-right:10px">${label}</a>`;
-  const row = (k, v) => `<tr><td style="padding:6px 0;color:#64748b;width:130px">${k}</td><td style="padding:6px 0;color:#0f172a;font-weight:600">${v}</td></tr>`;
+  const vars = { employee: fullName(admin), role: admin.role || '', leaveType: leave.leaveType, when: durationLabel(leave), reason: leave.reason || '—', approveLink: link('approve'), rejectLink: link('reject') };
+  const m = leaveEmail(vars);
   await sendMailWithRetry({
     from: `"CLC One" <${process.env.GMAIL_USER}>`,
     to: APPROVER_EMAIL(),
-    subject: `Leave request — ${fullName(admin)} · ${durationLabel(leave)}`,
-    html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:14px">
-      <h2 style="margin:0 0 4px;color:#0f172a">Leave request</h2>
-      <p style="margin:0 0 18px;color:#64748b">${escapeHtml(fullName(admin))} (${escapeHtml(admin.role || '')}) has applied for leave.</p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        ${row('Employee', escapeHtml(fullName(admin)))}
-        ${row('Type', escapeHtml(leave.leaveType))}
-        ${row('When', escapeHtml(durationLabel(leave)))}
-        ${row('Reason', escapeHtml(leave.reason || '—'))}
-      </table>
-      <div style="margin:24px 0 8px">${btn(link('approve'), '#16a34a', 'Approve')}${btn(link('reject'), '#dc2626', 'Reject')}</div>
-      <p style="color:#94a3b8;font-size:12px;margin-top:18px">You can also decide from CLC One → HRMS → Work &amp; Leave Tracker.</p>
-    </div>`,
+    subject: m.subject,
+    html: m.html,
+    templateKey: 'hr-leave-request',
+    vars,
   });
 }
 
@@ -621,6 +644,7 @@ async function leaveEnforcementTick(now = new Date()) {
 }
 
 module.exports = {
+  _emailHtml: { noLogoutEmail, leaveEmail },
   W,
   plannedEnd,
   todayKey,

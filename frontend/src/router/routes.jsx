@@ -26,6 +26,9 @@ const featureRoutes = [
   })),
   // Admin & Ops used to be an LMS tab with ?screen= — old links / bookmarks
   { path: '/lms/admin-ops', element: <OldAdminOps /> },
+  // LMS duplicates folded into one tab each
+  { path: '/lms/certificate-center', element: <Navigate to="/lms/certificates" replace /> },
+  { path: '/lms/quizzes/*', element: <Navigate to="/lms/assessment-dashboard" replace /> },
 ];
 
 function OldAdminOps() {

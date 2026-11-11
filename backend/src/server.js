@@ -200,6 +200,14 @@ if (!RUN_BACKGROUND_JOBS) {
   const startLmsOpsAutoTick = require('./jobs/lmsOpsAutoTick');
   startLmsOpsAutoTick();
 
+  // The 11 spec §17.1 workflows (assessment, feedback, onboarding, setup,
+  // tickets, query help, class time changes, projects, referrals, qualified
+  // + management reports) — see services/lms/automationRules.js.
+  require('./jobs/lmsAutomationTick')();
+
+  // Custom emails from Messenger › Email, on their own schedule.
+  require('./jobs/emailScheduleTick')();
+
   // BBB public chat → class board chat (the BBB server publishes its events
   // on this box's Redis; subscribe only, see services/lms/bbbChatBridge.js)
   if (require('./config/lms').lmsConfig.meeting.effectiveProvider === 'bigbluebutton') require('./services/lms/bbbChatBridge').start();

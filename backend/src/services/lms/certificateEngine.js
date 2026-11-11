@@ -113,15 +113,8 @@ async function evaluate(crmUserId, courseId, opts = {}) {
   try {
     const mailer = require('./mailer');
     if (user.email && mailer.ready()) {
-      await mailer.sendMail([user.email], {
-        subject: `🎓 Certificate issued — ${course.title}`,
-        html: `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
-          <h2>Congratulations, ${escapeHtml(user.name)}!</h2>
-          <p>You've earned a <b>${escapeHtml(R.title || 'Certificate of Completion')}</b> for <b>${escapeHtml(course.title)}</b>.</p>
-          <p>Certificate ID: <b>${certificateId}</b><br/>Score: ${coursePercent}% · Grade ${gradeFor(coursePercent)}</p>
-          <p><a href="${cert.verificationUrl}" style="color:#2f5fd0;font-weight:600">View / verify your certificate &rarr;</a></p>
-        </div>`,
-      });
+      const vars = { name: user.name, certificateTitle: R.title || 'Certificate of Completion', course: course.title, certificateId, score: coursePercent, grade: gradeFor(coursePercent), verifyLink: cert.verificationUrl };
+      await mailer.sendMail([user.email], { ...require('../mail/inlineEmails').certificateIssued(vars), templateKey: 'lms-certificate-issued', vars });
       cert.status = 'Sent';
       await cert.save();
     }
@@ -130,10 +123,6 @@ async function evaluate(crmUserId, courseId, opts = {}) {
   }
 
   return { ...result, issued: true, certificateId };
-}
-
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 // fire-and-forget helper for hooks

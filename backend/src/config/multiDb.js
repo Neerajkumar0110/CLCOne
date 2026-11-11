@@ -181,6 +181,8 @@ const DB_MAP = {
   WhatsAppAccess: 'operationDb',
   WhatsAppChat: 'operationDb',
   WhatsAppDevice: 'operationDb',
+  EmailTemplate: 'operationDb',
+  EmailTemplateSend: 'operationDb',
   WhatsAppMessage: 'operationDb',
   WhatsAppWebhookLog: 'operationDb',
 

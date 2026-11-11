@@ -64,7 +64,8 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
   const coolingDown = t && t.nextEligibleAt && new Date(t.nextEligibleAt) > new Date();
 
   let blockReason = null;
-  if (t && !t.unlocked) blockReason = `Unlocks when your batch reaches ${t.requiredPercent}% of the curriculum (now ${data.curriculumPercent || 0}%).`;
+  if (t && t.lockReason === 'readiness') blockReason = t.lockMessage;
+  else if (t && !t.unlocked) blockReason = `Unlocks when your batch reaches ${t.requiredPercent}% of the curriculum (now ${data.curriculumPercent || 0}%).`;
   else if (t && t.remaining === 0) blockReason = `You have used all ${t.max} attempts for this test.`;
   else if (coolingDown) blockReason = `Next attempt from ${fmtDay(t.nextEligibleAt)}.`;
 

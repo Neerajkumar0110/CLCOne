@@ -281,14 +281,8 @@ async function createAnnouncement(req, res) {
   if (channels.includes('email') && emails.length) {
     try {
       const mailer = require('../../../../services/lms/mailer');
-      const r = await mailer.sendMail(emails, {
-        subject: `📢 ${title}`,
-        html: `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
-          <h2>${escapeHtml(title)}</h2>
-          <p style="white-space:pre-wrap">${escapeHtml(b.body || '')}</p>
-          <p style="color:#667085;font-size:13px">— ${escapeHtml(req.admin.name)}${course ? ' · ' + escapeHtml(course.title) : ''}</p>
-        </div>`,
-      });
+      const vars = { title, message: b.body || '', from: req.admin.name, course: course ? course.title : '' };
+      const r = await mailer.sendMail(emails, { ...require('../../../../services/mail/inlineEmails').announcement(vars), templateKey: 'lms-announcement', vars });
       emailed = r.sent || 0;
     } catch (e) {
       /* non-fatal */
@@ -356,10 +350,6 @@ async function myAnnouncements(req, res) {
       sentAt: r.sentAt,
     }))
   );
-}
-
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 module.exports = {

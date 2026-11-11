@@ -63,6 +63,10 @@ const schema = new mongoose.Schema({
   qualifyThreshold: { type: Number, default: 0.9 }, // score/totalCount >= this => qualified
   maxAttemptsPerType: { type: Number, default: 3 },
   cooldownDays: { type: Number, default: 7 },
+  // D-02: later tests need a passed readiness (BASIC) test — services/lms/readinessGate.js
+  readinessGate: { type: Boolean, default: false },
+  readinessGateByName: String,
+  readinessGateAt: Date,
 
   updated: { type: Date, default: Date.now },
 });

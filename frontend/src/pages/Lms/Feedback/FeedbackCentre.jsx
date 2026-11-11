@@ -121,7 +121,7 @@ export default function FeedbackCentre() {
                 <div className="sh-row small" key={`${n.name}-${n.batch}`}>
                   <span>{n.name}</span>
                   <span className="sh-muted">
-                    {n.reminders} reminder{n.reminders === 1 ? '' : 's'} · {n.weeksMissing} of last 3 weeks missing
+                    {n.reminders} reminder{n.reminders === 1 ? '' : 's'} · {n.weeksMissing} of last 3 weeks missing{n.lastEmail ? ` · last email ${n.lastEmail === 'sent' ? 'delivered' : n.lastEmail}` : ''}
                   </span>
                 </div>
               ))}

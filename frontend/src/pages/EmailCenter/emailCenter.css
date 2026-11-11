@@ -1,0 +1,82 @@
+/* Messenger › Email (Email centre). Uses the app's light card look; dark
+   mode via :root[data-theme='dark']. */
+.ec-page {
+  --ec-card: #ffffff;
+  --ec-soft: #f8fafc;
+  --ec-line: #e5e7eb;
+  --ec-ink: #111827;
+  --ec-ink-3: #6b7280;
+  --ec-accent: #2f5fd0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--ec-ink);
+}
+:root[data-theme='dark'] .ec-page {
+  --ec-card: #141a24;
+  --ec-soft: #1b2230;
+  --ec-line: #2a3342;
+  --ec-ink: #e5e7eb;
+  --ec-ink-3: #9aa4b2;
+  --ec-accent: #6b93ff;
+}
+.ec-loading { display: flex; justify-content: center; padding: 60px 0; }
+.ec-muted { color: var(--ec-ink-3); font-size: 12.5px; }
+.ec-gap { margin: 8px 0; }
+
+.ec-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.ec-stat { background: var(--ec-card); border: 1px solid var(--ec-line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.ec-stat span { color: var(--ec-ink-3); font-size: 12.5px; }
+.ec-stat b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.ec-stat.bad b { color: #c0392b; }
+
+.ec-card { background: var(--ec-card); border: 1px solid var(--ec-line); border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+.ec-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ec-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.ec-title .anticon { color: var(--ec-accent); }
+.ec-count { background: var(--ec-soft); border: 1px solid var(--ec-line); border-radius: 999px; padding: 0 10px; font-size: 12px; }
+.ec-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ec-group { display: flex; flex-direction: column; gap: 8px; }
+.ec-group-head { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
+.ec-group .ant-collapse { background: var(--ec-soft); }
+.ec-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.ec-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ec-row-main .ec-muted { white-space: normal; }
+.ec-row-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ec-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ec-num small { color: var(--ec-ink-3); font-weight: 400; margin-left: 2px; }
+.ec-empty { text-align: center; color: var(--ec-ink-3); padding: 30px 0; }
+
+.ec-detail { display: flex; flex-direction: column; gap: 14px; }
+.ec-how dl { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 10px 16px; margin: 0; }
+.ec-how dt { color: var(--ec-ink-3); font-size: 13px; }
+.ec-how dd { margin: 0; }
+.ec-vars { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ec-vars code { background: var(--ec-soft); border: 1px solid var(--ec-line); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+.ec-chip { border: 1px solid var(--ec-line); background: var(--ec-soft); color: var(--ec-ink); border-radius: 6px; padding: 2px 8px; font: 12px ui-monospace, Consolas, monospace; cursor: pointer; }
+.ec-chip:hover { border-color: var(--ec-accent); color: var(--ec-accent); }
+.ec-versions { margin-top: 12px; display: flex; flex-direction: column; gap: 2px; }
+
+.ec-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 12px 0; }
+.ec-field { display: flex; flex-direction: column; gap: 4px; }
+.ec-field > span { font-size: 12.5px; color: var(--ec-ink-3); }
+.ec-span { grid-column: 1 / -1; }
+.ec-code textarea, textarea.ec-code { font: 12.5px/1.5 ui-monospace, Consolas, monospace !important; }
+
+.ec-edit { display: flex; flex-direction: column; gap: 12px; }
+.ec-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ec-preview { border: 1px solid var(--ec-line); border-radius: 12px; overflow: hidden; background: #fff; }
+.ec-preview-subject { display: flex; flex-direction: column; gap: 6px; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; background: #fff; color: #111827; }
+.ec-mail-subject { font-size: 18px; line-height: 1.3; }
+.ec-mail-meta { font-size: 12.5px; color: #6b7280; }
+.ec-mail-meta b { color: #111827; }
+.ec-preview iframe { width: 100%; height: 560px; border: 0; background: #fff; display: block; }
+.ec-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--ec-line); padding-top: 12px; }
+
+@media (max-width: 900px) {
+  .ec-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ec-split, .ec-fields { grid-template-columns: minmax(0, 1fr); }
+  .ec-how dl { grid-template-columns: minmax(0, 1fr); }
+  .ec-row { flex-direction: column; align-items: flex-start; }
+}

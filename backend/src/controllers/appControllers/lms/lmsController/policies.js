@@ -27,7 +27,6 @@ const slugify = (s) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
-const escapeHtml = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 async function resolveRosterEmails({ audience, courseTitle, batch }) {
   const Student = mongoose.model('Student');
@@ -164,13 +163,8 @@ async function publish(req, res) {
     realtime.broadcast('lms:policy', { title: doc.title, scope: doc.audience === 'all' ? 'all' : doc.audience === 'batch' ? doc.batch : doc.courseTitle });
     try {
       const mailer = require('../../../../services/lms/mailer');
-      await mailer.sendMail(emails, {
-        subject: `Action required: acknowledge "${doc.title}"`,
-        html: `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
-          <h2>${escapeHtml(doc.title)}</h2>
-          <p>Please sign in to the portal and acknowledge this ${doc.mandatory ? '<b>mandatory</b> ' : ''}policy (version ${doc.version}).</p>
-        </div>`,
-      });
+      const vars = { policyTitle: doc.title, version: doc.version, mandatory: !!doc.mandatory };
+      await mailer.sendMail(emails, { ...require('../../../../services/mail/inlineEmails').policyPublished(vars), templateKey: 'lms-policy-published', vars });
     } catch (e) {
       /* non-fatal */
     }

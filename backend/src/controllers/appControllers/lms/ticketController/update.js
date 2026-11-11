@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { notifyUser } = require('../../../../notify');
 const { isTicketFullAccess, canSeeRestricted } = require('./scope');
 const { ticketNo, RESTRICTED_TICKET_CATEGORY } = require('../../../../config/supportTickets');
-const { ticketResolvedMail } = require('../../../../services/support/ticketMail');
+const { sendResolvedAndRecord } = require('../../../../services/support/ticketMail');
 
 const Model = mongoose.model('Ticket');
 
@@ -80,14 +80,7 @@ const update = async (req, res) => {
       link: fromStudent ? '/learn/support' : '/support',
     });
 
-    if (resolvingNow) {
-      let toEmail = result.raisedByEmail;
-      if (!toEmail) {
-        const raiser = await mongoose.model('Admin').findById(result.createdBy).select('email').lean();
-        toEmail = raiser && raiser.email;
-      }
-      ticketResolvedMail(result.toObject(), toEmail).catch(() => {});
-    }
+    if (resolvingNow) sendResolvedAndRecord(result._id).catch((e) => console.error('[tickets] resolved mail:', e.message));
   }
 
   return res.status(200).json({

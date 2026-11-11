@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const realtime = require('../services/lms/realtime');
 const mailer = require('../services/lms/mailer');
-const { escHtml: esc } = require('../utils/emailFormat');
 
 // Automatic reminders for a learner with a pending policy acknowledgement
 // (spec §8 "Policy acknowledgement pending" trigger, email + in-app leg —
@@ -60,8 +59,9 @@ async function tick() {
         // in the sent email instead of literal text.
         mailer
           .sendMail([row.studentEmail], {
-            subject: `Reminder: acknowledge "${row.policyTitle}"`,
-            html: `<p>You still have a pending acknowledgement for <b>${esc(row.policyTitle)}</b> (v${esc(row.policyVersion)}). Please sign in to the portal to complete it.</p>`,
+            ...require('../services/mail/inlineEmails').policyReminder({ policyTitle: row.policyTitle, version: row.policyVersion }),
+            templateKey: 'lms-policy-reminder',
+            vars: { policyTitle: row.policyTitle, version: row.policyVersion },
           })
           .catch(() => {});
       }

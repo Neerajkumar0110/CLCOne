@@ -27,10 +27,10 @@ ${cta ? `<p style="margin:22px 0 0"><a href="${cta.href}" style="display:inline-
 <p style="margin:24px 0 0;font-size:12px;color:#9ca3af">${esc(BRAND)} — automated message</p>
 </div></body></html>`;
 
-async function mail(to, subject, html) {
+async function mail(to, subject, html, templateKey, vars) {
   if (!to || !mailReady()) return false;
   try {
-    await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html });
+    await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html, templateKey, vars });
     return true;
   } catch (e) {
     console.error('[lms] candidate access mail failed:', e && e.message);
@@ -118,7 +118,9 @@ async function setAccess(studentId, active, actor, reason) {
   const emailed = await mail(
     s.email,
     active ? `Your ${BRAND} LMS access is active again` : `Your ${BRAND} LMS access has been deactivated`,
-    active ? activatedMail(s) : deactivatedMail(s)
+    active ? activatedMail(s) : deactivatedMail(s),
+    active ? 'lms-access-activated' : 'lms-access-deactivated',
+    { name: s.name, course: s.course || '', reason: s.accessDisabledReason || '' }
   );
   return {
     result: view(s),
@@ -224,4 +226,4 @@ async function requestReactivation(admin, note) {
   return { result: { ticketNo: no }, message: `Request ${no} sent — Support will contact you soon.` };
 }
 
-module.exports = { setAccess, accessState, requestReactivation };
+module.exports = { setAccess, accessState, requestReactivation, _emailHtml: { activatedMail, deactivatedMail } };

@@ -35,6 +35,8 @@ async function sendSalesWelcomeEmail(user) {
   return mailer.sendMail([user.email], {
     subject,
     html: salesWelcomeEmailHtml({ name: user.name, email: user.email }),
+    templateKey: 'hr-sales-welcome',
+    vars: { name: user.name, loginEmail: user.email, loginLink: loginUrl() },
   });
 }
 

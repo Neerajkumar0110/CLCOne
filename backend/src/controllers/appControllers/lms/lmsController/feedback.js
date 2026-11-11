@@ -280,6 +280,7 @@ async function adminOverview(req, res) {
   const focusKey = win ? win.weekKey : askedKeys[askedKeys.length - 1] || null;
   const reminders = focusKey ? await mongoose.model('FeedbackReminder').find({ weekKey: focusKey }).lean() : [];
   const remBy = new Map(reminders.map((r) => [String(r.student), r.count]));
+  const mailBy = new Map(reminders.map((r) => [String(r.student), r.emailStatus || null]));
   const recentKeys = askedKeys.slice(-3);
   const nonRespondents = (focusKey ? roster : [])
     .filter((s) => !rows.some((r) => r.kind === 'weekly' && r.weekKey === focusKey && String(r.student) === String(s.admin._id)))
@@ -287,6 +288,7 @@ async function adminOverview(req, res) {
       name: s.name,
       batch: s.batch,
       reminders: remBy.get(String(s.admin._id)) || 0,
+      lastEmail: mailBy.get(String(s.admin._id)) || null,
       weeksMissing: recentKeys.filter((k) => !rows.some((r) => r.kind === 'weekly' && r.weekKey === k && String(r.student) === String(s.admin._id))).length,
     }));
 
@@ -317,16 +319,50 @@ async function adminOverview(req, res) {
   });
 }
 
-async function adminRemind(req, res) {
-  const batch = String((req.body && req.body.batch) || '').trim();
-  if (!batch) return bad(res, 400, 'Pick a batch.');
+// Email leg of a feedback reminder — same words as the in-app one, with a
+// button to the form. Per learner, so a failure is recorded against them.
+function feedbackReminderHtml({ name, due, feedbackLink }) {
+  const brand = process.env.GMAIL_SENDER_NAME || 'Career Lab Consulting';
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  return `<!doctype html><html><body style="margin:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif">
+<div style="max-width:560px;margin:24px auto;background:#fff;border-radius:12px;padding:28px;border:1px solid #e5e7eb">
+<h2 style="margin:0 0 14px;font-size:19px;color:#111827">Weekly feedback is due</h2>
+<p style="font-size:14px;color:#374151;margin:0 0 10px">Hi ${esc(name || '')}, please share this week's feedback — it takes 2–3 minutes.</p>
+<p style="font-size:14px;color:#374151;margin:0">Due by <b>${esc(due)}</b>.</p>
+<p style="margin:22px 0 0"><a href="${feedbackLink}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:bold">Give feedback</a></p>
+<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">${esc(brand)} — automated message</p></div></body></html>`;
+}
+
+async function emailReminder(to, name, due) {
+  const { mailReady, sendMailWithRetry } = require('../../../../services/mail/transport');
+  if (!mailReady()) return { status: 'not-configured' };
+  if (!to || !/.+@.+\..+/.test(to)) return { status: 'no-email' };
+  const base = require('../../../../config/lms').lmsConfig.meeting.crmBaseUrl;
+  const brand = process.env.GMAIL_SENDER_NAME || 'Career Lab Consulting';
+  const vars = { name: name || '', due, feedbackLink: `${base}/learn/feedback` };
+  const html = feedbackReminderHtml(vars);
+  try {
+    await sendMailWithRetry({ from: `"${brand}" <${process.env.GMAIL_USER}>`, to, subject: 'Reminder: weekly feedback is due', html, text: `Hi ${name || ''}, please share this week's feedback by ${due}: ${base}/learn/feedback`, templateKey: 'lms-feedback-reminder', vars });
+    return { status: 'sent' };
+  } catch (e) {
+    return { status: 'failed', error: String((e && e.message) || e).slice(0, 300) };
+  }
+}
+
+// Remind a batch's non-respondents for the open week — in-app notification
+// AND email, never more than MAX_REMINDERS_PER_WEEK per learner per week.
+// Used by the manager's "Remind" button and by the weekly-feedback automation.
+async function remindBatch(batch, actor = {}) {
   const win = targetWindow();
-  if (!win) return bad(res, 409, 'No feedback week is open right now.');
+  if (!win) return { error: 'No feedback week is open right now.' };
   const roster = (await activeRoster()).filter((s) => s.batch === batch);
   const done = new Set((await mongoose.model('WeeklyFeedback').find({ kind: 'weekly', weekKey: win.weekKey, batch }).select('student').lean()).map((r) => String(r.student)));
   const FR = mongoose.model('FeedbackReminder');
+  const due = win.dueAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit' });
   let sent = 0;
   let capped = 0;
+  let emailed = 0;
+  let emailFailed = 0;
   for (const s of roster) {
     if (done.has(String(s.admin._id))) continue;
     // eslint-disable-next-line no-await-in-loop
@@ -335,21 +371,45 @@ async function adminRemind(req, res) {
       capped += 1;
       continue;
     }
-    // eslint-disable-next-line no-await-in-loop
-    await FR.updateOne({ student: s.admin._id, weekKey: win.weekKey }, { $inc: { count: 1 }, $set: { lastAt: new Date() } }, { upsert: true });
     notifyUser({
       recipient: s.admin._id,
-      actorId: req.admin._id,
-      actorName: req.admin.name,
+      actorId: actor._id,
+      actorName: actor.name || 'Automation',
       module: 'LMS',
       type: 'feedback.reminder',
       title: 'Weekly feedback is due',
-      body: `Please share this week's feedback (2–3 minutes) by ${win.dueAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit' })}.`,
+      body: `Please share this week's feedback (2–3 minutes) by ${due}.`,
       link: '/learn/feedback',
     });
+    // eslint-disable-next-line no-await-in-loop
+    const m = await emailReminder(s.admin.email || s.email, s.name || s.admin.name, due);
+    if (m.status === 'sent') emailed += 1;
+    else if (m.status !== 'not-configured') emailFailed += 1;
+    // eslint-disable-next-line no-await-in-loop
+    await FR.updateOne(
+      { student: s.admin._id, weekKey: win.weekKey },
+      {
+        $inc: { count: 1, emailsSent: m.status === 'sent' ? 1 : 0 },
+        $set: { lastAt: new Date(), lastBy: actor.name || 'Automation', emailStatus: m.status, emailError: m.error || '', ...(m.status === 'sent' ? { emailedAt: new Date() } : {}) },
+      },
+      { upsert: true }
+    );
     sent += 1;
   }
-  return ok(res, { sent, capped }, `${sent} reminder${sent === 1 ? '' : 's'} sent${capped ? ` · ${capped} already at the weekly limit` : ''}.`);
+  return { sent, capped, emailed, emailFailed, weekKey: win.weekKey };
+}
+
+async function adminRemind(req, res) {
+  const batch = String((req.body && req.body.batch) || '').trim();
+  if (!batch) return bad(res, 400, 'Pick a batch.');
+  const r = await remindBatch(batch, req.admin);
+  if (r.error) return bad(res, 409, r.error);
+  const { sent, capped, emailed, emailFailed } = r;
+  return ok(
+    res,
+    r,
+    `${sent} reminder${sent === 1 ? '' : 's'} sent (in-app + email: ${emailed} delivered${emailFailed ? `, ${emailFailed} failed` : ''})${capped ? ` · ${capped} already at the weekly limit` : ''}.`
+  );
 }
 
 module.exports = {
@@ -361,6 +421,11 @@ module.exports = {
   updateAction,
   adminOverview,
   adminRemind,
+  remindBatch,
+  _emailReminder: emailReminder,
+  _feedbackReminderHtml: feedbackReminderHtml,
+  targetWindow,
+  activeRoster,
   // exported for tests
   _week: {
     weekStart,

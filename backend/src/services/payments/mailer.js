@@ -54,6 +54,8 @@ async function sendPaymentLinkEmail({ email, name, course, amount, shortUrl, qrD
     subject: `${feeWord} payment request — ${fmtInr(amount)}${course ? ` (${course})` : ''}`,
     html: paymentLinkEmailHtml({ name, course, amount, shortUrl, installmentNo }),
     attachments,
+    templateKey: 'finance-payment-link',
+    vars: { name, course: course || '', amount: fmtInr(amount), payLink: shortUrl },
   });
 }
 
@@ -89,7 +91,9 @@ async function sendEmiReminderEmail({ email, name, course, amount, dueAt, daysUn
         ? `EMI due today — ${fmtInr(amount)}${course ? ` (${course})` : ''}`
         : `EMI due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'} — ${fmtInr(amount)}${course ? ` (${course})` : ''}`,
     html: emiReminderEmailHtml({ name, course, amount, dueAt, daysUntilDue, shortUrl }),
+    templateKey: 'finance-emi-reminder',
+    vars: { name, course: course || '', amount: fmtInr(amount), dueDate: new Date(dueAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' }), daysLeft: daysUntilDue, payLink: shortUrl },
   });
 }
 
-module.exports = { sendPaymentLinkEmail, sendEmiReminderEmail };
+module.exports = { sendPaymentLinkEmail, sendEmiReminderEmail, _emailHtml: { paymentLinkEmailHtml, emiReminderEmailHtml } };

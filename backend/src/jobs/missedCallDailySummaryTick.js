@@ -55,6 +55,8 @@ async function sendSummary() {
     await mailer.sendMail([email], {
       subject: `You missed ${r.missed} call${r.missed === 1 ? '' : 's'} today`,
       html: summaryHtml(r.missed, dateStr),
+      templateKey: 'sales-missed-calls',
+      vars: { missed: r.missed, date: dateStr },
     });
   }
 }
@@ -77,4 +79,5 @@ function start() {
 }
 
 start.runOnce = runOnce;
+start.emailHtml = { summaryHtml };
 module.exports = start;

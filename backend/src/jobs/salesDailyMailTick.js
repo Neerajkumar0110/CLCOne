@@ -66,7 +66,7 @@ function teamHtml(report, dayLabel) {
   </div>`;
 }
 
-const mail = (to, subject, html) => sendMailWithRetry({ from: `"CLC One" <${process.env.GMAIL_USER}>`, to, subject, html }).catch((e) => console.error('[sales-mail] email failed:', e.message));
+const mail = (to, subject, html, templateKey, vars) => sendMailWithRetry({ from: `"CLC One" <${process.env.GMAIL_USER}>`, to, subject, html, templateKey, vars }).catch((e) => console.error('[sales-mail] email failed:', e.message));
 
 async function sendDay(dayKey) {
   const report = await dayReport(dayKey);
@@ -77,14 +77,14 @@ async function sendDay(dayKey) {
   for (const r of report) {
     if (!r.user.email || !(r.prospects.length || r.callbacks.length || r.due.length)) continue;
     // eslint-disable-next-line no-await-in-loop
-    await mail(r.user.email, `Today: ${r.prospects.length} prospects, ${r.callbacks.length} callbacks`, userHtml(r, dayLabel));
+    await mail(r.user.email, `Today: ${r.prospects.length} prospects, ${r.callbacks.length} callbacks`, userHtml(r, dayLabel), 'sales-daily-user', { prospects: r.prospects.length, callbacks: r.callbacks.length, day: dayLabel });
     sent += 1;
   }
   const bosses = await mongoose.model('Admin').find({ removed: false, enabled: true, role: { $in: REVIEWER_ROLES } }).select('email').lean();
   for (const b of bosses) {
     if (!b.email) continue;
     // eslint-disable-next-line no-await-in-loop
-    await mail(b.email, `Daily prospects and callbacks · ${dayLabel}`, teamHtml(report, dayLabel));
+    await mail(b.email, `Daily prospects and callbacks · ${dayLabel}`, teamHtml(report, dayLabel), 'sales-daily-team', { day: dayLabel });
     sent += 1;
   }
   return sent;
@@ -125,4 +125,5 @@ start.runOnce = runOnce;
 start.dayReport = dayReport;
 start.userHtml = userHtml;
 start.teamHtml = teamHtml;
+start.emailHtml = { userHtml, teamHtml };
 module.exports = start;

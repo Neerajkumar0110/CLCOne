@@ -15,6 +15,9 @@ const DEFAULTS = {
   qualifyThreshold: 0.9,
   maxAttemptsPerType: 3,
   cooldownDays: 7,
+  // D-02 readiness access gate — later tests need a passed BASIC test
+  // (services/lms/readinessGate.js). Off until Management switches it on.
+  readinessGate: false,
 };
 
 async function get(force = false) {
@@ -33,7 +36,7 @@ async function update(patch = {}) {
   const LmsSetting = mongoose.model('LmsSetting');
   const allowed = Object.keys(DEFAULTS);
   const $set = { updated: new Date() };
-  for (const k of allowed) if (patch[k] !== undefined) $set[k] = patch[k];
+  for (const k of [...allowed, 'readinessGateByName', 'readinessGateAt']) if (patch[k] !== undefined) $set[k] = patch[k];
   const row = await LmsSetting.findOneAndUpdate({ key: 'assessments' }, { $set }, { new: true, upsert: true }).lean();
   _cache = { ...DEFAULTS, ...row };
   _cachedAt = Date.now();

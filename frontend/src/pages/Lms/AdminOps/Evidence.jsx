@@ -39,8 +39,19 @@ export default function Evidence() {
                   <>
                     <span className={`ao-chip ${v.ok && !stale ? 'hai' : 'red'}`} style={{ alignSelf: 'flex-start' }}>{v.ok ? (stale ? 'Stale' : 'OK') : 'Failed'}</span>
                     <span className="ao-muted" style={{ fontSize: 12 }}>{fmtDate(v.at)} {fmtTime(v.at)} · {v.summary || ''}</span>
+                    {v.runs && v.runs.length > 1 && (
+                      <details style={{ fontSize: 12 }}>
+                        <summary className="ao-muted" style={{ cursor: 'pointer' }}>Run history ({v.runs.length})</summary>
+                        {v.runs.map((x, i) => (
+                          <div key={i} className="ao-muted" style={{ padding: '2px 0' }}>
+                            <span className={`ao-chip ${x.ok ? 'hai' : 'red'}`} style={{ marginRight: 6 }}>{x.ok ? 'OK' : 'Failed'}</span>
+                            {fmtDate(x.at)} {fmtTime(x.at)} · {x.summary}
+                          </div>
+                        ))}
+                      </details>
+                    )}
                   </>
-                ) : <span className="ao-muted" style={{ fontSize: 12 }}>No report yet — set up the cron jobs for the deploy/vps scripts</span>}
+                ) : <span className="ao-muted" style={{ fontSize: 12 }}>No report yet — set up the cron jobs (deploy/vps/install-ops-crons.sh)</span>}
               </div>
             );
           })}

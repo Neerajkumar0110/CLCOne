@@ -12,18 +12,19 @@ const { mailReady, sendMailWithRetry } = require('../mail/transport');
 const BRAND = process.env.GMAIL_SENDER_NAME || 'Career Lab Consulting';
 const ready = mailReady;
 
-// Best-effort per-recipient delivery log (spec §8) — never lets a logging
-// failure affect the actual send outcome.
-function logDelivery(recipient, subject, status, error) {
-  try {
-    const mongoose = require('mongoose');
-    mongoose
-      .model('EmailDeliveryLog')
-      .create({ recipient, subject: subject || '', status, error: error || '' })
-      .catch(() => {});
-  } catch (e) {
-    /* model not registered yet at boot — ignore */
-  }
+// The per-recipient delivery log (EmailDeliveryLog) is written by
+// services/mail/transport.js for every email in the app, not here.
+
+function batchScheduleHtml({ schedule = {}, rows = '' }) {
+  return `<div style="border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;margin:14px 0">
+    <p style="margin:0 0 6px"><b>Class schedule</b></p>
+    <p style="margin:0;color:#334">
+      ${schedule.days ? `Days: ${esc(schedule.days)}<br>` : ''}
+      ${schedule.time ? `Time: ${esc(schedule.time)}` : ''}${schedule.durationMin ? ` · ${schedule.durationMin} min` : ''}<br>
+      ${schedule.from ? `From ${esc(fmtDate(schedule.from))}` : ''}${schedule.to ? ` to ${esc(fmtDate(schedule.to))}` : ''}
+    </p>
+    ${rows ? `<p style="margin:10px 0 4px"><b>Next classes</b></p><ul style="margin:0;padding-left:18px">${rows}</ul>` : ''}
+  </div>`;
 }
 
 // batch: LmsBatchRoom-ish { batchName, courseTitle, teacherName }
@@ -37,15 +38,7 @@ function batchClassEmailHtml({ batchName, courseTitle, teacherName, schedule = {
   return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:560px;margin:0 auto">
   <h2 style="margin:0 0 4px">You're enrolled — ${esc(courseTitle || batchName)}</h2>
   <p style="color:#556">Batch: <b>${esc(batchName)}</b>${teacherName ? ` · Trainer: <b>${esc(teacherName)}</b>` : ''}</p>
-  <div style="border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;margin:14px 0">
-    <p style="margin:0 0 6px"><b>Class schedule</b></p>
-    <p style="margin:0;color:#334">
-      ${schedule.days ? `Days: ${esc(schedule.days)}<br>` : ''}
-      ${schedule.time ? `Time: ${esc(schedule.time)}` : ''}${schedule.durationMin ? ` · ${schedule.durationMin} min` : ''}<br>
-      ${schedule.from ? `From ${esc(fmtDate(schedule.from))}` : ''}${schedule.to ? ` to ${esc(fmtDate(schedule.to))}` : ''}
-    </p>
-    ${rows ? `<p style="margin:10px 0 4px"><b>Next classes</b></p><ul style="margin:0;padding-left:18px">${rows}</ul>` : ''}
-  </div>
+  ${batchScheduleHtml({ schedule, rows })}
   <p style="margin:16px 0">
     <a href="${esc(joinPageUrl)}" style="display:inline-block;background:#2f5fd0;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Open Live Classes</a>
   </p>
@@ -60,6 +53,8 @@ async function sendBatchClassEmail(recipients, payload) {
   const html = batchClassEmailHtml(payload);
   let sent = 0;
   const subject = `Your live classes — ${payload.batchName}`;
+  const rows = (payload.sessions || []).slice(0, 8).map((s) => `<li style="margin:2px 0">${esc(fmtDate(s.scheduledStart))}</li>`).join('');
+  const vars = { batch: payload.batchName, course: payload.courseTitle || payload.batchName, trainer: payload.teacherName || '', scheduleHtml: batchScheduleHtml({ schedule: payload.schedule || {}, rows }), joinLink: payload.joinPageUrl };
   for (const to of list) {
     try {
       await sendMailWithRetry({
@@ -67,12 +62,12 @@ async function sendBatchClassEmail(recipients, payload) {
         to,
         subject,
         html,
+        templateKey: 'lms-batch-classes',
+        vars,
       });
       sent += 1;
-      logDelivery(to, subject, 'sent');
     } catch (e) {
       console.error('[lms] batch class email failed for', to, ':', e.message);
-      logDelivery(to, subject, 'failed', e.message);
     }
   }
   return { sent };
@@ -82,9 +77,9 @@ async function sendBatchClassEmail(recipients, payload) {
 // jobs/lmsLiveTick.js's notifiedEmail10min flag), to every Active student
 // on the batch roster. The time is formatted with fmtDateTime (en-IN
 // locale — month/day names are English, e.g. "Thu, 8 Oct, 06:00 pm").
-function liveClassReminderEmailHtml({ title, courseTitle, batchName, scheduledStart, joinPageUrl }) {
+function liveClassReminderEmailHtml({ title, courseTitle, batchName, scheduledStart, joinPageUrl, minutes = 10 }) {
   return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
-  <h2 style="margin:0 0 6px">Your class starts in 10 minutes</h2>
+  <h2 style="margin:0 0 6px">Your class starts in ${minutes} minutes</h2>
   <p style="color:#556;margin:0 0 14px">${esc(title || courseTitle || batchName)}${courseTitle && title && courseTitle !== title ? ` · ${esc(courseTitle)}` : ''}</p>
   <div style="border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;margin:14px 0">
     <p style="margin:0;color:#334"><b>Start time:</b> ${esc(fmtDate(scheduledStart))}</p>
@@ -102,16 +97,15 @@ async function sendLiveClassReminderEmail(recipients, payload) {
   const list = [...new Set((recipients || []).map((r) => String(r || '').trim().toLowerCase()).filter((e) => /.+@.+\..+/.test(e)))];
   if (!list.length) return { sent: 0 };
   const html = liveClassReminderEmailHtml(payload);
-  const subject = `Starting in 10 min — ${payload.title || payload.courseTitle || payload.batchName}`;
+  const subject = `Starting in ${payload.minutes || 10} min — ${payload.title || payload.courseTitle || payload.batchName}`;
+  const vars = { classTitle: payload.title || payload.courseTitle || payload.batchName, course: payload.courseTitle || '', batch: payload.batchName || '', startTime: fmtDate(payload.scheduledStart), joinLink: payload.joinPageUrl };
   let sent = 0;
   for (const to of list) {
     try {
-      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html });
+      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject, html, templateKey: 'lms-class-reminder', vars });
       sent += 1;
-      logDelivery(to, subject, 'sent');
     } catch (e) {
       console.error('[lms] live class reminder email failed for', to, ':', e.message);
-      logDelivery(to, subject, 'failed', e.message);
     }
   }
   return { sent };
@@ -120,22 +114,22 @@ async function sendLiveClassReminderEmail(recipients, payload) {
 // Generic best-effort fan-out — used by announcements, certificate issue, etc.
 // `attachments` is passed straight through to nodemailer, e.g.
 // [{ filename: 'receipt.pdf', content: bufferOrStream, contentType: 'application/pdf' }].
-async function sendMail(recipients, { subject, html, text, attachments }) {
+// `templateKey` / `vars` — which email this is, for Messenger › Email
+// (services/mail/emailCatalog.js); an admin-edited version replaces it.
+async function sendMail(recipients, { subject, html, text, attachments, templateKey, vars }) {
   if (!ready()) return { sent: 0, skipped: 'email not configured' };
   const list = [...new Set((recipients || []).map((r) => String(r || '').trim().toLowerCase()).filter((e) => /.+@.+\..+/.test(e)))];
   if (!list.length) return { sent: 0 };
   let sent = 0;
   for (const to of list) {
     try {
-      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments });
+      await sendMailWithRetry({ from: `"${BRAND}" <${process.env.GMAIL_USER}>`, to, subject: subject || BRAND, html, text, attachments, templateKey, vars });
       sent += 1;
-      logDelivery(to, subject, 'sent');
     } catch (e) {
       console.error('[lms] sendMail failed for', to, ':', e.message);
-      logDelivery(to, subject, 'failed', e.message);
     }
   }
   return { sent };
 }
 
-module.exports = { sendBatchClassEmail, sendLiveClassReminderEmail, sendMail, ready };
+module.exports = { sendBatchClassEmail, sendLiveClassReminderEmail, sendMail, ready, _emailHtml: { batchClassEmailHtml, batchScheduleHtml, liveClassReminderEmailHtml } };

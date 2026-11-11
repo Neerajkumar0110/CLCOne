@@ -66,7 +66,7 @@ export default function Results() {
                 {info.unlocked === false ? (
                   <>
                     <div style={{ fontWeight: 600, marginTop: 4 }}><Tag color="default">🔒 Locked</Tag></div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>Unlocks at {info.requiredPercent}% curriculum delivered</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{info.lockReason === 'readiness' ? info.lockMessage : `Unlocks at ${info.requiredPercent}% curriculum delivered`}</Text>
                   </>
                 ) : (
                   <>

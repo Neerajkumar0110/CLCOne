@@ -230,6 +230,9 @@ async function problemUpdate(req, res) {
     }
     const learners = tickets.filter((t) => t.source === 'student' && t.createdBy).map((t) => t.createdBy);
     if (learners.length) await realtime.notify(learners, { type: 'lms.ticket.update', title: '✅ Your ticket is resolved', body: answer.slice(0, 200), link: '/learn/support', actorName: by });
+    const { sendResolvedAndRecord } = require('../../../../services/support/ticketMail');
+    // eslint-disable-next-line no-await-in-loop
+    for (const t of tickets) await sendResolvedAndRecord(t._id).catch((e) => console.error('[tickets] resolved mail:', e.message));
     await audit.record({ module: 'ticket', action: 'problem.resolve', entityType: 'LmsProblem', entityId: p._id, admin: req.admin, reason: answer.slice(0, 300), after: { code: p.code, ticketsResolved: tickets.length } });
     return ok(res, { resolved: tickets.length }, `${p.code} resolved · ${tickets.length} linked ticket${tickets.length === 1 ? '' : 's'} answered and learners told.`);
   }
@@ -250,9 +253,54 @@ async function opsStatus(req, res) {
   const rows = await M('LmsAdminConfig').find({ key: { $in: ['ops:backup', 'ops:restoreDrill', 'ops:loadTest'] } }).lean();
   const get = (k) => {
     const r = rows.find((x) => x.key === k);
-    return r ? { ...(r.value || {}), at: (r.value && r.value.at) || r.updated } : null;
+    if (!r) return null;
+    // every run is kept (opsReport.cjs $push, last 50) — the 10 latest go out as the run log
+    const runs = (r.history || [])
+      .slice(-10)
+      .reverse()
+      .map((h) => ({ at: (h.value && h.value.at) || h.at, ok: !!(h.value && h.value.ok), summary: (h.value && h.value.summary) || h.note || '' }));
+    return { ...(r.value || {}), at: (r.value && r.value.at) || r.updated, runs };
   };
   return ok(res, { backup: get('ops:backup'), restoreDrill: get('ops:restoreDrill'), loadTest: get('ops:loadTest') });
 }
 
-module.exports = { smDuplicates, smDuplicateRequest, pmDuplicates, pmDuplicateRequest, smCertificateCorrect, problemList, problemCreate, problemUpdate, opsStatus };
+// ── D-02 readiness access gate ─────────────────────────────────────────────
+// GET /api/lms/admin/ops/readiness-gate — state + who it would affect today
+async function readinessGateGet(req, res) {
+  const settings = require('../../../../services/lms/assessmentSettingsService');
+  const gate = require('../../../../services/lms/readinessGate');
+  const s = await settings.get(true);
+  const roster = await M('Student').find({ removed: false, status: 'Active' }).select('email').lean();
+  const admins = await M('Admin').find({ email: { $in: roster.map((r) => String(r.email || '').toLowerCase()).filter(Boolean) } }).select('_id email').lean();
+  let passed = 0;
+  let notPassed = 0;
+  let notTaken = 0;
+  for (const a of admins) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await gate.readinessStatus(a._id, a.email);
+    if (r.status === 'Passed') passed += 1;
+    else if (r.status === 'Not passed') notPassed += 1;
+    else notTaken += 1;
+  }
+  return ok(res, {
+    enforced: !!s.readinessGate,
+    byName: s.readinessGateByName || null,
+    at: s.readinessGateAt || null,
+    passPct: Math.round(s.qualifyThreshold * 100),
+    canChange: isAdmin(req.admin),
+    learners: { total: admins.length, passed, notPassed, notTaken },
+  });
+}
+
+// POST /api/lms/admin/ops/readiness-gate { enforced } — Management only, audited
+async function readinessGateSet(req, res) {
+  if (!isAdmin(req.admin)) return bad(res, 403, 'Only Management can switch the readiness gate.');
+  const settings = require('../../../../services/lms/assessmentSettingsService');
+  const before = !!(await settings.get(true)).readinessGate;
+  const enforced = !!(req.body || {}).enforced;
+  await settings.update({ readinessGate: enforced, readinessGateByName: nameOf(req.admin), readinessGateAt: new Date() });
+  await audit.record({ module: 'rules', action: enforced ? 'readiness-gate.on' : 'readiness-gate.off', entityType: 'RuleSet', admin: req.admin, before: { enforced: before }, after: { enforced } });
+  return readinessGateGet(req, res);
+}
+
+module.exports = { smDuplicates, smDuplicateRequest, pmDuplicates, pmDuplicateRequest, smCertificateCorrect, problemList, problemCreate, problemUpdate, opsStatus, readinessGateGet, readinessGateSet };

@@ -22,6 +22,17 @@ const schema = new mongoose.Schema({
   // null while the session is still active (admin has at least one open socket).
   logoutAt: Date,
   durationSeconds: Number,
+
+  // Where the session came from (D-09 login / IP monitoring) — set by
+  // services/security/loginDevice.js. Absent on rows from before it existed.
+  ip: String,
+  userAgent: String,
+  browser: String,
+  os: String,
+  deviceType: String, // desktop | mobile | tablet
+  device: String, // "Chrome on Windows (desktop)"
+  newDevice: Boolean, // not used by this user in the last 30 days
+  newIp: Boolean,
 });
 
 schema.index({ admin: 1, loginAt: -1 });

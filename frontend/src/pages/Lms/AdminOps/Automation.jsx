@@ -40,7 +40,7 @@ export default function Automation() {
                       <td className="ao-muted">{r.t}</td>
                       <td>{r.a}</td>
                       <td className="ao-muted">{r.h}</td>
-                      <td>{r.job ? <span className="ao-muted" style={{ fontSize: 12 }}><code>{r.job}</code>{r.lastRun ? <><br />{fmtTime(r.lastRun)}</> : null}</span> : <span className="ao-chip gray">Not built</span>}</td>
+                      <td>{r.job ? <span className="ao-muted" style={{ fontSize: 12 }}><code>{r.job}</code>{r.schedule ? <><br />{r.schedule}</> : null}{r.lastRun ? <><br />last run {fmtTime(r.lastRun)}</> : null}{r.lastResult ? <><br /><span style={{ color: r.lastResult.ok ? undefined : '#c0392b' }}>{r.lastResult.summary}</span></> : null}</span> : <span className="ao-chip gray">Not built</span>}</td>
                       <td>
                         {!r.automated ? (
                           <span className="ao-muted" style={{ fontSize: 12 }}>Manual</span>

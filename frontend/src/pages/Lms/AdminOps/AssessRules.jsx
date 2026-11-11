@@ -14,6 +14,37 @@ function Field({ label, code, children }) {
   );
 }
 
+// D-02 access gate: while ON, later tests open only after the readiness
+// (BASIC) test is passed. Management switches it; everyone else sees it.
+function ReadinessGate() {
+  const [g, setG] = useState(null);
+  useEffect(() => {
+    lmsApi.opsReadinessGate().then((r) => r && r.success && setG(r.result)).catch(() => {});
+  }, []);
+  if (!g) return <Field label="Access gate" code="Readiness_Status = Passed"><select className="ao-inp full" disabled><option>Loading…</option></select></Field>;
+  const change = async (e) => {
+    const on = e.target.value === 'on';
+    if (on && !window.confirm(`Turn the readiness gate ON?\n\n${g.learners.passed} of ${g.learners.total} active learners have passed the readiness test. The rest will not be able to START a new later test (Major, Micro, NLP, LLM) until they pass it. Tests they already attempted, and unlock exceptions, stay open.`)) return;
+    const r = await act(lmsApi.opsReadinessGateSet(on), on ? 'Readiness gate is ON' : 'Readiness gate is OFF');
+    if (r) setG(r);
+  };
+  return (
+    <>
+      <Field label="Access gate" code="Readiness_Status = Passed">
+        <select className="ao-inp full" value={g.enforced ? 'on' : 'off'} disabled={!g.canChange} onChange={change}>
+          <option value="off">Not enforced</option>
+          <option value="on">Enforced — later tests need a passed readiness test</option>
+        </select>
+      </Field>
+      <div className="ao-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+        Learners today: {g.learners.passed} passed · {g.learners.notPassed} not passed · {g.learners.notTaken} not taken
+        {g.byName && <> · last changed by {g.byName}{g.at ? ` · ${fmtTime(g.at)}` : ''}</>}
+        {!g.canChange && <> · only Management can switch it</>}
+      </div>
+    </>
+  );
+}
+
 export default function AssessRules() {
   const { data, loading, err, setData } = useLoad(() => lmsApi.opsRules());
   const [v, setV] = useState(null);
@@ -71,7 +102,7 @@ export default function AssessRules() {
               <Field label="Pass threshold" code="Readiness_Pass_Percentage"><input className="ao-inp full" readOnly value={`${data.current.readiness.passPct}%`} /></Field>
               <Field label="Attempts" code="Maximum_Attempts"><input className="ao-inp full" readOnly value={data.current.readiness.attempts} /></Field>
               <Field label="Cooldown" code="Retake_Cooldown_Days"><input className="ao-inp full" readOnly value={`${data.current.readiness.cooldownDays} days`} /></Field>
-              <Field label="Access gate" code="Readiness_Status = Passed"><select className="ao-inp full" disabled><option>Not enforced (D-02 pending)</option></select></Field>
+              <ReadinessGate />
               <div className="ao-muted" style={{ fontSize: 12 }}>The BASIC readiness test uses the same pass %, attempts and cooldown as the assessment rules — change them there.</div>
             </div>
             <div className="ao-card">

@@ -279,6 +279,8 @@ async function sendSummary() {
   await mailer.sendMail(emails, {
     subject: `LMS daily summary — ${summary.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${summary.classesHeld} classes${pct}`,
     html: summaryHtml(summary),
+    templateKey: 'lms-daily-summary',
+    vars: { date: summary.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), classes: summary.classesHeld, summaryHtml: summaryHtml(summary) },
   });
 }
 
@@ -316,4 +318,5 @@ function start() {
 start.runOnce = runOnce;
 start.buildSummary = buildSummary;
 start.summaryHtml = summaryHtml;
+start.emailHtml = { summaryHtml };
 module.exports = start;

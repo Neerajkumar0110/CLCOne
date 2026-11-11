@@ -14,6 +14,9 @@ const schema = new mongoose.Schema({
   subject: { type: String, default: '' },
   status: { type: String, enum: ['sent', 'failed'], required: true, index: true },
   error: { type: String, default: '' },
+  // which email this was (services/mail/emailCatalog.js key / custom-…) —
+  // every send in the app is logged here by services/mail/transport.js
+  templateKey: { type: String, default: 'other', index: true },
   sentAt: { type: Date, default: Date.now, index: true },
 });
 

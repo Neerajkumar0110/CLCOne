@@ -108,7 +108,9 @@ async function sendEmails(b, { rebooked = false } = {}) {
   const out = [];
   const send = async (kind, to, subject, html) => {
     if (!to) return;
-    const r = await mailer.sendMail([to], { subject, html }).catch((e) => ({ sent: 0, error: e.message }));
+    const templateKey = kind.startsWith('customer') ? 'sales-demo-customer' : 'sales-demo-staff';
+    const vars = kind.startsWith('customer') ? { name: b.name || '', day: subjectDay } : { customer: b.name || b.phone || '', day: subjectDay, agent: b.agentName || '' };
+    const r = await mailer.sendMail([to], { subject, html, templateKey, vars }).catch((e) => ({ sent: 0, error: e.message }));
     out.push({ kind, to: [to], sent: (r && r.sent) || 0, at: new Date() });
   };
   await send(
@@ -302,6 +304,7 @@ async function handleNoShows() {
 }
 
 module.exports = {
+  _emailHtml: { customerHtml, staffHtml },
   istDate,
   slotStart,
   slotEnd,

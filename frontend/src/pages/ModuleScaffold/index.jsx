@@ -17,6 +17,7 @@ import { request } from '@/request';
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
 const WhatsApp = lazy(() => import('@/pages/WhatsApp'));
+const EmailCenter = lazy(() => import('@/pages/EmailCenter'));
 const TeamChat = lazy(() =>
   import('@/pages/Communication').then((m) => ({ default: m.TeamChat }))
 );
@@ -61,13 +62,6 @@ const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
 const LmsQuestionBank = lazy(() => import('@/pages/Lms/QuestionBank'));
 const LmsAssessmentDashboard = lazy(() => import('@/pages/Lms/AssessmentDashboard'));
-// Basic/Major/Micro Test entries from the reference nav's dropdown picker.
-const LmsBasicTest = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.BasicTest })));
-const LmsMajorTestPythonSql = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestPythonSql })));
-const LmsMajorTestNlp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestNlp })));
-const LmsMajorTestLlm = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MajorTestLlm })));
-const LmsMicroTestSqlDb = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestSqlDb })));
-const LmsMicroTestNlpSerp = lazy(() => import('@/pages/Lms/TestIntro/variants').then((m) => ({ default: m.MicroTestNlpSerp })));
 // HRMS "Users" tab — same login-account list/creation flow as Settings' User
 // Management, reachable without leaving HRMS (see frontend/src/pages/Hr/UsersTab.jsx).
 const HrmsUsers = lazy(() => import('@/pages/Hr/UsersTab'));
@@ -77,6 +71,7 @@ const Payments = lazy(() => import('@/pages/Payments'));
 const EMBED = {
   teamChat: TeamChat,
   whatsapp: WhatsApp,
+  emailCenter: EmailCenter,
   leads: Leads,
   workTracker: WorkTracker,
   customer: Customer,
@@ -106,12 +101,6 @@ const EMBED = {
   lmsAttemptsAdmin: LmsAttemptsAdmin,
   lmsQuestionBank: LmsQuestionBank,
   lmsAssessmentDashboard: LmsAssessmentDashboard,
-  lmsBasicTest: LmsBasicTest,
-  lmsMajorTestPythonSql: LmsMajorTestPythonSql,
-  lmsMajorTestNlp: LmsMajorTestNlp,
-  lmsMajorTestLlm: LmsMajorTestLlm,
-  lmsMicroTestSqlDb: LmsMicroTestSqlDb,
-  lmsMicroTestNlpSerp: LmsMicroTestNlpSerp,
   hrmsUsers: HrmsUsers,
   payments: Payments,
 };
@@ -295,12 +284,18 @@ function TabBody({ section, tab }) {
     }
   };
 
-  const records = tab.embed && EMBED[tab.embed] ? (
+  const embedNode = tab.embed && EMBED[tab.embed] ? (
     <Suspense fallback={<div className="hub-card"><div className="hub-empty">Loading…</div></div>}>
       {React.createElement(EMBED[tab.embed])}
     </Suspense>
+  ) : null;
+  // A tab with both (LMS → Certificate Center) shows the page with the raw
+  // records table below it, instead of two menu items for the same data.
+  const records = embedNode && !tab.entity ? (
+    embedNode
   ) : tab.entity ? (
     <>
+      {embedNode && <div style={{ marginBottom: 20 }}>{embedNode}</div>}
       {tab.entity === 'student' && (
         <div className="hub-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
           <div className="hub-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

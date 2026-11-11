@@ -738,7 +738,8 @@ async function cancelSession(id, admin, { reason } = {}) {
         const title = `Class cancelled: ${session.title}`;
         const body = `${session.courseTitle || session.batchName} · was scheduled ${new Date(session.scheduledStart).toLocaleString('en-IN')}. Reason: ${session.cancelReason}`;
         await realtime.notify(admins.map((a) => a._id), { type: 'live.cancelled', title, body, link: '/lms/classes' });
-        await mailer.sendMail(admins.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+        const vars = { classTitle: session.title, course: session.courseTitle || session.batchName, scheduledTime: new Date(session.scheduledStart).toLocaleString('en-IN'), reason: session.cancelReason };
+        await mailer.sendMail(admins.map((a) => a.email), { ...require('../mail/inlineEmails').classCancelled(vars), templateKey: 'lms-class-cancelled', vars }).catch(() => {});
       }
     } catch (e) {
       /* best-effort */
@@ -857,7 +858,8 @@ async function postponeSession(id, admin, { days } = {}) {
         const extra = shifted.length > 1 ? ` (${shifted.length - 1} later class${shifted.length - 1 === 1 ? '' : 'es'} in this batch also shifted by ${n} day${n === 1 ? '' : 's'}.)` : '';
         const body = `${session.courseTitle || session.batchName} · moved from ${new Date(originalStart).toLocaleString('en-IN')} to ${new Date(session.scheduledStart).toLocaleString('en-IN')}.${extra}`;
         await realtime.notify(admins.map((a) => a._id), { type: 'live.postponed', title, body, link: '/lms/classes' });
-        await mailer.sendMail(admins.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+        const vars = { classTitle: session.title, course: session.courseTitle || session.batchName, fromTime: new Date(originalStart).toLocaleString('en-IN'), toTime: new Date(session.scheduledStart).toLocaleString('en-IN'), extra };
+        await mailer.sendMail(admins.map((a) => a.email), { ...require('../mail/inlineEmails').classPostponed(vars), templateKey: 'lms-class-postponed', vars }).catch(() => {});
       }
     } catch (e) {
       /* best-effort */
@@ -1542,7 +1544,8 @@ async function endSession(id, admin, { auto = false } = {}) {
         const title = `Marked absent: ${session.title}`;
         const body = `${session.courseTitle || session.batchName} · ${new Date(session.scheduledStart || now).toLocaleString('en-IN')}. Contact your coordinator if this is incorrect.`;
         await realtime.notify(notifiable.map((a) => a._id), { type: 'attendance.absent', title, body, link: '/learn/attendance' }).catch(() => {});
-        await mailer.sendMail(notifiable.map((a) => a.email), { subject: title, html: `<p>${body}</p>` }).catch(() => {});
+        const vars = { classTitle: session.title, course: session.courseTitle || session.batchName, classTime: new Date(session.scheduledStart || now).toLocaleString('en-IN') };
+        await mailer.sendMail(notifiable.map((a) => a.email), { ...require('../mail/inlineEmails').markedAbsent(vars), templateKey: 'lms-marked-absent', vars }).catch(() => {});
       }
     }
   } catch (e) {

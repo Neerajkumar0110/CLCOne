@@ -212,6 +212,10 @@ const schema = new mongoose.Schema({
   // was a bulk batch-regenerate wipe of never-started sessions; there was no
   // standalone "cancel this one class" action for a teacher/admin.
   cancelReason: { type: String },
+  // start time the batch was last told about — the session-change
+  // automation (jobs/lmsAutomationTick.js) notifies the batch when the real
+  // scheduledStart moves away from it
+  announcedStart: { type: Date },
   cancelledBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   cancelledByName: { type: String },
   cancelledAt: { type: Date },

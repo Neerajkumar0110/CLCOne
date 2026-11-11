@@ -49,6 +49,8 @@ async function sendReminder() {
   await mailer.sendMail(emails, {
     subject: `${count} candidate${count === 1 ? '' : 's'} need a batch assigned`,
     html: summaryHtml(count, rows),
+    templateKey: 'lms-unassigned-batch',
+    vars: { count, listHtml: summaryHtml(count, rows) },
   });
 }
 
@@ -71,4 +73,5 @@ function start() {
 }
 
 start.runOnce = runOnce;
+start.emailHtml = { summaryHtml };
 module.exports = start;

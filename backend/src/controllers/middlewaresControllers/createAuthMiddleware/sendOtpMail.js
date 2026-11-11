@@ -15,6 +15,9 @@ const sendOtpMail = async ({ email, name, otp }) => {
     to: email,
     subject: `${otp} is your ${BRAND_NAME} login code`,
     html: otpEmail({ name, otp, brand: BRAND_NAME, minutes: 10 }),
+    // view-only in Messenger › Email; the code is masked in the log
+    templateKey: 'auth-otp',
+    vars: { name, otp: String(otp) },
   });
 };
 

@@ -423,6 +423,8 @@ const lmsApi = {
   opsSecurity: (f = {}) => request.get({ entity: `lms/admin/ops/security${qs(f)}` }),
   opsEvidence: (type) => request.get({ entity: `lms/admin/ops/evidence${qs({ type })}` }),
   opsRules: () => request.get({ entity: 'lms/admin/ops/rules' }),
+  opsReadinessGate: () => request.get({ entity: 'lms/admin/ops/readiness-gate' }),
+  opsReadinessGateSet: (enforced) => request.post({ entity: 'lms/admin/ops/readiness-gate', jsonData: { enforced } }),
   opsRulesPropose: (values) => request.post({ entity: 'lms/admin/ops/rules/proposal', jsonData: { values } }),
   opsRulesApprove: () => request.post({ entity: 'lms/admin/ops/rules/approve', jsonData: {} }),
   opsRulesDiscard: () => request.post({ entity: 'lms/admin/ops/rules/discard', jsonData: {} }),

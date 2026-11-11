@@ -402,6 +402,8 @@ module.exports = {
   smProblemCreate: opsAuto.problemCreate,
   smProblemUpdate: opsAuto.problemUpdate,
   smOpsStatus: opsAuto.opsStatus,
+  opsReadinessGate: opsAuto.readinessGateGet,
+  opsReadinessGateSet: opsAuto.readinessGateSet,
 
   // study material
   materialUpload: studyMaterial.upload,

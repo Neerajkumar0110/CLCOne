@@ -58,14 +58,30 @@ function isTransientSmtpError(err) {
 // transport makes the throttle far less likely, but a batch that lands while
 // Gmail is already annoyed at us still deserves a second chance rather than
 // a silently dropped class reminder.
+//
+// Email centre (Messenger › Email): a caller may pass `templateKey` (which
+// email this is — services/mail/emailCatalog.js) and `vars` (its variable
+// values). Then an admin-edited template replaces the subject / html, an
+// email switched off there is not sent, and every send — keyed or not — is
+// logged in EmailDeliveryLog for the counts (services/mail/emailTemplates.js).
 async function sendMailWithRetry(options, { attempts = 3, baseDelayMs = 2000 } = {}) {
+  const tpl = require('./emailTemplates');
+  const o = await tpl.apply(options);
+  if (o.skip) return { skipped: 'switched off in Email centre' };
+  // eslint-disable-next-line no-unused-vars
+  const { templateKey, vars, edited, skip, ...mail } = o;
   let lastErr;
   for (let i = 0; i < attempts; i += 1) {
     try {
-      return await mailTransport().sendMail(options);
+      const r = await mailTransport().sendMail(mail);
+      tpl.record(o, 'sent');
+      return r;
     } catch (err) {
       lastErr = err;
-      if (i === attempts - 1 || !isTransientSmtpError(err)) throw err;
+      if (i === attempts - 1 || !isTransientSmtpError(err)) {
+        tpl.record(o, 'failed', err && err.message);
+        throw err;
+      }
       await new Promise((r) => setTimeout(r, baseDelayMs * 2 ** i));
     }
   }

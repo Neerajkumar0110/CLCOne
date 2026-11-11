@@ -104,18 +104,21 @@ async function runNotifications() {
     }
   }
 
-  // 10-minute email reminder — fixed, not tied to the admin-configurable
+  // Email reminder before each class — how many minutes before is set in
+  // Messenger › Email ("Class starting soon", default 10), not tied to the
   // notifyBeforeMins list above (that one's in-app only). Every Active
-  // student on the batch roster gets an actual email, once per session.
+  // student on the batch roster gets an actual email, once per session
+  // (the flag keeps its old name: notifiedEmail10min).
+  const emailMins = (await require('../services/mail/emailTemplates').timing('lms-class-reminder')) || 10;
   const dueForEmail = await LmsLiveSession.find({
     removed: false,
     status: { $in: ['scheduled', 'upcoming'] },
     notifiedEmail10min: false,
-    scheduledStart: { $gt: new Date(now), $lte: new Date(now + 10 * 60000 + TICK_MS) },
+    scheduledStart: { $gt: new Date(now), $lte: new Date(now + emailMins * 60000 + TICK_MS) },
   }).limit(50);
   for (const session of dueForEmail) {
     const minsAway = Math.round((new Date(session.scheduledStart) - now) / 60000);
-    if (minsAway > 10) continue;
+    if (minsAway > emailMins) continue;
     try {
       const rec = await recipients(session);
       const studentIds = [...rec.entries()].filter(([, role]) => role === 'student').map(([id]) => id);
@@ -131,6 +134,7 @@ async function runNotifications() {
             batchName: session.batchName,
             scheduledStart: session.scheduledStart,
             joinPageUrl: `${base}/#/lms/classes`,
+            minutes: emailMins,
           });
         }
       }

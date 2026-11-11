@@ -63,6 +63,21 @@ async function newTicketMail(ticket) {
     return false;
   }
   const no = ticketNo(ticket);
+  return send(
+    {
+      to,
+      replyTo: ticket.raisedByEmail || undefined,
+      subject: `[${no}] New ${ticket.category} ticket — ${ticket.subject}`,
+      html: newTicketHtml(ticket),
+      templateKey: 'support-new-ticket',
+      vars: { ticketNo: no, subject: ticket.subject, category: ticket.category, priority: ticket.priority, raisedBy: ticket.raisedByName || '' },
+    },
+    'new-ticket mail'
+  );
+}
+
+function newTicketHtml(ticket) {
+  const no = ticketNo(ticket);
   const inner = `<table style="border-collapse:collapse;font-size:14px">
 ${row('Ticket', `<b>${esc(no)}</b>`)}
 ${row('Raised by', `${esc(ticket.raisedByName)}${ticket.source === 'student' ? ' (Candidate)' : ''}`)}
@@ -74,19 +89,10 @@ ${row('Subject', `<b>${esc(ticket.subject)}</b>`)}
 ${paymentRows(ticket)}
 </table>
 ${ticket.description ? `<div style="margin-top:16px;padding:12px 14px;background:#f9fafb;border-radius:8px;font-size:14px;color:#374151;white-space:pre-wrap">${esc(ticket.description)}</div>` : ''}`;
-  return send(
-    {
-      to,
-      replyTo: ticket.raisedByEmail || undefined,
-      subject: `[${no}] New ${ticket.category} ticket — ${ticket.subject}`,
-      html: shell('New support ticket', inner, { href: `${baseUrl()}/support`, label: 'Open in CRM' }),
-    },
-    'new-ticket mail'
-  );
+  return shell('New support ticket', inner, { href: `${baseUrl()}/support`, label: 'Open in CRM' });
 }
 
-async function ticketResolvedMail(ticket, toEmail) {
-  if (!toEmail) return false;
+function resolvedHtml(ticket) {
   const no = ticketNo(ticket);
   const link = ticket.source === 'student' ? `${baseUrl()}/learn/support` : `${baseUrl()}/support`;
   const inner = `<p style="font-size:14px;color:#374151;margin:0 0 14px">Hi ${esc(ticket.raisedByName || '')}, your ticket has been resolved.</p>
@@ -100,14 +106,53 @@ ${paymentRows(ticket)}
 </table>
 ${ticket.resolutionNote ? `<div style="margin-top:16px;padding:12px 14px;background:#ecfdf5;border-radius:8px;font-size:14px;color:#065f46;white-space:pre-wrap"><b>Resolution:</b><br>${esc(ticket.resolutionNote)}</div>` : ''}
 <p style="font-size:13px;color:#6b7280;margin:16px 0 0">Still facing the issue? Just raise a new ticket from your panel.</p>`;
-  return send(
-    {
-      to: toEmail,
-      subject: `[${no}] Resolved — ${ticket.subject}`,
-      html: shell('Your ticket is resolved', inner, { href: link, label: 'View ticket' }),
-    },
-    'resolved mail'
-  );
+  return shell('Your ticket is resolved', inner, { href: link, label: 'View ticket' });
 }
 
-module.exports = { newTicketMail, ticketResolvedMail };
+const resolvedVars = (t) => ({ ticketNo: ticketNo(t), subject: t.subject, name: t.raisedByName || '', resolution: t.resolutionNote || '', resolvedBy: t.resolvedByName || 'Support' });
+
+async function ticketResolvedMail(ticket, toEmail) {
+  if (!toEmail) return false;
+  return send({ to: toEmail, subject: `[${ticketNo(ticket)}] Resolved — ${ticket.subject}`, html: resolvedHtml(ticket), templateKey: 'support-ticket-resolved', vars: resolvedVars(ticket) }, 'resolved mail');
+}
+
+// Send the resolved email for one ticket and record the outcome on it
+// (ticket.resolutionEmail + a history line the learner and Support both see).
+// Every resolve path calls this, so 'resolved' always means 'emailed too'.
+async function sendResolvedAndRecord(ticketId) {
+  const mongoose = require('mongoose');
+  const T = mongoose.model('Ticket');
+  const t = await T.findById(ticketId).lean();
+  if (!t || t.status !== 'Resolved') return null;
+  let to = String(t.raisedByEmail || '').trim();
+  if (!to && t.createdBy) {
+    const a = await mongoose.model('Admin').findById(t.createdBy).select('email').lean();
+    to = (a && a.email) || '';
+  }
+  let status;
+  let error = '';
+  if (!mailReady()) status = 'not-configured';
+  else if (!to) status = 'no-email';
+  else {
+    try {
+      await sendMailWithRetry({ from: from(), to, subject: `[${ticketNo(t)}] Resolved — ${t.subject}`, html: resolvedHtml(t), templateKey: 'support-ticket-resolved', vars: resolvedVars(t) });
+      status = 'sent';
+    } catch (e) {
+      status = 'failed';
+      error = String((e && e.message) || e).slice(0, 300);
+      console.error('[tickets] resolved mail failed:', error);
+    }
+  }
+  const note =
+    status === 'sent'
+      ? `Resolution email sent to ${to}`
+      : status === 'failed'
+        ? `Resolution email to ${to} failed — ${error}`
+        : status === 'no-email'
+          ? 'Resolution email not sent — no email on file'
+          : 'Resolution email not sent — email is not configured';
+  await T.updateOne({ _id: t._id }, { $set: { resolutionEmail: { status, to, at: new Date(), error } }, $push: { history: { at: new Date(), action: 'note', status: 'Resolved', byName: 'System', note } } });
+  return { status, to, error };
+}
+
+module.exports = { newTicketMail, ticketResolvedMail, sendResolvedAndRecord, _emailHtml: { newTicketHtml, resolvedHtml } };
