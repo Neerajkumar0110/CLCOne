@@ -18,15 +18,18 @@ function parse(body) {
   const m = (d.message && typeof d.message === 'object' ? d.message : null) || (b.message && typeof b.message === 'object' ? b.message : null) || {};
   const deviceId = pick(b.device_id, b.deviceId, b.device, d.device_id, d.deviceId);
   const fromRaw = pick(b.from, b.sender, b.number, b.phone, d.from, d.sender, d.number, d.phone, m.from, d.remoteJid, m.remoteJid);
+  // DeroPo (documented): { event, timestamp, data: { message_id, device_id, from, content, … } }
   const text = pick(
+    d.content,
+    b.content,
     typeof b.message === 'string' ? b.message : undefined,
     typeof d.message === 'string' ? d.message : undefined,
     b.text, b.body, d.text, d.body, m.text, m.body, m.conversation, m.caption
   );
   const id = pick(b.message_id, b.messageId, b.id, d.message_id, d.messageId, d.id, m.id);
   const fromMe = !!pick(b.fromMe, b.from_me, d.fromMe, d.from_me, m.fromMe);
-  const name = pick(b.pushname, b.pushName, b.name, d.pushname, d.pushName, d.name, m.pushName);
-  const ts = pick(b.timestamp, d.timestamp, m.timestamp);
+  const name = pick(b.pushname, b.pushName, b.name, d.sender_name, d.contact_name, d.pushname, d.pushName, d.name, m.pushName);
+  const ts = pick(d.received_at, d.timestamp, b.timestamp, m.timestamp);
   let at = new Date();
   if (ts) {
     const n = Number(ts);
@@ -34,6 +37,7 @@ function parse(body) {
     if (!Number.isNaN(t.getTime())) at = t;
   }
   return {
+    event: b.event ? String(b.event) : null,
     deviceId: deviceId != null ? String(deviceId) : null,
     from: fromRaw ? deropo.normaliseNumber(String(fromRaw).split('@')[0]) : null,
     text: text != null ? String(text) : null,
@@ -64,6 +68,9 @@ async function incoming(req, res) {
   try {
     const p = parse(req.body);
     const note = (msg) => Log.updateOne({ _id: log._id }, { $set: { note: msg } });
+    // message_sent / delivered / read / failed are about OUR sends — only
+    // message_received creates a chat message.
+    if (p.event && p.event !== 'message_received') return note(`event ${p.event} — not stored`);
     if (!p.deviceId) return note('no device id');
     if (!p.from || !p.text) return note('no sender or text (maybe a status/ack event)');
     if (p.isGroup) return note('group message — ignored');

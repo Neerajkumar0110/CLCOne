@@ -8,9 +8,12 @@
 //   GET  /api/device/qr-image?device_id=…                  → PNG
 //   GET  /api/device/status?device_id=…                    → data.status
 //   POST /api/send                 { number, type, message }
-// The guide's send example names no device; with one number per sales user we
-// also pass `device_id` so DeroPo sends from that user's number. If DeroPo
-// expects it elsewhere, this file is the one place to change.
+// DeroPo's REST docs (cloud.deropo.com › REST API) name no device on /api/send;
+// we also pass `device_id` so DeroPo can send from that user's number. Each
+// DeroPo device also has its own API key (/devices/:id/regenerate-api-key) —
+// if /api/send ignores device_id, switch sendText to that device's key.
+// Webhook payloads: { event: 'message_received', data: { device_id, from, content, … } }
+// (see controllers/.../whatsappController/webhook.js).
 
 const BASE_URL = (process.env.DEROPO_BASE_URL || 'https://api.deropo.com').replace(/\/+$/, '');
 const TIMEOUT_MS = 20000;
@@ -84,6 +87,11 @@ async function createDevice({ name, phoneNumber }) {
 async function getQrImage(deviceId) {
   const res = await call('GET', '/api/device/qr-image', { query: { device_id: deviceId }, raw: true });
   const type = res.headers.get('content-type') || 'image/png';
+  // DeroPo docs: 200 + PNG = QR ready; 202 + transparent pixel = still being
+  // generated (poll again in 3s); X-QR-Status: ready | pending | connected.
+  const qrStatus = String(res.headers.get('x-qr-status') || '').toLowerCase();
+  if (res.status === 202 || qrStatus === 'pending') throw new DeropoError('QR code is being generated — it will show in a few seconds.', 409);
+  if (qrStatus === 'connected') throw new DeropoError('This number is already connected.', 409);
   if (!type.startsWith('image/')) {
     // Already connected (or not ready yet) — DeroPo answers with JSON instead of a PNG.
     const text = await res.text();

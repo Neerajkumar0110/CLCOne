@@ -13,7 +13,7 @@ const STATUS = {
   disconnected: ['Disconnected', 'red'],
 };
 
-// Step 1: number → DeroPo device. Step 2: QR (refreshed every 20s) while the
+// Step 1: number → DeroPo device. Step 2: QR (re-fetched every 4s) while the
 // status is polled every 3s until it turns connected.
 function ConnectPanel({ device, configured, onChanged }) {
   const [phone, setPhone] = useState(device?.phoneNumber || '');
@@ -34,7 +34,7 @@ function ConnectPanel({ device, configured, onChanged }) {
   useEffect(() => {
     if (!waiting) return undefined;
     loadQr();
-    const qrTimer = setInterval(loadQr, 20000);
+    const qrTimer = setInterval(loadQr, 4000); // DeroPo: poll the QR every ~3s until scanned
     const statusTimer = setInterval(async () => {
       const res = await waApi.deviceStatus();
       if (res?.success && res.result && res.result.status !== device.status) onChanged(res.result);
