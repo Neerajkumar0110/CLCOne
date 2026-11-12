@@ -67,6 +67,13 @@ async function fullDayLeave(adminId, dayKey) {
 const policyApplies = (dayKey) => dayKey >= shiftSchedule.attendancePolicy.effectiveFrom;
 const scheduleFor = (dayKey) => (policyApplies(dayKey) ? W : shiftSchedule.legacyWorkday);
 
+// Minutes a Login came after the day's lateAfter time (0 = on time).
+function lateMinutes(dayKey, loginAt) {
+  if (!loginAt) return 0;
+  const S = scheduleFor(dayKey);
+  return Math.max(0, Math.round((new Date(loginAt) - istAt(dayKey, S.lateAfter || S.start)) / 60000));
+}
+
 // Days before the policy only: a real login (not one rebuilt from dialer
 // activity) after the late-login cut-offs: after halfDayAfter = half day, after
 // fullDayAfter = full-day leave. A day already covered by approved part-day
@@ -667,6 +674,7 @@ module.exports = {
   durationLabel,
   policyApplies,
   scheduleFor,
+  lateMinutes,
   lateLoginPenalty,
   markPresent,
   remindLogin,
