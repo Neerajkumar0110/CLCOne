@@ -233,7 +233,9 @@ class BigBlueButtonProvider extends MeetingProvider {
   async getRecordings(session) {
     const meetingId = session.meetingId;
     if (!meetingId) return [];
-    const r = await this._call('getRecordings', { meetingID: meetingId });
+    // state=any: also list recordings BBB is still processing, so a slow or
+    // stuck job isn't mistaken for "no recording was made" (11 Nov 2026).
+    const r = await this._call('getRecordings', { meetingID: meetingId, state: 'any' });
     return Promise.all(
       r.xmlAll('recording').map(async (rec) => {
         const playbackBlock = /<playback>([\s\S]*?)<\/playback>/.exec(rec);
@@ -252,7 +254,7 @@ class BigBlueButtonProvider extends MeetingProvider {
         const recordID = xmlVal(rec, 'recordID');
 
         let downloadUrl = downloadable && (await this._videoFile(downloadable.url));
-        if (!downloadUrl && recordID) {
+        if (!downloadUrl && recordID && /^(published|unpublished)$/.test(xmlVal(rec, 'state') || 'published')) {
           downloadUrl = await this._rawWebcamFallback(recordID);
         }
 
