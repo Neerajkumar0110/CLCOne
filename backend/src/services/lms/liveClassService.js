@@ -1953,6 +1953,7 @@ async function applyRecordingReady(session, { recordingId, playbackUrl, download
         publishedAt,
         updated: new Date(),
       },
+      $unset: { failReason: '' },
     }
   );
   session.notifiedRecording = false; // let the notifier pick it up
@@ -2081,10 +2082,16 @@ async function pollRecordings() {
   const LmsLiveSession = mongoose.model('LmsLiveSession');
   // Newest first, so a backlog of old stuck sessions can never starve the
   // class that just ended.
+  // Classes given up on in the last 3 days are checked again too: BBB may
+  // publish one late (a repaired / rebuilt recording) and it then turns
+  // AVAILABLE by itself.
   const pending = await LmsLiveSession.find({
     removed: false,
-    status: 'recording_processing',
     meetingId: { $exists: true },
+    $or: [
+      { status: 'recording_processing' },
+      { status: 'ended', recordingStatus: 'FAILED', recordingEnabled: { $ne: false }, actualEnd: { $gte: new Date(Date.now() - 3 * 864e5) } },
+    ],
   })
     .select('+moderatorPW +attendeePW')
     .sort({ actualEnd: -1 })
@@ -2124,13 +2131,24 @@ async function pollRecordings() {
           r.startTime <= sessionEnd + 60000
       );
       const ready = candidates.find((r) => r.state === 'published' || r.published);
-      // Nothing recorded for this class (recording never started) and BBB has
-      // had hours to publish — stop polling it instead of waiting forever.
-      if (!ready && !candidates.length && session.actualEnd && Date.now() - new Date(session.actualEnd).getTime() > 6 * 3600000) {
+      const sinceEnd = session.actualEnd ? Date.now() - new Date(session.actualEnd).getTime() : 0;
+      const giveUp = async (reason) => {
+        if (session.recordingStatus === 'FAILED') return; // already given up; just keep re-checking
         session.status = 'ended';
         session.recordingStatus = 'FAILED';
         await session.save();
-        await LiveRecording.updateOne({ liveSession: session._id, status: { $ne: 'AVAILABLE' } }, { $set: { status: 'FAILED', failReason: 'No recording was made for this class.', updated: new Date() } });
+        await LiveRecording.updateOne({ liveSession: session._id, status: { $ne: 'AVAILABLE' } }, { $set: { status: 'FAILED', failReason: reason, updated: new Date() } });
+      };
+      // Nothing at all from BBB for this class (recording never started) and
+      // BBB has had hours — stop waiting. getRecordings lists processing ones
+      // too, so a class BBB is still working on never lands here.
+      if (!ready && !candidates.length && sinceEnd > 6 * 3600000) {
+        await giveUp('No recording was made for this class.');
+        continue;
+      }
+      // BBB has it but hasn't published it in 2 days: its processing failed.
+      if (!ready && candidates.length && sinceEnd > 48 * 3600000) {
+        await giveUp('The recording was made but the server could not process it.');
         continue;
       }
       if (ready) {
