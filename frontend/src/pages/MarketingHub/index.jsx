@@ -247,7 +247,7 @@ function MetricEntry({ leaf, inputs, rows, defaults, onSaved }) {
     setVals(blank());
     onSaved();
   };
-  const del = async (id) => { await request.delete({ entity: `marketing-hub/metrics/${leaf.key}/${id}` }); onSaved(); };
+  const del = async (id) => { await request.del({ entity: `marketing-hub/metrics/${leaf.key}/${id}` }); onSaved(); };
   const L = ({ label, children }) => <div className="hub-form-row"><label>{label}</label>{children}</div>;
 
   return (

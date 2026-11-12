@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { STAGE_NAMES } = require('../../../../config/leadStages');
 const { leadScopeFilter, userLeadMatch, responseScopeUsers, NOT_ENTERED } = require('./scope');
-const { parkedPhones } = require('./usedLeads');
+const { parkedPhones, usedLeadPhones } = require('./usedLeads');
 
 // GET /api/lead/by-stage — the filtered lead list behind every dashboard
 // drill-down and the Lead List filters. All params optional:
@@ -48,8 +48,13 @@ async function buildLeadListFilter(q, scopeUsers = null) {
   else {
     // Company-wide list: same as the Lead Stages board, used leads no user
     // has live in Used Leads → "Not with any user" until sent back.
-    const parked = await parkedPhones();
-    if (parked.length) filter.phoneNormalized = { $nin: parked };
+    // pool= follows the board's tab: board (default) | used (only those) | all (every lead received).
+    const pool = q.pool === 'used' || q.pool === 'all' ? q.pool : String(q.includeUsed) === '1' ? 'all' : 'board';
+    if (pool === 'used') filter.phoneNormalized = { $in: await usedLeadPhones() };
+    else if (pool === 'board') {
+      const parked = await parkedPhones();
+      if (parked.length) filter.phoneNormalized = { $nin: parked };
+    }
   }
 
   // Leads that count under a stage for these users: ones they responded on
@@ -125,7 +130,8 @@ const byStage = async (req, res) => {
   const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
 
   const [result, count] = await Promise.all([
-    Lead.find(query).sort({ [sortBy]: sortDir }).skip(skip).limit(limit).lean(),
+    // _id breaks ties (many leads share a stageUpdatedAt) so pages never repeat or skip a lead
+    Lead.find(query).sort({ [sortBy]: sortDir, _id: 1 }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(query),
   ]);
 

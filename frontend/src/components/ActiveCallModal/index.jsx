@@ -19,6 +19,8 @@ import {
   TagOutlined,
   CustomerServiceOutlined,
   SwapOutlined,
+  StarFilled,
+  RocketOutlined,
 } from "@ant-design/icons";
 import {
   Input,
@@ -134,6 +136,19 @@ const TIMELINES = [
 ];
 
 // Format duration seconds to MM:SS
+// Instant Lead Pool re-dials of No Response / Not Interested leads are shown to
+// the user as a FRESH lead — the old negative stage / response stays hidden so
+// they give the full pitch (user request 2026-11-11). Detected from the pool's
+// CallLead.source "CRM Lead Pool (<stage>)" (jobs/leadPoolSyncTick.js).
+const SECOND_CHANCE_STAGES = ["No Response", "Not Interested Leads"];
+function isSecondChance(lead, crm) {
+  const src = String(lead?.source || "");
+  if (!src.startsWith("CRM Lead Pool")) return false;
+  const m = src.match(/\(([^)]+)\)\s*$/);
+  return SECOND_CHANCE_STAGES.includes(m ? m[1] : "") || SECOND_CHANCE_STAGES.includes(crm?.stage);
+}
+const FRESH_SHOWN = { stage: "Fresh Leads", subStatus: "Old Leads reassignment or Stage wise Dialing" };
+
 function fmtDuration(totalSecs) {
   const s = Math.max(0, Math.floor(totalSecs || 0));
   const mins = Math.floor(s / 60);
@@ -187,6 +202,8 @@ export default function ActiveCallModal() {
   const [callData, setCallData] = useState(null);
   const [leadData, setLeadData] = useState(null);
   const [crmLeadData, setCrmLeadData] = useState(null);
+  // a pool re-dial of a No Response / Not Interested lead — shown as a Fresh lead
+  const freshLead = isSecondChance(leadData, crmLeadData);
   const [now, setNow] = useState(Date.now());
   const [saving, setSaving] = useState(false);
 
@@ -273,11 +290,13 @@ export default function ActiveCallModal() {
     setBudget(crm?.budgetRange || "");
     setHowSoonToStart(crm?.howSoonToStart || "");
 
-    setDisposition(call.disposition || lead?.lastDisposition || "");
+    // A pool re-dial of a No Response / Not Interested lead starts clean, as a Fresh lead.
+    const fresh = isSecondChance(lead, crm);
+    setDisposition(call.disposition || (fresh ? "" : lead?.lastDisposition) || "");
     setNotes(call.notes || "");
-    const s = crm?.stage || "Connected Leads";
+    const s = fresh ? FRESH_SHOWN.stage : crm?.stage || "Connected Leads";
     setStage(s);
-    setSubStatus(crm?.subStatus || defaultSubStatus(s));
+    setSubStatus(fresh ? FRESH_SHOWN.subStatus : crm?.subStatus || defaultSubStatus(s));
 
     // Only a callback still ahead — a past one re-sent with the outcome used
     // to re-book itself and ring the customer again straight away.
@@ -757,6 +776,18 @@ export default function ActiveCallModal() {
                     {callData.direction}
                   </Tag>
                 )}
+                {freshLead && (
+                  <span
+                    title="Treat this as a brand-new lead — give the full pitch"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 12px", borderRadius: 999,
+                      fontSize: 12.5, fontWeight: 800, letterSpacing: 0.6, color: "#fff",
+                      background: "linear-gradient(135deg,#16a34a,#22c55e)", boxShadow: "0 4px 14px -4px rgba(34,197,94,.7)",
+                    }}
+                  >
+                    <StarFilled /> FRESH LEAD
+                  </span>
+                )}
               </h2>
               <div className="incall-meta-sub">
                 <span>
@@ -826,6 +857,26 @@ export default function ActiveCallModal() {
             </Tooltip>
           </div>
         </div>
+
+        {freshLead && (
+          <div
+            role="note"
+            style={{
+              display: "flex", alignItems: "center", gap: 12, margin: "10px 20px 0", padding: "10px 14px", borderRadius: 12,
+              border: "1px solid rgba(34,197,94,.45)", background: "linear-gradient(90deg, rgba(34,197,94,.16), rgba(34,197,94,.04))",
+            }}
+          >
+            <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: "#16a34a", color: "#fff", fontSize: 16, flexShrink: 0 }}>
+              <RocketOutlined />
+            </span>
+            <span style={{ lineHeight: 1.35 }}>
+              <b style={{ fontSize: 14, color: "#16a34a" }}>Fresh lead — make it count!</b>
+              <span style={{ display: "block", fontSize: 12.5, opacity: 0.85 }}>
+                Introduce yourself, understand their goal, explain the program and its benefits, and convince them to book a demo.
+              </span>
+            </span>
+          </div>
+        )}
 
         {/* Modal Body Split */}
         <div className="incall-body">

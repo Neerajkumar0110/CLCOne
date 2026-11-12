@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 const { LEAD_STAGES, STAGE_NAMES, stageForStatus } = require('../../../../config/leadStages');
 const { leadScopeFilter, userLeadMatch, responseScopeUsers, NOT_ENTERED } = require('./scope');
-const { parkedPhones } = require('./usedLeads');
+const { parkedPhones, usedLeadPhones } = require('./usedLeads');
+
+// The board's tabs: leads still on the board, leads moved to Used Leads, or every lead received.
+const POOLS = ['board', 'used', 'all'];
 
 // GET /api/lead/stage-stats?team=<optional>
 // Powers the Lead Stages dashboard card. Returns every stage in pipeline
@@ -24,6 +27,7 @@ const stageStats = async (req, res) => {
   let finalMatch = match;
   let notEnteredExpr = null; // true for a lead the scoped users called but never responded on
   let scopeIds = null; // the board's users (Lead Quality counts only their calls)
+  let pools = null; // company-wide view: { board, used, all } lead counts for the board's tabs
   if (responsesView) {
     // Own leads = ones they responded on + ones they called. A called lead
     // with no response of theirs goes to NOT_ENTERED, not its current stage.
@@ -55,9 +59,21 @@ const stageStats = async (req, res) => {
       if (Object.keys(scopeFilter).length) finalMatch = { $and: [match, scopeFilter] };
     }
     // Used leads no user has are counted in Used Leads → "Not with any user",
-    // not here, until they're sent back to a stage (usedLeads.parkedPhones).
+    // not on the board, until they're sent back to a stage (usedLeads.parkedPhones).
+    // ?pool= picks which set the board shows: board (default) | used | all.
+    // "used" = every used lead in the CRM, the same rows the Used Leads page counts
+    // (incl. the ones a user has, which also stay on the board).
     const parked = await parkedPhones();
-    if (parked.length) match.phoneNormalized = { $nin: parked };
+    const usedPhones = await usedLeadPhones();
+    if (q.part !== 'quality') {
+      const all = await Lead.countDocuments(finalMatch);
+      const out = parked.length ? await Lead.countDocuments({ $and: [finalMatch, { phoneNormalized: { $in: parked } }] }) : 0;
+      const used = usedPhones.length ? await Lead.countDocuments({ $and: [finalMatch, { phoneNormalized: { $in: usedPhones } }] }) : 0;
+      pools = { board: all - out, used, all };
+    }
+    const pool = POOLS.includes(q.pool) ? q.pool : 'board';
+    if (pool === 'used') match.phoneNormalized = { $in: usedPhones };
+    else if (pool === 'board' && parked.length) match.phoneNormalized = { $nin: parked };
   }
 
   const rows = await Lead.aggregate([
@@ -137,7 +153,10 @@ const stageStats = async (req, res) => {
   return res.status(200).json({
     success: true,
     // ?part=quality → only the Lead Quality card (slower: scans calls), asked for separately
-    result: q.part === 'quality' ? { quality: await leadQuality(finalMatch, scopeIds, countByStage, total) } : { stages, total },
+    result:
+      q.part === 'quality'
+        ? { quality: await leadQuality(finalMatch, scopeIds, countByStage, total) }
+        : { stages, total, ...(pools ? { pools, pool: POOLS.includes(q.pool) ? q.pool : 'board' } : {}) },
     message: 'Successfully computed lead stage stats',
   });
 };
@@ -157,7 +176,10 @@ async function leadQuality(finalMatch, agentIds, countByStage, total) {
 
   const Lead = mongoose.model('Lead');
   const tails = new Set((await Lead.distinct('phoneNormalized', finalMatch)).filter(Boolean));
-  const callQ = { removed: { $ne: true }, answeredAt: { $ne: null }, agent: agentIds && agentIds.length ? { $in: agentIds } : { $ne: null } };
+  // spoken = the app-wide rule (callingShared.CALL_REACHED): a line that was answered but marked
+  // Ringing / No pickup / Busy …, or an agent who never picked up, is not a conversation.
+  const { CALL_REACHED } = require('../../../../services/calling/callingShared');
+  const callQ = { removed: { $ne: true }, answeredAt: { $ne: null }, agent: agentIds && agentIds.length ? { $in: agentIds } : { $ne: null }, ...CALL_REACHED };
   const calls = await mongoose.model('CallRecord').find(callQ).select('phone duration').lean();
   const spoken = new Set();
   let talkSec = 0;

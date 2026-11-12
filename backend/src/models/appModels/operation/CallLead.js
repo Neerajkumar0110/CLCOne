@@ -38,7 +38,7 @@ const schema = new mongoose.Schema({
 
   attempts: { type: Number, default: 0 },
   lastAttemptAt: Date,
-  // Lead Pool: Fresh Leads are queued with a higher priority and always
+  // Lead Pool: New Leads (the pinned stage) are queued with a higher priority and always
   // dialled first; one that didn't reach the customer waits until
   // nextAttemptAt and is dialled again (jobs/leadPoolSyncTick.js FRESH_*).
   priority: { type: Number, default: 0 },

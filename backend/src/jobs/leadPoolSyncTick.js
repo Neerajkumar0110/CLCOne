@@ -11,10 +11,10 @@ const { notifyUser } = require('../notify');
 // stage forward instead of spawning a duplicate (see callingShared.js's
 // resolveLead/advanceCrmLead).
 //
-// New Lead keeps its old rule — only UNASSIGNED leads are swept in (once a
-// rep has a fresh lead assigned, it's theirs to work by hand). Any other
-// stage was picked deliberately by management, so every lead in it is
-// dialed, assigned or not.
+// New Lead (the pinned stage, below) only sweeps in UNASSIGNED leads nobody
+// has called yet (once a rep has a lead assigned, it's theirs to work by
+// hand). Any other stage was picked deliberately by management, so every
+// lead in it is dialed, assigned or not.
 //
 // A lead is queued once per stage pick: autoDialerQueuedAt older than
 // leadPoolStageSetAt (or never set) means "not yet queued under the current
@@ -23,18 +23,61 @@ const { notifyUser } = require('../notify');
 const TICK_MS = 30 * 1000;
 const BATCH_LIMIT = 200;
 
-// Fresh Leads is pinned as stage #1 — management can't remove it or move
-// anything above it. Every Fresh lead is queued the moment it is there (even
-// mid-way through another stage) and dialled before any other lead
-// (CallLead.priority); one that doesn't reach the customer goes back to
-// waiting and is dialled again after FRESH_RETRY_MS, up to
-// FRESH_MAX_ATTEMPTS. New Facebook leads land here as soon as they come in.
-const FRESH_STAGE = 'Fresh Leads';
+// New Lead is pinned as stage #1 — management can't remove it or move
+// anything above it. Every new, unassigned, never-called lead in it is queued
+// the moment it is there (even mid-way through another stage) and dialled
+// before any other lead (CallLead.priority); one that doesn't reach the
+// customer goes back to waiting and is dialled again after FRESH_RETRY_MS, up
+// to FRESH_MAX_ATTEMPTS. New Facebook / website / imported leads land here.
+// (Until 2026-11-11 this was Fresh Leads — now a normal pickable stage.)
+// The FRESH_* names are kept: other modules import them.
+const FRESH_STAGE = 'New Lead';
 const FRESH_PRIORITY = 10;
 const FRESH_RETRY_MS = 10 * 60 * 1000;
 const FRESH_MAX_ATTEMPTS = 5;
 
-// The picked stages in order, Fresh Leads always first.
+// Daily re-dial (user request 2026-11-12): when these stages are in the picked
+// order, their USED leads go back in line behind the picked stages on their own
+// every day — each at most once per IST day, least-recently-dialled first across
+// both stages (round robin, so a big stage can't starve the other) — and are
+// counted in those stages' own rows. Never a Do-Not-Call number.
+const REDIAL_STAGES = ['No Response', 'Not Interested Leads'];
+
+// Numbers a call / IVR marked Do-Not-Call. The flag lives on the CallLead
+// (dncAt), so a later queue entry for the same number wouldn't carry it —
+// filter at queue time instead. Cached briefly (the tick runs every 30s).
+let _dnc = { at: 0, list: [] };
+async function dncPhones() {
+  if (Date.now() - _dnc.at < 60 * 1000) return _dnc.list;
+  const list = await mongoose
+    .model('CallLead')
+    .distinct('phoneNormalized', { $or: [{ status: 'DNC' }, { dncAt: { $ne: null } }] });
+  _dnc = { at: Date.now(), list: list.filter(Boolean) };
+  return _dnc.list;
+}
+
+// Start of today, IST.
+function istDayStart(d = new Date()) {
+  const key = new Date(d.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+  return new Date(`${key}T00:00:00+05:30`);
+}
+
+// Used leads of the given re-dial stages not yet dialled today.
+function redialLeadFilter(dnc = [], stages = REDIAL_STAGES) {
+  return {
+    removed: false,
+    stage: { $in: stages },
+    $and: [
+      { 'instantDispatch.status': { $nin: ['pending', 'calling'] } },
+      // used = it has been called before
+      { $or: [{ 'callHistory.0': { $exists: true } }, { autoDialerQueuedAt: { $ne: null } }] },
+      { $or: [{ autoDialerQueuedAt: null }, { autoDialerQueuedAt: { $lt: istDayStart() } }] },
+      ...(dnc.length ? [{ phoneNormalized: { $nin: dnc } }] : []),
+    ],
+  };
+}
+
+// The picked stages in order, New Lead (FRESH_STAGE) always first.
 const stagesOf = (camp) => {
   const list = (camp.leadPoolStages || []).filter((s) => s && s !== FRESH_STAGE);
   const rest = list.length ? list : camp.leadPoolStage && camp.leadPoolStage !== FRESH_STAGE ? [camp.leadPoolStage] : [];
@@ -47,15 +90,16 @@ function stageLeadFilter(camp, stage) {
   // (services/calling/instantLeads.js) is not the pool's to dial.
   const and = [{ 'instantDispatch.status': { $nin: ['pending', 'calling'] } }];
   if (stage === FRESH_STAGE) {
-    // Not tied to the pick: queued once each time it lands in Fresh Leads
+    // Not tied to the pick: queued once each time it lands in New Lead
     // (re-dials of an unreached one are CallLead retries, not re-queues).
+    // Only unassigned leads nobody has called yet: a lead moved back to New Lead
+    // after a call ("Assigned to BDE After Connecting…") must not be re-dialled.
+    and.push({ $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }] });
+    and.push({ 'callHistory.0': { $exists: false } });
     and.push({
       $or: [{ autoDialerQueuedAt: null }, { $expr: { $lt: ['$autoDialerQueuedAt', '$stageUpdatedAt'] } }],
     });
     return { removed: false, stage, $and: and };
-  }
-  if (stage === 'New Lead') {
-    and.push({ $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }] });
   }
   and.push({
     $or: [
@@ -68,12 +112,17 @@ function stageLeadFilter(camp, stage) {
 
 // Queues up to `limit` not-yet-queued leads of one stage.
 // Returns how many leads it picked up (0 = nothing left to queue).
-async function queueStageLeads(camp, stage, limit = BATCH_LIMIT) {
+async function queueStageLeads(camp, stage, limit = BATCH_LIMIT, redialStages = null) {
   const Lead = mongoose.model('Lead');
   const CallLead = mongoose.model('CallLead');
+  const dnc = await dncPhones();
+  const redial = !!redialStages;
 
-  const fresh = await Lead.find(stageLeadFilter(camp, stage))
-    .select('_id name phone email')
+  const filter = redial ? redialLeadFilter(dnc, redialStages) : stageLeadFilter(camp, stage);
+  if (!redial && dnc.length) filter.$and.push({ phoneNormalized: { $nin: dnc } });
+  const fresh = await Lead.find(filter)
+    .sort(redial ? { autoDialerQueuedAt: 1, _id: 1 } : {})
+    .select('_id name phone email stage')
     .limit(limit)
     .lean();
   if (!fresh.length) return 0;
@@ -87,7 +136,7 @@ async function queueStageLeads(camp, stage, limit = BATCH_LIMIT) {
       phone: l.phone,
       phoneNormalized: last10(l.phone),
       email: l.email || undefined,
-      source: stage === 'New Lead' ? 'CRM Lead Pool' : `CRM Lead Pool (${stage})`,
+      source: (redial ? l.stage : stage) === 'New Lead' ? 'CRM Lead Pool' : `CRM Lead Pool (${redial ? l.stage : stage})`,
       status: 'New',
       priority: stage === FRESH_STAGE ? FRESH_PRIORITY : 0,
     }));
@@ -108,7 +157,7 @@ async function queueStageLeads(camp, stage, limit = BATCH_LIMIT) {
 // picked stage — no double dials.
 async function advanceAndQueue(camp, limit = BATCH_LIMIT) {
   const CallLead = mongoose.model('CallLead');
-  // Fresh Leads jump the queue whatever stage is running.
+  // New Leads jump the queue whatever stage is running.
   const fresh = await queueStageLeads(camp, FRESH_STAGE, limit);
   if (fresh) return { stage: FRESH_STAGE, queued: fresh };
   const active = camp.leadPoolStage || 'New Lead';
@@ -128,6 +177,13 @@ async function advanceAndQueue(camp, limit = BATCH_LIMIT) {
       return { stage, queued };
     }
   }
+  // Every picked stage is done → their used No Response / Not Interested leads come
+  // round again (daily, oldest call first) — only stages that are in the order.
+  const redialStages = REDIAL_STAGES.filter((s) => stagesOf(camp).includes(s));
+  if (redialStages.length) {
+    const redialed = await queueStageLeads(camp, null, limit, redialStages);
+    if (redialed) return { stage: active, queued: redialed };
+  }
   return { stage: active, queued: 0 };
 }
 
@@ -143,7 +199,7 @@ async function stageQueueSummary(camp) {
   const freshWaiting = await CallLead.countDocuments({ ...waiting, priority: FRESH_PRIORITY });
   const pending = (await CallLead.countDocuments(waiting)) - freshWaiting;
   const freshLeft = freshWaiting + (await Lead.countDocuments(stageLeadFilter(camp, FRESH_STAGE)));
-  // Fresh Leads show as dialing whenever any are left — they go first.
+  // New Leads show as dialing whenever any are left — they go first.
   const active = freshLeft ? FRESH_STAGE : camp.leadPoolStage || 'New Lead';
   const value = [];
   for (const stage of stagesOf(camp)) {
@@ -236,6 +292,9 @@ module.exports.stagesOf = stagesOf;
 module.exports.stageLeadFilter = stageLeadFilter;
 module.exports.advanceAndQueue = advanceAndQueue;
 module.exports.FRESH_STAGE = FRESH_STAGE;
+module.exports.REDIAL_STAGES = REDIAL_STAGES;
+module.exports.redialLeadFilter = redialLeadFilter;
+module.exports.dncPhones = dncPhones;
 module.exports.FRESH_PRIORITY = FRESH_PRIORITY;
 module.exports.FRESH_RETRY_MS = FRESH_RETRY_MS;
 module.exports.FRESH_MAX_ATTEMPTS = FRESH_MAX_ATTEMPTS;

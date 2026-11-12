@@ -77,9 +77,15 @@ function dueFilter(now, ahead = 0) {
 // auto-dialer starts no new line while one waits).
 async function callbackHolds(now = new Date()) {
   const rows = await mongoose.model('CallCallback').find(dueFilter(now, HOLD_BEFORE_MS)).select('assignedAgent').lean();
+  // An inbound caller on hold comes first too (services/calling/inboundRouting
+  // inboundHolds): the user they're waiting for is held, and a caller waiting
+  // for anyone pauses outbound like an unowned callback does.
+  const inb = await require('../services/calling/inboundRouting').inboundHolds().catch(() => ({ agents: new Set(), anyWaiting: 0 }));
   return {
-    agents: new Set(rows.filter((r) => r.assignedAgent).map((r) => String(r.assignedAgent))),
-    unassigned: rows.filter((r) => !r.assignedAgent).length,
+    agents: new Set([...rows.filter((r) => r.assignedAgent).map((r) => String(r.assignedAgent)), ...inb.agents]),
+    unassigned: rows.filter((r) => !r.assignedAgent).length + inb.anyWaiting,
+    inboundWaiting: inb.anyWaiting,
+    inboundAgents: inb.agents,
   };
 }
 
@@ -98,6 +104,9 @@ async function runCallbackTick() {
   // owns, oldest first.
   const due = await CallCallback.find(dueFilter(now)).sort({ scheduledAt: 1 }).limit(50).lean();
   if (!due.length) return 0;
+  // An inbound caller waiting on hold gets the next free user before any callback.
+  const inb = await require('../services/calling/inboundRouting').inboundHolds().catch(() => ({ agents: new Set(), anyWaiting: 0 }));
+  if (inb.anyWaiting) return 0;
   due.sort((a, b) => (a.assignedAgent ? 0 : 1) - (b.assignedAgent ? 0 : 1));
 
   let placed = 0;
@@ -127,7 +136,7 @@ async function runCallbackTick() {
     // Free right now? CallRecord as well as presence catches a manual or
     // inbound call their presence row doesn't know about.
     const busy = await agentsOnLiveCalls(candidates);
-    candidates = candidates.filter((id) => !busy.has(String(id)));
+    candidates = candidates.filter((id) => !busy.has(String(id)) && !inb.agents.has(String(id)));
     if (!candidates.length) continue;
 
     // Take the user out of the dialer's rotation FIRST, so the auto-dialer

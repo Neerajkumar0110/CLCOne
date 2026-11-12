@@ -38,7 +38,7 @@ function StageLine({ st }) {
 
 // Always #1, can't be removed or moved — the backend adds it on its own
 // (leadPoolSyncTick FRESH_STAGE), so it is never part of `picked`.
-const FRESH = "Fresh Leads";
+const FRESH = "New Lead";
 
 export default function PoolStagesModal({ open, onClose, onSave, options: allOptions = [], current: allCurrent = [], max = 5, saving }) {
   const options = allOptions.filter((s) => s !== FRESH);
@@ -74,7 +74,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
       open={open}
       onClose={onClose}
       title="Dialing stages"
-      subtitle={`Fresh Leads always dial first. Then pick up to ${max} stages in order — each dials when the one above runs out.`}
+      subtitle={`New Leads always dial first. Then pick up to ${max} stages in order — each dials when the one above runs out.`}
       width={560}
       footer={
         <>
@@ -91,10 +91,10 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
       }
     >
       <div className="hub-form-row">
-        <label>Order ({picked.length}/{max} + Fresh Leads)</label>
+        <label>Order ({picked.length}/{max} + New Lead)</label>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div
-            title="Fresh Leads are always dialled first and can't be removed"
+            title="New Leads are always dialled first and can't be removed"
             style={{
               display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
               border: "1px solid #bbf7d0", borderRadius: 10, background: "rgba(34,197,94,.08)",
@@ -108,7 +108,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontWeight: 700, fontSize: 13 }}>🔒 {FRESH}</span>
-              <span style={{ fontSize: 11.5, color: "var(--hub-muted)", marginLeft: 6 }}>always first · new Facebook leads land here</span>
+              <span style={{ fontSize: 11.5, color: "var(--hub-muted)", marginLeft: 6 }}>always first · new leads nobody has called yet (Facebook, website, import)</span>
               <StageLine st={stats[FRESH]} />
             </span>
           </div>
@@ -166,6 +166,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
         Counts under each stage are for this round (since the order was last saved). Saving restarts the queue: leads
         still waiting from the current order are dropped and re-picked from #1.
         New Lead dials only unassigned leads. If new leads land in an earlier stage, the pool goes back to it first.
+        No Response and Not Interested leads come round again on their own every day, behind the stages above (oldest call first, never DNC).
       </div>
     </HubModal>
   );

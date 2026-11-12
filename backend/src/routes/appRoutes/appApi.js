@@ -36,8 +36,6 @@ const routerApp = (entity, controller) => {
     router.route(`/${entity}/team-stats`).get(catchErrors(controller['teamStats']));
     router.route(`/${entity}/stage-stats`).get(catchErrors(controller['stageStats']));
     router.route(`/${entity}/by-stage`).get(catchErrors(controller['byStage']));
-    router.route(`/${entity}/used`).get(catchErrors(controller['usedLeads']));
-    router.route(`/${entity}/used/move`).post(catchErrors(controller['usedMove']));
     router.route(`/${entity}/my-contacts`).get(catchErrors(controller['myContacts']));
     router.route(`/${entity}/assign-owner`).post(catchErrors(controller['assignOwner']));
     router.route(`/${entity}/full-detail`).get(catchErrors(controller['fullDetail']));
@@ -72,6 +70,8 @@ const routerApp = (entity, controller) => {
 
   if (entity === 'notification') {
     router.route(`/${entity}/mine`).get(catchErrors(controller['mine']));
+    // admins' "All users" bell tab (controller existed, route was never mounted → 404 every 30s)
+    router.route(`/${entity}/all`).get(catchErrors(controller['all']));
     router.route(`/${entity}/read-all`).patch(catchErrors(controller['markAllRead']));
     router.route(`/${entity}/:id/read`).patch(catchErrors(controller['markRead']));
   }

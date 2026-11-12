@@ -206,7 +206,8 @@ async function teacherStudents(req, res) {
 
   const filter = { removed: false, batch: { $in: batchNames } };
   const batchFilter = String(req.query.batch || '').trim();
-  if (batchFilter) filter.batch = batchFilter;
+  // only one of THIS teacher's batches — a typed-in name of someone else's batch matches nothing
+  if (batchFilter) filter.batch = batchNames.includes(batchFilter) ? batchFilter : { $in: [] };
   const statusFilter = String(req.query.status || '').trim();
   if (statusFilter) filter.status = statusFilter;
   const q = String(req.query.q || '').trim();

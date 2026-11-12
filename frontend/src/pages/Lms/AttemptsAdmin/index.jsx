@@ -28,6 +28,7 @@ export default function AttemptsAdmin() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState([]);
+  const [batches, setBatches] = useState(BATCHES);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({});
@@ -65,6 +66,7 @@ export default function AttemptsAdmin() {
       const data = (res && res.result) || {};
       setRows(data.results || []);
       setTotal((data.pagination && data.pagination.total) || 0);
+      if (data.batches && data.batches.length) setBatches(data.batches);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -88,12 +90,21 @@ export default function AttemptsAdmin() {
   const applyFilters = () => { setPage(1); setApplied(filters); };
   const resetFilters = () => { setFilters(DEFAULT_FILTERS); setApplied(DEFAULT_FILTERS); setPage(1); };
 
-  const exportCsv = () => {
-    const header = ['Name', 'Email', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Warnings', 'Started At', 'Submitted At'];
+  // exports EVERY attempt matching the applied filters (all pages), not just the visible page
+  const exportCsv = async () => {
+    const all = [];
+    for (let p = 1; p <= 50; p += 1) {
+      const res = await lmsApi.adminAssessmentAttempts({ ...query, page: p, pageSize: 100 });
+      const data = (res && res.result) || {};
+      all.push(...(data.results || []));
+      if (!data.results || data.results.length < 100) break;
+    }
+    const header = ['Name', 'Email', 'Batch', 'Test Type', 'Attempt', 'Status', 'Score', 'Total', 'Qualified', 'Warnings', 'Started At', 'Submitted At'];
     const lines = [header.map(toCsvValue).join(',')];
-    rows.forEach((a) => {
+    all.forEach((a) => {
       lines.push([
-        toCsvValue(a.studentName), toCsvValue(a.studentEmail), toCsvValue(a.testType), toCsvValue(a.status),
+        toCsvValue(a.studentName), toCsvValue(a.studentEmail), toCsvValue(a.studentBatch), toCsvValue(TEST_TYPE_LABELS[a.testType] || a.testType),
+        toCsvValue(a.attemptNumber), toCsvValue(a.status),
         toCsvValue(a.score), toCsvValue(a.totalCount), toCsvValue(a.qualified === null ? '' : a.qualified ? 'Yes' : 'No'),
         toCsvValue(a.warningCount), toCsvValue(new Date(a.startedAt).toLocaleString()),
         toCsvValue(a.submittedAt ? new Date(a.submittedAt).toLocaleString() : ''),
@@ -154,7 +165,7 @@ export default function AttemptsAdmin() {
             options={[{ value: '1', label: '1st Attempt' }, { value: '2', label: '2nd Attempt' }, { value: '3', label: '3rd Attempt' }]} />
           <Select placeholder="All Batches" style={{ width: 190 }} allowClear value={filters.batch || undefined}
             onChange={(v) => setFilters((f) => ({ ...f, batch: v || '' }))}
-            options={BATCHES.map((b) => ({ value: b, label: b }))} />
+            options={batches.map((b) => ({ value: b, label: b }))} />
           <InputNumber placeholder="Min score" value={filters.minScore} onChange={(v) => setFilters((f) => ({ ...f, minScore: v }))} />
           <InputNumber placeholder="Max score" value={filters.maxScore} onChange={(v) => setFilters((f) => ({ ...f, maxScore: v }))} />
           <Input placeholder="Search name or email" style={{ width: 200 }} value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} />

@@ -461,10 +461,20 @@ const plivoAnswer = async (req, res) => {
     // safety net: nobody being rung (a lost hangup callback) → ring the next
     if (!rec.inbound?.ringing?.kind) inbound.ringNext(rec._id).catch(() => {});
     const nextUrl = `${cfg.plivo.publicBaseUrl}/api/cloud-call/plivo-answer?crmCallId=${crmCallId}&leg=inbound-hold&n=${n + 1}${secretQs}`;
-    const line = n % 3 === 0 ? 'Thank you for waiting. Our team will be with you in a moment.' : 'Please stay on the line.';
+    // Nobody free → say why they're waiting (again every ~35s), else a short line.
+    const w = rec.inbound && rec.inbound.waiting;
+    let line = n % 3 === 0 ? 'Thank you for waiting. Our team will be with you in a moment.' : 'Please stay on the line.';
+    if (w && w.kind && (!w.lastSaidAt || Date.now() - new Date(w.lastSaidAt).getTime() > 35 * 1000)) {
+      const first = String(w.name || '').trim().split(/\s+/)[0];
+      line =
+        w.kind === 'previous'
+          ? `${first ? `${first}, who you spoke with earlier,` : 'The person you spoke with earlier'} is on another call right now. Please stay on the line, we will connect you as soon as they are free.`
+          : 'All our team members are busy on other calls right now. Please stay on the line, we will connect you to the next available team member.';
+      await mongoose.model('CallRecord').updateOne({ _id: rec._id }, { $set: { 'inbound.waiting.lastSaidAt': new Date() } });
+    }
     return respondXml(
       res,
-      `<Response><Wait length="6"/><Speak voice="WOMAN" language="en-IN">${line}</Speak><Redirect method="POST">${escapeXml(nextUrl)}</Redirect></Response>`
+      `<Response><Wait length="6"/><Speak voice="WOMAN" language="en-IN">${escapeXml(line)}</Speak><Redirect method="POST">${escapeXml(nextUrl)}</Redirect></Response>`
     );
   }
 

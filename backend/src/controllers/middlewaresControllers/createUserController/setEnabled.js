@@ -41,6 +41,14 @@ const setEnabled = async (userModel, req, res) => {
       .model(`${userModel}Password`)
       .updateOne({ user: target._id }, { $set: { loggedSessions: [], deviceSessions: [] }, $unset: { otpCode: 1, otpExpires: 1 } })
       .catch(() => {});
+    // …and take them out of the dialer: a deactivated user left "Available" in the
+    // Instant Lead Pool kept being counted as an agent (Calls page "Agents In Pool").
+    if (userModel === 'Admin') {
+      await mongoose
+        .model('AgentCallState')
+        .updateMany({ agent: target._id, status: { $ne: 'Offline' } }, { $set: { status: 'Offline', currentCall: null, since: new Date() } })
+        .catch(() => {});
+    }
   }
 
   return res.status(200).json({

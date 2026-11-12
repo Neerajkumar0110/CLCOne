@@ -11,45 +11,75 @@ const assessmentSettings = require('../../../../../services/lms/assessmentSettin
 // configurable) instead of a hardcoded constant independently duplicated
 // here and in testController.js.
 
+// Every filter (incl. Qualified and Attempt no., which are computed, not
+// stored) runs inside ONE aggregation BEFORE skip/limit, so the page and the
+// total always describe the same filtered set. (They used to be applied in JS
+// after paging — "NLP Major + Qualified" showed an empty page whenever the
+// newest NLP attempts on page 1 weren't qualified, and the total was wrong.)
+function attemptFilters(q) {
+  const where = {};
+  if (q.testType) where.testType = q.testType;
+  if (q.status) where.status = q.status;
+  if (q.startDate || q.endDate) {
+    where.startedAt = {};
+    if (q.startDate) where.startedAt.$gte = new Date(q.startDate);
+    if (q.endDate) where.startedAt.$lte = new Date(q.endDate);
+  }
+  const has = (v) => v !== undefined && v !== null && v !== '';
+  if (has(q.minScore) || has(q.maxScore)) {
+    where.score = {};
+    if (has(q.minScore)) where.score.$gte = Number(q.minScore);
+    if (has(q.maxScore)) where.score.$lte = Number(q.maxScore);
+  }
+  if (q.batch) where.candidateBatch = q.batch;
+  if (q.search) {
+    const re = new RegExp(String(q.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    where.$or = [{ candidateName: re }, { candidateEmail: re }];
+  }
+  const computed = {};
+  if (q.qualified === 'true' || q.qualified === 'false') computed.qual = q.qualified === 'true';
+  if (has(q.attemptNumber)) computed.attemptNo = Number(q.attemptNumber);
+  return { where, computed };
+}
+
+// Stages that add `qual` (stored flag, else score/total vs the threshold) and
+// `attemptNo` (1st/2nd/3rd attempt of that test by that candidate, counted
+// over ALL their attempts, before any filter).
+function computedStages(qualifyThreshold) {
+  return [
+    {
+      $setWindowFields: {
+        partitionBy: { e: '$candidateEmail', t: '$testType' },
+        sortBy: { startedAt: 1 },
+        output: { attemptNo: { $documentNumber: {} } },
+      },
+    },
+    {
+      $addFields: {
+        attemptNo: { $cond: [{ $ifNull: ['$candidateEmail', false] }, '$attemptNo', null] },
+        qual: {
+          $cond: [
+            { $ne: [{ $ifNull: ['$qualified', null] }, null] },
+            '$qualified',
+            {
+              $cond: [
+                { $and: [{ $eq: ['$status', 'SUBMITTED'] }, { $gt: ['$totalCount', 0] }] },
+                { $gte: [{ $divide: ['$score', '$totalCount'] }, qualifyThreshold] },
+                null,
+              ],
+            },
+          ],
+        },
+      },
+    },
+  ];
+}
+
 async function getAttempts(req, res) {
   try {
-    const {
-      testType,
-      status,
-      qualified,
-      attemptNumber,
-      minScore,
-      maxScore,
-      search,
-      batch,
-      startDate,
-      endDate,
-      sortBy = 'startedAt',
-      sortOrder = 'desc',
-      page = '1',
-      pageSize = '25',
-    } = req.query;
-
+    const { sortBy = 'startedAt', sortOrder = 'desc', page = '1', pageSize = '25' } = req.query;
     const AssessmentAttempt = mongoose.model('AssessmentAttempt');
-
-    const where = {};
-    if (testType) where.testType = testType;
-    if (status) where.status = status;
-    if (startDate || endDate) {
-      where.startedAt = {};
-      if (startDate) where.startedAt.$gte = new Date(startDate);
-      if (endDate) where.startedAt.$lte = new Date(endDate);
-    }
-    if (minScore !== undefined || maxScore !== undefined) {
-      where.score = {};
-      if (minScore !== undefined) where.score.$gte = Number(minScore);
-      if (maxScore !== undefined) where.score.$lte = Number(maxScore);
-    }
-    if (batch) where.candidateBatch = batch;
-    if (search) {
-      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      where.$or = [{ candidateName: re }, { candidateEmail: re }];
-    }
+    const { where, computed } = attemptFilters(req.query);
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 25));
@@ -58,67 +88,41 @@ async function getAttempts(req, res) {
     const orderField = validSortFields.includes(sortBy) ? sortBy : 'startedAt';
     const orderDir = sortOrder === 'asc' ? 1 : -1;
 
-    const [attempts, total] = await Promise.all([
-      AssessmentAttempt.find(where)
-        .sort({ [orderField]: orderDir, _id: 1 })
-        .skip((pageNum - 1) * pageSizeNum)
-        .limit(pageSizeNum)
-        .lean(),
-      AssessmentAttempt.countDocuments(where),
-    ]);
-
-    // Attempt number isn't a stored field: rank each candidate's attempts of
-    // the same test type chronologically (1st, 2nd, 3rd...) across ALL their
-    // attempts of that type, not just the current filtered/paginated page.
-    const candidateEmails = [...new Set(attempts.map((a) => a.candidateEmail).filter(Boolean))];
-    const allAttemptsForNumbering = await AssessmentAttempt.find({ candidateEmail: { $in: candidateEmails } })
-      .select('candidateEmail testType startedAt')
-      .sort({ startedAt: 1 })
-      .lean();
-    const groupCounters = {};
-    const attemptNumberMap = new Map();
-    for (const a of allAttemptsForNumbering) {
-      const key = `${a.candidateEmail}:${a.testType}`;
-      groupCounters[key] = (groupCounters[key] || 0) + 1;
-      attemptNumberMap.set(String(a._id), groupCounters[key]);
-    }
-
     const { qualifyThreshold } = await assessmentSettings.get();
-    let results = attempts.map((a) => {
-      const qual =
-        a.qualified !== undefined && a.qualified !== null
-          ? a.qualified
-          : a.status === 'SUBMITTED' && a.totalCount
-          ? a.score / a.totalCount >= qualifyThreshold
-          : null;
-      return {
-        attemptId: a._id,
-        studentName: a.candidateName,
-        studentEmail: a.candidateEmail,
-        studentBatch: a.candidateBatch,
-        testType: a.testType,
-        status: a.status,
-        score: a.score,
-        totalCount: a.totalCount,
-        warningCount: a.warningCount,
-        startedAt: a.startedAt,
-        submittedAt: a.submittedAt,
-        qualified: qual,
-        attemptNumber: attemptNumberMap.get(String(a._id)) || null,
-      };
-    });
+    const [out] = await AssessmentAttempt.aggregate([
+      ...computedStages(qualifyThreshold),
+      { $match: { ...where, ...computed } },
+      {
+        $facet: {
+          rows: [{ $sort: { [orderField]: orderDir, _id: 1 } }, { $skip: (pageNum - 1) * pageSizeNum }, { $limit: pageSizeNum }],
+          total: [{ $count: 'n' }],
+        },
+      },
+    ]);
+    const total = (out && out.total[0] && out.total[0].n) || 0;
 
-    if (qualified !== undefined) {
-      const wantQualified = qualified === 'true';
-      results = results.filter((r) => r.qualified === wantQualified);
-    }
-    if (attemptNumber !== undefined) {
-      results = results.filter((r) => r.attemptNumber === Number(attemptNumber));
-    }
+    const results = ((out && out.rows) || []).map((a) => ({
+      attemptId: a._id,
+      studentName: a.candidateName,
+      studentEmail: a.candidateEmail,
+      studentBatch: a.candidateBatch,
+      testType: a.testType,
+      status: a.status,
+      score: a.score,
+      totalCount: a.totalCount,
+      warningCount: a.warningCount,
+      startedAt: a.startedAt,
+      submittedAt: a.submittedAt,
+      qualified: a.qual === undefined ? null : a.qual,
+      attemptNumber: a.attemptNo || null,
+    }));
+
+    // the batch dropdown lists the batches that really have attempts
+    const batches = (await AssessmentAttempt.distinct('candidateBatch')).filter(Boolean).sort();
 
     return res.status(200).json({
       success: true,
-      result: { results, pagination: { page: pageNum, pageSize: pageSizeNum, total } },
+      result: { results, batches, pagination: { page: pageNum, pageSize: pageSizeNum, total } },
     });
   } catch (err) {
     console.error('Admin get assessment attempts error:', err);
@@ -132,16 +136,17 @@ async function getAttempts(req, res) {
 // side); this exports every matching row server-side, same shape as the
 // attendance/learner-360/policy-ack exports.
 async function getAttemptsExport(req, res) {
-  const { testType, status, batch, qualified } = req.query;
   const AssessmentAttempt = mongoose.model('AssessmentAttempt');
-  const where = {};
-  if (testType) where.testType = testType;
-  if (status) where.status = status;
-  if (batch) where.candidateBatch = batch;
-
+  // same filters as the list (all of them, applied before the row cap)
+  const { where, computed } = attemptFilters(req.query);
   const { qualifyThreshold } = await assessmentSettings.get();
-  const rows = await AssessmentAttempt.find(where).sort({ startedAt: -1 }).limit(5000).lean();
-  let outRows = rows.map((a) => ({
+  const rows = await AssessmentAttempt.aggregate([
+    ...computedStages(qualifyThreshold),
+    { $match: { ...where, ...computed } },
+    { $sort: { startedAt: -1, _id: 1 } },
+    { $limit: 5000 },
+  ]);
+  const outRows = rows.map((a) => ({
     student: a.candidateName,
     email: a.candidateEmail,
     batch: a.candidateBatch,
@@ -149,19 +154,10 @@ async function getAttemptsExport(req, res) {
     status: a.status,
     score: a.score,
     totalCount: a.totalCount,
-    qualified:
-      a.qualified !== undefined && a.qualified !== null
-        ? a.qualified
-        : a.status === 'SUBMITTED' && a.totalCount
-        ? a.score / a.totalCount >= qualifyThreshold
-        : null,
+    qualified: a.qual === undefined ? null : a.qual,
     startedAt: a.startedAt,
     submittedAt: a.submittedAt,
   }));
-  if (qualified !== undefined) {
-    const want = qualified === 'true';
-    outRows = outRows.filter((r) => r.qualified === want);
-  }
 
   const format = String(req.query.format || 'csv').toLowerCase();
   const headers = ['Candidate', 'Email', 'Batch', 'Test Type', 'Status', 'Score', 'Total', 'Qualified', 'Started', 'Submitted'];

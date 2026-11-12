@@ -10,8 +10,13 @@ const { fixMojibake } = require('../../utils/fixMojibake');
 //   2. Otherwise a free Instant Lead Pool user (longest idle first) — at most
 //      two of them, one after the other.
 //   3. Otherwise a Team Leader (the sticky user's own, else any online one).
-//   4. Nobody picked up → "we'll call you back", and a callback lands with
-//      the sticky user (or the leader) so the auto-dialer returns the call.
+//   4. Nobody free right now → the caller is asked to wait and stays on hold:
+//      if the user they spoke to before is just busy on another call, we wait
+//      for THAT user and ring them the moment they're free; otherwise the
+//      first user who frees up gets the call. While a caller waits, outbound
+//      dialing yields (inboundHolds → callbackHolds). (user request 2026-11-12)
+//   5. Still nobody after MAX_WAIT_SEC → "we'll call you back", and a callback
+//      lands with the sticky user (or the first one rung).
 //
 // One phone rings at a time. The customer hears a short welcome and a hold
 // loop (plivoAnswer leg=inbound-hold) while we ring; the instant someone
@@ -22,7 +27,12 @@ const { fixMojibake } = require('../../utils/fixMojibake');
 const RING_SEC = Number(process.env.INBOUND_RING_TIMEOUT_SEC || 20);
 const MAX_FREE = 2;
 const MAX_LEADERS = 2;
-const MAX_HOLD_LOOPS = 14; // ~9s each → about two minutes on hold, then callback
+// How long a caller can wait for someone to free up before the callback
+// message (default 10 min). One hold loop ≈ 9s.
+const MAX_WAIT_SEC = Number(process.env.INBOUND_MAX_WAIT_SEC || 600);
+const MAX_HOLD_LOOPS = Math.max(14, Math.ceil(MAX_WAIT_SEC / 9));
+// "Just busy on a call" — worth waiting for (not on a break / logged out).
+const ON_A_CALL = ['Ringing', 'OnCall', 'Wrapup'];
 const LEADER_ROLES = ['Team Leader', 'Team Manager', 'Sales Manager'];
 const BUSY = ['Ringing', 'OnCall', 'Paused'];
 const BROWSER_READY_MS = 75 * 1000;
@@ -138,8 +148,15 @@ async function pickNext(rec) {
     if (u) return { ...u, kind };
   }
 
-  // 2. a free pool user, longest idle first
-  if (kinds('free') < MAX_FREE) {
+  // 1b. the user they spoke to before is just on another call → wait for them
+  //     (ringNext keeps the caller on hold and re-checks every hold loop)
+  if (rec.inbound.stickyAgent && !tried.has(String(rec.inbound.stickyAgent)) && (await onACall(rec.inbound.stickyAgent))) {
+    return { wait: 'previous' };
+  }
+
+  // 2. a free pool user, longest idle first (no cap while the caller is
+  //    waiting — anyone who frees up and hasn't been rung yet gets it)
+  if (kinds('free') < MAX_FREE || (rec.inbound.waiting && rec.inbound.waiting.kind)) {
     const states = await State()
       .find({ status: 'Available', campaign: { $ne: null }, agent: { $nin: [...tried].map((x) => new mongoose.Types.ObjectId(x)) } })
       .sort({ since: 1 })
@@ -167,6 +184,39 @@ async function pickNext(rec) {
     }
   }
   return null;
+}
+
+// The user they spoke to before is on another call right now (will be free
+// soon) — as opposed to on a break, offline or deactivated.
+async function onACall(adminId) {
+  const a = await Admin().findById(adminId).select('removed enabled').lean();
+  if (!a || a.removed || a.enabled === false) return false;
+  const st = await State().findOne({ agent: adminId }).select('status').lean();
+  if (st && ON_A_CALL.includes(st.status)) return true;
+  return (await agentsOnLiveCalls([adminId])).size > 0;
+}
+
+// Callers on hold waiting for someone to free up (see ringNext). Used by the
+// dialer / callback / pool code (via jobs/callingCallbackTick.callbackHolds) so
+// a freed user goes to the waiting caller first:
+//   agents     — users a caller is waiting for by name (their previous user)
+//   anyWaiting — callers waiting for whoever frees up first (outbound pauses)
+async function inboundHolds() {
+  const rows = await Rec()
+    .find({
+      removed: false,
+      direction: 'Inbound',
+      status: { $in: ['dialing', 'ringing'] },
+      agentLegAnswered: { $ne: true },
+      'inbound.waiting.kind': { $in: ['previous', 'any'] },
+      phaseAt: { $gte: new Date(Date.now() - 60 * 1000) }, // still on the hold loop
+    })
+    .select('inbound.waiting inbound.stickyAgent')
+    .lean();
+  return {
+    agents: new Set(rows.filter((r) => r.inbound.waiting.kind === 'previous' && r.inbound.stickyAgent).map((r) => String(r.inbound.stickyAgent))),
+    anyWaiting: rows.filter((r) => r.inbound.waiting.kind === 'any').length,
+  };
 }
 
 // ── telephony ────────────────────────────────────────────────────────────
@@ -301,6 +351,7 @@ async function ringNext(recId) {
   for (let guard = 0; guard < 6; guard += 1) {
     const next = await pickNext(lock);
     if (!next) break;
+    if (next.wait) return holdForSomeone(lock, 'previous');
     const name = fullName(next.admin);
     const prevStatus = await claim(next.admin._id, name, lock._id);
     if (prevStatus === null) {
@@ -324,6 +375,7 @@ async function ringNext(recId) {
       lock.agentLegRequestId = reqId ? String(reqId) : undefined;
       lock.inbound.attempts.push(attempt);
       lock.inbound.ringing = { agent: next.admin._id, agentName: name, kind: next.kind, prevStatus, at: new Date() };
+      if (lock.inbound.waiting && lock.inbound.waiting.kind) lock.inbound.waiting.kind = null; // someone is ringing now
       lock.phaseAt = new Date();
       await lock.save();
       notifyAgentCallEvent(next.admin._id, 'call:incoming', { ...lock.toObject(), ringingKind: next.kind }).catch(() => {});
@@ -337,12 +389,26 @@ async function ringNext(recId) {
     }
   }
 
-  // Nobody left to ring.
+  // Nobody free right now → keep them on hold; the next free user gets it.
+  return holdForSomeone(lock, 'any');
+}
+
+// Nobody can take the call this second: mark the caller as waiting (the hold
+// loop tells them so and calls ringNext again every ~9s, until MAX_WAIT_SEC
+// → callback). kind: 'previous' = waiting for the user they spoke to before,
+// 'any' = whoever frees up first.
+async function holdForSomeone(lock, kind) {
+  const was = lock.inbound.waiting || {};
   lock.inbound.ringing = { kind: null };
-  lock.inbound.exhausted = true;
+  lock.inbound.waiting = {
+    kind,
+    name: kind === 'previous' ? lock.inbound.stickyAgentName || '' : '',
+    since: was.since || new Date(),
+    lastSaidAt: was.kind === kind ? was.lastSaidAt : null, // a change of reason is announced again
+  };
+  lock.markModified('inbound');
   await lock.save();
-  await giveUp(lock, 'nobody free');
-  await redirectCustomer(lock, answerUrl(`crmCallId=${lock._id}&leg=inbound-sorry`));
+  broadcast(lock);
   return false;
 }
 
@@ -576,6 +642,7 @@ function broadcast(rec) {
 module.exports = {
   RING_SEC,
   MAX_HOLD_LOOPS,
+  inboundHolds,
   start,
   adopt,
   ringNext,

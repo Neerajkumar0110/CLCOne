@@ -1,10 +1,8 @@
 const mongoose = require('mongoose');
-const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
 const { last10, callReachedCustomer } = require('../../../../services/calling/callingShared');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 
-// GET /api/lead/used?caller=<adminId>&outcome=connected|notpicked
-// Every number that's genuinely been DIALLED through this CRM's own calling
+// Used leads: every number that's genuinely been DIALLED through this CRM's own calling
 // system — auto-dialer pool, Dialer screen, Leads page, Callbacks — one row
 // per number, showing its most recent call (by `caller`, when one is
 // picked). Built from CallRecord, the one place every placed call is logged;
@@ -101,84 +99,22 @@ async function buildUsedRows({ caller = '', outcome = '' } = {}) {
 // leaves these out (they live in Used Leads → "Not with any user") so the
 // same lead isn't counted in both. Cached briefly: the board, the list and
 // bulk assign all ask within one page load.
-let _parked = { at: 0, set: null };
-async function parkedPhones() {
-  if (_parked.set && Date.now() - _parked.at < 60 * 1000) return _parked.set;
+let _parked = { at: 0, set: null, used: null };
+async function loadPhoneSets() {
+  if (_parked.set && Date.now() - _parked.at < 60 * 1000) return _parked;
   const rows = await buildUsedRows();
-  const set = rows.filter((r) => r.isLead && !r.owned && !r.released).map((r) => r.key);
-  _parked = { at: Date.now(), set };
-  return set;
+  _parked = {
+    at: Date.now(),
+    set: rows.filter((r) => r.isLead && !r.owned && !r.released).map((r) => r.key),
+    // every used lead that is in the CRM — the Lead Stages "Used Leads" tab (same rows as the Used Leads page)
+    used: rows.filter((r) => r.isLead).map((r) => r.key),
+  };
+  return _parked;
 }
-const clearParked = () => {
-  _parked = { at: 0, set: null };
-};
-
-const usedLeads = async (req, res) => {
-  // Management-only (the Leads page hides the tab for everyone else).
-  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
-    return res.status(403).json({ success: false, result: [], message: 'Used Leads is available to management only.' });
-  }
-  const caller = String(req.query.caller || '').trim();
-  const outcome = ['connected', 'notpicked'].includes(req.query.outcome) ? req.query.outcome : '';
-  const rows = await buildUsedRows({ caller, outcome });
-  return res.status(200).json({ success: true, result: rows, message: 'ok' });
-};
-
-// POST /api/lead/used/move { leadIds: [...], stage, subStatus? }
-// Sends used leads back into the pipeline at a chosen stage — logged in
-// stageHistory like any stage change, and stamped usedReleasedAt so they
-// leave "Not with any user" and show in Lead Stages again.
-const moveToStage = async (req, res) => {
-  if (!FULL_ACCESS_ROLES.includes(req.admin.role)) {
-    return res.status(403).json({ success: false, result: null, message: 'Only management can move used leads.' });
-  }
-  const { isValidStage, isValidSubStatus, defaultSubStatus } = require('../../../../config/leadStages');
-  const b = req.body || {};
-  const ids = (Array.isArray(b.leadIds) ? b.leadIds : []).filter((id) => mongoose.isValidObjectId(id));
-  if (!ids.length) return res.status(400).json({ success: false, result: null, message: 'Select at least one lead.' });
-  if (ids.length > 5000) return res.status(400).json({ success: false, result: null, message: 'At most 5000 leads at once.' });
-  if (!isValidStage(b.stage)) return res.status(400).json({ success: false, result: null, message: 'Pick a valid stage.' });
-  const subStatus = b.subStatus && isValidSubStatus(b.stage, b.subStatus) ? b.subStatus : defaultSubStatus(b.stage);
-
-  const Lead = mongoose.model('Lead');
-  const leads = await Lead.find({ _id: { $in: ids }, removed: false }).select('_id stage subStatus enrolledAt').lean();
-  const now = new Date();
-  const byName = `${req.admin.name} ${req.admin.surname || ''}`.trim();
-  const ops = leads.map((l) => ({
-    updateOne: {
-      filter: { _id: l._id },
-      update: {
-        $set: {
-          stage: b.stage,
-          subStatus,
-          stageUpdatedAt: now,
-          usedReleasedAt: now,
-          ...(b.stage === 'Enrolled' && !l.enrolledAt ? { enrolledAt: now } : {}),
-        },
-        $push: {
-          stageHistory: {
-            fromStage: l.stage,
-            fromSubStatus: l.subStatus,
-            toStage: b.stage,
-            toSubStatus: subStatus,
-            changedBy: req.admin._id,
-            changedByName: byName,
-            remarks: 'Moved from Used Leads',
-            at: now,
-          },
-        },
-      },
-    },
-  }));
-  for (let i = 0; i < ops.length; i += 1000) await Lead.bulkWrite(ops.slice(i, i + 1000), { ordered: false });
-  clearParked();
-  return res.status(200).json({
-    success: true,
-    result: { moved: ops.length },
-    message: `${ops.length} lead${ops.length === 1 ? '' : 's'} moved to ${b.stage}${subStatus ? ` · ${subStatus}` : ''}.`,
-  });
-};
-
-module.exports = usedLeads;
-module.exports.moveToStage = moveToStage;
-module.exports.parkedPhones = parkedPhones;
+async function parkedPhones() {
+  return (await loadPhoneSets()).set;
+}
+async function usedLeadPhones() {
+  return (await loadPhoneSets()).used;
+}
+module.exports = { buildUsedRows, parkedPhones, usedLeadPhones };

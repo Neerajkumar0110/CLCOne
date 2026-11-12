@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nextCallerId } = require('./callerIdRotation');
 const CallingProvider = require('./CallingProvider');
 const {
   last10,
@@ -189,7 +190,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: callerId || this._cfg.callerId || undefined,
+      callerId: callerId || nextCallerId(), // our numbers in turn (callerIdRotation.js)
       notes: 'Plivo outbound call',
     }).save();
 
@@ -250,7 +251,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: callerId || this._cfg.callerId || undefined,
+      callerId: callerId || nextCallerId(), // our numbers in turn (callerIdRotation.js)
     }).save();
 
     const r = await this._placeProviderCall({
@@ -335,7 +336,7 @@ class CloudCallProvider extends CallingProvider {
       return r;
     }
     r.callRecord.team = campaign.team;
-    r.callRecord.callerId = campaign.callerId || this._cfg.callerId;
+    r.callRecord.callerId = campaign.callerId || r.callRecord.callerId || this._cfg.callerId;
     if (campaign.ivrFlow) r.callRecord.ivrFlow = campaign.ivrFlow;
     await r.callRecord.save();
     return r;
@@ -360,7 +361,7 @@ class CloudCallProvider extends CallingProvider {
 
     const maxAttempts = Math.max(1, campaign.maxAttempts || 3);
 
-    // Fresh Leads (priority) before everything else; a Fresh lead waiting to
+    // New Leads (priority) before everything else; a New lead waiting to
     // be re-dialled only once its nextAttemptAt has come.
     const lead = await CallLead.findOneAndUpdate(
       {
@@ -388,7 +389,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: campaign.callerId || this._cfg.callerId || undefined,
+      callerId: campaign.callerId || nextCallerId(), // our numbers in turn
       team: campaign.team,
       notes: 'Instant Lead Pool — agent assigned on answer',
     }).save();

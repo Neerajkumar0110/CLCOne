@@ -62,7 +62,7 @@ export default function IvrFlows() {
 
   const del = async (row) => {
     if (!window.confirm(`Delete IVR flow "${row.name}"?`)) return;
-    const r = await request.delete({ entity: `calling/ivr-flows/${row._id}` });
+    const r = await request.del({ entity: `calling/ivr-flows/${row._id}` });
     if (r?.success) load();
     else window.alert(r?.message || "Delete failed.");
   };

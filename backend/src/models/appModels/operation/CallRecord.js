@@ -163,6 +163,14 @@ const schema = new mongoose.Schema({
     answeredBy: String,
     answeredKind: String,
     holdSince: Date,
+    // nobody free → the caller waits on hold: previous = for the user they
+    // spoke to before (busy on a call), any = whoever frees up first
+    waiting: {
+      kind: String, // previous | any | null
+      name: String,
+      since: Date,
+      lastSaidAt: Date, // when the hold loop last told them why they're waiting
+    },
     exhausted: { type: Boolean, default: false },
     missed: { type: Boolean, default: false },
     callbackCreated: { type: Boolean, default: false },

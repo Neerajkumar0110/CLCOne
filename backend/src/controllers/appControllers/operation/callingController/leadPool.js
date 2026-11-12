@@ -283,7 +283,19 @@ const status = async (req, res) => {
 
   const [leadsWaiting, participants, recentCalls] = await Promise.all([
     CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } }),
-    AgentCallState.countDocuments({ campaign: camp._id, status: 'Available' }),
+    // Same count as Leads › Team Activity "In Lead Pool" (teamActivity.js): enabled Sales
+    // users whose pool presence isn't Offline. A deactivated / non-Sales user's stale
+    // "Available" row used to be counted here (4 here vs 3 there).
+    (async () => {
+      const states = await AgentCallState.find({ campaign: camp._id, status: { $ne: 'Offline' } }).select('agent').lean();
+      if (!states.length) return 0;
+      return mongoose.model('Admin').countDocuments({
+        _id: { $in: states.map((s) => s.agent) },
+        removed: false,
+        enabled: true,
+        role: { $nin: NON_SALES_ROLES },
+      });
+    })(),
     CallRecord.find({ campaign: camp._id, agent: req.admin._id, removed: false, created: { $gte: todayStart } })
       .sort({ created: -1 })
       .limit(50)
@@ -339,7 +351,7 @@ const setStage = async (req, res) => {
   // { stages: [...] } in priority order (1-5), or the older { stage }.
   const body = req.body || {};
   const raw = Array.isArray(body.stages) ? body.stages : [body.stage];
-  // Fresh Leads is always #1 on its own (leadPoolSyncTick.stagesOf) — it is
+  // New Lead is always #1 on its own (leadPoolSyncTick.stagesOf) — it is
   // not stored with the picks and doesn't count toward the limit.
   const { FRESH_STAGE, FRESH_PRIORITY } = require('../../../../jobs/leadPoolSyncTick');
   const stages = [...new Set(raw.map((s) => String(s || '')).filter((s) => s && s !== FRESH_STAGE))];
@@ -887,10 +899,19 @@ const stageStats = async (req, res) => {
   const stages = [];
   for (const stage of STAGE_NAMES) {
     const dialable = { removed: false, stage, 'instantDispatch.status': { $nin: ['pending', 'calling'] } };
-    if (stage === 'New Lead') dialable.$or = [{ assignedUser: null }, { assignedUser: { $exists: false } }];
+    // the pinned New Lead dials only unassigned leads nobody has called yet (leadPoolSyncTick.stageLeadFilter)
+    if (stage === 'New Lead') {
+      dialable.$or = [{ assignedUser: null }, { assignedUser: { $exists: false } }];
+      dialable['callHistory.0'] = { $exists: false };
+    }
     const row = { stage, available: await Lead.countDocuments(dialable), order: picked.indexOf(stage) + 1 || null };
     if (row.order) {
-      const notQueued = await Lead.countDocuments(stageLeadFilter(camp, stage));
+      // A picked No Response / Not Interested row also counts its leads due for today's
+      // daily re-dial (leadPoolSyncTick REDIAL_STAGES) — they go back in line behind it.
+      const tick = require('../../../../jobs/leadPoolSyncTick');
+      const notQueued = tick.REDIAL_STAGES.includes(stage)
+        ? await Lead.countDocuments({ $or: [stageLeadFilter(camp, stage), tick.redialLeadFilter(await tick.dncPhones(), [stage])] })
+        : await Lead.countDocuments(stageLeadFilter(camp, stage));
       const results = await CallLead.aggregate([
         { $match: { campaign: camp._id, removed: false, source: tag(stage), created: { $gte: new Date(roundStart) }, status: { $nin: ['New', 'Queued'] } } },
         { $group: { _id: '$status', n: { $sum: 1 } } },

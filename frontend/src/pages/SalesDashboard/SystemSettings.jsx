@@ -113,7 +113,7 @@ function CostEditor({ cfg, onSaved }) {
     onSaved();
   };
   const del = async (id) => {
-    await request.delete({ entity: `sales-dashboard/cost/${id}` });
+    await request.del({ entity: `sales-dashboard/cost/${id}` });
     onSaved();
   };
   const Sel = ({ v, on, opts }) => (

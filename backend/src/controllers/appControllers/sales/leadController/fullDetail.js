@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { BY_CODE } = require('../../../../services/calling/dispositions');
 const { FULL_ACCESS_ROLES } = require('../../../../services/access/salesScope');
-const { agentNotes, NOT_PLACED_RX, shownCallStatus, CALL_RESULT_FIELDS } = require('../../../../services/calling/callingShared');
+const { agentNotes, NOT_PLACED_RX, shownCallStatus, CALL_RESULT_FIELDS, callReachedCustomer } = require('../../../../services/calling/callingShared');
 
 const tail = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 
@@ -52,7 +52,10 @@ const fullDetail = async (req, res) => {
       direction: c.direction || 'Outbound',
       agentName: c.agentName || c.ownerAgentName || (c.agent ? '' : 'Auto-dialer'),
       status: shownCallStatus(c),
-      answered: !!c.answeredAt,
+      // spoke = the app-wide rule (callingShared.callReachedCustomer): a call the user marked
+      // Ringing / No pickup / Busy …, or an agent who never picked up, is not a conversation
+      // even when the line was answered (answeredAt is set when the agent leg connects).
+      answered: callReachedCustomer(c),
       talkSeconds: c.duration || 0,
       response: c.disposition ? (BY_CODE[c.disposition] ? BY_CODE[c.disposition].label : c.disposition) : null,
       notes: agentNotes(c.notes) || '',
@@ -84,7 +87,7 @@ const fullDetail = async (req, res) => {
       totals: {
         calls: rows.length,
         connected: talked.length,
-        talkSeconds: rows.reduce((t, r) => t + r.talkSeconds, 0),
+        talkSeconds: talked.reduce((t, r) => t + r.talkSeconds, 0), // only calls where they spoke
         firstCallAt: rows.length ? rows[rows.length - 1].at : null,
         lastCallAt: rows.length ? rows[0].at : null,
         people: [...new Set(talked.map((r) => r.agentName).filter(Boolean))],

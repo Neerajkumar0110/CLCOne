@@ -265,7 +265,7 @@ function CostEditor({ cfg, onSaved }) {
   const [f, setF] = useState({ month: new Date().toISOString().slice(0, 7), businessType: "", region: "", systemType: "", source: "", marketingSpend: "", agentCost: "", otherCost: "", revenue: "", avgDealValue: "" });
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const save = async () => { await request.post({ entity: "sales-dashboard/cost", jsonData: f }); onSaved(); };
-  const del = async (id) => { await request.delete({ entity: `sales-dashboard/cost/${id}` }); onSaved(); };
+  const del = async (id) => { await request.del({ entity: `sales-dashboard/cost/${id}` }); onSaved(); };
   const Sel = ({ k, opts }) => (<select className="hub-select" value={f[k]} onChange={set(k)}><option value="">—</option>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>);
   const L = ({ label, children }) => <div className="hub-form-row"><label>{label}</label>{children}</div>;
   return (
