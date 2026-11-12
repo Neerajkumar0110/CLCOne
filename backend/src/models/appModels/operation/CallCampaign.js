@@ -78,6 +78,10 @@ const schema = new mongoose.Schema({
   // [leadPoolStage] (older single-stage picks).
   leadPoolStages: { type: [String], default: undefined },
   leadPoolStageActiveAt: Date,
+  // set when the pool picked its stages on its own (picked stages ran out →
+  // the 2 biggest stages, jobs/leadPoolSyncTick.autoPickBiggest)
+  leadPoolAutoPickedAt: Date,
+  leadPoolAutoPicked: { type: [String], default: undefined },
   // How a pool customer who answers reaches the agent (services/calling/
   // connectModes.js) — switched by Admin / Super Admin on the Calls page:
   //   classic  — ring the agent's mobile for every call (the original flow)

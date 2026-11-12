@@ -183,6 +183,25 @@ async function getCustomerInfo({ customerId, accessToken, loginCustomerId }) {
   };
 }
 
+// GAQL search across every page of results (googleAds:search pages by
+// nextPageToken). Read-only. Rows come back camelCased, e.g. r.campaign.name.
+async function searchAll({ customerId, accessToken, loginCustomerId, query, maxPages = 20 }) {
+  const rows = [];
+  let pageToken;
+  for (let i = 0; i < maxPages; i += 1) {
+    const res = await googleAdsRequest(`/customers/${customerId}/googleAds:search`, {
+      method: 'POST',
+      accessToken,
+      loginCustomerId: loginCustomerId || customerId,
+      body: pageToken ? { query, pageToken } : { query },
+    });
+    rows.push(...(res.results || []));
+    if (!res.nextPageToken) break;
+    pageToken = res.nextPageToken;
+  }
+  return rows;
+}
+
 // ---- Campaign / Ad Group / Ad ----
 
 async function createCampaignBudget({ customerId, accessToken, loginCustomerId, name, amountMicros }) {
@@ -305,6 +324,7 @@ module.exports = {
   getUserInfo,
   listAccessibleCustomers,
   getCustomerInfo,
+  searchAll,
   createCampaignBudget,
   createCampaign,
   createAdGroup,

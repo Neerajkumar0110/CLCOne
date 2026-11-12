@@ -23,6 +23,8 @@ router.route('/connections/:id').delete(catchErrors(controller.removeConnectionB
 
 router.route('/customer-accounts').get(catchErrors(controller.getCustomerAccounts));
 
+// read-only: the campaigns already running in the connected Google Ads account, with their numbers
+router.route('/live-campaigns').get(catchErrors(controller.liveCampaigns));
 router.route('/campaigns').get(catchErrors(controller.listCampaigns));
 router.route('/campaigns').post(catchErrors(controller.createCampaign));
 router.route('/campaigns/:id').get(catchErrors(controller.readCampaign));

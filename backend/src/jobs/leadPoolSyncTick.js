@@ -107,7 +107,65 @@ function stageLeadFilter(camp, stage) {
       ...(camp.leadPoolStageSetAt ? [{ autoDialerQueuedAt: { $lt: camp.leadPoolStageSetAt } }] : []),
     ],
   });
+  // No Response / Not Interested leads go round at most once a day, even when
+  // the order is saved again (or auto-picked) the same day.
+  if (REDIAL_STAGES.includes(stage)) {
+    and.push({ $or: [{ autoDialerQueuedAt: null }, { autoDialerQueuedAt: { $lt: istDayStart() } }] });
+  }
   return { removed: false, stage, $and: and };
+}
+
+// Picked stages ran out (nothing left to queue, nothing waiting) → the pool
+// sets its order on its own (user request 2026-11-12): the 2 stages with the
+// most dialable leads, then the No Response / Not Interested stages it was
+// re-dialling daily. Never New Lead (pinned anyway), Enrolled (students) or
+// Invalid Leads (bad numbers), and never a stage that was already in the
+// order (it just ran out — re-picking it would dial the same leads again).
+// Callback (a user's own promised call) and Demo Booking (demo already booked) aren't the pool's to grab either.
+const AUTO_PICK_SKIP = ['Enrolled', 'Invalid Leads', 'Callback', 'Demo Booking'];
+const AUTO_PICK_COUNT = 2;
+const AUTO_PICK_MIN_GAP_MS = 10 * 60 * 1000;
+async function autoPickBiggest(camp) {
+  if (camp.leadPoolAutoPickedAt && Date.now() - new Date(camp.leadPoolAutoPickedAt).getTime() < AUTO_PICK_MIN_GAP_MS) return null;
+  const { STAGE_NAMES } = require('../config/leadStages');
+  const Lead = mongoose.model('Lead');
+  const dnc = await dncPhones();
+  const current = stagesOf(camp);
+  const sizes = [];
+  for (const stage of STAGE_NAMES) {
+    if (stage === FRESH_STAGE || AUTO_PICK_SKIP.includes(stage) || current.includes(stage)) continue;
+    const n = await Lead.countDocuments({
+      removed: false,
+      stage,
+      'instantDispatch.status': { $nin: ['pending', 'calling'] },
+      ...(dnc.length ? { phoneNormalized: { $nin: dnc } } : {}),
+    });
+    if (n > 0) sizes.push({ stage, n });
+  }
+  if (!sizes.length) return null;
+  sizes.sort((a, b) => b.n - a.n);
+  const top = sizes.slice(0, AUTO_PICK_COUNT).map((x) => x.stage);
+  const keep = current.filter((s) => REDIAL_STAGES.includes(s));
+  const stages = [...top, ...keep].slice(0, 5);
+  const now = new Date();
+  await mongoose.model('CallCampaign').updateOne(
+    { _id: camp._id },
+    {
+      $set: {
+        leadPoolStages: stages,
+        leadPoolStage: stages[0],
+        leadPoolStageSetAt: now,
+        leadPoolStageActiveAt: now,
+        leadPoolStageSetByName: 'Auto (biggest stages)',
+        leadPoolAutoPickedAt: now,
+        leadPoolAutoPicked: top,
+        leadsExhaustedNotifiedAt: null,
+      },
+    }
+  );
+  Object.assign(camp, { leadPoolStages: stages, leadPoolStage: stages[0], leadPoolStageSetAt: now, leadPoolAutoPickedAt: now, leadPoolAutoPicked: top });
+  console.log('[leadPool] picked stages ran out — auto-picked ' + top.join(' + ') + ' (' + sizes.slice(0, AUTO_PICK_COUNT).map((x) => x.n).join(' / ') + ' leads)');
+  return top;
 }
 
 // Queues up to `limit` not-yet-queued leads of one stage.
@@ -183,6 +241,14 @@ async function advanceAndQueue(camp, limit = BATCH_LIMIT) {
   if (redialStages.length) {
     const redialed = await queueStageLeads(camp, null, limit, redialStages);
     if (redialed) return { stage: active, queued: redialed };
+  }
+  // Nothing at all left → set the 2 biggest stages and start on them.
+  const auto = await autoPickBiggest(camp);
+  if (auto) {
+    for (const stage of auto) {
+      const queued = await queueStageLeads(camp, stage, limit);
+      if (queued) return { stage, queued, autoPicked: auto };
+    }
   }
   return { stage: active, queued: 0 };
 }
@@ -293,6 +359,7 @@ module.exports.stageLeadFilter = stageLeadFilter;
 module.exports.advanceAndQueue = advanceAndQueue;
 module.exports.FRESH_STAGE = FRESH_STAGE;
 module.exports.REDIAL_STAGES = REDIAL_STAGES;
+module.exports.autoPickBiggest = autoPickBiggest;
 module.exports.redialLeadFilter = redialLeadFilter;
 module.exports.dncPhones = dncPhones;
 module.exports.FRESH_PRIORITY = FRESH_PRIORITY;

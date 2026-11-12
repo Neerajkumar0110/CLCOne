@@ -924,7 +924,16 @@ const stageStats = async (req, res) => {
     }
     stages.push(row);
   }
-  return res.status(200).json({ success: true, result: { stages, roundStart: camp.leadPoolStageSetAt || null }, message: 'ok' });
+  return res.status(200).json({
+    success: true,
+    result: {
+      stages,
+      roundStart: camp.leadPoolStageSetAt || null,
+      // the pool set the order itself when the picked stages ran out
+      autoPicked: camp.leadPoolAutoPickedAt ? { at: camp.leadPoolAutoPickedAt, stages: camp.leadPoolAutoPicked || [] } : null,
+    },
+    message: 'ok',
+  });
 };
 
 module.exports = {

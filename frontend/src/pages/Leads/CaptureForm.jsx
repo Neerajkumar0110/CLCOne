@@ -20,6 +20,7 @@ import {
 } from "@ant-design/icons";
 import { LeadDetailModal } from "@/pages/Leads";
 import { badgeClassForStatus } from "@/config/leadStages";
+import GoogleLiveCampaigns from "./GoogleLiveCampaigns";
 
 // Every call site does `STATUS_META[lead.status]` to get a hub-badge-* class
 // — mirrors the same back-compat shim Leads/index.jsx defines locally
@@ -948,6 +949,11 @@ function CaptureForm() {
             </>
           )}
         </div>
+      )}
+
+      {/* read-only: the campaigns already running in the connected Google Ads account */}
+      {platform === "Google Ads" && googleConnection?.connected && googleConnection.customer && (
+        <GoogleLiveCampaigns customerId={googleConnection.customer.id} />
       )}
 
       {platform === "LinkedIn Ads" && (

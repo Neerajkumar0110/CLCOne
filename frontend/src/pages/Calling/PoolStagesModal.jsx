@@ -47,12 +47,16 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
   // Per stage: leads the pool can dial, and for the stages in the saved
   // order how this round went (backend leadPool.js stageStats).
   const [stats, setStats] = useState({});
+  const [autoPicked, setAutoPicked] = useState(null); // the pool set the order itself
 
   useEffect(() => {
     if (!open) return;
     setPicked([...current]);
     request.get({ entity: "calling/lead-pool/stage-stats" }).then((r) => {
-      if (r?.success) setStats(Object.fromEntries((r.result?.stages || []).map((x) => [x.stage, x])));
+      if (r?.success) {
+        setStats(Object.fromEntries((r.result?.stages || []).map((x) => [x.stage, x])));
+        setAutoPicked(r.result?.autoPicked || null);
+      }
     });
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -92,6 +96,12 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
     >
       <div className="hub-form-row">
         <label>Order ({picked.length}/{max} + New Lead)</label>
+        {autoPicked && autoPicked.stages.length > 0 && (
+          <div style={{ fontSize: 11.5, color: "#7c3aed", fontWeight: 600, marginBottom: 6 }}>
+            ⚡ Auto-picked {autoPicked.stages.join(" + ")} on{" "}
+            {new Date(autoPicked.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} — the stages before had run out
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div
             title="New Leads are always dialled first and can't be removed"
@@ -167,6 +177,7 @@ export default function PoolStagesModal({ open, onClose, onSave, options: allOpt
         still waiting from the current order are dropped and re-picked from #1.
         New Lead dials only unassigned leads. If new leads land in an earlier stage, the pool goes back to it first.
         No Response and Not Interested leads come round again on their own every day, behind the stages above (oldest call first, never DNC).
+        When every stage has run out, the pool picks the 2 stages with the most leads by itself (never Enrolled, Invalid Leads, Callback or Demo Booking).
       </div>
     </HubModal>
   );
