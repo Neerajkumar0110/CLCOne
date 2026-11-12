@@ -19,8 +19,8 @@ const schema = new mongoose.Schema({
 
   startDate: Date,
   endDate: Date,
-  callingHoursStart: { type: String, default: '09:00' }, // "HH:mm" local
-  callingHoursEnd: { type: String, default: '18:00' },
+  callingHoursStart: { type: String, default: '10:00' }, // "HH:mm" local
+  callingHoursEnd: { type: String, default: '20:00' },
 
   priority: { type: String, enum: ['Low', 'Normal', 'High', 'Urgent'], default: 'Normal' },
   callerId: String, // outbound caller-ID number

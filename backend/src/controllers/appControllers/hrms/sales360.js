@@ -549,7 +549,7 @@ async function attendance(users, dayKeys, from, to) {
         startAt: startAt || null,
         logoutAt: s && s.logoutAt,
         endAt,
-        lateMin: s && s.loginAt && !s.derived ? Math.max(0, minutes(ws, s.loginAt)) : 0,
+        lateMin: s && s.loginAt && !s.derived ? wd.lateMinutes(dk, s.loginAt) : 0,
         loginMin,
         breakMin,
         activeMin,
@@ -838,7 +838,7 @@ async function build(q) {
       if (d.workingDay) t.workingDays += 1;
       t.shortLeave += d.shortLeave || 0;
       if (d.status === 'in-progress') t.inProgress += 1;
-      if (d.lateMin > 15) t.late += 1;
+      if (d.lateMin > 0) t.late += 1;
       // Average start = when the day began: login, the dialer's auto-start, or
       // (no session) the first dialer / call activity.
       if (d.startAt) {
@@ -1488,7 +1488,7 @@ async function attendanceMonth(req, res) {
       }));
   };
 
-  const LATE_MIN = 15;
+  const LATE_MIN = 0; // lateMin already counts from the shift's lateAfter time
   const blank = () => ({ present: 0, halfDay: 0, lateLeave: 0, auto: 0, absent: 0, leave: 0, late: 0, inProgress: 0, shortLeave: 0 });
   const tally = (c, d) => {
     if (d.status === 'present') c.present += 1;
@@ -1598,7 +1598,7 @@ async function exceptions(req, res) {
 // and the ratio = calls made ÷ capacity. Dialer-on time comes from the pool
 // on/off log (attendance() above); calls from CallRecord (agent = who took it).
 const WRAP_SEC = 15;
-const SHIFT_WORK_MIN = 8 * 60; // 10:30–20:00 minus 90 min of breaks
+const SHIFT_WORK_MIN = 8 * 60; // the policy's 8h day
 async function dialerReport(req, res) {
   const q = req.query;
   const { from, to, dayKeys } = parseRange(q);
@@ -1715,7 +1715,7 @@ async function policyDays(req, res) {
       if (!d.policy && !d.correction) continue;
       if (q.attendance && (d.policy && d.policy.preview ? { full: 'present', half: 'half-day', absent: 'absent' }[d.policy.level] : d.status) !== q.attendance) continue;
       if (q.short === '1' && !d.shortLeave) continue;
-      if (q.late === '1' && !(d.lateMin > 15)) continue;
+      if (q.late === '1' && !(d.lateMin > 0)) continue;
       if (q.dayType && d.dayType !== q.dayType) continue;
       rows.push({
         adminId: String(u._id), name, role: u.role, team: u.team, dayKey: d.dayKey, status: d.status, dayType: d.dayType, startAt: d.startAt, logoutAt: d.logoutAt, breakMin: d.breakMin,

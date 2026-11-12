@@ -700,7 +700,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
       .map((d) => ({ d, u: d.people.find((x) => x.adminId === p.adminId) }))
       .filter(({ u }) => u && match(u));
     if (!hits.length) return value;
-    const lateAfter = data.lateAfterMin || 15;
+    const lateAfter = data.lateAfterMin ?? 0;
     return (
       <Tooltip
         placement="top"
@@ -757,7 +757,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
           <b>{dayjs(d.dayKey).format("ddd, D MMM")}</b> · <span style={{ color: st[1] }}>{st[0]}</span>
           {d.holiday && <div>{d.holiday}</div>}
           {u.loginAt && <div>Login {dayjs(u.loginAt).format("h:mm A")}{u.logoutAt ? ` · logout ${dayjs(u.logoutAt).format("h:mm A")}` : ""}</div>}
-          {u.lateMin > (data.lateAfterMin || 15) && <div style={{ color: "#B45309" }}>Late by {hm(u.lateMin)}</div>}
+          {u.lateMin > (data.lateAfterMin ?? 0) && <div style={{ color: "#B45309" }}>Late by {hm(u.lateMin)}</div>}
           {u.note && <div style={{ color: "#5EEAD4" }}>{u.note}</div>}
           {u.activeMin > 0 && <div>Active {hm(u.activeMin)}</div>}
           {leaveTip(d.leaves)}
@@ -773,7 +773,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
           <div key={k} style={{ marginTop: 5 }}>
             <span style={{ color: ATT[k][1], fontWeight: 700 }}>{ATT[k][0]} · {l.length}</span>
             <div className="s3-att-names">
-              {l.map((u) => `${u.name}${u.lateMin > (data.lateAfterMin || 15) ? ` (late ${hm(u.lateMin)})` : ""}`).join(", ")}
+              {l.map((u) => `${u.name}${u.lateMin > (data.lateAfterMin ?? 0) ? ` (late ${hm(u.lateMin)})` : ""}`).join(", ")}
             </div>
           </div>
         ))}
@@ -848,7 +848,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
           if (single && d) {
             const u = d.people[0];
             const st = ATT[u.status] || ["", "#94A3B8"];
-            const late = u.lateMin > (data.lateAfterMin || 15);
+            const late = u.lateMin > (data.lateAfterMin ?? 0);
             return (
               <div key={i} className={`s3-att-cell one${today ? " today" : ""}`} style={{ "--c": st[1] }} onMouseEnter={() => setHover(d)} onMouseLeave={() => setHover(null)}>
                 <span className="s3-att-num">{c.date()}</span>
@@ -915,7 +915,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
                     )}
                   </td>
                   <td style={{ color: p.lateLeave ? ATT["late-leave"][1] : undefined, fontWeight: p.lateLeave ? 700 : 400 }}>{datesTip(p, (u) => u.status === "late-leave", "Leave (late login)", p.lateLeave || 0, ATT["late-leave"][1])}</td>
-                  <td>{p.late ? <span className="s3-warn">{datesTip(p, (u) => u.lateMin > (data.lateAfterMin || 15), "Late", p.late, "#B45309")}</span> : 0}</td>
+                  <td>{p.late ? <span className="s3-warn">{datesTip(p, (u) => u.lateMin > (data.lateAfterMin ?? 0), "Late", p.late, "#B45309")}</span> : 0}</td>
                   <td>
                     <div className="s3-att-pct"><i style={{ width: `${pctOf(p)}%` }} /></div>
                     <span className="s3-muted">{pctOf(p)}% of {p.workingDays} days</span>
@@ -926,7 +926,7 @@ function AttendanceCalendar({ adminId, team, role, monthHint }) {
           </table>
         </div>
       )}
-      <p className="s3-note">From the policy's start date: Present = full day and Half day come from the daily check below (dialer hours, prospects, demos, attempts, talk), and In progress = the shift isn't over yet. Earlier days keep the old rule: login after 11:00 = half day, after 2:00 PM = full-day leave. Late = login more than {data?.lateAfterMin || 15} min after the shift start. Hover a day for names and times.</p>
+      <p className="s3-note">From the policy's start date: Present = full day and Half day come from the daily check below (dialer hours, prospects, demos, attempts, talk), and In progress = the shift isn't over yet. Earlier days keep the old rule: login after 11:00 = half day, after 2:00 PM = full-day leave. Late = login after 10:35 (shift starts 10:00; before the policy, after 10:15). Hover a day for names and times.</p>
     </Panel>
   );
 }
@@ -1214,13 +1214,13 @@ function DayModal({ target, onClose }) {
           <h2>{user.name}</h2>
           <p>{dayjs(day.dayKey).format("dddd, D MMMM YYYY")} · minute by minute</p>
         </div>
-        <span className="s3-day-status" style={{ "--c": st[1] }}>{st[0]}{day.lateMin > 15 ? ` · late ${hm(day.lateMin)}` : ""}{day.derived ? " · from dialer" : ""}</span>
+        <span className="s3-day-status" style={{ "--c": st[1] }}>{st[0]}{day.lateMin > 0 ? ` · late ${hm(day.lateMin)}` : ""}{day.derived ? " · from dialer" : ""}</span>
         <button type="button" className="s3-day-close" onClick={onClose} aria-label="Close"><CloseOutlined /></button>
       </div>
       <div className="s3-day-body">
         <div className="s3-day-stats">
           {[
-            ["Login", day.loginAt ? clock(day.loginAt) : day.autoStartedAt ? `auto ${clock(day.autoStartedAt)}` : "—", day.lateMin > 15 ? `late ${hm(day.lateMin)}` : day.loginAt ? "on time" : ""],
+            ["Login", day.loginAt ? clock(day.loginAt) : day.autoStartedAt ? `auto ${clock(day.autoStartedAt)}` : "—", day.lateMin > 0 ? `late ${hm(day.lateMin)}` : day.loginAt ? "on time" : ""],
             ["Logout", day.logoutAt ? clock(day.logoutAt) : day.loginAt || day.autoStartedAt ? "no logout" : "—", !day.logoutAt && day.endAt ? `counted to ${clock(day.endAt)}` : ""],
             ["Active", hm(day.activeMin), `break ${hm(day.breakMin)}`],
             ["Dialer on", data ? hm(dialerMin) : "…", data ? (dialer.length ? `${dialer.length}× · from ${clock(dialer[0].startAt)}` : "never switched on") : ""],
@@ -1357,7 +1357,7 @@ function TodayGlance({ user, onOpen, tick }) {
   const start = s?.loginAt || s?.autoStartedAt;
   const endAt = s?.logoutAt || (start ? now : null);
   const activeMin = start ? Math.max(0, Math.round((new Date(endAt) - new Date(start)) / 60000) - breakMin) : 0;
-  const lateMin = s?.loginAt ? Math.max(0, Math.round((new Date(s.loginAt) - new Date(`${today}T10:00:00+05:30`)) / 60000)) : 0;
+  const lateMin = s?.loginAt ? Math.max(0, Math.round((new Date(s.loginAt) - new Date(`${today}T10:35:00+05:30`)) / 60000)) : 0;
   const day = { dayKey: today, loginAt: s?.loginAt, autoStartedAt: s?.autoStartedAt, logoutAt: s?.logoutAt, endAt, breaks, breakMin, activeMin, lateMin, status: s?.loginAt ? "present" : s?.autoStartedAt ? "auto" : "absent" };
   const calls = data?.calls || [];
   const conn = calls.filter(isConnected);
@@ -2128,7 +2128,7 @@ export default function Sales360({ initialUser }) {
               {oneDay ? (
                 <>
                   <span>{oneDay.loginAt ? `Login ${clock(oneDay.loginAt)}${oneDay.derived ? " (from dialer)" : ""}` : oneDay.autoStartedAt ? `Auto-started ${clock(oneDay.autoStartedAt)} · no login` : (DAY_STATUS[oneDay.status] || [oneDay.status])[0]}</span>
-                  {oneDay.lateMin > 15 && <span>late {hm(oneDay.lateMin)}</span>}
+                  {oneDay.lateMin > 0 && <span>late {hm(oneDay.lateMin)}</span>}
                   <span>{oneDay.logoutAt ? `Logout ${clock(oneDay.logoutAt)}` : oneDay.startAt ? "not logged out" : "—"}</span>
                   {oneDay.dialerMin != null && <span>dialer on {hm(oneDay.dialerMin)}{oneDay.offMin ? ` · off ${hm(oneDay.offMin)}` : ""}</span>}
                   <span>break {hm(one.breakMin)}</span>
@@ -2523,7 +2523,7 @@ export default function Sales360({ initialUser }) {
                 <tr><th>Date</th><th>Status</th><th>Login</th><th>Logout</th><th>Active</th><th>Dialer on</th><th>Break</th><th>Calls</th><th>Connected</th><th>Talk</th><th>Missed</th><th /></tr>
               </thead>
               <tbody>
-                {data.days.filter((d) => (!fx.attendance || d.status === fx.attendance) && (!fx.late || d.lateMin > 15)).map((d) => {
+                {data.days.filter((d) => (!fx.attendance || d.status === fx.attendance) && (!fx.late || d.lateMin > 0)).map((d) => {
                   const st = DAY_STATUS[d.status] || [d.status, "#64748B"];
                   return (
                     <tr key={d.dayKey} className="s3-click" onClick={() => setDayOpen({ day: d, user: one })}>
@@ -2534,7 +2534,7 @@ export default function Sales360({ initialUser }) {
                         {d.holiday && <div className="s3-muted">{d.holiday}</div>}
                         {d.leave && d.status !== "leave" && <div className="s3-muted">Leave: {d.leave}</div>}
                       </td>
-                      <td>{d.loginAt ? clock(d.loginAt) : d.autoStartedAt ? <span style={{ color: "#2563EB" }}>auto {clock(d.autoStartedAt)}</span> : "—"}{d.lateMin > 15 && <div className="s3-warn">late {hm(d.lateMin)}</div>}</td>
+                      <td>{d.loginAt ? clock(d.loginAt) : d.autoStartedAt ? <span style={{ color: "#2563EB" }}>auto {clock(d.autoStartedAt)}</span> : "—"}{d.lateMin > 0 && <div className="s3-warn">late {hm(d.lateMin)}</div>}</td>
                       <td>{d.logoutAt ? clock(d.logoutAt) : d.loginAt || d.autoStartedAt ? <span className="s3-muted">no logout</span> : "—"}</td>
                       <td>{d.activeMin ? hm(d.activeMin) : "—"}</td>
                       <td>{d.dialerMin == null ? <span className="s3-muted">{d.activeMin ? "no log" : "—"}</span> : <>{hm(d.dialerMin)}{d.offMin > 0 && <div className="s3-muted">off {hm(d.offMin)}</div>}</>}</td>

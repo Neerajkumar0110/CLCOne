@@ -7,7 +7,7 @@ module.exports = {
   // leadPool.js's status endpoint + the frontend's auto-join check) —
   // start is when it first becomes eligible, end is just informational
   // (how late "on time" still counts), not a hard cutoff.
-  joinWindow: { start: '10:30', end: '10:35' },
+  joinWindow: { start: '10:00', end: '10:35' },
 
   targetWorkMinutes: 8 * 60,
 
@@ -16,7 +16,8 @@ module.exports = {
   // dialer anyway (jobs/workdayTick.js) — unless it's a holiday, their
   // weekly off, or they're on approved leave. Half-day leave splits the day
   // at halfSplit. weeklyOff uses JS day numbers (0 = Sunday).
-  workday: { start: '10:30', end: '20:00', halfSplit: '15:00', autoStartAt: '10:35', weeklyOff: [0] },
+  // lateAfter: a Login after this time is late ("Late by" counts from it).
+  workday: { start: '10:00', end: '20:00', halfSplit: '15:00', autoStartAt: '10:35', lateAfter: '10:35', weeklyOff: [0] },
 
   // `key` must be stable (used to dedupe "already took this break today").
   // `start`/`end` is the window the break option is OFFERED in; `durationMin`
@@ -36,7 +37,7 @@ module.exports = {
   // effect — past days keep being read with these (workday.scheduleFor), so
   // history doesn't change. lateLogin: after halfDayAfter = half day, after
   // fullDayAfter = full-day leave (workday.lateLoginPenalty).
-  legacyWorkday: { start: '10:00', end: '19:30', halfSplit: '14:30', autoStartAt: '11:00', weeklyOff: [0], lateLogin: { halfDayAfter: '11:00', fullDayAfter: '14:00' } },
+  legacyWorkday: { start: '10:00', end: '19:30', halfSplit: '14:30', autoStartAt: '11:00', lateAfter: '10:15', weeklyOff: [0], lateLogin: { halfDayAfter: '11:00', fullDayAfter: '14:00' } },
 
   // CLC-POL-001 sections 6 and 9 (services/hr/attendancePolicy.js).
   attendancePolicy: {
@@ -51,8 +52,8 @@ module.exports = {
       talkMin: { full: 180, half: 120 },
     },
     // Mandatory cap: below halfMin = absent, below fullMin = half day at most.
-    // The policy text says 8h, but its own shift (10:30–20:00 minus 90 min of
-    // breaks) is exactly 8h and it allows the dialer on until 10:35, so 7h 45m
+    // The policy text says 8h; the shift was 10:30–20:00 minus 90 min of breaks
+    // (exactly 8h) and allows the dialer on until 10:35, so 7h 45m
     // keeps a compliant day from turning into a half day. Set to 480 for 8h.
     dialer: { fullMin: 465, halfMin: 240 },
     // CRM closed for longer than this while on the dialer doesn't count as

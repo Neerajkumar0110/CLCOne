@@ -211,7 +211,7 @@ function Board({ onTimeline, on360 }) {
                   <td><Badge status={r.status} /></td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {r.loginAt ? clock(r.loginAt) : r.autoStartedAt ? <span style={{ color: "#2563eb" }}>auto {clock(r.autoStartedAt)}</span> : "—"}
-                    {r.lateMin > 15 && <div style={{ fontSize: 11, color: "#ea580c", fontWeight: 700 }}>late {hm(r.lateMin)}</div>}
+                    {r.lateMin > 0 && <div style={{ fontSize: 11, color: "#ea580c", fontWeight: 700 }}>late {hm(r.lateMin)}</div>}
                   </td>
                   <td>{clock(r.logoutAt)}</td>
                   <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{hm(r.workedMin)}</td>
@@ -520,7 +520,7 @@ function TimelineModal({ target, onClose }) {
   const st = STATUS[r.status] || { label: r.status, color: "#64748b" };
   const initials = r.name.split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase();
   const stats = [
-    ["🕙", r.loginAt ? clock(r.loginAt) : r.autoStartedAt ? `auto ${clock(r.autoStartedAt)}` : "—", r.lateMin > 15 ? `late ${hm(r.lateMin)}` : "Login", "#2563eb"],
+    ["🕙", r.loginAt ? clock(r.loginAt) : r.autoStartedAt ? `auto ${clock(r.autoStartedAt)}` : "—", r.lateMin > 0 ? `late ${hm(r.lateMin)}` : "Login", "#2563eb"],
     ["⏱️", hm(r.workedMin), "Worked", "#16a34a"],
     ["☕", `${r.breakMin}m`, `${r.breaks.length} break${r.breaks.length === 1 ? "" : "s"}`, "#d97706"],
     ["📞", r.calls, `${r.connected} connected · ${talk(r.talkSec)}`, "#0891b2"],

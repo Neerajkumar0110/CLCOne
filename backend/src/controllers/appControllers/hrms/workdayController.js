@@ -205,7 +205,7 @@ const board = guard(async (req, res) => {
       loginAt: s && s.loginAt,
       autoStartedAt: s && s.autoStartedAt,
       logoutAt: stoppedAt,
-      lateMin: s && s.loginAt ? Math.max(0, minutes(wd.istAt(dayKey, wd.W.start), s.loginAt)) : null,
+      lateMin: s && s.loginAt ? wd.lateMinutes(dayKey, s.loginAt) : null,
       workedMin,
       breakMin,
       breaks,
@@ -226,7 +226,7 @@ const board = guard(async (req, res) => {
     autoStarted: rows.filter((r) => r.status === 'auto-started').length,
     notLoggedIn: rows.filter((r) => r.status === 'not-logged-in').length,
     loggedOut: rows.filter((r) => r.status === 'logged-out').length,
-    late: rows.filter((r) => r.lateMin > 15).length,
+    late: rows.filter((r) => r.lateMin > 0).length,
     calls: rows.reduce((t, r) => t + r.calls, 0),
     pendingLeaves: await mongoose.model('LeaveRequest').countDocuments({ removed: false, status: 'Pending' }),
   };
@@ -434,7 +434,7 @@ const report = selfOrManager(async (req, res) => {
         return x + Math.max(0, minutes(b.startAt, e));
       }, 0);
       const workedMin = startAt && endAt ? Math.max(0, minutes(startAt, endAt) - breakMin) : 0;
-      const lateMin = s && s.loginAt ? Math.max(0, minutes(ws, s.loginAt)) : 0;
+      const lateMin = s && s.loginAt ? wd.lateMinutes(dk, s.loginAt) : 0;
 
       let status;
       if (holiday) status = `Holiday (${holiday.name})`;
@@ -465,12 +465,12 @@ const report = selfOrManager(async (req, res) => {
         t.present += policyDay.status === 'present' ? 1 : policyDay.status === 'half-day' ? 0.5 : 0;
         if (policyDay.status === 'absent' && workingDay) t.absent += 1;
         if (s && s.loginAt) t.loginMins.push(minutes(wd.istAt(dk, '00:00'), s.loginAt));
-        if (s && s.loginAt && lateMin > 15) t.late += 1;
+        if (s && s.loginAt && lateMin > 0) t.late += 1;
         t.shortLeave += policyDay.shortLeave || 0;
       } else if (s && s.loginAt) {
         t.present += penalty ? 1 - penalty.leave : 1;
         t.loginMins.push(minutes(wd.istAt(dk, '00:00'), s.loginAt));
-        if (lateMin > 15) t.late += 1;
+        if (lateMin > 0) t.late += 1;
       } else if (s && s.autoStartedAt) t.auto += 1;
       else if (workingDay && !full) t.absent += 1;
       if (workingDay) t.leave += leaveDay;
