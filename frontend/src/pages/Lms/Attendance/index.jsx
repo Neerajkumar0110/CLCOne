@@ -17,6 +17,7 @@ import '../components/LearnerDesign.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const SC = { PRESENT: 'green', LATE: 'gold', PARTIAL: 'orange', ABSENT: 'default', EXCUSED: 'blue' };
+const EMPTY_CLASSES = [];
 
 function KPI({ label, value, suffix, tone }) {
   return <KpiTile title={label} value={value} suffix={suffix} tone={tone} span={{ xs: 12, sm: 8, md: 4, lg: 4, xxl: 4 }} />;
@@ -67,7 +68,7 @@ function Dashboard({ role }) {
     } catch (e) { message.error('Correction failed.'); } finally { setCorrectBusy(false); }
   };
 
-  const rows = (data && data.rows) || [];
+  const rows = useMemo(() => (data && data.rows) || [], [data]);
   const k = (data && data.kpis) || {};
   const courses = useMemo(() => [...new Set(rows.map((r) => r.course).filter(Boolean))], [rows]);
   const batches = useMemo(() => [...new Set(rows.map((r) => r.batch).filter(Boolean))], [rows]);
@@ -99,8 +100,8 @@ function Dashboard({ role }) {
           options={['PRESENT', 'LATE', 'PARTIAL', 'ABSENT', 'EXCUSED'].map((s) => ({ value: s, label: s }))} />
         <DatePicker.RangePicker onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))} />
         <Button icon={<ReloadOutlined />} onClick={load}>Apply</Button>
-        <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'csv' })}>CSV</Button>
-        <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'xlsx' })}>Excel</Button>
+        <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'csv' }).catch((e) => message.error(e?.userMessage || e?.message || 'Export failed. Please try again.'))}>CSV</Button>
+        <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'xlsx' }).catch((e) => message.error(e?.userMessage || e?.message || 'Export failed. Please try again.'))}>Excel</Button>
       </Space>
 
       <Table
@@ -234,6 +235,10 @@ function MyAttendance() {
   const [loading, setLoading] = useState(true);
   const [course, setCourse] = useState('');
   const [batch, setBatch] = useState('');
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [batchOptions, setBatchOptions] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sessionSearch, setSessionSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -268,29 +273,52 @@ function MyAttendance() {
   }, [load]);
 
   const s = (data && data.summary) || {};
-  const allClasses = (data && data.classes) || [];
-  const courses = useMemo(() => [...new Set(allClasses.map((c) => c.courseTitle).filter(Boolean))], [allClasses]);
-  const batches = useMemo(() => [...new Set(allClasses.map((c) => c.batchName).filter(Boolean))], [allClasses]);
+  const allClasses = (data && data.classes) || EMPTY_CLASSES;
+  useEffect(() => {
+    setCourseOptions((current) => {
+      const next = [...new Set([...current, ...allClasses.map((c) => c.courseTitle).filter(Boolean)])];
+      return next.length === current.length ? current : next;
+    });
+    setBatchOptions((current) => {
+      const next = [...new Set([...current, ...allClasses.map((c) => c.batchName).filter(Boolean)])];
+      return next.length === current.length ? current : next;
+    });
+  }, [allClasses]);
 
   // Date range isn't a backend filter here — the student's own attendance
   // list is small enough to fetch whole and narrow client-side.
   const classes = useMemo(() => {
+    const needle = sessionSearch.trim().toLocaleLowerCase();
+    const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
     return allClasses.filter((c) => {
-      if (dateFrom && (!c.date || new Date(c.date) < new Date(dateFrom))) return false;
-      if (dateTo && (!c.date || new Date(c.date) > new Date(`${dateTo}T23:59:59`))) return false;
+      if (needle && ![c.className, c.courseTitle, c.batchName, c.status].some((value) => String(value || '').toLocaleLowerCase().includes(needle))) return false;
+      if (statusFilter && c.status !== statusFilter) return false;
+      if (dateFrom && dateTo && dateFrom > dateTo) return false;
+      if (dateFrom || dateTo) {
+        const timestamp = c.date ? new Date(c.date).getTime() : NaN;
+        if (!Number.isFinite(timestamp)) return false;
+        if (fromTime !== null && (!Number.isFinite(fromTime) || timestamp < fromTime)) return false;
+        if (toTime !== null && (!Number.isFinite(toTime) || timestamp > toTime)) return false;
+      }
       return true;
     });
-  }, [allClasses, dateFrom, dateTo]);
+  }, [allClasses, dateFrom, dateTo, statusFilter, sessionSearch]);
 
   useEffect(() => {
     setPage(1);
-  }, [course, batch, dateFrom, dateTo]);
+  }, [course, batch, dateFrom, dateTo, statusFilter, sessionSearch]);
 
-  const pagedClasses = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return classes.slice(start, start + pageSize);
-  }, [classes, page, pageSize]);
   const totalPages = Math.max(1, Math.ceil(classes.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedClasses = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return classes.slice(start, start + pageSize);
+  }, [classes, currentPage, pageSize]);
+
+  useEffect(() => {
+    if (page !== currentPage) setPage(currentPage);
+  }, [page, currentPage]);
 
   const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
   const fmtWeekday = (v) => (v ? new Date(v).toLocaleDateString(undefined, { weekday: 'short' }) : '');
@@ -342,6 +370,7 @@ function MyAttendance() {
         </div>
       </div>
 
+<<<<<<< Updated upstream
       <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px', flex: 1 }}>
         <section className="ld-card" aria-label="Session-wise">
           <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
@@ -351,6 +380,35 @@ function MyAttendance() {
               {batches.length > 1 && <select className="ld-inp" aria-label="Batch" value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">All batches</option>{batches.map((b) => <option key={b} value={b}>{b}</option>)}</select>}
               <input className="ld-inp" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Start date" />
               <input className="ld-inp" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="End date" />
+=======
+      <div className="ld-grid attendance-session-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: 16, flex: 1, alignItems: 'stretch', width: '100%' }}>
+        <section className="ld-card attendance-session-card" aria-label="Session-wise" style={{ flex: '1 1 560px', minWidth: 0, width: '100%' }}>
+          <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
+            <b style={{ fontSize: 16 }}>Session-wise</b>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Input allowClear aria-label="Search attendance sessions" placeholder="Search sessions…" value={sessionSearch} onChange={(e) => setSessionSearch(e.target.value)} style={{ width: 180 }} />
+              {courseOptions.length > 1 && <select className="ld-inp" aria-label="Internship" value={course} onChange={(e) => setCourse(e.target.value)}><option value="">All internships</option>{courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select>}
+              {batchOptions.length > 1 && <select className="ld-inp" aria-label="Batch" value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">All batches</option>{batchOptions.map((b) => <option key={b} value={b}>{b}</option>)}</select>}
+              <select className="ld-inp" aria-label="Attendance status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">All statuses</option>
+                {['PRESENT', 'LATE', 'PARTIAL', 'ABSENT', 'EXCUSED'].map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+              <input className="ld-inp" type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} aria-label="Start date" />
+              <input className="ld-inp" type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} aria-label="End date" />
+              {(sessionSearch || course || batch || statusFilter || dateFrom || dateTo) && (
+                <Button size="small" onClick={() => {
+                  setSessionSearch('');
+                  setCourse('');
+                  setBatch('');
+                  setStatusFilter('');
+                  setDateFrom('');
+                  setDateTo('');
+                  setPage(1);
+                }}>
+                  Clear filters
+                </Button>
+              )}
+>>>>>>> Stashed changes
             </div>
           </div>
           <div className="ld-tablewrap">
@@ -379,28 +437,61 @@ function MyAttendance() {
               </tbody>
             </table>
           </div>
+<<<<<<< Updated upstream
           {classes.length > pageSize && (
             <div className="ld-hd" style={{ fontSize: 13 }}>
               <span className="ld-muted">Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, classes.length)} of {classes.length}</span>
               <span style={{ display: 'flex', gap: 6 }}>
                 <button type="button" className="ld-btn2 sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
                 <button type="button" className="ld-btn2 sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
+=======
+          {classes.length > 0 && (
+            <div className="ld-hd" style={{ fontSize: 13 }}>
+              <span className="ld-muted">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, classes.length)} of {classes.length}
+              </span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <select className="ld-inp" aria-label="Rows per page" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                  {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size} / page</option>)}
+                </select>
+                <button type="button" className="ld-btn2 sm" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
+                <button type="button" className="ld-btn2 sm" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
+>>>>>>> Stashed changes
               </span>
             </div>
           )}
           <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Reconnects are merged — no duplicate attendance · the calculation basis is visible for every session</div>
         </section>
 
+<<<<<<< Updated upstream
         <section className="ld-card" aria-label="Attendance correction">
+=======
+        <section className="ld-card attendance-wrong-card" aria-label="Attendance correction" style={{ flex: '1 1 320px', minWidth: 280, maxWidth: '100%' }}>
+>>>>>>> Stashed changes
           <b style={{ fontSize: 16 }}>Attendance wrong?</b>
           {correctable.length === 0 ? (
             <div className="ld-muted" style={{ fontSize: 13 }}>No absent / partial / late session — no correction needed.</div>
           ) : (
             <>
               <label className="ld-label">Session
+<<<<<<< Updated upstream
                 <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={picked ? picked.id : ''} onChange={(e) => setCorrId(e.target.value)}>
                   {correctable.map((c) => <option key={c.id} value={c.id}>{c.className} · {fmtDate(c.date)} · {c.status} ({c.attendedMin || 0} min)</option>)}
                 </select>
+=======
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  className="ld-inp full"
+                  style={{ height: 38, fontSize: 14 }}
+                  value={picked ? picked.id : undefined}
+                  onChange={setCorrId}
+                  options={correctable.map((c) => ({
+                    value: c.id,
+                    label: `${c.className} · ${fmtDate(c.date)} · ${c.status} (${c.attendedMin || 0} min)`,
+                  }))}
+                />
+>>>>>>> Stashed changes
               </label>
               <label className="ld-label">What happened
                 <textarea className="ld-inp full" style={{ fontSize: 14 }} value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="e.g. My network dropped, I rejoined but it was not recorded." />

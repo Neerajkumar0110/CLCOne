@@ -14,6 +14,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
@@ -481,6 +482,10 @@ function StudentAssignments() {
   const [loading, setLoading] = useState(true);
   const [subFor, setSubFor] = useState(null);
   const [form] = Form.useForm();
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.code, r.course, r.description, r.instructions].filter(Boolean).join(' '),
+    getFilterValue: (r) => (r.mySubmission && r.mySubmission.status) || 'not_submitted',
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -515,7 +520,27 @@ function StudentAssignments() {
       {rows.length === 0 ? (
         <Card><Empty description="No assignments yet." /></Card>
       ) : (
-        rows.map((r) => {
+        <>
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search assignments…"
+          filter={list.filter}
+          onFilterChange={list.setFilter}
+          filterPlaceholder="All statuses"
+          filterOptions={[
+            { value: 'not_submitted', label: 'Not submitted' },
+            { value: 'submitted', label: 'Submitted' },
+            { value: 'evaluated', label: 'Evaluated' },
+            { value: 'resubmit_requested', label: 'Resubmission requested' },
+          ]}
+          total={list.total}
+          page={list.page}
+          pageSize={list.pageSize}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
+        {list.total === 0 ? <Card><Empty description="No assignments match these filters." /></Card> : list.pageRows.map((r) => {
           const s = r.mySubmission;
           const canSubmit = !s || s.status === 'resubmit_requested' || (s.status === 'submitted' && r.allowResubmission);
           return (
@@ -540,7 +565,8 @@ function StudentAssignments() {
               </Button>
             </Card>
           );
-        })
+        })}
+        </>
       )}
 
       <Modal

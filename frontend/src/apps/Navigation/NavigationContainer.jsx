@@ -13,6 +13,7 @@ import useWhatsAppAccess from '@/pages/WhatsApp/useWhatsAppAccess';
 
 import useLanguage from '@/locale/useLanguage';
 import useBrandLogo from '@/hooks/useBrandLogo';
+import { logoSlot } from '@/config/logoSlots';
 
 import useResponsive from '@/hooks/useResponsive';
 
@@ -418,6 +419,11 @@ function Sidebar({ collapsible, isMobile = false }) {
         <img
           src={isNavMenuClose ? collapsedLogo : expandedLogo}
           alt="Career Lab Consulting"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            const slot = logoSlot(isNavMenuClose ? 'logo_sidebar_collapsed' : 'logo_sidebar_expanded');
+            if (slot?.fallback) e.currentTarget.src = slot.fallback;
+          }}
           style={{
             height: isNavMenuClose ? '40px' : '40px',
             width: 'auto',
@@ -436,6 +442,8 @@ function Sidebar({ collapsible, isMobile = false }) {
         {...(collapsedNow ? {} : { openKeys, onOpenChange: setOpenKeys })}
         style={{
           width: '100%',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       />
     </Sider>

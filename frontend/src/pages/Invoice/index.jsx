@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import HubModal from "@/components/HubModal";
 import { request } from "@/request";
-import { BASE_URL } from "@/config/serverApiConfig";
+import { logoSlot, resolveLogoUrl } from "@/config/logoSlots";
 import {
   PlusOutlined,
   DownloadOutlined,
@@ -438,13 +438,17 @@ function InvoiceDetail({ invoice, company, money, onBack, onEdit, onDuplicate, o
         <div style={{ padding: "28px 32px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20, borderBottom: "2px solid var(--hub-text)", paddingBottom: 20, marginBottom: 20 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-              {company.company_logo ? (
-                <img src={BASE_URL + company.company_logo} alt="logo" style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,var(--hub-blue),#6d9bff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 20, flexShrink: 0 }}>
-                  {(company.company_name || "C")[0]}
-                </div>
-              )}
+              <img
+                src={resolveLogoUrl(company.company_logo, logoSlot("company_logo").fallback)}
+                alt="Company logo"
+                onError={(e) => {
+                  const fallback = logoSlot("company_logo").fallback;
+                  if (e.currentTarget.getAttribute("src") !== fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
+                style={{ width: 150, height: 52, objectFit: "contain", flexShrink: 0 }}
+              />
               <div>
                 <div style={{ fontSize: 17, fontWeight: 800, color: "var(--hub-text)" }}>{company.company_name || "Your Company"}</div>
                 <div style={{ fontSize: 11.5, color: "var(--hub-muted)", lineHeight: 1.5, maxWidth: 260 }}>

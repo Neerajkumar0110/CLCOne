@@ -11,6 +11,20 @@ const qs = (o = {}) => {
   return p.length ? `?${p.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}` : '';
 };
 
+// Blob download guard — if the server answered with an error, axios gives us
+// the error body as a Blob (JSON/XML/text) instead of the file we asked for.
+// Without this the user gets a "downloaded" file full of error JSON, or a
+// corrupt PDF, with zero feedback. Throws a readable Error instead.
+const assertBlobFile = (res, mimePrefix) => {
+  const type = res?.headers?.['content-type'] || '';
+  if (res?.status !== 200 || (mimePrefix && !String(type).startsWith(mimePrefix))) {
+    const err = new Error('The file could not be downloaded. Please try again.');
+    err.userMessage = true;
+    throw err;
+  }
+  return res;
+};
+
 const lmsApi = {
   portalConfig: () => request.get({ entity: 'lms/portal/config' }),
   me: () => request.get({ entity: 'lms/portal/me' }),
@@ -114,10 +128,10 @@ const lmsApi = {
       /* noop */
     }
     const format = f.format || 'csv';
-    const res = await axios.get(`${API_BASE_URL}lms/${role}/attendance/export${qs(f)}`, {
+    const res = assertBlobFile(await axios.get(`${API_BASE_URL}lms/${role}/attendance/export${qs(f)}`, {
       responseType: 'blob',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    }), 'text');
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const a = document.createElement('a');
     a.href = url;
@@ -295,10 +309,10 @@ const lmsApi = {
     let token = '';
     try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
     const base = mine ? 'lms/my/certificates' : 'lms/certificates';
-    const res = await axios.get(`${API_BASE_URL}${base}/${id}/download`, {
+    const res = assertBlobFile(await axios.get(`${API_BASE_URL}${base}/${id}/download`, {
       responseType: 'blob',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    }), 'application/pdf');
     const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
     const a = document.createElement('a');
     a.href = url;
@@ -315,10 +329,10 @@ const lmsApi = {
   previewCertificatePdf: async (courseId) => {
     let token = '';
     try { token = storePersist.get('auth')?.current?.token || ''; } catch (e) { /* noop */ }
-    const res = await axios.get(`${API_BASE_URL}lms/my/certificates/preview?course=${courseId}`, {
+    const res = assertBlobFile(await axios.get(`${API_BASE_URL}lms/my/certificates/preview?course=${courseId}`, {
       responseType: 'blob',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    }), 'application/pdf');
     const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
     window.open(url, '_blank', 'noopener');
     setTimeout(() => window.URL.revokeObjectURL(url), 60000);

@@ -12,6 +12,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 // Same "New record" modal look used everywhere else in the LMS (Announcements,
 // Assignments, Projects) — see .crud-modal / .crud-form-grid in featureHub.css.
@@ -678,14 +679,15 @@ function TeacherStudyMaterial() {
 function StudentStudyMaterial() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.subject, r.course, r.description].filter(Boolean).join(' '),
+    getFilterValue: viewKind,
+  });
 
   useEffect(() => {
     lmsApi.myMaterials().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
 
-  const filtered = useFilteredRows(rows, search, typeFilter, 'all');
   const stats = useMemo(() => ({
     total: rows.length,
     pdf: rows.filter((r) => viewKind(r) === 'pdf').length,
@@ -721,8 +723,8 @@ function StudentStudyMaterial() {
             color={color}
             label={label}
             value={value}
-            active={k !== 'all' && typeFilter === k}
-            onClick={() => setTypeFilter(k === 'all' || typeFilter === k ? 'all' : k)}
+            active={k !== 'all' && list.filter === k}
+            onClick={() => list.setFilter(k === 'all' || list.filter === k ? 'all' : k)}
           />
         ))}
       </div>
@@ -737,11 +739,11 @@ function StudentStudyMaterial() {
                 <input
                   className="material-input"
                   placeholder="Search files by name or subject…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={list.search}
+                  onChange={(e) => list.setSearch(e.target.value)}
                 />
               </div>
-              <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <select className="material-select-sm" value={list.filter} onChange={(e) => list.setFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 <option value="pdf">PDF</option>
                 <option value="text">Text (TXT)</option>
@@ -749,16 +751,25 @@ function StudentStudyMaterial() {
                 <option value="image">Image</option>
                 <option value="other">Other</option>
               </select>
-              <span className="uploaded-count">{filtered.length} file{filtered.length === 1 ? '' : 's'}</span>
+              <span className="uploaded-count">{list.total} file{list.total === 1 ? '' : 's'}</span>
             </div>
           </div>
 
-          {filtered.length === 0 ? (
+          {list.total === 0 ? (
             rows.length === 0
               ? <Empty description="No study material has been shared yet." />
               : <div className="material-empty-state"><p>No files match your search.</p></div>
           ) : (
-            <CurriculumList rows={filtered} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} />} />
+            <>
+              <CurriculumList rows={list.pageRows} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} />} />
+              <LearnerListControls
+                total={list.total}
+                page={list.page}
+                pageSize={list.pageSize}
+                onPageChange={list.setPage}
+                onPageSizeChange={list.setPageSize}
+              />
+            </>
           )}
         </div>
       </div>

@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 const { Text, Paragraph } = Typography;
 const ago = (v) => (v ? dayjs(v).fromNow?.() || dayjs(v).format('D MMM HH:mm') : '');
@@ -79,6 +80,9 @@ export default function Doubts() {
   const [asking, setAsking] = useState(false);
   const [courses, setCourses] = useState([]);
   const [form] = Form.useForm();
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.course, r.studentName].filter(Boolean).join(' '),
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,7 +110,7 @@ export default function Doubts() {
       <div className="lms-portal-head">
         <div><h2><QuestionCircleOutlined /> Doubts / Questions</h2><p>{isTeacher ? 'Answer your candidates.' : 'Ask and track your questions.'}</p></div>
         <Space>
-          <Segmented value={status} onChange={setStatus} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Answered', value: 'answered' }, { label: 'Resolved', value: 'resolved' }]} />
+          <Segmented value={status} onChange={(value) => { setStatus(value); list.setPage(1); }} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Answered', value: 'answered' }, { label: 'Resolved', value: 'resolved' }]} />
           <Tooltip title={<span>Open — nobody has replied yet. Answered — a project manager replied, but the person who asked hasn't marked it resolved. Resolved — closed out via "Mark resolved" below the thread.</span>}>
             <InfoCircleOutlined style={{ fontSize: 13, opacity: 0.55, cursor: 'help' }} />
           </Tooltip>
@@ -114,12 +118,23 @@ export default function Doubts() {
         </Space>
       </div>
 
-      {rows.length === 0 ? (
+      {list.total === 0 ? (
         <Card><Empty description="No questions here." /></Card>
       ) : (
+        <>
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search questions…"
+          total={list.total}
+          page={list.page}
+          pageSize={list.pageSize}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
         <Table
           rowKey="id"
-          dataSource={rows}
+          dataSource={list.pageRows}
           pagination={false}
           onRow={(r) => ({ onClick: () => setOpenId(r.id), style: { cursor: 'pointer' } })}
           columns={[
@@ -132,6 +147,7 @@ export default function Doubts() {
             { title: 'Updated', dataIndex: 'lastReplyAt', render: (v, r) => dayjs(v || r.created).format('D MMM, HH:mm') },
           ]}
         />
+        </>
       )}
 
       <Drawer open={!!openId} width={620} onClose={() => setOpenId(null)} title="Question" destroyOnClose>

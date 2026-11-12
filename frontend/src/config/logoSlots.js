@@ -1,5 +1,7 @@
 import horizontalLogo from '@/style/images/Horizontal-1-transparent.png';
+import horizontalLogoDark from '@/style/images/Horizontal-1.png';
 import verticalLogo from '@/style/images/Vertical-1-transparent.png';
+import { BASE_URL } from '@/config/serverApiConfig';
 
 // Every place this app shows the company logo, as one list.
 //
@@ -32,6 +34,7 @@ export const LOGO_SLOTS = [
     label: 'Login page',
     description: 'Shown above the sign-in form.',
     fallback: horizontalLogo,
+    fallbackOnLight: horizontalLogoDark,
     shape: 'wide',
   },
   {
@@ -39,13 +42,14 @@ export const LOGO_SLOTS = [
     label: 'Public pages',
     description: 'Pages a candidate sees without signing in, such as the KYC form.',
     fallback: horizontalLogo,
+    fallbackOnLight: horizontalLogoDark,
     shape: 'wide',
   },
   {
     key: 'company_logo',
     label: 'Invoices & PDFs',
     description: 'Printed on invoices, offers and payment receipts.',
-    fallback: horizontalLogo,
+    fallback: horizontalLogoDark,
     shape: 'wide',
   },
 ];
@@ -53,3 +57,9 @@ export const LOGO_SLOTS = [
 export const LOGO_SLOT_KEYS = LOGO_SLOTS.map((s) => s.key);
 
 export const logoSlot = (key) => LOGO_SLOTS.find((s) => s.key === key) || null;
+
+export const resolveLogoUrl = (value, fallback) => {
+  if (!value) return fallback;
+  if (/^(https?:)?\/\//i.test(value)) return value;
+  return `${BASE_URL.replace(/\/?$/, '/')}${value.replace(/^\/+/, '')}`;
+};

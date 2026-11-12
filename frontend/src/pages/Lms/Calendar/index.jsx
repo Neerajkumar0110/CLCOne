@@ -5,6 +5,7 @@ import { LeftOutlined, RightOutlined, CalendarOutlined, ClockCircleOutlined, Rea
 import dayjs from 'dayjs';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 // Who can postpone a class that's running late — the class's own instructor,
 // Support, or an admin-ish role. Enforced for real server-side (resolveRole,
@@ -50,6 +51,10 @@ export default function LmsCalendar() {
 
   const [cursor, setCursor] = useState(() => dayjs().startOf('month'));
   const [sessions, setSessions] = useState([]);
+  const list = useLearnerList(sessions, {
+    getSearchText: (s) => [primaryLabel(s), secondaryLabel(s), s.batchName, s.courseTitle, s.teacherName].filter(Boolean).join(' '),
+    getFilterValue: (s) => s.status,
+  });
   const [loading, setLoading] = useState(true);
   const [holidays, setHolidays] = useState(new Map()); // "YYYY-MM-DD" -> name
   const [holidayPanel, setHolidayPanel] = useState(false);
@@ -127,7 +132,7 @@ export default function LmsCalendar() {
 
   const byDate = useMemo(() => {
     const map = new Map();
-    for (const s of sessions) {
+    for (const s of list.filteredRows) {
       if (!s.scheduledStart) continue;
       const key = dayjs(s.scheduledStart).format('YYYY-MM-DD');
       if (!map.has(key)) map.set(key, []);
@@ -135,13 +140,13 @@ export default function LmsCalendar() {
     }
     for (const list of map.values()) list.sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart));
     return map;
-  }, [sessions]);
+  }, [list.filteredRows]);
 
   const todayKey = dayjs().format('YYYY-MM-DD');
   const modalKey = dayModal ? dayModal.format('YYYY-MM-DD') : null;
   const modalSessions = modalKey ? byDate.get(modalKey) || [] : [];
 
-  const batchCount = new Set(sessions.map((s) => s.batchId || s.batchName)).size;
+  const batchCount = new Set(list.filteredRows.map((s) => s.batchId || s.batchName)).size;
 
   const postponeDayKey = postponeDay ? postponeDay.format('YYYY-MM-DD') : null;
   const postponeDayAllSessions = postponeDayKey ? byDate.get(postponeDayKey) || [] : [];
@@ -248,7 +253,7 @@ export default function LmsCalendar() {
           </div>
           <div className="lms-cal-nav">
             <span className="lms-cal-summary">
-              {loading ? 'Loading…' : `${sessions.length} class${sessions.length === 1 ? '' : 'es'} · ${batchCount} batch${batchCount === 1 ? '' : 'es'}`}
+              {loading ? 'Loading…' : `${list.total} matching class${list.total === 1 ? '' : 'es'} · ${batchCount} batch${batchCount === 1 ? '' : 'es'}`}
             </span>
             <div className="lms-cal-nav-btns">
               {canSeePostpone && (
@@ -260,6 +265,16 @@ export default function LmsCalendar() {
             </div>
           </div>
         </div>
+
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search classes, batches or project managers…"
+          filter={list.filter}
+          onFilterChange={list.setFilter}
+          filterPlaceholder="All class statuses"
+          filterOptions={Object.entries(STATUS_META).map(([value, meta]) => ({ value, label: meta.label }))}
+        />
 
         <div className="lms-cal-weekdays">
           {WEEKDAYS.map((w) => (

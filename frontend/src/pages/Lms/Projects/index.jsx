@@ -16,7 +16,11 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
+<<<<<<< Updated upstream
 import '../components/LearnerDesign.css';
+=======
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
+>>>>>>> Stashed changes
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -661,12 +665,24 @@ function ProjectBlock({ p, onChanged }) {
 function MyProjects() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+<<<<<<< Updated upstream
+=======
+  const [submitOpen, setSubmitOpen] = useState(null); // project
+  const [form] = Form.useForm();
+  const [saving, setSaving] = useState(false);
+  const list = useLearnerList(rows, {
+    getSearchText: (p) => [p.title, p.code, p.course, p.problemStatement, p.mentor].filter(Boolean).join(' '),
+    getFilterValue: (p) => p.status,
+  });
+
+>>>>>>> Stashed changes
   const load = useCallback(() => {
     lmsApi.myProjects().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
   return (
+<<<<<<< Updated upstream
     <div className="ld-page">
       {rows.length === 0 ? (
         <>
@@ -676,6 +692,89 @@ function MyProjects() {
       ) : (
         rows.map((p) => <ProjectBlock key={p.id} p={p} onChanged={load} />)
       )}
+=======
+    <div className="lms-portal" style={{ padding: 4 }}>
+      <div className="lms-portal-head"><div><h2><ProjectOutlined /> My Projects</h2><p>Only you, your project manager and admin can see your project.</p></div></div>
+      {rows.length === 0 ? <Card><Empty description="No project assigned yet." /></Card> : (
+      <>
+      <LearnerListControls
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder="Search projects…"
+        filter={list.filter}
+        onFilterChange={list.setFilter}
+        filterPlaceholder="All statuses"
+        filterOptions={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))}
+        total={list.total}
+        page={list.page}
+        pageSize={list.pageSize}
+        onPageChange={list.setPage}
+        onPageSizeChange={list.setPageSize}
+      />
+      {list.total === 0 ? <Card><Empty description="No projects match these filters." /></Card> : list.pageRows.map((p) => (
+        <Card key={p.id} style={{ marginBottom: 16 }}
+          title={<Space>{p.code && <Tag color="purple">{p.code}</Tag>}<b>{p.title}</b><Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status] || p.status}</Tag></Space>}
+          extra={p.status !== 'approved' && <Button type="primary" icon={<SendOutlined />} onClick={() => { setSubmitOpen(p); setTimeout(() => form.setFieldsValue({ githubUrl: p.githubUrl, deploymentUrl: p.deploymentUrl }), 0); }}>Submit</Button>}>
+          <Paragraph type="secondary">{p.problemStatement}</Paragraph>
+          {p.mentor && <Text type="secondary">Project Manager: {p.mentor}</Text>}
+          <Divider style={{ margin: '10px 0' }} />
+          <List size="small" header={<b>Milestones</b>} dataSource={p.milestones || []} renderItem={(m, idx) => (
+            <List.Item>
+              <Checkbox checked={m.status === 'done'} onChange={(e) => toggleMilestone(p, idx, e.target.checked)}>
+                {m.title} {m.dueDate && <Text type="secondary">— due {dayjs(m.dueDate).format('D MMM')}</Text>}
+              </Checkbox>
+            </List.Item>
+          )} />
+          {p.submissions && p.submissions.length > 0 && (
+            <>
+              <Divider style={{ margin: '10px 0' }} />
+              <Text strong>Latest feedback</Text>
+              {(() => {
+                const last = p.submissions[p.submissions.length - 1];
+                if (!last.review) return <div><Text type="secondary">Awaiting review (v{last.version}).</Text></div>;
+                return <Alert style={{ marginTop: 6 }} type={last.review.decision === 'approved' ? 'success' : last.review.decision === 'rejected' ? 'error' : 'warning'} message={`${last.review.decision.replace('_', ' ')} by ${last.review.byName}`} description={last.review.feedback} />;
+              })()}
+            </>
+          )}
+        </Card>
+      ))}
+      </>
+      )}
+
+      <Modal
+        className="crud-modal"
+        open={!!submitOpen}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><SendOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">Submit for review</span>
+              <span className="crud-modal-title-main">{submitOpen?.title}</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setSubmitOpen(null)}
+        onOk={doSubmit}
+        confirmLoading={saving}
+        okText="Submit for review"
+        destroyOnClose
+        maskClosable={false}
+      >
+        <Form form={form} layout="vertical" className="crud-form" preserve={false}>
+          <div className="crud-form-grid">
+            <Form.Item name="githubUrl" label={<Lbl icon={<GithubOutlined />}>GitHub repository URL</Lbl>} className="crud-form-full">
+              <Input placeholder="https://github.com/..." />
+            </Form.Item>
+            <Form.Item name="deploymentUrl" label={<Lbl icon={<LinkOutlined />}>Deployment / live URL</Lbl>} className="crud-form-full">
+              <Input placeholder="https://..." />
+            </Form.Item>
+            <Form.Item name="note" label={<Lbl icon={<FileTextOutlined />}>Notes for your project manager</Lbl>} className="crud-form-full">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+          </div>
+        </Form>
+      </Modal>
+>>>>>>> Stashed changes
     </div>
   );
 }

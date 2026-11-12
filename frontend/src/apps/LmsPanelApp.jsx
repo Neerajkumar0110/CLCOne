@@ -49,8 +49,14 @@ import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
+<<<<<<< Updated upstream
 import '@/pages/Lms/components/LearnerDesign.css';
 import useSidebarLogo from '@/hooks/useSidebarLogo';
+=======
+import useBrandLogo from '@/hooks/useBrandLogo';
+import { logoSlot } from '@/config/logoSlots';
+import { settingsAction } from '@/redux/settings/actions';
+>>>>>>> Stashed changes
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -229,6 +235,8 @@ function AccessHoldScreen({ info, onRequested }) {
     if (r?.success) {
       message.success(r.message || 'Request sent to Support.');
       onRequested();
+    } else {
+      message.error(r?.message || 'Could not send your request. Please try again.');
     }
   };
   return (
@@ -270,7 +278,11 @@ function AccessHoldScreen({ info, onRequested }) {
           </div>
         ) : (
           <>
+            <label htmlFor="reactivation-note" style={{ display: 'block', fontSize: 13, fontWeight: 600, textAlign: 'left', marginBottom: 6 }}>
+              Message to Support (optional)
+            </label>
             <textarea
+              id="reactivation-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Anything you'd like Support to know? (optional)"
@@ -508,9 +520,13 @@ export default function LmsPanelApp() {
   // serverless, where the socket layer doesn't run at all).
   const [updates, setUpdates] = useState({ unread: 0, notifications: [], liveNow: [] });
   const lastTopId = useRef(null);
+  const pollFailures = useRef(0);
+  const [connLost, setConnLost] = useState(false);
   const pollUpdates = useCallback(async () => {
     try {
       const res = await lmsApi.updates();
+      pollFailures.current = 0;
+      setConnLost(false);
       const u = (res && res.result) || { unread: 0, notifications: [], liveNow: [] };
       setUpdates(u);
       const top = u.notifications && u.notifications[0];
@@ -519,10 +535,14 @@ export default function LmsPanelApp() {
       }
       if (top) lastTopId.current = top.id;
     } catch (e) {
-      /* silent */
+      /* silent — but after 3 straight failures tell the user why the bell
+         and hold-screens aren't updating, instead of failing invisibly */
+      pollFailures.current += 1;
+      if (pollFailures.current >= 3) setConnLost(true);
     }
   }, []);
   useEffect(() => {
+    dispatch(settingsAction.list({ entity: 'setting' }));
     pollUpdates();
     const iv = setInterval(pollUpdates, 180000); // 3-min safety net, not the primary trigger
     const onVis = () => document.visibilityState === 'visible' && pollUpdates();
@@ -608,7 +628,7 @@ export default function LmsPanelApp() {
       inlineCollapsed={isMobile ? false : collapsed}
       onClick={({ key }) => key.startsWith('group:') || go(key)}
       items={buildMenuItems(nav, unreadPaths)}
-      style={{ borderRight: 0, background: 'transparent', width: '100%' }}
+      style={{ borderRight: 0, background: 'transparent', width: '100%', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     />
   );
 
@@ -618,6 +638,7 @@ export default function LmsPanelApp() {
   // fragment, or nothing below the sidebar will ever match a click.
   const financeHold = updates.finance && updates.finance.hold;
   const accessHold = updates.access && updates.access.hold;
+<<<<<<< Updated upstream
   // Mandatory policies not yet accepted: the server already refuses these
   // pages' data (requirePoliciesAccepted); send the learner to the consent
   // page instead of showing them broken.
@@ -635,8 +656,50 @@ export default function LmsPanelApp() {
     );
   const gate = (path, element) =>
     policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : shell(path, element);
+=======
+  const connBanner = connLost && !accessHold && !financeHold && (
+    <div
+      style={{
+        margin: '4px 16px 0',
+        padding: '8px 14px',
+        borderRadius: 10,
+        fontSize: 13,
+        fontWeight: 600,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        background: '#fff7e6',
+        border: '1px solid #ffd591',
+        color: '#ad6800',
+      }}
+    >
+      <span>⚠ Live updates are not connecting — data on screen may be outdated.</span>
+      <button
+        type="button"
+        onClick={() => {
+          pollFailures.current = 0;
+          setConnLost(false);
+          pollUpdates();
+        }}
+        style={{
+          border: '1px solid #ffd591',
+          background: 'transparent',
+          color: '#ad6800',
+          fontWeight: 700,
+          borderRadius: 8,
+          padding: '4px 12px',
+          cursor: 'pointer',
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  );
+>>>>>>> Stashed changes
   const routes = (
     <Suspense fallback={<PageLoader />}>
+      {connBanner}
       {accessHold ? (
         <AccessHoldScreen info={updates.access} onRequested={pollUpdates} />
       ) : financeHold ? (
@@ -657,6 +720,7 @@ export default function LmsPanelApp() {
 
   const sidebarInner = (isDrawer) => (
     <>
+<<<<<<< Updated upstream
       {/* uploaded company logo (Settings > Logo) + the panel's role, as on the boards */}
       <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)} title={isTeacher ? 'Career Lab · Project Manager' : 'Career Lab · InternX-AI'}>
         {!isDrawer && collapsed ? (
@@ -667,6 +731,31 @@ export default function LmsPanelApp() {
             <span className="ld-role">{isTeacher ? 'Project Manager' : 'InternX-AI'}</span>
           </>
         )}
+=======
+      <div
+        className="logo"
+        onClick={() => go(base)}
+        style={{
+          cursor: 'pointer',
+          ...(!isDrawer && collapsed && { margin: '15px auto 30px', width: 'auto', justifyContent: 'center' }),
+        }}
+      >
+        <img
+          src={!isDrawer && collapsed ? collapsedLogo : expandedLogo}
+          alt="Career Lab Consulting"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            const slot = logoSlot(!isDrawer && collapsed ? 'logo_sidebar_collapsed' : 'logo_sidebar_expanded');
+            if (slot?.fallback) e.currentTarget.src = slot.fallback;
+          }}
+          style={{
+            height: '40px',
+            width: 'auto',
+            objectFit: 'contain',
+            marginLeft: !isDrawer && collapsed ? 0 : '-5px',
+          }}
+        />
+>>>>>>> Stashed changes
       </div>
       {updates.liveNow && updates.liveNow.length > 0 && (
         <div

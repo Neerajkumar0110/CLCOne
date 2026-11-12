@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Table, Tag, Skeleton, Empty, Typography } from 'antd';
+import { Card, Row, Col, Table, Tag, Skeleton, Empty, Typography, Select } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import lmsApi from '@/pages/Lms/api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 const { Text } = Typography;
 
@@ -17,6 +18,15 @@ export default function Results() {
   const [attemptsByType, setAttemptsByType] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [breakdowns, setBreakdowns] = useState({}); // attemptId -> { loading, data }
+  const [statusFilter, setStatusFilter] = useState('all');
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [TEST_TYPE_LABELS[r.testType], r.status, r.startedAt].filter(Boolean).join(' '),
+    getFilterValue: (r) => r.testType,
+  });
+  const statusFilteredRows = list.filteredRows.filter((r) => statusFilter === 'all' || r.status === statusFilter);
+  const resultPageCount = Math.max(1, Math.ceil(statusFilteredRows.length / list.pageSize));
+  const resultPage = Math.max(1, Math.min(list.page, resultPageCount));
+  const resultPageRows = statusFilteredRows.slice((resultPage - 1) * list.pageSize, resultPage * list.pageSize);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,9 +99,48 @@ export default function Results() {
       {rows.length === 0 ? (
         <Card><Empty description="You have not completed any assessments yet." /></Card>
       ) : (
+        <>
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search assessment results…"
+          filter={list.filter}
+          onFilterChange={list.setFilter}
+          filterPlaceholder="All assessment types"
+          filterOptions={[...new Set(rows.map((r) => r.testType).filter(Boolean))].map((value) => ({
+            value,
+            label: TEST_TYPE_LABELS[value] || value,
+          }))}
+          extraControls={(
+            <Select
+              aria-label="Filter by result status"
+              value={statusFilter}
+              onChange={(value) => { setStatusFilter(value); list.setPage(1); }}
+              style={{ minWidth: 150 }}
+              options={[
+                { value: 'all', label: 'All result statuses' },
+                { value: 'SUBMITTED', label: 'Submitted' },
+                { value: 'IN_PROGRESS', label: 'In progress' },
+                { value: 'SUSPENDED', label: 'Suspended' },
+              ]}
+            />
+          )}
+          hasExtraFilter={statusFilter !== 'all'}
+          onClearFilters={() => {
+            setStatusFilter('all');
+            list.setSearch('');
+            list.setFilter('all');
+          }}
+          total={statusFilteredRows.length}
+          page={resultPage}
+          pageSize={list.pageSize}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
+        {statusFilteredRows.length === 0 ? <Card><Empty description="No results match these filters." /></Card> : (
         <Table
           rowKey="attemptId"
-          dataSource={rows}
+          dataSource={resultPageRows}
           pagination={false}
           expandable={{
             expandedRowKeys: expandedId ? [expandedId] : [],
@@ -132,6 +181,8 @@ export default function Results() {
             { title: 'Started', dataIndex: 'startedAt', render: (v) => new Date(v).toLocaleString() },
           ]}
         />
+        )}
+        </>
       )}
     </div>
   );

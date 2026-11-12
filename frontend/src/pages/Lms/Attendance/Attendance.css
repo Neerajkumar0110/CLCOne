@@ -867,6 +867,7 @@
   }
 }
 
+<<<<<<< Updated upstream
 /* design L13: gap to the attendance requirement + correction request */
 .attendance-gap {
   margin: 0 0 16px;
@@ -892,3 +893,39 @@
 }
 .attendance-correct-link:hover { text-decoration: underline; }
 :root[data-theme='dark'] .attendance-correct-link { color: #22d3ee; }
+=======
+/* ── Auto-adjusting width for Session-wise & Attendance wrong? ── */
+.attendance-session-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+  width: 100% !important;
+  align-items: stretch !important;
+}
+
+.attendance-session-card {
+  flex: 2 1 560px !important;
+  min-width: 0 !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+}
+
+.attendance-wrong-card {
+  flex: 1 1 320px !important;
+  min-width: 280px !important;
+  max-width: 100% !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+}
+
+.attendance-session-card .ld-tablewrap {
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.attendance-session-card .ld-table {
+  width: 100% !important;
+  min-width: 500px !important;
+}
+>>>>>>> Stashed changes

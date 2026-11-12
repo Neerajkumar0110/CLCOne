@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
-import { Tooltip, Collapse, ConfigProvider, message, Select } from "antd";
+import { Tooltip, Collapse, ConfigProvider, message, Select, Popover } from "antd";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import TeamActivity from "./TeamActivity";
@@ -1768,14 +1768,177 @@ function AllLeads() {
                 <UserSwitchOutlined /> Lead Owner{selectedIds.length ? ` (${selectedIds.length})` : ""}
               </button>
             )}
-            <button
-              type="button"
-              className="hub-btn"
-              onClick={() => setShowFilters((v) => !v)}
-              style={showFilters ? { background: "var(--hub-blue)", color: "#fff", borderColor: "var(--hub-blue)" } : undefined}
+            <Popover
+              open={showFilters}
+              onOpenChange={setShowFilters}
+              trigger="click"
+              placement="bottomRight"
+              overlayClassName="lead-filter-popover"
+              content={
+                <div style={{ width: 500, maxWidth: "90vw", maxHeight: "75vh", overflowY: "auto", padding: "8px 4px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid var(--hub-border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, color: "var(--hub-text)" }}>
+                      <FilterOutlined style={{ color: "var(--hub-blue)" }} /> Filter Leads
+                      {listActive && <span className="hub-badge hub-badge-blue">Active</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {listActive && (
+                        <button
+                          type="button"
+                          className="hub-btn hub-btn-sm"
+                          onClick={clearList}
+                        >
+                          <CloseOutlined /> Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="hub-btn hub-btn-primary hub-btn-sm"
+                        onClick={() => setShowFilters(false)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <div className="hub-form-row">
+                      <label>Stage</label>
+                      <select
+                        className="hub-select"
+                        value={drillStage || ""}
+                        onChange={(e) => selectStage(e.target.value || null)}
+                      >
+                        <option value="">All stages</option>
+                        {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="hub-form-row">
+                      <label>Sub-Status</label>
+                      <select
+                        className="hub-select"
+                        value={filters.subStatus}
+                        disabled={!drillStage}
+                        onChange={(e) => {
+                          setDrillSub(e.target.value || null);
+                          updateFilter({ subStatus: e.target.value });
+                        }}
+                      >
+                        <option value="">All</option>
+                        {(drillStage ? subStatusesFor(drillStage) : []).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {isFullAccess && (
+                      <div className="hub-form-row">
+                        <label>Assigned User</label>
+                        <select
+                          className="hub-select"
+                          value={filters.assignedUser}
+                          onChange={(e) => updateFilter({ assignedUser: e.target.value })}
+                        >
+                          <option value="">Anyone</option>
+                          <option value="none">Unassigned (no owner)</option>
+                          {salesAdmins.map((a) => (
+                            <option key={a._id} value={a._id}>
+                              {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {isFullAccess && (
+                      <div className="hub-form-row">
+                        <label>Team</label>
+                        <select
+                          className="hub-select"
+                          value={filters.team}
+                          onChange={(e) => updateFilter({ team: e.target.value })}
+                        >
+                          <option value="">Any team</option>
+                          {teamNames.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {!isFullAccess && (
+                      <div className="hub-form-row">
+                        <label>Showing</label>
+                        <select
+                          className="hub-select"
+                          value={filters.teamView}
+                          onChange={(e) => updateFilter({ teamView: e.target.value })}
+                        >
+                          <option value="">All leads</option>
+                          <option value="1">My team</option>
+                          <option value="mine">My leads only</option>
+                        </select>
+                      </div>
+                    )}
+                    <div className="hub-form-row">
+                      <label>Source</label>
+                      <select
+                        className="hub-select"
+                        value={filters.source}
+                        onChange={(e) => updateFilter({ source: e.target.value })}
+                      >
+                        <option value="">Any</option>
+                        {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="hub-form-row" style={{ gridColumn: "1 / -1" }}>
+                      <label>Search (name / phone / email)</label>
+                      <input
+                        className="hub-input"
+                        value={filters.q}
+                        onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+                        onKeyDown={(e) => e.key === "Enter" && loadLeadList(1)}
+                        placeholder="Type & press Enter"
+                      />
+                    </div>
+                    <div className="hub-form-row">
+                      <label>Callback from → to</label>
+                      <div className="hub-row" style={{ gap: 6 }}>
+                        <input type="date" className="hub-input" value={filters.callbackFrom} onChange={(e) => updateFilter({ callbackFrom: e.target.value })} />
+                        <input type="date" className="hub-input" value={filters.callbackTo} onChange={(e) => updateFilter({ callbackTo: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="hub-form-row">
+                      <label>Follow-up from → to</label>
+                      <div className="hub-row" style={{ gap: 6 }}>
+                        <input type="date" className="hub-input" value={filters.followUpFrom} onChange={(e) => updateFilter({ followUpFrom: e.target.value })} />
+                        <input type="date" className="hub-input" value={filters.followUpTo} onChange={(e) => updateFilter({ followUpTo: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="hub-form-row" style={{ gridColumn: "1 / -1" }}>
+                      <label>Created from → to</label>
+                      <div className="hub-row" style={{ gap: 6 }}>
+                        <input type="date" className="hub-input" value={filters.createdFrom} onChange={(e) => updateFilter({ createdFrom: e.target.value })} />
+                        <input type="date" className="hub-input" value={filters.createdTo} onChange={(e) => updateFilter({ createdTo: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
             >
-              <FilterOutlined /> Filters
-            </button>
+              <button
+                type="button"
+                className="hub-btn"
+                style={showFilters || listActive ? { background: "var(--hub-blue)", color: "#fff", borderColor: "var(--hub-blue)" } : undefined}
+              >
+                <FilterOutlined /> Filters{listActive ? " (Active)" : ""}
+              </button>
+            </Popover>
             {listActive && (
               <button type="button" className="hub-btn" onClick={clearList}>
                 <CloseOutlined /> Clear
@@ -1820,6 +1983,7 @@ function AllLeads() {
           })}
         </div>
 
+<<<<<<< Updated upstream
         {/* Advanced filters */}
         {showFilters && (
           <div
@@ -1965,6 +2129,8 @@ function AllLeads() {
           </div>
         )}
 
+=======
+>>>>>>> Stashed changes
         <>
             <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
               {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}

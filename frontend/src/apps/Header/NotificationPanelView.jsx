@@ -36,14 +36,14 @@ function NotificationRow({ item }) {
         {initials(item.avatarName)}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: item.unseen ? 700 : 600, color: item.unseen ? "#101828" : "#667085" }}>
+        <div style={{ fontSize: 13, fontWeight: item.unseen ? 700 : 600, color: item.unseen ? "var(--hub-text)" : "var(--hub-muted)" }}>
           {item.title}
         </div>
         {item.subtitle && (
           <div
             style={{
               fontSize: 12.5,
-              color: item.unseen ? "#344054" : "#98a2b3",
+              color: item.unseen ? "var(--hub-text-soft)" : "var(--hub-muted)",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -52,11 +52,11 @@ function NotificationRow({ item }) {
             {item.subtitle}
           </div>
         )}
-        <div style={{ fontSize: 11, color: "#98a2b3", marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>
           {timeAgo(item.time)} · {item.category}
         </div>
         {item.attachmentName && (
-          <div style={{ fontSize: 11.5, color: "#475467", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ fontSize: 11.5, color: "var(--hub-text-soft)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
             <PaperClipOutlined /> {item.attachmentName}
           </div>
         )}
@@ -106,7 +106,7 @@ export function NotificationPanelView({ items, onMarkAllRead, everyoneItems = nu
             </button>
           )}
         </div>
-        <SettingOutlined style={{ color: "#98a2b3" }} />
+        <SettingOutlined style={{ color: "var(--hub-muted)" }} />
       </div>
 
       <div style={{ overflowY: "auto", flex: 1, padding: "0 8px 8px" }}>

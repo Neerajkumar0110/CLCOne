@@ -6,7 +6,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getSocket } from '@/socket';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
+<<<<<<< Updated upstream
 import '../components/LearnerDesign.css';
+=======
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
+
+const { Text, Paragraph } = Typography;
+>>>>>>> Stashed changes
 
 // Student Help & Support (LMS panel). Tickets land on the CRM Support page;
 // Support is emailed + notified live, and the student is emailed + notified
@@ -61,6 +67,7 @@ export default function SupportTickets() {
   const [tickets, setTickets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [paymentCategories, setPaymentCategories] = useState([]);
+<<<<<<< Updated upstream
   const [filter, setFilter] = useState('all');
   const [saving, setSaving] = useState(false);
   const [payments, setPayments] = useState(null);
@@ -116,13 +123,32 @@ export default function SupportTickets() {
     setF((x) => ({ ...x, ...raise }));
     navigate(location.pathname, { replace: true, state: null }); // a refresh shouldn't refill it
   }, [location.state, location.pathname, navigate]);
+=======
+  const [raising, setRaising] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [payments, setPayments] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [form] = Form.useForm();
+  const category = Form.useWatch('category', form);
+  const needsPayment = paymentCategories.includes(category);
+  const list = useLearnerList(tickets, {
+    getSearchText: (t) => [t.ticketNo, t.subject, t.category, t.priority, t.status].filter(Boolean).join(' '),
+    getFilterValue: (t) => (t.status === 'Resolved' ? 'resolved' : 'open'),
+  });
+>>>>>>> Stashed changes
 
   const load = useCallback(async () => {
-    const r = await lmsApi.myTickets();
-    if (r?.success) {
-      setTickets(r.result.tickets || []);
-      setCategories(r.result.categories || []);
-      setPaymentCategories(r.result.paymentCategories || []);
+    try {
+      const r = await lmsApi.myTickets();
+      if (r?.success) {
+        setTickets(r.result.tickets || []);
+        setCategories(r.result.categories || []);
+        setPaymentCategories(r.result.paymentCategories || []);
+      } else {
+        message.error(r?.message || 'Could not load your tickets.');
+      }
+    } catch (e) {
+      message.error('Could not load your tickets. Please try again.');
     }
     setLoading(false);
   }, []);
@@ -152,6 +178,7 @@ export default function SupportTickets() {
     if (!f.category) return message.error('Pick a category.');
     if (!f.subject.trim()) return message.error('Add a short subject.');
     setSaving(true);
+<<<<<<< Updated upstream
     const r = await lmsApi.createTicket({ ...f, attachments: shots, payment: needsPayment && f.payment ? f.payment : undefined });
     setSaving(false);
     if (r?.success) {
@@ -162,12 +189,29 @@ export default function SupportTickets() {
       load();
     } else {
       message.error(r?.message || 'Could not raise the ticket.');
+=======
+    try {
+      const r = await lmsApi.createTicket({ ...v, payment: needsPayment ? v.payment : undefined });
+      if (r?.success) {
+        message.success(r.message || 'Ticket raised.');
+        setRaising(false);
+        form.resetFields();
+        load();
+      } else {
+        message.error(r?.message || 'Could not raise the ticket.');
+      }
+    } catch (e) {
+      message.error('Something went wrong while raising the ticket. Please try again.');
+    } finally {
+      setSaving(false);
+>>>>>>> Stashed changes
     }
     return undefined;
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
+<<<<<<< Updated upstream
   const rows = filter === 'all' ? tickets : tickets.filter((t) => (filter === 'open' ? t.status !== 'Resolved' : t.status === 'Resolved'));
   const history = (viewing && viewing.history) || [];
 
@@ -192,6 +236,106 @@ export default function SupportTickets() {
             <label className="ld-label">Session / test / project ID
               <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={200} name="reference" value={f.reference} onChange={set('reference')} placeholder="e.g. S78 · 28 Oct" />
             </label>
+=======
+  return (
+    <div className="lms-portal" style={{ padding: 4 }}>
+      <div className="lms-portal-head">
+        <div>
+          <h2><CustomerServiceOutlined /> Help &amp; Support</h2>
+          <p>Raise a ticket about payments, invoices, classes or anything else — we&rsquo;ll email you when it&rsquo;s resolved.</p>
+        </div>
+        <Space>
+          <Segmented value={list.filter} onChange={list.setFilter} options={[{ label: 'All', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'Resolved', value: 'resolved' }]} />
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setRaising(true)}>Raise a ticket</Button>
+        </Space>
+      </div>
+
+      {list.total === 0 ? (
+        <Card><Empty description={tickets.length ? 'No tickets match these filters.' : 'You have not raised any tickets yet.'} /></Card>
+      ) : (
+        <Card bodyStyle={{ padding: 0 }}>
+          <LearnerListControls
+            search={list.search}
+            onSearchChange={list.setSearch}
+            searchPlaceholder="Search tickets…"
+            total={list.total}
+            page={list.page}
+            pageSize={list.pageSize}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
+          />
+          <Table
+            rowKey="_id"
+            dataSource={list.pageRows}
+            pagination={false}
+            onRow={(t) => ({ onClick: () => setViewing(t), style: { cursor: 'pointer' } })}
+            columns={[
+              { title: 'Ticket', dataIndex: 'ticketNo', width: 120, render: (v) => <Text strong>{v}</Text> },
+              { title: 'Subject', dataIndex: 'subject', render: (v, t) => <>{v}{t.paymentSnapshot && <Tag icon={<WalletOutlined />} style={{ marginLeft: 8 }}>{inr(t.paymentSnapshot.amount)}</Tag>}</> },
+              { title: 'Category', dataIndex: 'category', width: 170 },
+              { title: 'Priority', dataIndex: 'priority', width: 100, render: (v) => <Tag color={PRIORITY_COLOR[v]}>{v}</Tag> },
+              { title: 'Status', dataIndex: 'status', width: 120, render: (v) => <Tag color={STATUS_COLOR[v]}>{v}</Tag> },
+              { title: 'Raised', dataIndex: 'created', width: 180, render: when },
+            ]}
+          />
+        </Card>
+      )}
+
+      <Modal
+        className="crud-modal"
+        open={raising}
+        title={
+          <span className="crud-modal-title">
+            <span className="crud-modal-title-icon"><CustomerServiceOutlined /></span>
+            <span>
+              <span className="crud-modal-title-kicker">New ticket</span>
+              <span className="crud-modal-title-main">Raise a ticket</span>
+            </span>
+          </span>
+        }
+        onCancel={() => setRaising(false)}
+        onOk={submit}
+        okText="Submit ticket"
+        confirmLoading={saving}
+        destroyOnClose
+        maskClosable={false}
+        width={600}
+      >
+        <Form form={form} layout="vertical" preserve={false} className="crud-form" initialValues={{ priority: 'Medium' }}>
+          <div className="crud-form-grid">
+            <Form.Item name="category" label={<Lbl icon={<TagOutlined />}>Category</Lbl>} rules={[{ required: true, message: 'Pick a category.' }]}>
+              <Select placeholder="What is this about?" options={categories.map((c) => ({ value: c, label: c }))} />
+            </Form.Item>
+            <Form.Item name="priority" label={<Lbl icon={<FlagOutlined />}>Priority</Lbl>}>
+              <Select options={['Low', 'Medium', 'High', 'Urgent'].map((p) => ({ value: p, label: p }))} />
+            </Form.Item>
+            {needsPayment && (
+              <Form.Item
+                name="payment"
+                className="crud-form-full"
+                label={<Lbl icon={<WalletOutlined />}>Which payment?</Lbl>}
+                extra="Optional — pick the payment this is about so Support sees its details straight away."
+              >
+                <Select
+                  allowClear
+                  loading={payments === null}
+                  placeholder={payments && payments.length === 0 ? 'No payments on your account yet' : 'Select a payment'}
+                  options={(payments || []).map((p) => ({ value: p._id, label: paymentLabel(p) }))}
+                />
+              </Form.Item>
+            )}
+            <Form.Item
+              name="subject"
+              className="crud-form-full"
+              label={<Lbl icon={<FileTextOutlined />}>Subject</Lbl>}
+              rules={[{ required: true, whitespace: true, message: 'Add a short subject.' }]}
+            >
+              <Input maxLength={200} placeholder="e.g. Paid my fee but it still shows as due" />
+            </Form.Item>
+            <Form.Item name="description" className="crud-form-full" label={<Lbl icon={<FileTextOutlined />}>Details</Lbl>}>
+              <Input.TextArea rows={4} maxLength={5000} placeholder="Tell us what happened — dates, amounts, screenshots you can describe…" />
+            </Form.Item>
+>>>>>>> Stashed changes
           </div>
           <label className="ld-label">Subject
             <input className="ld-inp full" style={{ height: 38, fontSize: 14 }} maxLength={200} name="subject" value={f.subject} onChange={set('subject')} placeholder="e.g. Join button missing" />

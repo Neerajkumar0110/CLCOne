@@ -8,7 +8,7 @@
   {
     "settingCategory": "company_settings",
     "settingKey": "company_logo",
-    "settingValue": "public/uploads/setting/company-logo.png",
+    "settingValue": "",
     "valueType": "image"
   },
   {

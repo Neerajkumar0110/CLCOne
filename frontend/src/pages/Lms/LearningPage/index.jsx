@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Row, Col, Card, Button, List, Progress, Tag, Empty, Skeleton, Space, message, Typography, Collapse,
 } from 'antd';
+import DOMPurify from 'dompurify';
 import {
   PlayCircleOutlined, CheckCircleTwoTone, CheckCircleOutlined, ArrowLeftOutlined, ArrowRightOutlined,
   FileTextOutlined, LinkOutlined, FilePdfOutlined, VideoCameraOutlined, BookOutlined, QuestionCircleOutlined,
@@ -10,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import lmsApi from '../api';
 import CurriculumViewer from '../components/CurriculumViewer';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 import '../components/MyCourses.css';
 
 const COURSE_FILTERS = [
@@ -39,10 +41,15 @@ function LessonPlayer({ lesson, onProgress, onComplete }) {
   const watched = useRef(0);
   const tick = useRef(null);
 
-  // coarse "time on lesson" counter — flushed by the parent every 15s
+  // coarse "time on lesson" counter — flushed by the parent every 15s.
+  // Only counts while the tab is visible and (for a native <video>) while
+  // playback is actually running, so paused/backgrounded time isn't billed.
   useEffect(() => {
     watched.current = 0;
     tick.current = setInterval(() => {
+      if (document.hidden) return;
+      const v = videoRef.current;
+      if (v && typeof v.paused === 'boolean' && v.paused) return;
       watched.current += 1;
       onProgress({ watchedSeconds: watched.current });
     }, 1000);
@@ -75,7 +82,10 @@ function LessonPlayer({ lesson, onProgress, onComplete }) {
     return <iframe title={lesson.title} src={lesson.media.url} style={frame} allowFullScreen />;
   if (t === 'text')
     return (
-      <div className="lms-lesson-html" dangerouslySetInnerHTML={{ __html: lesson.content || '<p><i>No content.</i></p>' }} />
+      <div
+        className="lms-lesson-html"
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content || '<p><i>No content.</i></p>') }}
+      />
     );
   if (['pdf', 'document'].includes(t) && lesson.fileUrl)
     return <iframe title={lesson.title} src={lesson.fileUrl} style={{ ...frame, height: 640 }} />;
@@ -119,8 +129,11 @@ export default function LearningPage() {
   // "View curriculum" modal from the list view — reuses the same
   // Module/Chapter/Lesson viewer the CRM and Teacher's Course Builder use.
   const [curriculumCourse, setCurriculumCourse] = useState(null); // { id, title } | null
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const courseList = useLearnerList(courses, {
+    getSearchText: (c) => [c.title, c.code, c.instructor].filter(Boolean).join(' '),
+    getFilterValue: courseStatusOf,
+    pageSize: 10,
+  });
 
   const [courseId, setCourseId] = useState(null);
   const [outline, setOutline] = useState(null);
@@ -231,12 +244,6 @@ export default function LearningPage() {
 
   // ---- course list ----
   if (view === 'list') {
-    const filtered = courses.filter((c) => {
-      if (statusFilter !== 'all' && courseStatusOf(c) !== statusFilter) return false;
-      if (search.trim() && !String(c.title || '').toLowerCase().includes(search.trim().toLowerCase())) return false;
-      return true;
-    });
-
     const totalCourses = courses.length;
     const overallPct = totalCourses ? Math.round(courses.reduce((a, c) => a + (c.progress || 0), 0) / totalCourses) : 0;
     const totalModules = courses.reduce((a, c) => a + (c.modules || 0), 0);
@@ -322,10 +329,10 @@ export default function LearningPage() {
                 <SearchOutlined />
                 <input
                   placeholder="Search internships..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={courseList.search}
+                  onChange={(e) => courseList.setSearch(e.target.value)}
                 />
-                {search && <button type="button" onClick={() => setSearch('')}>×</button>}
+                {courseList.search && <button type="button" onClick={() => courseList.setSearch('')}>×</button>}
               </div>
 
               <div className="course-filter-buttons">
@@ -333,8 +340,8 @@ export default function LearningPage() {
                   <button
                     key={f.key}
                     type="button"
-                    className={statusFilter === f.key ? 'active' : ''}
-                    onClick={() => setStatusFilter(f.key)}
+                    className={courseList.filter === f.key ? 'active' : ''}
+                    onClick={() => courseList.setFilter(f.key)}
                   >
                     {f.icon} {f.label}
                   </button>
@@ -344,19 +351,19 @@ export default function LearningPage() {
 
             <section className="courses-layout">
               <div className="courses-left">
-                {filtered.length === 0 ? (
+                {courseList.total === 0 ? (
                   <div className="empty-courses">
                     <div className="empty-course-icon">
                       <BookOutlined />
                     </div>
                     <h3>No internships found</h3>
                     <p>There are no internships matching your current search or filter.</p>
-                    <button type="button" onClick={() => { setSearch(''); setStatusFilter('all'); }}>
+                    <button type="button" onClick={() => { courseList.setSearch(''); courseList.setFilter('all'); }}>
                       View All Internships
                     </button>
                   </div>
                 ) : (
-                  filtered.map((c) => {
+                  courseList.pageRows.map((c) => {
                     const status = courseStatusOf(c);
                     return (
                       <article className="modern-course-card" key={c.id} onClick={() => openCourse(c.id)}>
@@ -464,6 +471,16 @@ export default function LearningPage() {
                   })
                 )}
 
+                {courseList.total > 0 && (
+                  <LearnerListControls
+                    total={courseList.total}
+                    page={courseList.page}
+                    pageSize={courseList.pageSize}
+                    onPageChange={courseList.setPage}
+                    onPageSizeChange={courseList.setPageSize}
+                  />
+                )}
+
                 <div className="additional-course-card">
                   <div className="additional-icon">
                     <BookOutlined />
@@ -492,7 +509,11 @@ export default function LearningPage() {
                     </span>
                     <h3>Explore More Internships</h3>
                     <p>Expand your skills and unlock new opportunities with additional internships.</p>
-                    <button type="button" className="explore-button">
+                    <button
+                      type="button"
+                      className="explore-button"
+                      onClick={() => message.info('New internships appear here as soon as your institute assigns them.')}
+                    >
                       View Available Internships
                       <ArrowRightOutlined />
                     </button>
@@ -505,7 +526,6 @@ export default function LearningPage() {
                       <ClockCircleOutlined />
                       Recent Learning Activity
                     </h3>
-                    <button type="button">View All</button>
                   </div>
 
                   <div className="recent-empty">

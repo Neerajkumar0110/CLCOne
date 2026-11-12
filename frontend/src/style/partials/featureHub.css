@@ -1424,6 +1424,18 @@
   background: rgba(14, 116, 144, 0.1);
 }
 
+:root[data-theme='dark'] .hub-notification-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme='dark'] .hub-notification-row.unseen {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+:root[data-theme='dark'] .hub-notification-row.unseen:hover {
+  background: rgba(56, 189, 248, 0.18);
+}
+
 /* Inbox / General pill tabs at the top of the notification dropdown. */
 .hub-notif-tab {
   display: inline-flex;

@@ -12,6 +12,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 import './Eligibility.css';
 
 const { Text, Paragraph } = Typography;
@@ -173,6 +174,10 @@ function ManageEligibility({ canEdit }) {
 function MyEligibility() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.course && r.course.title, r.state].filter(Boolean).join(' '),
+    getFilterValue: (r) => (r.eligible ? 'eligible' : 'ineligible'),
+  });
   useEffect(() => {
     lmsApi.myEligibility().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
@@ -193,7 +198,23 @@ function MyEligibility() {
 
       {rows.length === 0 ? (
         <div className="elig-empty"><Empty description="Not enrolled in any internship yet." /></div>
-      ) : rows.map((r) => {
+      ) : (
+      <>
+      <LearnerListControls
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder="Search internships…"
+        filter={list.filter}
+        onFilterChange={list.setFilter}
+        filterPlaceholder="All eligibility statuses"
+        filterOptions={[{ value: 'eligible', label: 'Eligible' }, { value: 'ineligible', label: 'Not eligible' }]}
+        total={list.total}
+        page={list.page}
+        pageSize={list.pageSize}
+        onPageChange={list.setPage}
+        onPageSizeChange={list.setPageSize}
+      />
+      {list.total === 0 ? <Empty description="No internships match these filters." /> : list.pageRows.map((r) => {
         const badge = STATE_BADGE[r.state] || STATE_BADGE['Not Yet Eligible'];
         return (
           <div className="elig-card" key={r.course.id}>
@@ -241,6 +262,8 @@ function MyEligibility() {
           </div>
         );
       })}
+      </>
+      )}
     </div>
   );
 }

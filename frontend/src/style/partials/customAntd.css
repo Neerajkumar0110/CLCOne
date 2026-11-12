@@ -355,3 +355,94 @@ h6 {
     animation: App-logo-spin infinite 20s linear;
   }
 }
+
+/* Global Ant Design Dark Mode & Popover / Drawer Overrides */
+:root[data-theme='dark'] .ant-layout,
+:root[data-theme='dark'] .site-layout,
+:root[data-theme='dark'] .ant-layout-content {
+  background: var(--hub-page-bg, #0b0f17) !important;
+}
+
+:root[data-theme='dark'] .ant-card,
+:root[data-theme='dark'] .ant-modal-content,
+:root[data-theme='dark'] .ant-drawer-content,
+:root[data-theme='dark'] .ant-popover-inner,
+:root[data-theme='dark'] .lead-filter-popover .ant-popover-inner {
+  background: var(--hub-surface, #1e293b) !important;
+  border: 1px solid var(--hub-border, #334155) !important;
+  color: var(--hub-text, #f8fafc) !important;
+}
+
+:root[data-theme='dark'] .ant-drawer-header {
+  background: var(--hub-surface, #1e293b) !important;
+  border-bottom: 1px solid var(--hub-border, #334155) !important;
+}
+
+:root[data-theme='dark'] .ant-drawer-title,
+:root[data-theme='dark'] .ant-popover-title {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .ant-drawer-footer {
+  background: var(--hub-surface-2, #172033) !important;
+  border-top: 1px solid var(--hub-border, #334155) !important;
+}
+
+:root[data-theme='dark'] .ant-popover-arrow::before,
+:root[data-theme='dark'] .ant-popover-arrow::after {
+  background: var(--hub-surface, #1e293b) !important;
+}
+
+:root[data-theme='dark'] .ant-table {
+  background: transparent !important;
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ant-table-thead > tr > th {
+  background: var(--hub-surface-2, #172033) !important;
+  color: #f8fafc !important;
+  border-color: var(--hub-border, #334155) !important;
+}
+
+:root[data-theme='dark'] .ant-table-tbody > tr > td {
+  border-color: var(--hub-border, #334155) !important;
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+:root[data-theme='dark'] .ant-pagination-item {
+  background: var(--hub-surface-2, #1e293b) !important;
+  border-color: var(--hub-border, #334155) !important;
+}
+
+:root[data-theme='dark'] .ant-pagination-item a {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ant-pagination-item-active {
+  background: var(--hub-blue, #8b5cf6) !important;
+  border-color: var(--hub-blue, #8b5cf6) !important;
+}
+
+:root[data-theme='dark'] .ant-pagination-item-active a {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .ant-form-item-label > label {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ant-checkbox-wrapper {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ant-tabs-tab {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #f8fafc !important;
+}

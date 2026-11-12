@@ -10,6 +10,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import lmsApi from '../api';
 import ProctorGate from '../components/ProctorGate';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 const { Text, Paragraph, Title } = Typography;
 const QTYPES = [
@@ -315,6 +316,10 @@ function StudentQuizzes() {
   const timer = useRef(null);
   const [proctorFor, setProctorFor] = useState(null); // row awaiting camera/mic check
   const [violations, setViolations] = useState(0);
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.course, r.type].filter(Boolean).join(' '),
+    getFilterValue: (r) => r.type,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -483,9 +488,28 @@ function StudentQuizzes() {
       {rows.length === 0 ? (
         <Card><Empty description="No quizzes yet." /></Card>
       ) : (
+        <>
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search quizzes…"
+          filter={list.filter}
+          onFilterChange={list.setFilter}
+          filterPlaceholder="All types"
+          filterOptions={[...new Set(rows.map((r) => r.type).filter(Boolean))].map((value) => ({
+            value,
+            label: `${value.charAt(0).toUpperCase()}${value.slice(1)}`,
+          }))}
+          total={list.total}
+          page={list.page}
+          pageSize={list.pageSize}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
+        {list.total === 0 ? <Card><Empty description="No quizzes match these filters." /></Card> : (
         <List
-          dataSource={rows}
-          pagination={rows.length > 8 ? { pageSize: 8, align: 'center' } : false}
+          dataSource={list.pageRows}
+          pagination={false}
           renderItem={(r) => {
             const attemptsLeft = (r.attemptsAllowed || 1) - (r.attemptsUsed || 0);
             return (
@@ -516,6 +540,8 @@ function StudentQuizzes() {
             );
           }}
         />
+        )}
+        </>
       )}
       <ProctorGate
         open={!!proctorFor}

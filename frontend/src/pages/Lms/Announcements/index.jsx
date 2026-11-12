@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox, Space, Empty, Skeleton, message, Typography,
+  Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox, Empty, Skeleton, message, Typography,
 } from 'antd';
 import {
   SoundOutlined, PlusOutlined, DeleteOutlined, TagOutlined, FileTextOutlined,
   TeamOutlined, ReadOutlined, BellOutlined, FlagOutlined, ExclamationCircleOutlined,
-  SearchOutlined, UserOutlined, ClockCircleOutlined, CalendarOutlined, RightOutlined, LeftOutlined,
+  SearchOutlined, UserOutlined, ClockCircleOutlined, CalendarOutlined, RightOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -13,9 +13,10 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 import './Announcements.css';
 
-const { Text, Paragraph } = Typography;
+const { Paragraph } = Typography;
 
 // Same label-with-icon treatment as the CRM's generic Add/Edit modal
 // (components/CrudTab — see .crud-lbl / .crud-lbl-icon in featureHub.css),
@@ -169,10 +170,10 @@ const readTime = (body) => {
 function ReadOnlyAnnouncements({ isTeacher }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('all');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.body, r.from].filter(Boolean).join(' '),
+    getFilterValue: (r) => (r.priority === 'important' ? 'important' : 'general'),
+  });
 
   useEffect(() => {
     lmsApi.myAnnouncements().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
@@ -180,20 +181,6 @@ function ReadOnlyAnnouncements({ isTeacher }) {
 
   const importantCount = rows.filter((r) => r.priority === 'important').length;
   const generalCount = rows.filter((r) => r.priority !== 'important').length;
-
-  const filtered = rows.filter((r) => {
-    if (tab !== 'all' && (r.priority === 'important' ? 'important' : 'general') !== tab) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      if (!r.title.toLowerCase().includes(q) && !(r.body || '').toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
-
-  useEffect(() => { setPage(1); }, [tab, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
@@ -214,28 +201,28 @@ function ReadOnlyAnnouncements({ isTeacher }) {
       <div className="announcement-content">
         <div className="announcement-filter">
           <div className="announcement-tabs">
-            <button type="button" className={`announcement-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
+            <button type="button" className={`announcement-tab ${list.filter === 'all' ? 'active' : ''}`} onClick={() => list.setFilter('all')}>
               <BellOutlined /> All <span className="announcement-count">{rows.length}</span>
             </button>
-            <button type="button" className={`announcement-tab important ${tab === 'important' ? 'active' : ''}`} onClick={() => setTab('important')}>
+            <button type="button" className={`announcement-tab important ${list.filter === 'important' ? 'active' : ''}`} onClick={() => list.setFilter('important')}>
               <ExclamationCircleOutlined /> Important <span className="announcement-count">{importantCount}</span>
             </button>
-            <button type="button" className={`announcement-tab general ${tab === 'general' ? 'active' : ''}`} onClick={() => setTab('general')}>
+            <button type="button" className={`announcement-tab general ${list.filter === 'general' ? 'active' : ''}`} onClick={() => list.setFilter('general')}>
               <SoundOutlined /> General <span className="announcement-count">{generalCount}</span>
             </button>
           </div>
           <div className="announcement-search">
             <SearchOutlined />
-            <input type="text" placeholder="Search announcements…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input type="text" placeholder="Search announcements…" value={list.search} onChange={(e) => list.setSearch(e.target.value)} />
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {list.total === 0 ? (
           <div className="announcement-empty"><Empty description="No announcements." /></div>
         ) : (
           <>
             <div className="announcement-list">
-              {pageRows.map((r) => {
+              {list.pageRows.map((r) => {
                 const important = r.priority === 'important';
                 return (
                   <div className={`announcement-card ${important ? 'important' : 'general'}`} key={r.id}>
@@ -261,17 +248,13 @@ function ReadOnlyAnnouncements({ isTeacher }) {
             </div>
 
             <div className="announcement-pagination">
-              <span>Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} announcements</span>
-              <div className="pagination-right">
-                <button type="button" className="pagination-button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}><LeftOutlined /></button>
-                <button type="button" className="pagination-button active">{page}</button>
-                <button type="button" className="pagination-button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}><RightOutlined /></button>
-                <select className="pagination-select" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
-              </div>
+              <LearnerListControls
+                total={list.total}
+                page={list.page}
+                pageSize={list.pageSize}
+                onPageChange={list.setPage}
+                onPageSizeChange={list.setPageSize}
+              />
             </div>
           </>
         )}
