@@ -100,12 +100,13 @@ function StatCard({ icon, color, label, value, active, onClick }) {
       onClick={onClick}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick && onClick()}
       title={active ? 'Showing only these — click to show all' : `Show only ${label.toLowerCase()}`}
-      style={{ flex: '1 1 150px', background: active ? `${color}0f` : '#fff', border: `1px solid ${active ? color : '#e5e7eb'}`, boxShadow: active ? `0 0 0 2px ${color}33` : '0 4px 18px rgba(15,23,42,.04)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s' }}
+      className={`material-stat${active ? ' active' : ''}`}
+      style={{ borderColor: active ? color : undefined, boxShadow: active ? `0 0 0 2px ${color}33` : undefined }}
     >
-      <div style={{ width: 42, height: 42, borderRadius: 11, background: `${color}1a`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .3 }}>{label}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{value}</div>
+      <div className="material-stat-icon" style={{ color }}>{icon}</div>
+      <div className="material-stat-body">
+        <div className="material-stat-label">{label}</div>
+        <div className="material-stat-value">{value}</div>
       </div>
     </div>
   );

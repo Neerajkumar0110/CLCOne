@@ -14,16 +14,12 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
-<<<<<<< Updated upstream
 import '../components/LearnerDesign.css';
-=======
-import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 // Every PDF download helper can fail (expired token, revoked certificate…) —
 // surface it as a toast instead of a silent dead button.
 const dl = (promise) =>
   promise.catch((e) => message.error(e?.userMessage || e?.message || 'Download failed. Please try again.'));
->>>>>>> Stashed changes
 
 const { Text, Paragraph, Title } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -409,14 +405,7 @@ function StudentCertificates() {
   const admin = useSelector(selectCurrentAdmin) || {};
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< Updated upstream
   const [sel, setSel] = useState(0);
-=======
-  const list = useLearnerList(rows, {
-    getSearchText: (c) => [c.title, c.course, c.track, c.certificateId].filter(Boolean).join(' '),
-    getFilterValue: (c) => (c.eligible ? 'eligible' : 'locked'),
-  });
->>>>>>> Stashed changes
   useEffect(() => {
     lmsApi.myCertificates().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
@@ -446,7 +435,6 @@ function StudentCertificates() {
   const masked = learner.split(' ').map((p, i) => (i === 0 ? p : `${p[0]}.`)).join(' ');
 
   return (
-<<<<<<< Updated upstream
     <div className="ld-page">
       <div className="ld-head">
         <div>
@@ -475,38 +463,6 @@ function StudentCertificates() {
               {!(cur && cur.eligible) && <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 600 }}>PREVIEW — not unlocked yet</div>}
             </div>
           </div>
-=======
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><TrophyOutlined /> My Certificates</h2><p>Your program certificates — unlocks once your duration is complete and your project is submitted.</p></div></div>
-      {rows.length === 0 ? <Card><Empty description="Not enrolled in any internship yet." /></Card> : (
-        <>
-        <LearnerListControls
-          search={list.search}
-          onSearchChange={list.setSearch}
-          searchPlaceholder="Search certificates…"
-          filter={list.filter}
-          onFilterChange={list.setFilter}
-          filterPlaceholder="All certificates"
-          filterOptions={[{ value: 'eligible', label: 'Unlocked' }, { value: 'locked', label: 'Not unlocked' }]}
-          total={list.total}
-          page={list.page}
-          pageSize={list.pageSize}
-          onPageChange={list.setPage}
-          onPageSizeChange={list.setPageSize}
-        />
-        {list.total === 0 ? <Empty description="No certificates match these filters." /> : (
-        <Row gutter={[16, 16]}>
-          {list.pageRows.map((c) => (
-            <Col xs={24} sm={12} lg={8} key={c.course}>
-              <Card>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <SafetyCertificateOutlined style={{ fontSize: 32, color: c.eligible ? '#a16207' : '#94a3b8' }} />
-                  {!c.eligible && <Tag icon={<LockOutlined />} color="default">Not unlocked yet</Tag>}
-                </div>
-                <Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>{c.title}</Title>
-                <Text strong>{c.course}</Text>
-                <Paragraph type="secondary" style={{ margin: '4px 0 10px' }}>{c.track}</Paragraph>
->>>>>>> Stashed changes
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
             {rows.map((c, i) => (
@@ -530,7 +486,6 @@ function StudentCertificates() {
                     </div>
                   </>
                 )}
-<<<<<<< Updated upstream
               </section>
             ))}
             <ExternalCertificates />
@@ -547,32 +502,6 @@ function StudentCertificates() {
             )}
           </div>
         </div>
-=======
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {c.eligible ? (
-                    <Button
-                      size="small"
-                      type="primary"
-                      icon={<DownloadOutlined />}
-                      onClick={() => dl(lmsApi.downloadCertificatePdf(c.id, true, slug(`${c.course}-${c.certificateId}`)))}
-                    >
-                      Download
-                    </Button>
-                  ) : (
-                    <Tooltip title="View-only until both requirements above are complete — downloading unlocks automatically">
-                      <Button size="small" icon={<EyeOutlined />} onClick={() => dl(lmsApi.previewCertificatePdf(c.courseId))}>Preview</Button>
-                    </Tooltip>
-                  )}
-                  {c.eligible && c.verificationUrl && <Button size="small" href={c.verificationUrl} target="_blank" rel="noopener">Verify</Button>}
-                </div>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-        )}
-        </>
->>>>>>> Stashed changes
       )}
     </div>
   );

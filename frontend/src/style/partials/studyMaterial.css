@@ -685,3 +685,170 @@
 :root[data-theme="dark"] .material-cur-unit.is-extra { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; }
 :root[data-theme="dark"] .material-cur-chapter { color: #e2e8f0; }
 :root[data-theme="dark"] .material-cur-label { background: rgba(14, 165, 233, 0.15); color: #7dd3fc; }
+
+/* ═════════════════════════════════════════════════════════════════════
+   STUDY MATERIAL — STAT CARDS (light mode)
+   ════════════════════════════════════════════════════════════════════ */
+.material-stat {
+  flex: 1 1 150px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.material-stat.active {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45);
+}
+.material-stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.material-stat-body { min-width: 0; }
+.material-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.material-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111827;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   STUDY MATERIAL — DARK MODE (stat cards, file cards, icons, actions)
+   ═════════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] .material-stat {
+  background: #151e31 !important;
+  border-color: #263350 !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .material-stat.active {
+  background: rgba(99, 102, 241, 0.20) !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45) !important;
+}
+:root[data-theme="dark"] .material-stat-icon {
+  color: #c7d2fe !important;
+  background: rgba(99, 102, 241, 0.15) !important;
+}
+:root[data-theme="dark"] .material-stat.active .material-stat-icon {
+  background: rgba(99, 102, 241, 0.25) !important;
+  color: #818cf8 !important;
+}
+:root[data-theme="dark"] .material-stat-label { color: #94a3b8 !important; }
+:root[data-theme="dark"] .material-stat-value { color: #fff !important; }
+
+:root[data-theme="dark"] .material-file-card {
+  background: #151e31 !important;
+  border-color: #263350 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme="dark"] .material-file-card:hover {
+  border-color: #334155 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+:root[data-theme="dark"] .material-file-card + .material-file-card { margin-top: 10px; }
+
+:root[data-theme="dark"] .material-pdf-icon {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #c7d2fe !important;
+}
+
+:root[data-theme="dark"] .material-file-name { color: #fff !important; }
+:root[data-theme="dark"] .material-file-meta span,
+:root[data-theme="dark"] .material-file-meta { color: #94a3b8 !important; }
+
+:root[data-theme="dark"] .material-view-btn,
+:root[data-theme="dark"] .material-download-btn { color: #67e8f9 !important; }
+:root[data-theme="dark"] .material-delete-btn { color: #fca5a5 !important; }
+:root[data-theme="dark"] .material-delete-btn:hover { background: rgba(248, 113, 113, 0.15) !important; }
+
+:root[data-theme="dark"] .material-cur-unit { background: rgba(99, 102, 241, 0.15) !important; color: #c7d2fe !important; }
+:root[data-theme="dark"] .material-cur-unit.is-extra { background: rgba(148, 163, 184, 0.1) !important; color: #cbd5e1 !important; }
+
+/* upload area + cards + header */
+:root[data-theme="dark"] .material-upload-area {
+  background: #151e31 !important;
+  border-color: #263350 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme="dark"] .material-upload-area.drag-active {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-color: #6366f1 !important;
+}
+:root[data-theme="dark"] .material-upload-title { color: #fff !important; font-weight: 600 !important; }
+:root[data-theme="dark"] .material-upload-description { color: #94a3b8 !important; font-weight: 600 !important; }
+:root[data-theme="dark"] .material-upload-description span { color: #67e8f9 !important; }
+:root[data-theme="dark"] .material-file-info { color: #94a3b8 !important; }
+
+:root[data-theme="dark"] .material-upload-icon { color: #67e8f9 !important; }
+
+:root[data-theme="dark"] .study-material-card {
+  background: #151e31 !important;
+  border-color: #263350 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme="dark"] .study-material-header {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .study-material-title { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme="dark"] .study-material-subtitle { color: #94a3b8 !important; }
+
+:root[data-theme="dark"] .uploaded-material-heading h3 { color: #fff !important; font-weight: 600 !important; }
+:root[data-theme="dark"] .uploaded-count { color: #94a3b8 !important; }
+
+:root[data-theme="dark"] .material-search-box {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme="dark"] .material-search-box input { color: #e2e8f0 !important; }
+:root[data-theme="dark"] .material-search-box input::placeholder { color: #64748b !important; }
+
+:root[data-theme="dark"] .material-select,
+:root[data-theme="dark"] .material-select-sm,
+:root[data-theme="dark"] .material-input {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme="dark"] .material-empty-state {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root[data-theme="dark"] .material-empty-state p { color: #94a3b8 !important; }
+
+:root[data-theme="dark"] .material-upload-progress .material-progress-header { color: #94a3b8 !important; }
+:root[data-theme="dark"] .material-upload-progress .material-progress-bar { background: #263350 !important; }
+
+:root[data-theme="dark"] .material-upload-btn {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .material-upload-btn:hover { background: #1d4ed8 !important; }
+
+/* link paste modal - bulk delete button */
+:root[data-theme="dark"] .material-upload-btn[style*="#fef2f2"] {
+  background: rgba(248, 113, 113, 0.15) !important;
+  color: #fca5a5 !important;
+  border-color: #ef4444 !important;
+}

@@ -80,7 +80,6 @@ function thumbFor(text) {
 export default function Recordings() {
   const admin = useSelector(selectCurrentAdmin) || {};
   const isManager = MGR.includes(admin.role);
-<<<<<<< Updated upstream
   const navigate = useNavigate();
   // Learners in the panel get a way to report a missing / wrong recording
   // straight to Support (design L5) and a link to the study material.
@@ -89,9 +88,7 @@ export default function Recordings() {
     navigate('/learn/support', {
       state: { raise: { category: 'Recording / material', subject: 'Recording missing or wrong topic', description: 'Class date / batch:\nWhat is wrong:' } },
     });
-=======
   const canFilterStatus = isManager || LMS_TEACHER_ROLES.includes(admin.role);
->>>>>>> Stashed changes
 
   const [rows, setRows] = useState([]);
   const [recordingCourseOptions, setRecordingCourseOptions] = useState([]);

@@ -13,13 +13,9 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
-<<<<<<< Updated upstream
 import '../StudentDashboard/StudentHome.css';
 import '../components/LearnerDesign.css';
 import './StudentConsent.css';
-=======
-import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
->>>>>>> Stashed changes
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -56,7 +52,6 @@ function StudentPolicies() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState(null);
   const [agree, setAgree] = useState(false);
-<<<<<<< Updated upstream
   const [accepting, setAccepting] = useState(false);
   // onboarding checklist: "STEP x OF n" + the batch line of the board header
   const [ob, setOb] = useState(null);
@@ -65,12 +60,6 @@ function StudentPolicies() {
   useEffect(() => {
     lmsApi.myOnboarding().then((r) => setOb((r && r.result) || null)).catch(() => {});
   }, []);
-=======
-  const list = useLearnerList(rows, {
-    getSearchText: (r) => [r.title, r.category, r.content].filter(Boolean).join(' '),
-    getFilterValue: (r) => r.status,
-  });
->>>>>>> Stashed changes
 
   const load = useCallback(() => {
     setLoading(true);
@@ -115,13 +104,6 @@ function StudentPolicies() {
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
-<<<<<<< Updated upstream
-=======
-  const pending = list.filteredRows.filter((r) => r.status === 'pending');
-  const done = list.filteredRows.filter((r) => r.status === 'acknowledged');
-  const pagePending = list.pageRows.filter((r) => r.status === 'pending');
-  const pageDone = list.pageRows.filter((r) => r.status === 'acknowledged');
->>>>>>> Stashed changes
 
   const chipFor = (r) => {
     if (r.status === 'acknowledged') return <span className="ld-chip hai">Accepted</span>;
@@ -144,7 +126,6 @@ function StudentPolicies() {
         </div>
       </div>
 
-<<<<<<< Updated upstream
       <div className="ld-grid" style={{ gridTemplateColumns: pending.length ? '460px minmax(0, 1fr)' : 'minmax(0, 720px)', gap: 20, flex: 1 }}>
         <section className="ld-card p20" aria-label="Your policies" style={{ gap: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Policies for you ({rows.length})</div>
@@ -203,44 +184,6 @@ function StudentPolicies() {
           </section>
         )}
       </div>
-=======
-      {rows.length > 0 && (
-        <LearnerListControls
-          search={list.search}
-          onSearchChange={list.setSearch}
-          searchPlaceholder="Search policies…"
-          filter={list.filter}
-          onFilterChange={list.setFilter}
-          filterPlaceholder="All policy statuses"
-          filterOptions={[{ value: 'pending', label: 'Pending' }, { value: 'acknowledged', label: 'Acknowledged' }]}
-          total={list.total}
-          page={list.page}
-          pageSize={list.pageSize}
-          onPageChange={list.setPage}
-          onPageSizeChange={list.setPageSize}
-        />
-      )}
-      {list.total === 0 ? <Card><Empty description={rows.length ? 'No policies match these filters.' : 'No policies apply to you yet.'} /></Card> : null}
-      {pagePending.length > 0 && (
-        <>
-          <h4 style={{ margin: '4px 0 8px' }}>Pending ({pending.length})</h4>
-          {pagePending.map((r) => (
-            <Card key={r.id} size="small" style={{ marginBottom: 10, borderColor: r.mandatory ? '#fa8c16' : undefined }}
-              title={<Space><b>{r.title}</b><Tag>{r.category}</Tag>{r.mandatory && <Tag color="volcano">Mandatory</Tag>}</Space>}
-              extra={<Button type="primary" icon={<InboxOutlined />} onClick={() => setView(r)}>Read & Acknowledge</Button>}>
-              <Paragraph type="secondary" style={{ marginBottom: 0 }} ellipsis={{ rows: 2 }}>{r.content}</Paragraph>
-            </Card>
-          ))}
-        </>
-      )}
-
-      {pageDone.length > 0 && <h4 style={{ margin: '16px 0 8px' }}>Acknowledged ({done.length})</h4>}
-      {pageDone.map((r) => (
-        <Card key={r.id} size="small" style={{ marginBottom: 8 }} title={<Space><b>{r.title}</b><Tag color="green">v{r.version}</Tag></Space>}>
-          <Text type="secondary">Acknowledged {r.acknowledgedAt ? dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm') : ''}</Text>
-        </Card>
-      ))}
->>>>>>> Stashed changes
 
       <Modal open={!!view} title={view ? `${view.title} · v${view.version}` : ''} width={680} destroyOnClose onCancel={() => setView(null)} footer={<Button onClick={() => setView(null)}>Close</Button>}>
         <div style={{ maxHeight: 420, overflowY: 'auto', border: '1px solid #e3e8ef', borderRadius: 8, padding: 14, marginBottom: 12, whiteSpace: 'pre-wrap' }}>

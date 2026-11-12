@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< Updated upstream
 import { Empty, Skeleton, Alert } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
@@ -13,13 +12,6 @@ import '../components/LearnerDesign.css';
 // Attendance, Results…); Home only summarises and links there.
 
 const TEST_TYPE_LABELS = { BASIC: 'Basic Test', MAJOR: 'Major Test', MICRO: 'Micro Test', NLP_MICRO: 'NLP Micro Test', NLP_MAJOR: 'NLP Major Test', LLM_MAJOR: 'LLM Major Test' };
-=======
-import { Row, Col, Skeleton, Empty, Alert, Button, message } from 'antd';
-import { VideoCameraOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import lmsApi from '../api';
-import './StudentDashboard.css';
->>>>>>> Stashed changes
 
 // Home dashboard — "Namaste" layout matching the approved mockup:
 // one eligibility-gate card (left), live stat cards (attendance /
@@ -50,200 +42,25 @@ const fmtClock = (v) => (v ? new Date(v).toLocaleTimeString('en-IN', { hour: 'nu
 const asList = (v) => (Array.isArray(v) ? v : (v && v.result) || []);
 const settledResult = (s) => (s.status === 'fulfilled' && s.value && s.value.result) || null;
 
-<<<<<<< Updated upstream
 function gateChip(item) {
   if (!item.applicable) return <span className="ld-chip gray">N/A</span>;
   if (item.passed) return <span className="ld-chip hai">Done</span>;
   return <span className="ld-chip red">Gap</span>;
-=======
-const Chip = ({ tone = 'gray', children }) => <span className={`sdb-chip is-${tone}`}>{children}</span>;
-
-// One gate row inside the eligibility card — chip reflects the engine's
-// per-criterion result: passed → DONE, close miss → GAP n%, else PENDING.
-function GateRow({ item }) {
-  if (!item || item.applicable === false) return null;
-  let chip = <Chip tone="gray">Pending</Chip>;
-  if (item.passed) chip = <Chip tone="green">Done</Chip>;
-  else if (typeof item.achieved === 'number' && typeof item.required === 'number' && item.required > 0) {
-    const gap = Math.max(0, Math.round(item.required - item.achieved));
-    chip = gap > 0 ? <Chip tone="red">Gap {gap}%</Chip> : <Chip tone="amber">Review</Chip>;
-  }
-  return (
-    <div className="sdb-gate-row">
-      <span className="sdb-gate-label">
-        {item.label}
-        {item.detail ? <span className="sdb-gate-detail"> · {item.detail}</span> : null}
-      </span>
-      {chip}
-    </div>
-  );
-}
-
-// Attendance summary → big % + "x / y sessions" + progress bar.
-function AttendanceCard({ att }) {
-  const s = att && att.summary;
-  if (!s) {
-    return (
-      <div className="sdb-card">
-        <div className="sdb-card-head"><h3>Attendance</h3></div>
-        <p className="sdb-empty">No attendance recorded yet.</p>
-      </div>
-    );
-  }
-  const pct = Math.round(s.attendancePct || 0);
-  const attended = (s.present || 0) + (s.late || 0) + (s.partial || 0);
-  return (
-    <div className="sdb-card">
-      <div className="sdb-card-head"><h3>Attendance</h3><Chip tone="green">Hai</Chip></div>
-      <p className="sdb-stat-big">{pct}%</p>
-      <p className="sdb-stat-sub">{attended} / {s.totalClasses} sessions attended</p>
-      <div className="sdb-stat-bar"><span style={{ width: `${Math.min(100, pct)}%` }} /></div>
-      <a href="/learn/attendance">Session-wise dekhein →</a>
-    </div>
-  );
-}
-
-// Assessments — qualified results first, then types with attempts left.
-function AssessmentsCard({ asm }) {
-  const rows = [];
-  (asm && asm.results ? asm.results : []).forEach((r) => {
-    if (r && r.qualified) {
-      rows.push({ key: `q-${r.attemptId}`, label: r.testType, right: <span className="is-qualified">{r.score}/{r.totalCount} · Qualified</span> });
-    }
-  });
-  const byType = (asm && asm.attemptsByType) || {};
-  Object.entries(byType).forEach(([type, a]) => {
-    if (!a || rows.length >= 4) return;
-    if (a.remaining > 0 || a.unlocked === false) {
-      rows.push({
-        key: `t-${type}`,
-        label: type,
-        right: a.nextEligibleAt
-          ? <span className="is-pending">Attempt {a.used + 1} of {a.max} · from {fmtDate(a.nextEligibleAt)}</span>
-          : <span className="is-pending">Attempt {a.used + 1} of {a.max}</span>,
-      });
-    }
-  });
-  return (
-    <div className="sdb-card">
-      <div className="sdb-card-head"><h3>Assessments</h3><Chip tone="green">Hai</Chip></div>
-      {rows.length === 0 ? (
-        <p className="sdb-empty">No assessments scheduled yet.</p>
-      ) : (
-        rows.slice(0, 4).map((r) => (
-          <div className="sdb-assess-row" key={r.key}>
-            <span>{r.label}</span>
-            {r.right}
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// Next actions — built from real signals: live class, re-attempts,
-// milestone due dates, failed gates, pending policies. Max 4.
-function NextActionsCard({ liveNow, asm, projects, eligibility, policies }) {
-  const actions = [];
-  (liveNow || []).slice(0, 1).forEach((c) => {
-    actions.push({ key: 'live', node: <><a href="/learn/classes">Join today's class</a> <span className="is-live">· LIVE</span></>, when: '' });
-  });
-  const byType = (asm && asm.attemptsByType) || {};
-  Object.entries(byType).forEach(([type, a]) => {
-    if (actions.length >= 4 || !a || a.remaining <= 0) return;
-    actions.push({
-      key: `ra-${type}`,
-      node: <a href="/learn/quizzes">{type} re-attempt</a>,
-      when: a.nextEligibleAt ? fmtDate(a.nextEligibleAt) : '',
-    });
-  });
-  (projects || []).some((p) =>
-    (p.milestones || []).some((m) => {
-      if (actions.length >= 4) return true;
-      const done = m.completed || m.done || m.approved || /complete|approved|done/i.test(String(m.status || ''));
-      if (!m || done || !m.dueDate) return false;
-      actions.push({ key: `ms-${p.id}-${m.no || m.title}`, node: <a href="/learn/projects">{m.title ? `Milestone — ${m.title}` : `Milestone ${m.no || ''}`}</a>, when: `due ${fmtDate(m.dueDate)}` });
-      return false;
-    })
-  );
-  if (eligibility && (eligibility.missing || []).length) {
-    actions.push({ key: 'gate', node: <a href="/learn/eligibility">{eligibility.missing[0]}</a>, when: 'action needed' });
-  }
-  const pendingPolicies = (policies || []).filter((p) => p.status === 'pending').length;
-  if (pendingPolicies > 0 && actions.length < 4) {
-    actions.push({ key: 'pol', node: <a href="/learn/policies">Acknowledge {pendingPolicies} policies</a>, when: '' });
-  }
-  return (
-    <div className="sdb-card">
-      <div className="sdb-card-head"><h3>Next actions</h3><Chip tone="blue">Naya</Chip></div>
-      {actions.length === 0 ? (
-        <p className="sdb-empty">You're all caught up — nothing needs your attention right now.</p>
-      ) : (
-        actions.slice(0, 4).map((a) => (
-          <div className="sdb-action-row" key={a.key}>
-            <span style={{ minWidth: 0 }}>{a.node}</span>
-            {a.when ? <span className="sdb-when">{a.when}</span> : null}
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// Onboarding checklist — the real onboarding artefact we track is policy
-// acknowledgements, so the checklist shows those (mandatory first).
-function ChecklistCard({ policies }) {
-  const rows = [...(policies || [])]
-    .sort((a, b) => (a.status === 'pending' ? -1 : 1) - (b.status === 'pending' ? -1 : 1))
-    .slice(0, 4);
-  return (
-    <div className="sdb-card">
-      <div className="sdb-card-head"><h3>Onboarding checklist</h3><Chip tone="blue">Naya</Chip></div>
-      {rows.length === 0 ? (
-        <p className="sdb-empty">No onboarding items yet.</p>
-      ) : (
-        rows.map((p) => (
-          <div className="sdb-action-row" key={p.id}>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-            {p.status === 'acknowledged' ? <Chip tone="green">Done</Chip> : <a href="/learn/policies">Pending</a>}
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// ── bottom mini cards ─────────────────────────────────────────
-function MiniCard({ title, tone, badge, children, link }) {
-  return (
-    <div className="sdb-card">
-      <div className="sdb-card-head"><h3>{title}</h3>{badge ? <Chip tone={tone}>{badge}</Chip> : null}</div>
-      {children}
-      {link && <a href={link.href}>{link.label} →</a>}
-    </div>
-  );
->>>>>>> Stashed changes
 }
 
 export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [d, setD] = useState(null);
-<<<<<<< Updated upstream
   const [ov, setOv] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [onboarding, setOnboarding] = useState(null);
   const [feedback, setFeedback] = useState(null);
-=======
-  const [tickets, setTickets] = useState([]);
-  const [fetchedAt, setFetchedAt] = useState(null);
->>>>>>> Stashed changes
   const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
     (async () => {
-<<<<<<< Updated upstream
       // Each source is optional except the dashboard itself — a failure in
       // one (say tickets) just leaves its card empty instead of blanking Home.
       const [dash, overview, tk, ob, fb] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets(), lmsApi.myOnboarding(), lmsApi.myFeedback()]);
@@ -255,23 +72,6 @@ export default function StudentDashboard() {
       setOnboarding(settledResult(ob));
       setFeedback(settledResult(fb));
       setLoading(false);
-=======
-      try {
-        const [overview, tkts] = await Promise.allSettled([lmsApi.myOverview(), lmsApi.myTickets()]);
-        if (!alive) return;
-        if (overview.status === 'fulfilled') {
-          setD((overview.value && overview.value.result) || null);
-          setFetchedAt(new Date());
-        } else {
-          setErr('Could not load your dashboard.');
-        }
-        if (tkts.status === 'fulfilled') setTickets((tkts.value && tkts.value.result && tkts.value.result.tickets) || []);
-        // tickets are optional garnish — a failure here shouldn't blank the page
-        if (tkts.status === 'rejected') message.warning('Support requests could not be loaded.');
-      } finally {
-        if (alive) setLoading(false);
-      }
->>>>>>> Stashed changes
     })();
     return () => {
       alive = false;
@@ -282,7 +82,6 @@ export default function StudentDashboard() {
   if (err) return <Alert type="error" showIcon message={err} style={{ margin: 24 }} />;
   if (!d) return <Empty style={{ marginTop: 80 }} description="You are not enrolled in any internship yet." />;
 
-<<<<<<< Updated upstream
   const k = d.kpis || {};
   const o = ov || {};
   const elig = o.eligibility;
@@ -469,137 +268,6 @@ export default function StudentDashboard() {
           <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/support')}>{openTickets.length ? 'Track →' : 'Raise a request →'}</button>
         </section>
       </div>
-=======
-  const name = (d.student && d.student.name) || 'there';
-  const firstName = String(name).trim().split(/\s+/)[0];
-  const primaryCourse = d.courses && d.courses[0];
-  const eligibility = d.eligibility || (d.eligibilityByCourse && d.eligibilityByCourse[0]) || null;
-  const gates = eligibility ? (eligibility.items || []).filter((i) => i && i.applicable !== false) : [];
-  const gatesDone = gates.filter((i) => i.passed).length;
-  const eligible = !!(eligibility && eligibility.eligible);
-
-  const notif = d.notifications || {};
-  const unread = notif.unread || 0;
-  const latestNote = (notif.notifications || [])[0];
-  const liveNow = notif.liveNow || [];
-  const policies = d.policies || [];
-  const pendingPolicies = policies.filter((p) => p.status === 'pending').length;
-  const projects = d.projects || [];
-  const project = projects[0];
-  const openTicket = tickets.find((t) => t.status !== 'Resolved') || tickets[0];
-
-  const projectMs = project ? project.milestones || [] : [];
-  const msDone = projectMs.filter((m) => m && (m.completed || m.done || m.approved || /complete|approved|done/i.test(String(m.status || '')))).length;
-
-  return (
-    <div className="sdb-page">
-      <div className="sdb-head">
-        <div>
-          <h1>Namaste, {firstName}</h1>
-          <p className="sdb-head-sub">
-            {primaryCourse ? `${primaryCourse.course} · ${primaryCourse.batch}` : 'Your internship'}
-            {` · last updated ${fmtTime(fetchedAt)}`}
-          </p>
-        </div>
-        <Chip tone="green">Dash board · Hai</Chip>
-      </div>
-
-      <Row gutter={[14, 14]}>
-        <Col xs={24} lg={10}>
-          <div className="sdb-card">
-            <div className="sdb-card-head">
-              <h3>Overall eligibility</h3>
-              {eligible ? <Chip tone="green">Eligible</Chip> : <Chip tone="amber">Adhoora</Chip>}
-            </div>
-            <div className={`sdb-gates-state${eligible ? ' is-eligible' : ''}`}>
-              {eligible ? 'Eligible 🎉' : 'Not yet eligible'}
-              <span className="sdb-gates-count">{gatesDone} of {gates.length} gates done</span>
-            </div>
-            {gates.length === 0 ? (
-              <p className="sdb-empty">Eligibility gates will appear here once your program starts.</p>
-            ) : (
-              gates.map((item) => <GateRow key={item.key} item={item} />)
-            )}
-            <div className="sdb-gate-review">
-              <a href="/learn/support">Calculation galat lagí? Review request karein</a>
-            </div>
-          </div>
-        </Col>
-
-        <Col xs={24} md={12} lg={7}>
-          <Row gutter={[14, 14]}>
-            <Col xs={24}><AttendanceCard att={d.attendance} /></Col>
-            <Col xs={24}><AssessmentsCard asm={d.assessments} /></Col>
-          </Row>
-        </Col>
-
-        <Col xs={24} md={12} lg={7}>
-          <Row gutter={[14, 14]}>
-            <Col xs={24}><NextActionsCard liveNow={liveNow} asm={d.assessments} projects={projects} eligibility={eligibility} policies={policies} /></Col>
-            <Col xs={24}><ChecklistCard policies={policies} /></Col>
-          </Row>
-        </Col>
-      </Row>
-
-      <Row gutter={[14, 14]} style={{ marginTop: 14 }}>
-        <Col xs={24} md={12} lg={6}>
-          <MiniCard title="Project" tone="green" badge={project ? 'Hai' : null} link={project ? { href: '/learn/projects', label: 'Open' } : null}>
-            <p className="sdb-mini-title">{project ? project.title : 'No project assigned yet'}</p>
-            <p className="sdb-mini-sub">
-              {project
-                ? `${projectMs.length ? `Milestone ${msDone}/${projectMs.length}` : 'Awaiting milestones'} · ${project.status || 'In progress'}`
-                : 'You will see your capstone project here once it is assigned.'}
-            </p>
-          </MiniCard>
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <MiniCard
-            title="Feedback & policies"
-            tone={pendingPolicies ? 'blue' : 'green'}
-            badge={pendingPolicies ? 'Naya' : 'Hai'}
-            link={{ href: '/learn/policies', label: pendingPolicies ? 'Fill now' : 'View' }}
-          >
-            <p className="sdb-mini-title">{pendingPolicies ? `${pendingPolicies} pending` : 'All accepted'}</p>
-            <p className="sdb-mini-sub">
-              {policies.length ? `${policies.length - pendingPolicies} / ${policies.length} policies accepted` : 'No policies published yet.'}
-            </p>
-          </MiniCard>
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <MiniCard title="Notifications" tone="green" badge="Hai" link={{ href: '/learn/notifications', label: 'View' }}>
-            <p className="sdb-mini-title">{unread ? `${unread} unread` : 'All read'}</p>
-            <p className="sdb-mini-sub">{latestNote ? latestNote.title : 'Announcements and class updates will appear here.'}</p>
-          </MiniCard>
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <MiniCard
-            title="Support requests"
-            tone={openTicket && openTicket.status !== 'Resolved' ? 'amber' : 'green'}
-            badge={openTicket && openTicket.status !== 'Resolved' ? 'Adhoora' : 'Hai'}
-            link={{ href: '/learn/support', label: 'Track' }}
-          >
-            <p className="sdb-mini-title">
-              {openTicket ? `${openTicket.ticketNo} · ${openTicket.status}` : 'No tickets raised'}
-            </p>
-            <p className="sdb-mini-sub">
-              {openTicket ? `Updated ${fmtDate(openTicket.updated || openTicket.created)}` : 'Raise a ticket anytime from Help & Support.'}
-            </p>
-          </MiniCard>
-        </Col>
-      </Row>
-
-      {liveNow.length > 0 && (
-        <Button
-          type="primary"
-          icon={<VideoCameraOutlined />}
-          size="large"
-          style={{ marginTop: 16 }}
-          onClick={() => navigate('/learn/classes')}
-        >
-          Join today's live class
-        </Button>
-      )}
->>>>>>> Stashed changes
     </div>
   );
 }

@@ -1983,7 +1983,6 @@ function AllLeads() {
           })}
         </div>
 
-<<<<<<< Updated upstream
         {/* Advanced filters */}
         {showFilters && (
           <div
@@ -2129,8 +2128,6 @@ function AllLeads() {
           </div>
         )}
 
-=======
->>>>>>> Stashed changes
         <>
             <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
               {drill.loading ? "Loading…" : `${drill.count} lead${drill.count === 1 ? "" : "s"}`}

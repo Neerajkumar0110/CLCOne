@@ -370,17 +370,6 @@ function MyAttendance() {
         </div>
       </div>
 
-<<<<<<< Updated upstream
-      <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px', flex: 1 }}>
-        <section className="ld-card" aria-label="Session-wise">
-          <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
-            <b style={{ fontSize: 16 }}>Session-wise</b>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {courses.length > 1 && <select className="ld-inp" aria-label="Internship" value={course} onChange={(e) => setCourse(e.target.value)}><option value="">All internships</option>{courses.map((c) => <option key={c} value={c}>{c}</option>)}</select>}
-              {batches.length > 1 && <select className="ld-inp" aria-label="Batch" value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">All batches</option>{batches.map((b) => <option key={b} value={b}>{b}</option>)}</select>}
-              <input className="ld-inp" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Start date" />
-              <input className="ld-inp" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="End date" />
-=======
       <div className="ld-grid attendance-session-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: 16, flex: 1, alignItems: 'stretch', width: '100%' }}>
         <section className="ld-card attendance-session-card" aria-label="Session-wise" style={{ flex: '1 1 560px', minWidth: 0, width: '100%' }}>
           <div className="ld-hd" style={{ flexWrap: 'wrap' }}>
@@ -408,7 +397,6 @@ function MyAttendance() {
                   Clear filters
                 </Button>
               )}
->>>>>>> Stashed changes
             </div>
           </div>
           <div className="ld-tablewrap">
@@ -437,14 +425,6 @@ function MyAttendance() {
               </tbody>
             </table>
           </div>
-<<<<<<< Updated upstream
-          {classes.length > pageSize && (
-            <div className="ld-hd" style={{ fontSize: 13 }}>
-              <span className="ld-muted">Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, classes.length)} of {classes.length}</span>
-              <span style={{ display: 'flex', gap: 6 }}>
-                <button type="button" className="ld-btn2 sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
-                <button type="button" className="ld-btn2 sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
-=======
           {classes.length > 0 && (
             <div className="ld-hd" style={{ fontSize: 13 }}>
               <span className="ld-muted">
@@ -456,29 +436,19 @@ function MyAttendance() {
                 </select>
                 <button type="button" className="ld-btn2 sm" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
                 <button type="button" className="ld-btn2 sm" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
->>>>>>> Stashed changes
               </span>
             </div>
           )}
           <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Reconnects are merged — no duplicate attendance · the calculation basis is visible for every session</div>
         </section>
 
-<<<<<<< Updated upstream
-        <section className="ld-card" aria-label="Attendance correction">
-=======
         <section className="ld-card attendance-wrong-card" aria-label="Attendance correction" style={{ flex: '1 1 320px', minWidth: 280, maxWidth: '100%' }}>
->>>>>>> Stashed changes
           <b style={{ fontSize: 16 }}>Attendance wrong?</b>
           {correctable.length === 0 ? (
             <div className="ld-muted" style={{ fontSize: 13 }}>No absent / partial / late session — no correction needed.</div>
           ) : (
             <>
               <label className="ld-label">Session
-<<<<<<< Updated upstream
-                <select className="ld-inp full" style={{ height: 38, fontSize: 14 }} value={picked ? picked.id : ''} onChange={(e) => setCorrId(e.target.value)}>
-                  {correctable.map((c) => <option key={c.id} value={c.id}>{c.className} · {fmtDate(c.date)} · {c.status} ({c.attendedMin || 0} min)</option>)}
-                </select>
-=======
                 <Select
                   showSearch
                   optionFilterProp="label"
@@ -491,7 +461,6 @@ function MyAttendance() {
                     label: `${c.className} · ${fmtDate(c.date)} · ${c.status} (${c.attendedMin || 0} min)`,
                   }))}
                 />
->>>>>>> Stashed changes
               </label>
               <label className="ld-label">What happened
                 <textarea className="ld-inp full" style={{ fontSize: 14 }} value={corrText} onChange={(e) => setCorrText(e.target.value)} placeholder="e.g. My network dropped, I rejoined but it was not recorded." />

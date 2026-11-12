@@ -488,3 +488,155 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-sider .ant-menu-root { scrollbar-width: thin !important; scrollbar-color: rgba(203, 213, 225, .35) transparent; padding-bottom: 12px !important; min-height: 0; }
 .ld-sider .ant-menu-root::-webkit-scrollbar { display: block !important; width: 6px; }
 .ld-sider .ant-menu-root::-webkit-scrollbar-thumb { background: rgba(203, 213, 225, .35); border-radius: 3px; }
+
+
+/* ══ DARK MODE (teacher panel + any ld page) ══════════════════════════════
+   Learners are forced to light (LmsPanelApp), so these rules only surface for
+   Project Managers who switch dark on. Same palette discipline as light:
+   #0b1220 page, #151e31 cards, indigo accents for the pm board, and
+   white bold headings/KPI text. All key properties use !important so they
+   override inline styles and competing theme CSS. */
+:root[data-theme='dark'] .ld-page { background: #0b1220 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page.pm { background: #0b1020 !important; }
+:root[data-theme='dark'] .ld-page h1 { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-eyebrow { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-muted { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page a { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page a:hover { color: #22d3ee !important; }
+:root[data-theme='dark'] .ld-link { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-link:hover { color: #22d3ee !important; }
+
+/* cards, KPI tiles, class rows — forced dark with white text */
+:root[data-theme='dark'] .ld-card,
+:root[data-theme='dark'] .ld-k,
+:root[data-theme='dark'] .pm-cls,
+:root[data-theme='dark'] .pm-k { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-k b,
+:root[data-theme='dark'] .pm-k b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-k span,
+:root[data-theme='dark'] .pm-k span,
+:root[data-theme='dark'] .pm-k .cap { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-k .cap { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-cls.next { background: rgba(79, 70, 229, 0.18) !important; border-color: #4f46e5 !important; }
+:root[data-theme='dark'] .pm-legacy { border-top-color: #263350 !important; }
+
+/* soft surfaces, list rows, dividers */
+:root[data-theme='dark'] .ld-kv,
+:root[data-theme='dark'] .ld-soft { background: #0f172a !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-chip { background: #1e293b !important; border: 1px solid #334155 !important; color: #c7d2fe !important; }
+:root[data-theme='dark'] .ld-chip.hai { background: rgba(22, 101, 52, 0.18) !important; color: #4ade80 !important; }
+:root[data-theme='dark'] .ld-chip.adh { background: rgba(194, 65, 12, 0.18) !important; color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-chip.naya { background: rgba(30, 64, 175, 0.18) !important; color: #a5b4fc !important; }
+:root[data-theme='dark'] .ld-chip.gray { background: rgba(30, 41, 59, 0.6) !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-chip.red { background: rgba(127, 29, 29, 0.18) !important; color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-warn { background: rgba(249, 115, 22, 0.14) !important; color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-li,
+:root[data-theme='dark'] .ld-gate,
+:root[data-theme='dark'] .ld-pol,
+:root[data-theme='dark'] .ld-q { border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .ld-empty { color: #94a3b8 !important; }
+
+/* controls */
+:root[data-theme='dark'] .ld-inp { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-inp::placeholder { color: #64748b !important; }
+:root[data-theme='dark'] .ld-label { color: #cbd5e1 !important; }
+:root[data-theme='dark'] .ld-btn2 { background: #151e31 !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-btn2:hover { background: #1e293b !important; }
+:root[data-theme='dark'] .ld-pill,
+:root[data-theme='dark'] .ld-seg { background: #151e31 !important; color: #cbd5e1 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-pill.on,
+:root[data-theme='dark'] .ld-seg.on { background: #4f46e5 !important; border-color: #4f46e5 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-r { background: #151e31 !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-r.on { background: #0e7490 !important; border-color: #0e7490 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-btn:disabled { background: #334155 !important; color: #94a3b8 !important; }
+
+/* tables */
+:root[data-theme='dark'] .ld-table th { color: #94a3b8 !important; border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-table td { border-bottom-color: #1e293b !important; color: #e2e8f0 !important; }
+
+/* steps / tabs */
+:root[data-theme='dark'] .ld-stp { background: #1e293b !important; color: #cbd5e1 !important; }
+:root[data-theme='dark'] .ld-stp.past { background: #1e293b !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-stp.done { background: rgba(79, 70, 229, 0.25) !important; color: #c7d2fe !important; }
+:root[data-theme='dark'] .ld-stp.on { background: #0e7490 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-stp.live { background: #b91c1c !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-tabs { border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-tab { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-tab.on { color: #67e8f9 !important; border-bottom-color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-tab.on { color: #a5b4fc !important; border-bottom-color: #a5b4fc !important; }
+
+/* track / weeks */
+:root[data-theme='dark'] .ld-track { background: #263350 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-pill.on { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+
+/* status text written inline in dark-red / dark-green hexes gets a readable
+   dark-mode variant (React inlines them as rgb(), so catch that form) */
+:root[data-theme='dark'] .ld-page b[style*="rgb(153, 27, 27)"] { color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-page b[style*="rgb(154, 52, 18)"] { color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-page b[style*="rgb(22, 101, 52)"] { color: #4ade80 !important; }
+:root[data-theme='dark'] .ld-page span[style*="rgb(153, 27, 27)"] { color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-page span[style*="rgb(71, 85, 105)"] { color: #94a3b8 !important; }
+
+/* antd pieces the pm boards use — force dark surfaces + white text */
+:root[data-theme='dark'] .ld-page .ant-card,
+:root[data-theme='dark'] .ld-page .ant-table,
+:root[data-theme='dark'] .ld-page .ant-table-container { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-card-head,
+:root[data-theme='dark'] .ld-page .ant-card-body { background: #151e31 !important; border-color: #263350 !important; }
+:root[data-theme='dark'] .ld-page .ant-table-thead > tr > th { background: #0f172a !important; color: #cbd5e1 !important; border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-page .ant-table-tbody > tr > td { background: #151e31 !important; color: #e2e8f0 !important; border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .ld-page .ant-table-tbody > tr:hover > td { background: #1e293b !important; }
+:root[data-theme='dark'] .ld-page .ant-table-placeholder .ant-table-cell { background: #151e31 !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page .ant-empty-description { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page .ant-tag { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-progress-text { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-select-selector,
+:root[data-theme='dark'] .ld-page .ant-input,
+:root[data-theme='dark'] .ld-page .ant-picker { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PM-BOARD COMPONENTS — DARK MODE (Doubts / Curriculum / Candidates)
+   ═════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='dark'] .pm-f,
+:root[data-theme='dark'] .pm-q,
+:root[data-theme='dark'] .pm-k,
+:root[data-theme='dark'] .pm-a,
+:root[data-theme='dark'] .pm-msg,
+:root[data-theme='dark'] .pm-drop,
+:root[data-theme='dark'] .pm-mat { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .pm-f.on,
+:root[data-theme='dark'] .pm-q.on,
+:root[data-theme='dark'] .pm-a.on { border-color: #6366f1 !important; background: rgba(99, 102, 241, 0.15) !important; }
+:root[data-theme='dark'] .pm-drop.over { border-color: #6366f1 !important; background: rgba(99, 102, 241, 0.15) !important; }
+
+:root[data-theme='dark'] .pm-f b,
+:root[data-theme='dark'] .pm-q b,
+:root[data-theme='dark'] .pm-k b,
+:root[data-theme='dark'] .pm-a b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .pm-f span,
+:root[data-theme='dark'] .pm-f .cap,
+:root[data-theme='dark'] .pm-k .cap,
+:root[data-theme='dark'] .pm-a span { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-tip { background: #0f172a !important; color: #94a3b8 !important; border-color: #263350 !important; }
+
+:root[data-theme='dark'] .pm-msg { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .pm-msg.reply { background: #1e293b !important; }
+:root[data-theme='dark'] .pm-mat { border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .pm-drop { border-color: #334155 !important; color: #c7d2fe !important; }
+
+:root[data-theme='dark'] .pm-msg.reply b,
+:root[data-theme='dark'] .pm-msg b { color: #fff !important; }
+:root[data-theme='dark'] .pm-mat b { color: #fff !important; }
+
+/* inline hardcoded colours on replies / recording status → readable dark variants */
+:root[data-theme='dark'] .ld-page b[style*="#9a3412"],
+:root[data-theme='dark'] .ld-page span[style*="#9a3412"] { color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-page b[style*="#166534"],
+:root[data-theme='dark'] .ld-page span[style*="#166534"] { color: #4ade80 !important; }
+
+:root[data-theme='dark'] .rec-off { color: #fdba74 !important; }
+:root[data-theme='dark'] .rec-ready { color: #4ade80 !important; }
+
+.pm-msg.student { background: #f8fafc; }
+:root[data-theme='dark'] .pm-msg.student { background: #1e293b !important; }

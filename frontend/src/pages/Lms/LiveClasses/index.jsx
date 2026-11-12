@@ -44,11 +44,7 @@ import lmsApi from '../api';
 const MANAGER_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
 import DevicePreflightModal from '../components/DevicePreflightModal';
-<<<<<<< Updated upstream
 import ClassDetailDrawer, { ClassBoard, classTitle } from './ClassDetailDrawer';
-=======
-import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
->>>>>>> Stashed changes
 
 // Live Classes — auto-generated per batch/course. No manual meeting link:
 // Join asks the backend for a one-time redirect (teacher -> host,
@@ -187,7 +183,6 @@ export default function LiveClasses() {
   const [preflight, setPreflight] = useState(null); // row awaiting device check
   const [detailFor, setDetailFor] = useState(null); // learner's class detail drawer
   const timer = useRef(null);
-<<<<<<< Updated upstream
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // The panel (/learn, /teacher) routes with paths; the CRM's LMS module
@@ -211,12 +206,6 @@ export default function LiveClasses() {
   useEffect(() => {
     loadPaused();
   }, [loadPaused]);
-=======
-  const list = useLearnerList(rows, {
-    getSearchText: (r) => [r.title, r.courseTitle, r.batchName, r.teacherName].filter(Boolean).join(' '),
-    getFilterValue: (r) => r.status,
-  });
->>>>>>> Stashed changes
 
   useEffect(() => {
     lmsApi.joinPolicy().then((r) => setPolicy((r && r.result) || null)).catch(() => {});
@@ -410,7 +399,6 @@ export default function LiveClasses() {
 
   const openAdd = (r) => setAddFor(r);
 
-<<<<<<< Updated upstream
   const onDelete = (r) =>
     Modal.confirm({
       centered: true,
@@ -474,9 +462,6 @@ export default function LiveClasses() {
   };
 
   const liveNow = rows.filter((r) => r.status === 'LIVE');
-=======
-  const liveNow = list.filteredRows.filter((r) => r.status === 'LIVE');
->>>>>>> Stashed changes
 
   const joinModals = (
     <>

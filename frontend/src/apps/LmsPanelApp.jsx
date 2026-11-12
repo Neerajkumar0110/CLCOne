@@ -49,14 +49,22 @@ import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
-<<<<<<< Updated upstream
 import '@/pages/Lms/components/LearnerDesign.css';
 import useSidebarLogo from '@/hooks/useSidebarLogo';
-=======
-import useBrandLogo from '@/hooks/useBrandLogo';
 import { logoSlot } from '@/config/logoSlots';
 import { settingsAction } from '@/redux/settings/actions';
->>>>>>> Stashed changes
+
+// The uploaded logo lives on the server that ran the upload — a dev machine
+// pointing at the shared settings DB can 404 on the file. Never let the brand
+// go blank: on a load error swap back to the bundled logo (once).
+const logoFallback = (slotKey) => (e) => {
+  const slot = logoSlot(slotKey);
+  const img = e.currentTarget;
+  if (slot && slot.fallback && img.getAttribute('src') !== slot.fallback && !img.dataset.fellBack) {
+    img.dataset.fellBack = '1';
+    img.src = slot.fallback;
+  }
+};
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -638,7 +646,6 @@ export default function LmsPanelApp() {
   // fragment, or nothing below the sidebar will ever match a click.
   const financeHold = updates.finance && updates.finance.hold;
   const accessHold = updates.access && updates.access.hold;
-<<<<<<< Updated upstream
   // Mandatory policies not yet accepted: the server already refuses these
   // pages' data (requirePoliciesAccepted); send the learner to the consent
   // page instead of showing them broken.
@@ -656,7 +663,6 @@ export default function LmsPanelApp() {
     );
   const gate = (path, element) =>
     policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : shell(path, element);
-=======
   const connBanner = connLost && !accessHold && !financeHold && (
     <div
       style={{
@@ -696,7 +702,6 @@ export default function LmsPanelApp() {
       </button>
     </div>
   );
->>>>>>> Stashed changes
   const routes = (
     <Suspense fallback={<PageLoader />}>
       {connBanner}
@@ -720,42 +725,16 @@ export default function LmsPanelApp() {
 
   const sidebarInner = (isDrawer) => (
     <>
-<<<<<<< Updated upstream
       {/* uploaded company logo (Settings > Logo) + the panel's role, as on the boards */}
       <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)} title={isTeacher ? 'Career Lab · Project Manager' : 'Career Lab · InternX-AI'}>
         {!isDrawer && collapsed ? (
-          <img className="ld-logo mini" src={logoMini} alt="Career Lab Consulting" />
+          <img className="ld-logo mini" src={logoMini} alt="Career Lab Consulting" onError={logoFallback('logo_sidebar_collapsed')} />
         ) : (
           <>
-            <img className="ld-logo" src={logoWide} alt="Career Lab Consulting" />
+            <img className="ld-logo" src={logoWide} alt="Career Lab Consulting" onError={logoFallback('logo_sidebar_expanded')} />
             <span className="ld-role">{isTeacher ? 'Project Manager' : 'InternX-AI'}</span>
           </>
         )}
-=======
-      <div
-        className="logo"
-        onClick={() => go(base)}
-        style={{
-          cursor: 'pointer',
-          ...(!isDrawer && collapsed && { margin: '15px auto 30px', width: 'auto', justifyContent: 'center' }),
-        }}
-      >
-        <img
-          src={!isDrawer && collapsed ? collapsedLogo : expandedLogo}
-          alt="Career Lab Consulting"
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            const slot = logoSlot(!isDrawer && collapsed ? 'logo_sidebar_collapsed' : 'logo_sidebar_expanded');
-            if (slot?.fallback) e.currentTarget.src = slot.fallback;
-          }}
-          style={{
-            height: '40px',
-            width: 'auto',
-            objectFit: 'contain',
-            marginLeft: !isDrawer && collapsed ? 0 : '-5px',
-          }}
-        />
->>>>>>> Stashed changes
       </div>
       {updates.liveNow && updates.liveNow.length > 0 && (
         <div
@@ -791,7 +770,7 @@ export default function LmsPanelApp() {
     return (
       <div className="ld-activate">
         <header className="ld-actbar">
-          <div className="ld-brand" style={{ padding: 0 }}><img className="ld-logo" src={logoWide} alt="Career Lab Consulting" style={{ height: 34 }} /></div>
+          <div className="ld-brand" style={{ padding: 0 }}><img className="ld-logo" src={logoWide} alt="Career Lab Consulting" style={{ height: 34 }} onError={logoFallback('logo_sidebar_expanded')} /></div>
           <div className="ld-actbar-r">
             <span>{[`${admin.name || ''} ${admin.surname || ''}`.trim(), enrollmentId].filter(Boolean).join(' · ')}</span>
             <button type="button" onClick={() => dispatch(logoutAction())}>Logout</button>

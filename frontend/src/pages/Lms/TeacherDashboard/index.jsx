@@ -24,6 +24,7 @@ import { applyChartTheme } from '@/components/dashboard/chartTheme';
 import { useTheme } from '@/context/themeContext';
 import KpiTile from '../components/KpiTile';
 import '@/components/dashboard/dashboard.css';
+import './teacherDashboard.css';
 
 const fmtTime = (v) => {
   if (!v) return '—';
@@ -110,7 +111,7 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="lms-portal lms-dashboard-shell">
+    <div className="lms-portal lms-dashboard-shell lms-teacher-dashboard">
       <div className="lms-portal-head">
         <div>
           <h2><ReadOutlined /> Project Manager Dashboard</h2>
