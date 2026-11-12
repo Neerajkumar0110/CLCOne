@@ -252,6 +252,14 @@ const schema = new mongoose.Schema({
     nextAt: Date,
   },
   metaFormName: String,
+  // Where the Facebook lead came from (Meta lead fields): platform fb | ig |
+  // an | msg, and the campaign / ad set / ad it came through — for the
+  // Capture Form › Facebook dashboard (facebookController/liveCampaigns.js).
+  metaPlatform: { type: String, index: true },
+  metaCampaignId: { type: String, index: true },
+  metaCampaignName: String,
+  metaAdsetName: String,
+  metaAdName: String,
   rawMetaData: mongoose.Schema.Types.Mixed,
 
   // Google Ads lead-ads tracing.

@@ -21,6 +21,8 @@ import {
 import { LeadDetailModal } from "@/pages/Leads";
 import { badgeClassForStatus } from "@/config/leadStages";
 import GoogleLiveCampaigns from "./GoogleLiveCampaigns";
+import FacebookLeadsDashboard from "./FacebookLeadsDashboard";
+import HubModal from "@/components/HubModal";
 
 // Every call site does `STATUS_META[lead.status]` to get a hub-badge-* class
 // — mirrors the same back-compat shim Leads/index.jsx defines locally
@@ -216,6 +218,7 @@ function ConnectedAccountsList({ routeKey, onChanged }) {
 }
 
 function CaptureForm() {
+  const [formSetupOpen, setFormSetupOpen] = useState(false); // lead form & ad setup modal
   const [enabled, setEnabled] = useState(DEFAULT_ENABLED);
   const [platform, setPlatform] = useState("Website");
   const [configId, setConfigId] = useState(null);
@@ -731,508 +734,12 @@ function CaptureForm() {
         </div>
       </div>
 
-      {platform === "Website" && (
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3><LinkOutlined /> Hosted Landing Page — point your ads here</h3>
-            <span className="hub-badge hub-badge-green">No connection needed</span>
-          </div>
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 12 }}>
-            This is a ready lead-capture page built from your saved form fields. Put its link in a
-            Facebook / Instagram / Google / YouTube ad's <strong>destination URL</strong> —
-            leads go straight into the CRM, tagged with the campaign name (shown in Marketing → Analytics Hub).
-          </div>
-          <div className="hub-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
-            <div>
-              <label>Campaign name (optional)</label>
-              <input className="hub-input" placeholder="e.g. diwali-sale-2026" value={lpCampaign}
-                onChange={(e) => setLpCampaign(e.target.value)} />
-            </div>
-            <div>
-              <label>Source</label>
-              <select className="hub-select" value={lpSource} onChange={(e) => setLpSource(e.target.value)}>
-                {["Facebook", "Instagram", "Google Ads", "YouTube", "LinkedIn", "Referral", "Other"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {(() => {
-            const base = `${BASE_URL}public/lead-form/website`;
-            const qs = new URLSearchParams();
-            if (lpSource) qs.set("utm_source", lpSource);
-            if (lpCampaign.trim()) qs.set("utm_campaign", lpCampaign.trim().replace(/\s+/g, "-").toLowerCase());
-            const url = qs.toString() ? `${base}?${qs.toString()}` : base;
-            return (
-              <div style={{ marginTop: 12 }}>
-                <div style={{
-                  fontFamily: "monospace", fontSize: 12, background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)",
-                  borderRadius: 8, padding: "10px 12px", wordBreak: "break-all", color: "var(--hub-text)",
-                }}>{url}</div>
-                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <button type="button" className="hub-btn hub-btn-primary" onClick={async () => {
-                    try { await navigator.clipboard.writeText(url); setLpCopyMessage("Link copied!"); }
-                    catch { setLpCopyMessage("Copy failed — select the text manually."); }
-                    setTimeout(() => setLpCopyMessage(""), 2500);
-                  }}><CopyOutlined /> Copy Link</button>
-                  <a className="hub-btn" href={url} target="_blank" rel="noreferrer"><LinkOutlined /> Open / Preview</a>
-                  {lpCopyMessage && <span className="hub-badge hub-badge-blue">{lpCopyMessage}</span>}
-                </div>
-                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 8 }}>
-                  Tip: give each ad its own <strong>Campaign name</strong> — Analytics Hub then shows leads / cost / ROI
-                  per campaign. Turn form fields on/off under "Form Fields" below and click <strong>Save Form</strong>.
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {platform === "Facebook Ads" && (
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3><FacebookOutlined /> Facebook Lead Ads Connection</h3>
-            <span className={`hub-badge ${connection?.connected ? "hub-badge-green" : "hub-badge-gray"}`}>
-              {connectionLoading ? "Checking…" : connection?.connected ? <><CheckCircleOutlined /> Connected</> : "Not Connected"}
-            </span>
-          </div>
-
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect as many real Facebook accounts as you need — each one can run its own
-            campaign. Pick the Page and Ad Account for whichever is active below.
-          </div>
-
-          <ConnectedAccountsList routeKey="facebook" onChanged={loadConnection} />
-
-          <button type="button" className="hub-btn hub-btn-primary" disabled={connecting} onClick={connectFacebook} style={{ marginBottom: 16 }}>
-            <LinkOutlined /> {connecting ? "Opening Facebook…" : connection?.connected ? "Connect another Facebook account" : "Connect Facebook"}
-          </button>
-          {connectionMessage && (
-            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{connectionMessage}</div>
-          )}
-
-          {connection?.connected && (
-            <>
-              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
-                <div className="hub-form-row">
-                  <label>Facebook Page</label>
-                  <select
-                    className="hub-select"
-                    value={connection.page?.id || ""}
-                    onChange={(e) => selectPage(e.target.value)}
-                  >
-                    <option value="" disabled>{pages.length ? "Select a Page…" : "Loading Pages…"}</option>
-                    {pages.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="hub-form-row">
-                  <label>Ad Account</label>
-                  <select
-                    className="hub-select"
-                    value={connection.adAccount?.id || ""}
-                    onChange={(e) => selectAdAccount(e.target.value)}
-                  >
-                    <option value="" disabled>{adAccounts.length ? "Select an Ad Account…" : "Loading Ad Accounts…"}</option>
-                    {adAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-                {connection.webhookSubscribed ? (
-                  <span className="hub-badge hub-badge-green">Webhook subscribed — new leads arrive automatically</span>
-                ) : connection.page ? (
-                  <span className="hub-badge hub-badge-yellow">Webhook not subscribed yet</span>
-                ) : (
-                  "Select a Page to subscribe its lead webhook."
-                )}
-                {connection.lastError && (
-                  <div style={{ marginTop: 6, color: "#dc2626" }}>{connection.lastError}</div>
-                )}
-              </div>
-
-              <button type="button" className="hub-btn" onClick={disconnectFacebook}>
-                <DisconnectOutlined /> Disconnect Facebook
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {platform === "Google Ads" && (
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3><GoogleOutlined /> Google Ads Connection</h3>
-            <span className={`hub-badge ${googleConnection?.connected ? "hub-badge-green" : "hub-badge-gray"}`}>
-              {googleConnectionLoading ? "Checking…" : googleConnection?.connected ? <><CheckCircleOutlined /> Connected</> : "Not Connected"}
-            </span>
-          </div>
-
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect as many real Google Ads accounts as you need. Pick the account for
-            whichever is active below.
-          </div>
-
-          <ConnectedAccountsList routeKey="google" onChanged={loadGoogleConnection} />
-
-          <button type="button" className="hub-btn hub-btn-primary" disabled={googleConnecting} onClick={connectGoogle} style={{ marginBottom: 16 }}>
-            <LinkOutlined /> {googleConnecting ? "Opening Google…" : googleConnection?.connected ? "Connect another Google Ads account" : "Connect Google Ads"}
-          </button>
-          {googleConnectionMessage && (
-            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{googleConnectionMessage}</div>
-          )}
-
-          {googleConnection?.connected && (
-            <>
-              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
-                <div className="hub-form-row">
-                  <label>Google Ads Account</label>
-                  <select
-                    className="hub-select"
-                    value={googleConnection.customer?.id || ""}
-                    onChange={(e) => selectGoogleCustomer(e.target.value)}
-                  >
-                    <option value="" disabled>{googleAccounts.length ? "Select an account…" : "Loading accounts…"}</option>
-                    {googleAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {googleConnection.customer ? (
-                <div style={{ paddingTop: 14, borderTop: "1px solid var(--hub-border)", marginBottom: 16 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Connect leads from Google Ads</div>
-                  <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 10 }}>
-                    In Google Ads, open your Lead Form asset → Connect to a CRM using webhook integration →
-                    paste the URL and key below.
-                  </div>
-                  <div className="hub-form-row" style={{ marginBottom: 10 }}>
-                    <label>Webhook URL</label>
-                    <div className="hub-row" style={{ gap: 8 }}>
-                      <input className="hub-input" readOnly style={{ flex: 1 }} value={googleConnection.webhookUrl || ""} />
-                      <button type="button" className="hub-btn" onClick={() => copyGoogleValue(googleConnection.webhookUrl)}>
-                        <CopyOutlined /> Copy
-                      </button>
-                    </div>
-                  </div>
-                  <div className="hub-form-row">
-                    <label>Webhook Key</label>
-                    <div className="hub-row" style={{ gap: 8 }}>
-                      <input className="hub-input" readOnly style={{ flex: 1 }} value={googleConnection.webhookKey || ""} />
-                      <button type="button" className="hub-btn" onClick={() => copyGoogleValue(googleConnection.webhookKey)}>
-                        <CopyOutlined /> Copy
-                      </button>
-                    </div>
-                  </div>
-                  {googleCopyMessage && (
-                    <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--hub-blue)" }}>{googleCopyMessage}</div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-                  Select a Google Ads account to see the webhook URL and key to paste into Google Ads.
-                </div>
-              )}
-
-              {googleConnection.lastError && (
-                <div style={{ marginBottom: 14, fontSize: 11.5, color: "#dc2626" }}>{googleConnection.lastError}</div>
-              )}
-
-              <button type="button" className="hub-btn" onClick={disconnectGoogle}>
-                <DisconnectOutlined /> Disconnect Google Ads
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
+      {/* Dashboards first: running campaigns and where the leads come from */}
+      {platform === "Facebook Ads" && <FacebookLeadsDashboard connected={!!connection?.connected} />}
       {/* read-only: the campaigns already running in the connected Google Ads account */}
       {platform === "Google Ads" && googleConnection?.connected && googleConnection.customer && (
         <GoogleLiveCampaigns customerId={googleConnection.customer.id} />
       )}
-
-      {platform === "LinkedIn Ads" && (
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3><LinkedinOutlined /> LinkedIn Ads Connection</h3>
-            <span
-              className={`hub-badge ${
-                linkedinConnection?.connected
-                  ? "hub-badge-green"
-                  : linkedinConnection?.status === "expired"
-                  ? "hub-badge-yellow"
-                  : "hub-badge-gray"
-              }`}
-            >
-              {linkedinConnectionLoading ? (
-                "Checking…"
-              ) : linkedinConnection?.connected ? (
-                <><CheckCircleOutlined /> Connected</>
-              ) : linkedinConnection?.status === "expired" ? (
-                "Expired"
-              ) : (
-                "Not Connected"
-              )}
-            </span>
-          </div>
-
-          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
-            Connect as many real LinkedIn accounts as you need. Set the Organization and Ad
-            Account for whichever is active below.
-          </div>
-
-          <ConnectedAccountsList routeKey="linkedin" onChanged={loadLinkedinConnection} />
-
-          {linkedinConnection?.status === "expired" && (
-            <div className="hub-badge hub-badge-yellow" style={{ marginBottom: 12 }}>
-              Your LinkedIn connection expired — LinkedIn issues no refresh token, so reconnect below.
-            </div>
-          )}
-
-          <button type="button" className="hub-btn hub-btn-primary" disabled={linkedinConnecting} onClick={connectLinkedin} style={{ marginBottom: 16 }}>
-            <LinkOutlined /> {linkedinConnecting ? "Opening LinkedIn…" : linkedinConnection?.connected ? "Connect another LinkedIn account" : "Connect LinkedIn"}
-          </button>
-          {linkedinConnectionMessage && (
-            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{linkedinConnectionMessage}</div>
-          )}
-
-          {linkedinConnection?.connected && (
-            <>
-              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
-                <div className="hub-form-row">
-                  <label>Organization (no listing API — type the ID)</label>
-                  <div className="hub-row" style={{ gap: 8 }}>
-                    <input
-                      className="hub-input"
-                      style={{ flex: 1 }}
-                      placeholder="Organization ID"
-                      value={orgIdInput}
-                      onChange={(e) => setOrgIdInput(e.target.value)}
-                    />
-                    <input
-                      className="hub-input"
-                      style={{ flex: 1 }}
-                      placeholder="Organization Name"
-                      value={orgNameInput}
-                      onChange={(e) => setOrgNameInput(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="hub-btn"
-                    style={{ marginTop: 8 }}
-                    disabled={!orgIdInput.trim() || savingOrg}
-                    onClick={saveOrganization}
-                  >
-                    {savingOrg ? "Saving…" : "Save Organization"}
-                  </button>
-                  {linkedinConnection.organization && (
-                    <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 6 }}>
-                      Current: {linkedinConnection.organization.name} · {linkedinConnection.organization.id}
-                    </div>
-                  )}
-                </div>
-                <div className="hub-form-row">
-                  <label>Ad Account</label>
-                  <select
-                    className="hub-select"
-                    value={linkedinConnection.adAccount?.id || ""}
-                    onChange={(e) => selectLinkedinAdAccount(e.target.value)}
-                  >
-                    <option value="" disabled>{linkedinAdAccounts.length ? "Select an Ad Account…" : "Loading Ad Accounts…"}</option>
-                    {linkedinAdAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
-                <span className="hub-badge hub-badge-blue">
-                  LinkedIn has no live webhook — new leads are pulled by a background sync every few minutes
-                </span>
-                <div style={{ marginTop: 6 }}>
-                  Last synced: {linkedinConnection.lastPolledAt ? new Date(linkedinConnection.lastPolledAt).toLocaleString() : "never yet"}
-                </div>
-                {linkedinConnection.lastError && (
-                  <div style={{ marginTop: 6, color: "#dc2626" }}>{linkedinConnection.lastError}</div>
-                )}
-              </div>
-
-              <button type="button" className="hub-btn" onClick={disconnectLinkedin}>
-                <DisconnectOutlined /> Disconnect LinkedIn
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      <div className="hub-grid-2">
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3>Form Fields</h3>
-          </div>
-
-          <div className="hub-stack" style={{ gap: 10 }}>
-            {FIELD_LIBRARY.map((f) => (
-              <div
-                key={f.key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  border: "1px solid var(--hub-border)",
-                  borderRadius: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{f.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>{f.type} field</div>
-                </div>
-
-                <button
-                  type="button"
-                  className={`hub-switch ${enabled[f.key] ? "on" : ""}`}
-                  onClick={() =>
-                    setEnabled((prev) => ({ ...prev, [f.key]: !prev[f.key] }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-
-          <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <button className="hub-btn hub-btn-primary" type="button" disabled={saving} onClick={saveForm}>
-              {saving ? "Saving…" : "Save Form"}
-            </button>
-            <button className="hub-btn" type="button" onClick={copyEmbedCode}>
-              <CopyOutlined /> Copy Embed Code
-            </button>
-            {(saveMessage || copyMessage) && (
-              <span className="hub-badge hub-badge-blue">{saveMessage || copyMessage}</span>
-            )}
-          </div>
-
-          {platform === "Facebook Ads" && (
-            <div className="hub-form-row" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--hub-border)" }}>
-              <label>Meta Lead Form</label>
-              {metaFormId ? (
-                <span className="hub-badge hub-badge-green">
-                  <CheckCircleOutlined /> Created — Meta form ID {metaFormId}
-                </span>
-              ) : (
-                <>
-                  <input
-                    className="hub-input"
-                    style={{ marginBottom: 8 }}
-                    placeholder="Privacy policy URL (required by Meta)"
-                    value={privacyPolicyUrl}
-                    onChange={(e) => setPrivacyPolicyUrl(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="hub-btn"
-                    disabled={!connection?.connected || !connection?.page || !privacyPolicyUrl.trim() || creatingForm}
-                    onClick={createMetaForm}
-                  >
-                    {creatingForm ? "Creating…" : "Create Meta Lead Form"}
-                  </button>
-                  {!connection?.connected && (
-                    <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Connect Facebook and select a Page first.</span>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="hub-card">
-          <div className="hub-card-header">
-            <h3>Live Preview</h3>
-            <span className="hub-badge hub-badge-blue">
-              {platform === "Facebook Ads"
-                ? "Facebook Lead Ad"
-                : platform === "Google Ads"
-                ? "Google Lead Form"
-                : platform === "LinkedIn Ads"
-                ? "LinkedIn Lead Gen Form"
-                : "Website Form"}
-            </span>
-          </div>
-
-          <div
-            style={{
-              border: "1px solid var(--hub-border)",
-              borderRadius: 10,
-              padding: 20,
-              background: "var(--hub-bg-soft)",
-            }}
-          >
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-              Get in touch with us
-            </div>
-            <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 16 }}>
-              Fill this form and our team will reach out within 24 hours.
-            </div>
-
-            <div className="hub-stack" style={{ gap: 12 }}>
-              {activeFields.length === 0 && (
-                <div className="hub-empty">Turn on a field to preview it here.</div>
-              )}
-
-              {activeFields.map((f) => (
-                <div key={f.key}>
-                  <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 4 }}>
-                    {f.label}
-                  </div>
-                  {f.type === "Textarea" ? (
-                    <div
-                      style={{
-                        height: 60,
-                        border: "1px solid #e3e9f5",
-                        borderRadius: 6,
-                        background: "var(--hub-surface)",
-                      }}
-                    />
-                  ) : f.type === "Dropdown" ? (
-                    <select className="hub-select" style={{ width: "100%" }} defaultValue="">
-                      <option value="" disabled>Select…</option>
-                      {f.options.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div
-                      style={{
-                        height: 32,
-                        border: "1px solid #e3e9f5",
-                        borderRadius: 6,
-                        background: "var(--hub-surface)",
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-
-              {activeFields.length > 0 && (
-                <button
-                  className="hub-btn hub-btn-primary"
-                  type="button"
-                  style={{ marginTop: 4, alignSelf: "flex-start" }}
-                >
-                  Submit
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="hub-card">
         <div className="hub-card-header">
@@ -1439,14 +946,535 @@ function CaptureForm() {
         )}
       </div>
 
-      {TEMPLATE_PLATFORM_KEY[platform] && (
-        <AutoLaunchTemplateCard platformKey={TEMPLATE_PLATFORM_KEY[platform]} platformLabel={platform} />
+      {platform === "Website" && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3><LinkOutlined /> Hosted Landing Page — point your ads here</h3>
+            <span className="hub-badge hub-badge-green">No connection needed</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 12 }}>
+            This is a ready lead-capture page built from your saved form fields. Put its link in a
+            Facebook / Instagram / Google / YouTube ad's <strong>destination URL</strong> —
+            leads go straight into the CRM, tagged with the campaign name (shown in Marketing → Analytics Hub).
+          </div>
+          <div className="hub-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
+            <div>
+              <label>Campaign name (optional)</label>
+              <input className="hub-input" placeholder="e.g. diwali-sale-2026" value={lpCampaign}
+                onChange={(e) => setLpCampaign(e.target.value)} />
+            </div>
+            <div>
+              <label>Source</label>
+              <select className="hub-select" value={lpSource} onChange={(e) => setLpSource(e.target.value)}>
+                {["Facebook", "Instagram", "Google Ads", "YouTube", "LinkedIn", "Referral", "Other"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(() => {
+            const base = `${BASE_URL}public/lead-form/website`;
+            const qs = new URLSearchParams();
+            if (lpSource) qs.set("utm_source", lpSource);
+            if (lpCampaign.trim()) qs.set("utm_campaign", lpCampaign.trim().replace(/\s+/g, "-").toLowerCase());
+            const url = qs.toString() ? `${base}?${qs.toString()}` : base;
+            return (
+              <div style={{ marginTop: 12 }}>
+                <div style={{
+                  fontFamily: "monospace", fontSize: 12, background: "var(--hub-bg-soft)", border: "1px solid var(--hub-border)",
+                  borderRadius: 8, padding: "10px 12px", wordBreak: "break-all", color: "var(--hub-text)",
+                }}>{url}</div>
+                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" className="hub-btn hub-btn-primary" onClick={async () => {
+                    try { await navigator.clipboard.writeText(url); setLpCopyMessage("Link copied!"); }
+                    catch { setLpCopyMessage("Copy failed — select the text manually."); }
+                    setTimeout(() => setLpCopyMessage(""), 2500);
+                  }}><CopyOutlined /> Copy Link</button>
+                  <a className="hub-btn" href={url} target="_blank" rel="noreferrer"><LinkOutlined /> Open / Preview</a>
+                  {lpCopyMessage && <span className="hub-badge hub-badge-blue">{lpCopyMessage}</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 8 }}>
+                  Tip: give each ad its own <strong>Campaign name</strong> — Analytics Hub then shows leads / cost / ROI
+                  per campaign. Turn form fields on/off in "Open form builder" below and click <strong>Save Form</strong>.
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       )}
 
-      {platform === "Facebook Ads" && <CampaignSetup connection={connection} metaFormId={metaFormId} />}
-      {platform === "Google Ads" && <GoogleCampaignSetup connection={googleConnection} />}
-      {platform === "LinkedIn Ads" && <LinkedInCampaignSetup connection={linkedinConnection} />}
+      {platform === "Facebook Ads" && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3><FacebookOutlined /> Facebook Lead Ads Connection</h3>
+            <span className={`hub-badge ${connection?.connected ? "hub-badge-green" : "hub-badge-gray"}`}>
+              {connectionLoading ? "Checking…" : connection?.connected ? <><CheckCircleOutlined /> Connected</> : "Not Connected"}
+            </span>
+          </div>
 
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
+            Connect as many real Facebook accounts as you need — each one can run its own
+            campaign. Pick the Page and Ad Account for whichever is active below.
+          </div>
+
+          <ConnectedAccountsList routeKey="facebook" onChanged={loadConnection} />
+
+          <button type="button" className="hub-btn hub-btn-primary" disabled={connecting} onClick={connectFacebook} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {connecting ? "Opening Facebook…" : connection?.connected ? "Connect another Facebook account" : "Connect Facebook"}
+          </button>
+          {connectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{connectionMessage}</div>
+          )}
+
+          {connection?.connected && (
+            <>
+              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
+                <div className="hub-form-row">
+                  <label>Facebook Page</label>
+                  <select
+                    className="hub-select"
+                    value={connection.page?.id || ""}
+                    onChange={(e) => selectPage(e.target.value)}
+                  >
+                    <option value="" disabled>{pages.length ? "Select a Page…" : "Loading Pages…"}</option>
+                    {pages.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="hub-form-row">
+                  <label>Ad Account</label>
+                  <select
+                    className="hub-select"
+                    value={connection.adAccount?.id || ""}
+                    onChange={(e) => selectAdAccount(e.target.value)}
+                  >
+                    <option value="" disabled>{adAccounts.length ? "Select an Ad Account…" : "Loading Ad Accounts…"}</option>
+                    {adAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
+                {connection.webhookSubscribed ? (
+                  <span className="hub-badge hub-badge-green">Webhook subscribed — new leads arrive automatically</span>
+                ) : connection.page ? (
+                  <span className="hub-badge hub-badge-yellow">Webhook not subscribed yet</span>
+                ) : (
+                  "Select a Page to subscribe its lead webhook."
+                )}
+                {connection.lastError && (
+                  <div style={{ marginTop: 6, color: "#dc2626" }}>{connection.lastError}</div>
+                )}
+              </div>
+
+              <button type="button" className="hub-btn" onClick={disconnectFacebook}>
+                <DisconnectOutlined /> Disconnect Facebook
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {platform === "Google Ads" && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3><GoogleOutlined /> Google Ads Connection</h3>
+            <span className={`hub-badge ${googleConnection?.connected ? "hub-badge-green" : "hub-badge-gray"}`}>
+              {googleConnectionLoading ? "Checking…" : googleConnection?.connected ? <><CheckCircleOutlined /> Connected</> : "Not Connected"}
+            </span>
+          </div>
+
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
+            Connect as many real Google Ads accounts as you need. Pick the account for
+            whichever is active below.
+          </div>
+
+          <ConnectedAccountsList routeKey="google" onChanged={loadGoogleConnection} />
+
+          <button type="button" className="hub-btn hub-btn-primary" disabled={googleConnecting} onClick={connectGoogle} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {googleConnecting ? "Opening Google…" : googleConnection?.connected ? "Connect another Google Ads account" : "Connect Google Ads"}
+          </button>
+          {googleConnectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{googleConnectionMessage}</div>
+          )}
+
+          {googleConnection?.connected && (
+            <>
+              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
+                <div className="hub-form-row">
+                  <label>Google Ads Account</label>
+                  <select
+                    className="hub-select"
+                    value={googleConnection.customer?.id || ""}
+                    onChange={(e) => selectGoogleCustomer(e.target.value)}
+                  >
+                    <option value="" disabled>{googleAccounts.length ? "Select an account…" : "Loading accounts…"}</option>
+                    {googleAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {googleConnection.customer ? (
+                <div style={{ paddingTop: 14, borderTop: "1px solid var(--hub-border)", marginBottom: 16 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Connect leads from Google Ads</div>
+                  <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 10 }}>
+                    In Google Ads, open your Lead Form asset → Connect to a CRM using webhook integration →
+                    paste the URL and key below.
+                  </div>
+                  <div className="hub-form-row" style={{ marginBottom: 10 }}>
+                    <label>Webhook URL</label>
+                    <div className="hub-row" style={{ gap: 8 }}>
+                      <input className="hub-input" readOnly style={{ flex: 1 }} value={googleConnection.webhookUrl || ""} />
+                      <button type="button" className="hub-btn" onClick={() => copyGoogleValue(googleConnection.webhookUrl)}>
+                        <CopyOutlined /> Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div className="hub-form-row">
+                    <label>Webhook Key</label>
+                    <div className="hub-row" style={{ gap: 8 }}>
+                      <input className="hub-input" readOnly style={{ flex: 1 }} value={googleConnection.webhookKey || ""} />
+                      <button type="button" className="hub-btn" onClick={() => copyGoogleValue(googleConnection.webhookKey)}>
+                        <CopyOutlined /> Copy
+                      </button>
+                    </div>
+                  </div>
+                  {googleCopyMessage && (
+                    <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--hub-blue)" }}>{googleCopyMessage}</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
+                  Select a Google Ads account to see the webhook URL and key to paste into Google Ads.
+                </div>
+              )}
+
+              {googleConnection.lastError && (
+                <div style={{ marginBottom: 14, fontSize: 11.5, color: "#dc2626" }}>{googleConnection.lastError}</div>
+              )}
+
+              <button type="button" className="hub-btn" onClick={disconnectGoogle}>
+                <DisconnectOutlined /> Disconnect Google Ads
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+
+      {platform === "LinkedIn Ads" && (
+        <div className="hub-card">
+          <div className="hub-card-header">
+            <h3><LinkedinOutlined /> LinkedIn Ads Connection</h3>
+            <span
+              className={`hub-badge ${
+                linkedinConnection?.connected
+                  ? "hub-badge-green"
+                  : linkedinConnection?.status === "expired"
+                  ? "hub-badge-yellow"
+                  : "hub-badge-gray"
+              }`}
+            >
+              {linkedinConnectionLoading ? (
+                "Checking…"
+              ) : linkedinConnection?.connected ? (
+                <><CheckCircleOutlined /> Connected</>
+              ) : linkedinConnection?.status === "expired" ? (
+                "Expired"
+              ) : (
+                "Not Connected"
+              )}
+            </span>
+          </div>
+
+          <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
+            Connect as many real LinkedIn accounts as you need. Set the Organization and Ad
+            Account for whichever is active below.
+          </div>
+
+          <ConnectedAccountsList routeKey="linkedin" onChanged={loadLinkedinConnection} />
+
+          {linkedinConnection?.status === "expired" && (
+            <div className="hub-badge hub-badge-yellow" style={{ marginBottom: 12 }}>
+              Your LinkedIn connection expired — LinkedIn issues no refresh token, so reconnect below.
+            </div>
+          )}
+
+          <button type="button" className="hub-btn hub-btn-primary" disabled={linkedinConnecting} onClick={connectLinkedin} style={{ marginBottom: 16 }}>
+            <LinkOutlined /> {linkedinConnecting ? "Opening LinkedIn…" : linkedinConnection?.connected ? "Connect another LinkedIn account" : "Connect LinkedIn"}
+          </button>
+          {linkedinConnectionMessage && (
+            <div style={{ marginTop: -10, marginBottom: 16, fontSize: 12, color: "#dc2626" }}>{linkedinConnectionMessage}</div>
+          )}
+
+          {linkedinConnection?.connected && (
+            <>
+              <div className="hub-grid-2" style={{ marginBottom: 16 }}>
+                <div className="hub-form-row">
+                  <label>Organization (no listing API — type the ID)</label>
+                  <div className="hub-row" style={{ gap: 8 }}>
+                    <input
+                      className="hub-input"
+                      style={{ flex: 1 }}
+                      placeholder="Organization ID"
+                      value={orgIdInput}
+                      onChange={(e) => setOrgIdInput(e.target.value)}
+                    />
+                    <input
+                      className="hub-input"
+                      style={{ flex: 1 }}
+                      placeholder="Organization Name"
+                      value={orgNameInput}
+                      onChange={(e) => setOrgNameInput(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="hub-btn"
+                    style={{ marginTop: 8 }}
+                    disabled={!orgIdInput.trim() || savingOrg}
+                    onClick={saveOrganization}
+                  >
+                    {savingOrg ? "Saving…" : "Save Organization"}
+                  </button>
+                  {linkedinConnection.organization && (
+                    <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginTop: 6 }}>
+                      Current: {linkedinConnection.organization.name} · {linkedinConnection.organization.id}
+                    </div>
+                  )}
+                </div>
+                <div className="hub-form-row">
+                  <label>Ad Account</label>
+                  <select
+                    className="hub-select"
+                    value={linkedinConnection.adAccount?.id || ""}
+                    onChange={(e) => selectLinkedinAdAccount(e.target.value)}
+                  >
+                    <option value="" disabled>{linkedinAdAccounts.length ? "Select an Ad Account…" : "Loading Ad Accounts…"}</option>
+                    {linkedinAdAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: "var(--hub-muted)", marginBottom: 14 }}>
+                <span className="hub-badge hub-badge-blue">
+                  LinkedIn has no live webhook — new leads are pulled by a background sync every few minutes
+                </span>
+                <div style={{ marginTop: 6 }}>
+                  Last synced: {linkedinConnection.lastPolledAt ? new Date(linkedinConnection.lastPolledAt).toLocaleString() : "never yet"}
+                </div>
+                {linkedinConnection.lastError && (
+                  <div style={{ marginTop: 6, color: "#dc2626" }}>{linkedinConnection.lastError}</div>
+                )}
+              </div>
+
+              <button type="button" className="hub-btn" onClick={disconnectLinkedin}>
+                <DisconnectOutlined /> Disconnect LinkedIn
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* The lead form and ad setup live in a modal, opened from here (user request 2026-11-12) */}
+      <div className="hub-card">
+        <div className="hub-card-header" style={{ flexWrap: "wrap", gap: 8 }}>
+          <h3>Lead form &amp; ad setup</h3>
+          <button type="button" className="hub-btn hub-btn-primary" onClick={() => setFormSetupOpen(true)}>
+            Open form builder
+          </button>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
+          Choose the form fields, see the live preview, copy the embed code{platform !== "Website" ? ", and set up ads" : ""} — all in one window.
+        </div>
+      </div>
+
+      <HubModal
+        open={formSetupOpen}
+        onClose={() => setFormSetupOpen(false)}
+        title={`Lead form & ad setup — ${platform}`}
+        width={1240}
+        footer={<button type="button" className="hub-btn hub-btn-primary" onClick={() => setFormSetupOpen(false)}>Done</button>}
+      >
+        <div className="hub-stack">
+          <div className="hub-grid-2">
+            <div className="hub-card">
+              <div className="hub-card-header">
+                <h3>Form Fields</h3>
+              </div>
+
+              <div className="hub-stack" style={{ gap: 10 }}>
+                {FIELD_LIBRARY.map((f) => (
+                  <div
+                    key={f.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      border: "1px solid var(--hub-border)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{f.label}</div>
+                      <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>{f.type} field</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`hub-switch ${enabled[f.key] ? "on" : ""}`}
+                      onClick={() =>
+                        setEnabled((prev) => ({ ...prev, [f.key]: !prev[f.key] }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <button className="hub-btn hub-btn-primary" type="button" disabled={saving} onClick={saveForm}>
+                  {saving ? "Saving…" : "Save Form"}
+                </button>
+                <button className="hub-btn" type="button" onClick={copyEmbedCode}>
+                  <CopyOutlined /> Copy Embed Code
+                </button>
+                {(saveMessage || copyMessage) && (
+                  <span className="hub-badge hub-badge-blue">{saveMessage || copyMessage}</span>
+                )}
+              </div>
+
+              {platform === "Facebook Ads" && (
+                <div className="hub-form-row" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--hub-border)" }}>
+                  <label>Meta Lead Form</label>
+                  {metaFormId ? (
+                    <span className="hub-badge hub-badge-green">
+                      <CheckCircleOutlined /> Created — Meta form ID {metaFormId}
+                    </span>
+                  ) : (
+                    <>
+                      <input
+                        className="hub-input"
+                        style={{ marginBottom: 8 }}
+                        placeholder="Privacy policy URL (required by Meta)"
+                        value={privacyPolicyUrl}
+                        onChange={(e) => setPrivacyPolicyUrl(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="hub-btn"
+                        disabled={!connection?.connected || !connection?.page || !privacyPolicyUrl.trim() || creatingForm}
+                        onClick={createMetaForm}
+                      >
+                        {creatingForm ? "Creating…" : "Create Meta Lead Form"}
+                      </button>
+                      {!connection?.connected && (
+                        <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Connect Facebook and select a Page first.</span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="hub-card">
+              <div className="hub-card-header">
+                <h3>Live Preview</h3>
+                <span className="hub-badge hub-badge-blue">
+                  {platform === "Facebook Ads"
+                    ? "Facebook Lead Ad"
+                    : platform === "Google Ads"
+                    ? "Google Lead Form"
+                    : platform === "LinkedIn Ads"
+                    ? "LinkedIn Lead Gen Form"
+                    : "Website Form"}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid var(--hub-border)",
+                  borderRadius: 10,
+                  padding: 20,
+                  background: "var(--hub-bg-soft)",
+                }}
+              >
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+                  Get in touch with us
+                </div>
+                <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 16 }}>
+                  Fill this form and our team will reach out within 24 hours.
+                </div>
+
+                <div className="hub-stack" style={{ gap: 12 }}>
+                  {activeFields.length === 0 && (
+                    <div className="hub-empty">Turn on a field to preview it here.</div>
+                  )}
+
+                  {activeFields.map((f) => (
+                    <div key={f.key}>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 4 }}>
+                        {f.label}
+                      </div>
+                      {f.type === "Textarea" ? (
+                        <div
+                          style={{
+                            height: 60,
+                            border: "1px solid #e3e9f5",
+                            borderRadius: 6,
+                            background: "var(--hub-surface)",
+                          }}
+                        />
+                      ) : f.type === "Dropdown" ? (
+                        <select className="hub-select" style={{ width: "100%" }} defaultValue="">
+                          <option value="" disabled>Select…</option>
+                          {f.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div
+                          style={{
+                            height: 32,
+                            border: "1px solid #e3e9f5",
+                            borderRadius: 6,
+                            background: "var(--hub-surface)",
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {activeFields.length > 0 && (
+                    <button
+                      className="hub-btn hub-btn-primary"
+                      type="button"
+                      style={{ marginTop: 4, alignSelf: "flex-start" }}
+                    >
+                      Submit
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {TEMPLATE_PLATFORM_KEY[platform] && (
+            <AutoLaunchTemplateCard platformKey={TEMPLATE_PLATFORM_KEY[platform]} platformLabel={platform} />
+          )}
+
+          {platform === "Facebook Ads" && <CampaignSetup connection={connection} metaFormId={metaFormId} />}
+          {platform === "Google Ads" && <GoogleCampaignSetup connection={googleConnection} />}
+          {platform === "LinkedIn Ads" && <LinkedInCampaignSetup connection={linkedinConnection} />}
+        </div>
+      </HubModal>
       <LeadDetailModal lead={viewLead} onClose={() => setViewLead(null)} />
     </div>
   );

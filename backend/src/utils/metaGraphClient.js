@@ -256,7 +256,7 @@ async function updateObjectStatus({ objectId, userAccessToken, status }) {
 async function getLeadData({ leadgenId, pageAccessToken }) {
   return graphRequest(`/${leadgenId}`, {
     params: {
-      fields: 'field_data,created_time,ad_id,form_id,campaign_id,adset_id',
+      fields: 'field_data,created_time,ad_id,form_id,campaign_id,adset_id,platform,campaign_name,adset_name,ad_name,is_organic',
       access_token: pageAccessToken,
     },
   });
@@ -294,6 +294,8 @@ async function listFormLeads({ formId, pageAccessToken, sinceUnix }) {
 }
 
 module.exports = {
+  graphRequest,
+  graphPaged,
   listLeadForms,
   listFormLeads,
   MetaApiError,

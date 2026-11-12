@@ -1,4 +1,5 @@
 const connect = require('./connect');
+const { liveCampaigns, campaignDetail } = require('./liveCampaigns');
 const callback = require('./callback');
 const {
   getConnection,
@@ -49,4 +50,6 @@ module.exports = {
   publishAd,
   verifyWebhook,
   receiveWebhook,
+  liveCampaigns,
+  campaignDetail,
 };

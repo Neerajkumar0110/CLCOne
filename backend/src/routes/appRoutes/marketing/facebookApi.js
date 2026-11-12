@@ -12,6 +12,9 @@ const controller = require('../../../controllers/appControllers/marketing/facebo
 
 router.route('/connect').get(catchErrors(controller.connect));
 router.route('/captured-leads').get(catchErrors(controller.capturedLeads));
+// read-only dashboard: running campaigns, leads per campaign, Facebook vs Instagram
+router.route('/live-campaigns').get(catchErrors(controller.liveCampaigns));
+router.route('/live-campaigns/:campaignId').get(catchErrors(controller.campaignDetail));
 router.route('/connection').get(catchErrors(controller.getConnection));
 router.route('/connection').patch(catchErrors(controller.updateConnection));
 router.route('/connection').delete(catchErrors(controller.disconnectConnection));

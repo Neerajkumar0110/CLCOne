@@ -103,6 +103,11 @@ async function processWebhookLog(log) {
                 metaFormName: formName,
                 metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
                 facebookCreatedAt: fbCreatedAt,
+                metaPlatform: leadData.platform || undefined,
+                metaCampaignId: leadData.campaign_id ? String(leadData.campaign_id) : undefined,
+                metaCampaignName: leadData.campaign_name || undefined,
+                metaAdsetName: leadData.adset_name || undefined,
+                metaAdName: leadData.ad_name || undefined,
               },
             }
           ).catch(() => {});
@@ -136,6 +141,11 @@ async function processWebhookLog(log) {
       metaAdId: leadData.ad_id ? String(leadData.ad_id) : undefined,
       metaFormName: formName,
       facebookCreatedAt: fbCreatedAt,
+      metaPlatform: leadData.platform || undefined,
+      metaCampaignId: leadData.campaign_id ? String(leadData.campaign_id) : undefined,
+      metaCampaignName: leadData.campaign_name || undefined,
+      metaAdsetName: leadData.adset_name || undefined,
+      metaAdName: leadData.ad_name || undefined,
       // A FRESH inquiry gets an instant call from the next free active agent
       // (services/calling/instantLeads.js). Old leads pulled in by a backfill
       // don't — they go to the normal pipeline.
