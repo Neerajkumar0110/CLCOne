@@ -315,43 +315,63 @@ export default function BusinessNumbers() {
       ) : null}
 
       <Modal
+        rootClassName="wa-modal"
+        width={480}
         title="Add business WhatsApp number"
         open={addOpen}
         onCancel={() => setAddOpen(false)}
         onOk={add}
         okText="Add & show QR"
         confirmLoading={adding}
-        okButtonProps={{ disabled: !phone.trim(), style: { background: phone.trim() ? '#0f7a3d' : undefined } }}
+        okButtonProps={{ disabled: !phone.trim() }}
       >
-        <label className="wa-label" htmlFor="wa-biz-label">
-          Name
-        </label>
-        <input id="wa-biz-label" className="wa-input wa-input-full" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales WhatsApp" />
-        <label className="wa-label" htmlFor="wa-biz-num" style={{ marginTop: 14 }}>
-          Business WhatsApp number (with country code)
-        </label>
-        <input id="wa-biz-num" className="wa-input wa-input-full" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="91 98765 43210" inputMode="tel" />
-        <p className="wa-sub" style={{ marginTop: 10 }}>
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-biz-label">
+            Name
+          </label>
+          <input id="wa-biz-label" className="wa-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales WhatsApp" autoFocus />
+        </div>
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-biz-num">
+            Business WhatsApp number (with country code)
+          </label>
+          <input
+            id="wa-biz-num"
+            className="wa-input"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && phone.trim() && add()}
+            placeholder="91 98765 43210"
+            inputMode="tel"
+          />
+        </div>
+        <p className="wa-help">
           Next you scan a QR code with the phone that has this number. Every WhatsApp admin can then read and reply to its chats here, and each new chat becomes a CRM lead.
         </p>
       </Modal>
 
       <Modal
+        rootClassName="wa-modal"
+        width={480}
         title={`New chat from ${sel ? sel.label : ''}`}
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onOk={startChat}
         okText="Open chat"
-        okButtonProps={{ disabled: !newNum.trim(), style: { background: newNum.trim() ? '#0f7a3d' : undefined } }}
+        okButtonProps={{ disabled: !newNum.trim() }}
       >
-        <label className="wa-label" htmlFor="wa-biz-new-num">
-          Customer number (with country code)
-        </label>
-        <input id="wa-biz-new-num" className="wa-input wa-input-full" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" />
-        <label className="wa-label" htmlFor="wa-biz-new-name" style={{ marginTop: 14 }}>
-          Name (optional)
-        </label>
-        <input id="wa-biz-new-name" className="wa-input wa-input-full" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-biz-new-num">
+            Customer number (with country code)
+          </label>
+          <input id="wa-biz-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+        </div>
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-biz-new-name">
+            Name (optional)
+          </label>
+          <input id="wa-biz-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+        </div>
       </Modal>
     </div>
   );
