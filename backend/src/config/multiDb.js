@@ -90,6 +90,7 @@ const DB_MAP = {
   LessonProgress: 'lmsDb',
   LiveClass: 'lmsDb',
   LiveRecording: 'lmsDb',
+  LmsTranscript: 'lmsDb', // class transcripts (WhisperLiveKit phase 1)
   LmsDriveConnection: 'lmsDb',
   HolidayRule: 'lmsDb',
   LmsAnnouncement: 'lmsDb',

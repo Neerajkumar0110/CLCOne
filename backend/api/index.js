@@ -199,6 +199,7 @@ try {
     HolidayRule: unwrap(require('../src/models/appModels/lms/HolidayRule')),
     LmsSetting: unwrap(require('../src/models/appModels/lms/LmsSetting')),
     LiveRecording: unwrap(require('../src/models/appModels/lms/LiveRecording')),
+    LmsTranscript: unwrap(require('../src/models/appModels/lms/LmsTranscript')),
     LmsBatchRoom: unwrap(require('../src/models/appModels/lms/LmsBatchRoom')),
     CourseModule: unwrap(require('../src/models/appModels/lms/CourseModule')),
     Chapter: unwrap(require('../src/models/appModels/lms/Chapter')),

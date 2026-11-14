@@ -211,6 +211,10 @@ if (!RUN_BACKGROUND_JOBS) {
   // + management reports) — see services/lms/automationRules.js.
   require('./jobs/lmsAutomationTick')();
 
+  // Recorded-class transcripts (Whisper, night window, paused while a class
+  // is live) — services/lms/transcriber.js.
+  require('./jobs/lmsTranscribeTick')();
+
   // Custom emails from Messenger › Email, on their own schedule.
   require('./jobs/emailScheduleTick')();
 

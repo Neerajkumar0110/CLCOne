@@ -137,6 +137,14 @@ router.route('/attempts/:id/evaluate').post(catchErrors(lms.quizEvaluateAttempt)
 // ── recordings (role-scoped inside the handler) ─────────────────────
 router.route('/recordings').get(requirePoliciesAccepted, catchErrors(lms.liveRecordings));
 router.route('/recordings/:id/play').get(requirePoliciesAccepted, catchErrors(lms.liveRecordingPlay));
+// Class transcripts (Whisper, phase 1 = recorded videos) — same access as
+// playing the recording; teacher / manager may correct lines or jump the queue.
+{
+  const tr = require('../../../controllers/appControllers/lms/lmsController/transcripts');
+  router.route('/recordings/:id/transcript').get(requirePoliciesAccepted, catchErrors(tr.getTranscript)).patch(catchErrors(tr.editTranscriptLine)).post(catchErrors(tr.requestTranscript));
+  router.route('/recordings/:id/transcript/:format(vtt|txt)').get(requirePoliciesAccepted, catchErrors(tr.downloadTranscript));
+  router.route('/transcripts/status').get(catchErrors(tr.transcriptQueue));
+}
 // Manual recording upload — fallback for the mock provider (BigBlueButton
 // records automatically). The class teacher (or a manager) uploads the file
 // they recorded themselves (OBS/Zoom/browser capture) and it's attached to
