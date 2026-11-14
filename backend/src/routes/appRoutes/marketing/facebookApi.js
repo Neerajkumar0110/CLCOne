@@ -15,6 +15,11 @@ router.route('/captured-leads').get(catchErrors(controller.capturedLeads));
 // read-only dashboard: running campaigns, leads per campaign, Facebook vs Instagram
 router.route('/live-campaigns').get(catchErrors(controller.liveCampaigns));
 router.route('/live-campaigns/:campaignId').get(catchErrors(controller.campaignDetail));
+// ad chat inbox — owner + Super Admin only (checked in chats.js)
+router.route('/chats').get(catchErrors(controller.listChats));
+router.route('/chats/:leadId/messages').get(catchErrors(controller.chatMessages));
+router.route('/chats/:leadId/send').post(singleStorageUpload({ entity: 'chat', fileType: 'default' }), catchErrors(controller.sendChat));
+router.route('/chats/:leadId/action').post(catchErrors(controller.chatAction));
 router.route('/connection').get(catchErrors(controller.getConnection));
 router.route('/connection').patch(catchErrors(controller.updateConnection));
 router.route('/connection').delete(catchErrors(controller.disconnectConnection));

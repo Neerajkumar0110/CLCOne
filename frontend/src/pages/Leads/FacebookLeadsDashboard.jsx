@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReloadOutlined, FacebookFilled, InstagramFilled, WarningFilled, CheckCircleFilled, MessageOutlined } from "@ant-design/icons";
 import { request } from "@/request";
+import { getSocket } from "@/socket";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import AdChatInbox from "./AdChatInbox";
 import { stageColor } from "@/config/leadStages";
 import HubModal from "@/components/HubModal";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
@@ -276,6 +280,89 @@ export default function FacebookLeadsDashboard({ connected }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, range]);
 
+  // "Connect chats": the same Facebook OAuth popup, asking also for the chat
+  // permissions (backend connect.js ?chats=1) so Messenger / Instagram ad
+  // chats come into the CRM as leads (jobs/facebookChatPoller.js).
+  const [chatMsg, setChatMsg] = useState("");
+  const me = useSelector(selectCurrentAdmin);
+  const canReadChats = ["owner", "Super Admin"].includes(me?.role);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [feed, setFeed] = useState([]); // live chat / lead events (socket)
+  const loadRef = React.useRef(load);
+  loadRef.current = load;
+
+  // Real time: the backend pushes "lead:chat" / "lead:new" the moment a chat
+  // or form lead lands (socket.js emitLeadEvent) — show it and refresh the
+  // numbers right away (debounced), no polling from the browser.
+  useEffect(() => {
+    if (!connected) return undefined;
+    const s = getSocket();
+    if (!s) return undefined;
+    let timer = null;
+    const onEvent = (kind) => (p) => {
+      setFeed((f) => [{ ...p, ev: kind, key: `${p.id}-${Date.now()}` }, ...f].slice(0, 8));
+      clearTimeout(timer);
+      timer = setTimeout(() => loadRef.current(), 1500);
+    };
+    const onChat = onEvent("chat");
+    const onNew = onEvent("form");
+    s.on("lead:chat", onChat);
+    s.on("lead:new", onNew);
+    return () => {
+      clearTimeout(timer);
+      s.off("lead:chat", onChat);
+      s.off("lead:new", onNew);
+    };
+  }, [connected]);
+
+  // Facebook's popup tells us the real result (callback.js postMessage).
+  // Closing the popup is NOT success — Meta may have shown an error there.
+  const oauthResult = React.useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      const t = String(e?.data?.type || "");
+      if (t === "fb-oauth-success" || t === "fb-oauth-error") oauthResult.current = e.data;
+    };
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
+  }, []);
+
+  const connectChats = async () => {
+    setChatMsg("");
+    oauthResult.current = null;
+    const popup = window.open("", "fb-oauth", "width=620,height=720"); // before the await — avoids the popup blocker
+    const res = await request.get({ entity: "facebook/connect?chats=1" });
+    if (!res?.success) {
+      popup?.close();
+      setChatMsg(res?.message || "Could not start the Facebook connection.");
+      return;
+    }
+    const win = popup || window.open(res.result.url, "fb-oauth", "width=620,height=720");
+    if (popup) popup.location.href = res.result.url;
+    setChatMsg("Waiting for Facebook… finish the steps in the popup and press Continue.");
+    if (win) {
+      const t = setInterval(async () => {
+        if (!win.closed) return;
+        clearInterval(t);
+        const r = oauthResult.current;
+        if (r && r.type === "fb-oauth-error") {
+          setChatMsg(`Facebook did not connect: ${r.message || "unknown error"}`);
+          return;
+        }
+        setChatMsg("Checking the connection…");
+        // give the chat poller one tick (20 s) to try the new permission
+        setTimeout(async () => {
+          const fresh = await request.get({ entity: `facebook/live-campaigns?range=${range}` });
+          if (fresh?.success) setData(fresh.result);
+          const err = fresh?.result?.chatSync?.messengerError;
+          if (!r && err) setChatMsg("Facebook was closed before the connection finished (or showed an error) — nothing changed. Click Connect chats again and press Continue; if Facebook shows an error, send a screenshot.");
+          else if (err) setChatMsg(`Connected, but Meta still refuses Messenger: ${err}`);
+          else setChatMsg("Connected — new chats now arrive live.");
+        }, 25000);
+      }, 800);
+    }
+  };
+
   const money = (v) => `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   const int = (v) => Number(v || 0).toLocaleString("en-IN");
   const rows = useMemo(() => (data ? data.campaigns.filter((c) => showAll || c.active || c.hasActivity) : []), [data, showAll]);
@@ -329,10 +416,12 @@ export default function FacebookLeadsDashboard({ connected }) {
           <span>
             {h.missing
               ? <>Meta gave <b>{h.recentMetaLeads}</b> leads in the last 3 days but only <b>{h.recentCrmLeads}</b> reached the CRM — check the Facebook connection.</>
+              : h.recentMetaLeads === 0 && t && t.active && h.leadFormActive === 0 && h.chatActive > 0
+              ? <>No lead-form campaign is running — the <b>{h.chatActive}</b> active campaign{h.chatActive === 1 ? " is a chat (Messages) campaign" : "s are chat (Messages) campaigns"}. Their chats reach the CRM as <b>chat leads</b> (below), not as form leads.</>
               : h.recentMetaLeads === 0 && t && t.active
               ? <>No new leads from Meta in the last 3 days although <b>{t.active}</b> campaign{t.active === 1 ? " is" : "s are"} active — the ads may need attention.</>
-              : <>Leads are reaching the CRM ({h.recentCrmLeads} in the last 3 days).</>}
-            <span style={{ color: "var(--hub-muted)" }}> · Last Facebook lead in CRM: {fmtDay(h.lastCrmLeadAt)}</span>
+              : <>Leads are reaching the CRM ({h.recentCrmLeads} form lead{h.recentCrmLeads === 1 ? "" : "s"}{h.recentChatLeads ? ` + ${h.recentChatLeads} chat${h.recentChatLeads === 1 ? "" : "s"}` : ""} in the last 3 days).</>}
+            <span style={{ color: "var(--hub-muted)" }}> · Last form lead: {fmtDay(h.lastCrmLeadAt)}{h.lastChatLeadAt ? ` · Last chat: ${fmtDay(h.lastChatLeadAt)}` : ""}</span>
           </span>
         </div>
       )}
@@ -354,6 +443,63 @@ export default function FacebookLeadsDashboard({ connected }) {
               </div>
             ))}
           </div>
+
+          {data?.chatLeads && data?.chatSync && (
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, border: "1px solid var(--hub-border)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                <b style={{ fontSize: 13.5 }}><MessageOutlined /> Ad chats → CRM leads</b>
+                <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Every chat becomes a lead — with or without a name or phone</span>
+                  {canReadChats && (
+                    <button type="button" className="hub-btn" onClick={() => setInboxOpen(true)} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
+                      <MessageOutlined /> Open chat inbox
+                    </button>
+                  )}
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                {[
+                  ["Messenger", data.chatLeads.messenger, "#0084FF", data.chatSync.messengerError, data.chatSync.messengerAt],
+                  ["Instagram DM", data.chatLeads.instagram, IG, data.chatSync.instagramError, data.chatSync.instagramAt],
+                  ["WhatsApp", data.chatLeads.whatsapp, "#25D366", data.chatSync.whatsappReady ? null : "WhatsApp (DeroPo) token is not set on the server.", null],
+                ].map(([label, n, color, err, at]) => (
+                  <div key={label} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--hub-border)", background: "var(--hub-bg-soft)", borderLeft: `3px solid ${color}` }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)" }}>{int(n)}</div>
+                    <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>{label} chats in CRM</div>
+                    <div style={{ fontSize: 11, marginTop: 4, color: err ? "#b45309" : "#15803d" }}>
+                      {err ? (/permission|#200|#230/i.test(err) ? "Not connected — chat permission missing" : err) : at ? `Live · checked ${fmtDay(at)}` : "Ready"}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--hub-border)", background: "var(--hub-bg-soft)", borderLeft: "3px solid #64748b" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)" }}>{int(data.chatLeads.withPhone)} / {int(data.chatLeads.total)}</div>
+                  <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>Chat leads with a phone (go to the dialer)</div>
+                </div>
+              </div>
+              {data.chatSync.messengerError && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 12.5 }}>
+                  <span>Messenger chats need one extra Facebook permission. Click once and press <b>Continue</b> on Facebook.</span>
+                  <button type="button" className="hub-btn" onClick={connectChats} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
+                    <MessageOutlined /> Connect chats
+                  </button>
+                </div>
+              )}
+              {chatMsg && <div style={{ marginTop: 8, fontSize: 12, color: "var(--hub-muted)" }}>{chatMsg}</div>}
+              {feed.length > 0 && (
+                <div style={{ marginTop: 10, borderTop: "1px solid var(--hub-border)", paddingTop: 8 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "#15803d", marginBottom: 6 }}>● Live</div>
+                  {feed.map((f) => (
+                    <div key={f.key} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "3px 0" }}>
+                      <span style={{ color: "var(--hub-muted)", minWidth: 62 }}>{new Date(f.at || Date.now()).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                      <b>{f.name}</b>
+                      <span style={{ color: "var(--hub-muted)" }}>· {f.ev === "form" ? "Facebook form" : f.source} · {f.kind === "created" || f.ev === "form" ? "new lead" : "new message"}{f.hasPhone ? " · has phone" : ""}</span>
+                      {f.text && <span style={{ color: "var(--hub-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>“{f.text}”</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18, marginBottom: 16, padding: 14, borderRadius: 12, border: "1px solid var(--hub-border)" }}>
             <SplitBar label="Leads by platform (Meta)" fb={t.metaSplit.facebook || 0} ig={t.metaSplit.instagram || 0} other={(t.metaSplit.messenger || 0) + (t.metaSplit.whatsapp || 0) + (t.metaSplit.other || 0)} />
@@ -435,6 +581,7 @@ export default function FacebookLeadsDashboard({ connected }) {
         </>
       )}
       {open && <CampaignDetail campaign={open.campaign} range={range} initial={open} onClose={() => setOpen(null)} />}
+      {canReadChats && <AdChatInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />}
     </div>
   );
 }

@@ -52,4 +52,8 @@ module.exports = {
   receiveWebhook,
   liveCampaigns,
   campaignDetail,
+  listChats: require('./chats').listChats,
+  chatMessages: require('./chats').chatMessages,
+  sendChat: require('./chats').sendChat,
+  chatAction: require('./chats').chatAction,
 };

@@ -242,6 +242,41 @@ try {
     Admin: unwrap(require('../src/models/coreModels/Admin')),
     AdminPassword: unwrap(require('../src/models/coreModels/AdminPassword')),
     Setting: unwrap(require('../src/models/coreModels/Setting')),
+
+    // ---- added 2026-11-14: models created since this list was last kept in
+    // sync. A missing one 500s the whole Vercel app ("Schema hasn't been
+    // registered for model UserEvent"). Every new model file needs a line here
+    // as well as in multiDb.js DB_MAP.
+    // operation
+    WhatsAppWebhookLog: unwrap(require('../src/models/appModels/operation/WhatsAppWebhookLog')),
+    WhatsAppMessage: unwrap(require('../src/models/appModels/operation/WhatsAppMessage')),
+    WhatsAppDevice: unwrap(require('../src/models/appModels/operation/WhatsAppDevice')),
+    WhatsAppChat: unwrap(require('../src/models/appModels/operation/WhatsAppChat')),
+    WhatsAppAccess: unwrap(require('../src/models/appModels/operation/WhatsAppAccess')),
+    UserEvent: unwrap(require('../src/models/appModels/operation/UserEvent')),
+    EmailTemplateSend: unwrap(require('../src/models/appModels/operation/EmailTemplateSend')),
+    EmailTemplate: unwrap(require('../src/models/appModels/operation/EmailTemplate')),
+    DailyMailRun: unwrap(require('../src/models/appModels/operation/DailyMailRun')),
+    // lms
+    WeeklyFeedback: unwrap(require('../src/models/appModels/lms/WeeklyFeedback')),
+    OnboardingProgress: unwrap(require('../src/models/appModels/lms/OnboardingProgress')),
+    LmsProblem: unwrap(require('../src/models/appModels/lms/LmsProblem')),
+    LmsLearnerNote: unwrap(require('../src/models/appModels/lms/LmsLearnerNote')),
+    LmsDriveConnection: unwrap(require('../src/models/appModels/lms/LmsDriveConnection')),
+    LmsApproval: unwrap(require('../src/models/appModels/lms/LmsApproval')),
+    LmsAdminConfig: unwrap(require('../src/models/appModels/lms/LmsAdminConfig')),
+    LiveClassNote: unwrap(require('../src/models/appModels/lms/LiveClassNote')),
+    LiveClassChat: unwrap(require('../src/models/appModels/lms/LiveClassChat')),
+    FeedbackReminder: unwrap(require('../src/models/appModels/lms/FeedbackReminder')),
+    FeedbackAction: unwrap(require('../src/models/appModels/lms/FeedbackAction')),
+    ExternalCertificate: unwrap(require('../src/models/appModels/lms/ExternalCertificate')),
+    // hrms
+    WorkSession: unwrap(require('../src/models/appModels/hrms/WorkSession')),
+    SundayRoster: unwrap(require('../src/models/appModels/hrms/SundayRoster')),
+    PolicyCase: unwrap(require('../src/models/appModels/hrms/PolicyCase')),
+    OverdueTask: unwrap(require('../src/models/appModels/hrms/OverdueTask')),
+    OutageLog: unwrap(require('../src/models/appModels/hrms/OutageLog')),
+    AttendanceCorrection: unwrap(require('../src/models/appModels/hrms/AttendanceCorrection')),
   };
 
   const unloaded = Object.entries(models).filter(([, model]) => !model);

@@ -116,6 +116,15 @@ async function incoming(req, res) {
     });
     await Log.updateOne({ _id: log._id }, { $set: { handled: true } });
 
+    // Every incoming WhatsApp chat is a lead (user ask 2026-11-14: "sab lead
+    // chahiye, name ho ya na ho") — one lead per number; an existing lead with
+    // the same phone is linked, never duplicated.
+    if (direction === 'incoming') {
+      require('../../../../services/marketing/chatLeads')
+        .upsertChatLead({ channel: 'whatsapp', conversationId: p.from, name: chat.customerName || p.name, phone: p.from, text: p.text, at: p.at })
+        .catch((e) => console.error('[whatsapp] chat lead failed:', e.message));
+    }
+
     try {
       require('../../../../socket').emitWhatsApp(device.userId, 'whatsapp:message', {
         chatId: String(chat._id),

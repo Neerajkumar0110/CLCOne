@@ -58,6 +58,8 @@ function initSocket(server) {
     socket.join(`user:${adminId}`);
     // Admins watch every user's notifications live (bell → "All users").
     if (CRM_ADMIN_ROLES.includes(socket.adminRole)) socket.join('admins');
+    // Every CRM staff member (not learners) — live lead events (emitLeadEvent).
+    if (socket.adminRole && socket.adminRole !== 'Student') socket.join('staff');
 
     const wasOffline = !onlineCounts.get(adminId);
     onlineCounts.set(adminId, (onlineCounts.get(adminId) || 0) + 1);
@@ -222,6 +224,14 @@ function emitWhatsApp(userId, event, payload) {
   target.emit(event, payload);
 }
 
+// New / updated leads (services/marketing/chatLeads.js …) — every staff
+// socket, so the Facebook dashboard and Leads list refresh the moment a chat
+// lands, without polling.
+function emitLeadEvent(event, payload) {
+  if (!io) return;
+  io.to('staff').emit(event, payload);
+}
+
 function emitCallBroadcast(event, payload) {
   if (!io) return;
   io.emit(event, payload);
@@ -241,6 +251,7 @@ async function endOtherSessions(userId, keepToken) {
 }
 
 module.exports = {
+  emitLeadEvent,
   endOtherSessions,
   initSocket,
   emitMessage,

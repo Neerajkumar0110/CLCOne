@@ -86,6 +86,32 @@ const callback = async (req, res) => {
     // picks a different one from the Connected Accounts list.
     conn.active = true;
     conn.updated = Date.now();
+    // Reconnecting an account that already has a Page picked: refresh that
+    // Page's token from the new user token, so newly granted permissions
+    // (e.g. chats: pages_messaging) apply without re-picking the Page.
+    if (conn.pageId) {
+      try {
+        const page = (await graph.getPages(longLived.access_token)).find((p) => String(p.id) === String(conn.pageId));
+        if (page && page.access_token) {
+          conn.pageAccessToken = tokenCrypto.encrypt(page.access_token);
+          conn.chatsPollError = undefined;
+          conn.chatsIgPollError = undefined;
+          // Real-time chats: also subscribe the Page to message events. Needs
+          // pages_messaging — if Meta refuses, the lead-form subscription is
+          // left exactly as it was and the 20 s chat poll still works.
+          try {
+            await graph.graphRequest(`/${page.id}/subscribed_apps`, {
+              method: 'POST',
+              params: { subscribed_fields: 'leadgen,messages,messaging_postbacks,messaging_referrals', access_token: page.access_token },
+            });
+          } catch (e) {
+            console.error('[facebook callback] messages subscription refused:', e.message);
+          }
+        }
+      } catch (e) {
+        console.error('[facebook callback] page token refresh failed:', e.message);
+      }
+    }
     await conn.save();
     await FacebookConnection.updateMany({ removed: false, _id: { $ne: conn._id } }, { $set: { active: false } }).exec();
 
