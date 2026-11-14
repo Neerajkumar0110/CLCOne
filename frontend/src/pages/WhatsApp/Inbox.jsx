@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Popconfirm, Spin, message as toast } from 'antd';
-import { PlusOutlined, ReloadOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, DisconnectOutlined, MessageOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import { getSocket } from '@/socket';
 import waApi from './api';
 import ChatList from './ChatList';
@@ -258,26 +258,42 @@ export default function Inbox({ initialDevice, configured }) {
 
       <Modal
         rootClassName="wa-modal"
-        width={480}
-        title="New WhatsApp chat"
+        width={500}
+        title={
+          <span className="wa-modal-title">
+            <span className="wa-modal-title-icon">
+              <MessageOutlined />
+            </span>
+            <span>
+              New WhatsApp chat
+              <small>From your number {prettyNumber(device?.phoneNumber)}</small>
+            </span>
+          </span>
+        }
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onOk={startChat}
         okText="Open chat"
         confirmLoading={opening}
-        okButtonProps={{ disabled: !newNum.trim() }}
+        okButtonProps={{ disabled: !newNum.trim(), icon: <MessageOutlined /> }}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-new-num">
             Customer number (with country code)
           </label>
-          <input id="wa-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+          <div className="wa-input-wrap">
+            <PhoneOutlined />
+            <input id="wa-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+          </div>
         </div>
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-new-name">
             Name (optional)
           </label>
-          <input id="wa-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+          <div className="wa-input-wrap">
+            <UserOutlined />
+            <input id="wa-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+          </div>
         </div>
       </Modal>
     </>

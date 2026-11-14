@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Popconfirm, Spin, message as toast } from 'antd';
-import { PlusOutlined, ReloadOutlined, DisconnectOutlined, EditOutlined, QrcodeOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  ReloadOutlined,
+  DisconnectOutlined,
+  EditOutlined,
+  QrcodeOutlined,
+  WhatsAppOutlined,
+  TagOutlined,
+  PhoneOutlined,
+  UserOutlined,
+  InfoCircleOutlined,
+  MessageOutlined,
+} from '@ant-design/icons';
 import { getSocket } from '@/socket';
 import waApi from './api';
 import ChatList from './ChatList';
@@ -449,61 +461,94 @@ export default function BusinessNumbers() {
 
       <Modal
         rootClassName="wa-modal"
-        width={480}
-        title="Add business WhatsApp number"
+        width={500}
+        title={
+          <span className="wa-modal-title">
+            <span className="wa-modal-title-icon">
+              <WhatsAppOutlined />
+            </span>
+            <span>
+              Add business WhatsApp number
+              <small>A company number every WhatsApp admin can use</small>
+            </span>
+          </span>
+        }
         open={addOpen}
         onCancel={() => setAddOpen(false)}
         onOk={add}
         okText="Add & show QR"
         confirmLoading={adding}
-        okButtonProps={{ disabled: !phone.trim() }}
+        okButtonProps={{ disabled: !phone.trim(), icon: <QrcodeOutlined /> }}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-label">
             Name
           </label>
-          <input id="wa-biz-label" className="wa-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales WhatsApp" autoFocus />
+          <div className="wa-input-wrap">
+            <TagOutlined />
+            <input id="wa-biz-label" className="wa-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales WhatsApp" autoFocus />
+          </div>
         </div>
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-num">
             Business WhatsApp number (with country code)
           </label>
-          <input
-            id="wa-biz-num"
-            className="wa-input"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && phone.trim() && add()}
-            placeholder="91 98765 43210"
-            inputMode="tel"
-          />
+          <div className="wa-input-wrap">
+            <PhoneOutlined />
+            <input
+              id="wa-biz-num"
+              className="wa-input"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && phone.trim() && add()}
+              placeholder="91 98765 43210"
+              inputMode="tel"
+            />
+          </div>
         </div>
         <p className="wa-help">
-          Next you scan a QR code with the phone that has this number. Every WhatsApp admin can then read and reply to its chats here, and each new chat becomes a CRM lead.
+          <InfoCircleOutlined />
+          <span>Next you scan a QR code with the phone that has this number. Every WhatsApp admin can then read and reply to its chats here, and each new chat becomes a CRM lead.</span>
         </p>
       </Modal>
 
       <Modal
         rootClassName="wa-modal"
-        width={480}
-        title={`New chat from ${sel ? sel.label : ''}`}
+        width={500}
+        title={
+          <span className="wa-modal-title">
+            <span className="wa-modal-title-icon">
+              <MessageOutlined />
+            </span>
+            <span>
+              New chat
+              <small>From {sel ? `${sel.label} · ${prettyNumber(sel.phoneNumber)}` : ''}</small>
+            </span>
+          </span>
+        }
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onOk={startChat}
         okText="Open chat"
-        okButtonProps={{ disabled: !newNum.trim() }}
+        okButtonProps={{ disabled: !newNum.trim(), icon: <MessageOutlined /> }}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-new-num">
             Customer number (with country code)
           </label>
-          <input id="wa-biz-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+          <div className="wa-input-wrap">
+            <PhoneOutlined />
+            <input id="wa-biz-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+          </div>
         </div>
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-new-name">
             Name (optional)
           </label>
-          <input id="wa-biz-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+          <div className="wa-input-wrap">
+            <UserOutlined />
+            <input id="wa-biz-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+          </div>
         </div>
       </Modal>
     </div>
