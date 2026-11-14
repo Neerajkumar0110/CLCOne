@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Popconfirm, Spin, message as toast } from 'antd';
+import { Popconfirm, Spin, message as toast } from 'antd';
 import {
   PlusOutlined,
   ReloadOutlined,
@@ -17,7 +17,7 @@ import { getSocket } from '@/socket';
 import waApi from './api';
 import ChatList from './ChatList';
 import ChatThread, { prettyNumber } from './ChatThread';
-import { Btn, Notice, SearchBox } from './ui';
+import { Btn, Notice, SearchBox, WaDialog } from './ui';
 
 // Admin › Business Numbers: company WhatsApp numbers (not one person's) —
 // add a number, scan its QR, see status, and read + reply to every chat on it.
@@ -459,26 +459,17 @@ export default function BusinessNumbers() {
         </>
       ) : null}
 
-      <Modal
-        rootClassName="wa-modal"
-        width={500}
-        title={
-          <span className="wa-modal-title">
-            <span className="wa-modal-title-icon">
-              <WhatsAppOutlined />
-            </span>
-            <span>
-              Add business WhatsApp number
-              <small>A company number every WhatsApp admin can use</small>
-            </span>
-          </span>
-        }
+      <WaDialog
         open={addOpen}
-        onCancel={() => setAddOpen(false)}
-        onOk={add}
+        onClose={() => setAddOpen(false)}
+        icon={<WhatsAppOutlined />}
+        title="Add business WhatsApp number"
+        subtitle="A company number every WhatsApp admin can use"
         okText="Add & show QR"
-        confirmLoading={adding}
-        okButtonProps={{ disabled: !phone.trim(), icon: <QrcodeOutlined /> }}
+        okIcon={<QrcodeOutlined />}
+        onOk={add}
+        okDisabled={!phone.trim()}
+        loading={adding}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-label">
@@ -500,7 +491,6 @@ export default function BusinessNumbers() {
               className="wa-input"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && phone.trim() && add()}
               placeholder="91 98765 43210"
               inputMode="tel"
             />
@@ -510,27 +500,18 @@ export default function BusinessNumbers() {
           <InfoCircleOutlined />
           <span>Next you scan a QR code with the phone that has this number. Every WhatsApp admin can then read and reply to its chats here, and each new chat becomes a CRM lead.</span>
         </p>
-      </Modal>
+      </WaDialog>
 
-      <Modal
-        rootClassName="wa-modal"
-        width={500}
-        title={
-          <span className="wa-modal-title">
-            <span className="wa-modal-title-icon">
-              <MessageOutlined />
-            </span>
-            <span>
-              New chat
-              <small>From {sel ? `${sel.label} · ${prettyNumber(sel.phoneNumber)}` : ''}</small>
-            </span>
-          </span>
-        }
+      <WaDialog
         open={newOpen}
-        onCancel={() => setNewOpen(false)}
-        onOk={startChat}
+        onClose={() => setNewOpen(false)}
+        icon={<MessageOutlined />}
+        title="New chat"
+        subtitle={sel ? `From ${sel.label} · ${prettyNumber(sel.phoneNumber)}` : ''}
         okText="Open chat"
-        okButtonProps={{ disabled: !newNum.trim(), icon: <MessageOutlined /> }}
+        okIcon={<MessageOutlined />}
+        onOk={startChat}
+        okDisabled={!newNum.trim()}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-biz-new-num">
@@ -550,7 +531,7 @@ export default function BusinessNumbers() {
             <input id="wa-biz-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
           </div>
         </div>
-      </Modal>
+      </WaDialog>
     </div>
   );
 }

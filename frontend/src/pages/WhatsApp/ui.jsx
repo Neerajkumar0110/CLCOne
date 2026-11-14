@@ -1,5 +1,40 @@
 import React from 'react';
+import { Modal } from 'antd';
 import { WhatsAppOutlined, SearchOutlined } from '@ant-design/icons';
+
+// WhatsApp pop-up. antd's Modal only gives the overlay + box; header, body
+// and footer are our own markup (classes wa-dlg-*, whatsapp.css), so the
+// global antd modal overrides can't squash the spacing (they did 2026-11-14).
+export function WaDialog({ open, onClose, icon, title, subtitle, children, okText = 'Save', okIcon, onOk, okDisabled, loading, width = 500 }) {
+  return (
+    <Modal rootClassName="wa-modal" open={open} onCancel={onClose} footer={null} title={null} width={width} centered destroyOnClose>
+      <div className="wa-dlg-head">
+        {icon && <span className="wa-dlg-icon">{icon}</span>}
+        <div>
+          <h3>{title}</h3>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!okDisabled && !loading) onOk?.();
+        }}
+      >
+        <div className="wa-dlg-body">{children}</div>
+        <div className="wa-dlg-foot">
+          <button type="button" className="wa-btn wa-btn-default" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="wa-btn wa-btn-primary" disabled={okDisabled || loading}>
+            {loading ? <span className="wa-spinner" aria-hidden="true" /> : okIcon}
+            {okText}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 // Small building blocks that reproduce the approved design
 // (claude.ai/artifact/6Js2ZwbWVZ7psJfoSqdo3n) — styles in whatsapp.css.

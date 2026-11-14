@@ -387,18 +387,22 @@
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 .wa-modal *, .wa-modal *::before, .wa-modal *::after { box-sizing: border-box; }
-/* Box, header, body and footer keep the CRM-wide modal design
-   (style/partials/customAntd.css) — only the WhatsApp pieces are styled here. */
-.wa-modal .wa-modal-title { display: flex; align-items: center; gap: 10px; }
-.wa-modal .wa-modal-title-icon {
-  width: 32px; height: 32px; border-radius: 9px; flex: none;
+/* WaDialog (ui.jsx): the antd box stays bare (padding 0) and our own
+   head / body / foot carry the spacing — same shape as the CRM's other
+   modals: title row with a line under it, padded body, soft footer. */
+.wa-modal .ant-modal-content { padding: 0 !important; border-radius: 16px !important; overflow: hidden; background: var(--wa-card) !important; }
+.wa-modal .ant-modal-close { top: 18px !important; inset-inline-end: 18px !important; }
+.wa-modal .wa-dlg-head { display: flex; align-items: center; gap: 12px; padding: 20px 60px 18px 24px; border-bottom: 1px solid var(--wa-line); }
+.wa-modal .wa-dlg-icon {
+  width: 40px; height: 40px; border-radius: 11px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--wa-green); color: #fff; font-size: 17px;
+  background: var(--wa-green); color: #fff; font-size: 20px;
 }
-.wa-modal .wa-modal-title small { display: block; font-size: 12px; font-weight: 500; color: var(--wa-ink-4); margin-top: 1px; letter-spacing: 0; }
-.wa-modal .ant-modal-footer .ant-btn-primary { background: var(--wa-green); border-color: var(--wa-green); color: #fff; }
-.wa-modal .ant-modal-footer .ant-btn-primary:hover:not(:disabled) { background: var(--wa-green-hover); border-color: var(--wa-green-hover); }
-.wa-modal .ant-modal-footer .ant-btn-primary:disabled { background: var(--wa-soft); border-color: var(--wa-line); color: var(--wa-ink-4); }
+.wa-modal .wa-dlg-head h3 { margin: 0; font-size: 17px; font-weight: 700; color: var(--wa-ink); line-height: 1.3; }
+.wa-modal .wa-dlg-head p { margin: 3px 0 0; font-size: 13px; color: var(--wa-ink-4); line-height: 1.4; }
+.wa-modal .wa-dlg-body { padding: 20px 24px 22px; }
+.wa-modal .wa-dlg-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--wa-line); background: var(--wa-soft); }
+.wa-modal .wa-dlg-foot .wa-btn { min-height: 40px; padding: 0 18px; border-radius: 10px; font-weight: 600; }
 .wa-modal .wa-label { display: block; font-size: 13px; font-weight: 600; color: var(--wa-ink-2); margin: 0 0 6px; }
 .wa-modal .wa-input-wrap { position: relative; }
 .wa-modal .wa-input-wrap .anticon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--wa-ink-4); font-size: 15px; pointer-events: none; }
