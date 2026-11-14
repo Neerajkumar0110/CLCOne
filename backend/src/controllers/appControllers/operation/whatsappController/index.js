@@ -214,7 +214,9 @@ async function markRead(req, res) {
   if (!(await requireAccess(req, res))) return;
   const chat = await readableChat(req, res);
   if (!chat) return;
-  if (String(chat.userId) === String(req.admin._id) && chat.unread) {
+  const isOwner = String(chat.userId) === String(req.admin._id);
+  const isBusinessChat = !isOwner && access.isWhatsAppAdmin(req.admin) && (await Device().exists({ userId: chat.userId, kind: 'business' }));
+  if ((isOwner || isBusinessChat) && chat.unread) {
     await Chat().updateOne({ _id: chat._id }, { $set: { unread: 0 } });
     emit(chat.userId, 'whatsapp:chat', { chatId: String(chat._id), userId: String(chat.userId) });
   }
@@ -226,13 +228,20 @@ async function send(req, res) {
   if (!(await requireAccess(req, res))) return;
   const chat = await readableChat(req, res);
   if (!chat) return;
-  if (String(chat.userId) !== String(req.admin._id)) return bad(res, 403, 'Only the user who owns this chat can reply.');
+  // The chat's own number sends: the owner's personal number, or — for a
+  // business number's chat — that business number (any WhatsApp admin).
+  const device = await Device().findOne({ userId: chat.userId }).lean();
+  const isBusiness = device && device.kind === 'business';
+  if (String(chat.userId) !== String(req.admin._id) && !(isBusiness && access.isWhatsAppAdmin(req.admin))) {
+    return bad(res, 403, 'Only the user who owns this chat can reply.');
+  }
   const text = String((req.body && req.body.message) || '').trim();
   if (!text) return bad(res, 400, 'Type a message.');
   if (text.length > 4000) return bad(res, 400, 'Message is too long (4000 characters max).');
 
-  const device = await Device().findOne({ userId: req.admin._id }).lean();
-  if (!device || device.status !== 'connected') return bad(res, 409, 'Your WhatsApp is not connected. Scan the QR code first.');
+  if (!device || device.status !== 'connected') {
+    return bad(res, 409, isBusiness ? 'This business number is not connected. Scan its QR code first.' : 'Your WhatsApp is not connected. Scan the QR code first.');
+  }
 
   const msg = await Message().create({
     chatId: chat._id,
@@ -352,7 +361,151 @@ async function refreshAllDevices(req, res) {
   return ok(res, { checked: devices.length, failed });
 }
 
+// ---------------------------------------------------------------- business numbers
+// Company WhatsApp numbers added from the admin page (not tied to one user).
+// Every route below is admin-only.
+
+async function businessDevice(req, res) {
+  if (!requireAdmin(req, res)) return null;
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    bad(res, 400, 'Invalid number.');
+    return null;
+  }
+  const d = await Device().findOne({ _id: req.params.id, kind: 'business' }).lean();
+  if (!d) bad(res, 404, 'Business number not found.');
+  return d;
+}
+
+// GET /api/whatsapp/admin/business — every business number + chat / unread counts.
+async function listBusiness(req, res) {
+  if (!requireAdmin(req, res)) return;
+  const rows = await Device().find({ kind: 'business' }).sort({ createdAt: 1 }).lean();
+  const counts = await Chat().aggregate([
+    { $match: { userId: { $in: rows.map((r) => r.userId) } } },
+    { $group: { _id: '$userId', chats: { $sum: 1 }, unread: { $sum: '$unread' } } },
+  ]);
+  const by = new Map(counts.map((c) => [String(c._id), c]));
+  return ok(res, {
+    configured: deropo.configured(),
+    numbers: rows.map((r) => ({ ...r, chats: (by.get(String(r.userId)) || {}).chats || 0, unread: (by.get(String(r.userId)) || {}).unread || 0 })),
+  });
+}
+
+// POST /api/whatsapp/admin/business { label, phoneNumber } — new DeroPo device → QR.
+async function createBusiness(req, res) {
+  if (!requireAdmin(req, res)) return;
+  const phoneNumber = deropo.normaliseNumber(req.body && req.body.phoneNumber);
+  if (phoneNumber.length < 11 || phoneNumber.length > 15) return bad(res, 400, 'Enter a valid WhatsApp number with country code.');
+  const label = String((req.body && req.body.label) || '').trim().slice(0, 60) || 'Business WhatsApp';
+  if (await Device().exists({ kind: 'business', phoneNumber })) return bad(res, 409, 'This number is already added — use "New QR" on it instead.');
+  try {
+    const created = await deropo.createDevice({ name: `${label} (CRM business)`, phoneNumber });
+    const device = await Device().create({
+      kind: 'business',
+      userId: new mongoose.Types.ObjectId(),
+      userName: label,
+      label,
+      createdBy: req.admin._id,
+      deviceId: created.deviceId,
+      name: `${label} (CRM business)`,
+      phoneNumber,
+      status: created.status,
+      lastCheckedAt: new Date(),
+    });
+    emit(null, 'whatsapp:device', { business: true, id: String(device._id), status: device.status });
+    return ok(res, device.toObject(), 'Scan the QR code with WhatsApp on the business phone.');
+  } catch (err) {
+    return deropoFail(res, err, 'Could not add the business number.');
+  }
+}
+
+// POST /api/whatsapp/admin/business/:id/relink — fresh DeroPo device (new QR) for the same number.
+async function relinkBusiness(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  try {
+    const created = await deropo.createDevice({ name: d.name || `${d.label} (CRM business)`, phoneNumber: d.phoneNumber });
+    const updated = await Device().findByIdAndUpdate(
+      d._id,
+      { $set: { deviceId: created.deviceId, status: created.status, lastCheckedAt: new Date(), lastError: null }, $unset: { connectedAt: 1 } },
+      { new: true }
+    ).lean();
+    return ok(res, updated, 'Scan the new QR code.');
+  } catch (err) {
+    return deropoFail(res, err, 'Could not create a new QR code.');
+  }
+}
+
+// GET /api/whatsapp/admin/business/:id/qr — PNG
+async function businessQr(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  try {
+    const { type, buffer } = await deropo.getQrImage(d.deviceId);
+    res.set('Content-Type', type);
+    res.set('Cache-Control', 'no-store');
+    return res.send(buffer);
+  } catch (err) {
+    return deropoFail(res, err, 'QR code is not available.');
+  }
+}
+
+// GET /api/whatsapp/admin/business/:id/status — ask DeroPo now
+async function businessStatus(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  try {
+    return ok(res, await refreshDevice(d));
+  } catch (err) {
+    await Device().updateOne({ _id: d._id }, { $set: { lastError: err.message, lastCheckedAt: new Date() } });
+    return deropoFail(res, err, 'Could not check the WhatsApp status.');
+  }
+}
+
+// PATCH /api/whatsapp/admin/business/:id { label }
+async function renameBusiness(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  const label = String((req.body && req.body.label) || '').trim().slice(0, 60);
+  if (!label) return bad(res, 400, 'Enter a name.');
+  await Device().updateOne({ _id: d._id }, { $set: { label, userName: label } });
+  await Chat().updateMany({ userId: d.userId }, { $set: { userName: label } });
+  return ok(res, null, 'Renamed.');
+}
+
+// DELETE /api/whatsapp/admin/business/:id — forget the number in the CRM (chats stay readable).
+async function removeBusiness(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  await Device().deleteOne({ _id: d._id });
+  emit(null, 'whatsapp:device', { business: true, id: String(d._id), status: 'none' });
+  return ok(res, null, 'Number removed from the CRM. Also remove it under "Linked devices" on that phone.');
+}
+
+// POST /api/whatsapp/admin/business/:id/chats { number, name } — start a chat from this business number.
+async function openBusinessChat(req, res) {
+  const d = await businessDevice(req, res);
+  if (!d) return;
+  const number = deropo.normaliseNumber(req.body && req.body.number);
+  if (number.length < 11 || number.length > 15) return bad(res, 400, 'Enter a valid number with country code.');
+  const name = String((req.body && req.body.name) || '').trim().slice(0, 120);
+  const chat = await Chat().findOneAndUpdate(
+    { userId: d.userId, customerNumber: number },
+    { $setOnInsert: { userName: d.label, department: 'Business', deviceId: d.deviceId }, ...(name ? { $set: { customerName: name } } : {}) },
+    { upsert: true, new: true }
+  ).lean();
+  return ok(res, chat);
+}
+
 module.exports = {
+  listBusiness,
+  createBusiness,
+  relinkBusiness,
+  businessQr,
+  businessStatus,
+  renameBusiness,
+  removeBusiness,
+  openBusinessChat,
   me,
   createDevice,
   deviceQr,

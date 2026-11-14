@@ -4,6 +4,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import waApi from './api';
 import Inbox from './Inbox';
 import LiveChats from './LiveChats';
+import BusinessNumbers from './BusinessNumbers';
 import { Avatar, Btn, DeviceTag, FilterPills, ModeSwitch, Notice, PageHeader, RoleChip, SearchBox, Tabs, Toggle } from './ui';
 
 // Same rule as backend services/whatsapp/access.js — recomputed here so the
@@ -28,7 +29,7 @@ const MODE_OPTIONS = [
 // Admin view of Messenger › WhatsApp: Individual / Department access, Live
 // Chats (everyone's chats, read only) and the admin's own Inbox.
 export default function AccessAdmin({ me }) {
-  const [tab, setTab] = useState('individual');
+  const [tab, setTab] = useState('business');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -195,6 +196,7 @@ export default function AccessAdmin({ me }) {
           value={tab}
           onChange={setTab}
           tabs={[
+            { key: 'business', label: 'Business Numbers' },
             { key: 'individual', label: 'Individual' },
             { key: 'department', label: 'Department' },
             { key: 'live', label: 'Live Chats', count: withAccess.length },
@@ -302,6 +304,8 @@ export default function AccessAdmin({ me }) {
         )}
 
         {tab === 'inbox' && <Inbox initialDevice={me.device} configured={me.configured} embedded />}
+
+        {tab === 'business' && <BusinessNumbers />}
       </div>
     </div>
   );
