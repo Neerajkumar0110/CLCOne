@@ -210,6 +210,9 @@ async function processLog(log, opts = {}) {
         })
         .catch((e) => console.error('[whatsapp] chat lead failed:', e.message));
       if (opts.quiet) await leadJob;
+    } else if (!opts.quiet) {
+      // typed on the phone itself → the Ad chat inbox shows it live too
+      require('../../../../services/marketing/chatLeads').pingChat('whatsapp', p.from, p.text);
     }
 
     if (opts.quiet) return;
