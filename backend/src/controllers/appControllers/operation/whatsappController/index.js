@@ -376,6 +376,29 @@ async function businessDevice(req, res) {
   return d;
 }
 
+// GET /api/whatsapp/admin/webhook — the URL to paste into DeroPo › Profile ›
+// Webhook Settings (admins only; it carries the secret), plus when DeroPo last
+// called it, so the admin can see the webhook is really working.
+async function webhookInfo(req, res) {
+  if (!requireAdmin(req, res)) return;
+  const secret = process.env.WHATSAPP_WEBHOOK_SECRET || '';
+  const base = (process.env.WHATSAPP_WEBHOOK_BASE || 'https://clcone.careerlabconsulting.com').replace(/\/+$/, '');
+  const Log = mongoose.model('WhatsAppWebhookLog');
+  const [last, lastHandled, total24h] = await Promise.all([
+    Log.findOne({}).sort({ _id: -1 }).select('createdAt note handled body.event').lean(),
+    Log.findOne({ handled: true }).sort({ _id: -1 }).select('createdAt').lean(),
+    Log.countDocuments({ _id: { $gte: mongoose.Types.ObjectId.createFromTime(Math.floor(Date.now() / 1000) - 86400) } }),
+  ]);
+  return ok(res, {
+    ready: !!secret,
+    url: secret ? `${base}/api/whatsapp-webhook/${secret}` : null,
+    lastCallAt: last ? last.createdAt || last._id.getTimestamp() : null,
+    lastNote: last ? last.note || (last.handled ? 'message stored' : last.body && last.body.event) : null,
+    lastMessageAt: lastHandled ? lastHandled.createdAt || lastHandled._id.getTimestamp() : null,
+    calls24h: total24h,
+  });
+}
+
 // GET /api/whatsapp/admin/business — every business number + chat / unread counts.
 async function listBusiness(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -498,6 +521,7 @@ async function openBusinessChat(req, res) {
 }
 
 module.exports = {
+  webhookInfo,
   listBusiness,
   createBusiness,
   relinkBusiness,

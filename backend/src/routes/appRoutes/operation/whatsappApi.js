@@ -25,6 +25,8 @@ router.route('/admin/access').get(catchErrors(controller.getAccess));
 router.route('/admin/access').put(catchErrors(controller.saveAccess));
 router.route('/admin/devices/refresh').post(catchErrors(controller.refreshAllDevices));
 
+router.route('/admin/webhook').get(catchErrors(controller.webhookInfo));
+
 // Company (business) numbers — admin only
 router.route('/admin/business').get(catchErrors(controller.listBusiness));
 router.route('/admin/business').post(catchErrors(controller.createBusiness));
