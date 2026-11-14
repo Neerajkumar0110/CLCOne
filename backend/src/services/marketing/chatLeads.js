@@ -94,7 +94,8 @@ async function upsertChatLead(o) {
     }
     if (!existing.email && email) set.email = email;
     if (name && /^(Messenger|Instagram|WhatsApp) user$/.test(existing.name || '')) set.name = name;
-    if (existing.chatLastAt && existing.chatLastAt >= at && !set.phone && !set.email && !set.name) return { lead: existing, created: false, linked: false };
+    const textChanged = text && text !== existing.chatLastMessage && !(existing.chatLastAt && existing.chatLastAt > at);
+    if (existing.chatLastAt && existing.chatLastAt >= at && !set.phone && !set.email && !set.name && !textChanged) return { lead: existing, created: false, linked: false };
     Object.assign(existing, set);
     await existing.save();
     announce(existing, 'updated');

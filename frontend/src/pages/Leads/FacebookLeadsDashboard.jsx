@@ -414,8 +414,8 @@ export default function FacebookLeadsDashboard({ connected }) {
               ? <>No lead-form campaign is running — the <b>{h.chatActive}</b> active campaign{h.chatActive === 1 ? " is a chat (Messages) campaign" : "s are chat (Messages) campaigns"}. Their chats reach the CRM as <b>chat leads</b> (below), not as form leads.</>
               : h.recentMetaLeads === 0 && t && t.active
               ? <>No new leads from Meta in the last 3 days although <b>{t.active}</b> campaign{t.active === 1 ? " is" : "s are"} active — the ads may need attention.</>
-              : <>Leads are reaching the CRM ({h.recentCrmLeads} in the last 3 days).</>}
-            <span style={{ color: "var(--hub-muted)" }}> · Last Facebook lead in CRM: {fmtDay(h.lastCrmLeadAt)}</span>
+              : <>Leads are reaching the CRM ({h.recentCrmLeads} form lead{h.recentCrmLeads === 1 ? "" : "s"}{h.recentChatLeads ? ` + ${h.recentChatLeads} chat${h.recentChatLeads === 1 ? "" : "s"}` : ""} in the last 3 days).</>}
+            <span style={{ color: "var(--hub-muted)" }}> · Last form lead: {fmtDay(h.lastCrmLeadAt)}{h.lastChatLeadAt ? ` · Last chat: ${fmtDay(h.lastChatLeadAt)}` : ""}</span>
           </span>
         </div>
       )}

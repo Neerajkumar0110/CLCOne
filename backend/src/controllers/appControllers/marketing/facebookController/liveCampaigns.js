@@ -213,11 +213,21 @@ const liveCampaigns = async (req, res) => {
     facebookLeadId: { $exists: true, $ne: null },
     facebookCreatedAt: { $gte: istStart(istKey(Date.now() - 2 * DAY)) },
   });
+  // Meta also counts leads from chat (Messages) campaigns — those reach the
+  // CRM as chat leads, so they count as "reached" too.
+  const recentChatLeads = await Lead.countDocuments({
+    removed: false,
+    chatConversationId: { $exists: true, $ne: null },
+    chatLastAt: { $gte: istStart(istKey(Date.now() - 2 * DAY)) },
+  });
+  const lastChat = await Lead.findOne({ removed: false, chatConversationId: { $exists: true, $ne: null } }).sort({ chatLastAt: -1 }).select('chatLastAt').lean();
   const health = {
     lastCrmLeadAt,
+    lastChatLeadAt: lastChat ? lastChat.chatLastAt : null,
     recentMetaLeads, // last 3 days, Meta
-    recentCrmLeads, // last 3 days, reached the CRM
-    missing: recentMetaLeads != null && recentMetaLeads > 0 && recentCrmLeads < recentMetaLeads,
+    recentCrmLeads, // last 3 days, form leads that reached the CRM
+    recentChatLeads, // last 3 days, chats that reached the CRM
+    missing: recentMetaLeads != null && recentMetaLeads > 0 && recentCrmLeads + recentChatLeads < recentMetaLeads,
     // Lead-form campaigns running — Messages campaigns never give form leads.
     leadFormActive: list.filter((r) => r.active && /LEAD/.test(String(r.objective || ''))).length,
     chatActive: list.filter((r) => r.active && /MESSAGES|ENGAGEMENT/.test(String(r.objective || ''))).length,

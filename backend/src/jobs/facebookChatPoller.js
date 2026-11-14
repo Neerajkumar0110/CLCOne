@@ -61,11 +61,16 @@ async function pollPlatform({ graph, conn, token, platform, since, ownIds }) {
       }
       seen += 1;
       const people = (c.participants && c.participants.data) || [];
-      const customer = people.find((p) => !ownIds.has(String(p.id))) || people[0] || {};
       const msgs = ((c.messages && c.messages.data) || []).slice().sort((a, b) => new Date(a.created_time) - new Date(b.created_time));
+      // The customer is whoever isn't the Page / its Instagram account — from
+      // the participants, else from who wrote the messages. Never fall back
+      // to the Page itself (that made a lead called "Career Lab Consulting").
+      const isOwn = (p) => !p || !p.id || ownIds.has(String(p.id)) || (conn.pageName && p.name === conn.pageName);
+      const customer = people.find((p) => !isOwn(p)) || (msgs.find((m) => !isOwn(m.from)) || {}).from;
+      if (!customer || !customer.id) continue;
       const theirs = msgs.filter((m) => m.from && String(m.from.id) === String(customer.id));
-      const last = theirs[theirs.length - 1] || msgs[msgs.length - 1];
-      if (!customer.id) continue;
+      // Only the customer's own words — our auto-replies are not their message.
+      const last = theirs[theirs.length - 1];
       const r = await upsertChatLead({
         channel: platform === 'instagram' ? 'instagram' : 'messenger',
         // keyed by the customer's page-scoped id (PSID / IGSID) — the same id
