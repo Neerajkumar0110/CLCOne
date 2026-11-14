@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReloadOutlined, FacebookFilled, InstagramFilled, WarningFilled, CheckCircleFilled, MessageOutlined } from "@ant-design/icons";
 import { request } from "@/request";
+import { getSocket } from "@/socket";
 import { stageColor } from "@/config/leadStages";
 import HubModal from "@/components/HubModal";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
@@ -280,8 +281,49 @@ export default function FacebookLeadsDashboard({ connected }) {
   // permissions (backend connect.js ?chats=1) so Messenger / Instagram ad
   // chats come into the CRM as leads (jobs/facebookChatPoller.js).
   const [chatMsg, setChatMsg] = useState("");
+  const [feed, setFeed] = useState([]); // live chat / lead events (socket)
+  const loadRef = React.useRef(load);
+  loadRef.current = load;
+
+  // Real time: the backend pushes "lead:chat" / "lead:new" the moment a chat
+  // or form lead lands (socket.js emitLeadEvent) — show it and refresh the
+  // numbers right away (debounced), no polling from the browser.
+  useEffect(() => {
+    if (!connected) return undefined;
+    const s = getSocket();
+    if (!s) return undefined;
+    let timer = null;
+    const onEvent = (kind) => (p) => {
+      setFeed((f) => [{ ...p, ev: kind, key: `${p.id}-${Date.now()}` }, ...f].slice(0, 8));
+      clearTimeout(timer);
+      timer = setTimeout(() => loadRef.current(), 1500);
+    };
+    const onChat = onEvent("chat");
+    const onNew = onEvent("form");
+    s.on("lead:chat", onChat);
+    s.on("lead:new", onNew);
+    return () => {
+      clearTimeout(timer);
+      s.off("lead:chat", onChat);
+      s.off("lead:new", onNew);
+    };
+  }, [connected]);
+
+  // Facebook's popup tells us the real result (callback.js postMessage).
+  // Closing the popup is NOT success — Meta may have shown an error there.
+  const oauthResult = React.useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      const t = String(e?.data?.type || "");
+      if (t === "fb-oauth-success" || t === "fb-oauth-error") oauthResult.current = e.data;
+    };
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
+  }, []);
+
   const connectChats = async () => {
     setChatMsg("");
+    oauthResult.current = null;
     const popup = window.open("", "fb-oauth", "width=620,height=720"); // before the await — avoids the popup blocker
     const res = await request.get({ entity: "facebook/connect?chats=1" });
     if (!res?.success) {
@@ -291,13 +333,26 @@ export default function FacebookLeadsDashboard({ connected }) {
     }
     const win = popup || window.open(res.result.url, "fb-oauth", "width=620,height=720");
     if (popup) popup.location.href = res.result.url;
+    setChatMsg("Waiting for Facebook… finish the steps in the popup and press Continue.");
     if (win) {
-      const t = setInterval(() => {
-        if (win.closed) {
-          clearInterval(t);
-          setChatMsg("Connected — chats are pulled every 2 minutes. Refresh in a minute to see them.");
-          setTimeout(() => load(), 5000);
+      const t = setInterval(async () => {
+        if (!win.closed) return;
+        clearInterval(t);
+        const r = oauthResult.current;
+        if (r && r.type === "fb-oauth-error") {
+          setChatMsg(`Facebook did not connect: ${r.message || "unknown error"}`);
+          return;
         }
+        setChatMsg("Checking the connection…");
+        // give the chat poller one tick (20 s) to try the new permission
+        setTimeout(async () => {
+          const fresh = await request.get({ entity: `facebook/live-campaigns?range=${range}` });
+          if (fresh?.success) setData(fresh.result);
+          const err = fresh?.result?.chatSync?.messengerError;
+          if (!r && err) setChatMsg("Facebook was closed before the connection finished (or showed an error) — nothing changed. Click Connect chats again and press Continue; if Facebook shows an error, send a screenshot.");
+          else if (err) setChatMsg(`Connected, but Meta still refuses Messenger: ${err}`);
+          else setChatMsg("Connected — new chats now arrive live.");
+        }, 25000);
       }, 800);
     }
   };
@@ -399,7 +454,7 @@ export default function FacebookLeadsDashboard({ connected }) {
                     <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)" }}>{int(n)}</div>
                     <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>{label} chats in CRM</div>
                     <div style={{ fontSize: 11, marginTop: 4, color: err ? "#b45309" : "#15803d" }}>
-                      {err ? (/permission|#200|#230/i.test(err) ? "Not connected — chat permission missing" : err) : at ? `Syncing · last ${fmtDay(at)}` : "Ready"}
+                      {err ? (/permission|#200|#230/i.test(err) ? "Not connected — chat permission missing" : err) : at ? `Live · checked ${fmtDay(at)}` : "Ready"}
                     </div>
                   </div>
                 ))}
@@ -417,6 +472,19 @@ export default function FacebookLeadsDashboard({ connected }) {
                 </div>
               )}
               {chatMsg && <div style={{ marginTop: 8, fontSize: 12, color: "var(--hub-muted)" }}>{chatMsg}</div>}
+              {feed.length > 0 && (
+                <div style={{ marginTop: 10, borderTop: "1px solid var(--hub-border)", paddingTop: 8 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "#15803d", marginBottom: 6 }}>● Live</div>
+                  {feed.map((f) => (
+                    <div key={f.key} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "3px 0" }}>
+                      <span style={{ color: "var(--hub-muted)", minWidth: 62 }}>{new Date(f.at || Date.now()).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                      <b>{f.name}</b>
+                      <span style={{ color: "var(--hub-muted)" }}>· {f.ev === "form" ? "Facebook form" : f.source} · {f.kind === "created" || f.ev === "form" ? "new lead" : "new message"}{f.hasPhone ? " · has phone" : ""}</span>
+                      {f.text && <span style={{ color: "var(--hub-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>“{f.text}”</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

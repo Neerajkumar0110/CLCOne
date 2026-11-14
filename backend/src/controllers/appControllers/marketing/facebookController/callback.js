@@ -96,6 +96,17 @@ const callback = async (req, res) => {
           conn.pageAccessToken = tokenCrypto.encrypt(page.access_token);
           conn.chatsPollError = undefined;
           conn.chatsIgPollError = undefined;
+          // Real-time chats: also subscribe the Page to message events. Needs
+          // pages_messaging — if Meta refuses, the lead-form subscription is
+          // left exactly as it was and the 20 s chat poll still works.
+          try {
+            await graph.graphRequest(`/${page.id}/subscribed_apps`, {
+              method: 'POST',
+              params: { subscribed_fields: 'leadgen,messages,messaging_postbacks,messaging_referrals', access_token: page.access_token },
+            });
+          } catch (e) {
+            console.error('[facebook callback] messages subscription refused:', e.message);
+          }
         }
       } catch (e) {
         console.error('[facebook callback] page token refresh failed:', e.message);

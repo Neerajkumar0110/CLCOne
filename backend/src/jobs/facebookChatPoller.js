@@ -15,7 +15,10 @@ const mongoose = require('mongoose');
 // Each tick, per Page and platform: walk conversations newest-first and stop
 // at the watermark (chatsPolledAt − overlap). First run: every conversation
 // Meta still returns (capped by MAX_PAGES), so old chats come in too.
-const POLL_INTERVAL_MS = Number(process.env.FACEBOOK_CHAT_POLL_INTERVAL_MS) || 2 * 60 * 1000;
+// Real time comes from the webhook (facebookController/webhook.js, field
+// "messages"); this poll is the safety net and the backfill — 20 s, and an
+// incremental tick reads one page of conversations at most.
+const POLL_INTERVAL_MS = Number(process.env.FACEBOOK_CHAT_POLL_INTERVAL_MS) || 20 * 1000;
 const OVERLAP_MS = 15 * 60 * 1000;
 const PAGE_SIZE = 50;
 const MAX_PAGES = Number(process.env.FACEBOOK_CHAT_BACKFILL_PAGES) || 40; // ≤ 2,000 chats on the first run
@@ -62,9 +65,12 @@ async function pollPlatform({ graph, conn, token, platform, since, ownIds }) {
       const msgs = ((c.messages && c.messages.data) || []).slice().sort((a, b) => new Date(a.created_time) - new Date(b.created_time));
       const theirs = msgs.filter((m) => m.from && String(m.from.id) === String(customer.id));
       const last = theirs[theirs.length - 1] || msgs[msgs.length - 1];
+      if (!customer.id) continue;
       const r = await upsertChatLead({
         channel: platform === 'instagram' ? 'instagram' : 'messenger',
-        conversationId: c.id,
+        // keyed by the customer's page-scoped id (PSID / IGSID) — the same id
+        // the real-time webhook gets as sender.id, so both paths hit one lead
+        conversationId: customer.id,
         name: customer.name || customer.username,
         text: last && last.message,
         texts: theirs.map((m) => m.message).filter(Boolean),
@@ -91,7 +97,10 @@ async function pollConnection(conn) {
   const ownIds = new Set([String(conn.pageId)]);
   const igInfo = await igAccount(graph, conn, token);
   const ig = igInfo.id;
-  if (ig) ownIds.add(String(ig));
+  if (ig) {
+    ownIds.add(String(ig));
+    conn.instagramAccountId = String(ig); // lets the Instagram webhook find this connection
+  }
 
   const out = { messenger: null, instagram: null };
   for (const platform of ['messenger', 'instagram']) {

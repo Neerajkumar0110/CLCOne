@@ -56,6 +56,7 @@ const schema = new mongoose.Schema({
   chatsIgPolledAt: Date, // Instagram watermark
   chatsPollError: String,
   chatsIgPollError: String,
+  instagramAccountId: String, // the Page's linked IG business account (for IG webhooks)
 
   status: {
     type: String,

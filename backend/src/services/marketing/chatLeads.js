@@ -33,6 +33,25 @@ function phoneFromText(text) {
   return null;
 }
 
+// Real-time push to every CRM staff screen (socket.js emitLeadEvent).
+function announce(lead, kind) {
+  try {
+    if (!lead) return;
+    require('../../socket').emitLeadEvent('lead:chat', {
+      kind, // created | updated | linked
+      id: String(lead._id),
+      name: lead.name,
+      channel: lead.chatChannel,
+      source: lead.source,
+      hasPhone: !!lead.phone,
+      text: lead.chatLastMessage ? String(lead.chatLastMessage).slice(0, 140) : '',
+      at: lead.chatLastAt || new Date(),
+    });
+  } catch (_) {
+    /* socket not running (scripts / tests) */
+  }
+}
+
 function emailFromText(text) {
   const m = String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   return m ? m[0].toLowerCase() : null;
@@ -78,6 +97,7 @@ async function upsertChatLead(o) {
     if (existing.chatLastAt && existing.chatLastAt >= at && !set.phone && !set.email && !set.name) return { lead: existing, created: false, linked: false };
     Object.assign(existing, set);
     await existing.save();
+    announce(existing, 'updated');
     return { lead: existing, created: false, linked: false };
   }
 
@@ -89,6 +109,7 @@ async function upsertChatLead(o) {
       const set = { ...chatSet };
       if (!same.chatConversationId) Object.assign(set, { chatConversationId: key, chatChannel: channel, chatStartedAt: o.startedAt || at });
       await Lead.updateOne({ _id: same._id }, { $set: set }).catch(() => {});
+      announce({ ...same.toObject(), ...set }, 'linked');
       return { lead: same, created: false, linked: true };
     }
   }
@@ -109,6 +130,7 @@ async function upsertChatLead(o) {
     ...chatSet,
     pageId: o.pageId,
     adAccountId: o.adAccountId,
+    metaAdId: o.adId ? String(o.adId) : undefined,
     metaPlatform: channel === 'whatsapp' ? 'whatsapp' : channel === 'instagram' ? 'ig' : 'fb',
     ...(fresh && phone ? { instantDispatch: { status: 'pending', at: new Date() } } : {}),
   });
@@ -121,6 +143,7 @@ async function upsertChatLead(o) {
     }
     throw e;
   }
+  announce(lead, 'created');
   return { lead, created: true, linked: false };
 }
 

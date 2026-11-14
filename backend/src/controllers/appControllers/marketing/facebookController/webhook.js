@@ -173,6 +173,11 @@ async function processWebhookLog(log) {
     log.processedAt = Date.now();
     log.errorMessage = undefined;
     await log.save();
+    try {
+      require('../../../../socket').emitLeadEvent('lead:new', { id: String(log.leadId), name: lead.name, source: 'Facebook Ads', hasPhone: !!lead.phone, at: new Date() });
+    } catch (_) {
+      /* no socket in scripts */
+    }
   } catch (err) {
     log.processingStatus = log.retryCount + 1 >= 5 ? 'failed' : 'retrying';
     log.errorMessage = err.message;
@@ -215,6 +220,55 @@ const receiveWebhook = async (req, res) => {
   for (const log of logs) {
     processWebhookLog(log).catch(() => {}); // errors are already captured on the log itself
   }
+
+  // Real-time ad chats: Messenger (object "page") and Instagram DMs (object
+  // "instagram") deliver entry[].messaging[] — every customer message
+  // becomes / refreshes its chat lead the moment Meta sends it.
+  // jobs/facebookChatPoller.js is the 20-second safety net for anything missed.
+  handleMessagingEvents(req.body).catch((e) => console.error('[facebook webhook] chat event failed:', e.message));
 };
 
-module.exports = { verifyWebhook, receiveWebhook, processWebhookLog, mapFieldData };
+async function handleMessagingEvents(body) {
+  const entries = (body && body.entry) || [];
+  if (!entries.some((e) => Array.isArray(e.messaging) && e.messaging.length)) return;
+  const FacebookConnection = mongoose.model('FacebookConnection');
+  const { upsertChatLead } = require('../../../../services/marketing/chatLeads');
+  const isIg = body.object === 'instagram';
+  for (const entry of entries) {
+    const conn = isIg
+      ? (await FacebookConnection.findOne({ removed: false, status: 'connected', instagramAccountId: String(entry.id) }).exec()) ||
+        (await FacebookConnection.findOne({ removed: false, status: 'connected', pageId: { $nin: [null, ''] } }).sort({ active: -1 }).exec())
+      : await FacebookConnection.findOne({ removed: false, pageId: String(entry.id) }).exec();
+    for (const ev of entry.messaging || []) {
+      const sender = ev.sender && String(ev.sender.id);
+      const ownId = String(entry.id);
+      // only the customer's side: skip echoes of our own replies / reads / deliveries
+      if (!sender || sender === ownId || (ev.message && ev.message.is_echo)) continue;
+      if (!ev.message && !ev.postback && !ev.referral) continue;
+      const text = (ev.message && (ev.message.text || (ev.message.attachments ? '[attachment]' : ''))) || (ev.postback && ev.postback.title) || '';
+      const referral = ev.referral || (ev.message && ev.message.referral) || (ev.postback && ev.postback.referral) || null;
+      let name;
+      const token = conn ? decryptedPageToken(conn) : null;
+      if (token) {
+        try {
+          const p = await graph.graphRequest(`/${sender}`, { params: { fields: isIg ? 'name,username' : 'first_name,last_name,name', access_token: token } });
+          name = p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username;
+        } catch (_) {
+          /* profile needs pages_messaging — the lead is created without a name */
+        }
+      }
+      await upsertChatLead({
+        channel: isIg ? 'instagram' : 'messenger',
+        conversationId: sender,
+        name,
+        text,
+        at: ev.timestamp ? new Date(Number(ev.timestamp)) : new Date(),
+        pageId: conn ? conn.pageId : undefined,
+        adAccountId: conn ? conn.adAccountId : undefined,
+        adId: referral && referral.ad_id,
+      });
+    }
+  }
+}
+
+module.exports = { verifyWebhook, receiveWebhook, processWebhookLog, mapFieldData, handleMessagingEvents };
