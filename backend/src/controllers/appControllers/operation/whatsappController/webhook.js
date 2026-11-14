@@ -70,17 +70,17 @@ async function incoming(req, res) {
     const note = (msg) => Log.updateOne({ _id: log._id }, { $set: { note: msg } });
     // message_sent / delivered / read / failed are about OUR sends — only
     // message_received creates a chat message.
-    if (p.event && p.event !== 'message_received') return note(`event ${p.event} — not stored`);
-    if (!p.deviceId) return note('no device id');
-    if (!p.from || !p.text) return note('no sender or text (maybe a status/ack event)');
-    if (p.isGroup) return note('group message — ignored');
+    if (p.event && p.event !== 'message_received') return await note(`event ${p.event} — not stored`);
+    if (!p.deviceId) return await note('no device id');
+    if (!p.from || !p.text) return await note('no sender or text (maybe a status/ack event)');
+    if (p.isGroup) return await note('group message — ignored');
 
     const device = await mongoose.model('WhatsAppDevice').findOne({ deviceId: p.deviceId }).lean();
-    if (!device) return note(`device ${p.deviceId} is not linked to any CRM user`);
+    if (!device) return await note(`device ${p.deviceId} is not linked to any CRM user`);
 
     const Message = mongoose.model('WhatsAppMessage');
     if (p.providerMessageId && (await Message.exists({ providerMessageId: p.providerMessageId }))) {
-      return note('duplicate');
+      return await note('duplicate');
     }
 
     const Admin = mongoose.model('Admin');
@@ -139,6 +139,20 @@ async function incoming(req, res) {
     }
   } catch (err) {
     await Log.updateOne({ _id: log._id }, { $set: { note: `error: ${err.message}` } }).catch(() => {});
+  } finally {
+    // Live: the admin page's "DeroPo webhook" card updates the moment DeroPo
+    // calls (test, status or message) — no refresh / polling needed.
+    try {
+      const fresh = await Log.findById(log._id).select('note handled body.event').lean();
+      require('../../../../socket').emitWhatsApp(null, 'whatsapp:webhook', {
+        at: new Date(),
+        event: (fresh && fresh.body && fresh.body.event) || null,
+        handled: !!(fresh && fresh.handled),
+        note: (fresh && fresh.note) || null,
+      });
+    } catch (_) {
+      /* no socket in scripts */
+    }
   }
 }
 
