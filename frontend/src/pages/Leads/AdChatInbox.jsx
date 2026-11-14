@@ -86,7 +86,7 @@ function Attachment({ a, mine }) {
   );
 }
 
-export default function AdChatInbox({ open, onClose }) {
+export default function AdChatInbox({ open, onClose, initialChannel, initialLead }) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [unread, setUnread] = useState(0);
@@ -143,6 +143,13 @@ export default function AdChatInbox({ open, onClose }) {
   };
 
   const action = (lead, a) => request.post({ entity: `facebook/chats/${lead._id}/action`, jsonData: { action: a } }).catch(() => {});
+
+  // Opened from the header's channel icons: jump to that channel / chat.
+  useEffect(() => {
+    if (!open) return;
+    if (initialChannel !== undefined) setChannel(initialChannel || "");
+    if (initialLead) setSel(initialLead);
+  }, [open, initialChannel, initialLead]);
 
   useEffect(() => {
     if (!open) return undefined;

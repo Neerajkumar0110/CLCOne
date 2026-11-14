@@ -12,6 +12,7 @@ import useLanguage from '@/locale/useLanguage';
 import { useTheme } from '@/context/themeContext';
 
 import NotificationBell from './NotificationBell';
+import ChatChannels from './ChatChannels';
 import WorkdayWidget from '@/components/Workday';
 
 export default function HeaderContent() {
@@ -130,6 +131,9 @@ export default function HeaderContent() {
       </Dropdown>
 
       <NotificationBell />
+
+      {/* Messenger / WhatsApp / Instagram chats — owner + Super Admin only */}
+      <ChatChannels />
 
       <button
         type="button"

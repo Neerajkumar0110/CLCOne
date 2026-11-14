@@ -37,12 +37,24 @@ const listChats = async (req, res) => {
   rows.forEach((r) => {
     r.unread = !!r.chatLastAt && (!r.chatReadAt || new Date(r.chatLastAt) > new Date(r.chatReadAt));
   });
-  const unread = await Lead.countDocuments({
-    removed: false,
-    chatConversationId: { $exists: true, $ne: null },
-    $expr: { $gt: ['$chatLastAt', { $ifNull: ['$chatReadAt', new Date(0)] }] },
+  // unread + total per channel — the header's Messenger / WhatsApp /
+  // Instagram icons show these counts (user ask 2026-11-15).
+  const perChannel = await Lead.aggregate([
+    { $match: { removed: false, chatConversationId: { $exists: true, $ne: null } } },
+    {
+      $group: {
+        _id: '$chatChannel',
+        total: { $sum: 1 },
+        unread: { $sum: { $cond: [{ $gt: ['$chatLastAt', { $ifNull: ['$chatReadAt', new Date(0)] }] }, 1, 0] } },
+      },
+    },
+  ]);
+  const byChannel = { messenger: { total: 0, unread: 0 }, instagram: { total: 0, unread: 0 }, whatsapp: { total: 0, unread: 0 } };
+  perChannel.forEach((c) => {
+    if (byChannel[c._id]) byChannel[c._id] = { total: c.total, unread: c.unread };
   });
-  return res.status(200).json({ success: true, result: { total, unread, rows }, message: 'ok' });
+  const unread = perChannel.reduce((s, c) => s + c.unread, 0);
+  return res.status(200).json({ success: true, result: { total, unread, byChannel, rows }, message: 'ok' });
 };
 
 // GET /api/facebook/chats/:leadId/messages — the whole conversation, live.
