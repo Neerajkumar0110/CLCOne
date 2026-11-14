@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Popover } from "antd";
+import { Popover } from "antd";
 import { BellOutlined, PaperClipOutlined, SettingOutlined } from "@ant-design/icons";
 import { initials, colorForName } from "@/utils/adminDisplay";
 
@@ -135,11 +135,17 @@ export function NotificationBellShell({ count, iconColor, renderPanel }) {
       overlayInnerStyle={{ padding: 0, borderRadius: 14, overflow: "hidden" }}
       content={renderPanel(() => setOpen(false))}
     >
-      <div className="header-bell-trigger" title="Notifications">
-        <Badge count={count || 0} size="small" offset={[-2, 4]}>
-          <BellOutlined style={{ fontSize: 20, color: iconColor }} />
-        </Badge>
-      </div>
+      {/* Same tile look as the header chat icons (ChatChannels.jsx); own badge
+          markup — antd's Badge sat on top of the bell and hid it. */}
+      <button
+        type="button"
+        className={`hb-btn ${open ? "is-open" : ""} ${count ? "has-unread" : ""}`}
+        title="Notifications"
+        aria-label={count ? `Notifications, ${count} unread` : "Notifications"}
+      >
+        <BellOutlined key={count} className={count ? "hb-icon hb-ring" : "hb-icon"} />
+        {count > 0 && <span className="hb-badge">{count > 99 ? "99+" : count}</span>}
+      </button>
     </Popover>
   );
 }
