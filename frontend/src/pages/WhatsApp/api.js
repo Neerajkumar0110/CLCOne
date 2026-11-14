@@ -55,6 +55,31 @@ const waApi = {
   getAccess: () => wrap(http().get('admin/access')),
   saveAccess: (body) => wrap(http().put('admin/access', body)),
   refreshDevices: () => wrap(http().post('admin/devices/refresh')),
+  // company (business) numbers — admin page
+  business: {
+    list: () => wrap(http().get('admin/business')),
+    create: (label, phoneNumber) => wrap(http().post('admin/business', { label, phoneNumber })),
+    rename: (id, label) => wrap(http().patch(`admin/business/${id}`, { label })),
+    remove: (id) => wrap(http().delete(`admin/business/${id}`)),
+    status: (id) => wrap(http().get(`admin/business/${id}/status`)),
+    relink: (id) => wrap(http().post(`admin/business/${id}/relink`)),
+    openChat: (id, number, name) => wrap(http().post(`admin/business/${id}/chats`, { number, name })),
+    qrImage: async (id) => {
+      try {
+        const res = await http().get(`admin/business/${id}/qr`, { responseType: 'blob' });
+        return { success: true, url: URL.createObjectURL(res.data) };
+      } catch (err) {
+        let message = 'QR code is not available right now.';
+        try {
+          const text = await err.response?.data?.text?.();
+          message = JSON.parse(text).message || message;
+        } catch (_) {
+          /* keep default */
+        }
+        return { success: false, status: err.response?.status, message };
+      }
+    },
+  },
 };
 
 export default waApi;

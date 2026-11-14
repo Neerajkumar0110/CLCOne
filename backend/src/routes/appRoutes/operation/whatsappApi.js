@@ -25,6 +25,16 @@ router.route('/admin/access').get(catchErrors(controller.getAccess));
 router.route('/admin/access').put(catchErrors(controller.saveAccess));
 router.route('/admin/devices/refresh').post(catchErrors(controller.refreshAllDevices));
 
+// Company (business) numbers — admin only
+router.route('/admin/business').get(catchErrors(controller.listBusiness));
+router.route('/admin/business').post(catchErrors(controller.createBusiness));
+router.route('/admin/business/:id').patch(catchErrors(controller.renameBusiness));
+router.route('/admin/business/:id').delete(catchErrors(controller.removeBusiness));
+router.route('/admin/business/:id/qr').get(catchErrors(controller.businessQr));
+router.route('/admin/business/:id/status').get(catchErrors(controller.businessStatus));
+router.route('/admin/business/:id/relink').post(catchErrors(controller.relinkBusiness));
+router.route('/admin/business/:id/chats').post(catchErrors(controller.openBusinessChat));
+
 // PUBLIC — DeroPo's incoming-message webhook, guarded by the secret in the path.
 const publicRouter = express.Router();
 publicRouter.route('/:secret').post(catchErrors(webhook.incoming));

@@ -93,7 +93,7 @@ async function incoming(req, res) {
       {
         $setOnInsert: {
           userName: owner ? [owner.name, owner.surname].filter(Boolean).join(' ') : device.userName,
-          department: owner ? departmentOfRole(owner.role) : undefined,
+          department: device.kind === 'business' ? 'Business' : owner ? departmentOfRole(owner.role) : undefined,
           ...(p.name && !p.fromMe ? { customerName: p.name } : {}),
         },
         $set: { deviceId: device.deviceId, lastMessage: p.text, lastMessageAt: p.at, lastDirection: direction },
