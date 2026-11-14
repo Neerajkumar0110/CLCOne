@@ -186,7 +186,8 @@ export default function AdChatInbox({ open, onClose }) {
   }, [open, q, channel]);
 
   const win = conv?.window;
-  const canSend = sel && sel.chatChannel !== "whatsapp" && (!win || win.open || win.humanAgent);
+  const isWa = sel?.chatChannel === "whatsapp";
+  const canSend = sel && (isWa || !win || win.open || win.humanAgent);
 
   const onType = (v) => {
     setText(v);
@@ -364,7 +365,7 @@ export default function AdChatInbox({ open, onClose }) {
 
               {/* reply window (Meta's 24 h / 7 day rule) */}
               {sel.chatChannel === "whatsapp" ? (
-                <div style={{ padding: "8px 14px", fontSize: 12, background: "rgba(37,211,102,.1)", borderTop: "1px solid var(--hub-border)" }}>Reply to WhatsApp chats from Messenger › WhatsApp.</div>
+                <div style={{ padding: "8px 14px", fontSize: 12, background: "rgba(37,211,102,.1)", borderTop: "1px solid var(--hub-border)" }}>Replies go from your connected WhatsApp business number (text only).</div>
               ) : win && (
                 <div style={{ padding: "6px 14px", fontSize: 12, borderTop: "1px solid var(--hub-border)",
                   background: win.open ? "rgba(22,163,74,.07)" : win.humanAgent ? "rgba(217,119,6,.08)" : "rgba(220,38,38,.07)",
@@ -407,7 +408,7 @@ export default function AdChatInbox({ open, onClose }) {
                 )}
                 <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
                   <button type="button" className="hub-btn" aria-label="Emoji" disabled={!canSend} onClick={() => { setShowEmoji((v) => !v); setShowSaved(false); }} style={{ minHeight: 38, padding: "0 10px" }}>😊</button>
-                  <button type="button" className="hub-btn" aria-label="Attach a file" disabled={!canSend} onClick={() => fileRef.current?.click()} style={{ minHeight: 38, padding: "0 10px" }}>📎</button>
+                  <button type="button" className="hub-btn" aria-label="Attach a file" disabled={!canSend || isWa} title={isWa ? "WhatsApp replies are text only for now" : undefined} onClick={() => fileRef.current?.click()} style={{ minHeight: 38, padding: "0 10px" }}>📎</button>
                   <button type="button" className="hub-btn" disabled={!canSend} onClick={() => { setShowSaved((v) => !v); setShowEmoji(false); }} style={{ minHeight: 38, padding: "0 10px", fontSize: 12 }}>Saved</button>
                   <input ref={fileRef} type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); e.target.value = ""; }} />

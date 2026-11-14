@@ -165,6 +165,54 @@ function attachmentType(mime = '') {
   return 'file';
 }
 
+// WhatsApp reply from the Ad chat inbox (user ask 2026-11-15): sent from the
+// WhatsApp number the customer wrote to (a connected business number first),
+// stored in the same WhatsAppChat / WhatsAppMessage as Messenger › WhatsApp.
+async function sendWhatsApp(req, res, lead, number, text, hadFile) {
+  if (hadFile) return res.status(400).json({ success: false, result: null, message: 'WhatsApp replies from here are text only for now — type the message.' });
+  if (!text) return res.status(400).json({ success: false, result: null, message: 'Type a message.' });
+  const deropo = require('../../../../services/whatsapp/deropo');
+  const Device = mongoose.model('WhatsAppDevice');
+  const Chat = mongoose.model('WhatsAppChat');
+  const Message = mongoose.model('WhatsAppMessage');
+
+  const chats = await Chat.find({ customerNumber: number }).sort({ lastMessageAt: -1 }).lean();
+  const devices = await Device.find({ userId: { $in: chats.map((c) => c.userId) } }).lean();
+  const devOf = (c) => devices.find((d) => String(d.userId) === String(c.userId));
+  const rank = (c) => {
+    const d = devOf(c);
+    return (d && d.status === 'connected' ? 2 : 0) + (d && d.kind === 'business' ? 1 : 0);
+  };
+  const chat = chats.slice().sort((a, b) => rank(b) - rank(a))[0];
+  const device = chat && devOf(chat);
+  if (!chat || !device) return res.status(404).json({ success: false, result: null, message: 'No WhatsApp number in the CRM has a chat with this customer.' });
+  if (device.status !== 'connected') return res.status(409).json({ success: false, result: null, message: 'That WhatsApp number is not connected — scan its QR in Messenger › WhatsApp.' });
+
+  const body = text.slice(0, 4000);
+  const msg = await Message.create({ chatId: chat._id, userId: chat.userId, deviceId: device.deviceId, customerNumber: number, direction: 'outgoing', type: 'text', text: body, status: 'sending', at: new Date() });
+  let status = 'sent';
+  let error = null;
+  let providerMessageId = null;
+  try {
+    ({ providerMessageId } = await deropo.sendText({ deviceId: device.deviceId, number, message: body }));
+  } catch (e) {
+    status = 'failed';
+    error = e.message;
+  }
+  await Message.updateOne({ _id: msg._id }, { $set: { status, error, providerMessageId } });
+  if (status === 'failed') return res.status(502).json({ success: false, result: null, message: `WhatsApp message not sent: ${error}` });
+  await Chat.updateOne({ _id: chat._id }, { $set: { lastMessage: body, lastMessageAt: msg.at, lastDirection: 'outgoing', unread: 0 } });
+  await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date() } });
+  try {
+    const socket = require('../../../../socket');
+    socket.emitWhatsApp(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
+    socket.emitLeadEvent('lead:chat', { kind: 'sent', id: String(lead._id), name: lead.name, channel: 'whatsapp', text: `You: ${body.slice(0, 120)}`, at: new Date(), by: req.admin && req.admin.name });
+  } catch (_) {
+    /* no socket in scripts */
+  }
+  return res.status(200).json({ success: true, result: { sent: [providerMessageId] }, message: `Sent from ${device.label || device.phoneNumber}` });
+}
+
 // POST /api/facebook/chats/:leadId/send   multipart: text?, file?
 const sendChat = async (req, res) => {
   const fs = require('fs');
@@ -185,7 +233,7 @@ const sendChat = async (req, res) => {
   try {
     if (channel === 'whatsapp') {
       cleanup();
-      return res.status(400).json({ success: false, result: null, message: 'Reply to WhatsApp chats from Messenger › WhatsApp (the linked number).' });
+      return await sendWhatsApp(req, res, lead, userId, text, !!filePath);
     }
     const win = windowOf(lead);
     if (!win.open && !win.humanAgent) {
