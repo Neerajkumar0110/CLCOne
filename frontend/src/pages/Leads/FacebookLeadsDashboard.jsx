@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ReloadOutlined, FacebookFilled, InstagramFilled, WarningFilled, CheckCircleFilled, MessageOutlined } from "@ant-design/icons";
 import { request } from "@/request";
 import { getSocket } from "@/socket";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import AdChatInbox from "./AdChatInbox";
 import { stageColor } from "@/config/leadStages";
 import HubModal from "@/components/HubModal";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
@@ -281,6 +284,9 @@ export default function FacebookLeadsDashboard({ connected }) {
   // permissions (backend connect.js ?chats=1) so Messenger / Instagram ad
   // chats come into the CRM as leads (jobs/facebookChatPoller.js).
   const [chatMsg, setChatMsg] = useState("");
+  const me = useSelector(selectCurrentAdmin);
+  const canReadChats = ["owner", "Super Admin"].includes(me?.role);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const [feed, setFeed] = useState([]); // live chat / lead events (socket)
   const loadRef = React.useRef(load);
   loadRef.current = load;
@@ -442,7 +448,14 @@ export default function FacebookLeadsDashboard({ connected }) {
             <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, border: "1px solid var(--hub-border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                 <b style={{ fontSize: 13.5 }}><MessageOutlined /> Ad chats → CRM leads</b>
-                <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Every chat becomes a lead — with or without a name or phone</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Every chat becomes a lead — with or without a name or phone</span>
+                  {canReadChats && (
+                    <button type="button" className="hub-btn" onClick={() => setInboxOpen(true)} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
+                      <MessageOutlined /> Open chat inbox
+                    </button>
+                  )}
+                </span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                 {[
@@ -463,9 +476,9 @@ export default function FacebookLeadsDashboard({ connected }) {
                   <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>Chat leads with a phone (go to the dialer)</div>
                 </div>
               </div>
-              {(data.chatSync.messengerError || data.chatSync.instagramError) && (
+              {data.chatSync.messengerError && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 12.5 }}>
-                  <span>Messenger / Instagram chats need one extra Facebook permission. Click once and press <b>Continue</b> on Facebook.</span>
+                  <span>Messenger chats need one extra Facebook permission. Click once and press <b>Continue</b> on Facebook.</span>
                   <button type="button" className="hub-btn" onClick={connectChats} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
                     <MessageOutlined /> Connect chats
                   </button>
@@ -568,6 +581,7 @@ export default function FacebookLeadsDashboard({ connected }) {
         </>
       )}
       {open && <CampaignDetail campaign={open.campaign} range={range} initial={open} onClose={() => setOpen(null)} />}
+      {canReadChats && <AdChatInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />}
     </div>
   );
 }
