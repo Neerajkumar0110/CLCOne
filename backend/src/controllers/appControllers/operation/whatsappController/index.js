@@ -271,6 +271,8 @@ async function send(req, res) {
   );
   emit(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
   if (status === 'failed') return bad(res, 502, `Message not sent: ${error}`);
+  // Ad chat inbox (owner / Super Admin) refreshes this conversation live.
+  require('../../../../services/marketing/chatLeads').pingChat('whatsapp', chat.customerNumber, text);
   return ok(res, saved);
 }
 

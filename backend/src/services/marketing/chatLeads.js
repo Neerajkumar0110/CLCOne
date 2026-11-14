@@ -148,4 +148,29 @@ async function upsertChatLead(o) {
   return { lead, created: true, linked: false };
 }
 
-module.exports = { upsertChatLead, phoneFromText, emailFromText, LABEL };
+// A reply went out on a chat (WhatsApp page, the phone itself) → tell the
+// Ad chat inbox live so the open conversation refreshes without polling.
+async function pingChat(channel, conversationId, text) {
+  try {
+    const lead = await mongoose
+      .model('Lead')
+      .findOne({ chatConversationId: `${channel}:${conversationId}` })
+      .select('name chatChannel source phone')
+      .lean();
+    if (!lead) return;
+    require('../../socket').emitLeadEvent('lead:chat', {
+      kind: 'sent',
+      id: String(lead._id),
+      name: lead.name,
+      channel,
+      source: lead.source,
+      hasPhone: !!lead.phone,
+      text: text ? `You: ${String(text).slice(0, 120)}` : '',
+      at: new Date(),
+    });
+  } catch (_) {
+    /* socket not running (scripts / tests) */
+  }
+}
+
+module.exports = { upsertChatLead, pingChat, phoneFromText, emailFromText, LABEL };
