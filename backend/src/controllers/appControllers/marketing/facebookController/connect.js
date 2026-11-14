@@ -19,7 +19,12 @@ const SCOPE = [
 // chat becomes a lead (jobs/facebookChatPoller.js). Asked only when the user
 // clicks "Connect chats" (?chats=1) — if the Meta app doesn't offer these yet,
 // the normal lead-form reconnect above keeps working untouched.
-const CHAT_SCOPE = ['pages_messaging', 'instagram_basic', 'instagram_manage_messages'].join(',');
+//
+// Instagram DMs (instagram_basic + instagram_manage_messages) are added via
+// META_CHAT_EXTRA_SCOPES only once the Meta app has the Instagram use case:
+// on 2026-11-14 Facebook rejected the whole dialog with "Invalid Scopes:
+// instagram_manage_messages" because the app doesn't offer it yet.
+const CHAT_SCOPE = ['pages_messaging', ...String(process.env.META_CHAT_EXTRA_SCOPES || '').split(',').map((s) => s.trim()).filter(Boolean)].join(',');
 
 // GET /api/facebook/connect (authenticated) — mints a short-lived `state`
 // identifying the connecting admin (this app's frontend auth is bearer-token,
