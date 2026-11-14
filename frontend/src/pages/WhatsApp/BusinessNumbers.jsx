@@ -85,10 +85,25 @@ function WebhookCard() {
     if (res?.success) setInfo(res.result);
   }, []);
 
+  // live over the socket: every DeroPo call (test / status / message) and
+  // every stored message refreshes the card at once; a slow 60 s re-check stays
+  // as a fallback when the socket is down.
+  const [flash, setFlash] = useState(null);
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
+    const t = setInterval(load, 60000);
+    const socket = getSocket();
+    const onHook = (p) => {
+      setFlash(p || { at: new Date() });
+      load();
+    };
+    socket?.on('whatsapp:webhook', onHook);
+    socket?.on('whatsapp:message', load);
+    return () => {
+      clearInterval(t);
+      socket?.off('whatsapp:webhook', onHook);
+      socket?.off('whatsapp:message', load);
+    };
   }, [load]);
 
   if (!info) return null;
@@ -120,8 +135,14 @@ function WebhookCard() {
             </span>
             <div className="wa-sub" style={{ marginTop: 4 }}>
               Last message from DeroPo: <strong>{ago(info.lastMessageAt)}</strong> · calls in 24 h: {info.calls24h}
-              {info.lastNote && !working ? ` · last call: ${info.lastNote}` : ''}
+              {info.lastCallAt ? ` · last call ${ago(info.lastCallAt)}` : ''}
+              {info.lastNote ? ` (${info.lastNote})` : ''}
             </div>
+            {flash && (
+              <div className="wa-sub" style={{ marginTop: 2, color: 'var(--wa-green)', fontWeight: 600 }}>
+                ● Live — DeroPo just called{flash.event ? ` (${flash.event})` : ''} at {new Date(flash.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+              </div>
+            )}
           </div>
           <div className="wa-row" style={{ gap: 6 }}>
             <Btn size="sm" onClick={() => setOpen((v) => !v)}>
