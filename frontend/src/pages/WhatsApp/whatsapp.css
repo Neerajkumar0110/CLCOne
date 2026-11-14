@@ -33,7 +33,8 @@
   min-height: calc(100vh - 140px);
   box-sizing: border-box;
 }
-:root[data-theme='dark'] .wa-page {
+:root[data-theme='dark'] .wa-page,
+:root[data-theme='dark'] .wa-modal {
   --wa-green: #22a35a;
   --wa-green-hover: #2bb867;
   --wa-green-soft: rgba(34, 163, 90, 0.12);
@@ -368,3 +369,38 @@
 .wa-locked-icon { font-size: 32px; color: var(--wa-ink-4); }
 .wa-locked h2 { margin: 6px 0 0; font-size: 20px; font-weight: 700; }
 .wa-locked p { margin: 0; color: var(--wa-ink-3); font-size: 15px; }
+
+/* WhatsApp pop-ups (antd Modal renders outside .wa-page, so it needs the
+   same colour tokens and its own spacing — 2026-11-14 the "Add business
+   number" box had borderless inputs and no padding). */
+.wa-modal {
+  --wa-green: #0f7a3d;
+  --wa-green-hover: #0b6532;
+  --wa-card: #ffffff;
+  --wa-soft: #f9fafb;
+  --wa-line: #e5e7eb;
+  --wa-line-strong: #d1d5db;
+  --wa-ink: #111827;
+  --wa-ink-2: #374151;
+  --wa-ink-3: #4b5563;
+  --wa-ink-4: #6b7280;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.wa-modal *, .wa-modal *::before, .wa-modal *::after { box-sizing: border-box; }
+.wa-modal .ant-modal-content { padding: 24px 24px 20px; border-radius: 16px; background: var(--wa-card); }
+.wa-modal .ant-modal-header { margin: 0 0 18px; padding: 0 32px 0 0; background: transparent; }
+.wa-modal .ant-modal-title { font-size: 18px; font-weight: 700; color: var(--wa-ink); line-height: 1.3; }
+.wa-modal .ant-modal-close { top: 18px; right: 18px; }
+.wa-modal .ant-modal-body { padding: 0; }
+.wa-modal .ant-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin: 22px 0 0; padding: 0; background: transparent; border: 0; }
+.wa-modal .ant-modal-footer .ant-btn { height: 40px; padding: 0 18px; border-radius: 10px; font-weight: 600; }
+.wa-modal .ant-modal-footer .ant-btn-primary { background: var(--wa-green); border-color: var(--wa-green); color: #fff; }
+.wa-modal .ant-modal-footer .ant-btn-primary:hover:not(:disabled) { background: var(--wa-green-hover); border-color: var(--wa-green-hover); }
+.wa-modal .ant-modal-footer .ant-btn-primary:disabled { background: var(--wa-soft); border-color: var(--wa-line); color: var(--wa-ink-4); }
+.wa-modal .wa-label { display: block; font-size: 13px; font-weight: 600; color: var(--wa-ink-2); margin: 0 0 6px; }
+.wa-modal .wa-input { display: block; height: 44px; width: 100%; padding: 0 12px; border: 1px solid var(--wa-line-strong); border-radius: 10px; background: var(--wa-card); color: var(--wa-ink); font-size: 14px; outline: none; }
+.wa-modal .wa-input::placeholder { color: var(--wa-ink-4); }
+.wa-modal .wa-input:focus { border-color: var(--wa-green); box-shadow: 0 0 0 3px rgba(15, 122, 61, 0.15); }
+.wa-modal .wa-field + .wa-field { margin-top: 16px; }
+.wa-modal .wa-help { margin: 16px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--wa-soft); border: 1px solid var(--wa-line); font-size: 13px; line-height: 1.55; color: var(--wa-ink-3); }
+:root[data-theme='dark'] .wa-modal .wa-input:focus { box-shadow: 0 0 0 3px rgba(34, 163, 90, 0.25); }

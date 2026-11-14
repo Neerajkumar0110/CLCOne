@@ -257,22 +257,28 @@ export default function Inbox({ initialDevice, configured }) {
       </div>
 
       <Modal
+        rootClassName="wa-modal"
+        width={480}
         title="New WhatsApp chat"
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onOk={startChat}
         okText="Open chat"
         confirmLoading={opening}
-        okButtonProps={{ disabled: !newNum.trim(), style: { background: newNum.trim() ? '#0f7a3d' : undefined } }}
+        okButtonProps={{ disabled: !newNum.trim() }}
       >
-        <label className="wa-label" htmlFor="wa-new-num">
-          Customer number (with country code)
-        </label>
-        <input id="wa-new-num" className="wa-input wa-input-full" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" />
-        <label className="wa-label" htmlFor="wa-new-name" style={{ marginTop: 14 }}>
-          Name (optional)
-        </label>
-        <input id="wa-new-name" className="wa-input wa-input-full" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-new-num">
+            Customer number (with country code)
+          </label>
+          <input id="wa-new-num" className="wa-input" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="91 98765 43210" inputMode="tel" autoFocus />
+        </div>
+        <div className="wa-field">
+          <label className="wa-label" htmlFor="wa-new-name">
+            Name (optional)
+          </label>
+          <input id="wa-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
+        </div>
       </Modal>
     </>
   );
