@@ -98,10 +98,37 @@ done
 if [ -d "$UPLOADS_DIR" ]; then
     UPLOADS_ARCHIVE="$BACKUP_DIR/clccrm-uploads-$STAMP.tar.gz"
     echo "==> Backing up uploaded files to $UPLOADS_ARCHIVE"
-    tar -czf "$UPLOADS_ARCHIVE" -C "$APP_DIR/backend/src/public" uploads
+    # uploads/recordings (class videos, ~50 GB, incompressible) is NOT in the
+    # nightly tar any more: a full copy every night filled the 194 GB disk in
+    # two days (2026-11-14). It is backed up incrementally below instead.
+    tar -czf "$UPLOADS_ARCHIVE" -C "$APP_DIR/backend/src/public" --exclude='uploads/recordings' uploads
     echo "==> Uploads backup complete: $(du -h "$UPLOADS_ARCHIVE" | cut -f1)"
 else
     echo "!! $UPLOADS_DIR does not exist — skipping uploads backup."
+fi
+
+# Class videos: only files added since the last run (marker file). The full
+# set as of 13 Nov 2026 is recordings-archive-20261113-020001.tar.gz. These
+# "recordings-*" archives don't match the prune pattern below, so they are
+# kept until someone removes them by hand.
+REC_DIR="$UPLOADS_DIR/recordings"
+REC_MARK="$BACKUP_DIR/.recordings-backed-up"
+if [ -d "$REC_DIR" ]; then
+    if [ -f "$REC_MARK" ]; then
+        NEW_COUNT=$(find "$REC_DIR" -type f -newer "$REC_MARK" | wc -l)
+    else
+        NEW_COUNT=$(find "$REC_DIR" -type f | wc -l)
+    fi
+    if [ "$NEW_COUNT" -gt 0 ]; then
+        REC_ARCHIVE="$BACKUP_DIR/recordings-$STAMP.tar.gz"
+        echo "==> Backing up $NEW_COUNT new class video(s) to $REC_ARCHIVE"
+        ( cd "$APP_DIR/backend/src/public" && if [ -f "$REC_MARK" ]; then find uploads/recordings -type f -newer "$REC_MARK" -print0; else find uploads/recordings -type f -print0; fi ) \
+            | tar -czf "$REC_ARCHIVE" -C "$APP_DIR/backend/src/public" --null -T -
+        echo "==> New videos backup complete: $(du -h "$REC_ARCHIVE" | cut -f1)"
+    else
+        echo "==> No new class videos since the last backup."
+    fi
+    touch "$REC_MARK"
 fi
 
 echo "==> Pruning backups older than $RETENTION_DAYS days"
