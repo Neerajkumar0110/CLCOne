@@ -15,6 +15,12 @@ const SCOPE = [
   'business_management',
 ].join(',');
 
+// Extra permissions to read ad chats (Messenger + Instagram DMs) so every
+// chat becomes a lead (jobs/facebookChatPoller.js). Asked only when the user
+// clicks "Connect chats" (?chats=1) — if the Meta app doesn't offer these yet,
+// the normal lead-form reconnect above keeps working untouched.
+const CHAT_SCOPE = ['pages_messaging', 'instagram_basic', 'instagram_manage_messages'].join(',');
+
 // GET /api/facebook/connect (authenticated) — mints a short-lived `state`
 // identifying the connecting admin (this app's frontend auth is bearer-token,
 // not cookies, so the OAuth callback can't rely on session/auth middleware —
@@ -40,7 +46,7 @@ const connect = async (req, res) => {
   const url = buildOAuthDialogUrl({
     redirectUri: process.env.META_REDIRECT_URI,
     state,
-    scope: SCOPE,
+    scope: req.query && String(req.query.chats) === '1' ? `${SCOPE},${CHAT_SCOPE}` : SCOPE,
   });
 
   return res.status(200).json({ success: true, result: { url }, message: 'Facebook OAuth URL generated' });

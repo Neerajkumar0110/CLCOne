@@ -110,6 +110,12 @@ if (!RUN_BACKGROUND_JOBS) {
   const startFacebookLeadPoller = require('./jobs/facebookLeadPoller');
   startFacebookLeadPoller();
 
+  // Messenger + Instagram DM ad chats → leads (jobs/facebookChatPoller.js).
+  // Idle (one refused request per tick) until the account is reconnected
+  // with "Connect chats".
+  const startFacebookChatPoller = require('./jobs/facebookChatPoller');
+  startFacebookChatPoller();
+
   // Retries failed Google Ads lead webhook deliveries — same shape as Facebook's.
   const startGoogleWebhookRetryJob = require('./jobs/googleWebhookRetry');
   startGoogleWebhookRetryJob();

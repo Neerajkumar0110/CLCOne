@@ -219,6 +219,14 @@ const schema = new mongoose.Schema({
 
   // Facebook/Meta lead-ads tracing.
   facebookLeadId: { type: String, unique: true, sparse: true },
+  // Ad chats turned into leads (services/marketing/chatLeads.js): one lead
+  // per Messenger / Instagram DM / WhatsApp conversation, with or without a
+  // name or phone. "<channel>:<conversation id>".
+  chatConversationId: { type: String, unique: true, sparse: true },
+  chatChannel: { type: String, enum: ['messenger', 'instagram', 'whatsapp'] },
+  chatLastMessage: String,
+  chatLastAt: { type: Date, index: true },
+  chatStartedAt: Date,
   pageId: String,
   metaFormId: String,
   adAccountId: String,

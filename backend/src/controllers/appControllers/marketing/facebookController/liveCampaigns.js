@@ -218,6 +218,35 @@ const liveCampaigns = async (req, res) => {
     recentMetaLeads, // last 3 days, Meta
     recentCrmLeads, // last 3 days, reached the CRM
     missing: recentMetaLeads != null && recentMetaLeads > 0 && recentCrmLeads < recentMetaLeads,
+    // Lead-form campaigns running — Messages campaigns never give form leads.
+    leadFormActive: list.filter((r) => r.active && /LEAD/.test(String(r.objective || ''))).length,
+    chatActive: list.filter((r) => r.active && /MESSAGES|ENGAGEMENT/.test(String(r.objective || ''))).length,
+  };
+
+  // ── ad chats that reached the CRM as leads (jobs/facebookChatPoller.js +
+  // the WhatsApp webhook → services/marketing/chatLeads.js) ──
+  const chatAgg = await Lead.aggregate([
+    { $match: { removed: false, chatConversationId: { $exists: true, $ne: null }, chatStartedAt: when } },
+    {
+      $group: {
+        _id: '$chatChannel',
+        n: { $sum: 1 },
+        withPhone: { $sum: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$phone', ''] } }, 7] }, 1, 0] } },
+      },
+    },
+  ]);
+  const chatLeads = { messenger: 0, instagram: 0, whatsapp: 0, total: 0, withPhone: 0 };
+  chatAgg.forEach((g) => {
+    if (g._id in chatLeads) chatLeads[g._id] = g.n;
+    chatLeads.total += g.n;
+    chatLeads.withPhone += g.withPhone;
+  });
+  const chatSync = {
+    messengerError: conn.chatsPollError || null,
+    instagramError: conn.chatsIgPollError || null,
+    messengerAt: conn.chatsPolledAt || null,
+    instagramAt: conn.chatsIgPolledAt || null,
+    whatsappReady: !!process.env.DEROPO_ACCESS_TOKEN,
   };
 
   return res.status(200).json({
@@ -230,6 +259,8 @@ const liveCampaigns = async (req, res) => {
       totals,
       campaigns: list,
       health,
+      chatLeads,
+      chatSync,
       metaError,
       fetchedAt: new Date(),
     },

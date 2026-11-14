@@ -49,6 +49,13 @@ const schema = new mongoose.Schema({
   // already been pulled from this Page's lead forms.
   leadsPolledAt: Date,
   leadsPollError: String,
+  // jobs/facebookChatPoller.js — Messenger + Instagram DM conversations
+  // pulled into the CRM as leads. The *Error fields hold Meta's refusal (most
+  // often a missing pages_messaging / instagram_manage_messages permission).
+  chatsPolledAt: Date, // Messenger watermark
+  chatsIgPolledAt: Date, // Instagram watermark
+  chatsPollError: String,
+  chatsIgPollError: String,
 
   status: {
     type: String,
