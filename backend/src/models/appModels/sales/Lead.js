@@ -227,6 +227,8 @@ const schema = new mongoose.Schema({
   chatLastMessage: String,
   chatLastAt: { type: Date, index: true },
   chatStartedAt: Date,
+  chatReadAt: Date, // last opened in the CRM chat inbox (unread = chatLastAt after this)
+  chatRepliedAt: Date, // last reply sent from the CRM
   pageId: String,
   metaFormId: String,
   adAccountId: String,

@@ -54,4 +54,6 @@ module.exports = {
   campaignDetail,
   listChats: require('./chats').listChats,
   chatMessages: require('./chats').chatMessages,
+  sendChat: require('./chats').sendChat,
+  chatAction: require('./chats').chatAction,
 };
