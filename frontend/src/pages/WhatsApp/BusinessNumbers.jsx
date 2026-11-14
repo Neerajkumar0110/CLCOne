@@ -73,6 +73,117 @@ function QrPanel({ number, onChanged }) {
   );
 }
 
+// The DeroPo webhook (incoming messages → CRM): the URL to paste, how, and
+// whether DeroPo has called it yet.
+function WebhookCard() {
+  const [info, setInfo] = useState(null);
+  const [show, setShow] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await waApi.webhookInfo();
+    if (res?.success) setInfo(res.result);
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  if (!info) return null;
+  const working = !!info.lastMessageAt;
+  const ago = (d) => {
+    if (!d) return 'never';
+    const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
+    return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(d).toLocaleString('en-IN');
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(info.url);
+      toast.success('Webhook URL copied — paste it in DeroPo.');
+    } catch {
+      setShow(true);
+      toast.info('Select the URL and copy it.');
+    }
+  };
+  const masked = info.url ? info.url.replace(/(whatsapp-webhook\/)(.{4}).+(.{4})$/, '$1$2••••••••$3') : '';
+
+  return (
+    <div className="wa-pad" style={{ paddingBottom: 0 }}>
+      <div className="wa-notice" style={{ display: 'block', borderRadius: 12, padding: '12px 14px', background: working ? 'var(--wa-green-soft)' : 'var(--wa-soft)', border: `1px solid ${working ? 'var(--wa-green-line)' : 'var(--wa-line)'}` }}>
+        <div className="wa-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <strong>Incoming messages (DeroPo webhook)</strong>{' '}
+            <span className={`wa-badge tone-${working ? 'green' : 'amber'}`} style={{ marginLeft: 6 }}>
+              {working ? 'Working' : 'Not receiving yet'}
+            </span>
+            <div className="wa-sub" style={{ marginTop: 4 }}>
+              Last message from DeroPo: <strong>{ago(info.lastMessageAt)}</strong> · calls in 24 h: {info.calls24h}
+              {info.lastNote && !working ? ` · last call: ${info.lastNote}` : ''}
+            </div>
+          </div>
+          <div className="wa-row" style={{ gap: 6 }}>
+            <Btn size="sm" onClick={() => setOpen((v) => !v)}>
+              {open ? 'Hide steps' : 'How to set it up'}
+            </Btn>
+            <Btn size="sm" icon={<ReloadOutlined />} onClick={load}>
+              Check
+            </Btn>
+          </div>
+        </div>
+
+        {!info.ready ? (
+          <div className="wa-sub" style={{ marginTop: 8 }}>
+            The webhook secret is not set on this server. Open WhatsApp on the live CRM (clcone.careerlabconsulting.com) to get the URL.
+          </div>
+        ) : (
+          <div className="wa-row" style={{ marginTop: 10, gap: 6, flexWrap: 'wrap' }}>
+            <input
+              className="wa-input"
+              readOnly
+              value={show ? info.url : masked}
+              onFocus={(e) => show && e.target.select()}
+              aria-label="Webhook URL"
+              style={{ flex: '1 1 420px', width: 'auto', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5 }}
+            />
+            <Btn size="sm" onClick={() => setShow((v) => !v)}>
+              {show ? 'Hide' : 'Show'}
+            </Btn>
+            <Btn size="sm" variant="primary" onClick={copy}>
+              Copy URL
+            </Btn>
+          </div>
+        )}
+
+        {open && (
+          <ol className="wa-steps" style={{ marginTop: 12 }}>
+            <li>
+              Open <strong>cloud.deropo.com</strong> → <strong>Profile</strong> → <strong>Webhook Settings</strong>.
+            </li>
+            <li>
+              <strong>Webhook URL</strong>: press <strong>Copy URL</strong> above and paste it there.
+            </li>
+            <li>
+              <strong>Secret (Optional)</strong>: leave it empty — the secret is already inside the URL.
+            </li>
+            <li>
+              Turn <strong>Enable Webhooks</strong> ON.
+            </li>
+            <li>
+              Events: turn <strong>Received</strong> ON (Sent, Delivered, Read and Failed can be ON too).
+            </li>
+            <li>
+              Press <strong>Save</strong>, then <strong>Test</strong>. Within a few seconds "Calls in 24 h" here goes up — press Check.
+            </li>
+            <li>Send a WhatsApp message to your connected number from another phone: it should appear in the chat list and as a new lead.</li>
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BusinessNumbers() {
   const [data, setData] = useState({ configured: true, numbers: [] });
   const [loading, setLoading] = useState(true);
@@ -208,6 +319,7 @@ export default function BusinessNumbers() {
 
   return (
     <div>
+      <WebhookCard />
       <div className="wa-bar" style={{ flexWrap: 'wrap', gap: 10 }}>
         <div className="wa-row" style={{ flexWrap: 'wrap', gap: 8 }}>
           {data.numbers.map((n) => {

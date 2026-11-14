@@ -55,6 +55,7 @@ const waApi = {
   getAccess: () => wrap(http().get('admin/access')),
   saveAccess: (body) => wrap(http().put('admin/access', body)),
   refreshDevices: () => wrap(http().post('admin/devices/refresh')),
+  webhookInfo: () => wrap(http().get('admin/webhook')),
   // company (business) numbers — admin page
   business: {
     list: () => wrap(http().get('admin/business')),
