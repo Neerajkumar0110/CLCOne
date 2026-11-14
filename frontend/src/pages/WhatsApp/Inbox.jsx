@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Popconfirm, Spin, message as toast } from 'antd';
+import { Popconfirm, Spin, message as toast } from 'antd';
 import { PlusOutlined, ReloadOutlined, DisconnectOutlined, MessageOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import { getSocket } from '@/socket';
 import waApi from './api';
 import ChatList from './ChatList';
 import ChatThread, { prettyNumber } from './ChatThread';
-import { Btn, Notice, SearchBox } from './ui';
+import { Btn, Notice, SearchBox, WaDialog } from './ui';
 
 const STATUS = {
   connected: ['Connected', 'green'],
@@ -256,26 +256,17 @@ export default function Inbox({ initialDevice, configured }) {
         </div>
       </div>
 
-      <Modal
-        rootClassName="wa-modal"
-        width={500}
-        title={
-          <span className="wa-modal-title">
-            <span className="wa-modal-title-icon">
-              <MessageOutlined />
-            </span>
-            <span>
-              New WhatsApp chat
-              <small>From your number {prettyNumber(device?.phoneNumber)}</small>
-            </span>
-          </span>
-        }
+      <WaDialog
         open={newOpen}
-        onCancel={() => setNewOpen(false)}
-        onOk={startChat}
+        onClose={() => setNewOpen(false)}
+        icon={<MessageOutlined />}
+        title="New WhatsApp chat"
+        subtitle={`From your number ${prettyNumber(device?.phoneNumber)}`}
         okText="Open chat"
-        confirmLoading={opening}
-        okButtonProps={{ disabled: !newNum.trim(), icon: <MessageOutlined /> }}
+        okIcon={<MessageOutlined />}
+        onOk={startChat}
+        okDisabled={!newNum.trim()}
+        loading={opening}
       >
         <div className="wa-field">
           <label className="wa-label" htmlFor="wa-new-num">
@@ -295,7 +286,7 @@ export default function Inbox({ initialDevice, configured }) {
             <input id="wa-new-name" className="wa-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" />
           </div>
         </div>
-      </Modal>
+      </WaDialog>
     </>
   );
 }
