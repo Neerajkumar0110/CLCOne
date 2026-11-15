@@ -4,7 +4,6 @@ import { request } from "@/request";
 import { getSocket } from "@/socket";
 import { useSelector } from "react-redux";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
-import AdChatInbox from "./AdChatInbox";
 import { stageColor } from "@/config/leadStages";
 import HubModal from "@/components/HubModal";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
@@ -286,7 +285,6 @@ export default function FacebookLeadsDashboard({ connected }) {
   const [chatMsg, setChatMsg] = useState("");
   const me = useSelector(selectCurrentAdmin);
   const canReadChats = ["owner", "Super Admin"].includes(me?.role);
-  const [inboxOpen, setInboxOpen] = useState(false);
   const [feed, setFeed] = useState([]); // live chat / lead events (socket)
   const loadRef = React.useRef(load);
   loadRef.current = load;
@@ -444,60 +442,15 @@ export default function FacebookLeadsDashboard({ connected }) {
             ))}
           </div>
 
-          {data?.chatLeads && data?.chatSync && (
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, border: "1px solid var(--hub-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                <b style={{ fontSize: 13.5 }}><MessageOutlined /> Ad chats → CRM leads</b>
-                <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11.5, color: "var(--hub-muted)" }}>Every chat becomes a lead — with or without a name or phone</span>
-                  {canReadChats && (
-                    <button type="button" className="hub-btn" onClick={() => setInboxOpen(true)} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
-                      <MessageOutlined /> Open chat inbox
-                    </button>
-                  )}
-                </span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-                {[
-                  ["Messenger", data.chatLeads.messenger, "#0084FF", data.chatSync.messengerError, data.chatSync.messengerAt],
-                  ["Instagram DM", data.chatLeads.instagram, IG, data.chatSync.instagramError, data.chatSync.instagramAt],
-                  ["WhatsApp", data.chatLeads.whatsapp, "#25D366", data.chatSync.whatsappReady ? null : "WhatsApp (DeroPo) token is not set on the server.", null],
-                ].map(([label, n, color, err, at]) => (
-                  <div key={label} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--hub-border)", background: "var(--hub-bg-soft)", borderLeft: `3px solid ${color}` }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)" }}>{int(n)}</div>
-                    <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>{label} chats in CRM</div>
-                    <div style={{ fontSize: 11, marginTop: 4, color: err ? "#b45309" : "#15803d" }}>
-                      {err ? (/permission|#200|#230/i.test(err) ? "Not connected — chat permission missing" : err) : at ? `Live · checked ${fmtDay(at)}` : "Ready"}
-                    </div>
-                  </div>
-                ))}
-                <div style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--hub-border)", background: "var(--hub-bg-soft)", borderLeft: "3px solid #64748b" }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--hub-text)" }}>{int(data.chatLeads.withPhone)} / {int(data.chatLeads.total)}</div>
-                  <div style={{ fontSize: 11, color: "var(--hub-muted)", fontWeight: 600 }}>Chat leads with a phone (go to the dialer)</div>
-                </div>
-              </div>
-              {data.chatSync.messengerError && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 12.5 }}>
-                  <span>Messenger chats need one extra Facebook permission. Click once and press <b>Continue</b> on Facebook.</span>
-                  <button type="button" className="hub-btn" onClick={connectChats} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
-                    <MessageOutlined /> Connect chats
-                  </button>
-                </div>
-              )}
-              {chatMsg && <div style={{ marginTop: 8, fontSize: 12, color: "var(--hub-muted)" }}>{chatMsg}</div>}
-              {feed.length > 0 && (
-                <div style={{ marginTop: 10, borderTop: "1px solid var(--hub-border)", paddingTop: 8 }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "#15803d", marginBottom: 6 }}>● Live</div>
-                  {feed.map((f) => (
-                    <div key={f.key} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "3px 0" }}>
-                      <span style={{ color: "var(--hub-muted)", minWidth: 62 }}>{new Date(f.at || Date.now()).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
-                      <b>{f.name}</b>
-                      <span style={{ color: "var(--hub-muted)" }}>· {f.ev === "form" ? "Facebook form" : f.source} · {f.kind === "created" || f.ev === "form" ? "new lead" : "new message"}{f.hasPhone ? " · has phone" : ""}</span>
-                      {f.text && <span style={{ color: "var(--hub-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>“{f.text}”</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* "Ad chats → CRM leads" box removed 2026-11-15 (user ask) — the chats live in
+              the header icons now. Only the reconnect prompt stays, when Meta needs it. */}
+          {canReadChats && data?.chatSync?.messengerError && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--hub-border)", fontSize: 12.5 }}>
+              <span>Messenger chats need one extra Facebook permission. Click once and press <b>Continue</b> on Facebook.</span>
+              <button type="button" className="hub-btn" onClick={connectChats} style={{ background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>
+                <MessageOutlined /> Connect chats
+              </button>
+              {chatMsg && <span style={{ color: "var(--hub-muted)" }}>{chatMsg}</span>}
             </div>
           )}
 
@@ -581,7 +534,6 @@ export default function FacebookLeadsDashboard({ connected }) {
         </>
       )}
       {open && <CampaignDetail campaign={open.campaign} range={range} initial={open} onClose={() => setOpen(null)} />}
-      {canReadChats && <AdChatInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />}
     </div>
   );
 }

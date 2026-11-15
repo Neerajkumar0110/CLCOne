@@ -13,6 +13,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
 import DriveImportModal from './DriveImportModal';
+import TranscriptPanel, { withStartTime } from './TranscriptPanel';
 import './driveImport.css';
 import './Recordings.css';
 import '../components/LearnerDesign.css';
@@ -116,6 +117,9 @@ export default function Recordings() {
   // and works cross-origin as long as the element carries allowFullScreen
   // (already set below), regardless of what's rendered inside it.
   const mediaRef = useRef(null);
+  const [showTranscript, setShowTranscript] = useState(true);
+  // BBB player is another origin — a transcript click re-opens it at that second
+  const seekFrame = (sec) => setPlaying((p) => (p ? { ...p, baseUrl: p.baseUrl || p.url, url: withStartTime(p.baseUrl || p.url, sec) } : p));
   const goFullscreen = () => {
     const el = mediaRef.current;
     if (!el) return;
@@ -405,8 +409,9 @@ export default function Recordings() {
     const monthName = (k) => new Date(`${k}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
     const shown = filteredRows.filter((r) => (lFilter === 'All' || bucket(r) === lFilter) && (!lMonth || monthKey(r.date) === lMonth));
     const ccNote = (r) =>
+      (r.status === 'AVAILABLE' && { done: 'Transcript ready', processing: 'transcript being written', queued: 'transcript tonight' }[r.transcript]) ||
       ({
-        AVAILABLE: 'no captions yet',
+        AVAILABLE: 'transcript soon',
         PROCESSING: 'after processing',
         RECORDING: 'after the class',
         NOT_STARTED: 'after the class',
@@ -490,8 +495,16 @@ export default function Recordings() {
               <div style={{ display: 'flex', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
                 <button type="button" className="ld-link" onClick={goFullscreen}>Fullscreen</button>
                 {canDownload(playing) && <button type="button" className="ld-link" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>{downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}</button>}
-                <span className="ld-muted">· captions / transcript not available yet</span>
               </div>
+            )}
+            {playing && (
+              <TranscriptPanel
+                rec={playing}
+                mediaRef={mediaRef}
+                isFrame={isFrame}
+                onSeekFrame={seekFrame}
+                style={{ height: 340, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}
+              />
             )}
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <b style={{ fontSize: 14 }}>Session material</b>
@@ -758,6 +771,11 @@ export default function Recordings() {
                   )}
                 </>
               )}
+              {playing && playing.url && (
+                <Button size="small" icon={<FileTextOutlined />} type={showTranscript ? 'primary' : 'default'} onClick={() => setShowTranscript((v) => !v)}>
+                  Transcript
+                </Button>
+              )}
               <Button size="small" onClick={() => setPlaying(null)}>Close</Button>
             </Space>
           </div>
@@ -769,26 +787,43 @@ export default function Recordings() {
           // normalizeExternalRecordingUrl) are HTML pages, not raw video
           // streams, so they need an <iframe>; only our own hosted uploads
           // (provider 'mock'/'jitsi', a direct .mp4 file) play in <video>.
-          playing.provider === 'bigbluebutton' || playing.provider === 'external' ? (
-            <iframe
-              ref={mediaRef}
-              title="recording"
-              src={playing.url}
-              style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-              allowFullScreen
-            />
-          ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <video
-                ref={mediaRef}
-                controls
-                autoPlay
-                src={playing.url}
-                style={{ maxWidth: '100%', maxHeight: '100%', background: '#000' }}
-                allowFullScreen
-              />
+          // Synced transcript on the right (TranscriptPanel), toggled by the
+          // header's "Transcript" button.
+          <div style={{ display: 'flex', width: '100%', height: '100%', minHeight: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
+              {playing.provider === 'bigbluebutton' || playing.provider === 'external' ? (
+                <iframe
+                  key={playing.url}
+                  ref={mediaRef}
+                  title="recording"
+                  src={playing.url}
+                  style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                  allowFullScreen
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <video
+                    ref={mediaRef}
+                    controls
+                    autoPlay
+                    src={playing.url}
+                    style={{ maxWidth: '100%', maxHeight: '100%', background: '#000' }}
+                    allowFullScreen
+                  />
+                </div>
+              )}
             </div>
-          )
+            {showTranscript && playing.provider !== 'external' && (
+              <TranscriptPanel
+                dark
+                rec={playing}
+                mediaRef={mediaRef}
+                isFrame={playing.provider === 'bigbluebutton'}
+                onSeekFrame={seekFrame}
+                style={{ width: 400, maxWidth: '42vw', flexShrink: 0, height: '100%', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+              />
+            )}
+          </div>
         ) : (
           <p style={{ color: '#fff', padding: 24, margin: 0 }}>No playback URL yet.</p>
         )}

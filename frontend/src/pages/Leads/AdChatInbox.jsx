@@ -23,7 +23,12 @@ const DEFAULT_SAVED = [
   "Hi! Thanks for reaching out to Career Lab Consulting. How can we help you?",
   "Could you please share your phone number? Our counsellor will call you shortly.",
   "Our next batch starts soon — would you like the fee details and syllabus?",
+  "Please fill the form so our counsellor can get back to you.",
 ];
+// Defaults added later reach people who already saved their own list (once).
+const ADDED_DEFAULTS = { 2: ["Please fill the form so our counsellor can get back to you."] };
+const DEFAULTS_VER = 2;
+const DEFAULTS_VER_KEY = "adChatSavedRepliesVer";
 
 const when = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "";
@@ -36,8 +41,15 @@ const left = (d) => {
 };
 const loadSaved = () => {
   try {
-    const v = JSON.parse(window.localStorage.getItem(SAVED_KEY) || "null");
-    return Array.isArray(v) && v.length ? v : DEFAULT_SAVED;
+    let v = JSON.parse(window.localStorage.getItem(SAVED_KEY) || "null");
+    if (!(Array.isArray(v) && v.length)) return DEFAULT_SAVED;
+    const ver = Number(window.localStorage.getItem(DEFAULTS_VER_KEY) || 1);
+    if (ver < DEFAULTS_VER) {
+      for (let k = ver + 1; k <= DEFAULTS_VER; k += 1) for (const t of ADDED_DEFAULTS[k] || []) if (!v.includes(t)) v = [...v, t];
+      window.localStorage.setItem(SAVED_KEY, JSON.stringify(v));
+      window.localStorage.setItem(DEFAULTS_VER_KEY, String(DEFAULTS_VER));
+    }
+    return v;
   } catch {
     return DEFAULT_SAVED;
   }
@@ -74,7 +86,7 @@ function Attachment({ a, mine }) {
   );
 }
 
-export default function AdChatInbox({ open, onClose }) {
+export default function AdChatInbox({ open, onClose, initialChannel, initialLead }) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [unread, setUnread] = useState(0);
@@ -131,6 +143,13 @@ export default function AdChatInbox({ open, onClose }) {
   };
 
   const action = (lead, a) => request.post({ entity: `facebook/chats/${lead._id}/action`, jsonData: { action: a } }).catch(() => {});
+
+  // Opened from the header's channel icons: jump to that channel / chat.
+  useEffect(() => {
+    if (!open) return;
+    if (initialChannel !== undefined) setChannel(initialChannel || "");
+    if (initialLead) setSel(initialLead);
+  }, [open, initialChannel, initialLead]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -253,7 +272,7 @@ export default function AdChatInbox({ open, onClose }) {
     lineHeight: 1.45,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    background: mine ? "#0084FF" : "var(--hub-bg)",
+    background: mine ? "#0084FF" : "var(--hub-surface, #fff)",
     color: mine ? "#fff" : "var(--hub-text)",
     border: mine ? "none" : "1px solid var(--hub-border)",
   });
@@ -265,7 +284,7 @@ export default function AdChatInbox({ open, onClose }) {
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, border: "1px solid var(--hub-border)", borderRadius: 12 }}>
           <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8, borderBottom: "1px solid var(--hub-border)" }}>
             <input placeholder="Search name, phone, message…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search chats"
-              style={{ width: "100%", minHeight: 34, borderRadius: 8, border: "1px solid var(--hub-border)", padding: "0 10px", background: "var(--hub-bg)", color: "var(--hub-text)", boxSizing: "border-box" }} />
+              style={{ width: "100%", minHeight: 34, borderRadius: 8, border: "1px solid var(--hub-border)", padding: "0 10px", background: "var(--hub-surface, #fff)", color: "var(--hub-text)", boxSizing: "border-box" }} />
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {[["", "All"], ["messenger", "Messenger"], ["instagram", "Instagram"], ["whatsapp", "WhatsApp"]].map(([k, l]) => (
                 <button key={k} type="button" className="hub-btn" onClick={() => setChannel(k)}
@@ -386,14 +405,14 @@ export default function AdChatInbox({ open, onClose }) {
                   </div>
                 )}
                 {showEmoji && (
-                  <div style={{ position: "absolute", bottom: "100%", left: 10, background: "var(--hub-bg)", border: "1px solid var(--hub-border)", borderRadius: 12, padding: 8, display: "grid", gridTemplateColumns: "repeat(12, 30px)", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,.15)", zIndex: 5 }}>
+                  <div style={{ position: "absolute", bottom: "100%", left: 10, background: "var(--hub-surface, #fff)", border: "1px solid var(--hub-border)", borderRadius: 12, padding: 8, display: "grid", gridTemplateColumns: "repeat(12, 30px)", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,.18)", zIndex: 20 }}>
                     {EMOJI.map((e) => (
                       <button key={e} type="button" onClick={() => setText((t) => t + e)} style={{ width: 30, height: 30, border: 0, background: "none", fontSize: 18, cursor: "pointer" }}>{e}</button>
                     ))}
                   </div>
                 )}
                 {showSaved && (
-                  <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--hub-bg)", border: "1px solid var(--hub-border)", borderRadius: 12, padding: 8, boxShadow: "0 8px 24px rgba(0,0,0,.15)", zIndex: 5, maxHeight: 260, overflowY: "auto" }}>
+                  <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--hub-surface, #fff)", border: "1px solid var(--hub-border)", borderRadius: 12, padding: 8, boxShadow: "0 8px 24px rgba(0,0,0,.18)", zIndex: 20, maxHeight: 260, overflowY: "auto" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <b style={{ fontSize: 12.5 }}>Saved replies</b>
                       <button type="button" className="hub-btn" disabled={!text.trim()} onClick={saveCurrent} style={{ minHeight: 26, padding: "0 8px", fontSize: 12 }}>+ Save what I typed</button>
@@ -425,7 +444,7 @@ export default function AdChatInbox({ open, onClose }) {
                         send();
                       }
                     }}
-                    style={{ flex: 1, resize: "none", minHeight: 38, maxHeight: 140, borderRadius: 10, border: "1px solid var(--hub-border)", padding: "9px 12px", font: "inherit", fontSize: 13, background: "var(--hub-bg)", color: "var(--hub-text)" }}
+                    style={{ flex: 1, resize: "none", minHeight: 38, maxHeight: 140, borderRadius: 10, border: "1px solid var(--hub-border)", padding: "9px 12px", font: "inherit", fontSize: 13, background: "var(--hub-surface, #fff)", color: "var(--hub-text)" }}
                   />
                   <button type="button" className="hub-btn" disabled={!canSend || sending || (!text.trim() && !file)} onClick={() => send()}
                     style={{ minHeight: 38, background: "#0084FF", color: "#fff", borderColor: "#0084FF" }}>{sending ? "Sending…" : "Send"}</button>

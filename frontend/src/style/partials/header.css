@@ -180,3 +180,75 @@
 .lms-logout-btn.ant-btn .anticon {
   color: inherit;
 }
+
+/* Notification bell — tile like the chat icons (apps/Header/chatChannels.css) */
+.hb-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.hb-btn.has-unread {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.13);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+.hb-btn:hover,
+.hb-btn.is-open,
+.hb-btn:focus-visible {
+  color: #1f1300;
+  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%);
+  border-color: transparent;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -6px rgba(245, 158, 11, 0.6);
+  outline: none;
+}
+.hb-btn:not(.has-unread):hover,
+.hb-btn:not(.has-unread).is-open {
+  color: #fff;
+  background: var(--nav-accent-soft, rgba(14, 116, 144, 0.35));
+  box-shadow: 0 6px 16px -6px rgba(14, 116, 144, 0.5);
+}
+.hb-icon {
+  font-size: 19px;
+}
+.hb-ring {
+  transform-origin: 50% 10%;
+  animation: hb-ring 0.9s ease-in-out 1;
+}
+@keyframes hb-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+.hb-badge {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 19px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--nav-bg, #020617);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hb-btn, .hb-ring { animation: none; transition: none; }
+}

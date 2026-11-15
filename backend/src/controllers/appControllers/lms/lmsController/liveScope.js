@@ -205,6 +205,12 @@ async function listRecordings(req, res) {
       ? (await mongoose.model('LmsLiveSession').find({ _id: { $in: sessIds } }).select('sessionIndex').lean()).map((x) => [String(x._id), x.sessionIndex])
       : []
   );
+  // transcript status per recording (CC / transcript column) — Whisper phase 1
+  const trMap = new Map(
+    rows.length
+      ? (await mongoose.model('LmsTranscript').find({ recording: { $in: rows.map((r) => r._id) }, kind: 'final', removed: false }).select('recording status').lean()).map((t) => [String(t.recording), t.status])
+      : []
+  );
   // not yet released to learners (2-hour delay) reads as still processing
   const shownStatus = (r) => (r.status === 'AVAILABLE' && !ownTaught(r) && !releasedToStudents(r) ? 'PROCESSING' : r.status);
 
@@ -247,6 +253,7 @@ async function listRecordings(req, res) {
       // upload) and Drive-import rows always have one (downloadUrl ===
       // playbackUrl there); 'external' (a pasted share link) never does.
       hasDownload: !!r.downloadUrl,
+      transcript: trMap.get(String(r._id)) || 'none',
       // Manager-only visibility into whether a manual backup link has been
       // recorded for this recording (spec §11) — never surfaced to students.
       hasBackup: isManager(admin) ? !!r.backupUrl : undefined,
@@ -254,43 +261,47 @@ async function listRecordings(req, res) {
   });
 }
 
+// Who may watch a recording — and so read its transcript (transcripts.js).
+// → { ok: true, staff } | { ok: false, code, message }
+async function recordingAccess(admin, rec) {
+  if (isManager(admin)) return { ok: true, staff: true, manager: true };
+  if (String(rec.teacherCrmUser) === String(admin._id) || (rec.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase()) {
+    return { ok: true, staff: true, manager: false };
+  }
+  // Everyone below this point is a student — not released yet means not
+  // watchable yet, full stop (still compressing, or inside the 2-hour
+  // post-class delay).
+  if (rec.publishedAt && new Date(rec.publishedAt) > new Date()) {
+    return { ok: false, code: 409, message: 'This recording isn\'t available to candidates yet.' };
+  }
+  let allowed = false;
+  const s = await settingsService.get();
+  if (s.recordingAccess !== 'admin-only') {
+    const session = await mongoose.model('LmsLiveSession').findById(rec.liveSession).lean();
+    if (session) {
+      const myBatchNames = await myRosterBatchNames(admin);
+      const enr = await mongoose
+        .model('LmsEnrolment')
+        .findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId, status: 'active' });
+      allowed =
+        myBatchNames.has(session.batchName) ||
+        !!enr ||
+        (session.participants || []).some((p) => String(p.crmUser) === String(admin._id));
+    }
+  }
+  return allowed ? { ok: true, staff: false, manager: false } : { ok: false, code: 403, message: 'You do not have access to this recording.' };
+}
+
 // GET /api/lms/recordings/:id/play  -> { url }  (access re-checked here)
 async function playRecording(req, res) {
   const LiveRecording = mongoose.model('LiveRecording');
-  const LmsLiveSession = mongoose.model('LmsLiveSession');
   const admin = req.admin;
   const rec = await LiveRecording.findById(req.params.id).select('+playbackUrl +downloadUrl');
   if (!rec || rec.removed) return res.status(404).json({ success: false, message: 'Recording not found.' });
   if (rec.status !== 'AVAILABLE') return res.status(409).json({ success: false, message: `Recording is ${rec.status}.` });
 
-  let allowed = isManager(admin);
-  if (!allowed && (String(rec.teacherCrmUser) === String(admin._id) || (rec.teacherName || '').toLowerCase() === (admin.name || '').toLowerCase())) {
-    allowed = true;
-  }
-  if (!allowed) {
-    // Everyone below this point is a student — not released yet means not
-    // watchable yet, full stop (still compressing, or inside the 2-hour
-    // post-class delay).
-    if (rec.publishedAt && new Date(rec.publishedAt) > new Date()) {
-      return res.status(409).json({ success: false, message: 'This recording isn\'t available to candidates yet.' });
-    }
-    const s = await settingsService.get();
-    if (s.recordingAccess !== 'admin-only') {
-      const session = await LmsLiveSession.findById(rec.liveSession).lean();
-      if (session) {
-        const myBatchNames = await myRosterBatchNames(admin);
-        const myCourseIds = await myMoodleCourseIds(admin);
-        const enr = await mongoose
-          .model('LmsEnrolment')
-          .findOne({ crmUser: admin._id, moodleCourseId: session.moodleCourseId, status: 'active' });
-        allowed =
-          myBatchNames.has(session.batchName) ||
-          !!enr ||
-          (session.participants || []).some((p) => String(p.crmUser) === String(admin._id));
-      }
-    }
-  }
-  if (!allowed) return res.status(403).json({ success: false, message: 'You do not have access to this recording.' });
+  const access = await recordingAccess(admin, rec);
+  if (!access.ok) return res.status(access.code).json({ success: false, message: access.message });
 
   const now = new Date();
   const bumped = await LiveRecording.updateOne(
@@ -1192,6 +1203,7 @@ module.exports = {
   studentAttendance,
   listRecordings,
   playRecording,
+  recordingAccess,
   uploadRecording,
   importDriveRecording,
   enqueueCompression,
