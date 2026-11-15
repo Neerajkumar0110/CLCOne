@@ -80,13 +80,15 @@ const updateConnection = async (req, res) => {
   try {
     if (customerId) {
       const accessToken = await getFreshAccessToken(conn);
-      const accessible = await graph.listAccessibleCustomers(accessToken);
-      if (!accessible.includes(customerId)) {
+      // includes client accounts under a manager (MCC), not just direct ones
+      const reachable = await graph.listAdAccounts(accessToken);
+      const acc = reachable.find((a) => a.customerId === String(customerId));
+      if (!acc) {
         return res.status(400).json({ success: false, result: null, message: 'That Google Ads account is not accessible with this connection.' });
       }
-      conn.customerId = customerId;
-      conn.customerName = customerName;
-      conn.loginCustomerId = loginCustomerId || undefined;
+      conn.customerId = acc.customerId;
+      conn.customerName = customerName || acc.name;
+      conn.loginCustomerId = loginCustomerId || (acc.loginCustomerId !== acc.customerId ? acc.loginCustomerId : undefined);
     }
 
     conn.updated = Date.now();

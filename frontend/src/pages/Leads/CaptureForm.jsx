@@ -252,6 +252,7 @@ function CaptureForm() {
   const [googleConnectionMessage, setGoogleConnectionMessage] = useState("");
   const [googleAccounts, setGoogleAccounts] = useState([]);
   const [googleCopyMessage, setGoogleCopyMessage] = useState("");
+  const [googleListKey, setGoogleListKey] = useState(0);
 
   // Real LinkedIn Ads connection state — mirrors the Facebook state above.
   // There's no Organization-listing endpoint (only ad-accounts is exposed —
@@ -418,7 +419,9 @@ function CaptureForm() {
 
   useEffect(() => {
     if (googleConnection?.connected) loadGoogleAccounts();
-  }, [googleConnection?.connected]);
+    else setGoogleAccounts([]);
+    // re-fetch when the active Google login changes too, not only on connect
+  }, [googleConnection?.connected, googleConnection?.id]);
 
   useEffect(() => {
     if (linkedinConnection?.connected) loadLinkedinAdAccounts();
@@ -430,6 +433,8 @@ function CaptureForm() {
     const handler = (event) => {
       if (!event.data || !String(event.data.type || "").startsWith("google-oauth-")) return;
       if (event.data.type === "google-oauth-success") {
+        setGoogleConnectionMessage("");
+        setGoogleListKey((k) => k + 1); // the Connected Accounts list shows the new login right away
         loadGoogleConnection();
       } else {
         setGoogleConnectionMessage(event.data.message || "Google Ads connection failed.");
@@ -535,7 +540,8 @@ function CaptureForm() {
     const acc = googleAccounts.find((a) => a.id === customerId);
     const res = await request.patch({
       entity: "google/connection",
-      jsonData: { customerId, customerName: acc?.name },
+      // loginCustomerId: the manager (MCC) when the account is reached through one
+      jsonData: { customerId, customerName: acc?.name, loginCustomerId: acc && acc.loginCustomerId !== acc.id ? acc.loginCustomerId : undefined },
     });
     if (res?.success) setGoogleConnection(res.result);
   };
@@ -737,8 +743,8 @@ function CaptureForm() {
       {/* Dashboards first: running campaigns and where the leads come from */}
       {platform === "Facebook Ads" && <FacebookLeadsDashboard connected={!!connection?.connected} />}
       {/* read-only: the campaigns already running in the connected Google Ads account */}
-      {platform === "Google Ads" && googleConnection?.connected && googleConnection.customer && (
-        <GoogleLiveCampaigns customerId={googleConnection.customer.id} />
+      {platform === "Google Ads" && googleConnection?.connected && (
+        <GoogleLiveCampaigns refreshKey={`${googleConnection.id}:${googleConnection.customer?.id || ""}`} />
       )}
 
       <div className="hub-card">
@@ -1092,7 +1098,7 @@ function CaptureForm() {
             whichever is active below.
           </div>
 
-          <ConnectedAccountsList routeKey="google" onChanged={loadGoogleConnection} />
+          <ConnectedAccountsList key={googleListKey} routeKey="google" onChanged={loadGoogleConnection} />
 
           <button type="button" className="hub-btn hub-btn-primary" disabled={googleConnecting} onClick={connectGoogle} style={{ marginBottom: 16 }}>
             <LinkOutlined /> {googleConnecting ? "Opening Google…" : googleConnection?.connected ? "Connect another Google Ads account" : "Connect Google Ads"}
@@ -1113,7 +1119,11 @@ function CaptureForm() {
                   >
                     <option value="" disabled>{googleAccounts.length ? "Select an account…" : "Loading accounts…"}</option>
                     {googleAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} · {a.id}</option>
+                      <option key={a.id} value={a.id} disabled={a.manager || !!a.error}>
+                        {a.name} · {a.id}
+                        {a.manager ? " (manager account)" : a.managerName ? ` (via ${a.managerName})` : ""}
+                        {a.error ? " — no access" : ""}
+                      </option>
                     ))}
                   </select>
                 </div>

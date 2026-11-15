@@ -183,6 +183,77 @@ async function getCustomerInfo({ customerId, accessToken, loginCustomerId }) {
   };
 }
 
+// Every Google Ads account this login can reach — the ones it was invited to
+// directly AND the client accounts under any manager (MCC) account it can
+// reach (listAccessibleCustomers alone never returns those, yet that is where
+// the campaigns usually run). Each row carries the loginCustomerId Google needs
+// on the header to query it: the account itself when reached directly, the
+// manager when reached through one. Never throws for one bad account — that
+// row gets an `error` instead.
+async function listAdAccounts(accessToken) {
+  const ids = await listAccessibleCustomers(accessToken);
+  const out = new Map();
+  const add = (row) => {
+    const prev = out.get(row.customerId);
+    if (!prev || (prev.error && !row.error)) out.set(row.customerId, row);
+  };
+  await Promise.all(
+    ids.map(async (id) => {
+      let me;
+      try {
+        const res = await googleAdsRequest(`/customers/${id}/googleAds:search`, {
+          method: 'POST',
+          accessToken,
+          loginCustomerId: id,
+          body: { query: 'SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.status, customer.manager FROM customer LIMIT 1' },
+        });
+        me = (res.results && res.results[0] && res.results[0].customer) || {};
+      } catch (err) {
+        add({ customerId: id, name: id, direct: true, manager: false, loginCustomerId: id, error: err.message });
+        return;
+      }
+      add({
+        customerId: id,
+        name: me.descriptiveName || id,
+        currency: me.currencyCode,
+        status: me.status,
+        manager: !!me.manager,
+        direct: true,
+        loginCustomerId: id,
+      });
+      if (!me.manager) return;
+      try {
+        const rows = await searchAll({
+          customerId: id,
+          accessToken,
+          loginCustomerId: id,
+          query:
+            'SELECT customer_client.id, customer_client.descriptive_name, customer_client.currency_code, customer_client.status, ' +
+            'customer_client.manager, customer_client.level FROM customer_client WHERE customer_client.level > 0',
+        });
+        for (const r of rows) {
+          const c = r.customerClient || {};
+          if (!c.id) continue;
+          add({
+            customerId: String(c.id),
+            name: c.descriptiveName || String(c.id),
+            currency: c.currencyCode,
+            status: c.status,
+            manager: !!c.manager,
+            direct: false,
+            loginCustomerId: id,
+            managerName: me.descriptiveName || id,
+          });
+        }
+      } catch (err) {
+        const m = out.get(id);
+        if (m) m.error = `Could not list the accounts under this manager: ${err.message}`;
+      }
+    })
+  );
+  return [...out.values()];
+}
+
 // GAQL search across every page of results (googleAds:search pages by
 // nextPageToken). Read-only. Rows come back camelCased, e.g. r.campaign.name.
 async function searchAll({ customerId, accessToken, loginCustomerId, query, maxPages = 20 }) {
@@ -324,6 +395,7 @@ module.exports = {
   getUserInfo,
   listAccessibleCustomers,
   getCustomerInfo,
+  listAdAccounts,
   searchAll,
   createCampaignBudget,
   createCampaign,
