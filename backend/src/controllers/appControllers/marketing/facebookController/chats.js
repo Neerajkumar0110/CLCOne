@@ -396,4 +396,171 @@ const chatFormLink = async (req, res) => {
   return res.status(200).json({ success: true, result: { url: `${base}/public/enquiry?${qs}` }, message: 'ok' });
 };
 
-module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink };
+// GET /api/facebook/chats/stats?channel=whatsapp&range=today|yesterday|7d|30d|all
+// Ad-chat report (user ask 2026-11-16: "kitne aaj aaye, kitno ko call gayi,
+// kitno se baat hui, kisne phone nahi uthaya, saare response — sab data"):
+// the chats that STARTED in the range, and for each one everything that
+// happened since — messages, every call attempt and its result, talk time,
+// the call disposition, the lead's stage, form / auto-reply.
+const IST = 5.5 * 3600e3;
+function istDayStart(offsetDays = 0) {
+  const d = new Date(Date.now() + IST);
+  d.setUTCHours(0, 0, 0, 0);
+  return new Date(d.getTime() - IST + offsetDays * 864e5);
+}
+function statsRange(range) {
+  const today = istDayStart(0);
+  if (range === 'yesterday') return { from: istDayStart(-1), to: today };
+  if (range === '7d') return { from: istDayStart(-6), to: null };
+  if (range === '30d') return { from: istDayStart(-29), to: null };
+  if (range === 'all') return { from: null, to: null };
+  return { from: today, to: null }; // today
+}
+const last10 = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+
+const chatStats = async (req, res) => {
+  if (!allowed(req, res)) return;
+  const channel = ['messenger', 'instagram', 'whatsapp'].includes(req.query.channel) ? req.query.channel : 'whatsapp';
+  const range = ['today', 'yesterday', '7d', '30d', 'all'].includes(req.query.range) ? req.query.range : 'today';
+  const { from, to } = statsRange(range);
+  const Lead = mongoose.model('Lead');
+
+  const started = {};
+  if (from) started.$gte = from;
+  if (to) started.$lt = to;
+  const filter = { removed: false, chatChannel: channel, chatConversationId: { $exists: true, $ne: null } };
+  if (from || to) filter.$or = [{ chatStartedAt: started }, { chatStartedAt: null, created: started }];
+  const leads = await Lead.find(filter)
+    .select('name phone phoneNormalized stage subStatus chatConversationId chatStartedAt chatLastAt chatReadAt chatRepliedAt chatAd enquiryAt waWelcomeAt waCurriculumAt assignedUserName created source')
+    .sort({ chatLastAt: -1 })
+    .limit(3000)
+    .lean();
+
+  // every call to these numbers (any time after the chat began)
+  const phones = [...new Set(leads.map((l) => last10(l.phone)).filter((p) => p.length === 10))];
+  const calls = phones.length
+    ? await mongoose
+        .model('CallRecord')
+        .find({ removed: { $ne: true }, phone: { $in: [...phones, ...phones.map((p) => `91${p}`), ...phones.map((p) => `+91${p}`)] } })
+        .select('phone status answeredAt agentLegAnswered duration disposition agentName created direction')
+        .sort({ created: 1 })
+        .lean()
+    : [];
+  const callsBy = new Map();
+  calls.forEach((c) => {
+    const k = last10(c.phone);
+    if (!callsBy.has(k)) callsBy.set(k, []);
+    callsBy.get(k).push(c);
+  });
+
+  // WhatsApp messages per customer number (Messenger / IG history lives at Meta)
+  const msgBy = new Map();
+  if (channel === 'whatsapp' && leads.length) {
+    const nums = leads.map((l) => l.chatConversationId.split(':').slice(1).join(':'));
+    const agg = await mongoose.model('WhatsAppMessage').aggregate([
+      { $match: { customerNumber: { $in: nums } } },
+      { $group: { _id: { n: '$customerNumber', d: '$direction' }, c: { $sum: 1 } } },
+    ]);
+    agg.forEach((a) => {
+      const m = msgBy.get(a._id.n) || { in: 0, out: 0 };
+      if (a._id.d === 'incoming') m.in += a.c;
+      else m.out += a.c;
+      msgBy.set(a._id.n, m);
+    });
+  }
+
+  const T = { chats: leads.length, unread: 0, withPhone: 0, msgsIn: 0, msgsOut: 0, repliedByUs: 0, fromAd: 0, autoWelcome: 0, formsFilled: 0, curriculumSent: 0, called: 0, talked: 0, answeredNoAgent: 0, notAnswered: 0, neverCalled: 0, callAttempts: 0, talkSec: 0 };
+  const attemptStatus = {};
+  const dispositions = {};
+  const stages = {};
+  const daily = new Map();
+  const rows = leads.map((l) => {
+    const num = l.chatConversationId.split(':').slice(1).join(':');
+    const startedAt = l.chatStartedAt || l.created;
+    const mine = (callsBy.get(last10(l.phone)) || []).filter((c) => c.direction !== 'Inbound' || c.answeredAt);
+    const talkedCalls = mine.filter((c) => c.answeredAt && c.agentLegAnswered);
+    const answeredNoAgent = mine.some((c) => c.answeredAt && !c.agentLegAnswered);
+    const talkSec = talkedCalls.reduce((s, c) => s + (c.duration || 0), 0);
+    const result = !mine.length ? 'never' : talkedCalls.length ? 'talked' : answeredNoAgent ? 'answeredNoAgent' : 'notAnswered';
+    const lastWithDisp = [...mine].reverse().find((c) => c.disposition);
+    const last = mine[mine.length - 1];
+    const m = msgBy.get(num) || { in: 0, out: 0 };
+    const unread = !!l.chatLastAt && (!l.chatReadAt || new Date(l.chatLastAt) > new Date(l.chatReadAt));
+
+    T.unread += unread ? 1 : 0;
+    T.withPhone += l.phone ? 1 : 0;
+    T.msgsIn += m.in;
+    T.msgsOut += m.out;
+    T.repliedByUs += l.chatRepliedAt || m.out ? 1 : 0;
+    T.fromAd += l.chatAd ? 1 : 0;
+    T.autoWelcome += l.waWelcomeAt ? 1 : 0;
+    T.formsFilled += l.enquiryAt ? 1 : 0;
+    T.curriculumSent += l.waCurriculumAt ? 1 : 0;
+    T.callAttempts += mine.length;
+    T.talkSec += talkSec;
+    if (result === 'never') T.neverCalled += 1;
+    else {
+      T.called += 1;
+      if (result === 'talked') T.talked += 1;
+      else if (result === 'answeredNoAgent') T.answeredNoAgent += 1;
+      else T.notAnswered += 1;
+    }
+    mine.forEach((c) => {
+      attemptStatus[c.status] = (attemptStatus[c.status] || 0) + 1;
+    });
+    if (lastWithDisp) dispositions[lastWithDisp.disposition] = (dispositions[lastWithDisp.disposition] || 0) + 1;
+    stages[l.stage || 'New Lead'] = (stages[l.stage || 'New Lead'] || 0) + 1;
+    const dk = new Date(new Date(startedAt).getTime() + IST).toISOString().slice(0, 10);
+    const d = daily.get(dk) || { date: dk, chats: 0, called: 0, talked: 0 };
+    d.chats += 1;
+    if (result !== 'never') d.called += 1;
+    if (result === 'talked') d.talked += 1;
+    daily.set(dk, d);
+
+    return {
+      _id: l._id,
+      name: l.name,
+      phone: l.phone || null,
+      startedAt,
+      lastAt: l.chatLastAt,
+      unread,
+      msgsIn: m.in,
+      msgsOut: m.out,
+      ad: l.chatAd ? l.chatAd.title || 'Ad' : null,
+      calls: mine.length,
+      talkSec,
+      result,
+      lastCallAt: last ? last.created : null,
+      lastCallStatus: last ? last.status : null,
+      lastAgent: (last && last.agentName) || null,
+      disposition: lastWithDisp ? lastWithDisp.disposition : null,
+      stage: l.stage,
+      subStatus: l.subStatus,
+      assignedTo: l.assignedUserName || null,
+      form: !!l.enquiryAt,
+      welcome: !!l.waWelcomeAt,
+      curriculum: !!l.waCurriculumAt,
+      repliedByUs: !!(l.chatRepliedAt || m.out),
+    };
+  });
+
+  return res.status(200).json({
+    success: true,
+    result: {
+      channel,
+      range,
+      from,
+      to,
+      totals: T,
+      attemptStatus,
+      dispositions,
+      stages,
+      daily: [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)),
+      rows,
+      generatedAt: new Date(),
+    },
+    message: 'ok',
+  });
+};
+
+module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink, chatStats };

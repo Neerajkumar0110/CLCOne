@@ -5,6 +5,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
 import { getSocket } from '@/socket';
 import AdChatInbox from '@/pages/Leads/AdChatInbox';
+import ChatStatsModal from './ChatStatsModal';
 import './chatChannels.css';
 
 // Header: Facebook Messenger / WhatsApp / Instagram chat icons with unread
@@ -64,7 +65,7 @@ const initials = (n) =>
     .toUpperCase();
 const stripAd = (t) => String(t || '').replace(/^\[Ad[^\]]*\]\s*/, '');
 
-function ChannelPanel({ channel, onOpenChat, onOpenAll }) {
+function ChannelPanel({ channel, onOpenChat, onOpenAll, onOpenReport }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState('');
   const load = useCallback(async () => {
@@ -90,10 +91,15 @@ function ChannelPanel({ channel, onOpenChat, onOpenAll }) {
         <span className="cc-panel-logo">
           <channel.Icon />
         </span>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <b>{channel.label} chats</b>
           <small>{rows ? (unread ? `${unread} unread · live` : 'All caught up · live') : 'Loading…'}</small>
         </div>
+        {/* full report: chats today, called, spoke, didn't pick up, results */}
+        <button type="button" className="cc-report-btn" onClick={onOpenReport} title={`${channel.label} report — chats, calls, results`}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" /></svg>
+          Report
+        </button>
       </div>
       <div className="cc-list">
         {err && <div className="cc-empty">{err}</div>}
@@ -127,6 +133,7 @@ export default function ChatChannels() {
   const [openKey, setOpenKey] = useState(null);
   const [pulse, setPulse] = useState({});
   const [inbox, setInbox] = useState({ open: false, channel: '', lead: null });
+  const [report, setReport] = useState(null); // channel key
   const timer = useRef(null);
 
   const loadCounts = useCallback(async () => {
@@ -196,7 +203,7 @@ export default function ChatChannels() {
               onOpenChange={(v) => setOpenKey(v ? ch.key : null)}
               overlayClassName="cc-popover"
               destroyTooltipOnHide
-              content={<ChannelPanel channel={ch} onOpenChat={(r) => openInbox(ch.key, r)} onOpenAll={() => openInbox(ch.key)} />}
+              content={<ChannelPanel channel={ch} onOpenChat={(r) => openInbox(ch.key, r)} onOpenAll={() => openInbox(ch.key)} onOpenReport={() => { setOpenKey(null); setReport(ch.key); }} />}
             >
               <button
                 type="button"
@@ -220,6 +227,14 @@ export default function ChatChannels() {
           loadCounts();
         }}
       />
+      {report && (
+        <ChatStatsModal
+          open
+          channel={report}
+          label={(CHANNELS.find((c) => c.key === report) || {}).label || 'Chats'}
+          onClose={() => setReport(null)}
+        />
+      )}
     </>
   );
 }

@@ -17,6 +17,7 @@ router.route('/live-campaigns').get(catchErrors(controller.liveCampaigns));
 router.route('/live-campaigns/:campaignId').get(catchErrors(controller.campaignDetail));
 // ad chat inbox — owner + Super Admin only (checked in chats.js)
 router.route('/chats').get(catchErrors(controller.listChats));
+router.route('/chats/stats').get(catchErrors(controller.chatStats));
 router.route('/chats/:leadId/messages').get(catchErrors(controller.chatMessages));
 router.route('/chats/:leadId/send').post(singleStorageUpload({ entity: 'chat', fileType: 'default' }), catchErrors(controller.sendChat));
 router.route('/chats/:leadId/action').post(catchErrors(controller.chatAction));
