@@ -227,7 +227,13 @@ async function processLog(log, opts = {}) {
           text: adLine + p.text,
           at: p.at,
         })
-        .then((r) => saveChatAd(r && r.lead, p.ad, p.at))
+        .then(async (r) => {
+          await saveChatAd(r && r.lead, p.ad, p.at);
+          // "Hello! Can I get more info on this?" → welcome + form link (once per lead; never on a replay)
+          if (!opts.quiet && r && r.lead) {
+            await require('../../../../services/whatsapp/autoReply').onIncoming({ lead: r.lead, deviceId: device.deviceId, number: p.from, text: p.text, ad: p.ad });
+          }
+        })
         .catch((e) => console.error('[whatsapp] chat lead failed:', e.message));
       if (opts.quiet) await leadJob;
     } else if (!opts.quiet) {

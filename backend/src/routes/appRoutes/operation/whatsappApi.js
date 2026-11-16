@@ -22,6 +22,7 @@ router.route('/chats/:id/read').post(catchErrors(controller.markRead));
 router.route('/chats/:id/send').post(catchErrors(controller.send));
 
 router.route('/admin/access').get(catchErrors(controller.getAccess));
+router.route('/admin/auto-reply').get(catchErrors(controller.getAutoReply)).put(catchErrors(controller.saveAutoReply));
 router.route('/admin/access').put(catchErrors(controller.saveAccess));
 router.route('/admin/devices/refresh').post(catchErrors(controller.refreshAllDevices));
 

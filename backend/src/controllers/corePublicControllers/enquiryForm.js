@@ -177,12 +177,22 @@ const submitEnquiry = async (req, res) => {
     }).save();
   }
 
+  // curriculum: shown on the thank-you screen, and sent in their WhatsApp chat (services/whatsapp/autoReply.js)
+  const autoReply = require('../../services/whatsapp/autoReply');
+  let curriculumUrl = '';
+  try {
+    curriculumUrl = autoReply.curriculumFor(await autoReply.loadConfig(), fields.programInterest);
+  } catch (_) {
+    /* no config yet */
+  }
+  autoReply.onEnquiry(lead, { program: fields.programInterest, callTime: b.callTime, consent: !!b.consent }).catch(() => {});
+
   try {
     require('../../socket').emitLeadEvent('lead:chat', { kind: 'updated', id: String(lead._id), name: lead.name, channel: lead.chatChannel, hasPhone: !!lead.phone, text: 'Filled the enquiry form', at: new Date() });
   } catch (_) {
     /* no socket in scripts */
   }
-  return res.status(200).json({ success: true, result: { id: lead._id }, message: 'Thank you!' });
+  return res.status(200).json({ success: true, result: { id: lead._id, curriculumUrl: curriculumUrl || null }, message: 'Thank you!' });
 };
 
 // ── the page ───────────────────────────────────────────────────────────────
@@ -476,6 +486,7 @@ const renderEnquiryPage = async (req, res) => {
       <div class="ic">✓</div>
       <h2>Thank you<span id="okname"></span>!</h2>
       <p>We&rsquo;ve got your details. A counsellor will call you on <b id="okphone"></b> soon — keep your phone handy.</p>
+      <a class="btn pri" id="okcur" target="_blank" rel="noopener" style="display:none;max-width:320px;margin:20px auto 0;text-decoration:none">📚 View the curriculum</a>
       <div class="trust"><span>🔒 Your details stay private</span><span>📞 Free counselling</span></div>
     </div>
   </div>
@@ -526,6 +537,7 @@ const renderEnquiryPage = async (req, res) => {
       .then(function(r){return r.json()}).then(function(r){
         if(r&&r.success){f.style.display='none';document.querySelector('.steps').style.display='none';sn.style.display='none';
           document.getElementById('okname').textContent=data.name?', '+data.name.split(' ')[0]:'';document.getElementById('okphone').textContent=data.phone||'your number';
+          var cu=r.result&&r.result.curriculumUrl;if(cu){var a=document.getElementById('okcur');a.href=cu;a.style.display='block'}
           document.getElementById('ok').style.display='block';window.scrollTo({top:0,behavior:'smooth'})}
         else{e.textContent=(r&&r.message)||'Please check the form and try again.';next.disabled=false;next.textContent='Get my free counselling'}})
       .catch(function(){e.textContent='Network problem — please try again.';next.disabled=false;next.textContent='Get my free counselling'});

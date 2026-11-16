@@ -56,6 +56,9 @@ const waApi = {
   saveAccess: (body) => wrap(http().put('admin/access', body)),
   refreshDevices: () => wrap(http().post('admin/devices/refresh')),
   webhookInfo: () => wrap(http().get('admin/webhook')),
+  // ad-chat welcome + curriculum auto-reply
+  autoReply: () => wrap(http().get('admin/auto-reply')),
+  saveAutoReply: (body) => wrap(http().put('admin/auto-reply', body)),
   // company (business) numbers — admin page
   business: {
     list: () => wrap(http().get('admin/business')),
