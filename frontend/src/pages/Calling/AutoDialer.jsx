@@ -648,7 +648,7 @@ function InstantLeadPool() {
           </div>
         </div>
         <div style={{ fontSize: 12.5, color: "#8c8c8c", marginBottom: 8 }}>
-          Join and it dials straight from the stages below, in order, sending you the next customer the moment you're free — no campaign setup needed.
+          Join and it dials straight from the {data?.canSetStage ? "stages below" : "lead stages"}, in order, sending you the next customer the moment you're free — no campaign setup needed.
         </div>
         {/* How calls reach the agent right now (Admin / Super Admin pick it
             above) — shown to everyone so agents know how to take calls. */}
@@ -673,7 +673,9 @@ function InstantLeadPool() {
             </span>
           </div>
         )}
-        {/* Which stage is dialing right now, and what's next — shown to everyone. */}
+        {/* Which stage is dialing right now, and what's next — managers only
+            (same roles that may pick the stages); hidden on the user side. */}
+        {data?.canSetStage && (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 12 }}>
           {stageQueue.map((q, i) => (
             <React.Fragment key={q.stage}>
@@ -698,6 +700,7 @@ function InstantLeadPool() {
             </React.Fragment>
           ))}
         </div>
+        )}
 
         {on && connectMode === "alwaysOn" && (
           <div
