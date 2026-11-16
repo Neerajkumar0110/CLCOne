@@ -233,6 +233,8 @@ async function processLog(log, opts = {}) {
           if (!opts.quiet && r && r.lead) {
             await require('../../../../services/whatsapp/autoReply').onIncoming({ lead: r.lead, deviceId: device.deviceId, number: p.from, text: p.text, ad: p.ad });
           }
+          // nobody has spoken to them yet → New Lead, first in the dialer's line
+          if (!opts.quiet && r && r.lead) await require('../../../../services/marketing/chatDialQueue').onChat(r.lead);
         })
         .catch((e) => console.error('[whatsapp] chat lead failed:', e.message));
       if (opts.quiet) await leadJob;
