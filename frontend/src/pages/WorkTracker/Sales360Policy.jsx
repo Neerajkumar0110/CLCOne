@@ -135,7 +135,10 @@ export function PolicyAttendance({ base, single, canCorrect, reloadKey }) {
   const fullDialer = hm(data?.rules?.dialer?.fullMin || 465);
   const count = (k) => rows.filter((r) => (r.policy?.preview ? LEVEL_TO_STATUS[r.policy.level] : r.status) === k).length;
   const shortTotal = rows.reduce((t, r) => t + (r.shortLeave || 0), 0);
-  const route = (key, r) => r.policy?.routes.find((x) => x.key === key);
+  // Work routes switched off (rules.routesRequired false): numbers are info only.
+  const routesOn = data?.rules?.routesRequired !== false;
+  const route = (key, r) => (routesOn ? r.policy?.routes.find((x) => x.key === key) : null);
+  const info = routesOn ? "" : " Info only, doesn't decide the day.";
   const exportRows = () => {
     const cols = [["dayKey", "Date"], ["name", "User"], ["result", "Result"], ["dialer", "Dialer (min)"], ["attempts", "Call attempts"], ["talk", "Talk (min)"], ["prospects", "Verified prospects"], ["demos", "Attended demos"], ["shortLeave", "Short-leave events"], ["why", "Why"]].map(([key, label]) => ({ key, label }));
     const out = rows.map((r) => ({ ...r, result: (RESULT[r.status] || [r.status])[0], dialer: r.policy?.metrics.dialerMin, attempts: r.policy?.metrics.attempts, talk: Math.floor((r.policy?.metrics.talkSec || 0) / 60), prospects: r.policy?.metrics.verifiedProspects, demos: r.policy?.metrics.attendedDemos, why: (r.policy?.shortLeave || []).map((x) => x.label).join("; ") }));
@@ -158,10 +161,10 @@ export function PolicyAttendance({ base, single, canCorrect, reloadKey }) {
               {!single && <th>User</th>}
               <th>Result</th>
               <th title={`${fullDialer} = full, 4h = half at most, under 4h = absent. Breaks and leave don't count.`}>Dialer</th>
-              <th title="150 = full, 100 = half. Each number once a day.">Call attempts</th>
-              <th title="3h = full, 2h = half">Talk</th>
-              <th title="3 = full, 1 = half. Verified by a Team Leader.">Verified prospects</th>
-              <th title="3 = full, 1 = half. The candidate joined the demo.">Attended demos</th>
+              <th title={routesOn ? "150 = full, 100 = half. Each number once a day." : `Each number once a day.${info}`}>Call attempts</th>
+              <th title={routesOn ? "3h = full, 2h = half" : info.trim()}>Talk</th>
+              <th title={routesOn ? "3 = full, 1 = half. Verified by a Team Leader." : `Verified by a Team Leader.${info}`}>Verified prospects</th>
+              <th title={routesOn ? "3 = full, 1 = half. The candidate joined the demo." : `The candidate joined the demo.${info}`}>Attended demos</th>
               <th>Short leave</th>
               {canCorrect && <th />}
             </tr>
@@ -208,7 +211,7 @@ export function PolicyAttendance({ base, single, canCorrect, reloadKey }) {
           </tbody>
         </table>
       </div>
-      <p className="s3-note">The best of prospects, demos, attempts or talk decides the day, then the dialer caps it: {fullDialer} or more allows a full day, 4h up to that allows a half day at most, under 4h is absent. Green = full level, teal = half level. Two short-leave events can be consolidated into one half-day by a manager; nothing is deducted automatically.{data?.effectiveFrom ? ` Days before ${dayjs(data.effectiveFrom).format("D MMM YYYY")} keep their old status and only preview the policy.` : ""}</p>
+      <p className="s3-note">{routesOn ? <>The best of prospects, demos, attempts or talk decides the day, then the dialer caps it: {fullDialer} or more allows a full day, 4h up to that allows a half day at most, under 4h is absent. Green = full level, teal = half level.</> : <>Dialer hours decide the day: {fullDialer} or more = full day, 4h up to that = half day, under 4h = absent. Attempts, talk, prospects and demos are shown for information only.</>} Two short-leave events can be consolidated into one half-day by a manager; nothing is deducted automatically.{data?.effectiveFrom ? ` Days before ${dayjs(data.effectiveFrom).format("D MMM YYYY")} keep their old status and only preview the policy.` : ""}</p>
       <CorrectModal row={fixing} onClose={() => setFixing(null)} onSaved={() => { setFixing(null); setTick((x) => x + 1); }} />
     </Panel>
   );

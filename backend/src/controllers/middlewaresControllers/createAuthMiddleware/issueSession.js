@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 
-const OWNER_MAX_SESSIONS = 10; // devices the owner can be logged in on at once
+const OWNER_MAX_SESSIONS = 10; // devices the owner / a teacher can be logged in on at once
+// Roles allowed on several devices at once (owner: 2026-11-16; Teacher: 2026-11-16,
+// e.g. class on a laptop + board/phone). Everyone else stays single-session.
+const MULTI_SESSION_ROLES = ['owner', 'Teacher'];
 
 // "Mobi" shows up in effectively every phone browser's UA string (Android,
 // iPhone) — iPad's default Safari UA doesn't include it, so a tablet counts
@@ -47,10 +50,11 @@ async function issueSession({ user, UserPasswordModel, remember, req }) {
     return token;
   }
 
-  // Owner (user ask 2026-11-16): may stay logged in on several devices at
-  // once — a new login keeps the others (the 10 most recent sessions are
-  // kept so the list can't grow forever; older ones are dropped and log out).
-  if (user.role === 'owner') {
+  // Owner and Teacher (user asks 2026-11-16): may stay logged in on several
+  // devices at once — a new login keeps the others (the 10 most recent
+  // sessions are kept so the list can't grow forever; older ones are dropped
+  // and log out).
+  if (MULTI_SESSION_ROLES.includes(user.role)) {
     await UserPasswordModel.findOneAndUpdate(
       { user: user._id },
       {
