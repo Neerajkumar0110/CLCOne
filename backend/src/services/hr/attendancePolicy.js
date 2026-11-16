@@ -18,9 +18,10 @@ function evaluateDay(metrics) {
     { key: 'attempts', value: metrics.attempts || 0, level: levelOf(metrics.attempts || 0, P.routes.attempts) },
     { key: 'talkMin', value: Math.floor((metrics.talkSec || 0) / 60), level: levelOf((metrics.talkSec || 0) / 60, P.routes.talkMin) },
   ];
-  const routeRank = Math.max(...routes.map((r) => LEVELS[r.level]));
   const dialerMin = metrics.dialerMin || 0;
   const cap = dialerMin >= P.dialer.fullMin ? 'full' : dialerMin >= P.dialer.halfMin ? 'half' : 'absent';
+  // routesRequired false: the work routes are shown but don't decide the day.
+  const routeRank = P.routesRequired === false ? LEVELS[cap] : Math.max(...routes.map((r) => LEVELS[r.level]));
   const level = NAMES[Math.min(routeRank, LEVELS[cap])];
   return { level, routeLevel: NAMES[routeRank], cap, routes };
 }

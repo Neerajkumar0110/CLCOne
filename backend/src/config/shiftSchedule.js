@@ -45,6 +45,11 @@ module.exports = {
     // to this one only show what the policy WOULD have said (a preview).
     effectiveFrom: '2026-11-05',
     dialerLogFrom: '2026-10-23', // the pool on/off log starts here
+    // false = the four work routes below (attempts / talk / verified prospects /
+    // attended demos) no longer decide the day — dialer hours alone do. Turned
+    // off 2026-11-16 at management's request, back to effectiveFrom (nothing is
+    // stored, so every policy day re-reads with it). The numbers still show.
+    routesRequired: false,
     routes: {
       verifiedProspects: { full: 3, half: 1 },
       attendedDemos: { full: 3, half: 1 },
