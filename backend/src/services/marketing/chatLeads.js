@@ -18,6 +18,10 @@ const mongoose = require('mongoose');
 const LABEL = { messenger: 'Facebook Messenger', instagram: 'Instagram DM', whatsapp: 'WhatsApp' };
 const COLOR = { messenger: '#0084FF', instagram: '#E1306C', whatsapp: '#25D366' };
 const FRESH_MS = 2 * 60 * 60 * 1000; // same window as Facebook form leads
+// Chats from these channels are NOT leads (user ask 2026-11-16): kept as chat-only records
+// (removed:true + chatOnly) so the Ad chat inbox can show / answer them. WhatsApp chats stay leads;
+// Facebook / Instagram LEAD FORMS are unaffected (facebookController/webhook.js).
+const CHAT_ONLY = ['messenger', 'instagram'];
 
 // First Indian mobile number in a text ("98765 43210", "+91-9876543210", …).
 function phoneFromText(text) {
@@ -80,6 +84,7 @@ async function upsertChatLead(o) {
   const name = o.name && String(o.name).trim() ? String(o.name).trim().slice(0, 120) : null;
 
   const chatSet = { chatLastAt: at, ...(text ? { chatLastMessage: text } : {}) };
+  const chatOnly = CHAT_ONLY.includes(channel);
 
   // 1) This conversation already has its lead → refresh it.
   const existing = await Lead.findOne({ chatConversationId: key }).exec();
@@ -88,7 +93,7 @@ async function upsertChatLead(o) {
     if (!existing.phone && phone) {
       set.phone = phone;
       // A number just turned up in a fresh chat → instant call like a form lead.
-      if (Date.now() - at.getTime() < FRESH_MS && !(existing.instantDispatch && existing.instantDispatch.status)) {
+      if (!existing.chatOnly && Date.now() - at.getTime() < FRESH_MS && !(existing.instantDispatch && existing.instantDispatch.status)) {
         set.instantDispatch = { status: 'pending', at: new Date() };
       }
     }
@@ -102,9 +107,9 @@ async function upsertChatLead(o) {
     return { lead: existing, created: false, linked: false };
   }
 
-  // 2) Same person (phone) already in the CRM → link, don't duplicate.
+  // 2) Same person (phone) already in the CRM → link, don't duplicate. (Not for chat-only channels.)
   const phoneKey = phone && Lead.normalizePhone ? Lead.normalizePhone(phone) : '';
-  if (phoneKey && phoneKey.length >= 10) {
+  if (!chatOnly && phoneKey && phoneKey.length >= 10) {
     const same = await Lead.findOne({ removed: false, phoneNormalized: phoneKey }).exec();
     if (same) {
       const set = { ...chatSet };
@@ -133,7 +138,8 @@ async function upsertChatLead(o) {
     adAccountId: o.adAccountId,
     metaAdId: o.adId ? String(o.adId) : undefined,
     metaPlatform: channel === 'whatsapp' ? 'whatsapp' : channel === 'instagram' ? 'ig' : 'fb',
-    ...(fresh && phone ? { instantDispatch: { status: 'pending', at: new Date() } } : {}),
+    ...(fresh && phone && !chatOnly ? { instantDispatch: { status: 'pending', at: new Date() } } : {}),
+    ...(chatOnly ? { removed: true, chatOnly: true } : {}),
   });
   try {
     await lead.save();
@@ -173,4 +179,4 @@ async function pingChat(channel, conversationId, text) {
   }
 }
 
-module.exports = { upsertChatLead, pingChat, phoneFromText, emailFromText, LABEL };
+module.exports = { upsertChatLead, pingChat, phoneFromText, emailFromText, LABEL, CHAT_ONLY };
