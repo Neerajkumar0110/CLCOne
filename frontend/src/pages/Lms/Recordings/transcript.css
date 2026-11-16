@@ -82,6 +82,67 @@ body.dark .tp:not(.tp-dark) {
   color: var(--tp-accent);
 }
 
+/* language picker (teacher / manager) */
+.tp-lang {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 4px 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--tp-line);
+  background: var(--tp-soft);
+  color: var(--tp-accent);
+  font-size: 12.5px;
+}
+.tp-lang:focus-within {
+  border-color: var(--tp-accent);
+  box-shadow: 0 0 0 3px var(--tp-accent-soft);
+}
+.tp-lang-label {
+  color: var(--tp-muted);
+  font-weight: 600;
+}
+.tp-lang select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--tp-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tp-lang select option {
+  background: var(--tp-bg);
+  color: var(--tp-text);
+}
+.tp-lang select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* "being re-written in another language" note above the old text */
+.tp-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--tp-accent-soft);
+  border: 1px solid var(--tp-accent);
+  color: var(--tp-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tp-banner > .anticon {
+  color: var(--tp-accent);
+}
+.tp-banner > span {
+  flex: 1;
+}
+
 .tp-search {
   display: flex;
   align-items: center;

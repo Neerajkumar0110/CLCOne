@@ -29,6 +29,15 @@ const schema = new mongoose.Schema({
   attempts: { type: Number, default: 0 },
   error: { type: String },
 
+  // Which writing the NEXT run produces (teacher / manager pick it in the panel):
+  //   roman   — Hinglish in English letters, the teacher's own words (default)
+  //   english — translated to English
+  //   hindi   — Devanagari
+  // textMode = what the segments below are actually written in (rows done
+  // before this field existed are Devanagari → treated as 'hindi').
+  mode: { type: String, enum: ['roman', 'english', 'hindi'] },
+  textMode: { type: String, enum: ['roman', 'english', 'hindi'] },
+
   model: { type: String },
   language: { type: String },
   durationSec: { type: Number },
