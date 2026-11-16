@@ -683,13 +683,12 @@ function InstantLeadPool() {
               <span
                 title={
                   q.breakdown
-                    ? `New Lead stage: ${q.total} leads
-• ${q.breakdown.dialing} in the dialer (being called)
-• ${q.breakdown.withoutPhone} have no phone number (Messenger / Instagram chats) — can't be called
-• ${q.breakdown.assigned} assigned to an agent — the agent calls them
-• ${q.breakdown.calledBefore} already called once (not re-dialled from New Lead)
+                    ? `New Lead: ${q.total} leads (same as the Leads page)
+• ${q.breakdown.dialing} waiting in the dialer / being called
 • ${q.breakdown.instant} Facebook instant call in progress
-• ${q.breakdown.queuedSoon} joining the dialer within 30 s`
+• ${q.breakdown.queuedSoon} joining the dialer within 30 s
+• ${q.breakdown.finished} already dialled — waiting for the agent to update the stage
+• ${q.breakdown.withoutPhone} have no phone number — can't be called`
                     : q.active ? "Dialing now" : q.left === 0 ? "No leads left in this stage" : "Waiting its turn"
                 }
                 style={{
@@ -703,10 +702,12 @@ function InstantLeadPool() {
                 <span style={{ fontSize: 11, opacity: 0.7 }}>{i + 1}</span>
                 {q.active && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#16a34a" }} />}
                 {q.pinned && "🔒 "}
-                {q.stage === "New Lead" ? "New Lead (unassigned)" : q.stage}
-                {q.left != null && <span style={{ fontWeight: 600, opacity: 0.8 }}>· {q.left}</span>}
-                {q.total != null && q.total !== q.left && (
-                  <span style={{ fontWeight: 600, fontSize: 11.5, opacity: 0.75 }}>of {q.total} in stage ⓘ</span>
+                {q.stage}
+                {/* New Lead: the same number as the Leads page; the hover says how many are being dialled */}
+                {q.total != null ? (
+                  <span style={{ fontWeight: 600, opacity: 0.8 }}>· {q.total} ⓘ</span>
+                ) : (
+                  q.left != null && <span style={{ fontWeight: 600, opacity: 0.8 }}>· {q.left}</span>
                 )}
                 {q.active && <span style={{ fontSize: 11, fontWeight: 800 }}>DIALING NOW</span>}
               </span>
