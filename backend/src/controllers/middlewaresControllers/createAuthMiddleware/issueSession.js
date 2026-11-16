@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 
+const OWNER_MAX_SESSIONS = 10; // devices the owner can be logged in on at once
+
 // "Mobi" shows up in effectively every phone browser's UA string (Android,
 // iPhone) — iPad's default Safari UA doesn't include it, so a tablet counts
 // as a "desktop" device here, same bucket as a laptop.
@@ -39,6 +41,20 @@ async function issueSession({ user, UserPasswordModel, remember, req }) {
       { user: user._id },
       {
         $push: { loggedSessions: token, deviceSessions: { token, deviceCategory: category, issuedAt: new Date() } },
+        $unset: { otpCode: '', otpSalt: '', otpExpires: '' },
+      }
+    ).exec();
+    return token;
+  }
+
+  // Owner (user ask 2026-11-16): may stay logged in on several devices at
+  // once — a new login keeps the others (the 10 most recent sessions are
+  // kept so the list can't grow forever; older ones are dropped and log out).
+  if (user.role === 'owner') {
+    await UserPasswordModel.findOneAndUpdate(
+      { user: user._id },
+      {
+        $push: { loggedSessions: { $each: [token], $slice: -OWNER_MAX_SESSIONS } },
         $unset: { otpCode: '', otpSalt: '', otpExpires: '' },
       }
     ).exec();
