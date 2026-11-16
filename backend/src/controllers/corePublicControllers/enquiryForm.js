@@ -225,11 +225,18 @@ const renderEnquiryPage = async (req, res) => {
 <style>
   :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;--brand:#4338ca;--brand2:#7c3aed;--ok:#16a34a;--err:#dc2626}
   *{box-sizing:border-box}
-  html,body{margin:0}
+  html,body{margin:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
   body{font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);
     background:radial-gradient(1200px 600px at 10% -10%,#c7d2fe 0,transparent 60%),radial-gradient(900px 500px at 110% 10%,#e9d5ff 0,transparent 55%),#f1f5f9;
     min-height:100vh;padding:24px 16px 40px}
-  .wrap{max-width:620px;margin:0 auto}
+  .wrap{width:100%;max-width:620px;margin:0 auto}
+  .layout{display:block}
+  .side{display:none}
+  .card{width:100%;max-width:100%}
+  .grid>*,.cards>*{min-width:0}
+  select{max-width:100%;text-overflow:ellipsis}
+  .chip{max-width:100%}
+  .chip span{white-space:normal;line-height:1.35}
   .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;text-decoration:none}
   .brand img{width:46px;height:46px;flex:none;filter:drop-shadow(0 2px 4px rgba(15,23,42,.18))}
   .brand span{display:flex;flex-direction:column;font-family:Cinzel,"Times New Roman",Georgia,serif;font-weight:700;color:#111827;line-height:1.05;letter-spacing:.06em}
@@ -288,6 +295,7 @@ const renderEnquiryPage = async (req, res) => {
   .consent{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.5;cursor:pointer}
   .consent input{margin-top:2px;width:18px;height:18px;accent-color:var(--brand);flex:none}
   .nav{display:flex;gap:10px;margin-top:22px}
+  .nav .btn{min-height:50px}
   .btn{flex:1;padding:14px 18px;border:0;border-radius:12px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:transform .1s,opacity .15s}
   .btn:active{transform:scale(.99)}
   .btn.pri{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 10px 24px -10px rgba(67,56,202,.7)}
@@ -303,11 +311,72 @@ const renderEnquiryPage = async (req, res) => {
   .done p{color:var(--muted);font-size:14.5px;line-height:1.6;margin:6px auto 0;max-width:380px}
   .trust{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:16px;font-size:12px;color:var(--muted)}
   .foot{text-align:center;font-size:11.5px;color:#94a3b8;margin-top:16px}
-  @media (max-width:520px){.grid,.cards{grid-template-columns:1fr}.hero h1{font-size:20px}form,.hero,.steps,.stepname{padding-left:18px;padding-right:18px}body{padding:14px 10px 30px}}
+  /* phones */
+  @media (max-width:600px){
+    body{padding:12px 10px 0}
+    .grid{grid-template-columns:1fr;gap:12px}
+    .cards{grid-template-columns:1fr 1fr;gap:8px}
+    .card-opt span{padding:12px}
+    .card-opt span small{display:none}
+    .hero{padding:20px 18px 16px}.hero h1{font-size:20px}.hero p{font-size:13.5px}
+    form,.steps,.stepname{padding-left:18px;padding-right:18px}
+    /* 16px stops iPhone zooming into a field */
+    input[type=text],input[type=tel],input[type=email],select,textarea{font-size:16px}
+    /* Continue stays under the thumb */
+    .nav{position:sticky;bottom:0;margin:18px -18px 0;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);
+      backdrop-filter:blur(6px);border-top:1px solid var(--line);z-index:5}
+    form{padding-bottom:0}
+    .err{margin-top:10px}
+    .card{border-radius:18px}
+    .foot{padding-bottom:16px}
+  }
+  /* small phones (iPhone SE, old Androids) */
+  @media (max-width:370px){
+    .cards{grid-template-columns:1fr}
+    .card-opt span{flex-direction:row;align-items:center;gap:10px}
+    .card-opt span em{font-size:20px}
+    .hero h1{font-size:18.5px}
+    .perks span{font-size:11px;padding:4px 8px}
+    .brand img{width:38px;height:38px}.brand span b{font-size:16px}.brand span small{font-size:11px}
+    .chip span{padding:8px 12px;font-size:13px}
+    form,.steps,.stepname,.hero{padding-left:14px;padding-right:14px}
+    .nav{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}
+  }
+  /* laptops / desktops: why-fill-this panel on the left, form on the right */
+  @media (min-width:980px){
+    body{padding:40px 24px}
+    .wrap{max-width:1120px}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 600px;gap:48px;align-items:start}
+    .side{display:block;position:sticky;top:40px;padding-top:8px}
+    .side h2{font-size:34px;line-height:1.2;letter-spacing:-.02em;margin:18px 0 12px}
+    .side h2 em{font-style:normal;background:linear-gradient(135deg,#4338ca,#7c3aed 55%,#db2777);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .side>p{color:var(--muted);font-size:15.5px;line-height:1.65;margin:0 0 24px;max-width:460px}
+    .pts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+    .pts li{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.7);border:1px solid rgba(226,232,240,.9);border-radius:16px;padding:14px 16px;backdrop-filter:blur(6px)}
+    .pts li i{font-style:normal;font-size:20px;width:40px;height:40px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex:none}
+    .pts b{display:block;font-size:14.5px}
+    .pts small{display:block;color:var(--muted);font-size:13px;margin-top:2px;line-height:1.5}
+    .layout .brand{display:none}
+    .side .brand{display:flex;margin:0}
+    .hero h1{font-size:22px}
+  }
+  @media (min-width:1300px){.layout{grid-template-columns:minmax(0,1fr) 640px}.side h2{font-size:38px}}
 </style>
 </head>
 <body>
 <div class="wrap">
+ <div class="layout">
+  <aside class="side">
+    <div class="brand"><img src="${LOGO}" alt="Career Lab Consulting" width="46" height="46" /><span><b>CAREER LAB</b><small>CONSULTING</small></span></div>
+    <h2>Find the right career path in <em>AI &amp; Data</em> — with a counsellor who knows you</h2>
+    <p>Tell us about your education, your work and your goal. A counsellor reads it before calling you, so the advice fits you — not a script.</p>
+    <ul class="pts">
+      <li><i>📞</i><span><b>Free one-to-one counselling call</b><small>In Hindi, English or your language — at the time you choose.</small></span></li>
+      <li><i>🎯</i><span><b>A plan for your background</b><small>Student, working professional or restarting after a break — the advice starts from where you are.</small></span></li>
+      <li><i>🔒</i><span><b>Your details stay private</b><small>Used only to contact you about this enquiry.</small></span></li>
+    </ul>
+  </aside>
+  <div class="main">
   <div class="brand"><img src="${LOGO}" alt="Career Lab Consulting" width="46" height="46" /><span><b>CAREER LAB</b><small>CONSULTING</small></span></div>
   <div class="card">
     <div class="hero">
@@ -411,6 +480,8 @@ const renderEnquiryPage = async (req, res) => {
     </div>
   </div>
   <div class="foot">© Career Lab Consulting</div>
+  </div>
+ </div>
 </div>
 <script>
 (function(){
