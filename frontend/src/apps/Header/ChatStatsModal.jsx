@@ -72,6 +72,19 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
   const [filter, setFilter] = useState('');
   const [q, setQ] = useState('');
   const [viewLead, setViewLead] = useState(null);
+  const [queueing, setQueueing] = useState(false);
+  const [queueMsg, setQueueMsg] = useState('');
+
+  // every chat nobody has spoken to → New Lead, first in the dialer's line
+  const requeue = async () => {
+    if (!window.confirm(`Move every ${label} chat nobody has spoken to into New Lead, first in the dialer's line?`)) return;
+    setQueueing(true);
+    setQueueMsg('');
+    const res = await request.post({ entity: `facebook/chats/requeue-uncontacted?channel=${channel}`, jsonData: {} });
+    setQueueing(false);
+    setQueueMsg(res?.success ? res.message : res?.message || 'Could not queue them.');
+    load();
+  };
 
   const load = async (r = range) => {
     setLoading(true);
@@ -154,10 +167,14 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
             {data && <span className="cs-muted">Updated {new Date(data.generatedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</span>}
             <button type="button" className="hub-btn" onClick={() => load()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>
             <button type="button" className="hub-btn" onClick={exportCsv} disabled={!data?.rows?.length}>Download CSV</button>
+            <button type="button" className="hub-btn hub-btn-primary" onClick={requeue} disabled={queueing} title="Not contacted = never called, didn't pick up, or the agent never joined">
+              {queueing ? 'Queuing…' : 'Not contacted → New Lead (call first)'}
+            </button>
           </div>
         </div>
 
         {err && <div className="cs-err">{err}</div>}
+        {queueMsg && <div className="cs-ok">{queueMsg}</div>}
         {!data && !err && <div className="cs-empty">Loading report…</div>}
 
         {T && (
@@ -166,6 +183,8 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
             <div className="cs-kpis">
               {[
                 ['Chats', T.chats, `${int(T.unread)} unread`, '#25d366'],
+                ['Contacted', T.contacted ?? T.talked, `${pct(T.contacted ?? T.talked, T.chats)}% — an agent spoke with them`, '#16a34a'],
+                ['Not contacted', T.notContacted ?? T.chats - T.talked, 'Never called / didn’t pick up / agent didn’t join — go to New Lead, called first', '#dc2626'],
                 ['Messages received', T.msgsIn, `${int(T.msgsOut)} sent by us`, '#0ea5e9'],
                 ['Got a call', T.called, `${pct(T.called, T.chats)}% of chats · ${int(T.callAttempts)} attempts`, '#6366f1'],
                 ['Spoke with', T.talked, `${pct(T.talked, T.chats)}% of chats · ${dur(T.talkSec)} talk`, '#16a34a'],

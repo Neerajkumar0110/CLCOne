@@ -544,6 +544,8 @@ const chatStats = async (req, res) => {
     };
   });
 
+  T.contacted = T.talked; // an agent actually spoke with them
+  T.notContacted = T.chats - T.talked;
   return res.status(200).json({
     success: true,
     result: {
@@ -563,4 +565,14 @@ const chatStats = async (req, res) => {
   });
 };
 
-module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink, chatStats };
+// POST /api/facebook/chats/requeue-uncontacted?channel=whatsapp — every chat
+// lead nobody has spoken to → New Lead, first in the dialer's line
+// (services/marketing/chatDialQueue.js; new chats do this on their own).
+const requeueUncontacted = async (req, res) => {
+  if (!allowed(req, res)) return;
+  const channel = ['messenger', 'instagram', 'whatsapp'].includes(req.query.channel || (req.body && req.body.channel)) ? req.query.channel || req.body.channel : 'whatsapp';
+  const out = await require('../../../../services/marketing/chatDialQueue').requeueAllUncontacted(channel);
+  return res.status(200).json({ success: true, result: out, message: `${out.added + out.bumped + out.alreadyFirst} not-contacted chats are first in the dialer's line (${out.moved} moved to New Lead).` });
+};
+
+module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink, chatStats, requeueUncontacted };

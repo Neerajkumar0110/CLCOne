@@ -312,3 +312,11 @@
     min-width: 0;
   }
 }
+.cs-ok {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(22, 163, 74, 0.08);
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 600;
+}

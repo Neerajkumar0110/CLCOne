@@ -58,4 +58,5 @@ module.exports = {
   chatAction: require('./chats').chatAction,
   chatFormLink: require('./chats').chatFormLink,
   chatStats: require('./chats').chatStats,
+  requeueUncontacted: require('./chats').requeueUncontacted,
 };
