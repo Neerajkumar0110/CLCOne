@@ -105,7 +105,10 @@ async function loadPhoneSets() {
   const rows = await buildUsedRows();
   _parked = {
     at: Date.now(),
-    set: rows.filter((r) => r.isLead && !r.owned && !r.released).map((r) => r.key),
+    // A lead still in New Lead is still being dialled by the auto dialer — it stays
+    // on the board under New Lead (user ask 2026-11-16: Lead Stages New Lead must
+    // match the dialer's New Lead), it isn't parked in Used Leads.
+    set: rows.filter((r) => r.isLead && !r.owned && !r.released && r.stage !== 'New Lead').map((r) => r.key),
     // every used lead that is in the CRM — the Lead Stages "Used Leads" tab (same rows as the Used Leads page)
     used: rows.filter((r) => r.isLead).map((r) => r.key),
   };
