@@ -20,6 +20,7 @@ router.route('/chats').get(catchErrors(controller.listChats));
 router.route('/chats/:leadId/messages').get(catchErrors(controller.chatMessages));
 router.route('/chats/:leadId/send').post(singleStorageUpload({ entity: 'chat', fileType: 'default' }), catchErrors(controller.sendChat));
 router.route('/chats/:leadId/action').post(catchErrors(controller.chatAction));
+router.route('/chats/:leadId/form-link').get(catchErrors(controller.chatFormLink));
 router.route('/connection').get(catchErrors(controller.getConnection));
 router.route('/connection').patch(catchErrors(controller.updateConnection));
 router.route('/connection').delete(catchErrors(controller.disconnectConnection));

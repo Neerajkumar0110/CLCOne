@@ -56,4 +56,5 @@ module.exports = {
   chatMessages: require('./chats').chatMessages,
   sendChat: require('./chats').sendChat,
   chatAction: require('./chats').chatAction,
+  chatFormLink: require('./chats').chatFormLink,
 };

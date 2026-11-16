@@ -380,4 +380,20 @@ const chatAction = async (req, res) => {
   }
 };
 
-module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile };
+// GET /api/facebook/chats/:leadId/form-link — this chat's own link to the
+// enquiry form (public/enquiry?c=<signed lead id>): answers join THIS lead,
+// even when WhatsApp hid the customer's number.
+const chatFormLink = async (req, res) => {
+  if (!allowed(req, res)) return;
+  if (!mongoose.isValidObjectId(req.params.leadId)) return res.status(400).json({ success: false, result: null, message: 'Bad lead id.' });
+  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, removed: false }).select('_id chatChannel').lean();
+  if (!lead) return res.status(404).json({ success: false, result: null, message: 'Lead not found.' });
+  const { chatToken } = require('../../../corePublicControllers/enquiryForm');
+  const host = req.get('x-forwarded-host') || req.get('host') || '';
+  const local = /localhost|127\.0\.0\.1/.test(host);
+  const base = (process.env.ENQUIRY_FORM_BASE_URL || `${local ? 'http' : 'https'}://${host}`).replace(/\/+$/, '');
+  const qs = new URLSearchParams({ c: chatToken(lead._id), utm_source: { whatsapp: 'WhatsApp', instagram: 'Instagram', messenger: 'Facebook' }[lead.chatChannel] || 'Chat', utm_medium: 'chat' });
+  return res.status(200).json({ success: true, result: { url: `${base}/public/enquiry?${qs}` }, message: 'ok' });
+};
+
+module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink };

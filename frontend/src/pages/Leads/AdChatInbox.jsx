@@ -119,6 +119,7 @@ const I = {
   info: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" /></svg>,
   lead: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>,
   open: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" /></svg>,
+  form: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8zm0 4h8v2H8zm0-8h3v2H8z" /></svg>,
   close: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>,
   check: <svg viewBox="0 0 16 11" fill="currentColor"><path d="M11.07.65 10.4.1a.38.38 0 0 0-.53.06L4.6 6.78 2.13 4.47a.38.38 0 0 0-.53.01l-.6.6a.38.38 0 0 0 0 .54l3.3 3.13c.16.15.4.14.55-.03l6.28-7.53a.38.38 0 0 0-.06-.54z" /></svg>,
   clock: <svg viewBox="0 0 16 15" fill="currentColor"><path d="M8 1.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10.8a4.8 4.8 0 1 1 0-9.6 4.8 4.8 0 0 1 0 9.6zM8.6 4.5H7.4v3.6l3 1.8.6-1-2.4-1.4z" /></svg>,
@@ -464,6 +465,22 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
     action(sel, "typing_off");
   };
 
+  // this chat's own enquiry-form link → into the reply box (answers join THIS lead)
+  const [formBusy, setFormBusy] = useState(false);
+  const insertFormLink = async () => {
+    if (!sel || formBusy) return;
+    setFormBusy(true);
+    const res = await request.get({ entity: `facebook/chats/${sel._id}/form-link` });
+    setFormBusy(false);
+    if (!res?.success) return setSendErr(res?.message || "Could not make the form link.");
+    const line = `Please fill this 2-minute form so our counsellor can guide you better: ${res.result.url}`;
+    setText((t) => (t.trim() ? `${t.trim()}
+${line}` : line));
+    setShowEmoji(false);
+    setShowSaved(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   const saveCurrent = () => {
     const v = text.trim();
     if (!v) return;
@@ -734,6 +751,9 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
                   </button>
                   <button type="button" className={`aci-icon-btn ${showSaved ? "on" : ""}`} aria-label="Saved replies" title="Saved replies" disabled={!canSend} onClick={() => { setShowSaved((v) => !v); setShowEmoji(false); }}>
                     {I.saved}
+                  </button>
+                  <button type="button" className="aci-icon-btn" aria-label="Send the enquiry form" title="Send the enquiry form (name, education, work, goal)" disabled={!canSend || formBusy} onClick={insertFormLink}>
+                    {I.form}
                   </button>
                   <input
                     ref={fileRef}

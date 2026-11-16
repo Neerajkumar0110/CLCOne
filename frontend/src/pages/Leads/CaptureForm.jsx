@@ -21,6 +21,7 @@ import {
 import { LeadDetailModal } from "@/pages/Leads";
 import { badgeClassForStatus } from "@/config/leadStages";
 import GoogleLiveCampaigns from "./GoogleLiveCampaigns";
+import EnquiryFormLink from "./EnquiryFormLink";
 import FacebookLeadsDashboard from "./FacebookLeadsDashboard";
 import HubModal from "@/components/HubModal";
 
@@ -951,6 +952,9 @@ function CaptureForm() {
           </div>
         )}
       </div>
+
+      {/* detailed enquiry form (education / work / goal) — fills the lead profile */}
+      {platform === "Website" && <EnquiryFormLink />}
 
       {platform === "Website" && (
         <div className="hub-card">
