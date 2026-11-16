@@ -92,10 +92,10 @@ function stageLeadFilter(camp, stage) {
   if (stage === FRESH_STAGE) {
     // Not tied to the pick: queued once each time it lands in New Lead
     // (re-dials of an unreached one are CallLead retries, not re-queues).
-    // Only unassigned leads nobody has called yet: a lead moved back to New Lead
-    // after a call ("Assigned to BDE After Connecting…") must not be re-dialled.
-    and.push({ $or: [{ assignedUser: null }, { assignedUser: { $exists: false } }] });
-    and.push({ 'callHistory.0': { $exists: false } });
+    // Every New Lead with a number is dialled (user ask 2026-11-16: "New Lead
+    // and the auto dialer must show the same data") — assigned ones and ones
+    // called before too. (2026-11-11 to -16 only unassigned, never-called.)
+    and.push({ phone: { $nin: [null, ''] } });
     and.push({
       $or: [{ autoDialerQueuedAt: null }, { $expr: { $lt: ['$autoDialerQueuedAt', '$stageUpdatedAt'] } }],
     });
@@ -274,19 +274,18 @@ async function stageQueueSummary(camp) {
       // 157, the dialer 44 — show both, and why the rest isn't being dialled).
       // Each lead counted once, in this order.
       const inStage = await Lead.find({ removed: false, stage: FRESH_STAGE })
-        .select('phone assignedUser instantDispatch.status callHistory.outcome')
+        .select('phone assignedUser instantDispatch.status callHistory.outcome autoDialerQueuedAt stageUpdatedAt')
         .lean();
       const livePhones = new Set(
         (await CallLead.find({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued', 'Dialing'] }, phoneNormalized: { $in: inStage.map((l) => last10(l.phone)).filter(Boolean) } }).select('phoneNormalized').lean()).map((c) => c.phoneNormalized)
       );
-      const breakdown = { dialing: 0, withoutPhone: 0, instant: 0, assigned: 0, calledBefore: 0, queuedSoon: 0 };
+      const breakdown = { dialing: 0, withoutPhone: 0, instant: 0, finished: 0, queuedSoon: 0 };
       for (const l of inStage) {
         const p = last10(l.phone);
         if (p.length < 8) breakdown.withoutPhone += 1;
         else if (livePhones.has(p)) breakdown.dialing += 1;
         else if (l.instantDispatch && ['pending', 'calling'].includes(l.instantDispatch.status)) breakdown.instant += 1;
-        else if (l.assignedUser) breakdown.assigned += 1;
-        else if ((l.callHistory || []).length) breakdown.calledBefore += 1;
+        else if ((l.callHistory || []).length || (l.autoDialerQueuedAt && l.stageUpdatedAt && l.autoDialerQueuedAt >= l.stageUpdatedAt)) breakdown.finished += 1; // dialled; the agent hasn't moved its stage yet
         else breakdown.queuedSoon += 1; // the next sync tick (≤30 s) puts it in the line
       }
       value.push({ stage, left: freshLeft, active: stage === active, pinned: true, total: inStage.length, breakdown });
