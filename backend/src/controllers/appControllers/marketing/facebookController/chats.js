@@ -57,6 +57,52 @@ const listChats = async (req, res) => {
   return res.status(200).json({ success: true, result: { total, unread, byChannel, rows }, message: 'ok' });
 };
 
+// The customer's "contact info" for the inbox's side panel (user ask
+// 2026-11-16: "jo customer ne profile lagaya hai sab kuch show ho"). Meta's
+// User Profile API (photo) needs App Review we don't have, and DeroPo sends
+// no WhatsApp name / photo — so this is everything the CRM does know: the
+// lead, who has it, the ad the chat came from, and the chat's numbers.
+async function chatProfile(leadId, channel, userId) {
+  const lead = await mongoose
+    .model('Lead')
+    .findById(leadId)
+    .select('name phone email stage subStatus source city state persona education created assignedUser chatStartedAt chatRepliedAt chatAd metaAdId nextFollowUpAt')
+    .populate({ path: 'assignedUser', select: 'name surname' })
+    .lean();
+  if (!lead) return null;
+  const profile = {
+    name: lead.name,
+    phone: lead.phone || null,
+    email: lead.email || null,
+    stage: lead.stage,
+    subStatus: lead.subStatus,
+    source: lead.source,
+    city: [lead.city, lead.state].filter(Boolean).join(', ') || null,
+    persona: lead.persona,
+    education: lead.education,
+    assignedTo: lead.assignedUser ? [lead.assignedUser.name, lead.assignedUser.surname].filter(Boolean).join(' ') : null,
+    createdAt: lead.created,
+    startedAt: lead.chatStartedAt,
+    repliedAt: lead.chatRepliedAt,
+    nextFollowUp: lead.nextFollowUpAt,
+    ad: lead.chatAd || null,
+    adId: lead.metaAdId || null,
+  };
+  if (channel === 'whatsapp') {
+    profile.whatsappNumber = userId;
+    // "@lid" senders: WhatsApp hides their phone number — the id is not dialable
+    profile.hiddenNumber = !lead.phone;
+    const chats = await mongoose.model('WhatsAppChat').find({ customerNumber: userId }).select('deviceId').lean();
+    const devices = await mongoose
+      .model('WhatsAppDevice')
+      .find({ deviceId: { $in: chats.map((c) => c.deviceId).filter(Boolean) } })
+      .select('label phoneNumber kind status')
+      .lean();
+    profile.ourNumbers = devices.map((d) => ({ label: d.label || d.phoneNumber, number: d.phoneNumber, business: d.kind === 'business', connected: d.status === 'connected' }));
+  }
+  return profile;
+}
+
 // GET /api/facebook/chats/:leadId/messages — the whole conversation, live.
 const chatMessages = async (req, res) => {
   if (!allowed(req, res)) return;
@@ -75,11 +121,15 @@ const chatMessages = async (req, res) => {
       .find({ customerNumber: userId })
       .sort({ at: 1 })
       .limit(500)
-      .select('direction text at')
+      .select('direction text at status type')
       .lean();
     return res.status(200).json({
       success: true,
-      result: { lead, messages: msgs.map((m) => ({ text: m.text, at: m.at, fromCustomer: m.direction === 'incoming' })) },
+      result: {
+        lead,
+        profile: await chatProfile(lead._id, channel, userId).catch(() => null),
+        messages: msgs.map((m) => ({ text: m.text, at: m.at, fromCustomer: m.direction === 'incoming', status: m.status, type: m.type })),
+      },
       message: 'ok',
     });
   }
@@ -118,7 +168,13 @@ const chatMessages = async (req, res) => {
       .sort((a, b) => new Date(a.at) - new Date(b.at));
     return res.status(200).json({
       success: true,
-      result: { lead, link: conv && conv.link ? `https://business.facebook.com${conv.link}` : null, messages, window: windowOf(lead) },
+      result: {
+        lead,
+        profile: await chatProfile(lead._id, channel, userId).catch(() => null),
+        link: conv && conv.link ? `https://business.facebook.com${conv.link}` : null,
+        messages,
+        window: windowOf(lead),
+      },
       message: 'ok',
     });
   } catch (e) {
@@ -324,4 +380,20 @@ const chatAction = async (req, res) => {
   }
 };
 
-module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf };
+// GET /api/facebook/chats/:leadId/form-link — this chat's own link to the
+// enquiry form (public/enquiry?c=<signed lead id>): answers join THIS lead,
+// even when WhatsApp hid the customer's number.
+const chatFormLink = async (req, res) => {
+  if (!allowed(req, res)) return;
+  if (!mongoose.isValidObjectId(req.params.leadId)) return res.status(400).json({ success: false, result: null, message: 'Bad lead id.' });
+  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, removed: false }).select('_id chatChannel').lean();
+  if (!lead) return res.status(404).json({ success: false, result: null, message: 'Lead not found.' });
+  const { chatToken } = require('../../../corePublicControllers/enquiryForm');
+  const host = req.get('x-forwarded-host') || req.get('host') || '';
+  const local = /localhost|127\.0\.0\.1/.test(host);
+  const base = (process.env.ENQUIRY_FORM_BASE_URL || `${local ? 'http' : 'https'}://${host}`).replace(/\/+$/, '');
+  const qs = new URLSearchParams({ c: chatToken(lead._id), utm_source: { whatsapp: 'WhatsApp', instagram: 'Instagram', messenger: 'Facebook' }[lead.chatChannel] || 'Chat', utm_medium: 'chat' });
+  return res.status(200).json({ success: true, result: { url: `${base}/public/enquiry?${qs}` }, message: 'ok' });
+};
+
+module.exports = { listChats, chatMessages, sendChat, chatAction, windowOf, chatProfile, chatFormLink };

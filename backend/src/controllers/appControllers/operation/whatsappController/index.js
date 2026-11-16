@@ -522,7 +522,33 @@ async function openBusinessChat(req, res) {
   return ok(res, chat);
 }
 
+// GET / PUT /api/whatsapp/admin/auto-reply — the ad-chat welcome + curriculum auto-reply (services/whatsapp/autoReply.js)
+async function getAutoReply(req, res) {
+  if (!requireAdmin(req, res)) return;
+  const autoReply = require('../../../../services/whatsapp/autoReply');
+  const cfg = await autoReply.loadConfig({ fresh: true });
+  const Lead = mongoose.model('Lead');
+  const since = new Date(Date.now() - 7 * 864e5);
+  const [welcomes, curricula, forms] = await Promise.all([
+    Lead.countDocuments({ waWelcomeAt: { $gte: since } }),
+    Lead.countDocuments({ waCurriculumAt: { $gte: since } }),
+    Lead.countDocuments({ enquiryAt: { $gte: since } }),
+  ]);
+  return res.status(200).json({ success: true, result: { config: cfg, defaults: autoReply.DEFAULTS, stats: { days: 7, welcomes, curricula, forms } }, message: 'ok' });
+}
+async function saveAutoReply(req, res) {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const cfg = await require('../../../../services/whatsapp/autoReply').saveConfig(req.body || {}, req.admin && req.admin.name);
+    return res.status(200).json({ success: true, result: { config: cfg }, message: 'Saved' });
+  } catch (e) {
+    return bad(res, 400, e.message);
+  }
+}
+
 module.exports = {
+  getAutoReply,
+  saveAutoReply,
   webhookInfo,
   listBusiness,
   createBusiness,

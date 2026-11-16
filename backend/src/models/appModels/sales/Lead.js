@@ -229,6 +229,12 @@ const schema = new mongoose.Schema({
   chatStartedAt: Date,
   chatReadAt: Date, // last opened in the CRM chat inbox (unread = chatLastAt after this)
   chatRepliedAt: Date, // last reply sent from the CRM
+  // click-to-WhatsApp ad the chat came from (title, text, preview image, post link, ad id) — Ad chat inbox contact panel
+  chatAd: { type: mongoose.Schema.Types.Mixed },
+  enquiryAt: Date, // last filled the public enquiry form (corePublicControllers/enquiryForm.js)
+  // WhatsApp auto-reply (services/whatsapp/autoReply.js): each sent once per lead
+  waWelcomeAt: Date,
+  waCurriculumAt: Date,
   pageId: String,
   metaFormId: String,
   adAccountId: String,

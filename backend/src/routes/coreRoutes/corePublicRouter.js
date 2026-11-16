@@ -22,6 +22,11 @@ const { catchErrors } = require('../../handlers/errorHandlers');
 const websiteLeadLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 router.route('/leads/website').post(websiteLeadLimiter, catchErrors(submitWebsiteLead));
 
+// Detailed enquiry form (education, work, goal) — corePublicControllers/enquiryForm.js
+const enquiryForm = require('../../controllers/corePublicControllers/enquiryForm');
+router.route('/leads/enquiry').post(websiteLeadLimiter, catchErrors(enquiryForm.submitEnquiry));
+router.route('/enquiry').get(catchErrors(enquiryForm.renderEnquiryPage));
+
 // Hosted lead-capture landing page (point ad destination URLs here) + its
 // field config. Registered before the 3-segment file-serving catch-all
 // below so "/lead-form/website/config" isn't swallowed by it.

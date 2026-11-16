@@ -78,10 +78,19 @@ function adInfo(raw) {
   const reply = c.externalAdReply || {};
   const fromAd = !!(c.conversionSource || reply.title || c.entryPointConversionSource === 'ctwa_ad');
   if (!fromAd && !inner.title) return null;
+  // the small preview WhatsApp itself shows (base64 JPEG, a few KB) — kept as
+  // a data URL because the CDN thumbnailUrl expires within days
+  const thumb = typeof reply.thumbnail === 'string' && reply.thumbnail.length < 60000 ? `data:image/jpeg;base64,${reply.thumbnail}` : null;
   return {
     title: String(reply.title || inner.title || "").trim() || null,
-    app: c.entryPointConversionApp || null, // facebook | instagram
+    app: c.entryPointConversionApp || reply.sourceApp || null, // facebook | instagram
     source: c.conversionSource || c.entryPointConversionSource || null,
+    body: reply.body ? String(reply.body).slice(0, 500) : null,
+    thumb,
+    imageUrl: reply.thumbnailUrl || reply.originalImageUrl || null,
+    sourceUrl: reply.sourceUrl || null, // the Facebook / Instagram post of the ad
+    sourceId: reply.sourceId ? String(reply.sourceId) : null, // Meta ad id
+    mediaType: reply.mediaType || null,
   };
 }
 
@@ -136,6 +145,16 @@ function secretMatches(given) {
   const a = Buffer.from(String(given || ''));
   const b = Buffer.from(want);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// The ad a click-to-WhatsApp chat came from → the lead (Ad chat inbox's
+// contact panel shows it). The first ad wins; a later ad never overwrites it.
+async function saveChatAd(lead, ad, at) {
+  if (!lead || !ad || !(ad.title || ad.sourceUrl || ad.thumb)) return;
+  await mongoose
+    .model('Lead')
+    .updateOne({ _id: lead._id, chatAd: { $exists: false } }, { $set: { chatAd: { ...ad, at: at || new Date() } } })
+    .catch(() => {});
 }
 
 // Store one webhook body as a chat message (+ lead). Used live and to replay
@@ -208,6 +227,13 @@ async function processLog(log, opts = {}) {
           text: adLine + p.text,
           at: p.at,
         })
+        .then(async (r) => {
+          await saveChatAd(r && r.lead, p.ad, p.at);
+          // "Hello! Can I get more info on this?" → welcome + form link (once per lead; never on a replay)
+          if (!opts.quiet && r && r.lead) {
+            await require('../../../../services/whatsapp/autoReply').onIncoming({ lead: r.lead, deviceId: device.deviceId, number: p.from, text: p.text, ad: p.ad });
+          }
+        })
         .catch((e) => console.error('[whatsapp] chat lead failed:', e.message));
       if (opts.quiet) await leadJob;
     } else if (!opts.quiet) {
@@ -260,4 +286,4 @@ async function incoming(req, res) {
   }
 }
 
-module.exports = { incoming, parse, processLog };
+module.exports = { incoming, parse, processLog, adInfo, saveChatAd };

@@ -5,6 +5,7 @@ import waApi from './api';
 import Inbox from './Inbox';
 import LiveChats from './LiveChats';
 import BusinessNumbers from './BusinessNumbers';
+import AutoReply from './AutoReply';
 import { Avatar, Btn, DeviceTag, FilterPills, ModeSwitch, Notice, PageHeader, RoleChip, SearchBox, Tabs, Toggle } from './ui';
 
 // Same rule as backend services/whatsapp/access.js — recomputed here so the
@@ -197,6 +198,7 @@ export default function AccessAdmin({ me }) {
           onChange={setTab}
           tabs={[
             { key: 'business', label: 'Business Numbers' },
+            { key: 'autoreply', label: 'Auto-reply' },
             { key: 'individual', label: 'Individual' },
             { key: 'department', label: 'Department' },
             { key: 'live', label: 'Live Chats', count: withAccess.length },
@@ -306,6 +308,8 @@ export default function AccessAdmin({ me }) {
         {tab === 'inbox' && <Inbox initialDevice={me.device} configured={me.configured} embedded />}
 
         {tab === 'business' && <BusinessNumbers />}
+
+        {tab === 'autoreply' && <AutoReply />}
       </div>
     </div>
   );
