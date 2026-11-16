@@ -7,6 +7,9 @@ const { SUPER_ADMIN_ROLES } = require('../../../../config/roles');
 // connected chat — the list of chat leads and each full conversation, read
 // live from Meta so nothing is copied into the CRM except the lead itself.
 
+// Lead docs the inbox shows: real leads + chat-only Messenger / Instagram chats (removed:true, chatOnly)
+const VISIBLE = { $or: [{ removed: false }, { chatOnly: true }] };
+
 function allowed(req, res) {
   if (req.admin && SUPER_ADMIN_ROLES.includes(req.admin.role)) return true;
   res.status(403).json({ success: false, result: null, message: 'Only the owner and Super Admin can read the ad chats.' });
@@ -18,11 +21,11 @@ const listChats = async (req, res) => {
   if (!allowed(req, res)) return;
   const Lead = mongoose.model('Lead');
   const q = String(req.query.q || '').trim();
-  const filter = { removed: false, chatConversationId: { $exists: true, $ne: null } };
+  const filter = { $and: [VISIBLE], chatConversationId: { $exists: true, $ne: null } };
   if (['messenger', 'instagram', 'whatsapp'].includes(req.query.channel)) filter.chatChannel = req.query.channel;
   if (q) {
     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ name: rx }, { phone: rx }, { email: rx }, { chatLastMessage: rx }];
+    filter.$and.push({ $or: [{ name: rx }, { phone: rx }, { email: rx }, { chatLastMessage: rx }] });
   }
   const limit = Math.min(Number(req.query.limit) || 300, 1000);
   const [rows, total] = await Promise.all([
@@ -40,7 +43,7 @@ const listChats = async (req, res) => {
   // unread + total per channel — the header's Messenger / WhatsApp /
   // Instagram icons show these counts (user ask 2026-11-15).
   const perChannel = await Lead.aggregate([
-    { $match: { removed: false, chatConversationId: { $exists: true, $ne: null } } },
+    { $match: { ...VISIBLE, chatConversationId: { $exists: true, $ne: null } } },
     {
       $group: {
         _id: '$chatChannel',
@@ -108,7 +111,7 @@ const chatMessages = async (req, res) => {
   if (!allowed(req, res)) return;
   if (!mongoose.isValidObjectId(req.params.leadId)) return res.status(400).json({ success: false, result: null, message: 'Bad lead id.' });
   const Lead = mongoose.model('Lead');
-  const lead = await Lead.findOne({ _id: req.params.leadId, removed: false }).select('name phone chatConversationId chatChannel pageId chatLastAt chatReadAt').lean();
+  const lead = await Lead.findOne({ _id: req.params.leadId, ...VISIBLE }).select('name phone chatConversationId chatChannel pageId chatLastAt chatReadAt').lean();
   // opening the chat marks it read (for every owner / Super Admin)
   if (lead) await Lead.updateOne({ _id: lead._id }, { $set: { chatReadAt: new Date() } });
   if (!lead || !lead.chatConversationId) return res.status(404).json({ success: false, result: null, message: 'Not a chat lead.' });
@@ -194,7 +197,7 @@ async function chatContext(req, res) {
     res.status(400).json({ success: false, result: null, message: 'Bad lead id.' });
     return null;
   }
-  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, removed: false }).exec();
+  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, ...VISIBLE }).exec();
   if (!lead || !lead.chatConversationId) {
     res.status(404).json({ success: false, result: null, message: 'Not a chat lead.' });
     return null;
@@ -386,7 +389,7 @@ const chatAction = async (req, res) => {
 const chatFormLink = async (req, res) => {
   if (!allowed(req, res)) return;
   if (!mongoose.isValidObjectId(req.params.leadId)) return res.status(400).json({ success: false, result: null, message: 'Bad lead id.' });
-  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, removed: false }).select('_id chatChannel').lean();
+  const lead = await mongoose.model('Lead').findOne({ _id: req.params.leadId, ...VISIBLE }).select('_id chatChannel').lean();
   if (!lead) return res.status(404).json({ success: false, result: null, message: 'Lead not found.' });
   const { chatToken } = require('../../../corePublicControllers/enquiryForm');
   const host = req.get('x-forwarded-host') || req.get('host') || '';
@@ -428,8 +431,8 @@ const chatStats = async (req, res) => {
   const started = {};
   if (from) started.$gte = from;
   if (to) started.$lt = to;
-  const filter = { removed: false, chatChannel: channel, chatConversationId: { $exists: true, $ne: null } };
-  if (from || to) filter.$or = [{ chatStartedAt: started }, { chatStartedAt: null, created: started }];
+  const filter = { $and: [VISIBLE], chatChannel: channel, chatConversationId: { $exists: true, $ne: null } };
+  if (from || to) filter.$and.push({ $or: [{ chatStartedAt: started }, { chatStartedAt: null, created: started }] });
   const leads = await Lead.find(filter)
     .select('name phone phoneNormalized stage subStatus chatConversationId chatStartedAt chatLastAt chatReadAt chatRepliedAt chatAd enquiryAt waWelcomeAt waCurriculumAt assignedUserName created source')
     .sort({ chatLastAt: -1 })

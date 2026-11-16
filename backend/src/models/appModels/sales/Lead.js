@@ -231,6 +231,10 @@ const schema = new mongoose.Schema({
   chatRepliedAt: Date, // last reply sent from the CRM
   // click-to-WhatsApp ad the chat came from (title, text, preview image, post link, ad id) — Ad chat inbox contact panel
   chatAd: { type: mongoose.Schema.Types.Mixed },
+  // Messenger / Instagram chat that is NOT a lead (user ask 2026-11-16: only WhatsApp chats and real
+  // lead forms become leads). Stored removed:true so no lead list / stage / dialer sees it; the Ad chat
+  // inbox still shows and answers it.
+  chatOnly: { type: Boolean },
   enquiryAt: Date, // last filled the public enquiry form (corePublicControllers/enquiryForm.js)
   // WhatsApp auto-reply (services/whatsapp/autoReply.js): each sent once per lead
   waWelcomeAt: Date,
