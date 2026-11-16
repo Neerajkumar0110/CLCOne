@@ -38,10 +38,20 @@ function toVtt(segments) {
   return `WEBVTT\n\n${segments.map((s, i) => `${i + 1}\n${ms2(s.s)} --> ${ms2(s.e)}\n${s.t}\n`).join('\n')}`;
 }
 
+const transcriber = () => require('../../../../services/lms/transcriber');
+// what the stored text is written in (rows done before modes existed = Devanagari)
+const textModeOf = (t) => t.textMode || (t.segments && t.segments.length ? 'hindi' : null);
+
 function publicRow(t, access) {
-  if (!t) return { status: 'none', segments: [] };
+  const defaultMode = transcriber().DEFAULT_MODE;
+  if (!t) return { status: 'none', segments: [], mode: defaultMode, canEdit: !!access.staff };
+  // while a new version is being written, the old text stays readable
+  const showText = t.status === 'done' || ((t.status === 'queued' || t.status === 'processing') && t.segments && t.segments.length > 0);
   return {
     id: t._id,
+    // a finished row nobody picked a language for shows the language it is written in
+    mode: t.mode || (t.status === 'done' && textModeOf(t)) || transcriber().modeOf(t),
+    textMode: textModeOf(t),
     status: t.status,
     model: t.model,
     language: t.language,
@@ -52,7 +62,7 @@ function publicRow(t, access) {
     editedAt: t.editedAt,
     finishedAt: t.finishedAt,
     error: access.staff ? t.error : undefined,
-    segments: t.status === 'done' ? t.segments : [],
+    segments: showText ? t.segments : [],
     canEdit: !!access.staff,
   };
 }
@@ -107,24 +117,42 @@ async function editTranscriptLine(req, res) {
   return res.status(200).json({ success: true, result: { index, text }, message: 'Saved' });
 }
 
-// POST /api/lms/recordings/:id/transcript   — manager / teacher: "Transcribe now"
-// (jumps the queue; may run in the daytime, still never during a live class)
+// POST /api/lms/recordings/:id/transcript  { mode? }  — manager / teacher:
+// "Transcribe now", or re-write it in another language (mode: roman | english
+// | hindi). Jumps the queue; may run in the daytime, never during a live class.
+// The old text stays readable until the new one is ready.
 async function requestTranscript(req, res) {
   const ctx = await loadRec(req, res);
   if (!ctx) return;
   if (!ctx.access.staff) return res.status(403).json({ success: false, message: 'Only the class teacher or a manager can do this.' });
   if (ctx.rec.status !== 'AVAILABLE') return res.status(409).json({ success: false, message: 'The recording is not ready yet.' });
+  const tr = transcriber();
+  const wanted = req.body && req.body.mode;
+  if (wanted && !tr.MODES[wanted]) return res.status(400).json({ success: false, message: 'Unknown transcript language.' });
   const existing = await T().findOne({ recording: ctx.rec._id, kind: 'final' }).lean();
-  if (existing && existing.status === 'processing') return res.status(200).json({ success: true, result: publicRow(existing, ctx.access), message: 'Already being transcribed.' });
+  const mode = wanted || tr.modeOf(existing);
+
+  if (existing && existing.status === 'processing') {
+    if (tr.modeOf(existing) === mode) return res.status(200).json({ success: true, result: publicRow(existing, ctx.access), message: 'Already being transcribed.' });
+    // switching language mid-run: stop it, it goes straight back to the queue in the new language
+    await T().updateOne({ _id: existing._id }, { $set: { mode, priority: 10, requestedBy: req.admin._id, updated: new Date() } });
+    tr.stopRow(existing._id, 'language changed');
+    const t = await T().findById(existing._id).lean();
+    return res.status(200).json({ success: true, result: publicRow(t, ctx.access), message: 'Switching language — the new transcript starts in a couple of minutes.' });
+  }
+  if (existing && existing.status === 'done' && wanted && textModeOf(existing) === wanted) {
+    return res.status(200).json({ success: true, result: publicRow(existing, ctx.access), message: 'The transcript is already in this language.' });
+  }
+
   const t = await T().findOneAndUpdate(
     { recording: ctx.rec._id, kind: 'final' },
     {
-      $set: { status: 'queued', priority: 10, attempts: 0, error: null, removed: false, requestedBy: req.admin._id, updated: new Date() },
+      $set: { status: 'queued', mode, priority: 10, attempts: 0, error: null, removed: false, requestedBy: req.admin._id, updated: new Date() },
       $setOnInsert: { liveSession: ctx.rec.liveSession, recordedAt: ctx.rec.startedAt || ctx.rec.created },
     },
     { upsert: true, new: true }
   ).lean();
-  setImmediate(() => require('../../../../services/lms/transcriber').tick().catch(() => {}));
+  setImmediate(() => tr.tick().catch(() => {}));
   return res.status(200).json({ success: true, result: publicRow(t, ctx.access), message: 'Queued first — it starts within a couple of minutes (never during a live class).' });
 }
 

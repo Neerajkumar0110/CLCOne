@@ -90,7 +90,7 @@ const lmsApi = {
   // Class transcript (Whisper) — read / correct a line / "Transcribe now" / queue
   recordingTranscript: (id) => request.get({ entity: `lms/recordings/${id}/transcript` }),
   recordingTranscriptEdit: (id, index, text) => request.patch({ entity: `lms/recordings/${id}/transcript`, jsonData: { index, text } }),
-  recordingTranscriptRequest: (id) => request.post({ entity: `lms/recordings/${id}/transcript`, jsonData: {} }),
+  recordingTranscriptRequest: (id, mode) => request.post({ entity: `lms/recordings/${id}/transcript`, jsonData: mode ? { mode } : {} }),
   transcriptQueue: () => request.get({ entity: 'lms/transcripts/status' }),
   // Manual upload — fallback for the mock provider (no recorder of its own);
   // BigBlueButton records automatically. Lets the class teacher (or a

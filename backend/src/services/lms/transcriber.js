@@ -21,8 +21,21 @@ const PYTHON = process.env.WHISPER_PYTHON || '/opt/whisper/venv/bin/python';
 const SCRIPT = process.env.WHISPER_SCRIPT || path.resolve(process.cwd(), '..', 'deploy', 'vps', 'whisper', 'transcribe.py');
 const MODEL = process.env.TRANSCRIBE_MODEL || 'small';
 const THREADS = Number(process.env.TRANSCRIBE_THREADS || 3);
-const LANGUAGE = process.env.TRANSCRIBE_LANGUAGE || '';
-const PROMPT = process.env.TRANSCRIBE_PROMPT || '';
+// Writing modes (picked per recording in the transcript panel). Tested on a
+// real Hinglish class 2026-11-16: auto-detect picks Hindi and small writes
+// garbled Devanagari; forcing 'en' with a Hinglish prompt gives clean Roman
+// Hinglish in the teacher's own words, ~8x faster. 'english' = Whisper's
+// translate task.
+const ROMAN_PROMPT =
+  process.env.TRANSCRIBE_PROMPT ||
+  'Hello students, aaj hum logistic regression padhenge. Ye supervised classification algorithm hai, theek hai? Chaliye code dekhte hain.';
+const MODES = {
+  roman: ['--language', 'en', '--prompt', ROMAN_PROMPT],
+  english: ['--language', 'hi', '--task', 'translate'],
+  hindi: ['--language', 'hi'],
+};
+const DEFAULT_MODE = MODES[process.env.TRANSCRIBE_MODE] ? process.env.TRANSCRIBE_MODE : 'roman';
+const modeOf = (row) => (row && MODES[row.mode] ? row.mode : DEFAULT_MODE);
 const WINDOW = process.env.TRANSCRIBE_WINDOW || '22:15-09:30'; // IST (process TZ)
 const MAX_ATTEMPTS = 3;
 const BBB_PUBLISHED = process.env.BBB_PUBLISHED_DIR || '/var/bigbluebutton/published/presentation';
@@ -86,6 +99,11 @@ async function seedQueue() {
   return fresh.length;
 }
 
+// stop the running job only if it is this row (its writing mode was changed)
+function stopRow(id, reason) {
+  if (child && child.id === String(id)) stop(reason);
+}
+
 function stop(reason) {
   if (!child) return;
   child.killedFor = reason;
@@ -108,9 +126,8 @@ async function runOne(row) {
   const outDir = path.join(os.tmpdir(), 'lms-transcripts');
   fs.mkdirSync(outDir, { recursive: true });
   const out = path.join(outDir, `${row._id}.json`);
-  const args = ['-n', '19', PYTHON, SCRIPT, media, out, '--model', MODEL, '--threads', String(THREADS)];
-  if (LANGUAGE) args.push('--language', LANGUAGE);
-  if (PROMPT) args.push('--prompt', PROMPT);
+  const mode = modeOf(row);
+  const args = ['-n', '19', PYTHON, SCRIPT, media, out, '--model', MODEL, '--threads', String(THREADS), ...MODES[mode]];
 
   const proc = spawn('nice', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   child = { proc, id: String(row._id), killedFor: null };
@@ -147,12 +164,17 @@ async function runOne(row) {
     const j = JSON.parse(fs.readFileSync(out, 'utf8'));
     fs.unlink(out, () => {});
     const segments = (j.segments || []).map((s) => ({ s: s.s, e: s.e, t: s.t }));
+    // the language was switched while this ran → keep this text, but the new one stays queued
+    const now = await T.findById(row._id).select('mode').lean();
+    const switched = now && modeOf(now) !== mode;
     await T.updateOne(
       { _id: row._id },
       {
         $set: {
-          status: 'done',
+          status: switched ? 'queued' : 'done',
           segments,
+          textMode: mode,
+          edited: false,
           wordCount: segments.reduce((n, s) => n + s.t.split(/\s+/).filter(Boolean).length, 0),
           model: j.model,
           language: j.language,
@@ -232,7 +254,7 @@ async function recoverOnBoot() {
 }
 
 function status() {
-  return { enabled: enabled(), running: child ? child.id : null, model: MODEL, window: WINDOW, inWindow: inWindow() };
+  return { enabled: enabled(), running: child ? child.id : null, model: MODEL, mode: DEFAULT_MODE, window: WINDOW, inWindow: inWindow() };
 }
 
-module.exports = { tick, recoverOnBoot, status, mediaFor, inWindow, enabled, stop };
+module.exports = { tick, recoverOnBoot, status, mediaFor, inWindow, enabled, stop, stopRow, MODES, DEFAULT_MODE, modeOf };

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { message } from 'antd';
-import { SearchOutlined, EditOutlined, CheckOutlined, CloseOutlined, DownloadOutlined, AimOutlined, ThunderboltOutlined, FileTextOutlined } from '@ant-design/icons';
+import { message, Modal } from 'antd';
+import { SearchOutlined, EditOutlined, CheckOutlined, CloseOutlined, DownloadOutlined, AimOutlined, ThunderboltOutlined, FileTextOutlined, TranslationOutlined, SyncOutlined } from '@ant-design/icons';
 import { getSocket } from '@/socket';
 import { API_BASE_URL } from '@/config/serverApiConfig';
 import storePersist from '@/redux/storePersist';
@@ -32,6 +32,14 @@ export const withStartTime = (url, sec) => {
   const clean = base.replace(/([?&])t=[^&]*&?/, '$1').replace(/[?&]$/, '');
   return `${clean}${clean.includes('?') ? '&' : '?'}t=${t}${hash ? `#${hash}` : ''}`;
 };
+
+// Writing the transcript is done in (backend services/lms/transcriber.js MODES)
+export const TRANSCRIPT_MODES = [
+  { key: 'roman', label: 'Hinglish (English letters)', short: 'Hinglish' },
+  { key: 'english', label: 'English translation', short: 'English' },
+  { key: 'hindi', label: 'Hindi (देवनागरी)', short: 'हिंदी' },
+];
+const modeLabel = (k) => (TRANSCRIPT_MODES.find((m) => m.key === k) || {}).label || '';
 
 function Highlight({ text, q }) {
   if (!q) return text;
@@ -157,9 +165,9 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
     } else message.error((res && res.message) || 'Could not save.');
   };
 
-  const requestNow = async () => {
+  const requestNow = async (mode) => {
     setBusy(true);
-    const res = await lmsApi.recordingTranscriptRequest(recId).catch(() => null);
+    const res = await lmsApi.recordingTranscriptRequest(recId, mode).catch(() => null);
     setBusy(false);
     if (res && res.success) {
       message.success(res.message || 'Queued.');
@@ -194,6 +202,23 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
 
   const status = data ? data.status : 'loading';
   const canEdit = !!(data && data.canEdit);
+  // the stored text is shown while a new version (other language) is written
+  const hasText = segs.length > 0 && ['done', 'queued', 'processing'].includes(status);
+  const showList = status === 'done' || hasText;
+  const rewriting = hasText && status !== 'done';
+
+  const changeMode = (mode) => {
+    if (!mode || mode === data.mode) return;
+    const run = () => requestNow(mode);
+    if (!segs.length) return run();
+    Modal.confirm({
+      title: `Write this transcript in ${modeLabel(mode)}?`,
+      content: `The current text stays readable until the new one is ready (usually within an hour${data.edited ? '; lines corrected by hand will be replaced' : ''}).`,
+      okText: 'Yes, re-write it',
+      cancelText: 'Cancel',
+      onOk: run,
+    });
+  };
   const pct = data && data.durationSec ? Math.min(100, Math.round(((data.progressSec || 0) / data.durationSec) * 100)) : 0;
 
   return (
@@ -201,7 +226,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
       <div className="tp-head">
         <span className="tp-title">
           <FileTextOutlined /> Transcript
-          {status === 'done' && <span className="tp-sub">{segs.length} lines{data.edited ? ' · corrected' : ''}</span>}
+          {hasText && <span className="tp-sub">{segs.length} lines{data.edited ? ' · corrected' : ''}</span>}
         </span>
         {status === 'done' && (
           <span className="tp-actions">
@@ -220,7 +245,45 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
         )}
       </div>
 
-      {status === 'done' && segs.length > 0 && (
+      {/* Language: teacher / manager pick it (re-writes the transcript); learners see it */}
+      {data && !['loading', 'error'].includes(status) &&
+        (canEdit ? (
+          <label className="tp-lang" title="Language the transcript is written in — changing it re-writes the transcript">
+            <TranslationOutlined aria-hidden="true" />
+            <span className="tp-lang-label">Language</span>
+            <select value={data.mode || 'roman'} disabled={busy || status === 'skipped'} onChange={(e) => changeMode(e.target.value)}>
+              {TRANSCRIPT_MODES.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                  {hasText && data.textMode === m.key ? ' — current' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : hasText && data.textMode ? (
+          <div className="tp-hint">
+            <TranslationOutlined /> {modeLabel(data.textMode)}
+          </div>
+        ) : null)}
+
+      {rewriting && (
+        <div className="tp-banner">
+          <SyncOutlined spin={status === 'processing'} />
+          <span>
+            {status === 'processing'
+              ? `Re-writing in ${modeLabel(data.mode)}… ${pct ? `${pct}%` : ''}`
+              : `Queued to re-write in ${modeLabel(data.mode)}${data.queueAhead ? ` — ${data.queueAhead} ahead` : ''}.`}{' '}
+            The text below stays until it is ready.
+          </span>
+          {canEdit && status === 'queued' && (
+            <button type="button" className="tp-chip" disabled={busy} onClick={() => requestNow(data.mode)}>
+              <ThunderboltOutlined /> Do it first
+            </button>
+          )}
+        </div>
+      )}
+
+      {hasText && (
         <label className="tp-search">
           <SearchOutlined aria-hidden="true" />
           <span className="tp-sr">Search the transcript</span>
@@ -229,7 +292,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
         </label>
       )}
 
-      {status === 'done' && isFrame && <div className="tp-hint">Click any line — the class video jumps to that moment.</div>}
+      {showList && isFrame && segs.length > 0 && <div className="tp-hint">Click any line — the class video jumps to that moment.</div>}
 
       <div
         className="tp-list"
@@ -245,24 +308,24 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
             <b>No transcript yet.</b>
             <span>Transcripts are made automatically at night, newest classes first.</span>
             {canEdit && (
-              <button type="button" className="tp-btn" disabled={busy} onClick={requestNow}>
+              <button type="button" className="tp-btn" disabled={busy} onClick={() => requestNow()}>
                 <ThunderboltOutlined /> Transcribe now
               </button>
             )}
           </div>
         )}
-        {status === 'queued' && (
+        {status === 'queued' && !hasText && (
           <div className="tp-empty">
             <b>In the transcript queue{data.queueAhead != null ? ` — ${data.queueAhead} ahead` : ''}.</b>
             <span>It is made at night when the server is free (never during a live class).</span>
             {canEdit && (
-              <button type="button" className="tp-btn" disabled={busy} onClick={requestNow}>
+              <button type="button" className="tp-btn" disabled={busy} onClick={() => requestNow()}>
                 <ThunderboltOutlined /> Transcribe this first
               </button>
             )}
           </div>
         )}
-        {status === 'processing' && (
+        {status === 'processing' && !hasText && (
           <div className="tp-empty">
             <b>Writing the transcript… {pct ? `${pct}%` : ''}</b>
             <div className="tp-bar">
@@ -276,16 +339,16 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
             <b>{status === 'skipped' ? 'No transcript for this recording.' : 'The transcript could not be made.'}</b>
             {canEdit && data.error && <span className="tp-err">{data.error}</span>}
             {canEdit && status === 'failed' && (
-              <button type="button" className="tp-btn" disabled={busy} onClick={requestNow}>
+              <button type="button" className="tp-btn" disabled={busy} onClick={() => requestNow()}>
                 Try again
               </button>
             )}
           </div>
         )}
         {status === 'done' && !segs.length && <div className="tp-empty">No speech was found in this recording.</div>}
-        {status === 'done' && matches && !matches.length && <div className="tp-empty">Nothing matches “{q}”.</div>}
+        {hasText && matches && !matches.length && <div className="tp-empty">Nothing matches “{q}”.</div>}
 
-        {status === 'done' &&
+        {hasText &&
           (matches || segs.map((_, i) => i)).map((i) => {
             const s = segs[i];
             const on = i === active;
@@ -334,7 +397,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
                 <span className="tp-text">
                   <Highlight text={s.t} q={q.trim()} />
                 </span>
-                {canEdit && (
+                {canEdit && status === 'done' && (
                   <button
                     type="button"
                     className="tp-icon tp-pen"

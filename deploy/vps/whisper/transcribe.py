@@ -10,7 +10,7 @@ transcript line up point-to-point with the video.
 Install (VPS):  python3 -m venv /opt/whisper/venv
                 /opt/whisper/venv/bin/pip install faster-whisper
 Usage:  transcribe.py <media> <out.json> [--model small] [--threads 3]
-                      [--language en] [--prompt "..."]
+                      [--language en] [--prompt "..."] [--task translate]
 
 stdout: one JSON line per progress tick {"progress": <sec>, "duration": <sec>}
 out.json: {"model","language","duration","segments":[{"s":ms,"e":ms,"t":text}]}
@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--threads", type=int, default=3)
     ap.add_argument("--language", default=None)
     ap.add_argument("--prompt", default=None)
+    ap.add_argument("--task", default="transcribe", choices=["transcribe", "translate"])
     ap.add_argument("--beam", type=int, default=1)
     ap.add_argument("--models-dir", default="/opt/whisper/models")
     a = ap.parse_args()
@@ -41,6 +42,7 @@ def main():
     segments, info = model.transcribe(
         a.media,
         language=a.language or None,
+        task=a.task,  # translate = English translation
         beam_size=a.beam,
         vad_filter=True,  # skip silence — faster, and no made-up text in long pauses
         vad_parameters={"min_silence_duration_ms": 700},
