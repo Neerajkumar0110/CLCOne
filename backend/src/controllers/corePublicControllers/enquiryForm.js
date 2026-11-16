@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const LOGO = require('./enquiryLogo');
 
 // Detailed enquiry form (user ask 2026-11-16: "ek best form do jisme customer
 // ka sab aa sake — name, email, no, education, kaha se hai, kya karta hai").
@@ -219,7 +220,8 @@ const renderEnquiryPage = async (req, res) => {
 <meta name="theme-color" content="#4338ca" />
 <title>Career Counselling Form — Career Lab Consulting</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
+<link rel="icon" type="image/png" href="${LOGO}" />
 <style>
   :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;--brand:#4338ca;--brand2:#7c3aed;--ok:#16a34a;--err:#dc2626}
   *{box-sizing:border-box}
@@ -228,8 +230,11 @@ const renderEnquiryPage = async (req, res) => {
     background:radial-gradient(1200px 600px at 10% -10%,#c7d2fe 0,transparent 60%),radial-gradient(900px 500px at 110% 10%,#e9d5ff 0,transparent 55%),#f1f5f9;
     min-height:100vh;padding:24px 16px 40px}
   .wrap{max-width:620px;margin:0 auto}
-  .brand{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-weight:800;font-size:15px;color:var(--brand)}
-  .brand i{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-size:16px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;text-decoration:none}
+  .brand img{width:46px;height:46px;flex:none;filter:drop-shadow(0 2px 4px rgba(15,23,42,.18))}
+  .brand span{display:flex;flex-direction:column;font-family:Cinzel,"Times New Roman",Georgia,serif;font-weight:700;color:#111827;line-height:1.05;letter-spacing:.06em}
+  .brand span b{font-size:19px;font-weight:700}
+  .brand span small{font-size:12.5px;letter-spacing:.32em;font-weight:600;color:#374151}
   .card{background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 24px 60px -20px rgba(67,56,202,.28);overflow:hidden}
   .hero{padding:26px 26px 18px;background:linear-gradient(135deg,#4338ca,#7c3aed 60%,#db2777);color:#fff;position:relative}
   .hero h1{margin:0 0 6px;font-size:23px;line-height:1.25;font-weight:800;letter-spacing:-.01em}
@@ -303,7 +308,7 @@ const renderEnquiryPage = async (req, res) => {
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><i>C</i>Career Lab Consulting</div>
+  <div class="brand"><img src="${LOGO}" alt="Career Lab Consulting" width="46" height="46" /><span><b>CAREER LAB</b><small>CONSULTING</small></span></div>
   <div class="card">
     <div class="hero">
       <h1>Free career counselling — tell us about you</h1>
