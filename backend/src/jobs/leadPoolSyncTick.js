@@ -270,7 +270,26 @@ async function stageQueueSummary(camp) {
   const value = [];
   for (const stage of stagesOf(camp)) {
     if (stage === FRESH_STAGE) {
-      value.push({ stage, left: freshLeft, active: stage === active, pinned: true });
+      // The whole New Lead stage too (user ask 2026-11-16: the Leads page says
+      // 157, the dialer 44 — show both, and why the rest isn't being dialled).
+      // Each lead counted once, in this order.
+      const inStage = await Lead.find({ removed: false, stage: FRESH_STAGE })
+        .select('phone assignedUser instantDispatch.status callHistory.outcome')
+        .lean();
+      const livePhones = new Set(
+        (await CallLead.find({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued', 'Dialing'] }, phoneNormalized: { $in: inStage.map((l) => last10(l.phone)).filter(Boolean) } }).select('phoneNormalized').lean()).map((c) => c.phoneNormalized)
+      );
+      const breakdown = { dialing: 0, withoutPhone: 0, instant: 0, assigned: 0, calledBefore: 0, queuedSoon: 0 };
+      for (const l of inStage) {
+        const p = last10(l.phone);
+        if (p.length < 8) breakdown.withoutPhone += 1;
+        else if (livePhones.has(p)) breakdown.dialing += 1;
+        else if (l.instantDispatch && ['pending', 'calling'].includes(l.instantDispatch.status)) breakdown.instant += 1;
+        else if (l.assignedUser) breakdown.assigned += 1;
+        else if ((l.callHistory || []).length) breakdown.calledBefore += 1;
+        else breakdown.queuedSoon += 1; // the next sync tick (≤30 s) puts it in the line
+      }
+      value.push({ stage, left: freshLeft, active: stage === active, pinned: true, total: inStage.length, breakdown });
       continue;
     }
     const notQueued = await Lead.countDocuments(stageLeadFilter(camp, stage));

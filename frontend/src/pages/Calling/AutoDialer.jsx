@@ -681,7 +681,17 @@ function InstantLeadPool() {
             <React.Fragment key={q.stage}>
               {i > 0 && <span style={{ color: "#94a3b8", fontWeight: 700 }}>→</span>}
               <span
-                title={q.active ? "Dialing now" : q.left === 0 ? "No leads left in this stage" : "Waiting its turn"}
+                title={
+                  q.breakdown
+                    ? `New Lead stage: ${q.total} leads
+• ${q.breakdown.dialing} in the dialer (being called)
+• ${q.breakdown.withoutPhone} have no phone number (Messenger / Instagram chats) — can't be called
+• ${q.breakdown.assigned} assigned to an agent — the agent calls them
+• ${q.breakdown.calledBefore} already called once (not re-dialled from New Lead)
+• ${q.breakdown.instant} Facebook instant call in progress
+• ${q.breakdown.queuedSoon} joining the dialer within 30 s`
+                    : q.active ? "Dialing now" : q.left === 0 ? "No leads left in this stage" : "Waiting its turn"
+                }
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
                   border: `1px solid ${q.active ? "#16a34a" : "#e2e8f0"}`,
@@ -695,6 +705,9 @@ function InstantLeadPool() {
                 {q.pinned && "🔒 "}
                 {q.stage === "New Lead" ? "New Lead (unassigned)" : q.stage}
                 {q.left != null && <span style={{ fontWeight: 600, opacity: 0.8 }}>· {q.left}</span>}
+                {q.total != null && q.total !== q.left && (
+                  <span style={{ fontWeight: 600, fontSize: 11.5, opacity: 0.75 }}>of {q.total} in stage ⓘ</span>
+                )}
                 {q.active && <span style={{ fontSize: 11, fontWeight: 800 }}>DIALING NOW</span>}
               </span>
             </React.Fragment>
