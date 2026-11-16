@@ -88,7 +88,25 @@ async function googleAdsRequest(path, { method = 'GET', body, accessToken, login
 
   if (!res.ok) {
     const errBody = json.error || json;
-    throw new GoogleAdsApiError(errBody.message || `Google Ads API request failed with status ${res.status}`, {
+    // Google's top-level message is often generic ("Request is missing required
+    // authentication credential…"); the real reason sits in details[].errors[].
+    const adsErrors = []
+      .concat(...(errBody.details || []).map((d) => d.errors || []))
+      .filter(Boolean);
+    const first = adsErrors[0];
+    const code = first && first.errorCode ? Object.values(first.errorCode)[0] : null;
+    const FRIENDLY = {
+      NOT_ADS_USER:
+        "This Google login has no Google Ads account. Connect with the email that can open your Google Ads account (ads.google.com), or invite this email in Google Ads → Admin → Access and security.",
+      DEVELOPER_TOKEN_NOT_APPROVED:
+        'The Google Ads developer token is test-only — apply for Basic access in Google Ads → Tools → API Center to read real accounts.',
+      USER_PERMISSION_DENIED:
+        "This Google login can't open that Google Ads account — it may sit under a manager account, or access was removed.",
+      CUSTOMER_NOT_ENABLED: 'That Google Ads account is not active (cancelled or not set up yet).',
+    };
+    const message = (code && FRIENDLY[code]) || (first && first.message) || errBody.message || `Google Ads API request failed with status ${res.status}`;
+    throw new GoogleAdsApiError(message, {
+      adsErrorCode: code,
       status: res.status,
       code: errBody.code,
       status_: errBody.status,
