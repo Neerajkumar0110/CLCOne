@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Callbacks · CLC One redesign</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f7f9;font-family:Inter,system-ui,sans-serif;color:#101828}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+.side{flex:1 1 220px;max-width:232px;background:#0b1220;padding:16px 10px;display:flex;flex-direction:column;gap:2px;box-sizing:border-box}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:#cbd5e1;font-size:14px;font-weight:500;text-decoration:none}
+.ni:hover{background:#162033;color:#fff}
+.ni.on{background:#1d4ed8;color:#fff}
+.grp{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#8794a8;padding:14px 12px 4px}
+.cnt{margin-left:auto;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#334155;color:#fff}
+.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px}
+.seg{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;border:1px solid #e4e7ec;background:#fff;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.seg b{font-size:24px;font-weight:800;line-height:1}
+.seg span{font-size:13px;color:#475467;font-weight:600}
+.seg.on{border-color:#b42318;box-shadow:0 0 0 3px #fdecea}
+.cb{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px 18px;border-top:1px solid #f2f4f7}
+.time{width:78px;flex:none}
+.time b{display:block;font-size:16px}
+.time span{font-size:12px;font-weight:700}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:10px;font:inherit;font-size:13px;font-weight:700;border:1px solid #d0d5dd;background:#fff;color:#101828;cursor:pointer}
+.btn.p{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+.chip{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.tries{display:inline-flex;gap:4px;align-items:center}
+.tries i{width:9px;height:9px;border-radius:50%;background:#e4e7ec;display:block}
+</style>
+
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9;display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;background:#101828;font:600 13px Inter,system-ui,sans-serif"><a href="Main.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">1 · New sidebar</a><a href="MyDay.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">2 · My Day</a><a href="MyLeads.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">3 · My Leads</a><a href="Callbacks.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">4 · Callbacks</a><a href="TeamReport.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">5 · Team Report</a><a href="Support.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">6 · Support</a></div>
+
+<div style="display:flex;flex-wrap:wrap;min-height:1120px;width:100%">
+  <nav class="side" aria-label="Main">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 12px 10px"><div style="width:30px;height:30px;border-radius:9px;background:#1d4ed8;color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px">C</div><b style="color:#fff">CLC One</b></div>
+    <div class="grp">MY WORK</div>
+    <a class="ni" href="MyDay.html">My Day</a>
+    <a class="ni" href="#">Dialer<span style="margin-left:auto;font-size:11px;color:#86efac">● on</span></a>
+    <a class="ni" href="MyLeads.html">My Leads</a>
+    <a class="ni on" href="Callbacks.html">Callbacks<span class="cnt" style="background:#b42318">2</span></a>
+    <a class="ni" href="#">Prospects</a>
+    <a class="ni" href="#">Chats<span class="cnt">3</span></a>
+    <div class="grp">MY RECORD</div>
+    <a class="ni" href="#">My Calls</a>
+    <a class="ni" href="#">My Performance</a>
+    <div style="flex:1"></div>
+    <a class="ni" href="#">Help &amp; Support</a>
+  </nav>
+
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px">
+      <div><h1 style="margin:0;font-size:26px;font-weight:800">Callbacks</h1><p style="margin:4px 0 0;color:#475467;font-size:14px">Calls you promised. The dialer rings each one at its time; one callback per number.</p></div>
+      <button class="btn p" style="margin-left:auto">+ New callback</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+      <button class="seg on"><b style="color:#b42318">2</b><span>Overdue</span></button>
+      <button class="seg"><b>4</b><span>Due today</span></button>
+      <button class="seg"><b>12</b><span>Upcoming</span></button>
+      <button class="seg"><b style="color:#067647">5</b><span>Done today</span></button>
+      <button class="seg"><b style="color:#b54708">3</b><span>Missed (3 tries)</span></button>
+    </div>
+
+    <section class="card" style="overflow:hidden" aria-labelledby="ov-h">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;background:#fff5f4">
+        <h2 id="ov-h" style="margin:0;font-size:15px;font-weight:800;color:#b42318">Overdue · call these first</h2>
+      </div>
+      <div class="cb">
+        <div class="time"><b>12:30</b><span style="color:#b42318">3h late</span></div>
+        <div style="flex:1 1 260px;min-width:0"><b style="font-size:15px">Aman Verma</b> <span style="color:#475467;font-size:13px">· 98000 00101</span><div style="font-size:13px;color:#344054;margin-top:3px">"Call after lunch, wants weekend batch" — promised yesterday 17:14</div></div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475467"><span class="tries"><i style="background:#b54708"></i><i style="background:#b54708"></i><i></i></span>2 of 3 tries · rejected</div>
+        <div style="display:flex;gap:8px"><button class="btn p">Call now</button><button class="btn">Reschedule</button><button class="btn" aria-label="Mark done">✓</button></div>
+      </div>
+      <div class="cb">
+        <div class="time"><b>13:00</b><span style="color:#b42318">2h 30m late</span></div>
+        <div style="flex:1 1 260px;min-width:0"><b style="font-size:15px">Priya Sharma</b> <span style="color:#475467;font-size:13px">· 98000 00104</span><div style="font-size:13px;color:#344054;margin-top:3px">"Discuss fees with father" — promised today 10:48</div></div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475467"><span class="tries"><i style="background:#b54708"></i><i></i><i></i></span>1 of 3 tries · busy</div>
+        <div style="display:flex;gap:8px"><button class="btn p">Call now</button><button class="btn">Reschedule</button><button class="btn" aria-label="Mark done">✓</button></div>
+      </div>
+    </section>
+
+    <section class="card" style="overflow:hidden" aria-labelledby="td-h">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px">
+        <h2 id="td-h" style="margin:0;font-size:15px;font-weight:800">Later today</h2>
+      </div>
+      <div class="cb">
+        <div class="time"><b>15:30</b><span style="color:#1d4ed8">in 25 min</span></div>
+        <div style="flex:1 1 260px;min-width:0"><b style="font-size:15px">Karan Mehta</b> <span style="color:#475467;font-size:13px">· 98000 00105</span><div style="font-size:13px;color:#344054;margin-top:3px">"Call after college"</div></div>
+        <span class="chip" style="background:#e8efff;color:#1d4ed8">Dialer rings you at 15:30</span>
+        <div style="display:flex;gap:8px"><button class="btn">Reschedule</button></div>
+      </div>
+      <div class="cb">
+        <div class="time"><b>17:45</b><span style="color:#475467">in 2h 40m</span></div>
+        <div style="flex:1 1 260px;min-width:0"><b style="font-size:15px">Imran Khan</b> <span style="color:#475467;font-size:13px">· 98000 00106</span><div style="font-size:13px;color:#344054;margin-top:3px">"Send syllabus first, then call"</div></div>
+        <span class="chip" style="background:#fef0e6;color:#b54708">Syllabus not sent yet</span>
+        <div style="display:flex;gap:8px"><button class="btn">Send on WhatsApp</button></div>
+      </div>
+    </section>
+
+    <div class="card" style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px 24px;font-size:13px;color:#344054">
+      <b>How callbacks work</b>
+      <span>Rings you at the promised time; you are kept free 1 min before.</span>
+      <span>Not reached → tries again after 15 min, 3 tries, then Missed.</span>
+      <span>Talked → Done automatically.</span>
+      <span>Choose "Callback" only after talking. Not picked up → "Ringing — No Pickup".</span>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

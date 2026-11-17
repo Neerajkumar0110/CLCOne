@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>New sales sidebar · CLC One redesign</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f7f9;font-family:Inter,system-ui,sans-serif;color:#101828}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:20px}
+.h{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#475467;margin:0}
+.old{display:flex;align-items:center;gap:8px;font-size:13px;color:#344054;padding:6px 10px;border-radius:8px;background:#f2f4f7}
+.old s{color:#667085}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.new{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:#cbd5e1;font-size:14px;font-weight:500}
+.new svg{flex:none}
+.grp{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#8794a8;padding:14px 12px 4px}
+.row{display:grid;grid-template-columns:minmax(0,1.1fr) 28px minmax(0,1fr);gap:10px;align-items:center;padding:10px 0;border-top:1px dashed #e4e7ec}
+.def{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid #f2f4f7;font-size:13.5px;line-height:1.45}
+.def b{color:#101828}
+.def span{color:#344054}
+</style>
+
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9;display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;background:#101828;font:600 13px Inter,system-ui,sans-serif"><a href="Main.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">1 · New sidebar</a><a href="MyDay.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">2 · My Day</a><a href="MyLeads.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">3 · My Leads</a><a href="Callbacks.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">4 · Callbacks</a><a href="TeamReport.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">5 · Team Report</a><a href="Support.html" style="color:#e4e7ec;text-decoration:none;padding:6px 10px;border-radius:8px;background:#1f2937">6 · Support</a></div>
+
+<div style="box-sizing:border-box;width:100%;max-width:1360px;margin:0 auto;padding:40px 40px 48px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <p class="h" style="color:#1d4ed8">Sales panel · redesign proposal</p>
+    <h1 style="margin:0;font-size:34px;line-height:1.15;font-weight:800">One place for a sales user's whole day</h1>
+    <p style="margin:0;font-size:16px;color:#475467;max-width:860px;line-height:1.5">Today a sales user's work is spread over ~30 sidebar entries in Sales, Calls, Reports, HRMS and Messenger, and the same number (calls, callbacks, prospects) is counted differently on different screens. The new panel has 8 entries, and every number has one meaning and one source.</p>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <!-- mapping -->
+    <div class="card" style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column;gap:4px">
+      <div style="display:grid;grid-template-columns:minmax(0,1.1fr) 28px minmax(0,1fr);gap:10px;padding-bottom:8px">
+        <p class="h">Today (sidebar entries)</p><span></span><p class="h">New home</p>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Dashboard</span><span class="old">Sales › Dashboard</span><span class="old">Calls › Dashboard</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>My Day</b> <span class="tag" style="background:#e8efff;color:#1d4ed8">home</span></div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Calls › Dialer</span><span class="old">Auto Dialer</span><span class="old">Agent Screen</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Dialer</b> — one screen: auto on/off + dial a number</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Leads › Lead Stages</span><span class="old">Lead List</span><span class="old">Used Leads</span><span class="old">Candidates</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>My Leads</b> — one list, stages are tabs</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Calls › Callbacks</span><span class="old">Stage: Callback</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Callbacks</b> — overdue / today / upcoming</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Pipeline</span><span class="old">Deals</span><span class="old">Live Demos</span><span class="old">Stages: Connected · Interested · Demo · Prospects</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Prospects</b> — people who talked and are interested</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Ad Chat Inbox</span><span class="old">Messenger › WhatsApp</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Chats</b></div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Call History</span><span class="old">Recordings</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>My Calls</b> — recording plays in the row</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">HRMS › Sales 360°</span><span class="old">Reports › Performance</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>My Performance</b> — attendance, dialer hours, policy</div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Team Activity</span><span class="old">Calls › Reports</span><span class="old">Reports › Overview</span><span class="old">Sales 360° (team)</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Team Report</b> <span class="tag" style="background:#f2f4f7;color:#344054">managers</span></div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old">Campaigns</span><span class="old">Pool stages</span><span class="old">Import / Export</span><span class="old">Assign owner</span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>Lead Routing</b> <span class="tag" style="background:#f2f4f7;color:#344054">managers</span></div>
+      </div>
+      <div class="row">
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="old"><s>Quotes</s></span><span class="old"><s>Orders</s></span><span class="old"><s>Products</s></span><span class="old"><s>Payments</s></span></div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#98a2b3" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div style="color:#475467">Hidden for sales users (Finance keeps Payments)</div>
+      </div>
+    </div>
+
+    <!-- new sidebar -->
+    <div style="flex:1 1 300px;max-width:340px;display:flex;flex-direction:column;gap:12px">
+      <p class="h">New sidebar · sales user</p>
+      <nav aria-label="Sales sidebar preview" style="background:#0b1220;border-radius:18px;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 12px 12px"><div style="width:32px;height:32px;border-radius:9px;background:#1d4ed8;color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px">C</div><b style="color:#fff;font-size:15px">CLC One</b></div>
+        <div class="grp">MY WORK</div>
+        <div class="new" style="background:#1d4ed8;color:#fff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>My Day</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>Dialer<span style="margin-left:auto;font-size:11px;color:#86efac">● on</span></div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8M22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>My Leads</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Callbacks<span style="margin-left:auto;background:#b42318;color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px">2</span></div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>Prospects</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg>Chats<span style="margin-left:auto;background:#334155;color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px">3</span></div>
+        <div class="grp">MY RECORD</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5M12 7v5l4 2"/></svg>My Calls</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>My Performance</div>
+        <div class="grp">TEAM · managers only</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>Team Report</div>
+        <div class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/></svg>Lead Routing</div>
+        <div style="border-top:1px solid #1f2a3d;margin:12px 4px 0;padding-top:10px" class="new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Help &amp; Support</div>
+      </nav>
+    </div>
+  </div>
+
+  <div class="card" style="display:flex;flex-direction:column;gap:2px">
+    <p class="h" style="margin-bottom:6px">One number, one meaning — used on every screen</p>
+    <div class="def"><b>Dialled</b><span>A call placed to the customer, by the auto dialer, a callback or by hand. Counted once per call.</span></div>
+    <div class="def"><b>Talked</b><span>The customer answered <i>and</i> the user joined the call, talk time above 0 s. Only this counts as "spoke".</span></div>
+    <div class="def"><b>Not reached</b><span>Rejected, busy, no answer, switched off or a carrier error, shown with the exact reason.</span></div>
+    <div class="def"><b>Callback</b><span>A call promised to the customer for a date and time. Overdue · Due today · Upcoming · Done (talked) · Missed (3 tries, not reached).</span></div>
+    <div class="def"><b>Prospect</b><span>Talked and interested: Connected (qualified), Interested, Demo Booking or Prospects stage. One lead = one prospect, never counted twice.</span></div>
+    <div class="def"><b>Follow-up</b><span>Future Prospect with a next date. Shows on My Day the day it is due.</span></div>
+    <div class="def"><b>Enrolled</b><span>Payment done. The only "win".</span></div>
+    <div class="def"><b>Dialer time</b><span>Minutes with the dialer on and the user Available or on a call. Breaks and Paused excluded. Same figure as attendance.</span></div>
+    <div class="def"><b>Not done</b><span>Anything the user owed today and did not do: overdue callbacks, follow-ups past due, calls with no response saved, chats unanswered for over 30 min.</span></div>
+  </div>
+</div>
+
+</body>
+</html>
