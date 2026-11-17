@@ -428,6 +428,7 @@ const STUDENT_NAV = [
   ['/learn/material', 'Study material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/learn/curriculum', 'Curriculum progress', <ScheduleOutlined />, <Curriculum />],
   ['/learn/assessment-dashboard', 'Assessments & tests', <RocketOutlined />, <AssessmentDashboard />],
+  ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/learn/projects', 'My Project', <ProjectOutlined />, <Projects />],
   ['#ME'],
@@ -442,14 +443,13 @@ const STUDENT_NAV = [
 // Learner pages R1 doesn't put in the sidebar — still routed, reached from
 // where they belong: Major / Micro tests (Assessments & tests), Internships
 // course content (My progress), Calendar (Live classes), Doubts (Support),
-// Results (test pages, My progress), Eligibility (Home), Announcements (bell,
-// Home). Nothing removed.
+// Eligibility (Home), Announcements (bell, Home). Nothing removed. (My Results
+// moved into the sidebar under Assessments & tests, 2026-11-16.)
 const STUDENT_MORE = [
   ...flattenNavLeaves([quizzesGroup('/learn', 'Major & Micro tests', { withBasic: false })]),
   ['/learn/courses', 'My Internships', null, <LearningPage />],
   ['/learn/calendar', 'Calendar', null, <LmsCalendar />],
   ['/learn/doubts', 'My Doubts', null, <Doubts />],
-  ['/learn/results', 'My Results', null, <Results />],
   ['/learn/eligibility', 'My Eligibility', null, <Eligibility />],
   ['/learn/notifications', 'Announcements', null, <AnnouncementsPage />],
 ];

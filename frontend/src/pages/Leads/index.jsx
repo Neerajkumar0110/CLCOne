@@ -50,6 +50,7 @@ import {
   DeleteOutlined,
   CloseOutlined,
   FilterOutlined,
+  SearchOutlined,
   RiseOutlined,
   FacebookOutlined,
   LinkOutlined,
@@ -58,6 +59,7 @@ import {
   LinkedinOutlined,
   GlobalOutlined,
 } from "@ant-design/icons";
+import "./leadListFilters.css";
 
 // Local token override so antd's Collapse/Tooltip pick up this page's blue
 // accent instead of the app-wide teal primary color.
@@ -1415,6 +1417,71 @@ function LeadStageBoard({ stages, total, pools = null, pool = "board", onPool, l
   );
 }
 
+// ── "Came in" — when each lead arrived (user ask 2026-11-17) ──────────────
+// Dates are IST calendar days "YYYY-MM-DD" (the backend reads them as whole IST days).
+const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600e3 + offset * 864e5).toISOString().slice(0, 10);
+const cameDay = (d) => {
+  const k = new Date(new Date(d).getTime() + 5.5 * 3600e3).toISOString().slice(0, 10);
+  if (k === istDay(0)) return "Today";
+  if (k === istDay(-1)) return "Yesterday";
+  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: k.slice(0, 4) === istDay(0).slice(0, 4) ? undefined : "numeric" });
+};
+
+// Chips above the Lead List: All · Today · Yesterday · Last 7 days · Custom (one day or a span).
+// They drive the same createdFrom / createdTo as the Filters panel's "Created" dates.
+function CameInBar({ filters, arrivals, onPick }) {
+  const f = filters.createdFrom || "";
+  const t = filters.createdTo || "";
+  const today = istDay(0);
+  const yest = istDay(-1);
+  const week = istDay(-6);
+  const preset = !f && !t ? "all" : f === today && t === today ? "today" : f === yest && t === yest ? "yesterday" : f === week && t === today ? "7d" : "custom";
+  const [custom, setCustom] = useState(preset === "custom");
+  useEffect(() => {
+    if (preset === "custom") setCustom(true);
+  }, [preset]);
+  const chip = (key, label, count, from, to) => (
+    <button
+      type="button"
+      className={`ll-cchip${preset === key && !(custom && key !== "custom") ? " on" : ""}`}
+      onClick={() => {
+        setCustom(false);
+        onPick(from, to);
+      }}
+    >
+      {label}
+      {count !== undefined && count !== null && <i>{count}</i>}
+    </button>
+  );
+  return (
+    <div className="ll-camebar" role="group" aria-label="Came in">
+      <span className="ll-camelabel">Came in</span>
+      {chip("all", "All", undefined, "", "")}
+      {chip("today", "Today", arrivals?.today, today, today)}
+      {chip("yesterday", "Yesterday", arrivals?.yesterday, yest, yest)}
+      {chip("7d", "Last 7 days", arrivals?.last7, week, today)}
+      <button type="button" className={`ll-cchip${custom || preset === "custom" ? " on" : ""}`} onClick={() => setCustom(true)}>
+        Custom
+      </button>
+      {(custom || preset === "custom") && (
+        <span className="ll-ccustom">
+          <input
+            type="date"
+            className="hub-input"
+            aria-label="Came in from"
+            value={f}
+            max={t || today}
+            onChange={(e) => onPick(e.target.value, t && t >= e.target.value ? t : e.target.value)}
+          />
+          <span className="ll-arrow" aria-hidden="true">→</span>
+          <input type="date" className="hub-input" aria-label="Came in to" value={t} min={f || undefined} max={today} onChange={(e) => onPick(f || e.target.value, e.target.value)} />
+          <em>{f ? (f === t || !t ? `Only ${cameDay(`${f}T12:00:00+05:30`)}` : `${cameDay(`${f}T12:00:00+05:30`)} – ${cameDay(`${t}T12:00:00+05:30`)}`) : "Pick a day"}</em>
+        </span>
+      )}
+    </div>
+  );
+}
+
 function AllLeads() {
   const currentAdmin = useSelector(selectCurrentAdmin);
   const isFullAccess = LEAD_ADMIN_TAB_ROLES.includes(currentAdmin?.role);
@@ -1541,12 +1608,14 @@ function AllLeads() {
     const viewUser = over.boardUser !== undefined ? over.boardUser : boardUser;
     if (viewUser && params.get("teamView") === "responses") params.set("user", viewUser);
 
+    params.set("withArrivals", "1");
     const res = await request.get({ entity: `lead/by-stage?${params.toString()}` });
     setDrill({
       leads: res?.success ? res.result : [],
       page: targetPage,
       pages: res?.pagination?.pages || 1,
       count: res?.pagination?.count || 0,
+      arrivals: res?.arrivals || null,
       loading: false,
     });
   };
@@ -1594,6 +1663,22 @@ function AllLeads() {
     setDrillStage(stage);
     loadLeadList(1, { pool: p, stage, sub: drillSub });
   };
+
+  // header search: the list follows as you type (0.4 s pause), Enter / clear at once
+  const searchTimer = useRef(null);
+  const onSearchType = (value, now = false) => {
+    const next = { ...filters, q: value };
+    setFilters(next);
+    clearTimeout(searchTimer.current);
+    if (now) loadLeadList(1, { filters: next });
+    else searchTimer.current = setTimeout(() => loadLeadList(1, { filters: next }), 400);
+  };
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+  // how many advanced filters are on (Filters button badge); the search box shows itself
+  const activeFilterCount =
+    (drillStage ? 1 : 0) +
+    ["subStatus", "assignedUser", "team", "source", "teamView"].filter((k) => filters[k]).length +
+    [["callbackFrom", "callbackTo"], ["followUpFrom", "followUpTo"], ["createdFrom", "createdTo"]].filter(([a, b]) => filters[a] || filters[b]).length;
 
   const updateFilter = (patch) => {
     const next = { ...filters, ...patch };
@@ -1754,8 +1839,28 @@ function AllLeads() {
       )}
 
       <div className="hub-card">
-        <div className="hub-card-header">
+        <div className="hub-card-header ll-head">
           <h3>Lead List</h3>
+          {/* search (user ask 2026-11-17): type a number / name — the list follows as you type */}
+          <label className="ll-search" title="Search by name, phone number or email">
+            <SearchOutlined />
+            <input
+              value={filters.q}
+              onChange={(e) => onSearchType(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSearchType(e.currentTarget.value, true);
+                if (e.key === "Escape") onSearchType("", true);
+              }}
+              placeholder="Search number, name or email…"
+              aria-label="Search leads by number, name or email"
+              inputMode="search"
+            />
+            {filters.q && (
+              <button type="button" className="ll-search-x" onClick={() => onSearchType("", true)} aria-label="Clear search">
+                <CloseOutlined />
+              </button>
+            )}
+          </label>
           <div className="hub-row" style={{ gap: 8 }}>
             {canAssignOwner && (
               <button
@@ -1775,6 +1880,7 @@ function AllLeads() {
               style={showFilters ? { background: "var(--hub-blue)", color: "#fff", borderColor: "var(--hub-blue)" } : undefined}
             >
               <FilterOutlined /> Filters
+              {activeFilterCount > 0 && <span className="ll-fcount">{activeFilterCount}</span>}
             </button>
             {listActive && (
               <button type="button" className="hub-btn" onClick={clearList}>
@@ -1820,146 +1926,111 @@ function AllLeads() {
           })}
         </div>
 
-        {/* Advanced filters */}
+        {/* Advanced filters (redesigned 2026-11-17) */}
         {showFilters && (
-          <div
-            style={{
-              border: "1px solid var(--hub-border)",
-              borderRadius: 12,
-              padding: 14,
-              background: "var(--hub-bg-soft)",
-              marginBottom: 12,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 10,
-            }}
-          >
-            <div className="hub-form-row">
-              <label>Stage</label>
-              <select
-                className="hub-select"
-                value={drillStage || ""}
-                onChange={(e) => selectStage(e.target.value || null)}
-              >
-                <option value="">All stages</option>
-                <option value={ALL_STAGES}>{poolTab(pool).all}</option>
-                {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+          <div className="ll-filters">
+            <div className="ll-fsec">
+              <div className="ll-fsec-h">
+                <span>Lead details</span>
+                {activeFilterCount > 0 && (
+                  <button type="button" className="ll-reset" onClick={clearList}>
+                    <CloseOutlined /> Reset all
+                  </button>
+                )}
+              </div>
+              <div className="ll-fgrid">
+                <label className="ll-field">
+                  <span>Stage</span>
+                  <select className="hub-select" value={drillStage || ""} onChange={(e) => selectStage(e.target.value || null)}>
+                    <option value="">All stages</option>
+                    <option value={ALL_STAGES}>{poolTab(pool).all}</option>
+                    {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+                <label className="ll-field">
+                  <span>Sub-status</span>
+                  <select
+                    className="hub-select"
+                    value={filters.subStatus}
+                    disabled={!drillStage}
+                    title={drillStage ? undefined : "Pick a stage first"}
+                    onChange={(e) => {
+                      setDrillSub(e.target.value || null);
+                      updateFilter({ subStatus: e.target.value });
+                    }}
+                  >
+                    <option value="">{drillStage ? "All" : "Pick a stage first"}</option>
+                    {(drillStage ? subStatusesFor(drillStage) : []).map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+                {/* Company-wide narrowing — only has an effect for Owner/Super Admin/Admin/
+                    Sales Manager/Team Manager (leadController/scope.js); hidden for everyone else. */}
+                {isFullAccess && (
+                  <label className="ll-field">
+                    <span>Assigned user</span>
+                    <select className="hub-select" value={filters.assignedUser} onChange={(e) => updateFilter({ assignedUser: e.target.value })}>
+                      <option value="">Anyone</option>
+                      <option value="none">Unassigned (no owner)</option>
+                      {salesAdmins.map((a) => (
+                        <option key={a._id} value={a._id}>{`${a.name || ""} ${a.surname || ""}`.trim() || a.email}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {isFullAccess && (
+                  <label className="ll-field">
+                    <span>Team</span>
+                    <select className="hub-select" value={filters.team} onChange={(e) => updateFilter({ team: e.target.value })}>
+                      <option value="">Any team</option>
+                      {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </label>
+                )}
+                {/* Non-full-access users see every lead by default; this narrows to their team's or their own. */}
+                {!isFullAccess && (
+                  <label className="ll-field">
+                    <span>Showing</span>
+                    <select className="hub-select" value={filters.teamView} onChange={(e) => updateFilter({ teamView: e.target.value })}>
+                      <option value="">All leads</option>
+                      <option value="1">My team</option>
+                      <option value="mine">My leads only</option>
+                    </select>
+                  </label>
+                )}
+                <label className="ll-field">
+                  <span>Source</span>
+                  <select className="hub-select" value={filters.source} onChange={(e) => updateFilter({ source: e.target.value })}>
+                    <option value="">Any source</option>
+                    {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
-            <div className="hub-form-row">
-              <label>Sub-Status</label>
-              <select
-                className="hub-select"
-                value={filters.subStatus}
-                disabled={!drillStage}
-                onChange={(e) => {
-                  setDrillSub(e.target.value || null);
-                  updateFilter({ subStatus: e.target.value });
-                }}
-              >
-                <option value="">All</option>
-                {(drillStage ? subStatusesFor(drillStage) : []).map((s) => (
-                  <option key={s} value={s}>{s}</option>
+
+            <div className="ll-fsec">
+              <div className="ll-fsec-h"><span>Dates</span><em>Leave “to” empty for a single day onwards</em></div>
+              <div className="ll-dgrid">
+                {[
+                  ["Callback", "callbackFrom", "callbackTo"],
+                  ["Follow-up", "followUpFrom", "followUpTo"],
+                  ["Created", "createdFrom", "createdTo"],
+                ].map(([label, fk, tk]) => (
+                  <div key={label} className={`ll-drange${filters[fk] || filters[tk] ? " on" : ""}`}>
+                    <span className="ll-dlabel">{label}</span>
+                    <div className="ll-dinputs">
+                      <input type="date" className="hub-input" aria-label={`${label} from`} value={filters[fk]} max={filters[tk] || undefined} onChange={(e) => updateFilter({ [fk]: e.target.value })} />
+                      <span className="ll-arrow" aria-hidden="true">→</span>
+                      <input type="date" className="hub-input" aria-label={`${label} to`} value={filters[tk]} min={filters[fk] || undefined} onChange={(e) => updateFilter({ [tk]: e.target.value })} />
+                      {(filters[fk] || filters[tk]) && (
+                        <button type="button" className="ll-dclear" aria-label={`Clear ${label} dates`} onClick={() => updateFilter({ [fk]: "", [tk]: "" })}>
+                          <CloseOutlined />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </select>
-            </div>
-            {/* Company-wide narrowing — only actually has any effect for
-                Owner/Super Admin/Admin/Sales Manager/Team Manager (see
-                leadController/scope.js); everyone else is force-scoped
-                server-side regardless of these, so the fields are hidden
-                for them to avoid implying a control that does nothing. */}
-            {isFullAccess && (
-              <div className="hub-form-row">
-                <label>Assigned User</label>
-                <select
-                  className="hub-select"
-                  value={filters.assignedUser}
-                  onChange={(e) => updateFilter({ assignedUser: e.target.value })}
-                >
-                  <option value="">Anyone</option>
-                  <option value="none">Unassigned (no owner)</option>
-                  {salesAdmins.map((a) => (
-                    <option key={a._id} value={a._id}>
-                      {`${a.name || ""} ${a.surname || ""}`.trim() || a.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {isFullAccess && (
-              <div className="hub-form-row">
-                <label>Team</label>
-                <select
-                  className="hub-select"
-                  value={filters.team}
-                  onChange={(e) => updateFilter({ team: e.target.value })}
-                >
-                  <option value="">Any team</option>
-                  {teamNames.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {/* Non-full-access users see every lead by default (see
-                leadController/scope.js); this narrows to their team's or
-                their own. Full-access users get the Team/Agent pickers. */}
-            {!isFullAccess && (
-              <div className="hub-form-row">
-                <label>Showing</label>
-                <select
-                  className="hub-select"
-                  value={filters.teamView}
-                  onChange={(e) => updateFilter({ teamView: e.target.value })}
-                >
-                  <option value="">All leads</option>
-                  <option value="1">My team</option>
-                  <option value="mine">My leads only</option>
-                </select>
-              </div>
-            )}
-            <div className="hub-form-row">
-              <label>Source</label>
-              <select
-                className="hub-select"
-                value={filters.source}
-                onChange={(e) => updateFilter({ source: e.target.value })}
-              >
-                <option value="">Any</option>
-                {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div className="hub-form-row">
-              <label>Search (name / phone / email)</label>
-              <input
-                className="hub-input"
-                value={filters.q}
-                onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-                onKeyDown={(e) => e.key === "Enter" && loadLeadList(1)}
-                placeholder="Type & press Enter"
-              />
-            </div>
-            <div className="hub-form-row">
-              <label>Callback from → to</label>
-              <div className="hub-row" style={{ gap: 6 }}>
-                <input type="date" className="hub-input" value={filters.callbackFrom} onChange={(e) => updateFilter({ callbackFrom: e.target.value })} />
-                <input type="date" className="hub-input" value={filters.callbackTo} onChange={(e) => updateFilter({ callbackTo: e.target.value })} />
-              </div>
-            </div>
-            <div className="hub-form-row">
-              <label>Follow-up from → to</label>
-              <div className="hub-row" style={{ gap: 6 }}>
-                <input type="date" className="hub-input" value={filters.followUpFrom} onChange={(e) => updateFilter({ followUpFrom: e.target.value })} />
-                <input type="date" className="hub-input" value={filters.followUpTo} onChange={(e) => updateFilter({ followUpTo: e.target.value })} />
-              </div>
-            </div>
-            <div className="hub-form-row">
-              <label>Created from → to</label>
-              <div className="hub-row" style={{ gap: 6 }}>
-                <input type="date" className="hub-input" value={filters.createdFrom} onChange={(e) => updateFilter({ createdFrom: e.target.value })} />
-                <input type="date" className="hub-input" value={filters.createdTo} onChange={(e) => updateFilter({ createdTo: e.target.value })} />
               </div>
             </div>
           </div>
@@ -1981,6 +2052,7 @@ function AllLeads() {
                 </>
               )}
             </div>
+            <CameInBar filters={filters} arrivals={drill.arrivals} onPick={(createdFrom, createdTo) => updateFilter({ createdFrom, createdTo })} />
             <div className="hub-table-wrapper">
               <table className="hub-table">
                 <thead>
@@ -1998,6 +2070,7 @@ function AllLeads() {
                     )}
                     <th>Client Name</th>
                     <th>Phone</th>
+                    <th>Came in</th>
                     <th>Stage / Sub-Status</th>
                     <th>Assigned</th>
                     <th>Next Follow-up</th>
@@ -2007,10 +2080,10 @@ function AllLeads() {
                 </thead>
                 <tbody>
                   {drill.loading && (
-                    <tr><td colSpan={canAssignOwner ? 8 : 7}><div className="hub-empty">Loading…</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 9 : 8}><div className="hub-empty">Loading…</div></td></tr>
                   )}
                   {!drill.loading && drill.leads.length === 0 && (
-                    <tr><td colSpan={canAssignOwner ? 8 : 7}><div className="hub-empty">No leads match these filters.</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 9 : 8}><div className="hub-empty">No leads match these filters.</div></td></tr>
                   )}
                   {!drill.loading &&
                     drill.leads.map((l) => {
@@ -2047,6 +2120,14 @@ function AllLeads() {
                             </div>
                           </td>
                           <td>{l.phone || "—"}</td>
+                          <td className="ll-came">
+                            {l.created ? (
+                              <>
+                                <b>{cameDay(l.created)}</b>
+                                <span>{new Date(l.created).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                              </>
+                            ) : "—"}
+                          </td>
                           <td>
                             {drillStage === NOT_ENTERED ? (
                               // Called, but this user never recorded a response — the stage on
@@ -2098,33 +2179,34 @@ function AllLeads() {
                             )}
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className="hub-btn"
-                              style={{ padding: "5px 12px" }}
-                              onClick={() => setEditLead(l)}
-                            >
-                              <EditOutlined /> Edit
-                            </button>
-                            {canAssignOwner && (
-                              <button
-                                type="button"
-                                className="hub-btn"
-                                style={{ padding: "5px 12px", marginLeft: 6 }}
-                                title="Change this lead's owner"
-                                onClick={() =>
-                                  setOwnerModal({
-                                    single: {
-                                      _id: l._id,
-                                      name: l.name,
-                                      assignedUserName: l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "",
-                                    },
-                                  })
-                                }
-                              >
-                                <UserSwitchOutlined /> Owner
-                              </button>
-                            )}
+                            {/* row actions: icons in one line, name on hover (user ask 2026-11-17) */}
+                            <span className="ll-acts">
+                              <Tooltip title="Edit lead">
+                                <button type="button" className="ll-act" aria-label={`Edit ${l.name || "lead"}`} onClick={() => setEditLead(l)}>
+                                  <EditOutlined />
+                                </button>
+                              </Tooltip>
+                              {canAssignOwner && (
+                                <Tooltip title="Change owner">
+                                  <button
+                                    type="button"
+                                    className="ll-act"
+                                    aria-label={`Change owner of ${l.name || "lead"}`}
+                                    onClick={() =>
+                                      setOwnerModal({
+                                        single: {
+                                          _id: l._id,
+                                          name: l.name,
+                                          assignedUserName: l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "",
+                                        },
+                                      })
+                                    }
+                                  >
+                                    <UserSwitchOutlined />
+                                  </button>
+                                </Tooltip>
+                              )}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -2309,14 +2391,11 @@ function AllLeads() {
                                     </button>
                                   </td>
                                   <td>
-                                    <button
-                                      type="button"
-                                      className="hub-btn"
-                                      style={{ padding: "5px 12px" }}
-                                      onClick={() => setEditLead(l)}
-                                    >
-                                      <EditOutlined /> Edit
-                                    </button>
+                                    <Tooltip title="Edit lead">
+                                      <button type="button" className="ll-act" aria-label={`Edit ${l.name || "lead"}`} onClick={() => setEditLead(l)}>
+                                        <EditOutlined />
+                                      </button>
+                                    </Tooltip>
                                   </td>
                                 </tr>
                               ))}

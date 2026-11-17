@@ -272,6 +272,14 @@ function ContactInfo({ sel, profile, link, onClose, onOpenLead }) {
           {kv("Started", when(p.startedAt || sel.chatStartedAt))}
           {kv("Last message", when(sel.chatLastAt))}
           {kv("We last replied", p.repliedAt || sel.chatRepliedAt ? when(p.repliedAt || sel.chatRepliedAt) : "Not yet")}
+          {kv(
+            "Enquiry form",
+            (p.form || sel.form) === "filled"
+              ? <span className="aci-fbadge filled">✓ Filled · {when(p.formFilledAt || sel.formFilledAt)}</span>
+              : (p.form || sel.form) === "pending"
+              ? <span className="aci-fbadge pending">⏳ Sent {when(p.formSentAt || sel.formSentAt)} · not filled</span>
+              : <span className="aci-fbadge none">Not sent yet</span>
+          )}
           {p.ourNumbers && p.ourNumbers.length > 0 && kv("Our number", p.ourNumbers.map((n) => `${n.label}${n.connected ? "" : " (offline)"}`).join(", "))}
         </div>
 
@@ -285,6 +293,14 @@ function ContactInfo({ sel, profile, link, onClose, onOpenLead }) {
   );
 }
 
+// enquiry form state of a chat: filled / sent but not filled / (optionally) never sent
+function FormBadge({ form, withNone }) {
+  if (form === "filled") return <span className="aci-fbadge filled" title="Filled the enquiry form">✓ Form filled</span>;
+  if (form === "pending") return <span className="aci-fbadge pending" title="Form link sent — not filled yet">⏳ Form not filled</span>;
+  if (withNone && form === "none") return <span className="aci-fbadge none" title="The form link was never sent">Form not sent</span>;
+  return null;
+}
+
 export default function AdChatInbox({ open, onClose, initialChannel, initialLead }) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -292,6 +308,9 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
   const [q, setQ] = useState("");
   const [channel, setChannel] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
+  // enquiry form: "" all | filled | pending (sent, not filled) | none (never sent)
+  const [formFilter, setFormFilter] = useState("");
+  const [forms, setForms] = useState({ filled: 0, pending: 0, none: 0 });
   const [sel, setSel] = useState(null);
   const [conv, setConv] = useState(null);
   const [convErr, setConvErr] = useState("");
@@ -319,13 +338,14 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
 
   const loadList = async () => {
     setLoading(true);
-    const qs = new URLSearchParams({ ...(q ? { q } : {}), ...(channel ? { channel } : {}) }).toString();
+    const qs = new URLSearchParams({ ...(q ? { q } : {}), ...(channel ? { channel } : {}), ...(formFilter ? { form: formFilter } : {}) }).toString();
     const res = await request.get({ entity: `facebook/chats${qs ? `?${qs}` : ""}` });
     setLoading(false);
     if (res?.success) {
       setRows(res.result.rows);
       setTotal(res.result.total);
       setUnread(res.result.unread || 0);
+      if (res.result.forms) setForms(res.result.forms);
       setErr("");
     } else setErr(res?.message || "Could not load the chats.");
   };
@@ -357,7 +377,7 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
     const t = setTimeout(loadList, q ? 350 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, q, channel]);
+  }, [open, q, channel, formFilter]);
 
   // open a chat: load it, tell Meta it was seen, then keep it fresh every 6 s
   useEffect(() => {
@@ -561,6 +581,24 @@ ${line}` : line));
                 Unread{unread ? ` ${unread}` : ""}
               </button>
             </div>
+            <div className="aci-chips aci-formchips" role="group" aria-label="Enquiry form">
+              <span className="aci-formlabel">{I.form} Form</span>
+              {[
+                ["filled", "Filled", "✓"],
+                ["pending", "Not filled", "⏳"],
+                ["none", "Not sent", "–"],
+              ].map(([k, l, ic]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={`aci-chip aci-fchip ${k} ${formFilter === k ? "on" : ""}`}
+                  onClick={() => setFormFilter((v) => (v === k ? "" : k))}
+                  title={{ filled: "Customers who submitted the enquiry form", pending: "The form link was sent but the customer has not filled it yet", none: "The form link was never sent" }[k]}
+                >
+                  <span aria-hidden="true">{ic}</span> {l} <i>{forms[k] || 0}</i>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="aci-list">
             {err && <div className="aci-err">{err}</div>}
@@ -583,7 +621,10 @@ ${line}` : line));
                       </span>
                       {r.unread && <span className="aci-unread" aria-label="unread" />}
                     </span>
-                    {meta && <span className="aci-item-meta" style={{ display: "block" }}>{meta}</span>}
+                    <span className="aci-item-meta aci-item-meta2">
+                      {meta && <span className="aci-item-metatext">{meta}</span>}
+                      <FormBadge form={r.form} />
+                    </span>
                   </span>
                 </button>
               );
@@ -606,7 +647,9 @@ ${line}` : line));
                   <Avatar name={headName} channel={sel.chatChannel} size={40} />
                   <span style={{ minWidth: 0 }}>
                     <div className="aci-head-name">{headName}</div>
-                    <div className="aci-head-sub">{headSub}</div>
+                    <div className="aci-head-sub">
+                      {headSub} <FormBadge form={(profile && profile.form) || sel.form} withNone />
+                    </div>
                   </span>
                 </button>
                 {sel.phone && (

@@ -320,3 +320,9 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Custom date range (user ask 2026-11-17) */
+.cs-custom { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: 4px; }
+.cs-custom label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--hub-muted, #64748b); }
+.cs-custom input[type='date'] { height: 32px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--hub-border, #e2e8f0); background: var(--hub-surface, #fff); color: var(--hub-text, #0f172a); font: inherit; font-size: 13px; }
+.cs-custom input[type='date']:focus { outline: 2px solid var(--hub-blue, #2563eb); outline-offset: 1px; }

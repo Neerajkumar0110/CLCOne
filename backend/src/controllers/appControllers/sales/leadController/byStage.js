@@ -74,8 +74,16 @@ async function buildLeadListFilter(q, scopeUsers = null) {
   if (q.position) filter.position = q.position;
 
   if (q.q) {
-    const rx = new RegExp(String(q.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const raw = String(q.q).trim();
+    const rx = new RegExp(raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ name: rx }, { phone: rx }, { email: rx }];
+    // A number typed any way ("+91 99962 39867", "099962-39867", "9996239867")
+    // matches however the lead's phone was saved: compare digits only, last 10.
+    const digits = raw.replace(/\D/g, '');
+    if (/^[\d\s+()-]+$/.test(raw) && digits.length >= 4) {
+      const tail = new RegExp(digits.slice(-10));
+      filter.$or.push({ phone: tail }, { phoneNormalized: tail });
+    }
   }
 
   const now = new Date();
@@ -90,11 +98,17 @@ async function buildLeadListFilter(q, scopeUsers = null) {
     filter.callBackAt = { $gt: endOfDay(now) };
   }
 
+  // A plain "YYYY-MM-DD" (the date inputs) is a whole IST day: from = 00:00 IST,
+  // to = 23:59:59.999 IST. new Date("YYYY-MM-DD") alone is UTC midnight, which
+  // made "to" stop at 05:30 IST — a one-day range came back almost empty.
+  const DAY = /^\d{4}-\d{2}-\d{2}$/;
+  const IST = 5.5 * 3600e3;
+  const at = (v, end) => (DAY.test(String(v)) ? new Date(new Date(`${v}T00:00:00Z`).getTime() - IST + (end ? 864e5 - 1 : 0)) : new Date(v));
   const range = (field, from, to) => {
     if (!from && !to) return;
     filter[field] = {};
-    if (from) filter[field].$gte = new Date(from);
-    if (to) filter[field].$lte = new Date(to);
+    if (from) filter[field].$gte = at(from, false);
+    if (to) filter[field].$lte = at(to, true);
   };
   if (!filter.callBackAt) range('callBackAt', q.callbackFrom, q.callbackTo);
   range('nextFollowUpAt', q.followUpFrom, q.followUpTo);
@@ -129,10 +143,27 @@ const byStage = async (req, res) => {
   const scopeFilter = q.teamView === 'responses' ? {} : await leadScopeFilter(req.admin, req);
   const query = Object.keys(scopeFilter).length ? { $and: [filter, scopeFilter] } : filter;
 
-  const [result, count] = await Promise.all([
+  // "Came in" counts for the Lead List chips (user ask 2026-11-17: "aaj kitni
+  // aayi, kal kitni"): every other filter applies, the created-date one doesn't.
+  const arrivalsFor = async () => {
+    const base = await buildLeadListFilter({ ...q, createdFrom: '', createdTo: '' }, scopeUsers);
+    const baseQ = Object.keys(scopeFilter).length ? { $and: [base, scopeFilter] } : base;
+    const IST = 5.5 * 3600e3;
+    const d0 = new Date(Date.now() + IST);
+    d0.setUTCHours(0, 0, 0, 0);
+    const today = new Date(d0.getTime() - IST);
+    const yest = new Date(today.getTime() - 864e5);
+    const week = new Date(today.getTime() - 6 * 864e5);
+    const n = (from, to) => Lead.countDocuments({ $and: [baseQ, { created: to ? { $gte: from, $lt: to } : { $gte: from } }] });
+    const [t, y, w] = await Promise.all([n(today), n(yest, today), n(week)]);
+    return { today: t, yesterday: y, last7: w };
+  };
+
+  const [result, count, arrivals] = await Promise.all([
     // _id breaks ties (many leads share a stageUpdatedAt) so pages never repeat or skip a lead
     Lead.find(query).sort({ [sortBy]: sortDir, _id: 1 }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(query),
+    String(q.withArrivals) === '1' ? arrivalsFor() : null,
   ]);
 
   // Lead (salesDb) and Admin (coreDb) live on different connections under
@@ -160,6 +191,7 @@ const byStage = async (req, res) => {
     success: true,
     result,
     pagination: { page, pages: Math.ceil(count / limit) || 0, count },
+    ...(arrivals ? { arrivals } : {}),
     message: 'Successfully found leads',
   });
 };

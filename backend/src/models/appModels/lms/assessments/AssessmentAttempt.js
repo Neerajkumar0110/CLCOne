@@ -29,6 +29,9 @@ const schema = new mongoose.Schema({
   // null = not yet decided (IN_PROGRESS) or SUSPENDED (never reached a score).
   qualified: { type: Boolean, default: null },
   warningCount: { type: Number, default: 0 },
+  // why proctoring ended the test (SUSPENDED): event type + learner-facing text
+  suspendType: { type: String },
+  suspendReason: { type: String },
   startedAt: { type: Date, default: Date.now },
   submittedAt: { type: Date },
 

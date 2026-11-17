@@ -236,6 +236,7 @@ const schema = new mongoose.Schema({
   // inbox still shows and answers it.
   chatOnly: { type: Boolean },
   enquiryAt: Date, // last filled the public enquiry form (corePublicControllers/enquiryForm.js)
+  formSentAt: Date, // an agent last sent the enquiry-form link from the Ad chat inbox (the auto-reply's is waWelcomeAt)
   // WhatsApp auto-reply (services/whatsapp/autoReply.js): each sent once per lead
   waWelcomeAt: Date,
   waCurriculumAt: Date,

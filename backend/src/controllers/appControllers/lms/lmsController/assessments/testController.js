@@ -384,6 +384,8 @@ async function getMyResults(req, res) {
         startedAt: a.startedAt,
         submittedAt: a.submittedAt,
         qualified,
+        // why proctoring ended it (SUSPENDED only)
+        suspendReason: a.suspendReason || null,
       };
     });
 
@@ -438,6 +440,58 @@ async function getMyResults(req, res) {
   }
 }
 
+// My Results "Review your mistakes" (learner asked 2026-11-16): every question
+// of a SUBMITTED attempt the learner got wrong or left blank — prompt, options
+// and their pick. The answer key (correctOption / expectedOutput) is added only
+// once they have qualified in this test type or used every attempt: the bank
+// is ~2x the 50 questions a test draws, so showing it earlier would let a
+// retake be passed by memorising answers.
+async function buildMistakeReview({ attempt, admin, attemptQuestions, questionById, maxAttemptsPerType }) {
+  if (attempt.status !== 'SUBMITTED') return null;
+  const mine = await mongoose
+    .model('AssessmentAttempt')
+    .find({ $or: [{ candidate: admin._id }, { candidateEmail: admin.email }], testType: attempt.testType, status: { $in: ['SUBMITTED', 'SUSPENDED'] } })
+    .select('qualified')
+    .lean();
+  const qualifiedOnce = mine.some((a) => a.qualified === true);
+  const used = mine.length;
+  const max = maxAttemptsPerType;
+  const answersUnlocked = qualifiedOnce || used >= max;
+  const lockedReason = qualifiedOnce
+    ? 'You have qualified in this test, so the correct answer to every question is shown.'
+    : answersUnlocked
+    ? `You have used all ${max} attempts, so the correct answer to every question is shown.`
+    : `Correct answers open once you qualify in this test or use all ${max} attempts (${used} of ${max} used so far). Until then you can see which questions you got wrong and what you chose.`;
+
+  const answered = (aq) => (aq.selectedOption !== undefined && aq.selectedOption !== null) || !!(aq.submittedCode && String(aq.submittedCode).trim());
+  const counts = { total: attemptQuestions.length, correct: 0, wrong: 0, unanswered: 0 };
+  const mistakes = [];
+  for (const aq of attemptQuestions.slice().sort((a, b) => a.order - b.order)) {
+    const done = answered(aq);
+    if (aq.isCorrect === true) counts.correct += 1;
+    else if (!done) counts.unanswered += 1;
+    else if (aq.isCorrect === false) counts.wrong += 1;
+    // a wrong answer or a blank; an answered-but-ungraded code question (no
+    // expected output to check it against) is not a mistake
+    if (aq.isCorrect === true || (done && aq.isCorrect !== false)) continue;
+    const q = questionById.get(String(aq.questionId)) || {};
+    mistakes.push({
+      attemptQuestionId: aq._id,
+      n: (aq.order || 0) + 1,
+      topic: q.topic,
+      questionType: q.questionType,
+      difficulty: q.difficulty,
+      text: q.text,
+      options: q.options,
+      selectedOption: aq.selectedOption,
+      submittedCode: aq.submittedCode,
+      isCorrect: false,
+      ...(answersUnlocked ? { correctOption: q.correctOption, expectedOutput: q.expectedOutput } : {}),
+    });
+  }
+  return { answersUnlocked, lockedReason, attemptsUsed: used, maxAttempts: max, counts, mistakes };
+}
+
 async function getAttemptBreakdown(req, res) {
   try {
     const { attemptId } = req.params;
@@ -456,9 +510,10 @@ async function getAttemptBreakdown(req, res) {
     const questions = await AssessmentQuestion.find({
       _id: { $in: attemptQuestions.map((aq) => aq.questionId) },
     })
-      .select('topic')
+      .select('topic text questionType difficulty options correctOption expectedOutput')
       .lean();
     const topicById = new Map(questions.map((q) => [String(q._id), q.topic]));
+    const questionById = new Map(questions.map((q) => [String(q._id), q]));
 
     const topicMap = {};
     for (const aq of attemptQuestions) {
@@ -469,10 +524,12 @@ async function getAttemptBreakdown(req, res) {
       else topicMap[topic].ungraded++;
     }
     const breakdown = Object.values(topicMap).sort((a, b) => a.topic.localeCompare(b.topic));
+    const { maxAttemptsPerType } = await assessmentSettings.get();
+    const review = await buildMistakeReview({ attempt, admin, attemptQuestions, questionById, maxAttemptsPerType });
 
     return res.status(200).json({
       success: true,
-      result: { attemptId: attempt._id, testType: attempt.testType, status: attempt.status, breakdown },
+      result: { attemptId: attempt._id, testType: attempt.testType, status: attempt.status, breakdown, review },
     });
   } catch (err) {
     console.error('Get assessment breakdown error:', err);

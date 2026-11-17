@@ -4,6 +4,7 @@ import { LeftOutlined, RightOutlined, PlayCircleOutlined, ClockCircleOutlined, C
 import lmsApi from '@/pages/Lms/api';
 import AssessmentProctorGate from './AssessmentProctorGate';
 import useAssessmentProctor from './useAssessmentProctor';
+import useAiProctor from './useAiProctor';
 import './assessmentRunner.css';
 
 const { Paragraph } = Typography;
@@ -32,16 +33,20 @@ export default function AssessmentRunner({ testType, title, onExit }) {
   const [lastWarning, setLastWarning] = useState(null);
   const [timeLeft, setTimeLeft] = useState({});
   const [meta, setMeta] = useState({}); // attemptNumber / maxAttempts / passPct / cooldownDays
+  const [suspendReason, setSuspendReason] = useState('');
   const streamsRef = useRef(null);
   const camRef = useRef(null);
 
-  const { warningCount } = useAssessmentProctor(attemptId, {
-    onSuspended: () => {
+  const { warningCount, reportViolation } = useAssessmentProctor(attemptId, {
+    onSuspended: (reason) => {
       stopAllMedia();
+      setSuspendReason(reason || '');
       setPhase('suspended');
     },
     onWarning: (count) => setLastWarning(count),
   });
+  // people / phone on camera, loud sound, camera or screen share switched off
+  const ai = useAiProctor({ active: phase === 'testing' && !!attemptId, streams: streamsRef.current, report: reportViolation, testType });
 
   function stopAllMedia() {
     streamsRef.current?.cameraStream.getTracks().forEach((t) => t.stop());
@@ -212,9 +217,14 @@ export default function AssessmentRunner({ testType, title, onExit }) {
     return (
       <div className="lms-portal" style={{ padding: 4 }}>
         <Result
-          status="warning"
-          title="Test Suspended"
-          subTitle="Your test was automatically suspended after 3 proctoring warnings. Please contact your project manager."
+          status="error"
+          title="Test ended — proctoring violation"
+          subTitle={
+            <div style={{ maxWidth: 520, margin: '0 auto' }}>
+              <p style={{ fontWeight: 700, color: '#b91c1c', marginBottom: 8 }}>{suspendReason || 'A proctoring rule was broken during the test.'}</p>
+              <p style={{ marginBottom: 0 }}>This is treated as unfair means and this attempt counts as used. An email with the details has been sent to you. If you think this is a mistake, contact your project manager within 48 hours — the recorded evidence will be reviewed.</p>
+            </div>
+          }
           extra={<Button type="primary" onClick={onExit}>Back</Button>}
         />
       </div>
@@ -363,7 +373,17 @@ export default function AssessmentRunner({ testType, title, onExit }) {
               <span>Camera · proctoring on</span>
             </div>
             <div className="ar-kv"><span>Proctoring warnings</span><b>{warningCount}/3</b></div>
-            <div className="ld-muted" style={{ fontSize: 12, lineHeight: '17px' }}>Switching tabs, leaving full screen or turning the camera off is a warning — after 3 warnings the test is suspended.</div>
+            <div className="ar-kv">
+              <span>AI camera check</span>
+              <b style={{ color: ai.vision === 'on' ? '#15803d' : ai.vision === 'failed' ? '#b45309' : '#64748b' }}>{{ on: 'On', loading: 'Starting…', failed: 'Unavailable', off: 'Off' }[ai.vision]}</b>
+            </div>
+            <div className="ar-kv">
+              <span>Sound check</span>
+              <b style={{ color: ai.audio === 'on' ? '#15803d' : '#64748b' }}>{ai.audio === 'on' ? 'On' : 'Off'}</b>
+            </div>
+            <div className="ld-muted" style={{ fontSize: 12, lineHeight: '17px' }}>
+              <b style={{ color: '#b91c1c' }}>Ends the test at once:</b> switching tab, another person or a phone on camera, continuous talking / loud sound, turning the camera or screen share off. Leaving full screen is a warning — 3 warnings end the test.
+            </div>
           </section>
           <section className="ar-scard" aria-label="Questions">
             <b style={{ fontSize: 14 }}>Questions</b>

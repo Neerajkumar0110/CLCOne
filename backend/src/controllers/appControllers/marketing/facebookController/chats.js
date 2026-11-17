@@ -16,13 +16,32 @@ function allowed(req, res) {
   return false;
 }
 
-// GET /api/facebook/chats?q=&channel=&limit=
+// An agent's reply that carries the enquiry-form link → Lead.formSentAt
+const formSent = (text) => (/\/public\/enquiry/.test(String(text || '')) ? { formSentAt: new Date() } : {});
+
+// Enquiry form per chat (user ask 2026-11-17: "kisne form bhara, kisne nahi"):
+//   filled  — Lead.enquiryAt (the form was submitted)
+//   pending — the link went out (auto-reply waWelcomeAt, or an agent: formSentAt) but no answers yet
+//   none    — the link was never sent
+const SENT_ANY = { $or: [{ waWelcomeAt: { $ne: null } }, { formSentAt: { $ne: null } }] };
+const FORM_FILTER = {
+  filled: { enquiryAt: { $ne: null } },
+  pending: { enquiryAt: null, ...SENT_ANY },
+  none: { enquiryAt: null, waWelcomeAt: null, formSentAt: null },
+};
+function formOf(l) {
+  const sent = [l.waWelcomeAt, l.formSentAt].filter(Boolean).map((d) => new Date(d)).sort((a, b) => b - a)[0] || null;
+  return { form: l.enquiryAt ? 'filled' : sent ? 'pending' : 'none', formSentAt: sent, formFilledAt: l.enquiryAt || null };
+}
+
+// GET /api/facebook/chats?q=&channel=&form=filled|pending|none&limit=
 const listChats = async (req, res) => {
   if (!allowed(req, res)) return;
   const Lead = mongoose.model('Lead');
   const q = String(req.query.q || '').trim();
   const filter = { $and: [VISIBLE], chatConversationId: { $exists: true, $ne: null } };
   if (['messenger', 'instagram', 'whatsapp'].includes(req.query.channel)) filter.chatChannel = req.query.channel;
+  if (FORM_FILTER[req.query.form]) filter.$and.push(FORM_FILTER[req.query.form]);
   if (q) {
     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$and.push({ $or: [{ name: rx }, { phone: rx }, { email: rx }, { chatLastMessage: rx }] });
@@ -32,14 +51,22 @@ const listChats = async (req, res) => {
     Lead.find(filter)
       .sort({ chatLastAt: -1 })
       .limit(limit)
-      .select('name phone email stage subStatus chatChannel chatConversationId chatLastMessage chatLastAt chatStartedAt chatReadAt chatRepliedAt metaAdId assigned source')
+      .select('name phone email stage subStatus chatChannel chatConversationId chatLastMessage chatLastAt chatStartedAt chatReadAt chatRepliedAt metaAdId assigned source enquiryAt waWelcomeAt formSentAt')
       .lean(),
     Lead.countDocuments(filter),
   ]);
   // unread = the customer wrote after an owner / Super Admin last opened it
   rows.forEach((r) => {
     r.unread = !!r.chatLastAt && (!r.chatReadAt || new Date(r.chatLastAt) > new Date(r.chatReadAt));
+    Object.assign(r, formOf(r));
+    delete r.enquiryAt;
+    delete r.waWelcomeAt;
   });
+  // form filled / pending / never sent — for the inbox filter chips (same channel + search as the list)
+  const formBase = { $and: filter.$and.filter((x) => !Object.values(FORM_FILTER).includes(x)), chatConversationId: filter.chatConversationId };
+  if (filter.chatChannel) formBase.chatChannel = filter.chatChannel;
+  const [filled, pending, none] = await Promise.all(['filled', 'pending', 'none'].map((k) => Lead.countDocuments({ ...formBase, $and: [...formBase.$and, FORM_FILTER[k]] })));
+  const forms = { filled, pending, none };
   // unread + total per channel — the header's Messenger / WhatsApp /
   // Instagram icons show these counts (user ask 2026-11-15).
   const perChannel = await Lead.aggregate([
@@ -57,7 +84,7 @@ const listChats = async (req, res) => {
     if (byChannel[c._id]) byChannel[c._id] = { total: c.total, unread: c.unread };
   });
   const unread = perChannel.reduce((s, c) => s + c.unread, 0);
-  return res.status(200).json({ success: true, result: { total, unread, byChannel, rows }, message: 'ok' });
+  return res.status(200).json({ success: true, result: { total, unread, byChannel, forms, rows }, message: 'ok' });
 };
 
 // The customer's "contact info" for the inbox's side panel (user ask
@@ -69,7 +96,7 @@ async function chatProfile(leadId, channel, userId) {
   const lead = await mongoose
     .model('Lead')
     .findById(leadId)
-    .select('name phone email stage subStatus source city state persona education created assignedUser chatStartedAt chatRepliedAt chatAd metaAdId nextFollowUpAt')
+    .select('name phone email stage subStatus source city state persona education created assignedUser chatStartedAt chatRepliedAt chatAd metaAdId nextFollowUpAt enquiryAt waWelcomeAt formSentAt')
     .populate({ path: 'assignedUser', select: 'name surname' })
     .lean();
   if (!lead) return null;
@@ -90,6 +117,7 @@ async function chatProfile(leadId, channel, userId) {
     nextFollowUp: lead.nextFollowUpAt,
     ad: lead.chatAd || null,
     adId: lead.metaAdId || null,
+    ...formOf(lead),
   };
   if (channel === 'whatsapp') {
     profile.whatsappNumber = userId;
@@ -273,7 +301,7 @@ async function sendWhatsApp(req, res, lead, number, text, hadFile) {
   await Message.updateOne({ _id: msg._id }, { $set: { status, error, providerMessageId } });
   if (status === 'failed') return res.status(502).json({ success: false, result: null, message: `WhatsApp message not sent: ${error}` });
   await Chat.updateOne({ _id: chat._id }, { $set: { lastMessage: body, lastMessageAt: msg.at, lastDirection: 'outgoing', unread: 0 } });
-  await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date() } });
+  await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date(), ...formSent(body) } });
   try {
     const socket = require('../../../../socket');
     socket.emitWhatsApp(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
@@ -337,7 +365,7 @@ const sendChat = async (req, res) => {
       );
     }
     cleanup();
-    await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date() } });
+    await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date(), ...formSent(text) } });
     try {
       require('../../../../socket').emitLeadEvent('lead:chat', {
         kind: 'sent',
@@ -411,8 +439,18 @@ function istDayStart(offsetDays = 0) {
   d.setUTCHours(0, 0, 0, 0);
   return new Date(d.getTime() - IST + offsetDays * 864e5);
 }
-function statsRange(range) {
+// "YYYY-MM-DD" (an IST calendar day) → the UTC instant of 00:00 IST that day
+const istDate = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? new Date(new Date(`${s}T00:00:00Z`).getTime() - IST) : null);
+function statsRange(range, q = {}) {
   const today = istDayStart(0);
+  // custom (user ask 2026-11-17): one day (from only, or from = to) or any span, both days included
+  if (range === 'custom') {
+    let from = istDate(q.from);
+    let to = istDate(q.to || q.from);
+    if (!from) return { from: today, to: null };
+    if (to < from) [from, to] = [to, from];
+    return { from, to: new Date(to.getTime() + 864e5) };
+  }
   if (range === 'yesterday') return { from: istDayStart(-1), to: today };
   if (range === '7d') return { from: istDayStart(-6), to: null };
   if (range === '30d') return { from: istDayStart(-29), to: null };
@@ -424,8 +462,8 @@ const last10 = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 const chatStats = async (req, res) => {
   if (!allowed(req, res)) return;
   const channel = ['messenger', 'instagram', 'whatsapp'].includes(req.query.channel) ? req.query.channel : 'whatsapp';
-  const range = ['today', 'yesterday', '7d', '30d', 'all'].includes(req.query.range) ? req.query.range : 'today';
-  const { from, to } = statsRange(range);
+  const range = ['today', 'yesterday', '7d', '30d', 'all', 'custom'].includes(req.query.range) ? req.query.range : 'today';
+  const { from, to } = statsRange(range, req.query);
   const Lead = mongoose.model('Lead');
 
   const started = {};

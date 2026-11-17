@@ -203,8 +203,9 @@ const lmsApi = {
     request.post({ entity: 'lms/assessments/gate-issue', jsonData: { ...b, device: navigator.userAgent } }).catch(() => {}),
   submitAssessment: (attemptId, b) => request.post({ entity: `lms/assessments/${attemptId}/submit`, jsonData: b }),
   runAssessmentCode: (code) => request.post({ entity: 'lms/assessments/run-code', jsonData: { code } }),
-  reportAssessmentProctorEvent: (attemptId, type) =>
-    request.post({ entity: `lms/assessments/${attemptId}/proctor-event`, jsonData: { type } }),
+  // extra: { detail, snapshot } — AI proctoring evidence (camera JPEG data URL)
+  reportAssessmentProctorEvent: (attemptId, type, extra = {}) =>
+    request.post({ entity: `lms/assessments/${attemptId}/proctor-event`, jsonData: { type, ...extra } }),
   myAssessmentResults: () => request.get({ entity: 'lms/assessments/my-results' }),
   assessmentBatchProgress: (batch) => request.get({ entity: `lms/assessments/batch-progress${qs({ batch })}` }),
   assessmentBreakdown: (attemptId) => request.get({ entity: `lms/assessments/${attemptId}/breakdown` }),

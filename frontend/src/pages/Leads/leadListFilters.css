@@ -1,0 +1,185 @@
+/* Lead List — header search + advanced filters (pages/Leads/index.jsx), 2026-11-17.
+   Colours come from the --hub-* tokens so light / dark both work. */
+
+.ll-head { gap: 12px; flex-wrap: wrap; }
+.ll-head h3 { flex: none; }
+
+.ll-search {
+  flex: 1 1 280px;
+  max-width: 460px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 6px 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface);
+  color: var(--hub-muted);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: text;
+}
+.ll-search:focus-within {
+  border-color: var(--hub-blue);
+  box-shadow: var(--hub-focus-ring);
+}
+.ll-search .anticon { font-size: 15px; }
+.ll-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--hub-text);
+  font: inherit;
+  font-size: 14px;
+}
+.ll-search input::placeholder { color: var(--hub-muted); font-weight: 500; }
+.ll-search-x {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--hub-muted);
+  background: var(--hub-bg-soft);
+}
+.ll-search-x:hover { color: var(--hub-text); }
+
+.ll-fcount {
+  margin-left: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--hub-blue);
+  color: #fff;
+}
+
+/* the panel */
+.ll-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-bg-soft);
+}
+.ll-fsec { display: flex; flex-direction: column; gap: 10px; }
+.ll-fsec + .ll-fsec { padding-top: 14px; border-top: 1px dashed var(--hub-border-strong); }
+.ll-fsec-h { display: flex; align-items: baseline; gap: 10px; }
+.ll-fsec-h span { font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hub-muted); }
+.ll-fsec-h em { font-style: normal; font-size: 12px; color: var(--hub-muted); }
+.ll-reset {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--hub-red);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ll-reset:hover { text-decoration: underline; }
+
+.ll-fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.ll-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.ll-field > span { font-size: 12.5px; font-weight: 700; color: var(--hub-text-soft); }
+.ll-field .hub-select { width: 100%; height: 40px; border-radius: 12px; }
+.ll-field .hub-select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ll-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.ll-drange {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface);
+}
+.ll-drange.on { border-color: color-mix(in srgb, var(--hub-blue) 45%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-blue) 10%, transparent); }
+.ll-dlabel { font-size: 12.5px; font-weight: 700; color: var(--hub-text-soft); }
+.ll-dinputs { display: flex; align-items: center; gap: 6px; }
+.ll-dinputs .hub-input { flex: 1; min-width: 0; height: 36px; border-radius: 10px; padding: 0 8px; }
+.ll-arrow { color: var(--hub-muted); font-weight: 700; flex: none; }
+.ll-dclear {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--hub-muted);
+  background: var(--hub-bg-soft);
+}
+.ll-dclear:hover { color: var(--hub-red); }
+
+@media (max-width: 640px) {
+  .ll-search { max-width: none; order: 3; flex-basis: 100%; }
+  .ll-filters { padding: 12px; }
+  .ll-dgrid { grid-template-columns: 1fr; }
+}
+
+/* Lead List row actions — icon buttons in one line, label in a tooltip */
+.ll-acts { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ll-act {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface);
+  color: var(--hub-text-soft);
+  display: inline-grid;
+  place-items: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ll-act:hover { color: var(--hub-blue); border-color: var(--hub-blue); background: var(--hub-blue-soft); }
+.ll-act:focus-visible { outline: 2px solid var(--hub-blue); outline-offset: 2px; }
+
+/* "Came in" — arrival date chips above the Lead List + the column */
+.ll-camebar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.ll-camelabel { font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hub-muted); margin-right: 4px; }
+.ll-cchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface);
+  color: var(--hub-text-soft);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ll-cchip i { font-style: normal; min-width: 20px; padding: 0 6px; border-radius: 999px; text-align: center; background: var(--hub-bg-soft); color: var(--hub-text); font-variant-numeric: tabular-nums; }
+.ll-cchip:hover { border-color: var(--hub-border-strong); }
+.ll-cchip.on { background: var(--hub-blue); border-color: var(--hub-blue); color: #fff; }
+.ll-cchip.on i { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.ll-cchip:focus-visible { outline: 2px solid var(--hub-blue); outline-offset: 2px; }
+.ll-ccustom { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ll-ccustom .hub-input { height: 32px; border-radius: 10px; padding: 0 8px; width: 150px; }
+.ll-ccustom em { font-style: normal; font-size: 12px; color: var(--hub-muted); font-weight: 600; }
+.ll-came { white-space: nowrap; }
+.ll-came b { display: block; font-size: 13px; color: var(--hub-text); }
+.ll-came span { font-size: 11.5px; color: var(--hub-muted); }

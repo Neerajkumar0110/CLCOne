@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Row, Table, Select, Input, DatePicker, InputNumber, Space, Button, Typography, message } from 'antd';
-import { AuditOutlined, DownloadOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import { Card, Row, Table, Select, Input, DatePicker, InputNumber, Space, Button, Typography } from 'antd';
+import { AuditOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import lmsApi from '@/pages/Lms/api';
 import KpiTile from '../components/KpiTile';
+import AttemptReport from './AttemptReport';
 import { PageHeading, StatusPill, tablePagination } from '../components/ui';
 
 const { RangePicker } = DatePicker;
@@ -80,11 +81,17 @@ export default function AttemptsAdmin() {
   }, []);
 
   const loadReport = async (attemptId) => {
-    if (reports[attemptId]) return;
-    setReports((prev) => ({ ...prev, [attemptId]: { loading: true, breakdown: [] } }));
+    // a cached report without the question list (loaded by an older build, or
+    // a failed call) is fetched again — the topic popup needs the questions
+    const cached = reports[attemptId];
+    if (cached && (cached.loading || (cached.questions && cached.questions.length))) return;
+    setReports((prev) => ({ ...prev, [attemptId]: { loading: true, breakdown: [], questions: [] } }));
     const res = await lmsApi.adminAssessmentReport(attemptId);
-    const breakdown = (res && res.result && res.result.breakdown) || [];
-    setReports((prev) => ({ ...prev, [attemptId]: { loading: false, breakdown } }));
+    const r = (res && res.result) || {};
+    setReports((prev) => ({
+      ...prev,
+      [attemptId]: { loading: false, breakdown: r.breakdown || [], questions: r.questions || [], proctorEvents: r.proctorEvents || [], suspendReason: r.suspendReason || null },
+    }));
   };
 
   const applyFilters = () => { setPage(1); setApplied(filters); };
@@ -115,17 +122,6 @@ export default function AttemptsAdmin() {
     const a = document.createElement('a');
     a.href = url; a.download = `admin-attempts-${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const copyReportSummary = (a) => {
-    const b = reports[a.attemptId];
-    const scoreLine = a.status === 'SUBMITTED' ? `Score: ${a.score}/${a.totalCount}` : `Status: ${a.status}`;
-    const topicLines = ((b && b.breakdown) || []).map((t) => {
-      const answered = t.correct + t.incorrect;
-      return `- ${t.topic}: ${answered > 0 ? `${t.correct}/${answered} correct` : 'Not answered'}`;
-    }).join('\n');
-    const text = `${a.studentName} (${a.studentEmail})\n${TEST_TYPE_LABELS[a.testType] || a.testType} Test — ${scoreLine}\n\nTopic Breakdown:\n${topicLines}`;
-    navigator.clipboard?.writeText(text).then(() => message.success('Copied to clipboard')).catch(() => {});
   };
 
   return (
@@ -192,36 +188,9 @@ export default function AttemptsAdmin() {
         expandable={{
           expandedRowKeys: openReportId ? [openReportId] : [],
           onExpand: (expanded, r) => { setOpenReportId(expanded ? r.attemptId : null); if (expanded) loadReport(r.attemptId); },
-          expandedRowRender: (a) => {
-            const b = reports[a.attemptId];
-            return (
-              <div>
-                <Space style={{ marginBottom: 8 }}>
-                  <Button size="small" icon={<DownloadOutlined />} onClick={() => exportCsv()}>Download Report</Button>
-                  <Button size="small" icon={<CopyOutlined />} onClick={() => copyReportSummary(a)}>Copy Summary</Button>
-                </Space>
-                <Table
-                  size="small"
-                  rowKey="topic"
-                  loading={!b || b.loading}
-                  dataSource={(b && b.breakdown) || []}
-                  pagination={b && b.breakdown && b.breakdown.length > 10 ? tablePagination({ pageSize: 10, size: 'small' }) : false}
-                  locale={{ emptyText: 'No report available.' }}
-                  columns={[
-                    { title: 'Topic', dataIndex: 'topic' },
-                    {
-                      title: 'Result',
-                      render: (_, t) => {
-                        const answered = t.correct + t.incorrect;
-                        return answered > 0 ? `${t.correct}/${answered} correct` : 'Not answered';
-                      },
-                    },
-                    { title: 'Ungraded', dataIndex: 'ungraded', width: 100 },
-                  ]}
-                />
-              </div>
-            );
-          },
+          expandedRowRender: (a) => (
+            <AttemptReport attempt={a} report={reports[a.attemptId]} testLabel={TEST_TYPE_LABELS[a.testType] || a.testType} onNeedQuestions={() => loadReport(a.attemptId)} />
+          ),
         }}
         columns={[
           {

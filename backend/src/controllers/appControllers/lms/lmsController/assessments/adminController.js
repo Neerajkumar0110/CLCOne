@@ -238,6 +238,20 @@ async function getAttemptReport(req, res) {
       else topicMap[topic].ungraded++;
     }
     const breakdown = Object.values(topicMap).sort((a, b) => a.topic.localeCompare(b.topic));
+    // The answer key (options / correct option / expected output) is for staff
+    // reviewing the attempt; this route only checks for a login, so a learner
+    // calling it never gets it.
+    const staff = !!(req.admin && req.admin.role && req.admin.role !== 'Student');
+    // proctoring log with the camera snapshots taken as evidence (staff only)
+    const proctorEvents = staff
+      ? (await mongoose.model('AssessmentProctorEvent').find({ attemptId: String(attempt._id) }).sort({ timestamp: 1 }).lean()).map((e) => ({
+          type: e.type,
+          detail: e.detail,
+          severe: !!e.severe,
+          snapshot: e.snapshot,
+          at: e.timestamp,
+        }))
+      : [];
 
     return res.status(200).json({
       success: true,
@@ -251,6 +265,10 @@ async function getAttemptReport(req, res) {
         warningCount: attempt.warningCount,
         startedAt: attempt.startedAt,
         submittedAt: attempt.submittedAt,
+        batch: attempt.candidateBatch,
+        suspendType: attempt.suspendType,
+        suspendReason: attempt.suspendReason,
+        proctorEvents,
         breakdown,
         questions: attemptQuestions
           .sort((a, b) => a.order - b.order)
@@ -258,12 +276,15 @@ async function getAttemptReport(req, res) {
             const q = questionById.get(String(aq.questionId));
             return {
               attemptQuestionId: aq._id,
+              order: aq.order,
               topic: q?.topic,
               questionType: q?.questionType,
+              difficulty: q?.difficulty,
               text: q?.text,
               isCorrect: aq.isCorrect,
               selectedOption: aq.selectedOption,
               submittedCode: aq.submittedCode,
+              ...(staff ? { options: q?.options, correctOption: q?.correctOption, expectedOutput: q?.expectedOutput } : {}),
             };
           }),
       },

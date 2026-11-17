@@ -71,6 +71,10 @@ const P = {
     const vars = { name: NAME, testType: 'MAJOR', score: 42, total: 50, pct: 84, status: 'Not qualified' };
     return { ...L('./inlineEmails').assessmentResult(vars), vars };
   },
+  'lms-assessment-suspended': () => {
+    const vars = { name: NAME, testType: 'Major', reason: 'More than one person was seen on your camera during the test.', when: '17 Nov 2026, 03:42 pm' };
+    return { ...L('./inlineEmails').assessmentSuspended(vars), vars };
+  },
   'lms-project-review': () => {
     const vars = { projectTitle: 'Sales forecasting model', decision: 'revision requested', feedback: 'Add a validation split and explain the metrics.' };
     return { ...L('./inlineEmails').projectReview(vars), vars };

@@ -167,8 +167,10 @@ export default function AssessmentProctorGate({ testType, onReady }) {
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
 
         <Paragraph type="secondary" style={{ fontSize: 12 }}>
-          This test is proctored. Switching tabs, exiting fullscreen, or losing camera/mic/screen access will trigger a
-          warning. After 3 warnings your test will be automatically suspended.
+          This test is AI-proctored through your camera, microphone and screen. <b>The test ends immediately</b> (counted as
+          cheating, an email is sent) if you switch tab or open a new one, another person or a mobile phone is seen on
+          camera, there is continuous talking or loud sound, or you turn off the camera or screen sharing. Sit alone in a
+          quiet place. Leaving fullscreen is a warning — 3 warnings also end the test.
         </Paragraph>
 
         <Button type="primary" block size="large" icon={<ExpandOutlined />} disabled={!allGranted || requesting} onClick={handleStart}>

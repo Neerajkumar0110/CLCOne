@@ -987,3 +987,26 @@ html[data-theme='dark'] .aci-stage {
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
   }
 }
+
+/* enquiry form: filter chips + per-chat badge (user ask 2026-11-17) */
+.aci-formchips { margin-top: 8px; align-items: center; }
+.aci-formlabel { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--aci-muted); margin-right: 2px; }
+.aci-formlabel .aci-ico { width: 15px; height: 15px; }
+.aci-fchip { height: 28px; padding: 0 6px 0 10px; font-size: 12.5px; }
+.aci-fchip i { font-style: normal; min-width: 20px; text-align: center; padding: 0 6px; border-radius: 999px; background: rgba(0, 0, 0, 0.06); font-variant-numeric: tabular-nums; }
+.aci-fchip.filled.on { background: #dcfce7; color: #15803d; }
+.aci-fchip.pending.on { background: #fef3c7; color: #b45309; }
+.aci-fchip.none.on { background: #e2e8f0; color: #334155; }
+html[data-theme='dark'] .aci-fchip.filled.on { background: #0f3a24; color: #4ade80; }
+html[data-theme='dark'] .aci-fchip.pending.on { background: #3a2a0a; color: #fbbf24; }
+html[data-theme='dark'] .aci-fchip.none.on { background: #1e293b; color: #cbd5e1; }
+.aci-item-meta2 { display: flex !important; align-items: center; gap: 6px; min-width: 0; }
+.aci-item-metatext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.aci-fbadge { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; line-height: 1; padding: 3px 7px; border-radius: 999px; white-space: nowrap; }
+.aci-fbadge.filled { background: #dcfce7; color: #15803d; }
+.aci-fbadge.pending { background: #fef3c7; color: #b45309; }
+.aci-fbadge.none { background: #f1f5f9; color: #64748b; }
+html[data-theme='dark'] .aci-fbadge.filled { background: #0f3a24; color: #4ade80; }
+html[data-theme='dark'] .aci-fbadge.pending { background: #3a2a0a; color: #fbbf24; }
+html[data-theme='dark'] .aci-fbadge.none { background: #1e293b; color: #94a3b8; }
+.aci-head-sub .aci-fbadge { margin-left: 6px; vertical-align: 1px; }

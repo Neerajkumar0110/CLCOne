@@ -16,7 +16,11 @@ const RANGES = [
   ['7d', '7 days'],
   ['30d', '30 days'],
   ['all', 'All time'],
+  ['custom', 'Custom'],
 ];
+// today as YYYY-MM-DD in IST (the date inputs and the backend both use IST days)
+const istToday = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+const dayLabel = (s) => (s ? new Date(`${s}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const RESULT = {
   talked: { label: 'Spoke with them', color: '#16a34a' },
   answeredNoAgent: { label: 'Picked up — agent didn’t join', color: '#d97706' },
@@ -66,6 +70,9 @@ function Bars({ data, total, colorOf }) {
 
 export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', label = 'WhatsApp' }) {
   const [range, setRange] = useState('today');
+  // Custom: one day (only From, or From = To) or any span — both days included
+  const [cFrom, setCFrom] = useState(istToday);
+  const [cTo, setCTo] = useState('');
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -87,8 +94,10 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
   };
 
   const load = async (r = range) => {
+    if (r === 'custom' && !cFrom) return;
     setLoading(true);
-    const res = await request.get({ entity: `facebook/chats/stats?channel=${channel}&range=${r}` });
+    const extra = r === 'custom' ? `&from=${cFrom}&to=${cTo || cFrom}` : '';
+    const res = await request.get({ entity: `facebook/chats/stats?channel=${channel}&range=${r}${extra}` });
     setLoading(false);
     if (res?.success) {
       setData(res.result);
@@ -99,7 +108,7 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
   useEffect(() => {
     if (open) load(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, range, channel]);
+  }, [open, range, channel, cFrom, cTo]);
 
   // live: a new chat / reply → refresh (debounced)
   useEffect(() => {
@@ -137,7 +146,7 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
     const blob = new Blob([[head.map(esc).join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${label}-chats-${range}.csv`;
+    a.download = `${label}-chats-${range === 'custom' ? `${cFrom}${cTo && cTo !== cFrom ? `_to_${cTo}` : ''}` : range}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
@@ -162,6 +171,24 @@ export default function ChatStatsModal({ open, onClose, channel = 'whatsapp', la
                 {l}
               </button>
             ))}
+            {range === 'custom' && (
+              <span className="cs-custom">
+                <label>
+                  From
+                  <input type="date" value={cFrom} max={cTo || istToday()} onChange={(e) => setCFrom(e.target.value)} aria-label="From date" />
+                </label>
+                <label>
+                  To
+                  <input type="date" value={cTo} min={cFrom} max={istToday()} onChange={(e) => setCTo(e.target.value)} aria-label="To date (leave empty for one day)" />
+                </label>
+                {cTo && (
+                  <button type="button" className="cs-chip" onClick={() => setCTo('')} title="Show only the From day">
+                    One day
+                  </button>
+                )}
+                <span className="cs-muted">{!cTo || cTo === cFrom ? dayLabel(cFrom) : `${dayLabel(cFrom)} – ${dayLabel(cTo)}`}</span>
+              </span>
+            )}
           </div>
           <div className="cs-actions">
             {data && <span className="cs-muted">Updated {new Date(data.generatedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</span>}

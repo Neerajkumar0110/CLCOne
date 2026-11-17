@@ -11,6 +11,17 @@ const assessmentResult = ({ name, testType, score, total, pct, status }) => ({
   html: `<p>Hi ${name || ''},</p><p>Your <b>${testType}</b> assessment has been evaluated.</p><p>Score: <b>${score}/${total}</b> (${pct}%)<br>Status: <b>${status}</b></p><p>Sign in to the portal to see the full topic-wise breakdown.</p>`,
 });
 
+// a proctored test ended by proctoring (assessments/proctorController.js)
+const assessmentSuspended = ({ name, testType, reason, when }) => ({
+  subject: `Your ${testType} test was ended — proctoring violation`,
+  html: card(`<p>Hi ${esc(name)},</p>
+    <p>Your <b>${esc(testType)}</b> test was <b>ended automatically</b> on ${esc(when)} because our proctoring system detected a breach of the test rules:</p>
+    <p style="padding:10px 14px;border-left:4px solid #dc2626;background:#fef2f2;border-radius:6px"><b>${esc(reason)}</b></p>
+    <p>This is treated as <b>unfair means (cheating)</b>, and this attempt counts as used. Tests must be taken alone, without a phone, with the camera and screen sharing on and without leaving the test tab.</p>
+    <p>If you believe this is a mistake, reply to this email or contact your project manager within 48 hours — the recorded evidence will be reviewed.</p>
+    <p style="color:#667085;font-size:13px">— Career Lab Consulting</p>`),
+});
+
 // staff announcement (LMS › Announcements) and an Ops-approved mass message
 const announcement = ({ title, message, from, course }) => ({
   subject: `📢 ${title}`,
@@ -79,6 +90,7 @@ module.exports = {
   esc,
   card,
   assessmentResult,
+  assessmentSuspended,
   announcement,
   policyPublished,
   policyReminder,
