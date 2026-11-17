@@ -110,10 +110,28 @@ async function runCallbackTick() {
   due.sort((a, b) => (a.assignedAgent ? 0 : 1) - (b.assignedAgent ? 0 : 1));
 
   let placed = 0;
+  const last10 = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+  const variants = (p) => [p, `91${p}`, `+91${p}`, `0${p}`];
+  const seen = new Set();
 
   for (const cb of due) {
     if (placed >= PER_TICK_LIMIT) break;
     if (!cb.phone) continue;
+
+    // One customer, one callback at a time (user ask 2026-11-17: a number with
+    // 2 callbacks for the same time was rung 6–7 times in 40 min). Only one of
+    // a number's due callbacks is dialled per tick, and none while the number
+    // had any call in the last RETRY_AFTER_MS (a manual / pool / other
+    // callback dial just now).
+    const p = last10(cb.phone);
+    if (p.length >= 8) {
+      if (seen.has(p)) continue;
+      seen.add(p);
+      const recent = await mongoose
+        .model('CallRecord')
+        .exists({ created: { $gte: new Date(now.getTime() - RETRY_AFTER_MS) }, phone: { $in: variants(p) } });
+      if (recent) continue;
+    }
 
     // Calling hours belong to the campaign this callback came from; a
     // callback with no campaign (a hand-scheduled one) is unrestricted.
@@ -173,6 +191,22 @@ async function runCallbackTick() {
     if (!claimedCb) {
       await releaseAgent(admin._id);
       continue;
+    }
+    // This number's other callbacks due by now are the same promise made
+    // twice — this one rings for them; they stay in the list for the user
+    // but are not auto-dialled on top of it.
+    if (p.length >= 8) {
+      await CallCallback.updateMany(
+        {
+          _id: { $ne: cb._id },
+          removed: false,
+          status: 'Pending',
+          phone: { $in: variants(p) },
+          scheduledAt: { $lte: new Date(now.getTime() + HOLD_BEFORE_MS) },
+          autoDialGaveUpAt: { $exists: false },
+        },
+        { $set: { autoDialGaveUpAt: now, updated: now } }
+      );
     }
 
     let r;
