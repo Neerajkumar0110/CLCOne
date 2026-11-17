@@ -16,9 +16,15 @@ function callerIdPool() {
   return list.length ? list : [callingConfig.cloud.callerId].filter(Boolean);
 }
 
-function nextCallerId() {
+// With the customer number given, that customer always sees the SAME one of
+// our numbers (user ask 2026-11-17): repeat calls from 3 different unknown
+// numbers looked like spam and got rejected. Different customers still
+// spread over all the numbers.
+function nextCallerId(customerPhone) {
   const list = callerIdPool();
   if (!list.length) return callingConfig.cloud.callerId || undefined;
+  const p = String(customerPhone || '').replace(/\D/g, '').slice(-10);
+  if (p.length === 10) return list[Number(p) % list.length];
   const id = list[turn % list.length];
   turn = (turn + 1) % 1e9;
   return id;

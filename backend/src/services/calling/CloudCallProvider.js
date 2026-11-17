@@ -190,7 +190,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: callerId || nextCallerId(), // our numbers in turn (callerIdRotation.js)
+      callerId: callerId || nextCallerId(phone), // same number for this customer (callerIdRotation.js)
       notes: 'Plivo outbound call',
     }).save();
 
@@ -251,7 +251,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: callerId || nextCallerId(), // our numbers in turn (callerIdRotation.js)
+      callerId: callerId || nextCallerId(phone), // same number for this customer (callerIdRotation.js)
     }).save();
 
     const r = await this._placeProviderCall({
@@ -363,17 +363,33 @@ class CloudCallProvider extends CallingProvider {
 
     // New Leads (priority) before everything else; a New lead waiting to
     // be re-dialled only once its nextAttemptAt has come.
-    const lead = await CallLead.findOneAndUpdate(
-      {
-        campaign: campaign._id,
-        removed: false,
-        dncAt: { $exists: false },
-        status: { $in: ['New', 'Queued'] },
-        $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: new Date() } }],
-      },
-      { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
-      { sort: { priority: -1, attempts: 1, created: 1 }, new: true }
-    );
+    // A number already called too often today / too recently (redialGuard.js)
+    // is put back to wait until it may be called again — not dialled, no
+    // attempt used — and the next lead in line is taken instead.
+    const { autoDialCheck } = require('./redialGuard');
+    let lead = null;
+    for (let tries = 0; tries < 25 && !lead; tries += 1) {
+      const next = await CallLead.findOneAndUpdate(
+        {
+          campaign: campaign._id,
+          removed: false,
+          dncAt: { $exists: false },
+          status: { $in: ['New', 'Queued'] },
+          $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: new Date() } }],
+        },
+        { $set: { status: 'Dialing', lastAttemptAt: new Date() }, $inc: { attempts: 1 } },
+        { sort: { priority: -1, attempts: 1, created: 1 }, new: true }
+      );
+      if (!next) break;
+      const guard = await autoDialCheck(next.phone);
+      if (guard.ok) lead = next;
+      else {
+        await CallLead.updateOne(
+          { _id: next._id },
+          { $set: { status: 'Queued', nextAttemptAt: guard.until }, $inc: { attempts: -1 } }
+        );
+      }
+    }
     if (!lead) return { ok: false, error: 'No leads waiting in this campaign.' };
 
     const now = new Date();
@@ -389,7 +405,7 @@ class CloudCallProvider extends CallingProvider {
       queuedAt: now,
       provider: 'cloud',
       isMock: false,
-      callerId: campaign.callerId || nextCallerId(), // our numbers in turn
+      callerId: campaign.callerId || nextCallerId(lead.phone), // same number for this customer
       team: campaign.team,
       notes: 'Instant Lead Pool — agent assigned on answer',
     }).save();

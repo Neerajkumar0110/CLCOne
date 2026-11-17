@@ -36,8 +36,11 @@ const EXPIRE_MS = 24 * 60 * 60 * 1000;
 // A Facebook lead is never left at one failed dial: busy / rejected / no
 // answer / carrier error → back to pending, and the first free user calls it
 // again after these gaps (minutes). Still first priority each time. When they
-// run out (8 dials over ~4 h) the lead goes on in the normal pipeline.
-const RETRY_GAPS_MIN = [2, 5, 10, 20, 30, 60, 120];
+// run out the lead goes on in the normal pipeline.
+// Until 2026-11-17 this was 2, 5, 10, 20, 30, 60, 120 (8 dials in ~4 h) — the
+// same customer rang again every few minutes and started rejecting; now at
+// most 3 dials a day, 2 h apart (redialGuard.js holds every auto dial to that).
+const RETRY_GAPS_MIN = [120, 120];
 const MAX_ATTEMPTS = RETRY_GAPS_MIN.length + 1;
 const nextTry = (attempts) =>
   new Date(Date.now() + RETRY_GAPS_MIN[Math.min(Math.max(attempts, 1), RETRY_GAPS_MIN.length) - 1] * 60000);
@@ -100,7 +103,23 @@ async function dispatchInstantLeads(provider) {
   const Admin = mongoose.model('Admin');
   let placed = 0;
 
+  const { autoDialCheck, nextDayStart } = require('./redialGuard');
   for (const lead of pending) {
+    // Too many calls to this number today, or too soon after the last one:
+    // wait — or, done for today, carry on in the normal pipeline.
+    const guard = await autoDialCheck(lead.phone, now);
+    if (!guard.ok) {
+      const doneToday = guard.until >= nextDayStart(now);
+      await Lead.updateOne(
+        { _id: lead._id, 'instantDispatch.status': 'pending' },
+        {
+          $set: doneToday
+            ? { 'instantDispatch.status': 'done', 'instantDispatch.nextAt': null }
+            : { 'instantDispatch.nextAt': guard.until },
+        }
+      );
+      continue;
+    }
     // Every free user with the dialer on, whichever campaign — longest free
     // first. (The connect mode isn't a filter here: plivoAnswer rings the
     // mobile for anyone whose line / browser phone isn't ready.)

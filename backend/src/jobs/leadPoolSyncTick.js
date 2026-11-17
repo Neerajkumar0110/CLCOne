@@ -33,14 +33,20 @@ const BATCH_LIMIT = 200;
 // The FRESH_* names are kept: other modules import them.
 const FRESH_STAGE = 'New Lead';
 const FRESH_PRIORITY = 10;
-const FRESH_RETRY_MS = 10 * 60 * 1000;
-const FRESH_MAX_ATTEMPTS = 5;
+// Until 2026-11-17: every 10 min, 5 tries — the same customer was rung again
+// and again and kept rejecting. Now 2 h apart, 3 tries; services/calling/
+// redialGuard.js also caps every auto dial to a number at 3 a day.
+const FRESH_RETRY_MS = 2 * 60 * 60 * 1000;
+const FRESH_MAX_ATTEMPTS = 3;
 
 // Daily re-dial (user request 2026-11-12): when these stages are in the picked
 // order, their USED leads go back in line behind the picked stages on their own
 // every day — each at most once per IST day, least-recently-dialled first across
 // both stages (round robin, so a big stage can't starve the other) — and are
 // counted in those stages' own rows. Never a Do-Not-Call number.
+// A queued CallLead that may be dialled now (no retry wait pending).
+const DUE_NOW = () => ({ $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: new Date() } }] });
+
 const REDIAL_STAGES = ['No Response', 'Not Interested Leads'];
 
 // Numbers a call / IVR marked Do-Not-Call. The flag lives on the CallLead
@@ -219,7 +225,9 @@ async function advanceAndQueue(camp, limit = BATCH_LIMIT) {
   const fresh = await queueStageLeads(camp, FRESH_STAGE, limit);
   if (fresh) return { stage: FRESH_STAGE, queued: fresh };
   const active = camp.leadPoolStage || 'New Lead';
-  const pending = await CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] } });
+  // Only leads that may be dialled now — one held back for later (a retry
+  // gap, redialGuard.js) must not stop the pool moving on to the next stage.
+  const pending = await CallLead.countDocuments({ campaign: camp._id, removed: false, status: { $in: ['New', 'Queued'] }, ...DUE_NOW() });
   if (pending > 0) {
     return { stage: active, queued: await queueStageLeads(camp, active, limit) };
   }
@@ -337,6 +345,7 @@ async function tick() {
     campaign: camp._id,
     removed: false,
     status: { $in: ['New', 'Queued'] },
+    ...DUE_NOW(),
   });
 
   if (pending === 0) {
