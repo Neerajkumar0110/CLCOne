@@ -35,10 +35,26 @@ function wasRejected(r) {
   return !r.agentLegAnswered && (/reject|busy/i.test(name) || /busy|reject/i.test(String(p.HangupCause || '')));
 }
 
-// → { ok: true } or { ok: false, until: Date, reason }
+// An agent has EVER spoken to this number (user ask 2026-11-18: "jis customer
+// se ek bar call me baat ho jayegi usko dobara call nahi jana chahiye") — a
+// call the customer answered and the agent joined, any day, either direction.
+async function everSpoke(phone) {
+  const p = last10(phone);
+  if (p.length < 8) return false;
+  const hit = await mongoose
+    .model('CallRecord')
+    .findOne({ phone: { $in: variants(p) }, answeredAt: { $ne: null }, agentLegAnswered: true })
+    .select('_id')
+    .lean();
+  return !!hit;
+}
+
+// → { ok: true } or { ok: false, until: Date, reason, final? }
+// final = never auto-dial this number again (already spoken to).
 async function autoDialCheck(phone, now = Date.now()) {
   const p = last10(phone);
   if (p.length < 8) return { ok: true };
+  if (await everSpoke(p)) return { ok: false, final: true, until: new Date(8.64e15), reason: 'already spoke' };
   const today = await mongoose
     .model('CallRecord')
     .find({ created: { $gte: istDayStart(now), $lte: new Date(now) }, direction: 'Outbound', phone: { $in: variants(p) } })
@@ -55,4 +71,4 @@ async function autoDialCheck(phone, now = Date.now()) {
   return { ok: true };
 }
 
-module.exports = { autoDialCheck, istDayStart, nextDayStart, AUTO_MAX_PER_DAY, AUTO_MIN_GAP_MS };
+module.exports = { autoDialCheck, everSpoke, istDayStart, nextDayStart, AUTO_MAX_PER_DAY, AUTO_MIN_GAP_MS };

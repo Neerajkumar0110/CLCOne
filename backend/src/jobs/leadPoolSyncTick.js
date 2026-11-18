@@ -186,13 +186,19 @@ async function queueStageLeads(camp, stage, limit = BATCH_LIMIT, redialStages = 
   if (!redial && dnc.length) filter.$and.push({ phoneNormalized: { $nin: dnc } });
   const fresh = await Lead.find(filter)
     .sort(redial ? { autoDialerQueuedAt: 1, _id: 1 } : {})
-    .select('_id name phone email stage')
+    .select('_id name phone email stage callHistory.outcome')
     .limit(limit)
     .lean();
   if (!fresh.length) return 0;
 
+  // Someone already spoke to them → never queued for the auto dialer again
+  // (user ask 2026-11-18). They are still marked queued below, so they don't
+  // come back round on the next tick.
+  const { contactedSet } = require('../services/marketing/chatDialQueue');
+  const spoke = await contactedSet(fresh.map((l) => l.phone));
   const docs = fresh
     .filter((l) => last10(l.phone).length >= 8)
+    .filter((l) => !spoke.has(last10(l.phone)) && !(l.callHistory || []).some((c) => /connect/i.test(c.outcome || '')))
     .map((l) => ({
       campaign: camp._id,
       crmLead: l._id,

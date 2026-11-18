@@ -383,7 +383,13 @@ class CloudCallProvider extends CallingProvider {
       if (!next) break;
       const guard = await autoDialCheck(next.phone);
       if (guard.ok) lead = next;
-      else {
+      else if (guard.final) {
+        // already spoken to → off the auto line for good (no attempt used)
+        await CallLead.updateOne(
+          { _id: next._id },
+          { $set: { status: 'Completed', nextAttemptAt: null }, $inc: { attempts: -1 } }
+        );
+      } else {
         await CallLead.updateOne(
           { _id: next._id },
           { $set: { status: 'Queued', nextAttemptAt: guard.until }, $inc: { attempts: -1 } }
