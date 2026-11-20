@@ -255,11 +255,19 @@
 /* Scrollable Modal Body */
 .incall-body {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  min-height: 480px;
+  /* was min-height: 480px — on short screens / browser zoom that pushed the
+     footer (Submit Outcome & Close) out of the 92vh modal. The body now
+     shrinks and scrolls; header and footer always stay visible. */
+  min-height: 0;
   max-height: calc(92vh - 145px);
   background: #f8fafc;
+}
+
+.incall-header,
+.incall-footer {
+  flex-shrink: 0;
 }
 
 /* Two-column layout */
