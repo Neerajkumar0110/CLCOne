@@ -4,6 +4,8 @@ import HubModal from "@/components/HubModal";
 import Sales360 from "@/pages/WorkTracker/Sales360";
 import SystemSettings from "./SystemSettings";
 import useBusinessLock from "@/hooks/useBusinessLock";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
 
 // The Sales › Dashboard tab: the Sales 360° report (every Sales user's login,
 // calls, talk time, responses, leads, sales and recordings — management sees
@@ -16,14 +18,18 @@ export default function SalesDashboard() {
   const [showSettings, setShowSettings] = useState(false);
   // Team classification spans both segments — not for a B2B/B2C-locked user.
   const businessLock = useBusinessLock();
+  // Agent side of the design: someone who only sees their own 360° gets "My Day".
+  const me = useSelector(selectCurrentAdmin);
+  const ownOnly = !["owner", "Super Admin", "Admin", "Sales Manager", "Team Manager"].includes(me?.role);
 
   return (
     <div className="sales-dashboard-ui">
       <div className="hub-stack">
         <div className="hub-card sd-head">
           <div>
-            <h1>Sales 360° Performance</h1>
-            <p>Login to logout — calls, talk time, leads, demos, enrolments, payments and recordings for every Sales user</p>
+            <div className="section-head-crumb">Sales <span className="section-head-sep">›</span> <span className="section-head-cur">{ownOnly ? "My Day" : "Dashboard"}</span></div>
+            <h1>{ownOnly ? "My Day" : "Sales Dashboard"}</h1>
+            <p>Calls, results, charts and ranking for the selected dates — attendance lives in Team &amp; Attendance, lead stages in Leads.</p>
           </div>
           {!businessLock && (
             <button type="button" className="hub-btn" onClick={() => setShowSettings(true)}>
@@ -31,7 +37,7 @@ export default function SalesDashboard() {
             </button>
           )}
         </div>
-        <Sales360 />
+        <Sales360 view="dashboard" />
       </div>
       <HubModal
         open={showSettings && !businessLock}

@@ -1,0 +1,183 @@
+/* Sales One Place app frame (/sales-v3): full height, sticky design sidebar,
+   and the real screens shown inside the design's main column. */
+.sv3-app { min-height: 100vh; }
+.sv3-app .shell { min-height: 100vh; }
+@media (min-width: 900px) {
+  .sv3-app .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; flex: 0 0 248px; }
+  .sv3-app .main { flex: 1 1 0; }
+}
+.sv3-app .side a { cursor: pointer; }
+.sv3-app .side .sv3-back { margin-top: auto; color: #7f97a8; font-size: 12.5px; }
+.sv3-app .side .sv3-back:hover { color: #fff; }
+.sv3-app .lnk { border: 0; background: transparent; padding: 0; font: inherit; color: #0f1e2b; font-weight: 700; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.sv3-app .crumb { margin: 0; }
+.sv3-app h1 { color: #0f1e2b; }
+
+/* real screens inside the shell: drop their outer page frame, keep their look */
+.sv3-embed .hub-page,
+body.sales-ui-on .sv3-embed .hub-page,
+body.sales-ui-on .sv3-embed .hub-page[data-section='sales'] { padding: 0 !important; background: transparent !important; border: 0 !important; }
+.sv3-embed { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+/* SectionHub (Deals / Quotes / Candidates) keeps its own header; Leads + Payments keep theirs */
+.sv3-app .sv3-embed table { min-width: 0; }
+
+/* Callbacks board (S3Callbacks) */
+.sv3 .sv3-tb { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; text-align: left; font-family: inherit; cursor: pointer; color: #0f1e2b; }
+.sv3 .sv3-tb.on { border: 2px solid #0f766e; background: #f0faf8; padding: 13px 15px; }
+.sv3 .sv3-tb .l { font-size: 12.5px; font-weight: 600; color: #5b6b79; }
+.sv3 .sv3-tb .v { font: 700 26px 'Space Grotesk', Inter, sans-serif; }
+.sv3 .sv3-cb { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; border: 1px solid #eef2f6; border-radius: 12px; padding: 12px 14px; background: #fff; }
+.sv3 .sv3-cb .t { width: 130px; font-weight: 700; }
+.sv3 .sv3-cb .w { flex: 1 1 260px; min-width: 0; }
+
+/* Leads board (S3Leads / S3LeadStages / S3TeamActivity / S3LeadImport) */
+.sv3 .sv3-stg { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.sv3 .sv3-stg button { --c: #0f766e; flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 10px 14px; min-width: 120px; cursor: pointer; font: 500 12.5px Inter, sans-serif; color: #3e4c59; text-align: left; }
+.sv3 .sv3-stg button span { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.sv3 .sv3-stg button i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.sv3 .sv3-stg button b { font: 700 20px 'Space Grotesk', Inter, sans-serif; color: #0f1e2b; }
+.sv3 .sv3-stg button.on { border: 2px solid #0f766e; background: #f0faf8; padding: 9px 13px; }
+.sv3 .sv3-srow, .sv3 .sv3-sub { display: grid; grid-template-columns: 20px minmax(120px, 1fr) 2fr 70px 56px; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; font-size: 13.5px; }
+.sv3 .sv3-srow:hover, .sv3 .sv3-sub:hover { background: #f8fbfb; }
+.sv3 .sv3-srow.on, .sv3 .sv3-sub.on { border-color: #0f766e; background: #f0faf8; }
+.sv3 .sv3-srow .t { height: 10px; border-radius: 5px; background: #eef2f6; overflow: hidden; }
+.sv3 .sv3-srow .t b { display: block; height: 100%; }
+.sv3 .sv3-sub { padding: 6px 10px; font-size: 12.5px; color: #3e4c59; }
+.sv3 .xb { width: 20px; height: 20px; border: 0; background: transparent; cursor: pointer; color: #5b6b79; padding: 0; }
+.sv3 .sv3-live { display: inline-flex; gap: 7px; align-items: center; }
+.sv3 .sv3-live i { width: 8px; height: 8px; border-radius: 50%; }
+.sv3 .sv3-sw { width: 40px; height: 22px; border-radius: 999px; border: 0; background: #cfd8e1; position: relative; cursor: pointer; transition: background .15s; }
+.sv3 .sv3-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.sv3 .sv3-sw.on { background: #0f766e; }
+.sv3 .sv3-sw.on::after { left: 21px; }
+.sv3 .sv3-sw:disabled { opacity: .5; cursor: default; }
+.sv3 .sv3-wk { display: flex; align-items: flex-end; gap: 6px; height: 90px; margin-top: 8px; }
+.sv3 .sv3-wk div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; font-size: 10.5px; color: #5b6b79; }
+.sv3 .sv3-wk b { display: block; width: 100%; max-width: 26px; border-radius: 4px; }
+.sv3 .sv3-step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #0f766e; color: #fff; font: 700 12px Inter, sans-serif; margin-right: 6px; }
+.sv3 .sv3-drop.on { border-color: #0f766e; background: #f0faf8; }
+.sv3 .bulk .btn.sm { color: #0f1e2b; }
+.sv3 .bulk .btn.sm.d { color: #b42318; }
+.sv3 tbody tr.sel td { background: #eef8f6; }
+
+/* Call Reports — column chart */
+.sv3 .sv3-colbars { display: flex; align-items: flex-end; gap: 3px; height: 200px; border-bottom: 1px solid #cfd8e1; padding: 0 2px; }
+.sv3 .sv3-colbars div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 1px; min-width: 2px; }
+.sv3 .sv3-colbars i { display: block; width: 100%; border-radius: 3px 3px 0 0; }
+.sv3 .sv3-collbl { display: flex; gap: 3px; padding: 4px 2px 8px; }
+.sv3 .sv3-collbl span { flex: 1; font-size: 10.5px; color: #5b6b79; text-align: center; white-space: nowrap; overflow: visible; min-width: 2px; }
+.sv3 .heat .dot.h0 { background: #eef2f6; } .sv3 .heat .dot.h1 { background: #cdede8; } .sv3 .heat .dot.h2 { background: #8fd5ca; } .sv3 .heat .dot.h3 { background: #3ba897; } .sv3 .heat .dot.h4 { background: #0b5f58; }
+
+/* Auto Dialer (S3AutoDialer) */
+.sv3 .sv3-hero { background: #0b2230; color: #fff; border-radius: 16px; padding: 22px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
+.sv3 .sv3-hero .big { font: 700 38px 'Space Grotesk', Inter, sans-serif; }
+.sv3 .sv3-hero .s { color: #9fb3c3; font-size: 13px; }
+.sv3 .sv3-hero .go { border: 0; border-radius: 12px; padding: 14px 22px; font: 700 15px Inter, sans-serif; min-height: 50px; color: #fff; cursor: pointer; }
+.sv3 .sv3-hero .gh { background: transparent; color: #fff; border: 1px solid #3e5566; border-radius: 12px; padding: 13px 18px; font: 600 14px Inter, sans-serif; min-height: 50px; cursor: pointer; display: inline-flex; align-items: center; }
+.sv3 .sv3-hero .prog { height: 8px; border-radius: 5px; background: #22384a; overflow: hidden; margin-top: 10px; max-width: 320px; }
+.sv3 .sv3-hero .prog b { display: block; height: 100%; background: #5ec4b6; }
+.sv3 .sv3-mode { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: left; background: #fff; font: 500 12.5px Inter, sans-serif; color: #3e4c59; cursor: pointer; }
+.sv3 .sv3-mode b { display: block; color: #0f1e2b; font-size: 14px; margin-bottom: 2px; }
+.sv3 .sv3-mode.on { border: 2px solid #0f766e; background: #f0faf8; }
+.sv3 .sv3-mode:disabled { cursor: default; }
+.sv3 .sv3-mode:disabled:not(.on) { opacity: .7; }
+.sv3 .gauge { height: 6px; border-radius: 4px; background: #eef2f6; overflow: hidden; margin-top: 6px; }
+.sv3 .gauge b { display: block; height: 100%; }
+.sv3 .sv3-ratio { display: flex; height: 28px; border-radius: 8px; overflow: hidden; margin-top: 8px; background: #eef2f6; }
+.sv3 .sv3-ratio span { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; min-width: 0; overflow: hidden; }
+.sv3 .sv3-chipf { display: flex; flex-wrap: wrap; gap: 6px; }
+.sv3 .sv3-chipf button { border: 1px solid #e2e8f0; background: #fff; border-radius: 999px; padding: 7px 12px; font: 600 12.5px Inter, sans-serif; color: #3e4c59; cursor: pointer; min-height: 36px; }
+.sv3 .sv3-chipf button.on { background: #0b2230; color: #fff; border-color: #0b2230; }
+
+/* Team Activity: expanded row */
+.sv3 tr.ex > td { background: #F8FAFC; }
+
+/* Team & Attendance: month grid + legend toggles (S3Team) */
+.sv3 .sv3-cal table { min-width: 820px; border-collapse: separate; border-spacing: 3px; background: transparent; }
+.sv3 .sv3-cal th { background: transparent; border: 0; padding: 2px; text-align: center; font-weight: 600; font-size: 11.5px; }
+.sv3 .sv3-cal th.n { text-align: left; padding-right: 10px; color: #0f1e2b; white-space: nowrap; }
+.sv3 .sv3-cal td { padding: 0; width: 22px; height: 22px; border-radius: 5px; border: 0; }
+.sv3 .sv3-cal .P { background: #0f766e; }
+.sv3 .sv3-cal .H { background: #8fd5ca; }
+.sv3 .sv3-cal .L { background: #f59e0b; }
+.sv3 .sv3-cal .A { background: #1e293b; }
+.sv3 .sv3-cal .V { background: #93c5fd; }
+.sv3 .sv3-cal .S { background: #eef2f6; }
+.sv3 .sv3-lg { border: 1px solid #e2e8f0; background: #fff; border-radius: 999px; padding: 5px 10px; font: 600 12px Inter, sans-serif; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; color: #3e4c59; }
+.sv3 .sv3-lg.off { opacity: .45; text-decoration: line-through; }
+
+/* Recordings (S3Recordings) + C7 player */
+.sv3 .play { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #0f766e; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+.sv3 .play:focus-visible { outline: 3px solid #5ec4b6; outline-offset: 2px; }
+.sv3 .sv3-rsw { width: 40px; height: 22px; border-radius: 11px; background: #0f766e; position: relative; display: inline-block; }
+.sv3 .sv3-rsw::after { content: ""; position: absolute; right: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+.sv3 .sv3-rsw.off { background: #cfd8e1; }
+.sv3 .sv3-rsw.off::after { right: auto; left: 3px; }
+.sv3 .sv3-player { background: #f1f5f9; border-radius: 12px; padding: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.sv3 .sv3-player .bar { flex: 1 1 140px; height: 6px; background: #cfd8e1; border-radius: 3px; cursor: pointer; position: relative; }
+.sv3 .sv3-player .bar > span { display: block; height: 100%; background: #0f766e; border-radius: 3px; }
+.sv3 button.kpi { background: #fff; }
+.sv3 button.kpi.on { border-color: #0f766e; box-shadow: 0 0 0 2px #0f766e33; }
+
+/* real CRM header + brand logo in the v3 shell */
+.sv3-app .sv3-col { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; }
+.sv3-app .sv3-col > .main { flex: 1 1 auto; }
+@media (min-width: 900px) { .sv3-app .sv3-col { flex: 1 1 0; } }
+.sv3-app .sv3-head { position: sticky; top: 0; z-index: 100; }
+.sv3-app .sv3-head .app-header { position: static !important; }
+.sv3-app .side a.sv3-brand { padding: 4px 10px 14px; min-height: 0; background: transparent; }
+.sv3-app .side a.sv3-brand:hover { background: transparent; }
+.sv3-app .side a.sv3-brand img { height: 40px; width: auto; max-width: 100%; object-fit: contain; display: block; }
+.sv3-app .side { scrollbar-width: thin; scrollbar-color: #2a4556 transparent; }
+.sv3-app .side::-webkit-scrollbar { width: 6px; }
+.sv3-app .side::-webkit-scrollbar-thumb { background: #2a4556; border-radius: 3px; }
+
+/* icons everywhere (Auto Dialer) */
+.sv3 .sv3-h3i { display: flex; align-items: center; gap: 9px; }
+.sv3 .sv3-hi { width: 28px; height: 28px; border-radius: 8px; background: #e6f4f2; color: #0f766e; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .sv3-hero .go, .sv3 .sv3-hero .gh { display: inline-flex; align-items: center; gap: 8px; }
+.sv3 .sv3-mode .sv3-mi { width: 34px; height: 34px; border-radius: 9px; background: #eef2f6; color: #0f1e2b; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.sv3 .sv3-mode.on .sv3-mi { background: #0f766e; color: #fff; }
+.sv3 .btn > svg, .sv3 .b > svg { vertical-align: -2px; }
+
+/* logo row = header row: same 64px height, one line across */
+.sv3-app .side { padding-top: 0; }
+.sv3-app .side a.sv3-brand { height: 64px; min-height: 64px; flex: none; display: flex; align-items: center; padding: 0 12px; margin: 0 -12px 8px; border-bottom: 1px solid var(--nav-border, rgba(255,255,255,.08)); border-radius: 0; box-sizing: border-box; }
+.sv3-app .side a.sv3-brand img { height: 40px; }
+.sv3-app .sv3-head .app-header { height: 64px; box-sizing: border-box; }
+
+/* Agent Screen (S3DialerAgent) */
+.sv3 .sv3-callbar { background: #0b2230; color: #fff; border-radius: 16px; padding: 20px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.sv3 .sv3-callbar .t { font: 700 34px 'Space Grotesk', Inter, sans-serif; }
+.sv3 .sv3-callbar .sp { flex: 1; }
+.sv3 .sv3-callbar .ctl { display: flex; flex-wrap: wrap; gap: 8px; }
+.sv3 .sv3-callbar .ctl button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #3e5566; background: transparent; color: #fff; border-radius: 10px; padding: 10px 14px; font: 600 13px Inter, sans-serif; min-height: 44px; cursor: pointer; }
+.sv3 .sv3-callbar .ctl button:hover:not(:disabled) { background: #12303f; }
+.sv3 .sv3-callbar .ctl button:disabled { opacity: .45; cursor: default; }
+.sv3 .sv3-callbar .ctl button.end { background: #b42318; border-color: #b42318; }
+.sv3 .sv3-callbar .ctl button.ans { background: #16a34a; border-color: #16a34a; }
+.sv3 .sv3-qt { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sv3 .sv3-qt button { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 999px; padding: 6px 12px; font: 600 12.5px Inter, sans-serif; color: #3e4c59; cursor: pointer; }
+.sv3 .sv3-qt button:hover { background: #e6f4f2; border-color: #0f766e; color: #0f766e; }
+
+/* Dialer (S3DialerAgent) */
+.sv3 .sv3-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 0 auto; }
+.sv3 .sv3-pad button { height: 58px; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; font: 700 20px 'Space Grotesk', Inter, sans-serif; color: #0f1e2b; cursor: pointer; }
+.sv3 .sv3-pad button:hover:not(:disabled) { background: #f1f5f9; }
+.sv3 .sv3-callb { width: 64px; height: 64px; border-radius: 50%; border: 0; background: #16a34a; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.sv3 .sv3-callb:disabled { opacity: .5; cursor: default; }
+.sv3 .sv3-dialnum { display: block; width: 100%; font: 700 28px 'Space Grotesk', Inter, sans-serif; text-align: center; letter-spacing: .04em; padding: 10px; border: 0; border-bottom: 1px solid #e2e8f0; background: transparent; color: #0f1e2b; outline: none; }
+.sv3 .sv3-dialnum::placeholder { color: #94a3b8; font-size: 20px; letter-spacing: 0; }
+.sv3 .sv3-crow { justify-content: space-between; padding: 8px; border-radius: 10px; border: 1px solid #eef2f6; flex-wrap: nowrap; }
+
+/* More (S3More) */
+.sv3 .sv3-mini { height: 6px; border-radius: 4px; background: #eef2f6; width: 90px; display: inline-block; vertical-align: middle; margin-left: 8px; overflow: hidden; }
+.sv3 .sv3-mini b { display: block; height: 100%; background: #0f766e; }
+.sv3 .pill.sv3-off { background: #fff; color: #3e4c59; border: 1px solid #e2e8f0; }
+.sv3 .play:disabled { background: #cbd5e1; cursor: default; }
+.sv3 .sv3-pulse { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; box-shadow: 0 0 0 3px rgba(15,118,110,.15); }
+.sv3 .sv3-type { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sv3 .sv3-type i { width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: #eef2f6; color: #3e4c59; flex: none; }
+
+/* new Sales screens inside the CRM layout (agents) */
+.sv3.sv3-embedded { border-radius: 16px; min-height: calc(100vh - 100px); }

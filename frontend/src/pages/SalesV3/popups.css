@@ -1,0 +1,77 @@
+/* v3 popups — lead (S3LeadPopup) and agent (S3AgentPopup), scoped .sv3 */
+.sv3 .ov, .sv3 .lp-ov, .sv3 .sv3-ap-ov { z-index: 1000; }
+.sv3 .sv3-num { color: #0f766e; font-weight: 600; }
+.sv3 .sv3-audio { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 8px; }
+.sv3 .lp-ov { position: fixed; inset: 0; background: rgba(11, 34, 48, 0.55); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; font-family: Inter, system-ui, sans-serif; color: #0f1e2b; }
+.sv3 .fd { background: #fff; border-radius: 18px; width: 100%; max-width: 1000px; box-shadow: 0 24px 60px rgba(11, 34, 48, 0.3); overflow: hidden; }
+.sv3 .fd .hd { display: flex; gap: 16px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid #eef2f6; }
+.sv3 .av2 { width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(135deg, #0ea5b7, #0f766e); color: #fff; font: 700 22px "Space Grotesk", Inter, sans-serif; display: flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .fd h2, .sv3 .sv3-ap h2 { margin: 0; font: 700 22px "Space Grotesk", Inter, sans-serif; }
+.sv3 .chps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sv3 .chp { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; font-family: inherit; color: inherit; }
+.sv3 button.chp { cursor: pointer; }
+.sv3 button.chp:hover { border-color: #0f766e; }
+.sv3 .chp .mi { width: 24px; height: 24px; border-radius: 50%; border: 0; background: #e8eefd; color: #1d4ed8; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.sv3 .chp.st { background: #e8eefd; color: #1d4ed8; border-color: #c7d7fb; }
+.sv3 .bdy { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.sv3 .tls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sv3 .tl { display: flex; gap: 10px; align-items: center; background: #f5f7fa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+.sv3 .tl .ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .tl b { display: block; font: 700 18px "Space Grotesk", Inter, sans-serif; }
+.sv3 .tl span { font-size: 12px; color: #5b6b79; }
+.sv3 .gbox { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; }
+.sv3 .gbox h4 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sv3 .cbars { display: flex; align-items: flex-end; gap: 10px; height: 120px; border-bottom: 1px solid #cfd8e1; padding: 0 4px; }
+.sv3 .cbars div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 2px; align-items: center; }
+.sv3 .cbars i { display: block; width: 100%; max-width: 30px; border-radius: 4px; }
+.sv3 .journey { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sv3 .stp { border-radius: 10px; padding: 8px 10px; font-size: 12.5px; font-weight: 600; border: 1px solid #e2e8f0; background: #fff; }
+.sv3 .stp small { display: block; font-weight: 500; color: #5b6b79; font-size: 11px; }
+.sv3 .stp.cur { border: 2px solid #2563eb; background: #e8eefd; color: #1d4ed8; }
+.sv3 .acc { border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+.sv3 .acc.open { border-color: var(--ac); }
+.sv3 .acc-h { display: flex; gap: 12px; align-items: center; padding: 14px 16px; cursor: pointer; background: #fff; border: 0; width: 100%; text-align: left; font-family: inherit; }
+.sv3 .acc-h .ic { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .acc-h .tt { flex: 1; min-width: 0; }
+.sv3 .acc-h .tt b { display: block; font-size: 15px; color: #0f1e2b; }
+.sv3 .acc-h .tt span { font-size: 12.5px; color: #5b6b79; }
+.sv3 .cnt { min-width: 28px; height: 26px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; padding: 0 8px; }
+.sv3 .acc-b { padding: 4px 16px 16px; border-top: 1px dashed #e2e8f0; }
+.sv3 .f4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 18px; margin-top: 12px; }
+.sv3 .fk { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5b6b79; }
+.sv3 .fv { font-size: 14px; font-weight: 600; margin-top: 3px; white-space: normal; word-break: break-word; }
+.sv3 .bx { background: #f5f7fa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-top: 4px; white-space: pre-wrap; }
+.sv3 .itm { border: 1px solid #eef2f6; border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.sv3 .itm .top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sv3 .itm .meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #5b6b79; margin-top: 4px; }
+.sv3 .alink { border: 0; background: transparent; padding: 0; font: inherit; color: #0f766e; font-weight: 600; cursor: pointer; text-decoration: underline dotted; }
+.sv3 .ftr { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 22px; background: #f8fafc; border-top: 1px solid #eef2f6; }
+/* agent popup */
+.sv3 .sv3-ap-ov { position: fixed; inset: 0; background: rgba(11, 34, 48, 0.55); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; font-family: Inter, system-ui, sans-serif; color: #0f1e2b; }
+.sv3 .sv3-ap { background: #fff; border-radius: 18px; width: 100%; max-width: 1080px; box-shadow: 0 24px 60px rgba(11, 34, 48, 0.3); overflow: hidden; }
+.sv3 .sv3-ap-hd { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid #eef2f6; }
+.sv3 .sv3-ap-av { width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(135deg, #14b8a6, #0f766e); color: #fff; font: 700 22px "Space Grotesk", Inter, sans-serif; display: flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .sv3-ap .chp { font-size: 12.5px; }
+.sv3 .sv3-ap-bd { padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 14px; }
+.sv3 .sv3-ap-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.sv3 .sv3-ap-tl { background: #f5f7fa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+.sv3 .sv3-ap-tl b { display: block; font: 700 17px "Space Grotesk", Inter, sans-serif; }
+.sv3 .sv3-ap-tl span { font-size: 11.5px; color: #5b6b79; }
+.sv3 .sv3-ap-strip { position: relative; height: 40px; border-radius: 10px; background: #eef2f6; overflow: hidden; margin-top: 8px; }
+.sv3 .sv3-ap-strip span { position: absolute; top: 0; bottom: 0; }
+.sv3 .sv3-ap-strip i { position: absolute; top: 8px; bottom: 8px; width: 2px; background: #0b2230; }
+.sv3 .sv3-ap-axis { display: flex; justify-content: space-between; font-size: 11px; color: #5b6b79; margin-top: 4px; }
+.sv3 .sv3-ap-box { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; min-width: 0; }
+.sv3 .sv3-ap-box h4 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sv3 .sv3-ap-g { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.sv3 .sv3-ap-ev { display: grid; grid-template-columns: 70px 12px 1fr auto; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; }
+.sv3 .sv3-ap-ev .d { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; }
+.sv3 .sv3-ap-ev small { display: block; color: #5b6b79; font-size: 12px; margin-top: 2px; }
+.sv3 .sv3-ap-bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; border-bottom: 1px solid #cfd8e1; }
+.sv3 .sv3-ap-bars div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 2px; }
+.sv3 .sv3-ap-bars i { display: block; width: 100%; max-width: 26px; border-radius: 4px 4px 1px 1px; }
+.sv3 .sv3-ap-lbl { display: flex; gap: 6px; padding-top: 4px; }
+.sv3 .sv3-ap-lbl span { flex: 1; text-align: center; font-size: 10.5px; color: #5b6b79; }
+.sv3 .sv3-ap-ft { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; padding: 14px 22px; background: #f8fafc; border-top: 1px solid #eef2f6; }
+.sv3 .md .mb { max-height: calc(100vh - 220px); overflow: auto; }
+.sv3 .md textarea.in { min-height: 0; resize: vertical; font-family: inherit; }

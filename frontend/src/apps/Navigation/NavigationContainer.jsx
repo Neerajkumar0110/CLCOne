@@ -13,6 +13,9 @@ import useWhatsAppAccess from '@/pages/WhatsApp/useWhatsAppAccess';
 
 import useLanguage from '@/locale/useLanguage';
 import useBrandLogo from '@/hooks/useBrandLogo';
+import { logoSlot } from '@/config/logoSlots';
+import { D as SV3_ICON, MY as SV3_MY, visibleGroups as sv3Groups } from '@/pages/SalesV3/nav';
+import { BASE_URL, FILE_BASE_URL } from '@/config/serverApiConfig';
 
 import useResponsive from '@/hooks/useResponsive';
 
@@ -39,7 +42,11 @@ import {
   ClockCircleOutlined,
   PlayCircleOutlined,
   CodeOutlined,
+  MessageOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
+// Same list as apps/Header/ChatChannels.jsx (who sees the ad-chat inbox).
+const SUPER_ADMIN_ROLES = ['owner', 'Super Admin'];
 
 const { Sider } = Layout;
 
@@ -207,6 +214,7 @@ function Sidebar({ collapsible, isMobile = false }) {
           : t
       );
     }
+    if (section.key === 'sales') return buildSalesItem(section, label);
     return {
       key: section.key,
       icon: SectionIcon ? <SectionIcon /> : undefined,
@@ -214,6 +222,78 @@ function Sidebar({ collapsible, isMobile = false }) {
       children: buildTabItems(section.key, tabs),
     };
   });
+
+  // Sales = ONE sidebar tab for everything sales uses (user ask 2026-11-17,
+  // from 30 days of real usage): the day's work first, then records & team,
+  // the rarely used screens under "More". Calls' tabs live here too, so there
+  // is no separate Calls menu. Orders / Products (never used) are left out of
+  // the sidebar; their routes still work.
+  function buildSalesItem(section, label) {
+    const canSales = canView('Sales');
+    const canCalls = canView('Calling');
+    const isAdmin = ['owner', 'Super Admin', 'Admin'].includes(role);
+    // Sales One Place design, agent side: a Sales user who only ever sees their
+    // own 360° (not management — same list as Sales360's FULL_ACCESS) gets
+    // "My …" names for those tabs. Same routes and screens.
+    const ownOnly = !['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Team Manager'].includes(role);
+    const MY = { dashboard: 'My Day', 'team-360': 'My Attendance' };
+    // Agents: only the new Sales design — its tabs right here under Sales, each
+    // screen inside the CRM layout (no old Sales menu, no new tab).
+    if (ownOnly && canSales) {
+      const Ic = section.Icon;
+      const svg = (d) => (
+        <span role="img" className="anticon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg></span>
+      );
+      const groups = sv3Groups(canView, role).map(([name, items]) => {
+        const kids = items.map(([k, l, ic]) => ({ key: `sales-v3/${k}`, icon: svg(SV3_ICON[ic]), label: SV3_MY[k] || l }));
+        return name === 'More' ? { key: 'sales-v3-more', label: 'More', icon: <AppstoreOutlined />, children: kids } : { type: 'group', key: `sales-v3-g-${name}`, label: name, children: kids };
+      });
+      return { key: 'sales', icon: Ic ? <Ic /> : undefined, label, children: groups, salesMenu: true };
+    }
+    // Management: no old Sales tabs — just "Sales", which opens the new design
+    // (full-screen app) in a new browser tab (user ask 2026-11-20).
+    if (canSales) {
+      const Ic = section.Icon;
+      return { key: 'sales-v3', icon: Ic ? <Ic /> : undefined, label, salesMenu: true };
+    }
+    const tab = (k) => {
+      const t = canSales && section.tabs.find((x) => x.key === k);
+      return t ? { key: `sales/${k}`, icon: t.Icon ? <t.Icon /> : undefined, label: (ownOnly && MY[k]) || t.label } : null;
+    };
+    const call = (k, text, icon, adminOnly = false) => (canCalls && (!adminOnly || isAdmin) ? { key: `calling-${k}`, label: text, icon } : null);
+    const daily = [
+      tab('dashboard'),
+      tab('leads'),
+      call('dialer', 'Auto Dialer', <ThunderboltOutlined />),
+      call('dial', 'Dialer', <PhoneOutlined />),
+      call('agent', 'Agent Screen', <UserOutlined />),
+      call('callbacks', 'Callbacks', <ClockCircleOutlined />),
+      SUPER_ADMIN_ROLES.includes(role) ? { key: 'sales-chats', label: 'Ad Chats', icon: <MessageOutlined /> } : null,
+    ].filter(Boolean);
+    const records = [
+      call('history', 'Call History', <HistoryOutlined />),
+      call('recordings', 'Recordings', <PlayCircleOutlined />),
+      tab('team-360'),
+      tab('payments'),
+      call('demos', 'Live Demos', <VideoCameraOutlined />, true),
+      call('reports', 'Call Reports', <BarChartOutlined />, true),
+    ].filter(Boolean);
+    const more = [
+      tab('pipeline'),
+      tab('deals'),
+      tab('quotes'),
+      tab('customers'),
+      call('dashboard', 'Calls Dashboard', <DashboardOutlined />),
+      call('campaigns', 'Campaigns', <RocketOutlined />),
+    ].filter(Boolean);
+    const children = [
+      daily.length && { type: 'group', key: 'sales-g-daily', label: 'Daily work', children: daily },
+      records.length && { type: 'group', key: 'sales-g-records', label: 'Records & team', children: records },
+      more.length && { key: 'sales-more', label: 'More', icon: <AppstoreOutlined />, children: more },
+    ].filter(Boolean);
+    const SectionIcon = section.Icon;
+    return { key: 'sales', icon: SectionIcon ? <SectionIcon /> : undefined, label, children, salesMenu: true };
+  }
 
   const items = [
     // ---- Overview ----
@@ -228,32 +308,9 @@ function Sidebar({ collapsible, isMobile = false }) {
     // section below, not a Sales sub-tab.)
     ...featureItems,
 
-    // ---- Call center (Plivo, mock by default) ---- its 10 tabs are
-    // in-page (?tab=…, see pages/Calling/index.jsx) rather than real routes,
-    // so each child navigates to /calling with that query param — see
-    // routeByKey and CALLING_TABS above.
-    {
-      key: 'calling',
-      label: 'Calls',
-      icon: <PhoneOutlined />,
-      children: [
-        { key: 'calling-dashboard', label: 'Dashboard', icon: <DashboardOutlined /> },
-        { key: 'calling-dial', label: 'Dialer', icon: <PhoneOutlined /> },
-        { key: 'calling-campaigns', label: 'Campaigns', icon: <RocketOutlined /> },
-        { key: 'calling-dialer', label: 'Auto Dialer', icon: <ThunderboltOutlined /> },
-        { key: 'calling-agent', label: 'Agent Screen', icon: <UserOutlined /> },
-        { key: 'calling-history', label: 'Call History', icon: <HistoryOutlined /> },
-        { key: 'calling-callbacks', label: 'Callbacks', icon: <ClockCircleOutlined /> },
-        { key: 'calling-recordings', label: 'Recordings', icon: <PlayCircleOutlined /> },
-        // Reports + live demo bookings — Admin / Super Admin only.
-        ...(['owner', 'Super Admin', 'Admin'].includes(role)
-          ? [
-              { key: 'calling-reports', label: 'Reports', icon: <BarChartOutlined /> },
-              { key: 'calling-demos', label: 'Live Demos', icon: <VideoCameraOutlined /> },
-            ]
-          : []),
-      ],
-    },
+    // ---- Calls ---- its tabs (in-page ?tab=…, see pages/Calling/index.jsx
+    // and routeByKey / CALLING_TABS above) now sit inside Sales — see
+    // buildSalesItem. No separate Calls menu.
 
     // ---- Analytics: Reports ▸ (Overview + Performance) ----
     {
@@ -332,6 +389,8 @@ function Sidebar({ collapsible, isMobile = false }) {
       item.children ? { ...item, children: item.children.filter((c) => canSeeKey(c.key)) } : item
     )
     .filter((item) => {
+      // Sales carries both Sales and Calling screens, each already filtered by its own permission
+      if (item.salesMenu) return item.children ? item.children.length > 0 : true;
       // a feature section without its own nav key (Admin & Ops) is gated by its module
       const mod = NAV_KEY_MODULE[item.key] || (FEATURE_SECTIONS.find((s) => s.key === item.key) || {}).module;
       if (mod && OPEN_TABS[item.key]) return true; // has open tabs (Team Chat)
@@ -341,6 +400,16 @@ function Sidebar({ collapsible, isMobile = false }) {
     });
 
   const onMenuClick = ({ key }) => {
+    if (key === 'sales-chats') {
+      window.dispatchEvent(new CustomEvent('clc:open-ad-chats'));
+      return;
+    }
+    // Sales One Place (v3 design) — its own full-screen app, in a new tab.
+    if (key === 'sales-v3') {
+      if (['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Team Manager'].includes(role)) window.open('/sales-v3', '_blank', 'noopener');
+      else navigate('/sales-v3');
+      return;
+    }
     const path = routeByKey[key] || '/' + key;
     if (path) navigate(path);
   };
@@ -355,9 +424,16 @@ function Sidebar({ collapsible, isMobile = false }) {
     let want = active ? active.key : null;
     if (!want && (currentPath === 'reports' || currentPath === 'performance')) want = 'reports-group';
     if (!want && ['finance', 'invoice', 'finance-payments'].includes(currentPath)) want = 'finance-group';
-    if (!want && currentPath.startsWith('calling-')) want = 'calling';
+    if (!want && currentPath.startsWith('calling-')) want = 'sales';
+    if (!want && currentPath.startsWith('sales-v3/')) want = 'sales';
+    // a "More" screen also opens that nested submenu
+    const inMore = ['sales/pipeline', 'sales/deals', 'sales/quotes', 'sales/customers', 'calling-dashboard', 'calling-campaigns'].includes(currentPath);
     if (want) {
-      setOpenKeys((prev) => (prev.includes(want) ? prev : [...prev, want]));
+      setOpenKeys((prev) => {
+        const v3More = /^sales-v3\/(pipeline|deals|quotes|candidates|callsdash|campaigns)$/.test(currentPath);
+        const add = [want, ...(inMore ? ['sales-more'] : []), ...(v3More ? ['sales-v3-more'] : [])].filter((k) => !prev.includes(k));
+        return add.length ? [...prev, ...add] : prev;
+      });
     }
   }, [currentPath]);
 
@@ -418,6 +494,15 @@ function Sidebar({ collapsible, isMobile = false }) {
         <img
           src={isNavMenuClose ? collapsedLogo : expandedLogo}
           alt="Career Lab Consulting"
+          onError={(e) => {
+            // Local dev: the uploaded logo lives on the live server — try it there, then the bundled one.
+            const img = e.currentTarget;
+            const fb = logoSlot(isNavMenuClose ? 'logo_sidebar_collapsed' : 'logo_sidebar_expanded')?.fallback;
+            if (FILE_BASE_URL && BASE_URL && img.src.startsWith(BASE_URL) && !img.dataset.tried) {
+              img.dataset.tried = '1';
+              img.src = FILE_BASE_URL + img.src.slice(BASE_URL.length);
+            } else if (fb && img.src !== new URL(fb, window.location.href).href) img.src = fb;
+          }}
           style={{
             height: isNavMenuClose ? '40px' : '40px',
             width: 'auto',

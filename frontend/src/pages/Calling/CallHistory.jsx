@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { request } from "@/request";
 import { message } from "antd";
-import { HistoryOutlined, LeftOutlined, RightOutlined, PhoneOutlined } from "@ant-design/icons";
+import { HistoryOutlined, LeftOutlined, RightOutlined, PhoneOutlined, SearchOutlined } from "@ant-design/icons";
 import { CALL_STATUS_BADGE, fmtDuration, fmtDateTime, useCallingMeta, dialContact } from "./shared";
 import { LeadLink } from "@/components/LeadFullDetail";
+import SuPager from "@/components/SalesTheme/SuPager";
+import AgentLink from "@/components/SalesTheme/AgentLink";
 
 const STATUSES = ["All", "completed", "connected", "no-answer", "busy", "failed", "voicemail", "transferred"];
 
@@ -62,26 +64,41 @@ export default function CallHistory() {
       <div className="hub-card">
         <div className="hub-card-header"><h3><HistoryOutlined /> Call History</h3></div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 12 }}>
-          <input className="hub-input" placeholder="Search contact / number / agent" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} onKeyDown={(e) => e.key === "Enter" && load(1)} />
-          <select className="hub-select" value={f.campaign} onChange={(e) => setF({ ...f, campaign: e.target.value })}>
-            <option value="">All campaigns</option>
-            {campaigns.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-          </select>
-          <select className="hub-select" value={f.agent} onChange={(e) => setF({ ...f, agent: e.target.value })}>
-            <option value="">All agents</option>
-            {(meta.agents || []).map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
-          </select>
-          <select className="hub-select" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
-            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <input type="date" className="hub-input" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
-          <input type="date" className="hub-input" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
-        </div>
-        <div className="hub-row" style={{ gap: 8, marginBottom: 10 }}>
-          <button type="button" className="hub-btn hub-btn-primary" onClick={() => load(1)}>Apply</button>
-          <button type="button" className="hub-btn" onClick={() => { setF({ q: "", campaign: "", agent: "", status: "All", from: "", to: "" }); setTimeout(() => load(1), 0); }}>Clear</button>
-        </div>
+        <section className="su-fp" aria-label="Filters">
+          <label className="su-srch">
+            <SearchOutlined />
+            <input type="search" placeholder="Search contact, number or agent…" aria-label="Search calls" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} onKeyDown={(e) => e.key === "Enter" && load(1)} />
+          </label>
+          <div className="su-fgrid">
+            <label className="su-fld">Result
+              <select className="hub-select" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label className="su-fld">Agent
+              <select className="hub-select" value={f.agent} onChange={(e) => setF({ ...f, agent: e.target.value })}>
+                <option value="">All agents</option>
+                {(meta.agents || []).map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
+              </select>
+            </label>
+            <label className="su-fld">Campaign
+              <select className="hub-select" value={f.campaign} onChange={(e) => setF({ ...f, campaign: e.target.value })}>
+                <option value="">All campaigns</option>
+                {campaigns.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label className="su-fld">From
+              <input type="date" className="hub-input" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
+            </label>
+            <label className="su-fld">To
+              <input type="date" className="hub-input" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+            </label>
+          </div>
+          <div className="su-factions">
+            <button type="button" className="hub-btn" onClick={() => { setF({ q: "", campaign: "", agent: "", status: "All", from: "", to: "" }); setTimeout(() => load(1), 0); }}>Reset</button>
+            <button type="button" className="hub-btn hub-btn-primary" onClick={() => load(1)}>Apply</button>
+          </div>
+        </section>
 
         <div className="hub-table-wrapper">
           <table className="hub-table">
@@ -102,14 +119,14 @@ export default function CallHistory() {
             </thead>
             <tbody>
               {loading && <tr><td colSpan={11}><div className="hub-empty">Loading…</div></td></tr>}
-              {!loading && rows.length === 0 && <tr><td colSpan={11}><div className="hub-empty">No calls found.</div></td></tr>}
+              {!loading && rows.length === 0 && <tr><td colSpan={11}><div className="hub-empty"><b>No data available for the selected filters.</b></div></td></tr>}
               {!loading &&
                 rows.map((r) => (
                   <tr key={r._id}>
                     <td><LeadLink phone={r.phone}>{r.contactName || "—"}</LeadLink></td>
                     <td><LeadLink phone={r.phone}>{r.phone}</LeadLink></td>
                     <td>
-                      {r.agentName || "—"}
+                      {r.agentName ? <AgentLink name={r.agentName} /> : "—"}
                       {/* nobody took it — filed under the lead's owner / last user who spoke to them */}
                       {r.ownerOnly && <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>not picked · their lead</div>}
                     </td>
@@ -155,15 +172,7 @@ export default function CallHistory() {
         </div>
 
         {pages > 1 && (
-          <div className="hub-row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12 }}>
-            <span style={{ fontSize: 12.5, color: "var(--hub-muted)" }}>
-              Page {page} of {pages} · {count} call{count === 1 ? "" : "s"}
-            </span>
-            <div className="hub-row" style={{ gap: 8 }}>
-              <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}><LeftOutlined /> Prev</button>
-              <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>Next <RightOutlined /></button>
-            </div>
-          </div>
+          <SuPager page={page} pages={pages} count={count} onPage={load} noun="calls" />
         )}
       </div>
     </div>

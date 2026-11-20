@@ -32,6 +32,7 @@ import {
 import {
   UserAddOutlined,
   UserSwitchOutlined,
+  EyeOutlined,
   EditOutlined,
   ImportOutlined,
   ExportOutlined,
@@ -51,6 +52,7 @@ import {
   CloseOutlined,
   FilterOutlined,
   SearchOutlined,
+  ClockCircleOutlined,
   RiseOutlined,
   FacebookOutlined,
   LinkOutlined,
@@ -60,6 +62,8 @@ import {
   GlobalOutlined,
 } from "@ant-design/icons";
 import "./leadListFilters.css";
+import SuPager from "@/components/SalesTheme/SuPager";
+import AgentLink from "@/components/SalesTheme/AgentLink";
 
 // Local token override so antd's Collapse/Tooltip pick up this page's blue
 // accent instead of the app-wide teal primary color.
@@ -993,417 +997,247 @@ function LeadStageBoard({ stages, total, pools = null, pool = "board", onPool, l
   const [expanded, setExpanded] = useState({});
   const pct = (n) => (total ? (n / total) * 100 : 0);
   const nonZero = stages.filter((s) => s.count > 0);
-  const top2 = [...stages].sort((a, b) => b.count - a.count).slice(0, 2);
 
-  const SIZE = 260;
-  const STROKE = 34;
-  const R = (SIZE - STROKE) / 2;
-  const CIRC = 2 * Math.PI * R;
+  // Sales One Place design (Leads › Lead Stages): pool switch + "Viewing" on
+  // top, then two cards — Lead status donut + Lead quality, and All stages.
+  // Same props and clicks as before: a slice / row / sub-status picks the
+  // stage for the Lead List; the centre or "All …" picks every lead.
+  const SIZE = 42;
+  const R = 15.915;
   let dashAccum = 0;
-
-  const COLS = "minmax(96px,1.1fr) 2fr 40px 48px";
-  const BOX = { display: "flex", alignItems: "center", gap: 10, borderRadius: 12, height: 58, boxSizing: "border-box" };
+  const activeRow = stages.find((s) => s.stage === activeStage);
+  const centerN = activeRow ? activeRow.count : total;
+  const centerL = activeRow ? activeRow.stage : centerLabel;
+  const maxCount = Math.max(1, ...stages.map((s) => s.count));
+  const viewingName = viewUser && userOptions ? (userOptions.find((o) => o.value === viewUser) || {}).label || "User" : "";
+  const poolHelp = {
+    board: "Leads still being worked — used leads no user has are in Used Leads.",
+    used: "Every lead that has been called (CRM leads), stage-wise.",
+    all: "Every lead received so far, whether called or not.",
+  };
 
   return (
-    <div className="hub-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 14 }}>
-          <div
-            style={{
-              width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center",
-              background: "var(--hub-blue-soft)", color: "var(--hub-blue)", fontSize: 19, flexShrink: 0,
-            }}
-          >
-            <FilterOutlined />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--hub-text)" }}>Lead Stages</h3>
-            <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginTop: 2 }}>
-              Track your leads&rsquo; progress across every stage
-            </div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {userOptions && (
-            <div
-              className="lead-user-pill"
-              style={{
-                ...BOX, padding: "6px 6px 6px 12px",
-                background: viewUser ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
-                border: `1px solid ${viewUser ? "var(--hub-blue)" : "transparent"}`, transition: "all .15s",
-              }}
-            >
-              <div
-                style={{
-                  width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0,
-                  background: viewUser ? "var(--hub-blue)" : "var(--hub-card, #fff)", color: viewUser ? "#fff" : "var(--hub-blue)", fontSize: 14,
-                }}
-              >
-                <UserOutlined />
-              </div>
-              <div style={{ lineHeight: 1.1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4, paddingLeft: 1 }}>Viewing</div>
-                <Select
-                  showSearch
-                  allowClear
-                  variant="borderless"
-                  bordered={false}
-                  value={viewUser || undefined}
-                  onChange={(v) => onViewUser(v || "")}
-                  placeholder="All users"
-                  optionFilterProp="label"
-                  options={userOptions}
-                  popupMatchSelectWidth={240}
-                  style={{ width: 180, height: 22 }}
-                />
-              </div>
-            </div>
-          )}
+    <div className="lsb">
+      <section className="lsb-top">
+        <div className="lsb-top-row">
           {hasPools ? (
-            // tabs — clicking one switches the whole board (donut, stages, cards, Lead List) to that set
-            <div role="tablist" style={{ ...BOX, gap: 4, padding: 4, background: "var(--hub-bg-soft)" }}>
-              {POOL_TABS.map((p) => {
-                const on = pool === p.key;
-                const n = pools[p.key] ?? 0;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => onPool(p.key)}
-                    title={
-                      p.key === "all"
-                        ? `Every lead received so far (${pools.all}), whether called or not`
-                        : p.key === "used"
-                        ? "Every lead that has been called (CRM leads) — stage-wise"
-                        : "Leads on the board (used leads no user has are in Used Leads) — stage-wise"
-                    }
-                    style={{
-                      ...BOX, height: "100%", padding: "0 12px", gap: 8, border: `1px solid ${on ? p.color : "transparent"}`,
-                      background: on ? p.soft : "transparent", cursor: "pointer", font: "inherit", textAlign: "left",
-                    }}
-                  >
-                    <p.Icon style={{ color: p.color }} />
-                    <span style={{ lineHeight: 1.15 }}>
-                      <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "var(--hub-text)" }}>{n}</span>
-                      <span style={{ display: "block", fontSize: 10, color: on ? p.color : "var(--hub-muted)", fontWeight: on ? 700 : 500, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                        {p.label}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div
-              role="button"
-              tabIndex={0}
-              title="Show every lead on this board in the Lead List"
-              onClick={() => total && onSelect(ALL_STAGES)}
-              onKeyDown={(e) => e.key === "Enter" && total && onSelect(ALL_STAGES)}
-              style={{
-                ...BOX, padding: "0 14px", cursor: total ? "pointer" : "default",
-                background: activeStage === ALL_STAGES ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
-                border: `1px solid ${activeStage === ALL_STAGES ? "var(--hub-blue)" : "transparent"}`,
-              }}
-            >
-              <TeamOutlined style={{ color: "var(--hub-blue)" }} />
-              <div style={{ lineHeight: 1.15 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--hub-text)" }}>{total}</div>
-                <div style={{ fontSize: 10, color: "var(--hub-muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>
-                  {viewUser && userOptions ? `${(userOptions.find((o) => o.value === viewUser) || {}).label || "User"}'s leads` : "Total Leads"}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="hub-empty">Loading lead stages…</div>
-      ) : (
-        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
-          <div style={{ flex: "0 0 280px", maxWidth: 320, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ flex: 1, background: "var(--hub-bg-soft)", borderRadius: 18, padding: 16, display: "grid", placeItems: "center" }}>
-              <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: "100%", maxWidth: 188 }}>
-                <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" style={{ stroke: "var(--hub-border)" }} strokeWidth={STROKE} />
-                {total > 0 &&
-                  nonZero.map((s) => {
-                    const len = (pct(s.count) / 100) * CIRC;
-                    const gap = nonZero.length > 1 ? 2.5 : 0;
-                    const shown = Math.max(0, len - gap);
-                    const node = (
-                      <circle
-                        key={s.stage}
-                        cx={SIZE / 2}
-                        cy={SIZE / 2}
-                        r={R}
-                        fill="none"
-                        stroke={s.color}
-                        strokeWidth={STROKE}
-                        strokeDasharray={`${shown} ${CIRC - shown}`}
-                        strokeDashoffset={-dashAccum}
-                        transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => onSelect(s.stage)}
-                      >
-                        <title>{`${s.stage}: ${s.count} (${Math.round(pct(s.count))}%)`}</title>
-                      </circle>
-                    );
-                    dashAccum += len;
-                    return node;
-                  })}
-                <circle
-                  cx={SIZE / 2}
-                  cy={SIZE / 2}
-                  r={R - STROKE / 2 - 2}
-                  style={{ fill: "var(--hub-surface)", cursor: total ? "pointer" : "default" }}
-                  onClick={() => total && onSelect(ALL_STAGES)}
-                >
-                  <title>Show all {total} leads</title>
-                </circle>
-                <text
-                  x="50%"
-                  y="46%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  style={{ fontSize: 40, fontWeight: 800, fill: "var(--hub-text)", pointerEvents: "none" }}
-                >
-                  {total}
-                </text>
-                <text
-                  x="50%"
-                  y="59%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  style={{ fontSize: 13, fontWeight: 600, fill: "var(--hub-muted)", pointerEvents: "none" }}
-                >
-                  {centerLabel}
-                </text>
-              </svg>
-            </div>
-
-            <div style={{ display: "flex", gap: 12 }}>
-              {top2.map((s) => (
+            <div className="lsb-seg" role="tablist" aria-label="Which leads">
+              {POOL_TABS.map((p) => (
                 <button
-                  key={s.stage}
+                  key={p.key}
                   type="button"
-                  onClick={() => s.count && onSelect(s.stage)}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    textAlign: "left",
-                    position: "relative",
-                    background: activeStage === s.stage ? "var(--hub-blue-soft)" : "var(--hub-bg-soft)",
-                    border: `1.5px solid ${activeStage === s.stage ? s.color : "transparent"}`,
-                    borderRadius: 14,
-                    padding: "12px 13px 24px",
-                    cursor: s.count ? "pointer" : "default",
-                    font: "inherit",
-                  }}
+                  role="tab"
+                  aria-selected={pool === p.key}
+                  className={pool === p.key ? "on" : ""}
+                  onClick={() => onPool(p.key)}
+                  title={poolHelp[p.key]}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 21, fontWeight: 800, color: "var(--hub-text)" }}>{s.count}</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {s.stage}
-                  </div>
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 12,
-                      bottom: 9,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: s.count ? s.color : "var(--hub-muted)",
-                    }}
-                  >
-                    {Math.round(pct(s.count))}%
-                  </span>
+                  <p.Icon /> {p.label} · {(pools[p.key] ?? 0).toLocaleString("en-IN")}
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="lsb-seg" role="group" aria-label="Leads">
+              <button
+                type="button"
+                className={activeStage === ALL_STAGES ? "on" : ""}
+                onClick={() => total && onSelect(ALL_STAGES)}
+                title="Show every lead on this board in the Lead List"
+              >
+                <TeamOutlined /> {viewingName ? `${viewingName}'s leads` : "Total Leads"} · {total.toLocaleString("en-IN")}
+              </button>
+            </div>
+          )}
+          <span className="su-sp" />
+          {userOptions && (
+            <label className="lsb-viewing">
+              Viewing
+              <Select
+                showSearch
+                allowClear
+                value={viewUser || undefined}
+                onChange={(v) => onViewUser(v || "")}
+                placeholder="Everyone"
+                optionFilterProp="label"
+                options={userOptions}
+                popupMatchSelectWidth={240}
+                style={{ width: 200 }}
+                aria-label="Viewing user"
+              />
+            </label>
+          )}
+        </div>
+        <p className="lsb-help">
+          {hasPools ? poolHelp[pool] || poolHelp.board : "Every lead on this board, stage-wise."}
+          {viewingName ? ` Showing ${viewingName}'s leads only.` : ""}
+        </p>
+      </section>
 
-            <LeadQualityCard quality={quality} />
+      {loading ? (
+        <div className="lsb-grid">
+          <div className="hub-card"><div className="hub-skel" style={{ height: 300 }} /></div>
+          <div className="hub-card"><div className="hub-skel" style={{ height: 300 }} /></div>
+        </div>
+      ) : (
+        <div className="lsb-grid">
+          <div className="hub-card">
+            <div className="lsb-ch">
+              <div>
+                <h3>Lead status</h3>
+                <p>Count and share · click a slice</p>
+              </div>
+            </div>
+            {total > 0 ? (
+              <div className="lsb-donut">
+                <svg width="250" height="250" viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Leads by stage">
+                  <circle cx="21" cy="21" r={R} fill="none" stroke="var(--hub-bg-soft, #EEF2F6)" strokeWidth="6" />
+                  {nonZero.map((s) => {
+                    const p = pct(s.count);
+                    const node = (
+                      <circle
+                        key={s.stage}
+                        cx="21"
+                        cy="21"
+                        r={R}
+                        fill="none"
+                        stroke={s.color}
+                        strokeWidth={activeStage === s.stage ? 8 : 6}
+                        strokeDasharray={`${p} ${100 - p}`}
+                        strokeDashoffset={25 - dashAccum}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => onSelect(s.stage)}
+                      >
+                        <title>{`${s.stage}: ${s.count} (${Math.round(p)}%)`}</title>
+                      </circle>
+                    );
+                    dashAccum += p;
+                    return node;
+                  })}
+                  <circle cx="21" cy="21" r="12" fill="transparent" style={{ cursor: "pointer" }} onClick={() => total && onSelect(ALL_STAGES)}>
+                    <title>Show all {total} leads</title>
+                  </circle>
+                  <text x="21" y="20.5" textAnchor="middle" fontSize="5.5" fontWeight="700" fill="currentColor" fontFamily="Space Grotesk, Inter, sans-serif" style={{ pointerEvents: "none" }}>
+                    {centerN.toLocaleString("en-IN")}
+                  </text>
+                  <text x="21" y="25.5" textAnchor="middle" fontSize="2.6" fill="var(--hub-muted, #5B6B79)" style={{ pointerEvents: "none" }}>
+                    {centerL}
+                  </text>
+                </svg>
+              </div>
+            ) : (
+              <div className="hub-empty"><b>No data available for the selected filters.</b></div>
+            )}
+
+            <div className="lsb-quality">
+              <div className="lsb-ch" style={{ marginBottom: 8 }}>
+                <div>
+                  <h3>Lead quality</h3>
+                  <p>Of the leads someone actually spoke to</p>
+                </div>
+              </div>
+              {quality ? (
+                <>
+                  <div className="lsb-qsum">
+                    <span>Spoke to <b>{quality.contacted.toLocaleString("en-IN")}</b> of {quality.total.toLocaleString("en-IN")} · {quality.contactedPct}%</span>
+                    <span>Talk <b>{fmtMins(quality.talkMinutes)}</b> · {quality.talkCalls} calls{quality.contacted ? ` · ~${(quality.talkMinutes / quality.contacted).toFixed(1)} min a lead` : ""}</span>
+                  </div>
+                  {QUALITY_ROWS.map(([stage, label, color]) => {
+                    const n = quality.byStage[stage] || 0;
+                    const p = pctOf(n, quality.contacted);
+                    return (
+                      <div key={stage} className="lsb-hb">
+                        <span>{label}</span>
+                        <span className="t"><b style={{ width: `${Math.min(100, p)}%`, background: color }} /></span>
+                        <span className="n">{n.toLocaleString("en-IN")} <em>{p}%</em></span>
+                      </div>
+                    );
+                  })}
+                  <div className="lsb-qtotal">
+                    <span>Positive in total</span>
+                    <span><b>{quality.positive.toLocaleString("en-IN")}</b> · {quality.qualityPct}% of spoken</span>
+                  </div>
+                  <div className="lsb-qnote">Spoke to = an answered call a user took. Positive = Interested + Callback + Demo booked + Enrolled.</div>
+                </>
+              ) : (
+                <div className="hub-skel" style={{ height: 90 }} />
+              )}
+            </div>
           </div>
 
-          <div style={{ flex: "1 1 340px", minWidth: "min(300px, 100%)" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: COLS,
-                gap: 10,
-                padding: "0 6px 8px",
-                fontSize: 9.5,
-                fontWeight: 700,
-                color: "var(--hub-muted)",
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-              }}
-            >
-              <span>Stage</span>
-              <span />
-              <span style={{ textAlign: "right" }}>Leads</span>
-              <span style={{ textAlign: "right" }}>%</span>
+          <div className="hub-card">
+            <div className="lsb-ch">
+              <div>
+                <h3>All stages</h3>
+                <p>Click a row to list it · ▸ to see sub-statuses</p>
+              </div>
+              <button
+                type="button"
+                className={`hub-btn su-sm${activeStage === ALL_STAGES ? " hub-btn-primary" : ""}`}
+                onClick={() => total && onSelect(ALL_STAGES)}
+                title="Show every lead on this board in the Lead List"
+              >
+                {allLabel} · {total.toLocaleString("en-IN")}
+              </button>
             </div>
-
-            {/* Total Leads — every lead on this board (all stages) in the Lead List below */}
-            <button
-              type="button"
-              onClick={() => total && onSelect(ALL_STAGES)}
-              title="Show every lead on this board in the Lead List"
-              style={{
-                width: "100%",
-                display: "grid",
-                gridTemplateColumns: COLS,
-                gap: 10,
-                alignItems: "center",
-                padding: "8px 6px",
-                marginBottom: 4,
-                border: "none",
-                borderBottom: "1px solid var(--hub-border)",
-                borderRadius: activeStage === ALL_STAGES ? 6 : 0,
-                background: activeStage === ALL_STAGES ? "var(--hub-blue-soft)" : "transparent",
-                cursor: total ? "pointer" : "default",
-                font: "inherit",
-                textAlign: "left",
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <span style={{ width: 8, flexShrink: 0 }} />
-                <TeamOutlined style={{ fontSize: 11, color: "var(--hub-blue)" }} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--hub-text)" }}>{allLabel}</span>
-              </span>
-              <span style={{ height: 6, borderRadius: 999, background: total ? "var(--hub-blue)" : "var(--hub-border)", opacity: 0.85 }} />
-              <span style={{ textAlign: "right", fontSize: 12, fontWeight: 800, color: "var(--hub-text)" }}>{total}</span>
-              <span style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--hub-blue)" }}>{total ? "100%" : "0%"}</span>
-            </button>
-
             {stages.map((s) => {
               const p = pct(s.count);
-              const on = activeStage === s.stage;
+              const on = activeStage === s.stage && !activeSub;
               const isOpen = !!expanded[s.stage];
               const subs = s.subStatuses || [];
+              const canOpen = subs.length > 1;
               return (
                 <div key={s.stage}>
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`lsb-row${on ? " on" : ""}${s.count ? "" : " zero"}`}
                     onClick={() => {
-                      if (subs.length > 1) setExpanded((e) => ({ ...e, [s.stage]: !e[s.stage] }));
+                      if (canOpen) setExpanded((e) => ({ ...e, [s.stage]: !e[s.stage] }));
                       onSelect(s.stage);
                     }}
-                    style={{
-                      width: "100%",
-                      display: "grid",
-                      gridTemplateColumns: COLS,
-                      gap: 10,
-                      alignItems: "center",
-                      padding: "7px 6px",
-                      border: "none",
-                      borderRadius: 6,
-                      background: on && !activeSub ? "var(--hub-blue-soft)" : "transparent",
-                      cursor: "pointer",
-                      font: "inherit",
-                      textAlign: "left",
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (canOpen) setExpanded((x) => ({ ...x, [s.stage]: !x[s.stage] }));
+                        onSelect(s.stage);
+                      }
                     }}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                      {subs.length > 1 ? (
-                        <span style={{ fontSize: 8, color: "var(--hub-muted)", width: 8, flexShrink: 0 }}>
-                          {isOpen ? "▼" : "▶"}
-                        </span>
-                      ) : (
-                        <span style={{ width: 8, flexShrink: 0 }} />
-                      )}
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                      <span
-                        style={{
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          color: s.count ? "#1e293b" : "var(--hub-muted)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                    {canOpen ? (
+                      <button
+                        type="button"
+                        className="lsb-xb"
+                        aria-label={isOpen ? `Hide ${s.stage} sub-statuses` : `Show ${s.stage} sub-statuses`}
+                        aria-expanded={isOpen}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpanded((x) => ({ ...x, [s.stage]: !x[s.stage] }));
                         }}
                       >
-                        {s.stage}
-                      </span>
-                    </span>
-                    <span style={{ height: 6, borderRadius: 999, background: "var(--hub-border)", overflow: "hidden" }}>
-                      <span
-                        style={{
-                          display: "block",
-                          height: "100%",
-                          width: `${s.count ? Math.max(p, 2) : 0}%`,
-                          background: s.color,
-                          borderRadius: 999,
-                          transition: "width 0.35s ease",
-                        }}
-                      />
-                    </span>
-                    <span style={{ textAlign: "right", fontSize: 11.5, fontWeight: 700, color: s.count ? "#0f172a" : "var(--hub-muted)" }}>
-                      {s.count}
-                    </span>
-                    <span style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: s.count ? s.color : "var(--hub-muted)" }}>
-                      {Math.round(p)}%
-                    </span>
-                  </button>
-
+                        {isOpen ? "▾" : "▸"}
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="lsb-name"><i style={{ background: s.color }} />{s.stage}</span>
+                    <span className="t"><b style={{ width: `${s.count ? Math.max((s.count / maxCount) * 100, 2) : 0}%`, background: s.color }} /></span>
+                    <span className="n">{s.count.toLocaleString("en-IN")}</span>
+                    <span className="p">{Math.round(p)}%</span>
+                  </div>
                   {isOpen &&
                     subs.map((ss) => {
-                      const sp = pct(ss.count);
                       const sOn = activeStage === s.stage && activeSub === ss.subStatus;
                       return (
                         <button
                           key={ss.subStatus}
                           type="button"
+                          className={`lsb-sub${sOn ? " on" : ""}`}
                           onClick={() => onSelect(s.stage, ss.subStatus)}
-                          style={{
-                            width: "100%",
-                            display: "grid",
-                            gridTemplateColumns: COLS,
-                            gap: 10,
-                            alignItems: "center",
-                            padding: "5px 6px 5px 22px",
-                            border: "none",
-                            borderRadius: 6,
-                            background: sOn ? "var(--hub-blue-soft)" : "transparent",
-                            cursor: "pointer",
-                            font: "inherit",
-                            textAlign: "left",
-                          }}
                         >
-                          <span
-                            style={{
-                              fontSize: 10.5,
-                              color: ss.count ? "#475569" : "var(--hub-muted)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {ss.subStatus}
-                          </span>
-                          <span style={{ height: 4, borderRadius: 999, background: "var(--hub-border)", overflow: "hidden" }}>
-                            <span
-                              style={{
-                                display: "block",
-                                height: "100%",
-                                width: `${ss.count ? Math.max(sp, 2) : 0}%`,
-                                background: s.color,
-                                opacity: 0.7,
-                                borderRadius: 999,
-                              }}
-                            />
-                          </span>
-                          <span style={{ textAlign: "right", fontSize: 10.5, fontWeight: 600, color: ss.count ? "#334155" : "var(--hub-muted)" }}>
-                            {ss.count}
-                          </span>
-                          <span style={{ textAlign: "right", fontSize: 10, fontWeight: 600, color: "var(--hub-muted)" }}>
-                            {Math.round(sp)}%
-                          </span>
+                          <span />
+                          <span>↳ {ss.subStatus}</span>
+                          <span className="t"><b style={{ width: `${ss.count ? Math.max(pct(ss.count), 2) : 0}%`, background: s.color }} /></span>
+                          <span className="n">{ss.count.toLocaleString("en-IN")}</span>
+                          <span className="p">{Math.round(pct(ss.count))}%</span>
                         </button>
                       );
                     })}
@@ -1808,6 +1642,50 @@ function AllLeads() {
     if (res?.success) await refreshAfterMutation();
   };
 
+  // Applied-filter pills (Sales One Place design): each one removes just that filter.
+  const userLabel = (id) => {
+    if (id === "none") return "Unassigned";
+    const a = salesAdmins.find((x) => String(x._id) === String(id));
+    return a ? `${a.name || ""} ${a.surname || ""}`.trim() || a.email : "User";
+  };
+  const dropStage = () => {
+    const next = { ...filters, quick: "", subStatus: "" };
+    setDrillStage(null);
+    setDrillSub(null);
+    setFilters(next);
+    loadLeadList(1, { stage: null, sub: null, filters: next });
+  };
+  const appliedPills = [];
+  const quickOn = QUICK_FILTERS.find((qf) => qf.key === filters.quick);
+  if (quickOn) appliedPills.push({ key: "quick", label: quickOn.label, remove: dropStage });
+  else if (drillStage) appliedPills.push({ key: "stage", label: `Stage: ${drillStage === ALL_STAGES ? poolTab(pool).all : drillStage}`, remove: dropStage });
+  if (filters.subStatus) {
+    appliedPills.push({
+      key: "sub",
+      label: `Sub-status: ${filters.subStatus}`,
+      remove: () => {
+        const next = { ...filters, subStatus: "" };
+        setDrillSub(null);
+        setFilters(next);
+        loadLeadList(1, { sub: null, filters: next });
+      },
+    });
+  }
+  if (filters.q) appliedPills.push({ key: "q", label: `Search: ${filters.q}`, remove: () => onSearchType("", true) });
+  if (filters.assignedUser) appliedPills.push({ key: "assignedUser", label: `Sales user: ${userLabel(filters.assignedUser)}`, remove: () => updateFilter({ assignedUser: "" }) });
+  if (filters.team) appliedPills.push({ key: "team", label: `Team: ${filters.team}`, remove: () => updateFilter({ team: "" }) });
+  if (filters.teamView) appliedPills.push({ key: "teamView", label: filters.teamView === "mine" ? "My leads only" : "My team", remove: () => updateFilter({ teamView: "" }) });
+  if (filters.source) appliedPills.push({ key: "source", label: `Source: ${filters.source}`, remove: () => updateFilter({ source: "" }) });
+  [["Callback", "callbackFrom", "callbackTo"], ["Follow-up", "followUpFrom", "followUpTo"], ["Came in", "createdFrom", "createdTo"]].forEach(([label, fk, tk]) => {
+    if (filters[fk] || filters[tk]) {
+      appliedPills.push({
+        key: fk,
+        label: `${label}: ${filters[fk] || "…"}${filters[tk] && filters[tk] !== filters[fk] ? ` → ${filters[tk]}` : ""}`,
+        remove: () => updateFilter({ [fk]: "", [tk]: "" }),
+      });
+    }
+  });
+
   return (
     <div className="hub-stack">
       {stageError ? (
@@ -1838,177 +1716,155 @@ function AllLeads() {
         />
       )}
 
-      <div className="hub-card">
-        <div className="hub-card-header ll-head">
-          <h3>Lead List</h3>
-          {/* search (user ask 2026-11-17): type a number / name — the list follows as you type */}
-          <label className="ll-search" title="Search by name, phone number or email">
-            <SearchOutlined />
-            <input
-              value={filters.q}
-              onChange={(e) => onSearchType(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSearchType(e.currentTarget.value, true);
-                if (e.key === "Escape") onSearchType("", true);
-              }}
-              placeholder="Search number, name or email…"
-              aria-label="Search leads by number, name or email"
-              inputMode="search"
-            />
-            {filters.q && (
-              <button type="button" className="ll-search-x" onClick={() => onSearchType("", true)} aria-label="Clear search">
-                <CloseOutlined />
-              </button>
-            )}
-          </label>
-          <div className="hub-row" style={{ gap: 8 }}>
-            {canAssignOwner && (
-              <button
-                type="button"
-                className="hub-btn hub-btn-primary"
-                onClick={() => setOwnerModal({})}
-                disabled={!drill.count}
-                title="Give the ticked leads — or every lead in this list — to one or more Sales users"
-              >
-                <UserSwitchOutlined /> Lead Owner{selectedIds.length ? ` (${selectedIds.length})` : ""}
-              </button>
-            )}
+      <div className="hub-card ll-card">
+        {/* Sales One Place design: title + owner action, stage chips with counts, an always-open filter panel */}
+        <div className="lsb-ch">
+          <div>
+            <h3>
+              {drillStage && drillStage !== ALL_STAGES ? drillStage : !boardUser && pool !== "board" ? poolTab(pool).all : "Lead List"}
+              {drillSub ? ` · ${drillSub}` : ""}
+            </h3>
+            <p>Click a name or number for everything about that lead</p>
+          </div>
+          {canAssignOwner && (
             <button
               type="button"
-              className="hub-btn"
-              onClick={() => setShowFilters((v) => !v)}
-              style={showFilters ? { background: "var(--hub-blue)", color: "#fff", borderColor: "var(--hub-blue)" } : undefined}
+              className="hub-btn hub-btn-primary"
+              onClick={() => setOwnerModal({})}
+              disabled={!drill.count}
+              title="Give the ticked leads — or every lead in this list — to one or more Sales users"
             >
-              <FilterOutlined /> Filters
-              {activeFilterCount > 0 && <span className="ll-fcount">{activeFilterCount}</span>}
+              <UserSwitchOutlined /> Lead Owner{selectedIds.length ? ` (${selectedIds.length})` : ""}
             </button>
-            {listActive && (
-              <button type="button" className="hub-btn" onClick={clearList}>
-                <CloseOutlined /> Clear
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Quick filters */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <div className="ll-stg" role="group" aria-label="Stages — click to filter">
           {QUICK_FILTERS.map((qf) => {
             const on =
               qf.key === "all"
                 ? !listActive
                 : filters.quick === qf.key || (qf.stage && drillStage === qf.stage && !drillSub && !filters.quick);
-            const c = qf.stage ? stageColor(qf.stage) : qf.key === "callback-overdue" ? "#ef4444" : "#2563eb";
+            const c = qf.stage ? stageColor(qf.stage) : qf.key === "callback-overdue" ? "#B42318" : "#0F766E";
+            const n =
+              qf.key === "all"
+                ? stageData.total
+                : qf.stage
+                ? ((stageData.stages || []).find((s) => s.stage === qf.stage) || {}).count
+                : null;
             return (
               <button
                 key={qf.key}
                 type="button"
+                className={on ? "on" : ""}
+                style={{ "--ll-c": c }}
                 onClick={() => (qf.key === "all" ? clearList() : applyQuickFilter(qf))}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "5px 12px",
-                  borderRadius: 999,
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  border: `1px solid ${on ? c : "var(--hub-border)"}`,
-                  background: on ? c : "var(--hub-surface)",
-                  color: on ? "#fff" : "var(--hub-text-soft)",
-                }}
               >
-                {qf.stage && (
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? "#fff" : c }} />
-                )}
-                {qf.label}
+                <span>
+                  <i aria-hidden="true" />
+                  {qf.label}
+                </span>
+                <b>{n === null || n === undefined ? <ClockCircleOutlined /> : Number(n).toLocaleString("en-IN")}</b>
               </button>
             );
           })}
         </div>
 
-        {/* Advanced filters (redesigned 2026-11-17) */}
-        {showFilters && (
-          <div className="ll-filters">
-            <div className="ll-fsec">
-              <div className="ll-fsec-h">
-                <span>Lead details</span>
-                {activeFilterCount > 0 && (
-                  <button type="button" className="ll-reset" onClick={clearList}>
-                    <CloseOutlined /> Reset all
-                  </button>
-                )}
-              </div>
-              <div className="ll-fgrid">
-                <label className="ll-field">
-                  <span>Stage</span>
-                  <select className="hub-select" value={drillStage || ""} onChange={(e) => selectStage(e.target.value || null)}>
-                    <option value="">All stages</option>
-                    <option value={ALL_STAGES}>{poolTab(pool).all}</option>
-                    {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </label>
-                <label className="ll-field">
-                  <span>Sub-status</span>
-                  <select
-                    className="hub-select"
-                    value={filters.subStatus}
-                    disabled={!drillStage}
-                    title={drillStage ? undefined : "Pick a stage first"}
-                    onChange={(e) => {
-                      setDrillSub(e.target.value || null);
-                      updateFilter({ subStatus: e.target.value });
-                    }}
-                  >
-                    <option value="">{drillStage ? "All" : "Pick a stage first"}</option>
-                    {(drillStage ? subStatusesFor(drillStage) : []).map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </label>
-                {/* Company-wide narrowing — only has an effect for Owner/Super Admin/Admin/
-                    Sales Manager/Team Manager (leadController/scope.js); hidden for everyone else. */}
-                {isFullAccess && (
-                  <label className="ll-field">
-                    <span>Assigned user</span>
-                    <select className="hub-select" value={filters.assignedUser} onChange={(e) => updateFilter({ assignedUser: e.target.value })}>
-                      <option value="">Anyone</option>
-                      <option value="none">Unassigned (no owner)</option>
-                      {salesAdmins.map((a) => (
-                        <option key={a._id} value={a._id}>{`${a.name || ""} ${a.surname || ""}`.trim() || a.email}</option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {isFullAccess && (
-                  <label className="ll-field">
-                    <span>Team</span>
-                    <select className="hub-select" value={filters.team} onChange={(e) => updateFilter({ team: e.target.value })}>
-                      <option value="">Any team</option>
-                      {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </label>
-                )}
-                {/* Non-full-access users see every lead by default; this narrows to their team's or their own. */}
-                {!isFullAccess && (
-                  <label className="ll-field">
-                    <span>Showing</span>
-                    <select className="hub-select" value={filters.teamView} onChange={(e) => updateFilter({ teamView: e.target.value })}>
-                      <option value="">All leads</option>
-                      <option value="1">My team</option>
-                      <option value="mine">My leads only</option>
-                    </select>
-                  </label>
-                )}
-                <label className="ll-field">
-                  <span>Source</span>
-                  <select className="hub-select" value={filters.source} onChange={(e) => updateFilter({ source: e.target.value })}>
-                    <option value="">Any source</option>
-                    {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
+        <section className="ll-fp" aria-label="Filters">
+          <div className="ll-fp-row">
+            {/* search (user ask 2026-11-17): type a number / name — the list follows as you type */}
+            <label className="ll-search" title="Search by name, phone number or email">
+              <SearchOutlined />
+              <input
+                value={filters.q}
+                onChange={(e) => onSearchType(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSearchType(e.currentTarget.value, true);
+                  if (e.key === "Escape") onSearchType("", true);
+                }}
+                placeholder="Search number, name or email…"
+                aria-label="Search leads by number, name or email"
+                inputMode="search"
+              />
+              {filters.q && (
+                <button type="button" className="ll-search-x" onClick={() => onSearchType("", true)} aria-label="Clear search">
+                  <CloseOutlined />
+                </button>
+              )}
+            </label>
+          </div>
 
+          <div className="ll-fgrid">
+            <label className="ll-field">
+              <span>Stage</span>
+              <select className="hub-select" value={drillStage || ""} onChange={(e) => selectStage(e.target.value || null)}>
+                <option value="">All stages</option>
+                <option value={ALL_STAGES}>{poolTab(pool).all}</option>
+                {STAGE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label className="ll-field">
+              <span>Sub-status</span>
+              <select
+                className="hub-select"
+                value={filters.subStatus}
+                disabled={!drillStage}
+                title={drillStage ? undefined : "Pick a stage first"}
+                onChange={(e) => {
+                  setDrillSub(e.target.value || null);
+                  updateFilter({ subStatus: e.target.value });
+                }}
+              >
+                <option value="">{drillStage ? "All" : "Pick a stage first"}</option>
+                {(drillStage ? subStatusesFor(drillStage) : []).map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            {/* Company-wide narrowing — only has an effect for Owner/Super Admin/Admin/
+                Sales Manager/Team Manager (leadController/scope.js); hidden for everyone else. */}
+            {isFullAccess && (
+              <label className="ll-field">
+                <span>Sales user</span>
+                <select className="hub-select" value={filters.assignedUser} onChange={(e) => updateFilter({ assignedUser: e.target.value })}>
+                  <option value="">Anyone</option>
+                  <option value="none">Unassigned (no owner)</option>
+                  {salesAdmins.map((a) => (
+                    <option key={a._id} value={a._id}>{`${a.name || ""} ${a.surname || ""}`.trim() || a.email}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {isFullAccess && (
+              <label className="ll-field">
+                <span>Team</span>
+                <select className="hub-select" value={filters.team} onChange={(e) => updateFilter({ team: e.target.value })}>
+                  <option value="">Any team</option>
+                  {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+            )}
+            {/* Non-full-access users see every lead by default; this narrows to their team's or their own. */}
+            {!isFullAccess && (
+              <label className="ll-field">
+                <span>Showing</span>
+                <select className="hub-select" value={filters.teamView} onChange={(e) => updateFilter({ teamView: e.target.value })}>
+                  <option value="">All leads</option>
+                  <option value="1">My team</option>
+                  <option value="mine">My leads only</option>
+                </select>
+              </label>
+            )}
+            <label className="ll-field">
+              <span>Source</span>
+              <select className="hub-select" value={filters.source} onChange={(e) => updateFilter({ source: e.target.value })}>
+                <option value="">Any source</option>
+                {["Website", "Facebook Ads", "Google Ads", "LinkedIn Ads", "Referral", "Cold Call", "WhatsApp", "Import", "Other"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {showFilters && (
             <div className="ll-fsec">
               <div className="ll-fsec-h"><span>Dates</span><em>Leave “to” empty for a single day onwards</em></div>
               <div className="ll-dgrid">
@@ -2033,8 +1889,28 @@ function AllLeads() {
                 ))}
               </div>
             </div>
+          )}
+
+          <div className="ll-factions">
+            <div className="ll-applied">
+              {appliedPills.map((p) => (
+                <button key={p.key} type="button" className="ll-pill" onClick={p.remove} title="Remove this filter">
+                  {p.label} <CloseOutlined />
+                </button>
+              ))}
+            </div>
+            <div className="hub-row" style={{ gap: 8 }}>
+              <button type="button" className="hub-btn su-sm" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
+                <FilterOutlined /> {showFilters ? "Hide dates" : "Callback / follow-up / created dates"}
+              </button>
+              {listActive && (
+                <button type="button" className="hub-btn su-sm" onClick={clearList}>
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
-        )}
+        </section>
 
         <>
             <div style={{ fontSize: 12, color: "var(--hub-muted)", marginBottom: 8 }}>
@@ -2042,16 +1918,19 @@ function AllLeads() {
               {!boardUser && pool !== "board" ? ` · ${poolTab(pool).label}` : ""}
               {drillStage ? ` · ${drillStage === ALL_STAGES ? "All stages" : drillStage}` : ""}
               {drillSub ? ` · ${drillSub}` : ""}
-              {canAssignOwner && selectedIds.length > 0 && (
-                <>
-                  {" · "}
-                  <b style={{ color: "var(--hub-text)" }}>{selectedIds.length} selected</b>{" "}
-                  <button type="button" className="hub-link-btn" style={{ fontSize: 12 }} onClick={() => setSelectedIds([])}>
-                    clear
-                  </button>
-                </>
-              )}
             </div>
+            {canAssignOwner && selectedIds.length > 0 && (
+              <div className="su-bulk" role="region" aria-label="Selected leads">
+                <b>{selectedIds.length} selected</b>
+                <button type="button" className="hub-btn su-sm" onClick={() => setOwnerModal({})}>
+                  <UserSwitchOutlined /> Change owner
+                </button>
+                <span className="su-sp" />
+                <button type="button" className="su-bulk-x" onClick={() => setSelectedIds([])}>
+                  Clear
+                </button>
+              </div>
+            )}
             <CameInBar filters={filters} arrivals={drill.arrivals} onPick={(createdFrom, createdTo) => updateFilter({ createdFrom, createdTo })} />
             <div className="hub-table-wrapper">
               <table className="hub-table">
@@ -2068,22 +1947,23 @@ function AllLeads() {
                         />
                       </th>
                     )}
-                    <th>Client Name</th>
-                    <th>Phone</th>
+                    <th>Lead</th>
+                    <th>Number</th>
+                    <th>Source</th>
+                    <th>Stage / Sub-status</th>
+                    <th>Owner</th>
                     <th>Came in</th>
-                    <th>Stage / Sub-Status</th>
-                    <th>Assigned</th>
-                    <th>Next Follow-up</th>
-                    <th>Call Back</th>
-                    <th>Actions</th>
+                    <th>Next follow-up</th>
+                    <th>Call back</th>
+                    <th><span className="su-sr">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {drill.loading && (
-                    <tr><td colSpan={canAssignOwner ? 9 : 8}><div className="hub-empty">Loading…</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 10 : 9}><div className="hub-empty">Loading…</div></td></tr>
                   )}
                   {!drill.loading && drill.leads.length === 0 && (
-                    <tr><td colSpan={canAssignOwner ? 9 : 8}><div className="hub-empty">No leads match these filters.</div></td></tr>
+                    <tr><td colSpan={canAssignOwner ? 10 : 9}><div className="hub-empty"><b>No data available for the selected filters.</b>{listActive && <button type="button" className="hub-btn su-sm" onClick={clearList}>Reset filters</button>}</div></td></tr>
                   )}
                   {!drill.loading &&
                     drill.leads.map((l) => {
@@ -2116,18 +1996,11 @@ function AllLeads() {
                               <div className="hub-avatar" style={{ background: l.color || "#8c8c8c" }}>
                                 {l.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                               </div>
-                              {l.name}
+                              <button type="button" className="su-lnk su-ink" title="Click for full details" onClick={() => setViewLead(l)}>{l.name}</button>
                             </div>
                           </td>
-                          <td>{l.phone || "—"}</td>
-                          <td className="ll-came">
-                            {l.created ? (
-                              <>
-                                <b>{cameDay(l.created)}</b>
-                                <span>{new Date(l.created).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
-                              </>
-                            ) : "—"}
-                          </td>
+                          <td>{l.phone ? <button type="button" className="su-lnk" title="Click for full details" onClick={() => setViewLead(l)}>{l.phone}</button> : "—"}</td>
+                          <td>{l.source || "—"}</td>
                           <td>
                             {drillStage === NOT_ENTERED ? (
                               // Called, but this user never recorded a response — the stage on
@@ -2156,16 +2029,29 @@ function AllLeads() {
                             )}
                           </td>
                           <td>
-                            {l.assignedUserName || (l.assignedUser && l.assignedUser.name) || "—"}
+                            {l.assignedUserName || (l.assignedUser && l.assignedUser.name) ? (
+                              <AgentLink
+                                adminId={(l.assignedUser && l.assignedUser._id) || (typeof l.assignedUser === "string" ? l.assignedUser : "")}
+                                name={l.assignedUserName || (l.assignedUser && l.assignedUser.name)}
+                              />
+                            ) : "—"}
                             {(() => {
                               // Who last worked it — most leads have no owner, only responses.
                               const last = [...(l.stageHistory || [])].reverse().find((h) => h.changedByName);
                               return last ? (
                                 <div style={{ fontSize: 11, color: "var(--hub-muted)", marginTop: 2 }}>
-                                  last response: {last.changedByName}
+                                  last response: <AgentLink name={last.changedByName} />
                                 </div>
                               ) : null;
                             })()}
+                          </td>
+                          <td className="ll-came">
+                            {l.created ? (
+                              <>
+                                <b>{cameDay(l.created)}</b>
+                                <span>{new Date(l.created).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                              </>
+                            ) : "—"}
                           </td>
                           <td>{l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toLocaleDateString() : "—"}</td>
                           <td>
@@ -2181,6 +2067,11 @@ function AllLeads() {
                           <td>
                             {/* row actions: icons in one line, name on hover (user ask 2026-11-17) */}
                             <span className="ll-acts">
+                              <Tooltip title="View details">
+                                <button type="button" className="ll-act" aria-label={`View ${l.name || "lead"}`} onClick={() => setViewLead(l)}>
+                                  <EyeOutlined />
+                                </button>
+                              </Tooltip>
                               <Tooltip title="Edit lead">
                                 <button type="button" className="ll-act" aria-label={`Edit ${l.name || "lead"}`} onClick={() => setEditLead(l)}>
                                   <EditOutlined />
@@ -2216,30 +2107,16 @@ function AllLeads() {
             </div>
 
             {drill.count > 0 && (
-              <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14, flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
-                  Page {drill.page} of {drill.pages || 1} · {drill.count} total
-                </span>
-                <div className="hub-row" style={{ gap: 8 }}>
-                  <select
-                    className="hub-select"
-                    style={{ width: "auto" }}
-                    value={pageSize}
-                    onChange={(e) => changePageSize(Number(e.target.value))}
-                    aria-label="Leads per page"
-                  >
-                    {[10, 20, 50, 100, 200].map((n) => (
-                      <option key={n} value={n}>{n} / page</option>
-                    ))}
-                  </select>
-                  <button type="button" className="hub-btn" disabled={drill.page <= 1} onClick={() => loadLeadList(drill.page - 1)}>
-                    <LeftOutlined /> Prev
-                  </button>
-                  <button type="button" className="hub-btn" disabled={drill.page >= drill.pages} onClick={() => loadLeadList(drill.page + 1)}>
-                    Next <RightOutlined />
-                  </button>
-                </div>
-              </div>
+              <SuPager
+                page={drill.page}
+                pages={drill.pages || 1}
+                count={drill.count}
+                size={pageSize}
+                sizes={[10, 20, 50, 100, 200]}
+                onSize={changePageSize}
+                onPage={loadLeadList}
+                noun="leads"
+              />
             )}
         </>
       </div>
@@ -2404,29 +2281,7 @@ function AllLeads() {
                       </div>
 
                       {cache && cache.pages > 1 && (
-                        <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-                          <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
-                            Page {cache.page} of {cache.pages} · {cache.count} leads total
-                          </span>
-                          <div className="hub-row" style={{ gap: 8 }}>
-                            <button
-                              type="button"
-                              className="hub-btn"
-                              disabled={cache.page <= 1}
-                              onClick={() => loadTeamLeads(t.team, cache.page - 1)}
-                            >
-                              <LeftOutlined /> Prev
-                            </button>
-                            <button
-                              type="button"
-                              className="hub-btn"
-                              disabled={cache.page >= cache.pages}
-                              onClick={() => loadTeamLeads(t.team, cache.page + 1)}
-                            >
-                              Next <RightOutlined />
-                            </button>
-                          </div>
-                        </div>
+                        <SuPager page={cache.page} pages={cache.pages} count={cache.count} onPage={(p) => loadTeamLeads(t.team, p)} noun="leads" />
                       )}
                     </>
                   ),
@@ -2881,7 +2736,7 @@ function ImportExport() {
       <div className="hub-grid-2">
         <div className="hub-card">
           <div className="hub-card-header">
-            <h3><ImportOutlined /> Import Leads</h3>
+            <h3><span className="ie-step">1</span> Import a file</h3>
           </div>
 
           <div
@@ -2926,7 +2781,7 @@ function ImportExport() {
           </div>
 
           <div className="hub-form-row" style={{ marginTop: 16 }}>
-            <label>Distribute Rows to Teams</label>
+            <label><span className="ie-step">2</span> Split across teams</label>
 
             {teamNames.length === 0 ? (
               <div className="hub-empty">No teams yet — create one in User Management first.</div>
@@ -3067,7 +2922,7 @@ function ImportExport() {
 
         <div className="hub-card">
           <div className="hub-card-header">
-            <h3><ExportOutlined /> Export Leads</h3>
+            <h3><ExportOutlined /> Export leads</h3>
           </div>
 
           <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 16 }}>
@@ -3116,98 +2971,8 @@ function ImportExport() {
 
       <div className="hub-card">
         <div className="hub-card-header">
-          <h3>Recent Import History</h3>
-        </div>
-
-        <div className="hub-table-wrapper">
-          <table className="hub-table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Teams</th>
-                <th>Rows</th>
-                <th>Duplicates</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyLoading && (
-                <tr>
-                  <td colSpan={6}>
-                    <div className="hub-empty">Loading import history…</div>
-                  </td>
-                </tr>
-              )}
-              {!historyLoading && history.length === 0 && (
-                <tr>
-                  <td colSpan={6}>
-                    <div className="hub-empty">No imports yet.</div>
-                  </td>
-                </tr>
-              )}
-              {!historyLoading &&
-                history.map((h) => (
-                  <tr key={h._id}>
-                    <td>{h.fileName}</td>
-                    <td>
-                      {h.teams && h.teams.length > 0 ? (
-                        <TeamBadgeList teams={h.teams} max={2} />
-                      ) : (
-                        h.team || "—"
-                      )}
-                    </td>
-                    <td>{h.successCount} / {h.totalRows}</td>
-                    <td>
-                      {h.duplicateCount > 0 ? (
-                        <span className="hub-badge hub-badge-yellow">{h.duplicateCount} skipped</span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      <span className={`hub-badge ${h.failedCount > 0 ? "hub-badge-red" : "hub-badge-green"}`}>
-                        {h.failedCount > 0 ? `${h.failedCount} row${h.failedCount === 1 ? "" : "s"} failed` : "Completed"}
-                      </span>
-                    </td>
-                    <td>{new Date(h.created).toLocaleString()}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        {!historyLoading && history.length > 0 && (
-          <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
-              Page {historyPage} of {historyPages} · {historyCount} import{historyCount === 1 ? "" : "s"} total
-            </span>
-            <div className="hub-row" style={{ gap: 8 }}>
-              <button
-                type="button"
-                className="hub-btn"
-                disabled={historyPage <= 1}
-                onClick={() => loadHistory(historyPage - 1)}
-              >
-                <LeftOutlined /> Prev
-              </button>
-              <button
-                type="button"
-                className="hub-btn"
-                disabled={historyPage >= historyPages}
-                onClick={() => loadHistory(historyPage + 1)}
-              >
-                Next <RightOutlined />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="hub-card">
-        <div className="hub-card-header">
-          <h3><InboxOutlined /> Unassigned Leads</h3>
-          {unassignedCount > 0 && <span className="hub-badge hub-badge-yellow">{unassignedCount}</span>}
+          <h3><InboxOutlined /> Leads with no team</h3>
+          {unassignedCount > 0 && <span className="hub-badge hub-badge-yellow">{unassignedCount} waiting</span>}
         </div>
 
         <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 14 }}>
@@ -3504,29 +3269,75 @@ function ImportExport() {
         </div>
 
         {!unassignedLoading && unassigned.length > 0 && (
-          <div className="hub-row" style={{ justifyContent: "space-between", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>
-              Page {unassignedPage} of {unassignedPages} · {unassignedCount} unassigned total
-            </span>
-            <div className="hub-row" style={{ gap: 8 }}>
-              <button
-                type="button"
-                className="hub-btn"
-                disabled={unassignedPage <= 1}
-                onClick={() => loadUnassigned(unassignedPage - 1)}
-              >
-                <LeftOutlined /> Prev
-              </button>
-              <button
-                type="button"
-                className="hub-btn"
-                disabled={unassignedPage >= unassignedPages}
-                onClick={() => loadUnassigned(unassignedPage + 1)}
-              >
-                Next <RightOutlined />
-              </button>
-            </div>
-          </div>
+          <SuPager page={unassignedPage} pages={unassignedPages} count={unassignedCount} onPage={loadUnassigned} noun="unassigned leads" />
+        )}
+      </div>
+
+      <div className="hub-card">
+        <div className="hub-card-header">
+          <h3>Recent import history</h3>
+        </div>
+
+        <div className="hub-table-wrapper">
+          <table className="hub-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Teams</th>
+                <th>Rows</th>
+                <th>Duplicates</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyLoading && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="hub-empty">Loading import history…</div>
+                  </td>
+                </tr>
+              )}
+              {!historyLoading && history.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="hub-empty">No imports yet.</div>
+                  </td>
+                </tr>
+              )}
+              {!historyLoading &&
+                history.map((h) => (
+                  <tr key={h._id}>
+                    <td>{h.fileName}</td>
+                    <td>
+                      {h.teams && h.teams.length > 0 ? (
+                        <TeamBadgeList teams={h.teams} max={2} />
+                      ) : (
+                        h.team || "—"
+                      )}
+                    </td>
+                    <td>{h.successCount} / {h.totalRows}</td>
+                    <td>
+                      {h.duplicateCount > 0 ? (
+                        <span className="hub-badge hub-badge-yellow">{h.duplicateCount} skipped</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>
+                      <span className={`hub-badge ${h.failedCount > 0 ? "hub-badge-red" : "hub-badge-green"}`}>
+                        {h.failedCount > 0 ? `${h.failedCount} row${h.failedCount === 1 ? "" : "s"} failed` : "Completed"}
+                      </span>
+                    </td>
+                    <td>{new Date(h.created).toLocaleString()}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        {!historyLoading && history.length > 0 && (
+          <SuPager page={historyPage} pages={historyPages} count={historyCount} onPage={loadHistory} noun="imports" />
         )}
       </div>
 
@@ -3565,9 +3376,15 @@ export default function Leads() {
     <div className="hub-page">
       <div className="hub-header">
         <div>
-          <h2>Lead Management</h2>
-          <p>Track lead stages &amp; sub-statuses, import/export and manage your leads</p>
+          <div className="section-head-crumb">Sales <span className="section-head-sep">›</span> <span className="section-head-cur">Leads</span></div>
+          <h2>Leads</h2>
+          <p>Find, assign and work every lead.</p>
         </div>
+        {isLeadAdmin && tab !== "io" && (
+          <button type="button" className="hub-btn" onClick={() => setTab("io")}>
+            Import / Export
+          </button>
+        )}
       </div>
 
       <HubTabs tabs={tabs} active={tab} onChange={setTab} />

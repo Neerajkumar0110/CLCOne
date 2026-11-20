@@ -21,6 +21,7 @@ import {
 } from "./shared";
 import { PhoneOutlined } from "@ant-design/icons";
 import { LeadLink } from "@/components/LeadFullDetail";
+import SuPager from "@/components/SalesTheme/SuPager";
 
 // The Auto-Dialer is Sales-only — mirrors backend/src/config/roles.js's
 // NON_SALES_ROLES, since a campaign's `agents` list is Sales-department
@@ -218,14 +219,7 @@ export default function Campaigns() {
         </div>
 
         {pages > 1 && (
-          <div className="hub-row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-            <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}>
-              <LeftOutlined /> Prev
-            </button>
-            <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>
-              Next <RightOutlined />
-            </button>
-          </div>
+          <SuPager page={page} pages={pages} onPage={load} />
         )}
       </div>
 
@@ -549,10 +543,7 @@ function CampaignDetail({ campaign, meta, onBack, onAction }) {
         </div>
 
         {pages > 1 && (
-          <div className="hub-row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-            <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}><LeftOutlined /> Prev</button>
-            <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>Next <RightOutlined /></button>
-          </div>
+          <SuPager page={page} pages={pages} onPage={load} />
         )}
       </div>
 

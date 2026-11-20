@@ -22,6 +22,8 @@ import {
 } from "@ant-design/icons";
 import { message } from "antd";
 import HubModal from "@/components/HubModal";
+import LeadGraphs from "./LeadGraphs";
+import AgentLink from "@/components/SalesTheme/AgentLink";
 import { request } from "@/request";
 import { stageColor, badgeClassForStatus } from "@/config/leadStages";
 import "./leadDetail.css";
@@ -439,7 +441,7 @@ export default function LeadFullDetailModal({ lead: row, phone: phoneProp, onClo
           ) : null}
           {l.subStatus ? <span className="ld-chip"><TagOutlined />{l.subStatus}</span> : null}
           {l.source ? <span className="ld-chip"><GlobalOutlined />{l.source}</span> : null}
-          {l.assignedUserName ? <span className="ld-chip"><UserOutlined />{l.assignedUserName}</span> : null}
+          {l.assignedUserName ? <span className="ld-chip"><UserOutlined /><AgentLink name={l.assignedUserName} /></span> : null}
         </span>
       </span>
     </span>
@@ -477,7 +479,7 @@ export default function LeadFullDetailModal({ lead: row, phone: phoneProp, onClo
               t.people.map((p) => (
                 <span key={p} className="ld-person">
                   <i>{p.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}</i>
-                  {p}
+                  <AgentLink name={p} />
                 </span>
               ))
             ) : (
@@ -485,6 +487,8 @@ export default function LeadFullDetailModal({ lead: row, phone: phoneProp, onClo
             )}
           </div>
         )}
+
+        {data && <LeadGraphs calls={calls} stages={stages} created={l.facebookCreatedAt || l.created} currentStage={l.stage} />}
 
         <Accordion
           icon={<ProfileOutlined />}

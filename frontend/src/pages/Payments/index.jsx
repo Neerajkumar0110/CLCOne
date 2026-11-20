@@ -524,10 +524,11 @@ export default function Payments() {
     <div className="lms-portal pay-hub">
       <div className="lms-portal-head">
         <div>
+          <div className="section-head-crumb">Sales <span className="section-head-sep">›</span> <span className="section-head-cur">Payments</span></div>
           <h2>
             <WalletOutlined /> Payments
           </h2>
-          <p>Collect a fee payment via Razorpay — link, QR and email in one step.</p>
+          <p>Payment links, money collected, finance &amp; KYC.</p>
         </div>
       </div>
 
@@ -707,10 +708,10 @@ export default function Payments() {
                   const w = (teamView ? stats.team : stats.self)?.[key] || { count: 0, amount: 0 };
                   return (
                     <Col xs={12} sm={8} md={24 / 5} key={key}>
-                      <div style={{ background: 'var(--hub-bg-soft, #f8fafc)', borderRadius: 10, padding: '10px 12px' }}>
-                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{label}</div>
-                        <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>{fmtInr(w.amount)}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{w.count} paid</div>
+                      <div className="su-kpi">
+                        <div className="l">Collected · {label}</div>
+                        <div className="v">{fmtInr(w.amount)}</div>
+                        <div className="l">{w.count} paid</div>
                       </div>
                     </Col>
                   );

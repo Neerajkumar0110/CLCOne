@@ -113,6 +113,19 @@ const FILTER_GROUPS = [
   ["Deals, quotes & orders", [["dealStage", "All deal stages"], ["quoteStatus", "All quote statuses"], ["orderStatus", "All order statuses"], ["orderPayment", "All order payments"]]],
   ["Activity", [["path", "All screens"]]],
 ];
+// Sales One Place design: Sales › Dashboard shows the business (calls, results,
+// charts, ranking) and Sales › Team & Attendance shows the people (attendance,
+// policy, targets, compliance, activity) — each card in one place only. Lead
+// stages live in Leads › Lead Stages (the leads report stays here). No view = the
+// whole page (HRMS › Work & Leave Tracker keeps everything).
+const VIEW_SHOW = {
+  dashboard: new Set(["summary", "topPerformers", "glance", "calls", "connected", "talk", "avgtalk", "missed", "active", "dialer", "break", "onphone", "cph", "responses", "recordings", "demos", "demoAttended", "demoMissed", "interested", "prospectCard", "future", "enrolled", "paid", "pending", "notInterested", "noResponse", "callback", "deals", "dealValue", "dealsWon", "quotes", "quoteValue", "orders", "orderValue", "products", "trend", "outcomes", "heat", "talkLength", "funnel", "money", "usedLeads", "pipeline", "leaderboard", "callList"]),
+  team: new Set(["glance", "calendar", "exceptions", "policy", "prospects", "targets", "overdueTasks", "cases", "corrections", "outages", "days", "activity"]),
+};
+const VIEW_FILTERS = {
+  dashboard: new Set(["Leads", "Calls", "Deals, quotes & orders"]),
+  team: new Set(["Attendance", "Targets & compliance", "Activity"]),
+};
 const SALES_PAGES = FEATURE_SECTIONS.find((s) => s.key === "sales").tabs;
 const ACTIVITY_TYPES = [["session", "Login"], ["dialer", "Dialer"], ["break", "Break"], ["leave", "Leave"], ["call", "Call"], ["response", "Response"], ["payment", "Payment"], ["screen", "Screen"], ["click", "Click"], ["search", "Search"], ["idle", "Idle"]];
 
@@ -249,7 +262,7 @@ function dayWindow(dayKey, points) {
 }
 
 // Authenticated .xlsx download (blob — needs the auth header, not a link).
-async function downloadFile(path, fallback) {
+export async function downloadFile(path, fallback) {
   const token = storePersist.get("auth")?.current?.token;
   try {
     const res = await axios.get(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, responseType: "blob" });
@@ -1633,7 +1646,58 @@ function TopPerformers({ rows, loading, onPick, onLeaderboard }) {
   );
 }
 
-export default function Sales360({ initialUser }) {
+// Sales One Place design: click an agent's name anywhere → that agent's full
+// day (login, dialer on / off, breaks, every call) in the same DayModal the
+// 360° page uses. Same API (workday/admin/360 for today); the backend's own
+// scoping decides whose day a viewer may see. `adminId` when the row has it,
+// else the name is matched against today's Sales users.
+export function AgentDayModal({ adminId, name, onClose }) {
+  const [target, setTarget] = useState(null);
+  const [note, setNote] = useState("");
+  const open = !!(adminId || name);
+  useEffect(() => {
+    if (!open) return undefined;
+    let live = true;
+    setTarget(null);
+    setNote("");
+    const range = { from: dayjs().startOf("day").toISOString(), to: dayjs().toISOString() };
+    (async () => {
+      let id = adminId ? String(adminId) : "";
+      if (!id) {
+        const all = await request.get({ entity: `workday/admin/360?${new URLSearchParams(range)}` });
+        const want = String(name || "").trim().toLowerCase();
+        const hit = (all?.result?.rows || []).find((r) => String(r.name || "").trim().toLowerCase() === want);
+        id = hit ? String(hit.adminId) : "";
+      }
+      if (!live) return;
+      if (!id) {
+        setNote(`No activity found today for ${name || "this user"}.`);
+        return;
+      }
+      const r = await request.get({ entity: `workday/admin/360?${new URLSearchParams({ ...range, adminId: id })}` });
+      if (!live) return;
+      const user = r?.success && (r.result.rows || [])[0];
+      const day = r?.success && (r.result.days || []).slice(-1)[0];
+      if (user && day) setTarget({ user, day });
+      else setNote(r?.success ? `${name || "This user"} has not started the day yet.` : r?.message || "Could not load this user's day.");
+    })();
+    return () => {
+      live = false;
+    };
+  }, [open, adminId, name]);
+  if (!open) return null;
+  if (target) return <DayModal target={target} onClose={onClose} />;
+  return (
+    <Modal open onCancel={onClose} footer={null} title={name || "Sales user"} width={420}>
+      <div className="hub-empty">{note || "Loading today…"}</div>
+    </Modal>
+  );
+}
+
+export default function Sales360({ initialUser, view }) {
+  const inView = (k) => !VIEW_SHOW[view] || VIEW_SHOW[view].has(k);
+  const showGroups = SHOW_GROUPS.map(([g, items]) => [g, items.filter(([k]) => inView(k))]).filter(([, items]) => items.length);
+  const filterGroups = FILTER_GROUPS.filter(([g]) => !VIEW_FILTERS[view] || VIEW_FILTERS[view].has(g));
   const me = useSelector(selectCurrentAdmin);
   const manager = FULL_ACCESS.includes(me?.role);
   const policyAdmin = POLICY_ADMIN.includes(me?.role);
@@ -1664,8 +1728,8 @@ export default function Sales360({ initialUser }) {
     return k === "prospect" && !canVerify ? all.filter(([x]) => x !== "sent") : all;
   };
   // A submitted search replaces the page with its results; typing only suggests.
-  const show =(k) => !applied.q && (!applied.show.length || applied.show.includes(k)) && (!scope || scope.has(k));
-  const nothingShown = !applied.q && !SHOW_GROUPS.some(([, items]) => items.some(([k]) => show(k)));
+  const show =(k) => inView(k) && !applied.q && (!applied.show.length || applied.show.includes(k)) && (!scope || scope.has(k));
+  const nothingShown = !applied.q && !showGroups.some(([, items]) => items.some(([k]) => show(k)));
   const [searchDraft, setSearchDraft] = useState("");
   const setFilter = (k, v) => setFx((x) => ({ ...x, [k]: v, ...(k === "stage" ? { sub: "" } : {}) }));
   const [preset, setPreset] = useState("today");
@@ -1713,10 +1777,10 @@ export default function Sales360({ initialUser }) {
       setSearchDraft("");
       setTimeout(() => resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
     };
-    const sections = SHOW_GROUPS.flatMap(([group, items]) => items
+    const sections = showGroups.flatMap(([group, items]) => items
       .filter(([k]) => !scopeNoSearch || scopeNoSearch.has(k))
       .map(([k, title]) => ({ id: `show-${k}`, group: "Sections on this page", title, sub: group, run: apply({ show: [k] }) })));
-    const filters = FILTER_GROUPS.flatMap(([group, items]) => items
+    const filters = filterGroups.flatMap(([group, items]) => items
       .filter(([k]) => k !== "sub" && k !== "path")
       .flatMap(([k]) => choicesFor(k).map(([value, label]) => ({ id: `${k}-${value}`, group: "Filters", title: `${FILTER_NAME[k]}: ${label}`, sub: group, run: apply({ [k]: value, ...(k === "stage" ? { sub: "" } : {}) }) }))));
     const subs = (data?.stageTree || []).flatMap((s) => (s.subs || [])
@@ -2039,7 +2103,7 @@ export default function Sales360({ initialUser }) {
             aria-label="Show"
             value={fx.show}
             onChange={(v) => setFilter("show", v)}
-            options={SHOW_GROUPS.map(([label, items]) => ({ label, options: items.map(([value, text]) => ({ value, label: text })) }))}
+            options={showGroups.map(([label, items]) => ({ label, options: items.map(([value, text]) => ({ value, label: text })) }))}
           />
           <Sales360SearchBox
             value={searchDraft}
@@ -2059,7 +2123,7 @@ export default function Sales360({ initialUser }) {
           />
         </div>
         <div className="s3-filter-groups">
-          {FILTER_GROUPS.map(([group, items]) => (
+          {filterGroups.map(([group, items]) => (
             <div key={group} className="s3-filter-group">
               <span className="s3-filter-group-name">{group}</span>
               <div className="s3-filter-grid">
@@ -2186,7 +2250,7 @@ export default function Sales360({ initialUser }) {
         )
       )}
 
-      {!one && data && data.rows.length > 0 && show("topPerformers") && (
+      {view !== "dashboard" && !one && data && data.rows.length > 0 && show("topPerformers") && (
         <TopPerformers
           rows={data.rows}
           loading={loading}
@@ -2203,7 +2267,7 @@ export default function Sales360({ initialUser }) {
         </>
       )}
       {show("exceptions") && <AttendanceExceptions base={base} people={data?.people} canManage={manager} />}
-      {show("policy") && (
+      {view !== "team" && show("policy") && (
         <>
           <div className="s3-section"><AuditOutlined /> Attendance by policy <span>CLC-POL-001 — every working day: dialer hours, attempts, talk, verified prospects, attended demos, short leave</span></div>
           <PolicyAttendance base={base} single={!!one} canCorrect={policyAdmin} reloadKey={tick} />
@@ -2213,10 +2277,17 @@ export default function Sales360({ initialUser }) {
       {/* A Team Leader's own 360° is theirs, but they verify everyone's prospects. */}
       {show("prospects") && <WhenNear><ProspectQueue base={prospectBase} canVerify={canVerify} onChanged={() => setTick((x) => x + 1)} /></WhenNear>}
       {show("targets") && <WhenNear><TargetsBoard base={base} canManage={policyAdmin} canSetTargets={policyAdmin} /></WhenNear>}
+      {view === "team" && show("policy") && (
+        <>
+          <div className="s3-section"><AuditOutlined /> Attendance by policy <span>CLC-POL-001 — every working day: dialer hours, attempts, talk, verified prospects, attended demos, short leave</span></div>
+          <PolicyAttendance base={base} single={!!one} canCorrect={policyAdmin} reloadKey={tick} />
+        </>
+      )}
+      {view === "team" && show("corrections") && <WhenNear><CorrectionsPanel base={base} /></WhenNear>}
       {(show("overdueTasks") || show("cases") || show("corrections") || show("outages")) && <div className="s3-section"><AuditOutlined /> Compliance <span>overdue tasks, disputes and reviews, corrections, outages</span></div>}
       {show("overdueTasks") && <WhenNear><OverduePanel base={base} meId={me?._id} canReview={canVerify} canRecord={policyAdmin} /></WhenNear>}
       {show("cases") && <WhenNear><CasesPanel base={base} people={data?.people} canManage={policyAdmin} /></WhenNear>}
-      {show("corrections") && <WhenNear><CorrectionsPanel base={base} /></WhenNear>}
+      {view !== "team" && show("corrections") && <WhenNear><CorrectionsPanel base={base} /></WhenNear>}
       {show("outages") && <WhenNear><OutagesPanel base={base} people={data?.people} canManage={policyAdmin} /></WhenNear>}
 
       {shownKpis.length > 0 && (
@@ -2406,6 +2477,12 @@ export default function Sales360({ initialUser }) {
         </>
       )}
 
+      {view === "dashboard" && (
+        <div className="s3-panel s3-also">
+          <span><b>Lead status</b> (stage donut, sub-statuses, lead quality) lives once, in Leads › Lead Stages.</span>
+          <button type="button" className="hub-btn su-sm" onClick={() => navigate("/sales/leads")}>Open Lead Stages →</button>
+        </div>
+      )}
       {show("usedLeads") && <WhenNear><LeadsSection base={base} who={one ? one.name : team ? `Team ${team}` : "Every Sales user"} /></WhenNear>}
 
       {/* one user: their pipeline + what is due */}
@@ -2439,6 +2516,15 @@ export default function Sales360({ initialUser }) {
             </div>
           </Panel>
         </div>
+      )}
+
+      {view === "dashboard" && !one && data && data.rows.length > 0 && show("topPerformers") && (
+        <TopPerformers
+          rows={data.rows}
+          loading={loading}
+          onPick={setUserId}
+          onLeaderboard={show("leaderboard") ? () => leaderboardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) : null}
+        />
       )}
 
       <div ref={leaderboardRef} className="s3-results-top" />

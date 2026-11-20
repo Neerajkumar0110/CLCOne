@@ -16,6 +16,7 @@ import Demos from "./Demos";
 import { useSelector } from "react-redux";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { useCallingMeta } from "./shared";
+import SalesTheme from "@/components/SalesTheme";
 
 const BASE_TABS = [
   { key: "dashboard", label: "Dashboard", C: CallingDashboard },
@@ -31,6 +32,19 @@ const BASE_TABS = [
   { key: "demos", label: "Live Demos", C: Demos, adminOnly: true },
 ];
 const ADMIN_ROLES = ["owner", "Super Admin", "Admin"];
+// Sales One Place design: each Calls tab carries its own title + one line.
+const TAB_HEAD = {
+  dashboard: ["Calls Dashboard", "Live calls, call status and today’s numbers."],
+  dial: ["Dialer", "Dial a number or a contact."],
+  campaigns: ["Campaigns", "Auto-dialer campaigns and their lists."],
+  dialer: ["Auto Dialer", "Start dialling, watch the live numbers, see every call."],
+  agent: ["Agent Screen", "The live call. Answer, hold, mute, transfer, schedule callback."],
+  history: ["Call History", "Every call, one row each. Play, read the response, send for verification."],
+  callbacks: ["Callbacks", "Every promised call-back."],
+  recordings: ["Recordings", "Listen to calls and check every talked call was recorded."],
+  reports: ["Call Reports", "Every call number and chart, once, for the range you pick."],
+  demos: ["Live Demos", "Today’s live demo and who joined."],
+};
 
 export default function Calling() {
   const [params] = useSearchParams();
@@ -75,11 +89,13 @@ export default function Calling() {
   const Active = TABS.find((t) => t.key === tab)?.C || CallingDashboard;
 
   return (
+    <SalesTheme>
     <div className="hub-page">
       <div className="hub-header">
         <div>
-          <h2>Calls</h2>
-          <p>Manage live calls, call status, recordings and auto-dialer campaigns</p>
+          <div className="section-head-crumb">Sales <span className="section-head-sep">›</span> <span className="section-head-cur">{(TAB_HEAD[tab] || TAB_HEAD.dashboard)[0]}</span></div>
+          <h2>{(TAB_HEAD[tab] || TAB_HEAD.dashboard)[0]}</h2>
+          <p>{(TAB_HEAD[tab] || TAB_HEAD.dashboard)[1]}</p>
         </div>
         {provider && (
           <div
@@ -128,5 +144,6 @@ export default function Calling() {
 
       <Active />
     </div>
+    </SalesTheme>
   );
 }

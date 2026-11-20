@@ -4,6 +4,7 @@ import { request } from "@/request";
 import { usePoll } from "@/pages/Calling/shared";
 import { stageConfig } from "@/config/leadStages";
 import "./TeamActivity.css";
+import { SearchOutlined } from "@ant-design/icons";
 
 // Lead Management → "Team Activity" (management only — backend
 // callingController/teamActivity.js enforces it). Every Sales user with
@@ -275,27 +276,35 @@ export default function TeamActivity() {
       </div>
 
       <div className="hub-card">
-        <div className="hub-card-header">
-          <h3>Team Activity</h3>
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--hub-muted)", marginBottom: 12 }}>
-          Every Sales user — switch the Instant Lead Pool on for anyone who isn't active, and see how long they've worked
-          today and over the last week. Click a row for full details.
+        <div className="lsb-ch">
+          <div>
+            <h3>Team Activity</h3>
+            <p>
+              Every Sales user — switch the Instant Lead Pool on for anyone who isn't active, and see how long they've worked
+              today and over the last week. Click a row for full details.
+            </p>
+          </div>
         </div>
 
-        <div className="ta-toolbar">
-          <input className="hub-input" placeholder="Search name, email, phone…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="hub-select" style={{ width: 170 }} value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="">All roles</option>
-            {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <select className="hub-select" style={{ width: 170 }} value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="">Everyone</option>
-            <option value="pool">In Lead Pool</option>
-            <option value="nopool">Not in Lead Pool</option>
-            <option value="online">Online now</option>
-          </select>
-        </div>
+        <section className="ll-fp ta-fp" aria-label="Filters">
+          <div className="ll-fp-row">
+            <label className="ll-search" title="Search name, email or phone">
+              <SearchOutlined />
+              <input placeholder="Search name, email, phone…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search team" inputMode="search" />
+            </label>
+            <select className="hub-select" style={{ width: 170 }} value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
+              <option value="">All roles</option>
+              {roles.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <div className="lsb-seg" role="group" aria-label="Show">
+              {[["", "Everyone"], ["pool", "In Lead Pool"], ["nopool", "Not in Lead Pool"], ["online", "Online now"]].map(([k, l]) => (
+                <button key={k || "all"} type="button" className={filter === k ? "on" : ""} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <div className="hub-table-wrapper">
           <table className="hub-table ta-table">
@@ -313,7 +322,7 @@ export default function TeamActivity() {
             </thead>
             <tbody>
               {shown.length === 0 && (
-                <tr><td colSpan={8}><div className="hub-empty">No users match.</div></td></tr>
+                <tr><td colSpan={8}><div className="hub-empty"><b>No data available for the selected filters.</b></div></td></tr>
               )}
               {shown.map((u) => {
                 const open = openId === u._id;

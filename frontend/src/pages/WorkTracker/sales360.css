@@ -2456,3 +2456,7 @@ button.s3-kpi {
 .s3-dates-tags em.login { color: #334155; background: #f1f5f9; }
 .s3-dates-tags em.late { color: #b45309; background: #fef3c7; }
 .s3-dates-tags em.leave { color: #7c3aed; background: #ede9fe; }
+
+/* Dashboard (Sales One Place design): pointer to where lead status lives */
+.s3-also { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; font-size: 13px; color: var(--hub-muted); }
+.s3-also b { color: var(--hub-text); }

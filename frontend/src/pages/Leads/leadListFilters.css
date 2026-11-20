@@ -183,3 +183,69 @@
 .ll-came { white-space: nowrap; }
 .ll-came b { display: block; font-size: 13px; color: var(--hub-text); }
 .ll-came span { font-size: 11.5px; color: var(--hub-muted); }
+
+/* ── Lead Stages board — Sales One Place design (LeadStageBoard) ── */
+.lsb { display: flex; flex-direction: column; gap: 16px; }
+.lsb-top { background: var(--hub-surface, #fff); border: 1px solid var(--hub-border, #e2e8f0); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.lsb-top-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.lsb-seg { display: inline-flex; flex-wrap: wrap; background: var(--hub-bg-soft, #eef2f6); border-radius: 10px; padding: 3px; gap: 2px; }
+.lsb-seg button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; font: 600 12.5px Inter, system-ui, sans-serif; padding: 7px 11px; border-radius: 8px; color: var(--hub-text-soft, #3e4c59); cursor: pointer; min-height: 34px; }
+.lsb-seg button.on { background: var(--hub-surface, #fff); color: var(--hub-text, #0f1e2b); box-shadow: 0 1px 2px rgba(15, 30, 43, 0.12); }
+.lsb-viewing { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--hub-text-soft, #3e4c59); }
+.lsb-help { margin: 0; font-size: 12.5px; color: var(--hub-muted, #5b6b79); }
+.lsb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: start; }
+.lsb-ch { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.lsb-ch h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--hub-text, #0f1e2b); }
+.lsb-ch p { margin: 2px 0 0; font-size: 12.5px; color: var(--hub-muted, #5b6b79); }
+.lsb-donut { display: flex; justify-content: center; color: var(--hub-text, #0f1e2b); }
+.lsb-donut svg { max-width: 100%; height: auto; }
+.lsb-quality { margin-top: 14px; background: var(--hub-bg-soft, #f8fafc); border: 1px solid var(--hub-border, #e2e8f0); border-radius: 14px; padding: 14px 16px; }
+.lsb-qsum { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--hub-muted, #5b6b79); margin-bottom: 8px; }
+.lsb-qsum b, .lsb-qtotal b { color: var(--hub-text, #0f1e2b); }
+.lsb-hb { display: grid; grid-template-columns: 110px 1fr 96px; gap: 10px; align-items: center; font-size: 13px; padding: 5px 0; color: var(--hub-text, #0f1e2b); }
+.lsb-hb .t, .lsb-row .t, .lsb-sub .t { height: 10px; border-radius: 6px; background: var(--hub-border, #eef2f6); overflow: hidden; display: flex; }
+.lsb-hb .t b, .lsb-row .t b, .lsb-sub .t b { display: block; height: 100%; border-radius: 6px; transition: width 0.35s ease; }
+.lsb-hb .n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lsb-hb .n em { font-style: normal; font-weight: 500; color: var(--hub-muted, #5b6b79); }
+.lsb-qtotal { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hub-border, #e2e8f0); font-size: 12.5px; font-weight: 600; color: var(--hub-text, #0f1e2b); }
+.lsb-qnote { font-size: 11px; color: var(--hub-muted, #5b6b79); margin-top: 6px; }
+.lsb-row, .lsb-sub { width: 100%; display: grid; grid-template-columns: 20px minmax(120px, 1fr) 2fr 70px 48px; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; font: inherit; font-size: 13.5px; text-align: left; color: var(--hub-text, #0f1e2b); }
+.lsb-row:hover, .lsb-sub:hover { background: var(--hub-card-hover, #f8fbfb); }
+.lsb-row.on, .lsb-sub.on { border-color: #0f766e; background: #f0faf8; }
+.lsb-row.zero { color: var(--hub-muted, #5b6b79); }
+.lsb-row:focus-visible { outline: 2px solid #99e0d6; }
+.lsb-sub { padding: 6px 10px; font-size: 12.5px; color: var(--hub-text-soft, #3e4c59); }
+.lsb-sub .t { height: 6px; opacity: 0.75; }
+.lsb-name { font-weight: 600; display: flex; gap: 8px; align-items: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lsb-name i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.lsb-row .n, .lsb-sub .n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lsb-row .p, .lsb-sub .p { text-align: right; color: var(--hub-muted, #5b6b79); font-size: 12.5px; }
+.lsb-xb { width: 20px; height: 20px; border: 0; background: transparent; cursor: pointer; color: var(--hub-muted, #5b6b79); padding: 0; font-size: 12px; }
+:root[data-theme='dark'] .lsb-row.on, :root[data-theme='dark'] .lsb-sub.on { background: rgba(20, 184, 166, 0.12); border-color: #14b8a6; }
+@media (max-width: 560px) {
+  .lsb-row, .lsb-sub { grid-template-columns: 20px minmax(90px, 1fr) 1fr 56px 40px; gap: 6px; }
+  .lsb-hb { grid-template-columns: 90px 1fr 80px; }
+}
+
+/* ── Lead List — Sales One Place design: stage chips, filter panel, pills ── */
+.ll-stg { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 4px; margin-bottom: 12px; scrollbar-width: thin; }
+.ll-stg button { --ll-c: #0f766e; flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 1px solid var(--hub-border, #e2e8f0); background: var(--hub-surface, #fff); border-radius: 12px; padding: 10px 14px; min-width: 120px; cursor: pointer; font: 500 12.5px Inter, system-ui, sans-serif; color: var(--hub-text-soft, #3e4c59); text-align: left; }
+.ll-stg button span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ll-stg button i { width: 8px; height: 8px; border-radius: 50%; background: var(--ll-c); flex: none; }
+.ll-stg button b { font: 700 20px 'Space Grotesk', Inter, system-ui, sans-serif; color: var(--hub-text, #0f1e2b); line-height: 1.2; }
+.ll-stg button:hover { border-color: var(--hub-border-strong, #cfd8e1); }
+.ll-stg button.on { border: 2px solid var(--ll-c); background: color-mix(in srgb, var(--ll-c) 7%, var(--hub-surface, #fff)); padding: 9px 13px; }
+.ll-fp { background: var(--hub-surface, #fff); border: 1px solid var(--hub-border, #e2e8f0); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.ll-fp-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ll-fp-row .ll-search { flex: 1 1 260px; max-width: none; }
+.ll-fp .ll-fsec { border-top: 1px dashed var(--hub-border, #e2e8f0); padding-top: 12px; }
+.ll-factions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.ll-applied { display: flex; flex-wrap: wrap; gap: 6px; }
+.ll-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 10px; font: 600 12px Inter, system-ui, sans-serif; background: #e6f4f2; color: #0b5f58; border: 0; cursor: pointer; }
+.ll-pill:hover { background: #cdede8; }
+.ll-pill .anticon { font-size: 10px; }
+:root[data-theme='dark'] .ll-pill { background: rgba(20, 184, 166, 0.15); color: #99f6e4; }
+.su-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Import / Export — design step numbers */
+.ie-step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #0f766e; color: #fff; font: 700 12px Inter, system-ui, sans-serif; margin-right: 6px; vertical-align: 1px; }

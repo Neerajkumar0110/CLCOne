@@ -16,6 +16,8 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { fmtDuration, fmtDateTime } from "./shared";
+import SuPager from "@/components/SalesTheme/SuPager";
+import AgentLink from "@/components/SalesTheme/AgentLink";
 
 // Recording management — KPIs, a per-user breakdown, and the call list,
 // all over the same filters (backend callingController/recordings.js).
@@ -313,14 +315,14 @@ export default function Recordings() {
             </thead>
             <tbody>
               {loading && <tr><td colSpan={9}><div className="hub-empty">Loading…</div></td></tr>}
-              {!loading && rows.length === 0 && <tr><td colSpan={9}><div className="hub-empty">{filtered ? "No calls match these filters." : "No recordings."}</div></td></tr>}
+              {!loading && rows.length === 0 && <tr><td colSpan={9}><div className="hub-empty"><b>{filtered ? "No data available for the selected filters." : "No recordings."}</b></div></td></tr>}
               {!loading &&
                 rows.map((r) => (
                   <tr key={r._id}>
                     <td style={{ fontWeight: 600 }}>{r.contactName || <span style={{ color: "var(--hub-muted)", fontWeight: 400 }}>Unknown</span>}</td>
                     <td>{r.phone}</td>
                     <td>
-                      {r.agentName || "—"}
+                      {r.agentName ? <AgentLink name={r.agentName} /> : "—"}
                       {/* nobody took it — filed under the lead's owner / last user who spoke to them */}
                       {r.ownerOnly && <div style={{ fontSize: 11, color: "var(--hub-muted)" }}>not picked · their lead</div>}
                     </td>
@@ -343,26 +345,7 @@ export default function Recordings() {
         </div>
 
         {count > 0 && (
-          <div className="hub-row" style={{ justifyContent: "space-between", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: "var(--hub-muted)" }}>Page {page} of {pages || 1} · {count} total</span>
-            <div className="hub-row" style={{ gap: 8 }}>
-              <select
-                className="hub-select"
-                style={{ width: "auto" }}
-                value={pageSize}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setPageSize(n);
-                  load(1, n);
-                }}
-                aria-label="Calls per page"
-              >
-                {[10, 20, 50, 100, 200].map((n) => <option key={n} value={n}>{n} / page</option>)}
-              </select>
-              <button type="button" className="hub-btn" disabled={page <= 1} onClick={() => load(page - 1)}><LeftOutlined /> Prev</button>
-              <button type="button" className="hub-btn" disabled={page >= pages} onClick={() => load(page + 1)}>Next <RightOutlined /></button>
-            </div>
-          </div>
+          <SuPager page={page} pages={pages} count={count} size={pageSize} sizes={[10, 20, 50, 100, 200]} onSize={(n) => { setPageSize(n); load(1, n); }} onPage={load} noun="calls" />
         )}
       </div>
 

@@ -121,6 +121,7 @@ export const FEATURE_SECTIONS = [
         Icon: FunnelPlotOutlined,
         // Live weighted-funnel board computed from the Deals tab (salesdeal).
         embed: 'salesPipeline',
+        blurb: 'Live weighted funnel from your deals.',
       },
       // Leads / Customers live under Sales now. `embed` renders the
       // existing full-featured pages (ads integrations, imports, etc.) inside
@@ -137,7 +138,12 @@ export const FEATURE_SECTIONS = [
         // Razorpay fee collection — payment link + QR + email, then a
         // post-payment KYC form. See pages/Payments + /api/payments.
         embed: 'payments',
+        blurb: 'Payment links, money collected, finance & KYC.',
       },
+      // Sales 360° (attendance, dialer hours, policy, activity) — the same
+      // screen as HRMS › Work & Leave Tracker › Sales 360°, here so all of
+      // sales sits under one sidebar tab (user ask 2026-11-17).
+      { key: 'team-360', label: 'Team & Attendance', Icon: TeamOutlined, embed: 'sales360', blurb: 'Attendance, policy, prospects, targets and compliance.' },
       {
         key: 'deals',
         label: 'Deals',

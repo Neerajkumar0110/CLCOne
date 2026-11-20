@@ -14,6 +14,7 @@ import AssignStudentModal from '@/pages/Lms/components/AssignStudentModal';
 import CandidateDetailModal from '@/pages/Lms/components/CandidateDetailModal';
 import lmsApi from '@/pages/Lms/api';
 import { request } from '@/request';
+import SalesTheme from '@/components/SalesTheme';
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
 const WhatsApp = lazy(() => import('@/pages/WhatsApp'));
@@ -24,6 +25,7 @@ const TeamChat = lazy(() =>
 // Sales' Leads / Customers sub-tabs reuse the existing full pages.
 const Leads = lazy(() => import('@/pages/Leads'));
 const WorkTracker = lazy(() => import('@/pages/WorkTracker'));
+const Sales360 = lazy(() => import('@/pages/WorkTracker/Sales360'));
 const Customer = lazy(() => import('@/pages/Customer'));
 // Sales' Pipeline tab — live funnel computed from the Deals (salesdeal) list.
 const SalesPipeline = lazy(() => import('@/pages/SalesPipeline'));
@@ -74,6 +76,8 @@ const EMBED = {
   emailCenter: EmailCenter,
   leads: Leads,
   workTracker: WorkTracker,
+  // Sales › Team & Attendance = the people half of Sales 360° (design split).
+  sales360: () => <Sales360 view="team" />,
   customer: Customer,
   salesPipeline: SalesPipeline,
   salesDashboard: SalesDashboard,
@@ -143,10 +147,12 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
   const hasOwnHeader =
     !!tab.dashboard ||
     tab.embed === 'salesDashboard' ||
+    tab.embed === 'leads' || // pages/Leads draws its own Sales › Leads header
+    tab.embed === 'payments' || // pages/Payments draws its own header
     tab.embed === 'whatsapp' || // pages/WhatsApp draws the design's own header
     (typeof tab.embed === 'string' && tab.embed.startsWith('lms'));
 
-  return (
+  const page = (
     <div className="hub-page" data-section={section.key}>
       {!hasOwnHeader && (
         <div className="section-head">
@@ -161,7 +167,7 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
               </span>
             </div>
             <h2>{tab.label}</h2>
-            <p>{section.blurb}</p>
+            <p>{tab.blurb || section.blurb}</p>
           </div>
         </div>
       )}
@@ -169,6 +175,8 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
       <TabBody section={section} tab={tab} />
     </div>
   );
+  // Sales screens wear the Sales One Place design (look only).
+  return section.key === 'sales' ? <SalesTheme>{page}</SalesTheme> : page;
 }
 
 // One sub-module's content. A tab may carry a `dashboard` key (analytics

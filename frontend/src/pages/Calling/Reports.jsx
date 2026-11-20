@@ -38,9 +38,11 @@ export default function Reports() {
         <div className="hub-card-header">
           <h3><BarChartOutlined /> Calling Reports</h3>
           <div className="hub-row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <select className="hub-select" style={{ maxWidth: 110 }} value={range} onChange={(e) => setRange(e.target.value)}>
-              {RANGES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <div className="lsb-seg su-seg" role="group" aria-label="Range">
+              {RANGES.map((r) => (
+                <button key={r} type="button" className={range === r ? "on" : ""} aria-pressed={range === r} onClick={() => setRange(r)}>{r}</button>
+              ))}
+            </div>
             <select className="hub-select" style={{ maxWidth: 200 }} value={campaign} onChange={(e) => setCampaign(e.target.value)}>
               <option value="">All campaigns</option>
               {campaigns.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -54,7 +56,7 @@ export default function Reports() {
 
         {loading && <div className="hub-empty">Loading…</div>}
         {!loading && d && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <div className="su-kpis">
             <KPI label="Calls Made" value={d.callsMade} />
             <KPI label="Connected" value={d.connectedCalls} />
             <KPI label="Answer Rate" value={`${d.answerRate}%`} />
@@ -77,11 +79,7 @@ export default function Reports() {
             head={["Campaign", "Made", "Connected", "Answer Rate"]}
             rows={d.campaignPerformance.map((c) => [c.campaign, c.made, c.connected, `${c.answerRate}%`])}
           />
-          <TableCard
-            title="Call Dispositions"
-            head={["Disposition", "Count"]}
-            rows={d.dispositions.map((x) => [dispLabel(x.code), x.count])}
-          />
+          <DispositionBars items={d.dispositions.map((x) => ({ label: dispLabel(x.code), count: x.count }))} />
         </>
       )}
 
@@ -123,9 +121,32 @@ function MissedCalls({ range }) {
 
 function KPI({ label, value }) {
   return (
-    <div style={{ flex: "1 1 150px", minWidth: 140, background: "#f8fafc", border: "1px solid #eef0f4", borderRadius: 12, padding: "12px 16px" }}>
-      <div style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{value}</div>
+    <div className="su-kpi">
+      <div className="l">{label}</div>
+      <div className="v">{value}</div>
+    </div>
+  );
+}
+
+// Design: "Saved response after talking" — the same disposition counts as a horizontal bar chart.
+function DispositionBars({ items }) {
+  const rows = [...items].sort((a, b) => b.count - a.count);
+  const total = rows.reduce((t, r) => t + r.count, 0);
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="hub-card">
+      <div className="lsb-ch"><div><h3>Call dispositions</h3><p>Saved response after talking · count and share</p></div></div>
+      {rows.length === 0 ? (
+        <div className="hub-empty"><b>No data available for the selected filters.</b></div>
+      ) : (
+        rows.map((r) => (
+          <div key={r.label} className="su-hb">
+            <span title={r.label}>{r.label}</span>
+            <span className="t"><b style={{ width: `${(r.count / max) * 100}%` }} /></span>
+            <span className="n">{r.count.toLocaleString("en-IN")} <em>{total ? Math.round((r.count / total) * 100) : 0}%</em></span>
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -138,7 +159,7 @@ function TableCard({ title, head, rows }) {
         <table className="hub-table">
           <thead><tr>{head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={head.length}><div className="hub-empty">No data.</div></td></tr>}
+            {rows.length === 0 && <tr><td colSpan={head.length}><div className="hub-empty"><b>No data available for the selected filters.</b></div></td></tr>}
             {rows.map((r, i) => (
               <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>
             ))}

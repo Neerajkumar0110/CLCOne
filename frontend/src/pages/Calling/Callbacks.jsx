@@ -5,6 +5,7 @@ import { CalendarOutlined, PhoneOutlined } from "@ant-design/icons";
 import { usePoll, dialContact } from "./shared";
 import "./Callbacks.css";
 import { LeadLink } from "@/components/LeadFullDetail";
+import AgentLink from "@/components/SalesTheme/AgentLink";
 
 const IST = { timeZone: "Asia/Kolkata" };
 
@@ -65,6 +66,7 @@ const autoCallLabel = (cb) => {
 
 export default function Callbacks() {
   const [data, setData] = useState(null);
+  const [listKey, setListKey] = useState("");
   const [dialingId, setDialingId] = useState(null);
 
   // Call the contact straight off the row — the whole point of this screen
@@ -106,7 +108,7 @@ export default function Callbacks() {
         </h3>
       </div>
       {rows.length === 0 ? (
-        <div className="hub-empty">Nothing here.</div>
+        <div className="hub-empty"><b>Nothing in this list.</b></div>
       ) : (
         <div className="hub-table-wrapper">
           <table className="hub-table cb-table">
@@ -137,7 +139,7 @@ export default function Callbacks() {
                     <div className="cb-when-rel">{relativeToNow(cb.scheduledAt)}</div>
                   </td>
                   <td>{autoCallLabel(cb)}</td>
-                  <td>{cb.assignedAgentName || "—"}</td>
+                  <td>{cb.assignedAgentName ? <AgentLink name={cb.assignedAgentName} /> : "—"}</td>
                   <td className="cb-notes" title={cb.notes || ""}>{cb.notes || "—"}</td>
                   <td><span className="hub-badge hub-badge-gray">{cb.status}</span></td>
                   <td>
@@ -180,14 +182,30 @@ export default function Callbacks() {
       </div>
 
       {!data && <div className="hub-card"><div className="hub-empty">Loading…</div></div>}
-      {data && (
-        <>
-          <Group title="Overdue" rows={data.overdue} tone="red" />
-          <Group title="Today" rows={data.today} tone="amber" />
-          <Group title="Upcoming" rows={data.upcoming} tone="blue" />
-          <Group title="Completed" rows={data.completed} tone="gray" />
-        </>
-      )}
+      {data && (() => {
+        // Design: the four lists as KPI tabs (count on each) — pick one, see it below.
+        const LISTS = [
+          ["overdue", "Overdue", "red", "#B42318"],
+          ["today", "Today", "amber", "#B54708"],
+          ["upcoming", "Upcoming", "blue", "#1D4ED8"],
+          ["completed", "Completed", "gray", "#475467"],
+        ];
+        const pick = listKey || (data.overdue?.length ? "overdue" : "today");
+        const cur = LISTS.find((l) => l[0] === pick) || LISTS[1];
+        return (
+          <>
+            <div className="su-ktabs" role="tablist" aria-label="Callback lists">
+              {LISTS.map(([k, label, , c]) => (
+                <button key={k} type="button" role="tab" aria-selected={pick === k} className={`su-ktab${pick === k ? " on" : ""}`} style={{ "--k": c }} onClick={() => setListKey(k)}>
+                  <span>{label}</span>
+                  <b>{(data[k] || []).length}</b>
+                </button>
+              ))}
+            </div>
+            <Group title={cur[1]} rows={data[cur[0]] || []} tone={cur[2]} />
+          </>
+        );
+      })()}
     </div>
   );
 }

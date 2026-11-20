@@ -181,6 +181,17 @@ export default function ChatChannels() {
     };
   }, [allowed, loadCounts]);
 
+  // Sidebar › Sales › Ad Chats opens the same inbox (NavigationContainer).
+  useEffect(() => {
+    if (!allowed) return undefined;
+    const open = () => {
+      setOpenKey(null);
+      setInbox({ open: true, channel: 'whatsapp', lead: null });
+    };
+    window.addEventListener('clc:open-ad-chats', open);
+    return () => window.removeEventListener('clc:open-ad-chats', open);
+  }, [allowed]);
+
   if (!allowed) return null;
 
   const openInbox = (channel, lead) => {

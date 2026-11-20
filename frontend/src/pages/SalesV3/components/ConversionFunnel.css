@@ -1,0 +1,604 @@
+/* Conversion funnel card — CSS as supplied (2026-11-20); every selector is scoped
+   under .conversion-funnel-card so it never touches the rest of the CRM. */
+
+.conversion-funnel-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e7eaf3;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow:
+    0 10px 40px rgba(30, 41, 59, 0.07),
+    0 2px 8px rgba(30, 41, 59, 0.03);
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.conversion-funnel-card .funnel-header {
+  min-height: 145px;
+  padding: 30px 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background:
+    radial-gradient(
+      circle at 75% 20%,
+      rgba(99, 102, 241, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      #f7f9ff 55%,
+      #eef2ff 100%
+    );
+  border-bottom: 1px solid #eef0f6;
+}
+
+.conversion-funnel-card .funnel-title-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.conversion-funnel-card .funnel-main-icon {
+  width: 62px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      145deg,
+      #6366f1 0%,
+      #4f46e5 55%,
+      #7c3aed 100%
+    );
+  box-shadow:
+    0 12px 25px rgba(79, 70, 229, 0.25);
+}
+
+.conversion-funnel-card .funnel-title-section h2 {
+  margin: 0;
+  color: #10224d;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+
+.conversion-funnel-card .funnel-title-section p {
+  margin: 8px 0 0;
+  color: #61739a;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.conversion-funnel-card .date-filter {
+  border: 1px solid #e3e7f2;
+  min-width: 205px;
+  height: 52px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #122653;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow:
+    0 8px 25px rgba(30, 41, 59, 0.06);
+  transition: all 0.2s ease;
+}
+
+.conversion-funnel-card .date-filter:hover {
+  border-color: #c7cff0;
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 30px rgba(30, 41, 59, 0.1);
+}
+
+.conversion-funnel-card .funnel-content {
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 38%)
+    minmax(0, 62%);
+  gap: 30px;
+  padding: 38px;
+}
+
+.conversion-funnel-card .funnel-visual-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 450px;
+}
+
+.conversion-funnel-card .funnel-wrapper {
+  width: 100%;
+  height: 350px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.conversion-funnel-card .floating-user {
+  position: absolute;
+  width: 43px;
+  height: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 50%;
+  font-size: 20px;
+  box-shadow:
+    0 10px 25px rgba(79, 70, 229, 0.15);
+  border: 5px solid #eef1ff;
+}
+
+.conversion-funnel-card .user-1 {
+  top: 45px;
+  left: 18%;
+}
+
+.conversion-funnel-card .user-2 {
+  top: 5px;
+  left: 48%;
+}
+
+.conversion-funnel-card .user-3 {
+  top: 70px;
+  right: 18%;
+}
+
+.conversion-funnel-card .funnel-shape {
+  width: 330px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter:
+    drop-shadow(
+      0 18px 25px rgba(79, 70, 229, 0.15)
+    );
+}
+
+.conversion-funnel-card .funnel-layer {
+  height: 57px;
+  border-radius: 50%;
+  position: relative;
+  margin-top: -9px;
+}
+
+.conversion-funnel-card .funnel-layer:first-child {
+  margin-top: 0;
+}
+
+.conversion-funnel-card .layer-1 {
+  width: 100%;
+  background:
+    linear-gradient(
+      135deg,
+      #18b8ee,
+      #1675ef
+    );
+}
+
+.conversion-funnel-card .layer-2 {
+  width: 84%;
+  background:
+    linear-gradient(
+      135deg,
+      #9b6cff,
+      #6f49e8
+    );
+}
+
+.conversion-funnel-card .layer-3 {
+  width: 68%;
+  background:
+    linear-gradient(
+      135deg,
+      #67dfbd,
+      #32b889
+    );
+}
+
+.conversion-funnel-card .layer-4 {
+  width: 53%;
+  background:
+    linear-gradient(
+      135deg,
+      #ffd276,
+      #f5a623
+    );
+}
+
+.conversion-funnel-card .layer-5 {
+  width: 38%;
+  background:
+    linear-gradient(
+      135deg,
+      #ff7aa9,
+      #ef3d78
+    );
+}
+
+.conversion-funnel-card .funnel-shadow {
+  width: 210px;
+  height: 30px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background:
+    rgba(99, 102, 241, 0.12);
+  filter: blur(4px);
+}
+
+.conversion-funnel-card .total-leads-card {
+  width: 100%;
+  max-width: 400px;
+  min-height: 105px;
+  margin-top: 10px;
+  padding: 20px 25px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background:
+    linear-gradient(
+      135deg,
+      #f1f2ff 0%,
+      #eef1ff 100%
+    );
+  border-radius: 20px;
+  border: 1px solid #e6e9ff;
+}
+
+.conversion-funnel-card .total-leads-icon {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #635bdb;
+  background: #e4e5ff;
+  border-radius: 15px;
+}
+
+.conversion-funnel-card .total-leads-card span {
+  display: block;
+  color: #61729a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.conversion-funnel-card .total-leads-card strong {
+  display: block;
+  margin-top: 2px;
+  color: #10224d;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.conversion-funnel-card .funnel-stages {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.conversion-funnel-card .funnel-stage {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns:
+    70px
+    160px
+    55px
+    minmax(100px, 1fr)
+    180px;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 20px;
+  background:
+    linear-gradient(
+      90deg,
+      #fbfcff 0%,
+      #f8faff 100%
+    );
+  border: 1px solid #edf0f7;
+  border-radius: 18px;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.conversion-funnel-card .funnel-stage:hover {
+  transform: translateX(3px);
+  border-color: #e0e5f5;
+  box-shadow:
+    0 10px 28px rgba(30, 41, 59, 0.07);
+}
+
+.conversion-funnel-card .stage-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background:
+    var(--stage-color);
+  border-radius: 16px;
+  font-size: 23px;
+  box-shadow:
+    0 8px 18px color-mix(
+      in srgb,
+      var(--stage-color) 25%,
+      transparent
+    );
+}
+
+.conversion-funnel-card .stage-name {
+  color: #142650;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.conversion-funnel-card .stage-count {
+  color: #10224d;
+  font-size: 23px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.conversion-funnel-card .stage-progress {
+  width: 100%;
+  height: 11px;
+  overflow: hidden;
+  background: #e9edf7;
+  border-radius: 20px;
+}
+
+.conversion-funnel-card .stage-progress-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  transition:
+    width 0.5s ease;
+}
+
+.conversion-funnel-card .stage-percentage {
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .conversion-funnel-card .funnel-content {
+    grid-template-columns: 1fr;
+  }
+
+  .conversion-funnel-card .funnel-visual-section {
+    min-height: auto;
+  }
+
+  .conversion-funnel-card .funnel-stage {
+    grid-template-columns:
+      65px
+      150px
+      50px
+      minmax(100px, 1fr)
+      170px;
+  }
+}
+
+@media (max-width: 900px) {
+  .conversion-funnel-card .funnel-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .conversion-funnel-card .date-filter {
+    width: 100%;
+  }
+
+  .conversion-funnel-card .funnel-stage {
+    grid-template-columns:
+      58px
+      1fr
+      50px;
+    gap: 12px;
+  }
+
+  .conversion-funnel-card .stage-progress {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .conversion-funnel-card .stage-percentage {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 650px) {
+  .conversion-funnel-card {
+    border-radius: 18px;
+  }
+
+  .conversion-funnel-card .funnel-header {
+    padding: 22px;
+  }
+
+  .conversion-funnel-card .funnel-title-section {
+    align-items: flex-start;
+  }
+
+  .conversion-funnel-card .funnel-main-icon {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+
+  .conversion-funnel-card .funnel-title-section h2 {
+    font-size: 22px;
+  }
+
+  .conversion-funnel-card .funnel-title-section p {
+    font-size: 13px;
+  }
+
+  .conversion-funnel-card .funnel-content {
+    padding: 22px;
+  }
+
+  .conversion-funnel-card .funnel-wrapper {
+    height: 290px;
+  }
+
+  .conversion-funnel-card .funnel-shape {
+    width: 250px;
+  }
+
+  .conversion-funnel-card .funnel-layer {
+    height: 48px;
+  }
+
+  .conversion-funnel-card .total-leads-card {
+    max-width: 100%;
+  }
+
+  .conversion-funnel-card .funnel-stage {
+    min-height: 80px;
+    grid-template-columns:
+      52px
+      1fr
+      auto;
+    padding: 12px;
+  }
+
+  .conversion-funnel-card .stage-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 19px;
+  }
+
+  .conversion-funnel-card .stage-name {
+    font-size: 14px;
+  }
+
+  .conversion-funnel-card .stage-count {
+    font-size: 19px;
+  }
+
+  .conversion-funnel-card .stage-percentage {
+    display: none;
+  }
+
+  .conversion-funnel-card .stage-progress {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 420px) {
+  .conversion-funnel-card .funnel-content {
+    padding: 15px;
+  }
+
+  .conversion-funnel-card .funnel-header {
+    padding: 18px;
+  }
+
+  .conversion-funnel-card .funnel-title-section {
+    gap: 12px;
+  }
+
+  .conversion-funnel-card .funnel-main-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 13px;
+  }
+
+  .conversion-funnel-card .funnel-title-section h2 {
+    font-size: 19px;
+  }
+
+  .conversion-funnel-card .funnel-title-section p {
+    font-size: 12px;
+  }
+
+  .conversion-funnel-card .funnel-shape {
+    width: 220px;
+  }
+
+  .conversion-funnel-card .funnel-layer {
+    height: 43px;
+  }
+
+  .conversion-funnel-card .floating-user {
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
+  }
+}
+
+/* ==========================================
+   COMPACT — half-width card, two in a row
+========================================== */
+.conversion-funnel-card.compact { border-radius: 16px; box-shadow: 0 4px 16px rgba(30, 41, 59, 0.05); }
+.conversion-funnel-card.compact .funnel-header { min-height: 0; padding: 16px 20px; gap: 12px; }
+.conversion-funnel-card.compact .funnel-title-section { gap: 12px; min-width: 0; }
+.conversion-funnel-card.compact .funnel-main-icon { width: 40px; height: 40px; min-width: 40px; border-radius: 12px; }
+.conversion-funnel-card.compact .funnel-main-icon svg { width: 20px; height: 20px; }
+.conversion-funnel-card.compact .funnel-title-section h2 { font-size: 17px; }
+.conversion-funnel-card.compact .funnel-title-section p { font-size: 12px; margin-top: 3px; }
+.conversion-funnel-card.compact .date-filter { min-width: 0; height: 36px; padding: 0 12px; gap: 8px; border-radius: 10px; font-size: 13px; flex: none; }
+.conversion-funnel-card.compact .date-filter svg { width: 15px; height: 15px; }
+.conversion-funnel-card.compact .funnel-content { grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 16px 20px; }
+.conversion-funnel-card.compact .funnel-visual-section { min-height: 0; }
+.conversion-funnel-card.compact .funnel-wrapper { height: 170px; flex-direction: column; }
+.conversion-funnel-card.compact .funnel-shape { width: 140px; }
+.conversion-funnel-card.compact .funnel-layer { height: 30px; margin-top: -5px; }
+.conversion-funnel-card.compact .funnel-layer:first-child { margin-top: 0; }
+.conversion-funnel-card.compact .funnel-shadow { width: 90px; height: 14px; margin-top: 2px; }
+.conversion-funnel-card.compact .floating-user { width: 26px; height: 26px; font-size: 12px; border-width: 3px; }
+.conversion-funnel-card.compact .user-1 { top: 4px; left: 4%; }
+.conversion-funnel-card.compact .user-2 { top: -6px; left: 44%; }
+.conversion-funnel-card.compact .user-3 { top: 8px; right: 4%; }
+.conversion-funnel-card.compact .total-leads-card { min-height: 0; margin-top: 8px; padding: 10px 12px; gap: 10px; border-radius: 12px; }
+.conversion-funnel-card.compact .total-leads-icon { width: 34px; height: 34px; border-radius: 10px; }
+.conversion-funnel-card.compact .total-leads-icon svg { width: 18px; height: 18px; }
+.conversion-funnel-card.compact .total-leads-card span { font-size: 12px; }
+.conversion-funnel-card.compact .total-leads-card strong { font-size: 20px; }
+.conversion-funnel-card.compact .funnel-stages { gap: 8px; }
+.conversion-funnel-card.compact .funnel-stage { min-height: 0; grid-template-columns: 36px minmax(0, 1fr) 34px minmax(50px, 80px) auto; gap: 10px; padding: 7px 10px; border-radius: 12px; }
+.conversion-funnel-card.compact .stage-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 16px; }
+.conversion-funnel-card.compact .stage-name { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }
+.conversion-funnel-card.compact .stage-count { font-size: 17px; }
+.conversion-funnel-card.compact .stage-progress { height: 7px; }
+.conversion-funnel-card.compact .stage-percentage { font-size: 12px; }
+@media (max-width: 560px) {
+  .conversion-funnel-card.compact .funnel-content { grid-template-columns: 1fr; }
+  .conversion-funnel-card.compact .funnel-stage { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .conversion-funnel-card.compact .stage-progress { grid-column: 1 / -1; grid-row: 2; }
+  .conversion-funnel-card.compact .stage-percentage { grid-column: 3; grid-row: 1; }
+  .conversion-funnel-card.compact .stage-count { display: none; }
+}
