@@ -28,30 +28,35 @@ mkdir -p "$OVSC_DIR/resources/server/_orig-backup" "$OVSC_DIR/out/media/_orig-ba
 for f in code-192.png code-512.png favicon.ico; do
   [ -f "$OVSC_DIR/resources/server/_orig-backup/$f" ] || cp "$OVSC_DIR/resources/server/$f" "$OVSC_DIR/resources/server/_orig-backup/$f" 2>/dev/null || true
 done
-for f in letterpress-light.svg letterpress-dark.svg letterpress-hcLight.svg letterpress-hcDark.svg; do
+for f in letterpress-light.svg letterpress-dark.svg letterpress-hcLight.svg letterpress-hcDark.svg code-icon.svg; do
   [ -f "$OVSC_DIR/out/media/_orig-backup/$f" ] || cp "$OVSC_DIR/out/media/$f" "$OVSC_DIR/out/media/_orig-backup/$f" 2>/dev/null || true
 done
 [ -f "$OVSC_DIR/out/vs/code/browser/workbench/workbench.html.orig-backup" ] || \
   cp "$OVSC_DIR/out/vs/code/browser/workbench/workbench.html" "$OVSC_DIR/out/vs/code/browser/workbench/workbench.html.orig-backup"
 
 echo "==> Installing CareerLab favicon / PWA icons / empty-editor watermark"
-cp "$SRC_DIR/code-192.png" "$SRC_DIR/code-512.png" "$SRC_DIR/favicon.ico" "$OVSC_DIR/resources/server/"
+# letterpress-*.svg = the CRM collapsed-sidebar logo (C + CAREER LAB CONSULTING),
+# logo-sidebar-expanded.png = the CRM expanded-sidebar wordmark (titlebar badge),
+# code-icon.svg = stock blue VS Code icon replaced by the CareerLab C (Welcome tab etc.).
+cp "$SRC_DIR/code-192.png" "$SRC_DIR/code-512.png" "$SRC_DIR/favicon.ico" "$SRC_DIR/logo-sidebar-expanded.png" "$OVSC_DIR/resources/server/"
 cp "$SRC_DIR/letterpress-light.svg" "$SRC_DIR/letterpress-dark.svg" \
-   "$SRC_DIR/letterpress-hcLight.svg" "$SRC_DIR/letterpress-hcDark.svg" "$OVSC_DIR/out/media/"
+   "$SRC_DIR/letterpress-hcLight.svg" "$SRC_DIR/letterpress-hcDark.svg" "$SRC_DIR/code-icon.svg" "$OVSC_DIR/out/media/"
 
-echo "==> Patching workbench.html with the top-right corner badge (idempotent)"
+echo "==> Patching workbench.html: sidebar wordmark top-left, stock blue app icon hidden"
+# Always re-patch from the pristine backup, so changing the badge here and re-running updates it.
 WORKBENCH_HTML="$OVSC_DIR/out/vs/code/browser/workbench/workbench.html"
-if ! grep -q "CLC InternX Code Lab" "$WORKBENCH_HTML"; then
-  python3 - "$WORKBENCH_HTML" <<'PYEOF'
+cp "$WORKBENCH_HTML.orig-backup" "$WORKBENCH_HTML"
+python3 - "$WORKBENCH_HTML" <<'PYEOF'
 import sys
 path = sys.argv[1]
 with open(path) as f:
     content = f.read()
 old = '\t<body aria-label="">\n\t</body>'
-badge = '''\t<body aria-label="">
-\t\t<img src="{{WORKBENCH_WEB_BASE_URL}}/resources/server/code-192.png" alt="" title="CLC InternX Code Lab"
-\t\t\tstyle="position:fixed;top:8px;left:48px;width:18px;height:18px;z-index:2147483647;pointer-events:none;opacity:.95;filter:drop-shadow(0 0 1px rgba(0,0,0,.6));" />
-\t</body>'''
+badge = '''	<body aria-label="">
+		<style>.monaco-workbench .part.titlebar .window-appicon:not(.codicon){display:none!important}</style>
+		<img src="{{WORKBENCH_WEB_BASE_URL}}/resources/server/logo-sidebar-expanded.png" alt="Career Lab Consulting" title="CLC InternX Code Lab"
+			style="position:fixed;top:5px;left:10px;height:24px;width:auto;z-index:2147483647;pointer-events:none;" />
+	</body>'''
 if content.count(old) != 1:
     print("!! workbench.html body marker not found as expected — skipping badge patch, check manually", file=sys.stderr)
     sys.exit(1)
@@ -60,9 +65,6 @@ with open(path, 'w') as f:
     f.write(content)
 print("badge inserted")
 PYEOF
-else
-  echo "    already patched, skipping"
-fi
 
 echo "==> Restarting openvscode-server"
 systemctl restart openvscode-server

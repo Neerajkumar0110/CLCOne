@@ -148,7 +148,21 @@ function getStatusPanel(r) {
   if (r.myRole === 'teacher') {
     return { icon: <PlayCircleOutlined />, tone: 'blue', title: 'Ready to start', desc: 'Start the class whenever you are ready.' };
   }
-  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the project manager to start the class.' };
+  return { icon: <ClockCircleOutlined />, tone: 'blue', title: 'Not started yet', desc: 'Waiting for the project manager or support to start the class.' };
+}
+
+// Its class time has come (from 10 minutes before the start to the end) but
+// nobody has started it yet. Shown in LIVE NOW for everyone, so staff see it
+// is due without hunting through the list and learners see it is about to
+// begin; it flips to live the moment a host (project manager, support,
+// admin) starts or joins it.
+const OPEN_EARLY_MS = 10 * 60000;
+function isClassTimeNow(r) {
+  if (!['SCHEDULED', 'UPCOMING'].includes(r.status) || !r.scheduledStart) return false;
+  const start = new Date(r.scheduledStart).getTime();
+  const end = r.scheduledEnd ? new Date(r.scheduledEnd).getTime() : start + 60 * 60000;
+  const now = Date.now();
+  return now >= start - OPEN_EARLY_MS && now <= end;
 }
 
 // registrable domain, e.g. clcone.careerlabconsulting.com → careerlabconsulting.com
@@ -229,11 +243,16 @@ export default function LiveClasses() {
     }
   }, []);
 
+  // Every 20 s normally; every 8 s while a class is due but not started yet,
+  // so learners see "Join" within seconds of the host starting it.
+  const dueNotStarted = rows.some(isClassTimeNow);
   useEffect(() => {
     load();
-    timer.current = setInterval(() => load(true), 20000);
-    return () => clearInterval(timer.current);
   }, [load]);
+  useEffect(() => {
+    timer.current = setInterval(() => load(true), dueNotStarted ? 8000 : 20000);
+    return () => clearInterval(timer.current);
+  }, [load, dueNotStarted]);
 
   const openMeeting = (url) => url && window.open(url, '_blank', 'noopener');
   // Learners run the class inside the L4 board (BBB in the room area).
@@ -461,7 +480,7 @@ export default function LiveClasses() {
     [1500, 5000, 12000].forEach((ms) => setTimeout(() => load(true), ms));
   };
 
-  const liveNow = rows.filter((r) => r.status === 'LIVE');
+  const liveNow = rows.filter((r) => r.status === 'LIVE' || r.status === 'STARTING' || isClassTimeNow(r));
 
   const joinModals = (
     <>
@@ -685,13 +704,28 @@ export default function LiveClasses() {
               <div className="lms-livenow2-row" key={r.id}>
                 <div>
                   <div className="lms-livenow2-name">{r.title}</div>
-                  <div className="lms-livenow2-sub">{r.courseTitle} · {r.teacherName}</div>
+                  <div className="lms-livenow2-sub">
+                    {r.courseTitle} · {r.teacherName}
+                    {isClassTimeNow(r) && (
+                      <b style={{ marginLeft: 6 }}>
+                        · {r.myRole === 'teacher' ? `Class time ${t(r.scheduledStart)} — not started yet` : 'Starting soon — waiting for the project manager or support'}
+                      </b>
+                    )}
+                  </div>
                 </div>
-                {r.canJoin && (
+                {r.canStart ? (
+                  <Button size="small" className="lms-livenow2-btn" loading={busyId === r.id} onClick={() => onStart(r.id)}>
+                    Start class
+                  </Button>
+                ) : r.canJoin ? (
                   <Button size="small" className="lms-livenow2-btn" loading={busyId === r.id} onClick={() => handleJoin(r)}>
                     {r.myRole === 'teacher' ? 'Join as host' : 'Join live class'}
                   </Button>
-                )}
+                ) : isClassTimeNow(r) ? (
+                  <Button size="small" className="lms-livenow2-btn" disabled>
+                    Waiting for host
+                  </Button>
+                ) : null}
               </div>
             ))}
           </div>
