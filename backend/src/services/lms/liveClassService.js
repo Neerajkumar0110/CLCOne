@@ -801,6 +801,11 @@ async function postponeSession(id, admin, { days } = {}) {
     s.scheduledEnd = new Date(new Date(s.scheduledEnd).getTime() + appliedShiftMs);
     const gap = s.scheduledStart.getTime() - Date.now();
     s.status = gap <= 3600000 && gap > -60000 ? 'upcoming' : 'scheduled';
+    // The ONE "Class postponed" email below already tells the batch about
+    // the whole shift — mark every moved class as announced so the
+    // session-change automation doesn't send a separate "Class time
+    // changed" email for each of them.
+    s.announcedStart = newStart;
     s.updated = new Date();
     await s.save();
     await mongoose.model('LiveClass').updateOne(
