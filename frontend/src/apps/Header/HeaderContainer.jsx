@@ -13,6 +13,7 @@ import { useTheme } from '@/context/themeContext';
 
 import NotificationBell from './NotificationBell';
 import ChatChannels from './ChatChannels';
+import WhatsAppButton from './WhatsAppButton';
 import WorkdayWidget from '@/components/Workday';
 
 export default function HeaderContent() {
@@ -134,6 +135,9 @@ export default function HeaderContent() {
 
       {/* Messenger / WhatsApp / Instagram chats — owner + Super Admin only */}
       <ChatChannels />
+
+      {/* own WhatsApp (QR to link, then chats) — users allowed in Messenger › WhatsApp */}
+      <WhatsAppButton />
 
       <button
         type="button"

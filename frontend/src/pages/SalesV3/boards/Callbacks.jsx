@@ -47,6 +47,7 @@ export default function Callbacks() {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [dialingId, setDialingId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
     const mine = scope === "mine" && me?._id ? `&agent=${me._id}` : "";
@@ -89,7 +90,8 @@ export default function Callbacks() {
               ))}
             </div>
           )}
-          <button type="button" className="btn" onClick={load}>↻ Refresh</button>
+          {/* the 15 s poll calls load() too; the button shows it is working and confirms */}
+          <button type="button" className="btn" disabled={refreshing} onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); message.success("Callbacks updated", 1.5); }}>{refreshing ? "Refreshing…" : "↻ Refresh"}</button>
         </div>
       </div>
 

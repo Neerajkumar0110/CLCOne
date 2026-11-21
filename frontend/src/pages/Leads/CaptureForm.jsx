@@ -218,10 +218,14 @@ function ConnectedAccountsList({ routeKey, onChanged }) {
   );
 }
 
-function CaptureForm() {
+// embedded + initialPlatform: Marketing › Capture Form › Sources & Capture shows
+// this for one ad platform (Meta / Google / LinkedIn) under that channel — the
+// platform switch and the captured-leads table are then left out (that tab has
+// its own leads list).
+function CaptureForm({ embedded = false, initialPlatform = "Website" } = {}) {
   const [formSetupOpen, setFormSetupOpen] = useState(false); // lead form & ad setup modal
   const [enabled, setEnabled] = useState(DEFAULT_ENABLED);
-  const [platform, setPlatform] = useState("Website");
+  const [platform, setPlatform] = useState(initialPlatform);
   const [configId, setConfigId] = useState(null);
   const [metaFormId, setMetaFormId] = useState(null);
   const [formStatus, setFormStatus] = useState("draft");
@@ -704,6 +708,7 @@ function CaptureForm() {
 
   return (
     <div className="hub-stack">
+      {!embedded && (
       <div className="hub-card">
         <div className="hub-card-header" style={{ marginBottom: 12 }}>
           <h3>Where does this form run?</h3>
@@ -740,6 +745,7 @@ function CaptureForm() {
           <em> Hosted Landing Page</em> link or <em>Embed Code</em> to run ads and collect leads right away.
         </div>
       </div>
+      )}
 
       {/* Dashboards first: running campaigns and where the leads come from */}
       {platform === "Facebook Ads" && <FacebookLeadsDashboard connected={!!connection?.connected} />}
@@ -748,6 +754,7 @@ function CaptureForm() {
         <GoogleLiveCampaigns refreshKey={`${googleConnection.id}:${googleConnection.customer?.id || ""}`} />
       )}
 
+      {!embedded && (
       <div className="hub-card">
         <div className="hub-card-header">
           <h3>Captured Leads from {platform}</h3>
@@ -952,6 +959,7 @@ function CaptureForm() {
           </div>
         )}
       </div>
+      )}
 
       {/* detailed enquiry form (education / work / goal) — fills the lead profile */}
       {platform === "Website" && <EnquiryFormLink />}

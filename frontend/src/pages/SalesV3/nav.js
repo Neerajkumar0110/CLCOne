@@ -29,6 +29,8 @@ export const ADMIN = ["owner", "Super Admin", "Admin"];
 export const MANAGEMENT = ["owner", "Super Admin", "Admin", "Sales Manager", "Team Manager"];
 
 // [key, label, icon, module ('Sales' | 'Calling'), extra rule]
+// extra rule: "admin" = ADMIN only, "superAdmin" = SUPER_ADMIN_ROLES only,
+// "management" = MANAGEMENT only (hidden from sales agents, user ask 2026-11-20).
 export const GROUPS = [
   ["Daily work", [
     ["dashboard", "Dashboard", "chart", "Sales"],
@@ -51,9 +53,9 @@ export const GROUPS = [
     ["pipeline", "Pipeline", "funnel", "Sales"],
     ["deals", "Deals", "coin", "Sales"],
     ["quotes", "Quotes", "doc", "Sales"],
-    ["candidates", "Candidates", "cap", "Sales"],
-    ["callsdash", "Calls Dashboard", "gauge", "Calling"],
-    ["campaigns", "Campaigns", "rocket", "Calling"],
+    ["candidates", "Candidates", "cap", "Sales", "management"],
+    ["callsdash", "Calls Dashboard", "gauge", "Calling", "management"],
+    ["campaigns", "Campaigns", "rocket", "Calling", "management"],
   ]],
 ];
 // Agent side of the design: "My …" names.
@@ -61,6 +63,6 @@ export const MY = { dashboard: "My Day", team: "My Attendance" };
 
 // The groups this role can see.
 export function visibleGroups(canView, role) {
-  const allowed = (mod, rule) => canView(mod) && (rule !== "admin" || ADMIN.includes(role)) && (rule !== "superAdmin" || SUPER_ADMIN_ROLES.includes(role));
+  const allowed = (mod, rule) => canView(mod) && (rule !== "admin" || ADMIN.includes(role)) && (rule !== "management" || MANAGEMENT.includes(role)) && (rule !== "superAdmin" || SUPER_ADMIN_ROLES.includes(role));
   return GROUPS.map(([name, items]) => [name, items.filter(([, , , mod, rule]) => allowed(mod, rule))]).filter(([, items]) => items.length);
 }

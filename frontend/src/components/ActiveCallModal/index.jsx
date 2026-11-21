@@ -51,6 +51,7 @@ import {
   matchingRows,
   suggest,
 } from "@/config/leadPersonas";
+import SendCurriculumButton from "./SendCurriculumButton";
 import "./ActiveCallModal.css";
 
 const { TextArea } = Input;
@@ -1516,6 +1517,13 @@ export default function ActiveCallModal() {
                 <CloseCircleOutlined /> End Call & Save
               </button>
             )}
+
+            {/* curriculum from the caller's own WhatsApp to this number */}
+            <SendCurriculumButton
+              phone={phone}
+              name={contactName}
+              leadId={crmLeadData?._id}
+            />
 
             {/* When call is finished: Submit & Close */}
             {isEnded && (

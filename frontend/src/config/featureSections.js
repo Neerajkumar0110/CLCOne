@@ -431,10 +431,10 @@ export const FEATURE_SECTIONS = [
         columns: ['Source', 'Sessions', 'Leads', 'Opportunities', 'Revenue', 'ROI'],
       },
       {
-        // Ad-platform lead capture (field config + Facebook/Google/LinkedIn
-        // Ads connection + campaign setup) — moved here from Sales ▸ Leads,
-        // since this is marketing tooling, not lead-desk work. See
-        // pages/Leads/CaptureForm.jsx.
+        // Every lead source, the capture form and lead quality in one tab:
+        // Overview · All Leads · Sources & Capture (links, embed, QR, ad
+        // accounts) · Form Builder — pages/CaptureHub over /api/lead/insights
+        // + /api/lead/capture-form. Replaced the separate Lead Management tab.
         key: 'capture-form',
         label: 'Capture Form',
         Icon: FormOutlined,

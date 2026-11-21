@@ -12,6 +12,7 @@ const byStage = require('./byStage');
 const myContacts = require('./myContacts');
 const assignOwner = require('./assignOwner');
 const fullDetail = require('./fullDetail');
+const insights = require('./insights');
 const { leadScopeFilter } = require('./scope');
 const {
   scopedPaginatedList,
@@ -33,6 +34,13 @@ methods.byStage = byStage;
 methods.myContacts = myContacts;
 methods.assignOwner = assignOwner;
 methods.fullDetail = fullDetail;
+methods.insights = insights.insights;
+methods.insightsList = insights.list;
+methods.insightsExport = insights.exportCsv;
+methods.insightsNote = insights.addNote;
+const captureForm = require('./captureForm');
+methods.captureFormGet = captureForm.get;
+methods.captureFormSave = captureForm.save;
 
 // Row-level visibility — a Sales Executive/Intern only ever sees their own
 // (or their team's) leads; only Admin/owner/Super Admin/Sales Manager/Team

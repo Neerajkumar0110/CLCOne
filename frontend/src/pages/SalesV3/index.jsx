@@ -5,6 +5,7 @@ import SalesTheme from "@/components/SalesTheme";
 import "./sv3.css";
 import "./sv3-app.css";
 import "./popups.css";
+import "./sv3-theme.css"; // follows the CRM theme picker (dark mode / palettes)
 import { PopupProvider } from "./popups/Popups";
 import HeaderContent from "@/apps/Header/HeaderContainer";
 import useBrandLogo from "@/hooks/useBrandLogo";
@@ -32,6 +33,33 @@ const Payments = lazy(() => import("./boards/Payments"));
 const AdChatInbox = lazy(() => import("@/pages/Leads/AdChatInbox"));
 import { D, GROUPS, MY, MANAGEMENT, visibleGroups } from "./nav";
 
+// One screen failing (a runtime error, or a screen file that no longer exists after a new deploy)
+// used to blank the whole page until a manual refresh. Keep the error to that screen, say so, and
+// offer a reload; switching screens resets it (key = screen).
+class BoardGuard extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    // eslint-disable-next-line no-console
+    console.error("Sales screen failed:", error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="state" role="alert">
+        <b>This screen could not open.</b>
+        <span>It may have been updated since you opened the CRM.</span>
+        <button type="button" className="btn p" onClick={() => window.location.reload()}>Reload</button>
+      </div>
+    );
+  }
+}
+
 function Board({ k, ownOnly, go, keys }) {
   switch (k) {
     case "dashboard":
@@ -55,20 +83,20 @@ function Board({ k, ownOnly, go, keys }) {
     case "payments":
       return <Payments />;
     case "demos":
-      return <More k={k} go={go} keys={keys} />;
+      return <More k={k} go={go} keys={keys} ownOnly={ownOnly} />;
     case "reports":
       return <Reports />;
     case "pipeline":
       return <Deals k={k} go={go} keys={keys} />;
     case "callsdash":
-      return <More k={k} go={go} keys={keys} />;
+      return <More k={k} go={go} keys={keys} ownOnly={ownOnly} />;
     case "campaigns":
-      return <More k={k} go={go} keys={keys} />;
+      return <More k={k} go={go} keys={keys} ownOnly={ownOnly} />;
     case "deals":
     case "quotes":
       return <Deals k={k} go={go} keys={keys} />;
     case "candidates":
-      return <More k={k} go={go} keys={keys} />;
+      return <More k={k} go={go} keys={keys} ownOnly={ownOnly} />;
     default:
       return <Dashboard ownOnly={ownOnly} go={go} />;
   }
@@ -84,6 +112,8 @@ export default function SalesV3({ embedded = false }) {
   const want = pathname.split("/")[2] || "dashboard";
   const active = keys.includes(want) ? want : keys[0] || "dashboard";
   const [chatsOpen, setChatsOpen] = useState(false);
+  // Ad Chats opens as a popup (no page of its own): the sidebar marks it while it is open.
+  const shown = chatsOpen ? "chats" : active;
   const logo = useBrandLogo("logo_sidebar_expanded");
   const go = (k) => {
     if (k === "chats") {
@@ -102,7 +132,7 @@ export default function SalesV3({ embedded = false }) {
           <div className="sv3 sv3-embedded">
             <main className="main">
               <Suspense fallback={<div className="skel" style={{ height: 260 }} />}>
-                <Board k={active} ownOnly={ownOnly} go={go} keys={keys} />
+                <BoardGuard key={active}><Board k={active} ownOnly={ownOnly} go={go} keys={keys} /></BoardGuard>
               </Suspense>
             </main>
           </div>
@@ -138,8 +168,8 @@ export default function SalesV3({ embedded = false }) {
                 <a
                   key={k}
                   href={`/sales-v3/${k}`}
-                  className={k === active ? "on" : ""}
-                  aria-current={k === active ? "page" : undefined}
+                  className={k === shown ? "on" : ""}
+                  aria-current={k === shown ? "page" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     go(k);
@@ -157,7 +187,7 @@ export default function SalesV3({ embedded = false }) {
           <div className="sv3-head"><HeaderContent /></div>
           <main className="main">
             <Suspense fallback={<div className="skel" style={{ height: 260 }} />}>
-              <Board k={active} ownOnly={ownOnly} go={go} keys={keys} />
+              <BoardGuard key={active}><Board k={active} ownOnly={ownOnly} go={go} keys={keys} /></BoardGuard>
             </Suspense>
           </main>
         </div>

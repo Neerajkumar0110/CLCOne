@@ -94,6 +94,9 @@ function initSocket(server) {
 // real continuous time in the app. Never awaited by the connect/disconnect
 // handlers above — a DB hiccup here shouldn't affect presence/chat.
 async function closeOrphanedLoginSessions() {
+  // A laptop backend shares the production DB: closing "orphans" there would
+  // cut every live user's session. backend/.env.local sets this on laptops.
+  if (process.env.SKIP_ORPHAN_SESSION_CLOSE === '1') return;
   try {
     const LoginActivity = mongoose.model('LoginActivity');
     const now = new Date();

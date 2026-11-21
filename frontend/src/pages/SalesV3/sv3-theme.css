@@ -1,0 +1,74 @@
+/* Sales (v3) follows the CRM theme picker (Dark mode and the colour palettes).
+   The v3 design hard-codes its light colours, so without this the Sales screens
+   stayed light while the rest of the CRM turned dark / green / purple / orange.
+   Applies only to a non-default palette: the default (blueLight) keeps the
+   design exactly as drawn. Every colour comes from the palette's --hub-* tokens
+   (style/partials/themePalettes.css), so a new palette needs nothing here. */
+
+:root[data-palette]:not([data-palette='blueLight']) .sv3 {
+  --sv3-bg: var(--hub-page-bg);
+  --sv3-surface: var(--hub-surface);
+  --sv3-soft: var(--hub-bg-soft);
+  --sv3-text: var(--hub-text);
+  --sv3-text-soft: var(--hub-text-soft);
+  --sv3-muted: var(--hub-muted);
+  --sv3-line: var(--hub-border);
+  --sv3-accent: var(--hub-blue);
+  --sv3-accent-dark: var(--hub-blue-dark);
+  --sv3-accent-soft: var(--hub-blue-soft);
+}
+
+/* page + text */
+:root[data-palette]:not([data-palette='blueLight']) .sv3,
+:root[data-palette]:not([data-palette='blueLight']) .sv3.sv3-embedded { background: var(--sv3-bg); color: var(--sv3-text); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 h1,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 h2,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 h3,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 h4,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 b,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .lnk { color: var(--sv3-text); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .crumb,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .lead,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .mut,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 p,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 th,
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .fld { color: var(--sv3-muted); }
+
+/* surfaces: cards, tables, filters, inputs, buttons, tiles, popups */
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.card, .kpi, button.kpi, .fp, .tw, table, .md, .src, .pb, .fd, .chp, .stp, .acc-h, .bx, .ftr,
+  .sv3-tb, .sv3-cb, .sv3-stg button, .sv3-mode, .sv3-chipf button, .sv3-lg, .sv3-qt button, .sv3-pad button, .pill.sv3-off,
+  .sv3-kb .dc, .tl:not(.b), .sv3-ap, .sv3-ap-tl, .sv3-ap-ft, .state, .ib, .btn) {
+  background: var(--sv3-surface);
+  border-color: var(--sv3-line);
+  color: var(--sv3-text);
+}
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.in, .sel, .srch, input, select, textarea) {
+  background: var(--sv3-surface);
+  border-color: var(--sv3-line);
+  color: var(--sv3-text);
+}
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.in, .srch, input, textarea)::placeholder { color: var(--sv3-muted); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(th, thead td, .sv3-kb .col, .sv3-player, tr.ex > td, .seg) { background: var(--sv3-soft); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(td, th, .ch, .card, .tw, table) { border-color: var(--sv3-line); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(tbody tr:hover td, .btn:hover, .ib:hover, .sv3-pad button:hover:not(:disabled)) { background: var(--sv3-soft); }
+
+/* accent: primary buttons, links, active tab / nav, selected tiles, numbers */
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.btn.p, .play, .sv3-step, .sv3-sw.on, .sv3-rsw) { background: var(--sv3-accent); border-color: var(--sv3-accent); color: #fff; }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .btn.p:hover { background: var(--sv3-accent-dark); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(a, .sv3-num, .lnk.sv3-num, .lnk:hover) { color: var(--sv3-accent); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .side a.on { background: var(--sv3-accent); color: #fff; }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.tab.on, .tab[aria-selected='true']) { color: var(--sv3-accent); border-color: var(--sv3-accent); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 :is(.sv3-tb.on, .sv3-stg button.on, .sv3-mode.on, .sv3-srow.on, .sv3-sub.on, button.kpi.on, .sv3-drop.on) {
+  border-color: var(--sv3-accent);
+  background: var(--sv3-accent-soft);
+}
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .sv3-chipf button.on { background: var(--sv3-accent); border-color: var(--sv3-accent); color: #fff; }
+
+/* dark palette only: the pastel status pills keep their colour but on a darker chip so they stay readable */
+:root[data-palette='dark'] .sv3 .b { filter: saturate(1.1) brightness(0.92); }
+:root[data-palette='dark'] .sv3 .skel { background: var(--hub-surface-2); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .btn.g { background: transparent; border-color: transparent; color: var(--sv3-text-soft); }
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .btn.d { color: var(--hub-red, #ef4444); border-color: var(--hub-red, #ef4444); }
+/* kept out of the surfaces list above: its button-tag weight would have made that whole list outrank
+   the accent rules (:is() takes its heaviest selector), turning Apply / primary buttons white */
+:root[data-palette]:not([data-palette='blueLight']) .sv3 .seg button.on { background: var(--sv3-surface); color: var(--sv3-text); }

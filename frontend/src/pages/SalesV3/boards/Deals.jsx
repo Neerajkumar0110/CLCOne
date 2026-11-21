@@ -33,7 +33,9 @@ function useList(entity, tick) {
   useEffect(() => {
     let live = true;
     setS((x) => ({ ...x, loading: true, error: false }));
-    request.listAll({ entity }).then((r) => live && setS(r?.success && Array.isArray(r.result) ? { rows: r.result, loading: false, error: false } : { rows: [], loading: false, error: true })).catch(() => live && setS({ rows: [], loading: false, error: true }));
+    // The generic listAll answers 203 "Collection is Empty" (success:false) when the caller has no rows —
+    // that is an empty list, not a failure (an agent with no deals saw an error / endless loading).
+    request.listAll({ entity }).then((r) => live && setS(Array.isArray(r?.result) && (r.success || /collection is empty/i.test(r.message || "")) ? { rows: r.result, loading: false, error: false } : { rows: [], loading: false, error: true })).catch(() => live && setS({ rows: [], loading: false, error: true }));
     return () => {
       live = false;
     };

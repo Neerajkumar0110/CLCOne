@@ -10,6 +10,8 @@ notes.md
 # ...except the real certificate template PDFs the user supplied — source
 # assets the app fills in and serves, not generated/uploaded output.
 !src/services/lms/assets/certificates/*.pdf
+# ...and the InternX curriculum PDF the call screen sends on WhatsApp
+!src/public/curriculum/internx/*.pdf
 
 # Uploaded files (study material, recordings, etc.) live on each box's own
 # local disk (src/public/uploads/) and are never meant to ship through git —

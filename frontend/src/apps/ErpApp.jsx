@@ -27,6 +27,7 @@ import usePhoneTab from '@/hooks/usePhoneTab';
 import { lazy, Suspense } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import { usePermission } from '@/context/permissionContext';
+import { DEPARTMENT_ROLES } from '@/config/roles';
 const SalesV3 = lazy(() => import('@/pages/SalesV3'));
 
 // Sales agents use only the new Sales design (user ask 2026-11-20): any old Sales /
@@ -50,9 +51,6 @@ export default function ErpCrmApp() {
 
   const dispatch = useDispatch();
 
-  // Every Sales user's screens / clicks / idle time (the server ignores anyone else).
-  useActivityTracker(true);
-
   useLayoutEffect(() => {
     dispatch(settingsAction.list({ entity: 'setting' }));
   }, []);
@@ -72,7 +70,10 @@ export default function ErpCrmApp() {
   // /sales-v3 = Sales One Place (v3 design): its own sidebar, no CRM chrome.
   const { pathname, search } = useLocation();
   const { canView, role } = usePermission();
-  const salesAgent = canView('Sales') && !SALES_MANAGEMENT.includes(role);
+  // Every Sales user's screens / clicks / idle time — Sales roles only: POST
+  // /workday/track is salesOnly, so it answered 403 to admins on every send.
+  useActivityTracker(DEPARTMENT_ROLES.Sales.includes(role));
+  const salesAgent =canView('Sales') && !SALES_MANAGEMENT.includes(role);
   const v3Target = salesAgent ? v3Path(pathname, search) : null;
   const isSalesV3 = pathname === '/sales-v3' || pathname.startsWith('/sales-v3/');
   // Only one tab (CRM or Sales One Place) runs the phone + call popups.

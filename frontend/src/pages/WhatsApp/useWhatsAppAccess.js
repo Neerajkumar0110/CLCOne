@@ -25,9 +25,12 @@ export default function useWhatsAppAccess() {
     load();
     const socket = getSocket();
     socket?.on('whatsapp:access', load);
+    // linking / unlinking the number (header WhatsApp shows connected or not)
+    socket?.on('whatsapp:device', load);
     return () => {
       alive = false;
       socket?.off('whatsapp:access', load);
+      socket?.off('whatsapp:device', load);
     };
   }, [current?._id]);
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Spin, message as toast } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import waApi from './api';
@@ -79,9 +79,31 @@ export default function AccessAdmin({ me }) {
     connected: withAccess.filter((u) => u.device?.status === 'connected').length,
   };
 
-  const setMode = (id, mode) => {
-    setModes((m) => ({ ...m, [id]: mode }));
-    setDirty(true);
+  // Individual Allow / Block / Department saves at once (2026-11-21: an Allow
+  // left unsaved vanished on refresh — the Save button is at the top of the
+  // page). Departments as last SAVED go along, so unsaved department edits stay
+  // unsaved until "Save changes".
+  const modesRef = useRef({});
+  modesRef.current = modes;
+  const [savingUser, setSavingUser] = useState(null);
+  const listOf = (m) => Object.entries(m).filter(([, v]) => v === 'allow' || v === 'block').map(([userId, v]) => ({ userId, mode: v }));
+  const setMode = async (id, mode) => {
+    const prev = modesRef.current[id] || 'inherit';
+    if (prev === mode) return;
+    const next = { ...modesRef.current, [id]: mode };
+    modesRef.current = next;
+    setModes(next);
+    setSavingUser(id);
+    const res = await waApi.saveAccess({ departments: data.departments, users: listOf(next) });
+    setSavingUser(null);
+    const name = (data.users.find((u) => u._id === id) || {}).name || 'User';
+    if (!res?.success) {
+      modesRef.current = { ...modesRef.current, [id]: prev };
+      setModes((m) => ({ ...m, [id]: prev }));
+      return toast.error(res?.message || 'Could not save.');
+    }
+    setData((d) => ({ ...d, users: d.users.map((u) => (u._id === id ? { ...u, mode } : u)) }));
+    toast.success(`${name}: WhatsApp ${mode === 'allow' ? 'allowed — shows in their header now' : mode === 'block' ? 'blocked' : 'follows the department again'}`);
   };
   const toggleDept = (name, on) => {
     setDepartments((ds) => {
@@ -243,7 +265,7 @@ export default function AccessAdmin({ me }) {
                         {u.source === 'admin' ? (
                           <span className="wa-sub">Always on (admin)</span>
                         ) : (
-                          <ModeSwitch options={MODE_OPTIONS} value={u.mode} onChange={(v) => setMode(u._id, v)} />
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: savingUser === u._id ? 0.6 : 1 }}><ModeSwitch options={MODE_OPTIONS} value={u.mode} onChange={(v) => savingUser !== u._id && setMode(u._id, v)} />{savingUser === u._id && <Spin size="small" />}</span>
                         )}
                       </td>
                       <td>

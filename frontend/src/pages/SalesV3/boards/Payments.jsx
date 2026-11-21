@@ -338,7 +338,14 @@ export default function Payments() {
     setPay((x) => ({ ...x, loading: true, error: false }));
     setFin((x) => ({ ...x, loading: true, error: false }));
     const tv = teamView ? 1 : undefined;
-    paymentsApi.list({ limit: LIMIT, teamView: tv }).then((r) => live && setPay(r?.success ? { rows: r.result || [], count: r.pagination?.count || 0, loading: false, error: false } : { rows: [], count: 0, loading: false, error: true })).catch(() => live && setPay({ rows: [], count: 0, loading: false, error: true }));
+    // One quiet retry: a blip (e.g. the API restarting) used to leave "Couldn’t load the payments." on screen.
+    const loadList = (retry) => paymentsApi.list({ limit: LIMIT, teamView: tv }).then((r) => {
+      if (!live) return;
+      if (r?.success) setPay({ rows: r.result || [], count: r.pagination?.count || 0, loading: false, error: false });
+      else if (retry) setTimeout(() => live && loadList(false), 2500);
+      else setPay({ rows: [], count: 0, loading: false, error: true });
+    }).catch(() => (retry ? setTimeout(() => live && loadList(false), 2500) : live && setPay({ rows: [], count: 0, loading: false, error: true })));
+    loadList(true);
     paymentsApi.financeList({ teamView: tv }).then((r) => live && setFin(r?.success ? { rows: r.result || [], loading: false, error: false } : { rows: [], loading: false, error: true })).catch(() => live && setFin({ rows: [], loading: false, error: true }));
     return () => {
       live = false;

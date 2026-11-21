@@ -77,6 +77,9 @@ const IP = {
   ratio: "M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z",
   phonein: "M16 2v6h6M22 2l-6 6M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4l2.8.7a2 2 0 0 1 1.7 2z",
   fb: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z",
+  users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8",
+  checkc: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3",
+  signal: "M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16",
 };
 const Ico = ({ n, s = 16 }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><path d={IP[n]} /></svg>
@@ -282,54 +285,117 @@ export default function AutoDialer() {
     <>
       <Head crumb="Sales › Auto Dialer" title="Auto Dialer" lead="Start dialling, watch the live numbers, see every call — same as today, cleaner."><span className="src">calling/lead-pool/status · used-leads</span></Head>
 
-      <div className="sv3-hero">
-        <div>
-          <div className="s">{statusText}</div>
-          <div className="big">{st ? `${nf(st.leadsWaiting)} leads waiting` : "—"}</div>
-          <div className="s" title={target ? `${hm(worked)} of ${hm(target)} worked today` : undefined}>{daysToClear ? `≈ ${daysToClear} day${daysToClear > 1 ? "s" : ""} to clear at today’s pace · ` : ""}calling hours 10:00–20:00</div>
-          <div className="prog" role="img" aria-label={`${Math.round(callingDone())}% of calling hours done`}><b style={{ width: `${callingDone()}%` }} /></div>
-          {st?.poolExhausted && <div className="s" style={{ color: "#FDBA74", marginTop: 6 }}>Every stage in the order is finished — nothing left to dial.</div>}
-        </div>
-        <div className="row">
-          <button type="button" className="go" style={{ background: on ? "#B42318" : "#16A34A" }} disabled={busy === "toggle" || !st} onClick={toggle}>{busy === "toggle" ? "…" : <><Ico n={on ? "stop" : "play"} /> {on ? "Stop dialer" : "Start dialer"}</>}</button>
-          {st?.shift?.onBreak ? (
-            <button type="button" className="gh" disabled title="The dialer resumes by itself when the break ends"><Ico n="coffee" /> On break · back at {clock(st.shift.breakUntil)}</button>
-          ) : (
-            <button type="button" className="gh" disabled={busy === "break" || !on || !st?.shift?.activeBreak || st.shift.activeBreak.taken} title={st?.shift?.activeBreak ? `${st.shift.activeBreak.label} · ${st.shift.activeBreak.durationMin} min` : "No break is open right now"} onClick={startBreak}><Ico n="coffee" /> {busy === "break" ? "Starting…" : "Take a break"}</button>
-          )}
+      {/* Dialer card — design pasted by the user 2026-11-21 (dark gradient card:
+          status ring · leads waiting · Start / Break · three stat tiles · break note).
+          Same data and actions as before. */}
+      <div className={`sv3-dc ${on ? "is-on" : "is-off"}`}>
+        <div className="sv3-dc-shape one" aria-hidden="true" />
+        <div className="sv3-dc-shape two" aria-hidden="true" />
+        <div className="sv3-dc-dots" aria-hidden="true" />
+        <div className="sv3-dc-grid">
+          <section className="sv3-dc-left">
+            <div className="sv3-dc-ring">
+              <div className="sv3-dc-phone"><Ico n="phone" s={40} /></div>
+              <div className="sv3-dc-pill">{on ? "ON" : "OFF"}<span className="sv3-dc-pdot" /></div>
+            </div>
+            <div className="sv3-dc-lead">
+              <div className="sv3-dc-kicker"><span className="sv3-dc-sig"><Ico n="signal" s={18} /></span><span>{statusText}</span></div>
+              <h2 className="sv3-dc-title">{st ? nf(st.leadsWaiting) : "—"} <span>Leads Waiting</span></h2>
+              <div className="sv3-dc-sub" title={target ? `${hm(worked)} of ${hm(target)} worked today` : undefined}>
+                <Ico n="clock" s={15} />
+                {daysToClear ? <><span>≈ {daysToClear} day{daysToClear > 1 ? "s" : ""} to clear at today’s pace</span><span>•</span></> : null}
+                <span>Calling hours 10:00–20:00</span>
+              </div>
+              <div className="sv3-dc-prog" role="img" aria-label={`${Math.round(callingDone())}% of calling hours done`}><b style={{ width: `${callingDone()}%` }} /></div>
+              {st?.poolExhausted && <div className="sv3-dc-warn">Every stage in the order is finished — nothing left to dial.</div>}
+            </div>
+          </section>
+
+          <section className="sv3-dc-actions">
+            <button type="button" className={`sv3-dc-start ${on ? "stop" : ""}`} disabled={busy === "toggle" || !st} onClick={toggle}>
+              {busy === "toggle" ? "…" : <><Ico n={on ? "stop" : "play"} s={19} /> <span>{on ? "Stop Dialer" : "Start Dialer"}</span></>}
+            </button>
+            {st?.shift?.onBreak ? (
+              <button type="button" className="sv3-dc-break" disabled title="The dialer resumes by itself when the break ends"><Ico n="coffee" s={20} /> <span>On break · back at {clock(st.shift.breakUntil)}</span></button>
+            ) : (
+              <button type="button" className="sv3-dc-break" disabled={busy === "break" || !on || !st?.shift?.activeBreak || st.shift.activeBreak.taken} title={st?.shift?.activeBreak ? `${st.shift.activeBreak.label} · ${st.shift.activeBreak.durationMin} min` : "No break is open right now"} onClick={startBreak}>
+                <Ico n="coffee" s={20} /> <span>{busy === "break" ? "Starting…" : "Take a Break"}</span>
+              </button>
+            )}
+          </section>
+
+          <section className="sv3-dc-right">
+            <div className="sv3-dc-stats">
+              <div className="sv3-dc-stat"><span className="sv3-dc-si blue"><Ico n="users" s={22} /></span><b>{st ? nf(st.leadsWaiting) : "—"}</b><small>Total Leads</small></div>
+              <div className="sv3-dc-stat" title={connectRate != null ? `${nf(t.connected)} of ${nf(t.calls)} calls · ${scope === "mine" ? "yours" : "everyone"}` : undefined}><span className="sv3-dc-si green"><Ico n="checkc" s={22} /></span><b>{connectRate != null ? `${connectRate}%` : "—"}</b><small>Connect Rate</small></div>
+              <div className="sv3-dc-stat"><span className="sv3-dc-si purple"><Ico n="cal" s={22} /></span><b>10:00–20:00</b><small>Calling Hours</small></div>
+            </div>
+            {/* A break opens only in its scheduled window (config/shiftSchedule) and only while the
+                dialer runs — say why the button is off instead of a silent grey button. */}
+            <div className="sv3-dc-note">
+              <span className="sv3-dc-ni"><Ico n="info" s={14} /></span>
+              <span>
+                {!st
+                  ? "Loading…"
+                  : st.shift?.onBreak
+                  ? `On break — the dialer resumes at ${clock(st.shift.breakUntil)}`
+                  : !st.shift?.activeBreak
+                  ? "No break is open right now — breaks open at their set times"
+                  : st.shift.activeBreak.taken
+                  ? `${st.shift.activeBreak.label} already taken today`
+                  : !on
+                  ? `Start the dialer to take the ${st.shift.activeBreak.label}`
+                  : `${st.shift.activeBreak.label} is open now · ${st.shift.activeBreak.durationMin} min`}
+              </span>
+            </div>
+          </section>
         </div>
       </div>
 
-      <div className="g2">
-        <div className="card">
-          <div className="ch"><div><H3 n="phone">How an answered call reaches you</H3>{!st?.canSetConnectMode && <p>Set by Admin for everyone</p>}</div><span className="src">lead-pool/connect-mode</span></div>
-          <div className="g3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
-            {MODES.map(([k, l, dsc, ic]) => (
-              <button key={k} type="button" className={mode === k ? "sv3-mode on" : "sv3-mode"} disabled={!st?.canSetConnectMode || busy === "mode"} onClick={() => mode !== k && setModal({ kind: "mode", mode: k, label: l })}>
-                <span className="sv3-mi"><Ico n={ic} s={18} /></span><b>{l}</b>{dsc}
-              </button>
-            ))}
+      {/* Connect mode + stage order are admin settings: a sales agent only sees
+          their own line / browser-phone status (user ask 2026-11-20). */}
+      {(st?.canSetConnectMode || st?.canSetStage) ? (
+        <div className="g2">
+          <div className="card">
+            <div className="ch"><div><H3 n="phone">How an answered call reaches you</H3>{!st?.canSetConnectMode && <p>Set by Admin for everyone</p>}</div><span className="src">lead-pool/connect-mode</span></div>
+            <div className="g3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
+              {MODES.map(([k, l, dsc, ic]) => (
+                <button key={k} type="button" className={mode === k ? "sv3-mode on" : "sv3-mode"} disabled={!st?.canSetConnectMode || busy === "mode"} onClick={() => mode !== k && setModal({ kind: "mode", mode: k, label: l })}>
+                  <span className="sv3-mi"><Ico n={ic} s={18} /></span><b>{l}</b>{dsc}
+                </button>
+              ))}
+            </div>
+            {mode === "alwaysOn" && (
+              <div className="row" style={{ marginTop: 12 }}>
+                <span className={st?.myLineLive ? "b gr" : "b gy"}>{st?.myLineLive ? "Your line is live" : "Your line is not connected"}</span>
+                {!st?.myLineLive && <button type="button" className="btn" disabled={busy === "line"} onClick={lineConnect}><Ico n="phone" s={15} /> {busy === "line" ? "Calling your phone…" : "Connect agent line"}</button>}
+              </div>
+            )}
+            {mode === "browser" && <div className="row" style={{ marginTop: 12 }}><span className={st?.myBrowserReady ? "b gr" : "b or"}><Ico n={st?.myBrowserReady ? "check" : "info"} s={13} /> {st?.myBrowserReady ? "Browser phone ready" : "Browser phone not ready — keep this tab open"}</span></div>}
           </div>
+          <div className="card">
+            <div className="ch"><div><H3 n="layers">Stages dialled, in order</H3></div>{st?.canSetStage && <button type="button" className="btn sm" onClick={() => setModal({ kind: "stages" })}><Ico n="edit" s={14} /> Change stages</button>}</div>
+            <div className="row" style={{ gap: 8 }}>
+              {queue.map((q, i) => (
+                <span key={q.stage} className={q.active || i === 0 ? "b tl" : "b gy"} title={q.left != null ? `${q.left} left` : undefined}>
+                  {i + 1} · {q.stage}{q.left != null ? ` ${nf(q.left)}` : ""}
+                </span>
+              ))}
+            </div>
+            <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>Dial order: Facebook instant lead → callback due / inbound waiting → these stages.</p>
+          </div>
+        </div>
+      ) : st ? (
+        <>
           {mode === "alwaysOn" && (
-            <div className="row" style={{ marginTop: 12 }}>
+            <div className="row" style={{ marginTop: 0 }}>
               <span className={st?.myLineLive ? "b gr" : "b gy"}>{st?.myLineLive ? "Your line is live" : "Your line is not connected"}</span>
               {!st?.myLineLive && <button type="button" className="btn" disabled={busy === "line"} onClick={lineConnect}><Ico n="phone" s={15} /> {busy === "line" ? "Calling your phone…" : "Connect agent line"}</button>}
             </div>
           )}
-          {mode === "browser" && <div className="row" style={{ marginTop: 12 }}><span className={st?.myBrowserReady ? "b gr" : "b or"}><Ico n={st?.myBrowserReady ? "check" : "info"} s={13} /> {st?.myBrowserReady ? "Browser phone ready" : "Browser phone not ready — keep this tab open"}</span></div>}
-        </div>
-        <div className="card">
-          <div className="ch"><div><H3 n="layers">Stages dialled, in order</H3></div>{st?.canSetStage && <button type="button" className="btn sm" onClick={() => setModal({ kind: "stages" })}><Ico n="edit" s={14} /> Change stages</button>}</div>
-          <div className="row" style={{ gap: 8 }}>
-            {queue.map((q, i) => (
-              <span key={q.stage} className={q.active || i === 0 ? "b tl" : "b gy"} title={q.left != null ? `${q.left} left` : undefined}>
-                {i + 1} · {q.stage}{q.left != null ? ` ${nf(q.left)}` : ""}
-              </span>
-            ))}
-          </div>
-          <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>Dial order: Facebook instant lead → callback due / inbound waiting → these stages.</p>
-        </div>
-      </div>
+          {mode === "browser" && <div className="row" style={{ marginTop: 0 }}><span className={st?.myBrowserReady ? "b gr" : "b or"}><Ico n={st?.myBrowserReady ? "check" : "info"} s={13} /> {st?.myBrowserReady ? "Browser phone ready" : "Browser phone not ready — keep this tab open"}</span></div>}
+        </>
+      ) : null}
 
       <div className="card">
         <div className="ch">

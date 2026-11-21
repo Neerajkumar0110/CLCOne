@@ -73,6 +73,11 @@ const submitWebsiteLead = async (req, res) => {
     else source = 'Website';
   }
 
+  const formAnswers = Object.keys(b)
+    .filter((k) => /^custom_[a-z0-9_]{1,40}$/i.test(k) && clean(b[k]))
+    .slice(0, 20)
+    .map((k) => ({ key: k, label: clean(b[`${k}__label`]).slice(0, 120) || k.slice(7).replace(/_/g, ' '), value: clean(b[k]).slice(0, 1000) }));
+
   const lead = await new Lead({
     name,
     phone: phoneNumber,
@@ -87,6 +92,11 @@ const submitWebsiteLead = async (req, res) => {
     budgetRange: clean(b.budget || b.budgetRange) || undefined,
     howSoonToStart: clean(b.howSoon || b.howSoonToStart) || undefined,
     message: clean(b.message) || undefined,
+    alternatePhone: clean(b.whatsapp) && clean(b.whatsapp) !== phoneNumber ? clean(b.whatsapp) : undefined,
+    // Form Builder questions of its own (custom_* keys), with the label the
+    // page showed, and the "agree to be contacted" tick.
+    formAnswers: formAnswers.length ? formAnswers : undefined,
+    contactConsent: b.consent == null ? undefined : ['on', 'true', 'yes', '1'].includes(clean(b.consent).toLowerCase()),
     attribution,
     color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   }).save();

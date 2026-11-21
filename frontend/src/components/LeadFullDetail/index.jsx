@@ -27,6 +27,7 @@ import AgentLink from "@/components/SalesTheme/AgentLink";
 import { request } from "@/request";
 import { stageColor, badgeClassForStatus } from "@/config/leadStages";
 import "./leadDetail.css";
+import { cleanResponses } from '@/utils/callResponse';
 
 // One customer, everything about them, in one modal — opened by clicking a
 // lead / number row anywhere in the app (Leads tables, Captured Leads,
@@ -390,7 +391,7 @@ export default function LeadFullDetailModal({ lead: row, phone: phoneProp, onClo
     ["Came In", l.facebookCreatedAt ? fmt(l.facebookCreatedAt) : l.created && fmt(l.created)],
   ];
   const filled = extra.filter(([, v]) => v);
-  const responses = Array.isArray(l.callHistory) ? [...l.callHistory].reverse() : [];
+  const responses = cleanResponses(Array.isArray(l.callHistory) ? [...l.callHistory].reverse() : []);
   const stages = Array.isArray(l.stageHistory) ? [...l.stageHistory].reverse() : [];
   const calls = data ? data.calls : [];
   const spoke = calls.filter((c) => c.answered).length;

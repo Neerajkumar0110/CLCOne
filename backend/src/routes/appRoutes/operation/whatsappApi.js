@@ -1,6 +1,7 @@
 const express = require('express');
 
 const { catchErrors } = require('../../../handlers/errorHandlers');
+const { singleStorageUpload } = require('../../../middlewares/uploadMiddleware');
 const controller = require('../../../controllers/appControllers/operation/whatsappController');
 const webhook = require('../../../controllers/appControllers/operation/whatsappController/webhook');
 
@@ -17,9 +18,13 @@ router.route('/device/status').get(catchErrors(controller.deviceStatus));
 
 router.route('/chats').get(catchErrors(controller.listChats));
 router.route('/chats').post(catchErrors(controller.openChat));
+router.route('/chats/read-all').post(catchErrors(controller.markAllRead));
+router.route('/send-curriculum').post(catchErrors(controller.sendCurriculum));
 router.route('/chats/:id/messages').get(catchErrors(controller.chatMessages));
 router.route('/chats/:id/read').post(catchErrors(controller.markRead));
-router.route('/chats/:id/send').post(catchErrors(controller.send));
+router.route('/chats/:id/unread').post(catchErrors(controller.markUnread));
+// multipart: message?, replyTo?, file? (photo / document up to 16 MB)
+router.route('/chats/:id/send').post(singleStorageUpload({ entity: 'chat', fileType: 'default' }), catchErrors(controller.send));
 
 router.route('/admin/access').get(catchErrors(controller.getAccess));
 router.route('/admin/auto-reply').get(catchErrors(controller.getAutoReply)).put(catchErrors(controller.saveAutoReply));

@@ -199,6 +199,15 @@ const schema = new mongoose.Schema({
   budgetRange: String,
   howSoonToStart: String,
   message: String,
+  // Answers to the Form Builder's own ("+ Add field") questions, and the
+  // capture form's "agree to be contacted" tick.
+  formAnswers: { type: [{ key: String, label: String, value: String, _id: false }], default: undefined },
+  contactConsent: Boolean,
+  // Notes typed in the lead details drawer (Marketing › Capture Form).
+  notesLog: {
+    type: [{ text: String, by: { type: mongoose.Schema.ObjectId, ref: 'Admin' }, byName: String, at: { type: Date, default: Date.now }, _id: false }],
+    default: undefined,
+  },
 
   // Campaign attribution for leads that come in through the hosted
   // landing page / embeddable website form. Populated from the page's

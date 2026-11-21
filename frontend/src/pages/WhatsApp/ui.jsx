@@ -61,6 +61,19 @@ export function Avatar({ id, name, size = 36 }) {
   );
 }
 
+// A contact with a WhatsApp name gets a coloured initials circle; a bare
+// number stays plain (grey person icon).
+export function ChatAvatar({ chat, size = 40 }) {
+  if (chat.customerName) return <Avatar id={chat.customerNumber} name={chat.customerName} size={size} />;
+  return (
+    <span className="wa-avatar wa-avatar-plain" style={{ width: size, height: size }} aria-hidden="true">
+      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2c-4.4 0-8 2.5-8 5.5V21h16v-1.5c0-3-3.6-5.5-8-5.5Z" />
+      </svg>
+    </span>
+  );
+}
+
 export function PageHeader({ actions }) {
   return (
     <div className="wa-head">
@@ -119,7 +132,23 @@ export function SearchBox({ value, onChange, placeholder, label, style }) {
     <label className="wa-search" style={style}>
       <SearchOutlined aria-hidden="true" />
       <span className="wa-sr">{label || placeholder}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      {/* type=search + autocomplete off: browsers were filling a saved login
+          name in here, which silently filtered every chat away */}
+      <input
+        type="search"
+        name="wa-chat-search"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      {value && (
+        <button type="button" className="wa-search-clear" aria-label="Clear search" onClick={() => onChange('')}>
+          ×
+        </button>
+      )}
     </label>
   );
 }

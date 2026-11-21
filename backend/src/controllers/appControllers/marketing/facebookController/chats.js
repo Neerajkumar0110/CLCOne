@@ -147,19 +147,28 @@ const chatMessages = async (req, res) => {
 
   if (channel === 'whatsapp') {
     // WhatsApp messages are stored by the DeroPo webhook (WhatsAppMessage).
-    const msgs = await mongoose
-      .model('WhatsAppMessage')
-      .find({ customerNumber: userId })
-      .sort({ at: 1 })
-      .limit(500)
-      .select('direction text at status type')
-      .lean();
+    const Msg = mongoose.model('WhatsAppMessage');
+    const pick = 'direction text at status type media quoted providerMessageId error';
+    let msgs = await (await Msg.find({ customerNumber: userId }).sort({ at: -1 }).limit(500).select(pick).lean()).reverse();
+    // photos / documents that came in before the inbox kept files: fetch them now
+    const media = require('../../../../services/whatsapp/media');
+    if (await media.backfill(msgs).catch(() => 0)) msgs = await (await Msg.find({ customerNumber: userId }).sort({ at: -1 }).limit(500).select(pick).lean()).reverse();
     return res.status(200).json({
       success: true,
       result: {
         lead,
         profile: await chatProfile(lead._id, channel, userId).catch(() => null),
-        messages: msgs.map((m) => ({ text: m.text, at: m.at, fromCustomer: m.direction === 'incoming', status: m.status, type: m.type })),
+        messages: msgs.map((m) => ({
+          id: String(m._id),
+          text: m.text,
+          at: m.at,
+          fromCustomer: m.direction === 'incoming',
+          status: m.status,
+          type: m.type,
+          error: m.status === 'failed' ? m.error : undefined,
+          media: m.media && (m.media.url || m.media.pending || m.media.error || m.media.thumb) ? m.media : undefined,
+          quoted: m.quoted && m.quoted.text ? { id: m.quoted.messageId ? String(m.quoted.messageId) : null, text: m.quoted.text, fromCustomer: !!m.quoted.fromCustomer, type: m.quoted.type } : undefined,
+        })),
       },
       message: 'ok',
     });
@@ -267,9 +276,19 @@ function attachmentType(mime = '') {
 // WhatsApp reply from the Ad chat inbox (user ask 2026-11-15): sent from the
 // WhatsApp number the customer wrote to (a connected business number first),
 // stored in the same WhatsAppChat / WhatsAppMessage as Messenger › WhatsApp.
-async function sendWhatsApp(req, res, lead, number, text, hadFile) {
-  if (hadFile) return res.status(400).json({ success: false, result: null, message: 'WhatsApp replies from here are text only for now — type the message.' });
-  if (!text) return res.status(400).json({ success: false, result: null, message: 'Type a message.' });
+// A file (photo → image, anything else → document) goes as one WhatsApp
+// message with the typed text as its caption. replyTo = the inbox message
+// being answered: shown as a quote here, and sent as WhatsApp's "> quote"
+// block (DeroPo's API has no native reply-to).
+async function sendWhatsApp(req, res, lead, number, text, file) {
+  const fs = require('fs');
+  const mediaSvc = require('../../../../services/whatsapp/media');
+  const drop = () => file && fs.unlink(file.path, () => {});
+  if (!text && !file) return res.status(400).json({ success: false, result: null, message: 'Type a message or attach a file.' });
+  if (file && file.size > 16 * 1024 * 1024) {
+    drop();
+    return res.status(400).json({ success: false, result: null, message: 'WhatsApp files can be up to 16 MB.' });
+  }
   const deropo = require('../../../../services/whatsapp/deropo');
   const Device = mongoose.model('WhatsAppDevice');
   const Chat = mongoose.model('WhatsAppChat');
@@ -288,24 +307,54 @@ async function sendWhatsApp(req, res, lead, number, text, hadFile) {
   if (device.status !== 'connected') return res.status(409).json({ success: false, result: null, message: 'That WhatsApp number is not connected — scan its QR in Messenger › WhatsApp.' });
 
   const body = text.slice(0, 4000);
-  const msg = await Message.create({ chatId: chat._id, userId: chat.userId, deviceId: device.deviceId, customerNumber: number, direction: 'outgoing', type: 'text', text: body, status: 'sending', at: new Date() });
+  // the message being replied to (must be in this chat)
+  let quoted;
+  const replyTo = req.body && req.body.replyTo;
+  if (replyTo && mongoose.isValidObjectId(replyTo)) {
+    const q = await Message.findOne({ _id: replyTo, customerNumber: number }).select('direction text type media providerMessageId').lean();
+    if (q) {
+      const qText = q.text || (q.media ? (q.type === 'image' ? '📷 Photo' : `📄 ${(q.media && q.media.fileName) || 'Document'}`) : '');
+      quoted = { messageId: q._id, providerMessageId: q.providerMessageId, text: String(qText).slice(0, 500), fromCustomer: q.direction === 'incoming', type: q.type };
+    }
+  }
+  const quoteBlock = quoted && quoted.text ? `${quoted.text.split('\n').slice(0, 3).map((l) => `> ${l.slice(0, 160)}`).join('\n')}\n\n` : '';
+  const outgoing = quoteBlock + body;
+
+  let media;
+  let kind = 'text';
+  if (file) {
+    const mime = String(file.mimetype || '');
+    kind = /^image\/(jpeg|png|webp)$/.test(mime) ? 'image' : /^audio\//.test(mime) ? 'audio' : 'document';
+    const local = mediaSvc.saveFile(file.path, mime, file.originalname);
+    drop();
+    media = { url: local, mime, fileName: file.originalname, size: file.size };
+  }
+
+  const msg = await Message.create({ chatId: chat._id, userId: chat.userId, deviceId: device.deviceId, customerNumber: number, direction: 'outgoing', type: kind, text: body, status: 'sending', at: new Date(), ...(media ? { media } : {}), ...(quoted ? { quoted } : {}) });
   let status = 'sent';
   let error = null;
   let providerMessageId = null;
   try {
-    ({ providerMessageId } = await deropo.sendText({ deviceId: device.deviceId, number, message: body }));
+    if (media) {
+      const publicUrl = mediaSvc.publicBase(req) + media.url;
+      if (/localhost|127\.0\.0\.1/.test(publicUrl)) throw new Error('files can only be sent from the live CRM (WhatsApp cannot reach a laptop address)');
+      ({ providerMessageId } = await deropo.sendMedia({ deviceId: device.deviceId, number, type: kind, url: publicUrl, caption: outgoing, fileName: media.fileName }));
+    } else {
+      ({ providerMessageId } = await deropo.sendText({ deviceId: device.deviceId, number, message: outgoing }));
+    }
   } catch (e) {
     status = 'failed';
     error = e.message;
   }
-  await Message.updateOne({ _id: msg._id }, { $set: { status, error, providerMessageId } });
+  await Message.updateOne({ _id: msg._id }, { $set: { status, error, providerMessageId: providerMessageId != null ? String(providerMessageId) : null, statusAt: new Date() } });
   if (status === 'failed') return res.status(502).json({ success: false, result: null, message: `WhatsApp message not sent: ${error}` });
-  await Chat.updateOne({ _id: chat._id }, { $set: { lastMessage: body, lastMessageAt: msg.at, lastDirection: 'outgoing', unread: 0 } });
+  const preview = media ? `${kind === 'image' ? '📷 Photo' : `📄 ${media.fileName || 'Document'}`}${body ? ` ${body}` : ''}` : body;
+  await Chat.updateOne({ _id: chat._id }, { $set: { lastMessage: preview, lastMessageAt: msg.at, lastDirection: 'outgoing', unread: 0 } });
   await mongoose.model('Lead').updateOne({ _id: lead._id }, { $set: { chatRepliedAt: new Date(), chatReadAt: new Date(), ...formSent(body) } });
   try {
     const socket = require('../../../../socket');
     socket.emitWhatsApp(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
-    socket.emitLeadEvent('lead:chat', { kind: 'sent', id: String(lead._id), name: lead.name, channel: 'whatsapp', text: `You: ${body.slice(0, 120)}`, at: new Date(), by: req.admin && req.admin.name });
+    socket.emitLeadEvent('lead:chat', { kind: 'sent', id: String(lead._id), name: lead.name, channel: 'whatsapp', text: `You: ${preview.slice(0, 120)}`, at: new Date(), by: req.admin && req.admin.name });
   } catch (_) {
     /* no socket in scripts */
   }
@@ -331,8 +380,7 @@ const sendChat = async (req, res) => {
 
   try {
     if (channel === 'whatsapp') {
-      cleanup();
-      return await sendWhatsApp(req, res, lead, userId, text, !!filePath);
+      return await sendWhatsApp(req, res, lead, userId, text, filePath ? { path: filePath, mimetype: req.file && req.file.mimetype, originalname: (req.file && req.file.originalname) || req.upload.fileName, size: (req.file && req.file.size) || 0 } : null);
     }
     const win = windowOf(lead);
     if (!win.open && !win.humanAgent) {

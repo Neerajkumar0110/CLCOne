@@ -9,10 +9,40 @@ const schema = new mongoose.Schema(
     direction: { type: String, enum: ['incoming', 'outgoing'], required: true },
     type: { type: String, default: 'text' },
     text: { type: String },
-    status: { type: String, enum: ['sending', 'sent', 'failed', 'received'], default: 'sending' },
+    // outgoing: sending → sent → delivered → read (DeroPo webhook events) | failed
+    status: { type: String, enum: ['sending', 'sent', 'delivered', 'read', 'failed', 'received'], default: 'sending' },
+    statusAt: { type: Date },
     providerMessageId: { type: String, index: true },
     error: { type: String },
     at: { type: Date, default: Date.now, index: true },
+    // a photo / document / video / voice note (services/whatsapp/media.js):
+    // url = our copy under /public/uploads/whatsapp/, thumb = WhatsApp's tiny preview
+    media: {
+      url: String,
+      mime: String,
+      fileName: String,
+      size: Number,
+      width: Number,
+      height: Number,
+      seconds: Number,
+      pages: Number,
+      voice: Boolean,
+      thumb: String,
+      pending: Boolean,
+      error: String,
+    },
+    // WhatsApp's encrypted-file pointer, kept only until the file is downloaded
+    mediaSrc: { type: { kind: String, url: String, directPath: String, mediaKey: String, mime: String, _id: false }, select: false },
+    // the message this one replies to (quoted bubble)
+    quoted: {
+      messageId: { type: mongoose.Schema.ObjectId },
+      providerMessageId: String,
+      text: String,
+      fromCustomer: Boolean,
+      // { type: String } — a bare `type: String` here would make Mongoose treat
+      // the whole `quoted` object as a string and drop every reply
+      type: { type: String },
+    },
   },
   { timestamps: true }
 );

@@ -5,7 +5,7 @@ const router = express.Router();
 const path = require('path');
 const { isPathInside } = require('../../utils/is-path-inside');
 const { submitWebsiteLead } = require('../../controllers/corePublicControllers/websiteLead');
-const { renderLeadFormPage, leadFormConfig } = require('../../controllers/corePublicControllers/leadFormPage');
+const { renderLeadFormPage, leadFormConfig, embedScript } = require('../../controllers/corePublicControllers/leadFormPage');
 const { renderDataDeletionPage } = require('../../controllers/corePublicControllers/dataDeletionPage');
 const facebookController = require('../../controllers/appControllers/marketing/facebookController/index');
 const googleController = require('../../controllers/appControllers/marketing/googleController/index');
@@ -30,6 +30,7 @@ router.route('/enquiry').get(catchErrors(enquiryForm.renderEnquiryPage));
 // Hosted lead-capture landing page (point ad destination URLs here) + its
 // field config. Registered before the 3-segment file-serving catch-all
 // below so "/lead-form/website/config" isn't swallowed by it.
+router.route('/lead-form/embed.js').get(catchErrors(embedScript));
 router.route('/lead-form/:platform/config').get(catchErrors(leadFormConfig));
 router.route('/lead-form/:platform').get(catchErrors(renderLeadFormPage));
 router.route('/lead-form').get(catchErrors(renderLeadFormPage));

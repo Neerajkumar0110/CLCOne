@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const deropo = require('../../../../services/whatsapp/deropo');
+const media = require('../../../../services/whatsapp/media');
 
 // POST /api/whatsapp-webhook/:secret — PUBLIC (DeroPo calls it). Set this URL
 // in the DeroPo dashboard as the incoming-message webhook:
@@ -94,6 +95,25 @@ function adInfo(raw) {
   };
 }
 
+// A customer's reply that quotes an earlier message: WhatsApp puts the quoted
+// message (and its id, stanzaId) in the reply's contextInfo.
+function quotedOf(raw) {
+  const m = unwrap(raw);
+  const inner = Object.values(m).find((v) => v && typeof v === 'object' && v.contextInfo && v.contextInfo.quotedMessage);
+  if (!inner) return null;
+  const c = inner.contextInfo;
+  const q = messageText(c.quotedMessage);
+  if (!q.text) return null;
+  return { providerMessageId: c.stanzaId ? String(c.stanzaId) : undefined, text: String(q.text).slice(0, 500), type: q.type };
+}
+
+// Caption of a photo / document / video (the chat line shows the file itself).
+function captionOf(raw) {
+  const m = unwrap(raw);
+  const x = m.imageMessage || m.videoMessage || m.documentMessage || null;
+  return x && x.caption ? String(x.caption) : '';
+}
+
 function parse(body) {
   const b = body || {};
   const d = b.data && typeof b.data === 'object' ? b.data : {};
@@ -136,6 +156,12 @@ function parse(body) {
     name: name ? String(name).slice(0, 120) : null,
     at,
     isGroup: jid.includes('@g.us') || !!d.group_id,
+    media: media.mediaOf(unwrap(m)),
+    caption: captionOf(m),
+    quoted: quotedOf(m),
+    // status events (message_sent / delivered / read / failed) name OUR message
+    statusId: d.message_id != null ? String(d.message_id) : null,
+    error: d.error ? String(d.error).slice(0, 300) : null,
   };
 }
 
@@ -145,6 +171,42 @@ function secretMatches(given) {
   const a = Buffer.from(String(given || ''));
   const b = Buffer.from(want);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// ── delivery / read ticks ────────────────────────────────────────────────
+// DeroPo: { event: message_sent | message_delivered | message_read | message_failed,
+//           data: { message_id, … } } — message_id is the id /api/send returned.
+const STATUS_EVENTS = { message_sent: 'sent', message_delivered: 'delivered', message_read: 'read', message_failed: 'failed' };
+const RANK = { sending: 0, sent: 1, failed: 1, delivered: 2, read: 3 };
+async function applyStatus(p) {
+  const to = STATUS_EVENTS[p.event];
+  if (!p.statusId) return `${p.event} without a message id`;
+  const Message = mongoose.model('WhatsAppMessage');
+  const msg = await Message.findOne({ providerMessageId: p.statusId, direction: 'outgoing' }).select('status chatId userId customerNumber').lean();
+  if (!msg) return `${p.event} for a message the CRM did not send (${p.statusId})`;
+  // ticks only move forward; a late "sent" never undoes "read"
+  if ((RANK[to] || 0) < (RANK[msg.status] || 0) || (to === 'failed' && RANK[msg.status] >= 2)) return `${p.event} — already ${msg.status}`;
+  await Message.updateOne({ _id: msg._id }, { $set: { status: to, statusAt: new Date(), ...(to === 'failed' && p.error ? { error: p.error } : {}) } });
+  try {
+    require('../../../../socket').emitWhatsApp(msg.userId, 'whatsapp:message', { chatId: String(msg.chatId), userId: String(msg.userId), status: to });
+    require('../../../../services/marketing/chatLeads').pingChat('whatsapp', msg.customerNumber, null);
+  } catch (_) {
+    /* no socket in scripts */
+  }
+  return null;
+}
+
+// The quoted message of a customer's reply → our stored one, when we have it.
+async function linkQuote(q, number) {
+  const Message = mongoose.model('WhatsAppMessage');
+  const out = { text: q.text, type: q.type, providerMessageId: q.providerMessageId };
+  if (q.providerMessageId) {
+    const hit = await Message.findOne({ customerNumber: number, providerMessageId: q.providerMessageId }).select('_id direction').lean();
+    if (hit) return { ...out, messageId: hit._id, fromCustomer: hit.direction === 'incoming' };
+  }
+  // WhatsApp gives no id for our API sends: match the text of our recent messages
+  const mine = await Message.findOne({ customerNumber: number, direction: 'outgoing', text: q.text }).sort({ at: -1 }).select('_id').lean();
+  return mine ? { ...out, messageId: mine._id, fromCustomer: false } : { ...out, fromCustomer: true };
 }
 
 // The ad a click-to-WhatsApp chat came from → the lead (Ad chat inbox's
@@ -166,14 +228,44 @@ async function processLog(log, opts = {}) {
     const note = (msg) => Log.updateOne({ _id: log._id }, { $set: { note: msg } });
     // message_sent / delivered / read / failed are about OUR sends — only
     // message_received creates a chat message.
+    if (p.event && STATUS_EVENTS[p.event]) return await note(await applyStatus(p));
     if (p.event && p.event !== 'message_received') return await note(`event ${p.event} — not stored`);
     if (!p.deviceId) return await note('no device id');
+
+    // the chat history the phone sends right after the number is linked
+    const hsn = historyNotification(log.body);
+    if (hsn) {
+      const dev = await mongoose.model('WhatsAppDevice').findOne({ deviceId: p.deviceId }).lean();
+      if (!dev) return await note(`history for device ${p.deviceId}, which is not linked to any CRM user`);
+      const job = require('../../../../services/whatsapp/historySync')
+        .importNotification(dev, hsn)
+        .then(async (r) => {
+          await Log.updateOne({ _id: log._id }, { $set: { handled: true, note: `history: ${r.messages} messages in ${r.chats} chats${r.rejected ? ` (${r.rejected} could not be saved)` : ''}` } });
+          await mongoose.model('WhatsAppDevice').updateOne({ _id: dev._id }, { $set: { historyImportedAt: new Date() } });
+          if (!opts.quiet && r.messages) {
+            try {
+              require('../../../../socket').emitWhatsApp(dev.userId, 'whatsapp:chat', { userId: String(dev.userId), history: true });
+            } catch (_) {
+              /* no socket in scripts */
+            }
+          }
+          return r;
+        })
+        .catch((e) => note(`history import failed: ${e.message}`));
+      if (opts.quiet) return await job;
+      return undefined;
+    }
     if (p.isGroup) return await note('group message — ignored');
     if (p.system) return await note(`WhatsApp system message (${p.type}) — not a chat line`);
     if (!p.from || !p.text) return await note('no sender or text (maybe a status/ack event)');
 
     const device = await mongoose.model('WhatsAppDevice').findOne({ deviceId: p.deviceId }).lean();
     if (!device) return await note(`device ${p.deviceId} is not linked to any CRM user`);
+    // a hidden-number (@lid) sender we know the phone number of (from the history)
+    if (p.isLid && device.lidMap && device.lidMap[p.from]) {
+      p.from = deropo.normaliseNumber(device.lidMap[p.from]);
+      p.isLid = false;
+    }
 
     const Message = mongoose.model('WhatsAppMessage');
     if (p.providerMessageId && (await Message.exists({ providerMessageId: p.providerMessageId }))) {
@@ -191,7 +283,7 @@ async function processLog(log, opts = {}) {
         $setOnInsert: {
           userName: owner ? [owner.name, owner.surname].filter(Boolean).join(' ') : device.userName,
           department: device.kind === 'business' ? 'Business' : owner ? departmentOfRole(owner.role) : undefined,
-          ...(p.name && !p.fromMe ? { customerName: p.name } : {}),
+          ...((p.name && !p.fromMe) || nameOf(device, p.from) ? { customerName: (!p.fromMe && p.name) || nameOf(device, p.from) } : {}),
         },
         $set: { deviceId: device.deviceId, lastMessage: p.text, lastMessageAt: p.at, lastDirection: direction },
         ...(direction === 'incoming' ? { $inc: { unread: 1 } } : {}),
@@ -199,18 +291,26 @@ async function processLog(log, opts = {}) {
       { upsert: true, new: true }
     ).lean();
 
-    await Message.create({
+    const created = await Message.create({
       chatId: chat._id,
       userId: device.userId,
       deviceId: device.deviceId,
       customerNumber: p.from,
       direction,
       type: p.type || 'text',
-      text: p.text,
+      // a file's line keeps only its caption; the file itself is in media
+      text: p.media ? p.caption : p.text,
       status: direction === 'incoming' ? 'received' : 'sent',
       providerMessageId: p.providerMessageId,
       at: p.at,
+      ...(p.media ? { media: p.media.info, mediaSrc: p.media.src } : {}),
+      ...(p.quoted ? { quoted: await linkQuote(p.quoted, p.from) } : {}),
     });
+    // fetch + decrypt the photo / document now (WhatsApp's link expires)
+    if (p.media) {
+      const job = media.downloadFor(created._id).catch((e) => console.error('[whatsapp] media failed:', e.message));
+      if (opts.quiet) await job;
+    }
     await Log.updateOne({ _id: log._id }, { $set: { handled: true, note: null } });
 
     // Every incoming WhatsApp chat is a lead (user ask 2026-11-14: "sab lead
@@ -288,4 +388,19 @@ async function incoming(req, res) {
   }
 }
 
-module.exports = { incoming, parse, processLog, adInfo, saveChatAd };
+// protocolMessage HISTORY_SYNC_NOTIFICATION → its notification object, or null
+// The contact's WhatsApp name saved from the history import (device.nameMap).
+function nameOf(device, number) {
+  const m = device && device.nameMap;
+  if (!m || !number) return undefined;
+  return (m instanceof Map ? m.get(String(number)) : m[String(number)]) || undefined;
+}
+
+function historyNotification(body) {
+  const m = body && body.data && body.data.message;
+  const pm = m && typeof m === 'object' && m.protocolMessage;
+  if (!pm || pm.type !== 'HISTORY_SYNC_NOTIFICATION' || !pm.historySyncNotification) return null;
+  return pm.historySyncNotification;
+}
+
+module.exports = { incoming, parse, processLog, adInfo, saveChatAd, messageText, quotedOf, captionOf, historyNotification };

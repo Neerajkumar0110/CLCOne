@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { request } from "@/request";
 import { getSocket } from "@/socket";
-import { API_BASE_URL } from "@/config/serverApiConfig";
+import { API_BASE_URL, BASE_URL } from "@/config/serverApiConfig";
 import storePersist from "@/redux/storePersist";
 import HubModal from "@/components/HubModal";
 import LeadFullDetailModal from "@/components/LeadFullDetail";
@@ -122,6 +122,10 @@ const I = {
   form: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8zm0 4h8v2H8zm0-8h3v2H8z" /></svg>,
   close: <svg className="aci-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>,
   check: <svg viewBox="0 0 16 11" fill="currentColor"><path d="M11.07.65 10.4.1a.38.38 0 0 0-.53.06L4.6 6.78 2.13 4.47a.38.38 0 0 0-.53.01l-.6.6a.38.38 0 0 0 0 .54l3.3 3.13c.16.15.4.14.55-.03l6.28-7.53a.38.38 0 0 0-.06-.54z" /></svg>,
+  dcheck: <svg viewBox="0 0 18 11" fill="currentColor"><path d="M12.07.65 11.4.1a.38.38 0 0 0-.53.06L5.6 6.78 3.13 4.47a.38.38 0 0 0-.53.01l-.6.6a.38.38 0 0 0 0 .54l3.3 3.13c.16.15.4.14.55-.03l6.28-7.53a.38.38 0 0 0-.06-.54z" /><path d="M16.07.65 15.4.1a.38.38 0 0 0-.53.06L9.6 6.78l-.75-.7-.95 1.14 1.4 1.32c.16.15.4.14.55-.03l6.28-7.53a.38.38 0 0 0-.06-.54z" /></svg>,
+  reply: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" /></svg>,
+  doc: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 7V3.5L19.5 9H14z" /></svg>,
+  download: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z" /></svg>,
   clock: <svg viewBox="0 0 16 15" fill="currentColor"><path d="M8 1.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10.8a4.8 4.8 0 1 1 0-9.6 4.8 4.8 0 0 1 0 9.6zM8.6 4.5H7.4v3.6l3 1.8.6-1-2.4-1.4z" /></svg>,
 };
 const BRAND = {
@@ -172,6 +176,61 @@ function Attachment({ a }) {
     </a>
   ) : (
     <span className="aci-att">📎 {a.name || "attachment"}</span>
+  );
+}
+
+const kb = (n) => (!n ? "" : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const extOf = (name, mime) => {
+  const e = String(name || "").split(".").pop();
+  if (e && e.length <= 5 && e !== name) return e.toUpperCase();
+  return String(mime || "").split("/").pop().toUpperCase().slice(0, 4) || "FILE";
+};
+
+// /public/uploads/whatsapp/… lives on the backend (a different port in dev)
+const abs = (u) => (u && u.startsWith("/") ? String(BASE_URL || "").replace(/\/+$/, "") + u : u);
+
+// A WhatsApp photo / document / video / voice note, the way the app shows it.
+function WaMedia({ m, onOpen }) {
+  const raw = m.media || {};
+  const md = { ...raw, url: abs(raw.url) };
+  const kind = m.type;
+  if (kind === "image" || kind === "sticker" || (md.mime || "").startsWith("image/")) {
+    const src = md.url || md.local || md.thumb;
+    const w = md.width && md.height ? Math.min(300, md.width) : 260;
+    const h = md.width && md.height ? Math.round((w * md.height) / md.width) : undefined;
+    return (
+      <button type="button" className={`aci-wa-img ${md.url || md.local ? "" : "blur"}`} style={{ width: w, height: h ? Math.min(h, 340) : undefined }} onClick={() => (md.url || md.local) && onOpen(md.url || md.local)} aria-label="Open photo">
+        {src ? <img src={src} alt="" /> : <span className="aci-wa-noimg">📷</span>}
+        {md.pending && !md.url && <span className="aci-wa-spin" aria-label="Loading photo" />}
+        {md.error && !md.url && <span className="aci-wa-mediaerr">Photo not available</span>}
+      </button>
+    );
+  }
+  if (kind === "video" && md.url) return <video className="aci-wa-video" src={md.url} controls preload="metadata" />;
+  if (kind === "audio" && md.url) return <audio className="aci-wa-audio" src={md.url} controls preload="none" />;
+  const name = md.fileName || (kind === "video" ? "Video" : kind === "audio" ? "Voice message" : "Document");
+  const href = md.url || md.local;
+  const Tag = href ? "a" : "div";
+  return (
+    <Tag className="aci-wa-doc" {...(href ? { href, target: "_blank", rel: "noreferrer", download: md.fileName || true } : {})}>
+      <span className="ic">{I.doc}<b>{extOf(md.fileName, md.mime)}</b></span>
+      <span className="nm">
+        <span className="t">{name}</span>
+        <span className="s">{[md.pages ? `${md.pages} page${md.pages === 1 ? "" : "s"}` : null, kb(md.size), extOf(md.fileName, md.mime)].filter(Boolean).join(" · ")}{md.pending && !md.url ? " · loading…" : ""}{md.error && !md.url ? " · not available" : ""}</span>
+      </span>
+      {href && <span className="dl">{I.download}</span>}
+    </Tag>
+  );
+}
+
+// The quoted message inside a reply bubble (click jumps to it).
+function WaQuote({ q, name, onJump }) {
+  if (!q) return null;
+  return (
+    <button type="button" className={`aci-wa-quote ${q.fromCustomer ? "them" : "me"}`} onClick={() => q.id && onJump(q.id)}>
+      <b>{q.fromCustomer ? name || "Customer" : "You"}</b>
+      <span>{q.text}</span>
+    </button>
   );
 }
 
@@ -308,6 +367,8 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
   const [q, setQ] = useState("");
   const [channel, setChannel] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
   // enquiry form: "" all | filled | pending (sent, not filled) | none (never sent)
   const [formFilter, setFormFilter] = useState("");
   const [forms, setForms] = useState({ filled: 0, pending: 0, none: 0 });
@@ -321,6 +382,11 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
   // composer
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
+  const [replyTo, setReplyTo] = useState(null); // { id, text, fromCustomer, type }
+  const [lightbox, setLightbox] = useState(null);
+  const filePreview = useMemo(() => (file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => filePreview && URL.revokeObjectURL(filePreview), [filePreview]);
+  useEffect(() => { setReplyTo(null); setLightbox(null); }, [sel?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState([]); // optimistic bubbles
   const [sendErr, setSendErr] = useState("");
@@ -398,7 +464,9 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
   }, [sel]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    // scroll only the message pane (scrollIntoView also moved the modal's panels)
+    const box = endRef.current?.parentElement;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [conv, pending]);
 
   useEffect(() => {
@@ -464,16 +532,19 @@ export default function AdChatInbox({ open, onClose, initialChannel, initialLead
     const f = retry ? retry.file : file;
     if (!body && !f) return;
     const key = `p${Date.now()}`;
-    setPending((p) => [...p.filter((x) => x.key !== retry?.key), { key, text: body, file: f, at: new Date() }]);
+    const rt = retry ? retry.replyTo : replyTo;
+    setPending((p) => [...p.filter((x) => x.key !== retry?.key), { key, text: body, file: f, replyTo: rt, local: f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null, at: new Date() }]);
     if (!retry) {
       setText("");
       setFile(null);
+      setReplyTo(null);
     }
     setSending(true);
     setSendErr("");
     const form = new FormData();
     if (body) form.append("text", body);
     if (f) form.append("file", f);
+    if (rt && rt.id) form.append("replyTo", rt.id);
     const res = await sendForm(sel._id, form);
     setSending(false);
     if (res?.success) {
@@ -527,7 +598,19 @@ ${line}` : line));
   const items = useMemo(() => {
     const msgs = [
       ...((conv && conv.messages) || []).map((m) => ({ ...m, mine: !m.fromCustomer })),
-      ...pending.map((p) => ({ text: p.text, at: p.at, mine: true, pending: p, attachments: p.file ? [{ name: p.file.name }] : [] })),
+      ...pending.map((p) =>
+        isWa
+          ? {
+              text: p.text,
+              at: p.at,
+              mine: true,
+              pending: p,
+              type: p.file ? (p.file.type.startsWith("image/") ? "image" : "document") : "text",
+              media: p.file ? { local: p.local, fileName: p.file.name, size: p.file.size, mime: p.file.type } : undefined,
+              quoted: p.replyTo ? { id: p.replyTo.id, text: p.replyTo.text, fromCustomer: p.replyTo.fromCustomer } : undefined,
+            }
+          : { text: p.text, at: p.at, mine: true, pending: p, attachments: p.file ? [{ name: p.file.name }] : [] }
+      ),
     ];
     const firstCustomer = msgs.findIndex((m) => !m.mine);
     return msgs.map((m, i) => {
@@ -540,9 +623,18 @@ ${line}` : line));
       out.timeBreak = !newDay && prev && new Date(m.at) - new Date(prev.at) > 60 * 60e3;
       return out;
     });
-  }, [conv, pending]);
+  }, [conv, pending, isWa]);
 
   const shown = onlyUnread ? rows.filter((r) => r.unread) : rows;
+  const filterCount = (channel ? 1 : 0) + (onlyUnread ? 1 : 0) + (formFilter ? 1 : 0);
+  useEffect(() => {
+    if (!filterOpen) return undefined;
+    const out = (e) => { if (!filterRef.current?.contains(e.target)) setFilterOpen(false); };
+    const esc = (e) => e.key === "Escape" && setFilterOpen(false);
+    document.addEventListener("mousedown", out);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", out); document.removeEventListener("keydown", esc); };
+  }, [filterOpen]);
   const profile = conv?.profile;
   const headName = profile?.name || sel?.name;
   const headSub = sel
@@ -557,7 +649,9 @@ ${line}` : line));
     if (m.pending) return m.pending.failed ? <span className="fail">!</span> : <span className="ok">{I.clock}</span>;
     if (m.status === "failed") return <span className="fail">!</span>;
     if (m.status === "sending") return <span className="ok">{I.clock}</span>;
-    return <span className="ok">{I.check}</span>;
+    if (m.status === "read") return <span className="read" title="Seen">{I.dcheck}</span>;
+    if (m.status === "delivered") return <span className="ok" title="Delivered">{I.dcheck}</span>;
+    return <span className="ok" title="Sent">{I.check}</span>;
   };
 
   return (
@@ -566,39 +660,71 @@ ${line}` : line));
         {/* ── chat list ── */}
         <div className="aci-side">
           <div className="aci-side-top">
-            <label className="aci-search">
-              {I.search}
-              <input placeholder="Search name, number or message" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search chats" />
-            </label>
-            <div className="aci-chips">
-              {[["", "All"], ["whatsapp", "WhatsApp"], ["messenger", "Messenger"], ["instagram", "Instagram"]].map(([k, l]) => (
-                <button key={k} type="button" className={`aci-chip ${channel === k ? "on" : ""}`} onClick={() => setChannel(k)}>
-                  {k && <span className="dot" style={{ background: CH[k].color }} />}
-                  {l}
+            <div className="aci-searchrow">
+              <label className="aci-search">
+                {I.search}
+                <input placeholder="Search name, number or message" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search chats" />
+              </label>
+              {/* channel / unread / enquiry-form filters live in this ⋮ menu */}
+              <span className="aci-fmenu" ref={filterRef}>
+                <button type="button" className={`aci-dots ${filterCount ? "has" : ""}`} aria-label="Filter chats" title="Filter chats" aria-haspopup="menu" aria-expanded={filterOpen} onClick={() => setFilterOpen((v) => !v)}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" /></svg>
+                  {filterCount > 0 && <i>{filterCount}</i>}
                 </button>
-              ))}
-              <button type="button" className={`aci-chip ${onlyUnread ? "on" : ""}`} onClick={() => setOnlyUnread((v) => !v)}>
-                Unread{unread ? ` ${unread}` : ""}
-              </button>
+                {filterOpen && (
+                  <div className="aci-fpop" role="menu" aria-label="Filter chats">
+                    <div className="aci-fhead">Channel</div>
+                    {[["", "All chats"], ["whatsapp", "WhatsApp"], ["messenger", "Messenger"], ["instagram", "Instagram"]].map(([k, l]) => (
+                      <button key={k || "all"} type="button" role="menuitemradio" aria-checked={channel === k} className={`aci-fopt ${channel === k ? "on" : ""}`} onClick={() => setChannel(k)}>
+                        <span className="dot" style={{ background: k ? CH[k].color : "transparent" }} />
+                        {l}
+                        {channel === k && <span className="tick">✓</span>}
+                      </button>
+                    ))}
+                    <div className="aci-fsep" />
+                    <button type="button" role="menuitemcheckbox" aria-checked={onlyUnread} className={`aci-fopt ${onlyUnread ? "on" : ""}`} onClick={() => setOnlyUnread((v) => !v)}>
+                      <span className="dot" style={{ background: "#25D366" }} />
+                      Unread only <i>{unread || 0}</i>
+                      {onlyUnread && <span className="tick">✓</span>}
+                    </button>
+                    <div className="aci-fsep" />
+                    <div className="aci-fhead">{I.form} Enquiry form</div>
+                    {[
+                      ["filled", "Filled", "✓"],
+                      ["pending", "Not filled", "⏳"],
+                      ["none", "Not sent", "–"],
+                    ].map(([k, l, ic]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={formFilter === k}
+                        className={`aci-fopt ${formFilter === k ? "on" : ""}`}
+                        onClick={() => setFormFilter((v) => (v === k ? "" : k))}
+                        title={{ filled: "Customers who submitted the enquiry form", pending: "The form link was sent but the customer has not filled it yet", none: "The form link was never sent" }[k]}
+                      >
+                        <span className="ic" aria-hidden="true">{ic}</span>
+                        {l} <i>{forms[k] || 0}</i>
+                        {formFilter === k && <span className="tick">✓</span>}
+                      </button>
+                    ))}
+                    {filterCount > 0 && (
+                      <>
+                        <div className="aci-fsep" />
+                        <button type="button" className="aci-fopt clear" onClick={() => { setChannel(""); setOnlyUnread(false); setFormFilter(""); setFilterOpen(false); }}>Clear filters</button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </span>
             </div>
-            <div className="aci-chips aci-formchips" role="group" aria-label="Enquiry form">
-              <span className="aci-formlabel">{I.form} Form</span>
-              {[
-                ["filled", "Filled", "✓"],
-                ["pending", "Not filled", "⏳"],
-                ["none", "Not sent", "–"],
-              ].map(([k, l, ic]) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={`aci-chip aci-fchip ${k} ${formFilter === k ? "on" : ""}`}
-                  onClick={() => setFormFilter((v) => (v === k ? "" : k))}
-                  title={{ filled: "Customers who submitted the enquiry form", pending: "The form link was sent but the customer has not filled it yet", none: "The form link was never sent" }[k]}
-                >
-                  <span aria-hidden="true">{ic}</span> {l} <i>{forms[k] || 0}</i>
-                </button>
-              ))}
-            </div>
+            {filterCount > 0 && (
+              <div className="aci-active">
+                {channel && <button type="button" className="aci-chip on" onClick={() => setChannel("")} aria-label={`Remove ${CH[channel].label} filter`}><span className="dot" style={{ background: CH[channel].color }} />{CH[channel].label} ✕</button>}
+                {onlyUnread && <button type="button" className="aci-chip on" onClick={() => setOnlyUnread(false)} aria-label="Remove unread filter">Unread ✕</button>}
+                {formFilter && <button type="button" className="aci-chip on" onClick={() => setFormFilter("")} aria-label="Remove form filter">Form: {{ filled: "Filled", pending: "Not filled", none: "Not sent" }[formFilter]} ✕</button>}
+              </div>
+            )}
           </div>
           <div className="aci-list">
             {err && <div className="aci-err">{err}</div>}
@@ -682,7 +808,7 @@ ${line}` : line));
                     <React.Fragment key={m.pending ? m.pending.key : i}>
                       {m.newDay && <div className="aci-day">{theme === "wa" ? dayLabel(m.at) : when(m.at)}</div>}
                       {m.timeBreak && theme !== "wa" && <div className="aci-day">{when(m.at)}</div>}
-                      <div className={`aci-row ${m.mine ? "mine" : ""} ${m.first ? "first" : ""} ${m.last ? "last" : ""} ${m.first && i > 0 && !m.newDay ? "gap" : ""}`}>
+                      <div id={m.id ? `aci-m-${m.id}` : undefined} className={`aci-row ${m.mine ? "mine" : ""} ${m.first ? "first" : ""} ${m.last ? "last" : ""} ${m.first && i > 0 && !m.newDay ? "gap" : ""} ${m.media && (m.type === "image" || m.type === "sticker") ? "has-img" : ""}`}>
                         {theme !== "wa" && !m.mine && (
                           <span className="aci-ms-av">{showMsAv && <Avatar name={headName} channel={sel.chatChannel} size={28} />}</span>
                         )}
@@ -692,13 +818,20 @@ ${line}` : line));
                           style={m.pending && m.pending.failed && theme !== "wa" ? { background: "#dc2626", color: "#fff" } : m.pending && theme !== "wa" ? { opacity: 0.7 } : undefined}
                         >
                           {isWa && m.adRef && profile?.ad && <AdRef ad={profile.ad} />}
+                          {isWa && !m.pending && m.id && (
+                            <button type="button" className="aci-reply-btn" aria-label="Reply to this message" title="Reply" onClick={() => { setReplyTo({ id: m.id, text: m.text || (m.media ? (m.type === "image" ? "📷 Photo" : `📄 ${m.media.fileName || "Document"}`) : ""), fromCustomer: !m.mine, type: m.type }); setTimeout(() => inputRef.current?.focus(), 0); }}>
+                              {I.reply}
+                            </button>
+                          )}
+                          {isWa && m.quoted && <WaQuote q={m.quoted} name={headName} onJump={(id) => { const el = document.getElementById(`aci-m-${id}`); const box = el && el.closest(".aci-body"); if (el && box) { box.scrollBy({ top: el.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1400); } }} />}
+                          {isWa && m.media && <WaMedia m={m} onOpen={setLightbox} />}
                           {m.text}
                           {m.attachments?.map((a, j) => (
                             <div key={j} className={m.text || j ? "aci-att-gap" : ""}>
                               <Attachment a={a} />
                             </div>
                           ))}
-                          {!m.text && !m.attachments?.length && "—"}
+                          {!m.text && !m.attachments?.length && !m.media && "—"}
                           {theme === "wa" && (
                             <span className="aci-wa-meta">
                               {clock(m.at)}
@@ -707,6 +840,7 @@ ${line}` : line));
                           )}
                         </div>
                       </div>
+                      {isWa && !m.pending && m.status === "failed" && m.error && <div className="aci-ms-status" style={{ color: "#dc2626", textAlign: "right" }}>Not sent: {m.error}</div>}
                       {m.pending && m.pending.failed && (
                         <div className="aci-ms-status" style={{ color: "#dc2626" }}>
                           Not sent ·{" "}
@@ -725,7 +859,7 @@ ${line}` : line));
 
               {/* reply window (Meta's 24 h / 7 day rule) */}
               {isWa ? (
-                <div className="aci-window ok">Replies go from your connected WhatsApp business number (text only).</div>
+                <div className="aci-window ok">Replies go from your connected WhatsApp business number · photos and documents up to 16 MB.</div>
               ) : (
                 win && (
                   <div className={`aci-window ${win.open ? "ok" : win.humanAgent ? "warn" : "closed"}`}>
@@ -741,9 +875,18 @@ ${line}` : line));
               {/* composer */}
               <div className="aci-compose">
                 {sendErr && <div className="aci-send-err">{sendErr}</div>}
+                {replyTo && (
+                  <div className={`aci-replybar ${replyTo.fromCustomer ? "them" : "me"}`}>
+                    <span className="q">
+                      <b>{replyTo.fromCustomer ? headName || "Customer" : "You"}</b>
+                      <span>{replyTo.text}</span>
+                    </span>
+                    <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}>×</button>
+                  </div>
+                )}
                 {file && (
                   <div className="aci-file">
-                    📎 {file.name} <span style={{ opacity: 0.6 }}>{Math.ceil(file.size / 1024)} KB</span>
+                    {filePreview ? <img src={filePreview} alt="" className="aci-file-thumb" /> : "📎"} {file.name} <span style={{ opacity: 0.6 }}>{Math.ceil(file.size / 1024)} KB</span>
                     <button type="button" aria-label="Remove file" onClick={() => setFile(null)}>
                       ×
                     </button>
@@ -789,7 +932,7 @@ ${line}` : line));
                   <button type="button" className={`aci-icon-btn ${showEmoji ? "on" : ""}`} aria-label="Emoji" disabled={!canSend} onClick={() => { setShowEmoji((v) => !v); setShowSaved(false); }}>
                     {I.emoji}
                   </button>
-                  <button type="button" className="aci-icon-btn" aria-label="Attach a file" disabled={!canSend || isWa} title={isWa ? "WhatsApp replies are text only for now" : "Attach a file"} onClick={() => fileRef.current?.click()}>
+                  <button type="button" className="aci-icon-btn" aria-label="Attach a photo or document" disabled={!canSend} title={isWa ? "Photo or document (up to 16 MB)" : "Attach a file"} onClick={() => fileRef.current?.click()}>
                     {I.clip}
                   </button>
                   <button type="button" className={`aci-icon-btn ${showSaved ? "on" : ""}`} aria-label="Saved replies" title="Saved replies" disabled={!canSend} onClick={() => { setShowSaved((v) => !v); setShowEmoji(false); }}>
@@ -802,10 +945,11 @@ ${line}` : line));
                     ref={fileRef}
                     type="file"
                     hidden
-                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                    accept={isWa ? "image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" : "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) setFile(f);
+                      if (f && isWa && f.size > 16 * 1024 * 1024) setSendErr("WhatsApp files can be up to 16 MB.");
+                      else if (f) setFile(f);
                       e.target.value = "";
                     }}
                   />
@@ -819,6 +963,7 @@ ${line}` : line));
                       aria-label="Reply"
                       onChange={(e) => onType(e.target.value)}
                       onKeyDown={(e) => {
+                        if (e.key === "Escape" && replyTo) setReplyTo(null);
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           send();
@@ -835,6 +980,15 @@ ${line}` : line));
           )}
         </div>
 
+        {lightbox && (
+          <div className="aci-lightbox" role="dialog" aria-label="Photo" onClick={() => setLightbox(null)}>
+            <img src={lightbox} alt="" onClick={(e) => e.stopPropagation()} />
+            <div className="aci-lightbox-bar">
+              <a href={lightbox} download target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Download photo">{I.download}</a>
+              <button type="button" aria-label="Close photo" onClick={() => setLightbox(null)}>×</button>
+            </div>
+          </div>
+        )}
         {sel && showInfo && <ContactInfo sel={sel} profile={profile} link={conv?.link} onClose={() => toggleInfo(false)} onOpenLead={() => setViewLead(sel)} />}
       </div>
       {viewLead && <LeadFullDetailModal lead={viewLead} onClose={() => setViewLead(null)} />}

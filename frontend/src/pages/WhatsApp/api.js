@@ -51,7 +51,17 @@ const waApi = {
   openChat: (number, name) => wrap(http().post('chats', { number, name })),
   messages: (chatId) => wrap(http().get(`chats/${chatId}/messages`)),
   markRead: (chatId) => wrap(http().post(`chats/${chatId}/read`)),
-  send: (chatId, message) => wrap(http().post(`chats/${chatId}/send`, { message })),
+  sendCurriculum: (body) => wrap(http().post('send-curriculum', body)),
+  markUnread: (chatId) => wrap(http().post(`chats/${chatId}/unread`)),
+  markAllRead: (userId) => wrap(http().post('chats/read-all', userId ? { userId } : {})),
+  // text, plus an optional photo / document (multipart) and the message being replied to
+  send: (chatId, message, { file, replyTo } = {}) => {
+    const form = new FormData();
+    if (message) form.append('message', message);
+    if (replyTo) form.append('replyTo', replyTo);
+    if (file) form.append('file', file);
+    return wrap(http().post(`chats/${chatId}/send`, form));
+  },
   getAccess: () => wrap(http().get('admin/access')),
   saveAccess: (body) => wrap(http().put('admin/access', body)),
   refreshDevices: () => wrap(http().post('admin/devices/refresh')),

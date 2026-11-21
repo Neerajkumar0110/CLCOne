@@ -33,8 +33,9 @@ const SalesDashboard = lazy(() => import('@/pages/SalesDashboard'));
 const MarketingDashboard = lazy(() => import('@/pages/MarketingDashboard'));
 const MarketingHub = lazy(() => import('@/pages/MarketingHub'));
 // Moved here from Sales ▸ Leads (ad-platform lead capture belongs with the
-// rest of Marketing) — see pages/Leads/CaptureForm.jsx.
-const MarketingCaptureForm = lazy(() => import('@/pages/Leads/CaptureForm'));
+// rest of Marketing) — pages/CaptureHub (Overview, All Leads, Sources & Capture,
+// Form Builder); the ad-account setup in pages/Leads/CaptureForm.jsx sits inside it.
+const MarketingCaptureForm = lazy(() => import('@/pages/CaptureHub'));
 // LMS "My Learning" tab — the student portal shell over Moodle (pages/Lms).
 const LmsStudentPortal = lazy(() => import('@/pages/Lms/StudentPortal'));
 // LMS "Live Classes" tab — auto meeting rooms per batch/course.

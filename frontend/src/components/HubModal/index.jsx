@@ -16,6 +16,7 @@ export default function HubModal({
   width = 460,
   children,
   footer,
+  headerExtra, // optional controls shown in the header, left of the close button
 }) {
   useEffect(() => {
     if (!open) return;
@@ -46,6 +47,7 @@ export default function HubModal({
             <h3>{title}</h3>
             {subtitle && <p>{subtitle}</p>}
           </div>
+          {headerExtra}
           <button
             type="button"
             className="hub-modal-close"

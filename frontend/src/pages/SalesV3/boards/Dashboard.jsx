@@ -113,7 +113,9 @@ export default function Dashboard({ ownOnly, go }) {
   const isData = status === "data" && !isEmpty;
 
   const kpis = [
-    ["Total leads", nf(totalLeads), { text: "every lead on the board", cls: "d mut" }, "leads"],
+    // lead/stage-stats is the caller's own Lead Stages view: for an agent that is the leads they called
+    // or saved a response on (all time) — not the whole board the Leads list shows.
+    [ownOnly ? "My leads" : "Total leads", nf(totalLeads), { text: ownOnly ? "you called or responded on · all time" : "every lead on the board", cls: "d mut" }, "leads"],
     ["New leads", nf(stageCount(stages, "New Lead")), { text: "not called yet", cls: "d mut" }, "plus"],
     ["Interested", nf(stageCount(stages, "Interested Leads")), { text: "in Interested Leads now", cls: "d mut" }, "star"],
     ["Prospects (qualified)", nf(sales.prospects), { text: "moved to Prospects in range", cls: "d mut" }, "check"],
@@ -164,7 +166,7 @@ export default function Dashboard({ ownOnly, go }) {
     ["team", "Team", (r) => r.team || ""],
     ["calls", "Calls", (r) => r.calls || 0],
     ["connected", "Connected", (r) => r.connected || 0],
-    ["leads", "Leads", (r) => r.leadsResponded || 0],
+    ["leads", "Responded", (r) => r.leadsResponded || 0], // leads with a response saved in the range
     ["prospects", "Prospects", (r) => r.sales?.prospects || 0],
     ["enrolled", "Enrolled", (r) => r.sales?.enrolled || 0],
     ["rev", "Revenue", (r) => r.pay?.collected || 0],

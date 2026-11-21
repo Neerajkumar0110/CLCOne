@@ -174,7 +174,8 @@ async function listChats(req, res) {
     const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ customerName: rx }, { customerNumber: rx }];
   }
-  const rows = await Chat().find(filter).sort({ lastMessageAt: -1 }).limit(300).lean();
+  // a linked phone brings its whole history (hundreds of chats) — list them all
+  const rows = await Chat().find(filter).sort({ lastMessageAt: -1 }).limit(2000).lean();
   return ok(res, rows);
 }
 
@@ -205,7 +206,11 @@ async function chatMessages(req, res) {
   if (!(await requireAccess(req, res))) return;
   const chat = await readableChat(req, res);
   if (!chat) return;
-  const rows = await Message().find({ chatId: chat._id }).sort({ at: -1 }).limit(500).lean();
+  let rows = await Message().find({ chatId: chat._id }).sort({ at: -1 }).limit(500).lean();
+  // photos / documents not yet on this server's disk: fetch them now
+  if (await require('../../../../services/whatsapp/media').backfill(rows).catch(() => 0)) {
+    rows = await Message().find({ chatId: chat._id }).sort({ at: -1 }).limit(500).lean();
+  }
   return ok(res, { chat, messages: rows.reverse() });
 }
 
@@ -223,57 +228,148 @@ async function markRead(req, res) {
   return ok(res, null);
 }
 
-// POST /api/whatsapp/chats/:id/send { message } — text from MY connected number.
-async function send(req, res) {
+// POST /api/whatsapp/chats/:id/unread — "Mark as unread" (WhatsApp's own:
+// a chat with nothing unread gets a 1), same rule as markRead.
+async function markUnread(req, res) {
   if (!(await requireAccess(req, res))) return;
   const chat = await readableChat(req, res);
   if (!chat) return;
+  const isOwner = String(chat.userId) === String(req.admin._id);
+  const isBusinessChat = !isOwner && access.isWhatsAppAdmin(req.admin) && (await Device().exists({ userId: chat.userId, kind: 'business' }));
+  if (!isOwner && !isBusinessChat) return bad(res, 403, 'Only the number’s owner can mark this chat unread.');
+  if (!chat.unread) {
+    await Chat().updateOne({ _id: chat._id }, { $set: { unread: 1 } });
+    emit(chat.userId, 'whatsapp:chat', { chatId: String(chat._id), userId: String(chat.userId) });
+  }
+  return ok(res, null);
+}
+
+// POST /api/whatsapp/chats/read-all { userId? } — every chat of my number (or of
+// a business number, for WhatsApp admins) marked read.
+async function markAllRead(req, res) {
+  if (!(await requireAccess(req, res))) return;
+  let userId = req.admin._id;
+  const asked = req.body && req.body.userId;
+  if (asked && String(asked) !== String(req.admin._id)) {
+    if (!mongoose.isValidObjectId(asked) || !access.isWhatsAppAdmin(req.admin) || !(await Device().exists({ userId: asked, kind: 'business' }))) {
+      return bad(res, 403, 'You can only mark your own chats read.');
+    }
+    userId = asked;
+  }
+  const r = await Chat().updateMany({ userId, unread: { $gt: 0 } }, { $set: { unread: 0 } });
+  if (r.modifiedCount) emit(userId, 'whatsapp:chat', { userId: String(userId) });
+  return ok(res, { updated: r.modifiedCount });
+}
+
+// POST /api/whatsapp/chats/:id/send  multipart { message?, replyTo?, file? } —
+// text, a photo / document and/or a reply, from the chat's own number.
+async function send(req, res) {
+  const { sendWhatsAppMessage, uploadedFile } = require('../../../../services/whatsapp/sendMessage');
+  const file = uploadedFile(req);
+  const dropFile = () => file && require('fs').unlink(file.path, () => {});
+  if (!(await requireAccess(req, res))) return dropFile();
+  const chat = await readableChat(req, res);
+  if (!chat) return dropFile();
   // The chat's own number sends: the owner's personal number, or — for a
   // business number's chat — that business number (any WhatsApp admin).
   const device = await Device().findOne({ userId: chat.userId }).lean();
   const isBusiness = device && device.kind === 'business';
   if (String(chat.userId) !== String(req.admin._id) && !(isBusiness && access.isWhatsAppAdmin(req.admin))) {
+    dropFile();
     return bad(res, 403, 'Only the user who owns this chat can reply.');
   }
-  const text = String((req.body && req.body.message) || '').trim();
-  if (!text) return bad(res, 400, 'Type a message.');
-  if (text.length > 4000) return bad(res, 400, 'Message is too long (4000 characters max).');
-
   if (!device || device.status !== 'connected') {
+    dropFile();
     return bad(res, 409, isBusiness ? 'This business number is not connected. Scan its QR code first.' : 'Your WhatsApp is not connected. Scan the QR code first.');
   }
 
-  const msg = await Message().create({
-    chatId: chat._id,
-    userId: chat.userId,
-    deviceId: device.deviceId,
-    customerNumber: chat.customerNumber,
-    direction: 'outgoing',
-    type: 'text',
-    text,
-    status: 'sending',
-    at: new Date(),
-  });
-
-  let status = 'sent';
-  let error = null;
-  let providerMessageId = null;
+  let out;
   try {
-    ({ providerMessageId } = await deropo.sendText({ deviceId: device.deviceId, number: chat.customerNumber, message: text }));
-  } catch (err) {
-    status = 'failed';
-    error = err.message;
+    out = await sendWhatsAppMessage({ req, chat, device, text: req.body && req.body.message, file, replyTo: req.body && req.body.replyTo });
+  } catch (e) {
+    if (e.status) return bad(res, e.status, e.message);
+    throw e;
   }
-  const saved = await Message().findByIdAndUpdate(msg._id, { $set: { status, error, providerMessageId } }, { new: true }).lean();
-  await Chat().updateOne(
-    { _id: chat._id },
-    { $set: { lastMessage: text, lastMessageAt: saved.at, lastDirection: 'outgoing', deviceId: device.deviceId } }
-  );
+  const { saved, status, error, preview } = out;
   emit(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
   if (status === 'failed') return bad(res, 502, `Message not sent: ${error}`);
   // Ad chat inbox (owner / Super Admin) refreshes this conversation live.
-  require('../../../../services/marketing/chatLeads').pingChat('whatsapp', chat.customerNumber, text);
+  require('../../../../services/marketing/chatLeads').pingChat('whatsapp', chat.customerNumber, preview);
   return ok(res, saved);
+}
+
+// The InternX-AI curriculum PDF (Foundation + Elite, 2026 edition) — shipped with
+// the code at src/public/curriculum/internx/. WhatsApp downloads it from the LIVE
+// address, so a laptop can send it too once the live CRM has the file.
+const CURRICULUM_PATH = '/public/curriculum/internx/InternX-AI-Curriculum-2026.pdf';
+const CURRICULUM_NAME = 'InternX-AI Curriculum - Foundation & Elite (2026).pdf';
+const LIVE_BASE = (process.env.PUBLIC_BASE_URL || process.env.ENQUIRY_FORM_BASE_URL || 'https://clcone.careerlabconsulting.com').replace(/\/+$/, '');
+
+// POST /api/whatsapp/send-curriculum { phone, name?, leadId? } — from the caller's
+// OWN linked WhatsApp to the number on the call: a short welcome with the
+// customer's name (Auto-reply › call screen welcome), then the curriculum PDF.
+async function sendCurriculum(req, res) {
+  if (!(await requireAccess(req, res))) return;
+  const autoReply = require('../../../../services/whatsapp/autoReply');
+  const { sendWhatsAppMessage } = require('../../../../services/whatsapp/sendMessage');
+  const b = req.body || {};
+  const digits = String(b.phone || '').replace(/\D/g, '');
+  const number = deropo.normaliseNumber(digits.length === 10 ? `91${digits}` : digits);
+  if (number.length < 11 || number.length > 15) return bad(res, 400, 'This call has no valid phone number.');
+  const device = await Device().findOne({ userId: req.admin._id }).lean();
+  if (!device || device.status !== 'connected') return bad(res, 409, 'Your WhatsApp is not connected. Open the WhatsApp button in the header and scan the QR code first.');
+
+  // the PDF must be reachable where WhatsApp fetches it — check before the welcome goes alone
+  const pdfUrl = LIVE_BASE + CURRICULUM_PATH;
+  let size = 0;
+  try {
+    const head = await fetch(pdfUrl, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
+    if (!head.ok || !/pdf/i.test(head.headers.get('content-type') || '')) throw new Error(`HTTP ${head.status}`);
+    size = Number(head.headers.get('content-length') || 0);
+  } catch (e) {
+    return bad(res, 503, 'The curriculum PDF is not on the live CRM yet (it goes there with the next deploy). Nothing was sent.');
+  }
+
+  const name = String(b.name || '').trim().slice(0, 120);
+  const realName = name && !/^unknown( number)?$/i.test(name) && !/^\+?\d[\d\s-]+$/.test(name) ? name : '';
+  const cfg = await autoReply.loadConfig({ fresh: true });
+  const welcome = autoReply.fill(cfg.callWelcomeText || autoReply.DEFAULTS.callWelcomeText, {
+    name: realName ? autoReply.firstName({ name: realName }) : '',
+    course: 'InternX-AI',
+  });
+
+  const chat = await Chat().findOneAndUpdate(
+    { userId: req.admin._id, customerNumber: number },
+    {
+      $setOnInsert: { userName: fullName(req.admin), department: departmentOfRole(req.admin.role) },
+      $set: { deviceId: device.deviceId },
+    },
+    { upsert: true, new: true }
+  ).lean();
+  if (!chat.customerName && realName) await Chat().updateOne({ _id: chat._id }, { $set: { customerName: realName } });
+
+  const ping = () => emit(chat.userId, 'whatsapp:message', { chatId: String(chat._id), userId: String(chat.userId), department: chat.department });
+  let first;
+  let second;
+  try {
+    first = await sendWhatsAppMessage({ req, chat, device, text: welcome });
+    ping();
+    if (first.status === 'failed') return bad(res, 502, `Message not sent: ${first.error}`);
+    second = await sendWhatsAppMessage({ req, chat, device, text: '', remote: { path: CURRICULUM_PATH, url: pdfUrl, mime: 'application/pdf', fileName: CURRICULUM_NAME, size } });
+    ping();
+  } catch (e) {
+    if (e.status) return bad(res, e.status, e.message);
+    throw e;
+  }
+  require('../../../../services/marketing/chatLeads').pingChat('whatsapp', number, second.preview);
+  if (second.status === 'failed') return bad(res, 502, `The welcome message went, but the PDF did not: ${second.error}`);
+  if (b.leadId && mongoose.isValidObjectId(b.leadId)) {
+    await mongoose
+      .model('Lead')
+      .updateOne({ _id: b.leadId, waCurriculumAt: { $exists: false } }, { $set: { waCurriculumAt: new Date() } })
+      .catch(() => null);
+  }
+  return ok(res, { chatId: chat._id, number });
 }
 
 // ---------------------------------------------------------------- admin
@@ -567,6 +663,9 @@ module.exports = {
   openChat,
   chatMessages,
   markRead,
+  markUnread,
+  markAllRead,
+  sendCurriculum,
   send,
   getAccess,
   saveAccess,

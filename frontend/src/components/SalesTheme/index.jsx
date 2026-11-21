@@ -31,9 +31,13 @@ const SALES_TOKENS = {
 };
 
 export default function SalesTheme({ children }) {
+  // The Sales design look is the DEFAULT palette's look. Dark mode and the other colour palettes
+  // (green / purple / orange) keep the app's own palette — the Sales v3 screens follow them through
+  // pages/SalesV3/sv3-theme.css. Before, only dark skipped it, so a chosen palette never reached Sales.
   let isDark = false;
   try {
-    isDark = !!useTheme()?.isDark;
+    const t = useTheme();
+    isDark = !!t?.isDark || (t?.palette && t.palette !== "blueLight");
   } catch (e) {
     isDark = false;
   }

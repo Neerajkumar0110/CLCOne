@@ -5,6 +5,7 @@ import { request } from "@/request";
 import { dialContact } from "@/pages/Calling/shared";
 import { initials, talk, fmtWhen, fmtDay, stageBadge, IST } from "../ui";
 import FollowUp from "./FollowUp";
+import { cleanResponses } from "@/utils/callResponse";
 
 // v3 design — S3LeadPopup: everything about one number. Opens from any
 // number / name anywhere in Sales One Place. Data: GET lead/full-detail?id&phone
@@ -62,7 +63,7 @@ export default function LeadPopup({ lead: row, phone: phoneProp, onClose, onAgen
   const t = data?.totals;
   const calls = data?.calls || [];
   const callbacks = data?.callbacks || [];
-  const responses = Array.isArray(l.callHistory) ? [...l.callHistory].reverse() : [];
+  const responses = cleanResponses(Array.isArray(l.callHistory) ? [...l.callHistory].reverse() : []);
   const stages = Array.isArray(l.stageHistory) ? [...l.stageHistory].sort((a, b) => new Date(a.at) - new Date(b.at)) : [];
   const name = l.name || data?.phone || phone || "Lead";
   const shownPhone = l.phone || data?.phone || phone || "";

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Popconfirm, Spin, message as toast } from 'antd';
 import { PlusOutlined, ReloadOutlined, DisconnectOutlined, MessageOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import { getSocket } from '@/socket';
@@ -120,11 +121,16 @@ function ConnectPanel({ device, configured, onChanged }) {
   );
 }
 
-export default function Inbox({ initialDevice, configured }) {
+// barSlot: a DOM node (the header pop-up's title row) to show the
+// Connected / Check status / Disconnect bar in, instead of above the chats.
+export default function Inbox({ initialDevice, configured, barSlot }) {
   const [device, setDevice] = useState(initialDevice || null);
   const [chats, setChats] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [q, setQ] = useState('');
+  const [show, setShow] = useState('all'); // all | unread | read — the ⋮ menu
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newNum, setNewNum] = useState('');
   const [newName, setNewName] = useState('');
@@ -159,6 +165,44 @@ export default function Inbox({ initialDevice, configured }) {
       socket?.off('whatsapp:device', onDevice);
     };
   }, [loadChats]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const off = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenuOpen(false);
+    const esc = (e) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('mousedown', off);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', off);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [menuOpen]);
+
+  const unreadChats = chats.filter((c) => c.unread > 0).length;
+  const shown = show === 'unread' ? chats.filter((c) => c.unread > 0) : show === 'read' ? chats.filter((c) => !c.unread) : chats;
+
+  const pick = (id) => {
+    setActiveId(id);
+    // the thread marks it read on the server; clear the badge now
+    setChats((list) => list.map((c) => (String(c._id) === String(id) ? { ...c, unread: 0 } : c)));
+  };
+
+  const toggleRead = async (chat, makeUnread) => {
+    setChats((list) => list.map((c) => (c._id === chat._id ? { ...c, unread: makeUnread ? Math.max(c.unread || 0, 1) : 0 } : c)));
+    // WhatsApp closes a chat you mark unread, so it stays unread
+    if (makeUnread && String(activeId) === String(chat._id)) setActiveId(null);
+    const res = makeUnread ? await waApi.markUnread(chat._id) : await waApi.markRead(chat._id);
+    if (!res?.success) toast.error(res?.message || 'Could not update the chat.');
+    loadChats();
+  };
+
+  const readAll = async () => {
+    setMenuOpen(false);
+    setChats((list) => list.map((c) => ({ ...c, unread: 0 })));
+    const res = await waApi.markAllRead();
+    if (!res?.success) toast.error(res?.message || 'Could not mark the chats read.');
+    loadChats();
+  };
 
   // Check the live status once on open — the phone may have been unlinked.
   useEffect(() => {
@@ -212,15 +256,15 @@ export default function Inbox({ initialDevice, configured }) {
     );
   }
 
-  return (
-    <>
-      <div className="wa-bar">
+  const sm = barSlot ? 'sm' : undefined;
+  const bar = (
+      <div className={barSlot ? 'wa-bar wa-bar-head' : 'wa-bar'}>
         <div className="wa-row">
           <span className="wa-badge tone-green">Connected</span>
           <span className="wa-strong">{prettyNumber(device.phoneNumber)}</span>
         </div>
         <div className="wa-row">
-          <Btn icon={<ReloadOutlined />} loading={checking} onClick={recheck}>
+          <Btn size={sm} icon={<ReloadOutlined />} loading={checking} onClick={recheck}>
             Check status
           </Btn>
           <Popconfirm
@@ -230,12 +274,17 @@ export default function Inbox({ initialDevice, configured }) {
             okButtonProps={{ danger: true }}
             onConfirm={removeDevice}
           >
-            <Btn variant="danger" icon={<DisconnectOutlined />}>
+            <Btn size={sm} variant="danger" icon={<DisconnectOutlined />}>
               Disconnect
             </Btn>
           </Popconfirm>
         </div>
       </div>
+  );
+
+  return (
+    <>
+      {barSlot ? createPortal(bar, barSlot) : bar}
 
       <div className="wa-split">
         <div className="wa-col-list">
@@ -244,8 +293,68 @@ export default function Inbox({ initialDevice, configured }) {
             <Btn variant="primary" icon={<PlusOutlined />} onClick={() => setNewOpen(true)} aria-label="New chat">
               New
             </Btn>
+            <div className="wa-more" ref={menuRef}>
+              <button
+                type="button"
+                className={`wa-more-btn ${show !== 'all' ? 'on' : ''}`}
+                aria-label="Chat filters"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+                {show !== 'all' && <span className="wa-more-dot" aria-hidden="true" />}
+              </button>
+              {menuOpen && (
+                <div className="wa-menu" role="menu">
+                  <div className="wa-menu-label">Show</div>
+                  {[
+                    ['all', 'All chats', chats.length],
+                    ['unread', 'Unread', unreadChats],
+                    ['read', 'Read', chats.length - unreadChats],
+                  ].map(([k, label, n]) => (
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={show === k}
+                      key={k}
+                      className={show === k ? 'on' : ''}
+                      onClick={() => {
+                        setShow(k);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <span>{label}</span>
+                      <span className="wa-menu-count">{n}</span>
+                    </button>
+                  ))}
+                  <div className="wa-menu-sep" />
+                  <button type="button" role="menuitem" disabled={!unreadChats} onClick={readAll}>
+                    Mark all as read
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <ChatList chats={chats} activeId={activeId} onPick={setActiveId} empty="No chats yet. Press New to message a customer." />
+          {show !== 'all' && (
+            <div className="wa-show-chip">
+              {show === 'unread' ? `Unread chats (${unreadChats})` : `Read chats (${chats.length - unreadChats})`}
+              <button type="button" aria-label="Show all chats" onClick={() => setShow('all')}>
+                ×
+              </button>
+            </div>
+          )}
+          <ChatList
+            chats={shown}
+            activeId={activeId}
+            onPick={pick}
+            onToggleRead={toggleRead}
+            empty={show === 'unread' ? 'No unread chats.' : show === 'read' ? 'No read chats.' : 'No chats yet. Press New to message a customer.'}
+          />
         </div>
         <div className="wa-col-thread">
           {activeId ? (

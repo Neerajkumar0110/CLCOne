@@ -289,3 +289,15 @@
   color: #e1306c;
   background: rgba(225, 48, 108, 0.08);
 }
+
+/* WhatsApp in its own colours: solid WhatsApp-green button, white logo;
+   the unread count stays red */
+.cc-btn.cc-whatsapp {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2fe07a 0%, #1ebe5d 100%);
+}
+.cc-btn.cc-whatsapp:hover,
+.cc-btn.cc-whatsapp.is-open,
+.cc-btn.cc-whatsapp:focus-visible {
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+}

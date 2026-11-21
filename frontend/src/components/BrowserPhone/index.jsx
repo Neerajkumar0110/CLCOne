@@ -104,7 +104,9 @@ export default function BrowserPhone() {
         // answered with its default constraints (audio + video), which fails
         // on a laptop without a usable camera — the call just rang out
         // ("No Answer") even though the phone was registered.
-        const sdk = new window.Plivo({ debug: "ERROR", permOnClick: true, enableTracking: false, closeProtection: true, audioConstraints: true });
+        // debug OFF: the SDK logs bare "undefined" lines at ERROR level; every failure we care about
+        // (onLoginFailed, onCallFailed, onMediaPermission, onConnectionChange) is handled and reported below.
+        const sdk = new window.Plivo({ debug: "OFF", permOnClick: true, enableTracking: false, closeProtection: true, audioConstraints: true });
         sdkRef.current = sdk;
         const rebuild = () => {
           if (resettingRef.current) return;

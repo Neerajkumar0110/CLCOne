@@ -64,6 +64,7 @@ export default function AutoReply() {
       anyAdChat: cfg.anyAdChat,
       welcomeText: cfg.welcomeText,
       curriculumText: cfg.curriculumText,
+      callWelcomeText: cfg.callWelcomeText,
       defaultCurriculumUrl: cfg.defaultCurriculumUrl,
       curriculumLinks: cfg.curriculumLinks,
       sendToFormOnly: cfg.sendToFormOnly,
@@ -149,6 +150,14 @@ export default function AutoReply() {
           </details>
           <span style={label}>Message — keep <code>{'{curriculumLink}'}</code>; also <code>{'{name}'}</code>, <code>{'{program}'}</code>, <code>{'{callTime}'}</code></span>
           <textarea style={{ ...input, minHeight: 130, resize: 'vertical' }} value={cfg.curriculumText} onChange={(e) => set({ curriculumText: e.target.value })} />
+          <span style={{ ...label, marginTop: 12 }}>
+            Call screen welcome — the “Send curriculum on WhatsApp” button sends this from the caller’s own WhatsApp, then the InternX-AI curriculum PDF. Use <code>{'{name}'}</code> for the customer’s name
+          </span>
+          <textarea
+            style={{ ...input, minHeight: 100, resize: 'vertical' }}
+            value={cfg.callWelcomeText || defaults?.callWelcomeText || ''}
+            onChange={(e) => set({ callWelcomeText: e.target.value })}
+          />
           <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, marginTop: 10, color: 'var(--hub-muted, #64748b)' }}>
             <input type="checkbox" checked={!!cfg.sendToFormOnly} onChange={(e) => set({ sendToFormOnly: e.target.checked })} />
             Also WhatsApp the curriculum to people who filled the form from an ad / website link (no chat yet) — only if they ticked the contact consent.

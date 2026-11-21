@@ -766,3 +766,49 @@
 :root[data-theme='dark'] .incall-callback-echo {
   color: #6ee7b7;
 }
+
+/* "Send curriculum on WhatsApp" (SendCurriculumButton.jsx) */
+.incall-btn-wa {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid #25d366;
+  background: #ffffff;
+  color: #128c4b;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.incall-btn-wa .anticon { font-size: 16px; color: #25d366; }
+.incall-btn-wa:hover:not(:disabled) { background: rgba(37, 211, 102, 0.08); }
+.incall-btn-wa.is-sent { background: rgba(37, 211, 102, 0.1); }
+.incall-btn-wa:disabled { opacity: 0.6; cursor: default; }
+.incall-btn-spin {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(18, 140, 75, 0.25); border-top-color: #128c4b;
+  animation: incall-wa-spin 0.7s linear infinite;
+}
+@keyframes incall-wa-spin { to { transform: rotate(360deg); } }
+
+.incall-wa { position: relative; }
+.incall-wa-caret { font-size: 10px !important; margin-left: 2px; color: #128c4b !important; }
+.incall-wa-menu {
+  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 50; width: 320px; padding: 6px;
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+}
+.incall-wa-menu-head { padding: 6px 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.incall-wa-menu > button {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: #0f172a; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.incall-wa-menu > button:hover { background: rgba(37, 211, 102, 0.1); }
+.incall-wa-menu > button .anticon { color: #dc2626; font-size: 16px; }
+.incall-wa-menu > button span { flex: 1; }
+.incall-wa-menu > button em { font-style: normal; font-size: 11px; font-weight: 700; color: #128c4b; background: #dcfce7; padding: 2px 8px; border-radius: 999px; }
+.incall-wa-menu-empty { padding: 10px; font-size: 13px; color: #64748b; }
+.incall-wa-menu-foot { margin-top: 4px; padding: 8px 10px 4px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; }

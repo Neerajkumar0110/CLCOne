@@ -432,6 +432,10 @@ export default function Team({ ownOnly }) {
   const byKey = new Map((att.data?.days || []).map((d) => [d.dayKey, d]));
   const dayKeys = Array.from({ length: dim }, (_, i) => m0.add(i, "day").format("YYYY-MM-DD"));
   const passes = (u) => (!f.attendance || (u && u.status === f.attendance)) && (!f.late || (u && u.lateMin > lateAfter));
+  // Attendance / Late filters used to only fade non-matching days, so the grid looked unfiltered:
+  // keep only the people with at least one matching day (the days that do not match stay faded).
+  const dayFilter = !!(f.attendance || f.late);
+  const calPeople = dayFilter ? people.filter((p) => dayKeys.some((k) => { const u = byKey.get(k)?.people?.find((x) => x.adminId === p.adminId); return u && passes(u); })) : people;
 
   // stacked bar: leads assigned by stage (team-activity)
   const stackRows = (team.data || []).filter((u) => (!f.adminId || String(u._id) === String(f.adminId)) && u.leads?.total).map((u) => ({ id: u._id, name: u.name, by: u.leads.byStage || {} }));
@@ -509,12 +513,12 @@ export default function Team({ ownOnly }) {
               <div><h3>{m0.format("MMMM")} · day by day</h3><p>Hover a day for login / logout</p></div>
               <div className="legend"><span><i className="dot P" />Full</span><span><i className="dot H" />Half</span><span><i className="dot L" />Late</span><span><i className="dot A" />Absent</span><span><i className="dot V" />Leave</span><span><i className="dot S" />Sunday / ahead</span></div>
             </div>
-            {att.error ? <Fail onRetry={att.reload} /> : att.loading ? <Skel h={220} /> : !people.length ? <Empty /> : (
+            {att.error ? <Fail onRetry={att.reload} /> : att.loading ? <Skel h={220} /> : !calPeople.length ? <Empty text={dayFilter ? "Nobody matches these filters this month." : undefined} /> : (
               <div style={{ overflowX: "auto" }}>
                 <table>
-                  <thead><tr><th className="n" scope="col">Person</th>{dayKeys.map((k) => <th key={k} scope="col">{Number(k.slice(8))}</th>)}</tr></thead>
+                  <thead><tr><th className="n" scope="col">Person</th>{dayKeys.map((k) => <th key={k} scope="col" className={k === todayKey() ? "today" : undefined}>{Number(k.slice(8))}</th>)}</tr></thead>
                   <tbody>
-                    {people.map((p) => (
+                    {calPeople.map((p) => (
                       <tr key={p.adminId}>
                         <th className="n" scope="row"><AgentLnk adminId={p.adminId} name={p.name} /></th>
                         {dayKeys.map((k) => {
@@ -522,7 +526,8 @@ export default function Team({ ownOnly }) {
                           const u = d?.people?.find((x) => x.adminId === p.adminId);
                           const c = cellK(u, lateAfter);
                           const tip = u ? `${p.name} · ${dayjs(k).format("D MMM")} · ${ATT[u.status] || u.status}${u.loginAt ? ` · login ${clock(u.loginAt)}` : ""}${u.logoutAt ? ` → logout ${clock(u.logoutAt)}` : ""}${u.lateMin > lateAfter ? ` · late ${hm(u.lateMin)}` : ""}${d?.holiday ? ` · ${d.holiday}` : ""}` : dayjs(k).format("D MMM");
-                          return <td key={k} className={c} title={tip} style={c !== "S" && !passes(u) ? { opacity: 0.2 } : undefined} />;
+                          // The letter makes the status readable without telling colours apart (Late vs Leave); today is ringed.
+                          return <td key={k} className={`${c}${k === todayKey() ? " today" : ""}`} title={tip} aria-label={tip} style={c !== "S" && !passes(u) ? { opacity: 0.2 } : undefined}>{c === "S" ? "" : c === "V" ? "Lv" : c}</td>;
                         })}
                       </tr>
                     ))}

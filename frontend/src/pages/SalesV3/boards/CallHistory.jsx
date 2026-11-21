@@ -10,6 +10,7 @@ import { Head, Pager, Empty, Fail, nf, talk, fmtWhen } from "../ui";
 import { LeadLnk, AgentLnk } from "../popups/Popups";
 import { CallerDetail, SendProspect } from "../popups/CallPopups";
 import { RecordingModal } from "./Recordings";
+import { codeText } from "@/utils/callResponse";
 
 // v3 design — S3CallHistory. Data: GET calling/history (q, campaign, agent, status,
 // disposition, direction, from, to, page, items). Play = C7 Recording
@@ -27,6 +28,19 @@ const RESULT = {
   dialing: ["Dialing", "b bl"],
   "not-placed": ["Not placed", "b rd"],
 };
+// The result a person should read, by the same rule as My Day / Auto Dialer (sales360 CONNECTED):
+// "Connected" only when the customer answered, the user's own leg answered and there was talk time.
+// A call the customer answered but no user ever picked up is "Not picked", not Connected, and busy /
+// no-answer stored as "failed" + what the provider said read as Busy / Not answered.
+function resultOf(r) {
+  const said = String(r.providerRaw?.CallStatus || "").toLowerCase();
+  if (["connected", "completed"].includes(r.status)) {
+    if (r.missedByAgent || r.agentLegAnswered === false || !(r.duration > 0)) return ["Not picked", "b or", "The customer answered but no user picked the call up"];
+    return RESULT.connected;
+  }
+  if (r.status === "failed" && RESULT[said]) return RESULT[said];
+  return RESULT[r.status] || [r.status || "—", "b gy"];
+}
 const RANGES = [
   ["today", "Today", () => dayjs().startOf("day")],
   ["7d", "7 days", () => dayjs().subtract(6, "day").startOf("day")],
@@ -147,9 +161,9 @@ export default function CallHistory() {
           <tbody>
             {d.loading && [0, 1, 2, 3, 4].map((i) => <tr key={i}><td colSpan={9}><div className="skel" style={{ height: 22 }} /></td></tr>)}
             {!d.loading && d.rows.map((r) => {
-              const res = RESULT[r.status] || [r.status || "—", "b gy"];
+              const res = resultOf(r);
               const rec = r.recording?.status === "available";
-              const resp = [dispLabel(r.disposition), r.notes].filter(Boolean).join(" · ");
+              const resp = [dispLabel(r.disposition), codeText(r.notes)].filter(Boolean).join(" · ");
               return (
                 <tr key={r._id}>
                   <td><button type="button" className="play" disabled={!rec} aria-label="Play recording" title={rec ? "Play recording" : r.recording?.status === "processing" ? "Recording processing" : "No recording"} onClick={() => setModal({ kind: "rec", row: recRow(r) })}><PlayIcon /></button></td>
@@ -157,7 +171,7 @@ export default function CallHistory() {
                   <td><LeadLnk phone={r.phone} ink>{r.contactName || "—"}</LeadLnk><div><LeadLnk phone={r.phone} /></div></td>
                   <td>{r.agentName ? <AgentLnk name={r.agentName} /> : "—"}{r.ownerOnly && <div className="mut" style={{ fontSize: 11.5 }}>not picked · their lead</div>}</td>
                   <td>{typeOf(r)}</td>
-                  <td><span className={res[1]}>{res[0]}</span>{r.missedByAgent && <> <span className="b rd" title="Routed to this agent — never picked up">never picked</span></>}</td>
+                  <td><span className={res[1]} title={res[2]}>{res[0]}</span></td>
                   <td className="num">{r.duration ? talk(r.duration) : "—"}</td>
                   <td style={{ whiteSpace: "normal", maxWidth: 240 }} title={resp}>{resp || "—"}</td>
                   <td>

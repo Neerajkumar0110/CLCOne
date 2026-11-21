@@ -28,6 +28,11 @@ const DEFAULTS = {
     'Thank you{name}! ✅ We have received your details.\n\n' +
     '📚 Here is the curriculum{program}:\n{curriculumLink}\n\n' +
     'Our counsellor will call you{callTime} to guide you on the next steps. Feel free to reply here with any question.',
+  // call screen "Send curriculum on WhatsApp" (from the caller's own number):
+  // this short welcome first, then the InternX-AI curriculum PDF
+  callWelcomeText:
+    'Hi{name}! 👋 Thank you for your time on the call today.\n\n' +
+    '📚 Sharing the complete *InternX-AI curriculum* (Foundation & Elite plans) with you below. Have a look, and feel free to reply here with any question.',
   defaultCurriculumUrl: '',
   curriculumLinks: [], // [{ program, url }] — program names as on the enquiry form
   // a phone number from the form with no WhatsApp chat yet: message it from the business number too (they ticked consent)
@@ -58,6 +63,7 @@ async function saveConfig(input, by) {
     anyAdChat: input.anyAdChat != null ? !!input.anyAdChat : cur.anyAdChat,
     welcomeText: input.welcomeText != null ? s(input.welcomeText, 3000) : cur.welcomeText,
     curriculumText: input.curriculumText != null ? s(input.curriculumText, 3000) : cur.curriculumText,
+    callWelcomeText: input.callWelcomeText != null ? s(input.callWelcomeText, 3000) : cur.callWelcomeText,
     defaultCurriculumUrl: input.defaultCurriculumUrl != null ? url(input.defaultCurriculumUrl) : cur.defaultCurriculumUrl,
     curriculumLinks: Array.isArray(input.curriculumLinks)
       ? input.curriculumLinks.map((l) => ({ program: s(l && l.program, 120).trim(), url: url(l && l.url) })).filter((l) => l.program && l.url).slice(0, 40)
@@ -68,13 +74,18 @@ async function saveConfig(input, by) {
   };
   if (!next.welcomeText.includes('{formLink}')) throw new Error('The welcome message must contain {formLink} — that is where the form link goes.');
   if (!next.curriculumText.includes('{curriculumLink}')) throw new Error('The curriculum message must contain {curriculumLink}.');
+  if (!String(next.callWelcomeText || '').trim()) next.callWelcomeText = DEFAULTS.callWelcomeText;
   await mongoose.model('Setting').updateOne({ ...KEY }, { $set: { settingValue: next, removed: false, valueType: 'Object', isPrivate: true } }, { upsert: true });
   cache = { at: 0, cfg: null };
   return loadConfig({ fresh: true });
 }
 
+// exact program name first, then one name inside the other ("Data Science" ↔
+// "Data Science & AI"), else the default link
 function curriculumFor(cfg, program) {
-  const hit = program && (cfg.curriculumLinks || []).find((l) => l.program.toLowerCase() === String(program).toLowerCase());
+  const p = String(program || '').trim().toLowerCase();
+  const links = cfg.curriculumLinks || [];
+  const hit = p && (links.find((l) => l.program.toLowerCase() === p) || links.find((l) => p.includes(l.program.toLowerCase()) || l.program.toLowerCase().includes(p)));
   return (hit && hit.url) || cfg.defaultCurriculumUrl || '';
 }
 
@@ -193,4 +204,4 @@ async function onEnquiry(lead, { program, callTime, consent } = {}) {
   }
 }
 
-module.exports = { loadConfig, saveConfig, curriculumFor, onIncoming, onEnquiry, DEFAULTS, fill, formLink };
+module.exports = { loadConfig, saveConfig, curriculumFor, onIncoming, onEnquiry, DEFAULTS, fill, formLink, firstName };

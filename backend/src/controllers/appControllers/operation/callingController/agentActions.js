@@ -455,10 +455,16 @@ const logDetails = async (req, res) => {
       });
     }
 
-    if (dispCode || notes) {
+    // No disposition picked: say "Connected" only when the call really connected
+    // (same rule as Sales 360 CONNECTED), and never store the provider's raw
+    // hangup code (USER_BUSY …) as the remark — a busy line used to read as a
+    // connected call with "USER_BUSY" beside it.
+    const reallyConnected = !!(rec && rec.answeredAt && rec.agentLegAnswered !== false && rec.duration > 0);
+    const cleanNotes = notes && /^[A-Z][A-Z_]+$/.test(String(notes).trim()) ? undefined : notes;
+    if (dispCode || cleanNotes) {
       crmLead.callHistory.push({
-        outcome: disp ? disp.label : dispCode || 'Connected',
-        notes: notes || undefined,
+        outcome: disp ? disp.label : dispCode || (reallyConnected ? 'Connected' : 'Not connected'),
+        notes: cleanNotes || undefined,
         byName: actorName(req),
         at: new Date(),
       });

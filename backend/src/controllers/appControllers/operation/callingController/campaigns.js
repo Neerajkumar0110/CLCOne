@@ -40,7 +40,9 @@ const list = async (req, res) => {
       .sort({ created: -1 })
       .skip((page - 1) * items)
       .limit(items)
-      .populate('agents', 'name surname')
+      // Admin lives in coreDb, CallCampaign in operationDb: hand populate the model itself,
+      // or it looks for 'Admin' on the campaign's connection (MissingSchemaError).
+      .populate({ path: 'agents', select: 'name surname', model: mongoose.model('Admin') })
       .lean(),
     CallCampaign.countDocuments(filter),
   ]);
@@ -56,7 +58,7 @@ const list = async (req, res) => {
 const read = async (req, res) => {
   const CallCampaign = mongoose.model('CallCampaign');
   const doc = await CallCampaign.findOne({ _id: req.params.id, removed: false })
-    .populate('agents', 'name surname email role')
+    .populate({ path: 'agents', select: 'name surname email role', model: mongoose.model('Admin') })
     .lean();
   if (!doc) return res.status(404).json({ success: false, result: null, message: 'Campaign not found' });
   return res.status(200).json({ success: true, result: doc, message: 'ok' });

@@ -93,7 +93,8 @@ function Demos() {
 }
 
 // ── Candidates ─────────────────────────────────────────────────────────
-function Candidates() {
+// A sales agent sees only the candidates they own (Counsellor = them); managers see everyone.
+function Candidates({ ownOnly = false }) {
   const subs = subStatusesFor("Enrolled") || [];
   const BL = { q: "", sub: "", owner: "" };
   const [draft, setDraft] = useState(BL);
@@ -104,15 +105,18 @@ function Candidates() {
   const [owners, setOwners] = useState([]);
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    request.listAll({ entity: "admin" }).then((r) => setOwners(((r && r.result) || []).filter((a) => a.enabled !== false && a.role !== "Student" && a.role !== "Teacher")));
-  }, []);
+    // admin/list (there is no admin/listAll route — it showed "Api url doesn't exist"); only managers pick a counsellor.
+    if (ownOnly) return;
+    request.list({ entity: "admin", options: { items: 500 } }).then((r) => setOwners(((r && r.result) || []).filter((a) => a.enabled !== false && a.role !== "Student" && a.role !== "Teacher")));
+  }, [ownOnly]);
   useEffect(() => {
     let live = true;
     setD((x) => ({ ...x, loading: true, error: false }));
     const p = new URLSearchParams({ stage: "Enrolled", page: String(page), items: String(per), pool: "all" });
     if (f.q) p.set("q", f.q);
     if (f.sub) p.set("subStatus", f.sub);
-    if (f.owner) p.set("assignedUser", f.owner);
+    if (ownOnly) p.set("teamView", "mine");
+    else if (f.owner) p.set("assignedUser", f.owner);
     request.get({ entity: `lead/by-stage?${p}` }).then((r) => {
       if (!live) return;
       setD(r?.success ? { rows: r.result || [], count: r.pagination?.count || 0, pages: r.pagination?.pages || 1, loading: false, error: false } : { rows: [], count: 0, pages: 1, loading: false, error: true });
@@ -120,7 +124,7 @@ function Candidates() {
     return () => {
       live = false;
     };
-  }, [f, page, per, tick]);
+  }, [f, page, per, tick, ownOnly]);
   const apply = (n) => {
     setF(n);
     setDraft(n);
@@ -135,9 +139,9 @@ function Candidates() {
           <label className="fld">Status
             <select className="sel" value={draft.sub} onChange={(e) => setDraft({ ...draft, sub: e.target.value })}><option value="">All</option>{subs.map((s) => <option key={s}>{s}</option>)}</select>
           </label>
-          <label className="fld">Counsellor
+          {!ownOnly && <label className="fld">Counsellor
             <select className="sel" value={draft.owner} onChange={(e) => setDraft({ ...draft, owner: e.target.value })}><option value="">All</option>{owners.map((a) => <option key={a._id} value={a._id}>{name(a)}</option>)}</select>
-          </label>
+          </label>}
         </div>
         <div className="factions"><span className="mut" style={{ fontSize: 12.5 }}>{d.loading ? "Loading…" : `${nf(d.count)} candidates`}</span><div className="row"><button type="button" className="btn g" onClick={() => apply(BL)}>Reset</button><button type="button" className="btn p" onClick={() => apply(draft)}>Apply</button></div></div>
       </section>
@@ -159,7 +163,7 @@ function Candidates() {
         </table>
       </div>
       {!d.loading && d.error && <Fail onRetry={() => setTick((x) => x + 1)} />}
-      {!d.loading && !d.error && !d.rows.length && <Empty />}
+      {!d.loading && !d.error && !d.rows.length && (ownOnly ? <Empty text="No candidates in your name yet." sub={<span>A candidate shows here once you are its counsellor (the lead owner) when it is enrolled.</span>} /> : <Empty />)}
       {d.count > 0 && <Pager page={page} pages={d.pages} count={d.count} per={per} pers={[10, 20, 50]} onPer={(n) => { setPer(n); setPage(1); }} onPage={setPage} noun="candidates" />}
     </>
   );
@@ -470,7 +474,7 @@ function Campaigns({ modal, setModal }) {
   );
 }
 
-export default function More({ k, go, keys }) {
+export default function More({ k, go, keys, ownOnly = false }) {
   const [modal, setModal] = useState(null);
   const meta = useCallingMeta();
   const canManage = meta.tier === "admin" || meta.tier === "manager";
@@ -487,7 +491,7 @@ export default function More({ k, go, keys }) {
         </div>
       )}
       {k === "demos" && <Demos />}
-      {k === "candidates" && <Candidates />}
+      {k === "candidates" && <Candidates ownOnly={ownOnly} />}
       {k === "callsdash" && <CallsDash />}
       {k === "campaigns" && <Campaigns modal={modal} setModal={setModal} />}
     </>

@@ -25,6 +25,13 @@ const schema = new mongoose.Schema(
     connectedAt: { type: Date },
     lastCheckedAt: { type: Date },
     lastError: { type: String },
+    // WhatsApp hidden id (@lid) → phone number, from the history the phone sends
+    // when the number is linked (services/whatsapp/historySync.js)
+    lidMap: { type: Map, of: String, default: undefined },
+    // phone number (or @lid id) → the contact's WhatsApp name ("push name"). The
+    // phone sends these in their own PUSH_NAME history packet, apart from the chats.
+    nameMap: { type: Map, of: String, default: undefined },
+    historyImportedAt: { type: Date },
   },
   { timestamps: true }
 );

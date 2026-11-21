@@ -39,6 +39,13 @@ const routerApp = (entity, controller) => {
     router.route(`/${entity}/my-contacts`).get(catchErrors(controller['myContacts']));
     router.route(`/${entity}/assign-owner`).post(catchErrors(controller['assignOwner']));
     router.route(`/${entity}/full-detail`).get(catchErrors(controller['fullDetail']));
+    // Marketing › Capture Form (Overview / All Leads / Sources / Form Builder)
+    // — leadController/insights.js + captureForm.js
+    router.route(`/${entity}/insights`).get(catchErrors(controller['insights']));
+    router.route(`/${entity}/insights/list`).get(catchErrors(controller['insightsList']));
+    router.route(`/${entity}/insights/export`).get(catchErrors(controller['insightsExport']));
+    router.route(`/${entity}/insights/note`).post(catchErrors(controller['insightsNote']));
+    router.route(`/${entity}/capture-form`).get(catchErrors(controller['captureFormGet'])).put(catchErrors(controller['captureFormSave']));
   }
 
   if (entity === 'team') {

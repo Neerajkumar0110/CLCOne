@@ -11,6 +11,12 @@ const fieldSchema = new mongoose.Schema(
     enabled: { type: Boolean, default: false },
     required: { type: Boolean, default: false },
     sortOrder: { type: Number, default: 0 },
+    // Form Builder (Marketing › Capture Form): the block of the form the field
+    // sits in, its own choices (Dropdown) and placeholder. Fields added with
+    // "+ Add field" have keys starting custom_.
+    section: { type: String, enum: ['personal', 'lead', 'additional'], default: 'additional' },
+    options: { type: [String], default: undefined },
+    placeholder: String,
   },
   { _id: false }
 );
@@ -34,6 +40,12 @@ const schema = new mongoose.Schema({
     type: [fieldSchema],
     default: [],
   },
+
+  // Hosted page / embed copy, edited in the Form Builder.
+  headline: String,
+  subtext: String,
+  buttonText: String,
+  thankYouMessage: String,
 
   // Only relevant when platform === 'Facebook Ads'.
   metaFormId: String,

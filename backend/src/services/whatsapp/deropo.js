@@ -120,4 +120,18 @@ async function sendText({ deviceId, number, message }) {
   return { providerMessageId: data.message_id || data.id || data.messageId || null };
 }
 
-module.exports = { configured, createDevice, getQrImage, getStatus, sendText, normaliseNumber, normaliseStatus, DeropoError };
+// Photo / document / audio (DeroPo REST docs, POST /api/send):
+//   { number, type: 'image', message: <caption>, variables: { imageUrl } }
+//   { number, type: 'document', message, variables: { documentUrl, fileName } }
+//   { number, type: 'audio', message, variables: { audioUrl } }
+// The URL must be reachable from the internet — DeroPo downloads it.
+async function sendMedia({ deviceId, number, type, url, caption, fileName }) {
+  const variables = type === 'image' ? { imageUrl: url } : type === 'audio' ? { audioUrl: url } : { documentUrl: url, fileName: fileName || 'file' };
+  const json = await call('POST', '/api/send', {
+    body: { device_id: deviceId, number: normaliseNumber(number), type, message: caption || '', variables },
+  });
+  const data = json.data || json;
+  return { providerMessageId: data.message_id || data.id || data.messageId || null };
+}
+
+module.exports = { configured, createDevice, getQrImage, getStatus, sendText, sendMedia, normaliseNumber, normaliseStatus, DeropoError };

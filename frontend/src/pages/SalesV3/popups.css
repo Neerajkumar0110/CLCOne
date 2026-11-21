@@ -15,10 +15,10 @@
 .sv3 .chp.st { background: #e8eefd; color: #1d4ed8; border-color: #c7d7fb; }
 .sv3 .bdy { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
 .sv3 .tls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-.sv3 .tl { display: flex; gap: 10px; align-items: center; background: #f5f7fa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
-.sv3 .tl .ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
-.sv3 .tl b { display: block; font: 700 18px "Space Grotesk", Inter, sans-serif; }
-.sv3 .tl span { font-size: 12px; color: #5b6b79; }
+.sv3 .tl:not(.b) { display: flex; gap: 10px; align-items: center; background: #f5f7fa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+.sv3 .tl:not(.b) .ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+.sv3 .tl:not(.b) b { display: block; font: 700 18px "Space Grotesk", Inter, sans-serif; }
+.sv3 .tl:not(.b) span { font-size: 12px; color: #5b6b79; }
 .sv3 .gbox { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; }
 .sv3 .gbox h4 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sv3 .cbars { display: flex; align-items: flex-end; gap: 10px; height: 120px; border-bottom: 1px solid #cfd8e1; padding: 0 4px; }

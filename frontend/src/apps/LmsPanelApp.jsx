@@ -39,6 +39,7 @@ import {
   LockOutlined,
   WalletOutlined,
   CommentOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -88,6 +89,12 @@ const StudyMaterial = lazy(() => import('@/pages/Lms/StudyMaterial'));
 const LmsCalendar = lazy(() => import('@/pages/Lms/Calendar'));
 const MyFees = lazy(() => import('@/pages/Lms/MyFees'));
 const SupportTickets = lazy(() => import('@/pages/Lms/Support'));
+// VS Code (the admin Code Editor, OpenVSCode) for learners — TEST ONLY for now
+// (user ask 2026-11-20). The server still checks the Code Editor permission on
+// every request; this list only decides who sees the menu item.
+const CodeEditor = lazy(() => import('@/pages/CodeEditor'));
+const CODE_EDITOR_TEST_EMAILS = ['qa.codelab.student@careerlabconsulting.com'];
+const CODE_EDITOR_ENTRY = ['/learn/code-editor', 'Code Editor', <CodeOutlined />, <CodeEditor />];
 // Project Manager boards (design canvas page 4, P1–P10). Each keeps the old
 // full page on a tab, so every existing teacher feature is still one click away.
 const PMDashboard = lazy(() => import('@/pages/Lms/PMBoards/Dashboard'));
@@ -480,7 +487,8 @@ export default function LmsPanelApp() {
     if (!isTeacher && isDark) setTheme('light');
   }, [isTeacher, isDark, setTheme]);
   const base = isTeacher ? '/teacher' : '/learn';
-  const nav = isTeacher ? TEACHER_NAV : STUDENT_NAV;
+  const canCodeEditor = CODE_EDITOR_TEST_EMAILS.includes(String(admin.email || '').toLowerCase());
+  const nav = useMemo(() => (isTeacher ? TEACHER_NAV : canCodeEditor ? [...STUDENT_NAV, CODE_EDITOR_ENTRY] : STUDENT_NAV), [isTeacher, canCodeEditor]);
   // A "group:" entry (Quizzes & Exams / Major / Micro) has no route of its
   // own — its 5th element carries the real, routable leaf entries, to any
   // nesting depth.
