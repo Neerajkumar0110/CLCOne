@@ -128,7 +128,9 @@ async function sendText({ deviceId, number, message }) {
 async function sendMedia({ deviceId, number, type, url, caption, fileName }) {
   const variables = type === 'image' ? { imageUrl: url } : type === 'audio' ? { audioUrl: url } : { documentUrl: url, fileName: fileName || 'file' };
   const json = await call('POST', '/api/send', {
-    body: { device_id: deviceId, number: normaliseNumber(number), type, message: caption || '', variables },
+    // DeroPo rejects an empty `message` ("Field \"message\" is required"), even for a
+    // file — with no caption, a document carries its file name, a photo a camera emoji.
+    body: { device_id: deviceId, number: normaliseNumber(number), type, message: String(caption || '').trim() || (type === 'document' ? String(fileName || 'Document').replace(/\.[a-z0-9]{1,5}$/i, '') : type === 'image' ? '📷' : '🎤'), variables },
   });
   const data = json.data || json;
   return { providerMessageId: data.message_id || data.id || data.messageId || null };

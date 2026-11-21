@@ -355,7 +355,7 @@ async function sendCurriculum(req, res) {
     first = await sendWhatsAppMessage({ req, chat, device, text: welcome });
     ping();
     if (first.status === 'failed') return bad(res, 502, `Message not sent: ${first.error}`);
-    second = await sendWhatsAppMessage({ req, chat, device, text: '', remote: { path: CURRICULUM_PATH, url: pdfUrl, mime: 'application/pdf', fileName: CURRICULUM_NAME, size } });
+    second = await sendWhatsAppMessage({ req, chat, device, text: '📚 InternX-AI Curriculum — Foundation & Elite (2026)', remote: { path: CURRICULUM_PATH, url: pdfUrl, mime: 'application/pdf', fileName: CURRICULUM_NAME, size } });
     ping();
   } catch (e) {
     if (e.status) return bad(res, e.status, e.message);
