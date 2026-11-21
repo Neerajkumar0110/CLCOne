@@ -7,7 +7,7 @@ import { WhatsAppOutlined, SearchOutlined } from '@ant-design/icons';
 // global antd modal overrides can't squash the spacing (they did 2026-11-14).
 export function WaDialog({ open, onClose, icon, title, subtitle, children, okText = 'Save', okIcon, onOk, okDisabled, loading, width = 500 }) {
   return (
-    <Modal rootClassName="wa-modal" open={open} onCancel={onClose} footer={null} title={null} width={width} centered destroyOnClose>
+    <Modal rootClassName="wa-modal" open={open} onCancel={onClose} footer={null} title={null} width={width} centered destroyOnClose zIndex={2100}>
       <div className="wa-dlg-head">
         {icon && <span className="wa-dlg-icon">{icon}</span>}
         <div>

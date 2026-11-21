@@ -268,6 +268,7 @@ export default function Inbox({ initialDevice, configured, barSlot }) {
             Check status
           </Btn>
           <Popconfirm
+            zIndex={2100} /* above the header pop-up (HubModal overlay is 2000) */
             title="Remove this WhatsApp number from the CRM?"
             description="Your chats stay. Also remove the CRM from Linked devices on your phone."
             okText="Remove"
