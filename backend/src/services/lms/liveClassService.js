@@ -2506,12 +2506,18 @@ async function listFor(admin, { scope, batchId, courseTitle, teacherName, from, 
   // perfectly-fine future 'scheduled' session, which can't be joined yet at
   // all. Without this, the card skipped straight past "still joinable,
   // right now" to "next scheduled day" the moment auto-end fired.
+  // A class that is really live beats one that is only startable: two classes
+  // of one batch in the same slot (a doubled schedule, 23 Nov 2026) used to tie
+  // at 0, the not-started one won, and the live class vanished from LIVE NOW —
+  // its Start button then failed with "another session is already live".
   const rank = (v) =>
-    ['live', 'starting'].includes(v.lifecycle) || v.canJoin || v.canStart
+    ['live', 'starting'].includes(v.lifecycle)
       ? 0
-      : ['scheduled', 'upcoming'].includes(v.lifecycle) && !hasScheduleEnded(v)
-        ? 1
-        : 2;
+      : v.canJoin || v.canStart
+        ? 0.5
+        : ['scheduled', 'upcoming'].includes(v.lifecycle) && !hasScheduleEnded(v)
+          ? 1
+          : 2;
   const best = new Map();
   for (const v of out) {
     const key = v.batchId || v.batchName || v.id;
