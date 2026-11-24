@@ -523,6 +523,15 @@ router.route('/admin/pilot/status/:sessionId').get(requireManager, catchErrors(l
 router.route('/admin/pilot/teardown').post(requireManager, catchErrors(lms.pilotTeardown));
 
 // LMS Additional Requirements — 360°, projects, engagement, QA (Figma yKjb2ncoVnPG9Eqql6zwhI)
-router.use('/growth', require('./lmsGrowthApi'));
+// full LMS rights (view + edit + delete) → treated as an LMS admin in the growth / QA screens
+router.use(
+  '/growth',
+  catchErrors(async (req, res, next) => {
+    // full LMS rights, or a Teacher (Learner Growth + QA & Releases with full rights, user ask 2026-11-24)
+    if (req.admin && (req.admin.role === 'Teacher' || (await require('../../../services/access/lmsAccess').hasLmsFull(req.admin)))) req.admin._lmsAdmin = true;
+    return next();
+  }),
+  require('./lmsGrowthApi')
+);
 
 module.exports = router;

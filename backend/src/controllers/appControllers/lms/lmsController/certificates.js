@@ -328,7 +328,9 @@ async function pdfPages(req, res) {
     const raw = fs.readFileSync(req.file.path);
     if (raw.subarray(0, 5).toString() !== '%PDF-') return bad(res, 400, 'That file is not a PDF.');
     const out = await dropPages(raw, (req.body || {}).removePages);
-    return ok(res, { total: out.total, kept: out.kept, pdf: out.bytes.toString('base64') });
+    const name = String((req.body || {}).name || '').trim().slice(0, 80);
+    const filled = await certPdf.fillUploadedPdf(out.bytes, { name: name || 'Name Surname', certificateId: 'CLC-0000-PREVIEW0', issuedOn: new Date() });
+    return ok(res, { total: out.total, kept: out.kept, template: filled.template, pdf: filled.bytes.toString('base64') });
   } catch (e) {
     return bad(res, e.status || 400, e.status ? e.message : 'This PDF could not be read.');
   } finally {
@@ -363,9 +365,12 @@ async function sendManual(req, res) {
   const title = String(b.title || '').trim().slice(0, 120) || 'Certificate of Completion';
   const type = ['Completion', 'Participation', 'Merit', 'Achievement'].includes(b.type) ? b.type : 'Completion';
 
+  const certificateId = `CLC-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const issuedOn = new Date();
   let pdf;
   let source = 'Template';
   let fileUrl;
+  let uploadTemplate = null;
   if (req.file) {
     pdf = fs.readFileSync(req.file.path);
     if (pdf.subarray(0, 5).toString() !== '%PDF-') {
@@ -381,15 +386,25 @@ async function sendManual(req, res) {
         return bad(res, 400, e.status ? e.message : 'This PDF could not be read.');
       }
     }
+    // our own Foundation / Elite certificate uploaded → print the name, ID and date on it
+    try {
+      const filled = await certPdf.fillUploadedPdf(pdf, { name, certificateId, issuedOn });
+      if (filled.template) {
+        pdf = filled.bytes;
+        uploadTemplate = filled.template;
+        fs.writeFileSync(req.file.path, pdf);
+      }
+    } catch (e) {
+      /* send it as it is */
+    }
     source = 'Upload';
     fileUrl = `/public/uploads/certificates/${path.basename(req.file.path)}`;
   } else {
     if (!course) return bad(res, 400, 'Pick the internship (its certificate template), or upload a PDF.');
-    pdf = await certPdf.renderCertificatePdf({ cert: { student: name }, course });
+    pdf = await certPdf.renderCertificatePdf({ cert: { student: name, certificateId, issuedOn }, course });
   }
 
   const base = String((lmsConfig.meeting && lmsConfig.meeting.crmBaseUrl) || '').replace(/\/+$/, '');
-  const certificateId = `CLC-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   const cert = await mongoose.model('Certificate').create({
     student: name,
     email,
@@ -397,13 +412,13 @@ async function sendManual(req, res) {
     certificateId,
     title,
     type,
-    issuedOn: new Date(),
+    issuedOn,
     status: 'Issued',
     verificationUrl: `${base}/#/verify/${certificateId}`,
     issuedBy: req.admin.name || 'Admin',
     source,
     fileUrl,
-    notes: `Sent by hand to ${email}`,
+    notes: `Sent by hand to ${email}${source === 'Upload' ? (uploadTemplate ? ` · uploaded ${uploadTemplate} certificate, name printed` : ' · uploaded PDF sent as it is') : ''}`,
   });
 
   const mailer = require('../../../../services/lms/mailer');

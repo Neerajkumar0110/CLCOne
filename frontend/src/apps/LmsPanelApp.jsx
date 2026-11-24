@@ -31,6 +31,9 @@ import {
   SunOutlined,
   ScheduleOutlined,
   AuditOutlined,
+  BugOutlined,
+  ControlOutlined,
+  FlagOutlined,
   LineChartOutlined,
   ProfileOutlined,
   ExperimentOutlined,
@@ -108,6 +111,35 @@ const PMDashboard = lazy(() => import('@/pages/Lms/PMBoards/Dashboard'));
 const PMClassHost = lazy(() => import('@/pages/Lms/PMBoards/ClassHost'));
 const PMReviews = lazy(() => import('@/pages/Lms/PMBoards/Reviews'));
 const PMAssess = lazy(() => import('@/pages/Lms/PMBoards/Assess'));
+// One "Assessments" entry for the teacher (2026-11-24): results, test attempts
+// and the question bank were three sidebar items on the same tests.
+function TeacherAssessTabs({ initial = 'results' }) {
+  const views = [
+    ['results', 'Assessments & results', <PMAssess key="r" />],
+    ['attempts', 'Test attempts', <AttemptsAdmin key="a" />],
+    ['bank', 'Question bank', <QuestionBank key="b" />],
+  ];
+  const [cur, setCur] = useState(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('view');
+      return views.some((x) => x[0] === v) ? v : initial;
+    } catch (e) {
+      return initial;
+    }
+  });
+  return (
+    <div>
+      <div className="hub-combo-bar" role="tablist" aria-label="Assessments" style={{ margin: '0 0 14px' }}>
+        {views.map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={cur === k} className={cur === k ? 'on' : ''} onClick={() => setCur(k)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {views.find((x) => x[0] === cur)[2]}
+    </div>
+  );
+}
 const PMLearner360 = lazy(() => import('@/pages/Lms/PMBoards/Learner360'));
 // LMS Additional Requirements (Figma yKjb2ncoVnPG9Eqql6zwhI)
 const GrReport = lazy(() => import('@/pages/Lms/Growth/Learner360Report'));
@@ -118,6 +150,15 @@ const GrMentorLearners = lazy(() => import('@/pages/Lms/Growth/MentorLearners'))
 const GrProjectsHub = lazy(() => import('@/pages/Lms/Growth/ProjectsHub'));
 const GrStatusFlow = lazy(() => import('@/pages/Lms/Growth/StatusFlow'));
 const GrEngagement = lazy(() => import('@/pages/Lms/Growth/EngagementAlerts'));
+// Learner Growth + QA & Releases for the teacher too, with full rights (user ask 2026-11-24)
+const GrScoring = lazy(() => import('@/pages/Lms/Growth/Scoring360'));
+const GrLookup = lazy(() => import('@/pages/Lms/Growth/Learner360Lookup'));
+const GrRules = lazy(() => import('@/pages/Lms/Growth/EngagementRules'));
+const QaPipeline = lazy(() => import('@/pages/Lms/Growth/QaPipeline'));
+const QaAccounts = lazy(() => import('@/pages/Lms/Growth/QaAccounts'));
+const QaTests = lazy(() => import('@/pages/Lms/Growth/QaTests'));
+const QaBugs = lazy(() => import('@/pages/Lms/Growth/QaBugs'));
+const QaFlags = lazy(() => import('@/pages/Lms/Growth/QaFlags'));
 const PMCurriculum = lazy(() => import('@/pages/Lms/PMBoards/Curriculum'));
 const PMCandidates = lazy(() => import('@/pages/Lms/PMBoards/Candidates'));
 const PMProjectSetup = lazy(() => import('@/pages/Lms/PMBoards/ProjectSetup'));
@@ -423,14 +464,31 @@ const TEACHER_NAV = [
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <PMDoubts />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
   ['#ASSESS'],
-  ['/teacher/assessment-dashboard', 'Assessments & results', <RocketOutlined />, <PMAssess />],
+  ['/teacher/assessment-dashboard', 'Assessments', <RocketOutlined />, <TeacherAssessTabs />],
   quizzesGroup('/teacher', 'Quizzes & Exams'),
-  ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
-  ['/teacher/question-bank', 'Question Bank', <DatabaseOutlined />, <QuestionBank />],
   ['/teacher/projects', 'Project reviews', <ProjectOutlined />, <PMReviews />],
-  ['/teacher/project-dashboard', 'Project allocation & timers', <FieldTimeOutlined />, <GrProjectsHub />],
-  ['/teacher/project-automation', 'Project status flow', <ApartmentOutlined />, <GrStatusFlow />],
   ['/teacher/assignments', 'Projects & assignments', <FileTextOutlined />, <PMProjectSetup />],
+  ['#GROWTH'],
+  [
+    'group:learner-growth', 'Learner Growth', <AimOutlined />, null,
+    [
+      ['/teacher/growth/scoring', '360° & Scoring', <AimOutlined />, <GrScoring />],
+      ['/teacher/growth/learner-360', 'Learner 360° · one learner', <ProfileOutlined />, <GrLookup />],
+      ['/teacher/project-dashboard', 'Project allocation & timers', <FieldTimeOutlined />, <GrProjectsHub />],
+      ['/teacher/project-automation', 'Project status flow', <ApartmentOutlined />, <GrStatusFlow />],
+      ['/teacher/growth/engagement-rules', 'Engagement rules', <ControlOutlined />, <GrRules />],
+    ],
+  ],
+  [
+    'group:qa-releases', 'QA & Releases', <BugOutlined />, null,
+    [
+      ['/teacher/qa/pipeline', 'Release pipeline', <RocketOutlined />, <QaPipeline />],
+      ['/teacher/qa/accounts', 'Test accounts & seed', <UserOutlined />, <QaAccounts />],
+      ['/teacher/qa/tests', 'Test runs', <ExperimentOutlined />, <QaTests />],
+      ['/teacher/qa/bugs', 'Bug tracker', <BugOutlined />, <QaBugs />],
+      ['/teacher/qa/flags', 'Flags, access & logs', <FlagOutlined />, <QaFlags />],
+    ],
+  ],
   ['#CONTENT'],
   ['/teacher/curriculum', 'Curriculum & material', <ScheduleOutlined />, <PMCurriculum />],
   ['/teacher/material', 'Study Material', <FolderOpenOutlined />, <StudyMaterial />],
@@ -692,6 +750,9 @@ export default function LmsPanelApp() {
           {/* Not in the sidebar (dropped along with "All Quizzes"), but every
               Test Intro card's "Go to Quizzes & Exams" button still points here. */}
           <Route path={`${base}/quizzes`} element={gate(`${base}/quizzes`, <Quizzes />)} />
+          {/* old teacher links → the one Assessments entry, on that sub-tab */}
+          {isTeacher && <Route path="/teacher/attempts" element={gate('/teacher/attempts', <TeacherAssessTabs initial="attempts" />)} />}
+          {isTeacher && <Route path="/teacher/question-bank" element={gate('/teacher/question-bank', <TeacherAssessTabs initial="bank" />)} />}
           <Route path="*" element={<Navigate to={base} replace />} />
         </Routes>
       )}

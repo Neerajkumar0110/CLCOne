@@ -81,6 +81,13 @@ import {
   ApartmentOutlined,
 } from '@ant-design/icons';
 
+/* ---- who each LMS ops section was designed for (Figma yKjb2ncoVnPG9Eqql6zwhI) ----
+   A section / tab with `roles` shows only to those roles (sidebar + route);
+   everything else keeps the plain module permission. Learner / mentor frames
+   live in the Teacher / Student panel (apps/LmsPanelApp), not here. */
+const LMS_ADMINS = ['owner', 'Super Admin', 'Admin'];
+const LMS_ADMINS_SUPPORT = [...LMS_ADMINS, 'Support'];
+
 /* ---- shared option lists (must match genFeatureModels.cjs) ---- */
 const CURRENCY = ['INR', 'USD', 'EUR', 'GBP', 'AED'];
 const DEPARTMENTS = ['Sales', 'Marketing', 'Operations', 'Engineering', 'HR', 'Finance', 'Support', 'Training', 'Admin'];
@@ -797,6 +804,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'batches',
         label: 'Batches',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: TeamOutlined,
         entity: 'batch',
         fields: [
@@ -920,6 +928,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'students',
         label: 'Candidates',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: UserOutlined,
         entity: 'student',
         fields: [
@@ -994,6 +1003,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'classes',
         label: 'Live Classes',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: VideoCameraOutlined,
         // Auto-generated per batch/course. Cards show course, batch, teacher,
         // date/time, lifecycle status (Scheduled/Upcoming/Live/Ended/Recording)
@@ -1004,6 +1014,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'calendar',
         label: 'Calendar',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: CalendarOutlined,
         // Month grid of the same auto-generated sessions as Live Classes —
         // every batch's Start/End time + Class days (recurrence.js) already
@@ -1013,6 +1024,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'recordings',
         label: 'Recordings',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: VideoCameraOutlined,
         // Role-scoped: student -> own enrolled courses; teacher -> own classes;
         // admin -> all + manage. See pages/Lms/Recordings + /api/lms/recordings.
@@ -1021,6 +1033,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'attendance',
         label: 'Attendance',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: CheckSquareOutlined,
         // Auto-captured from join/leave events. Admin/teacher -> dashboard
         // (KPIs, filters, table, export). Student -> own attendance only.
@@ -1047,7 +1060,12 @@ export const FEATURE_SECTIONS = [
         // publishes policies; publishing auto-creates a pending acknowledgement
         // per applicable student + notifies + auto-reminds until signed.
         // See pages/Lms/Policies + /api/lms/policies, /api/lms/my/policies.
-        embed: 'lmsPolicies',
+        // One tab (2026-11-24): the policy text here + Admin & Ops' Policy
+        // centre (publish → review → approval → re-accept tracking).
+        combo: [
+          { key: 'policies', label: 'Policies', embed: 'lmsPolicies' },
+          { key: 'publish', label: 'Publish & track', embed: 'lmsAo_policies', roles: LMS_ADMINS },
+        ],
       },
       {
         key: 'eligibility',
@@ -1118,7 +1136,14 @@ export const FEATURE_SECTIONS = [
         // ("Welcome, {name}" + the full assessment grid). Same component used
         // on the Teacher/Student sidebars (pages/Lms/AssessmentDashboard) —
         // an unlocked card renders its TestIntro variant in place.
-        embed: 'lmsAssessmentDashboard',
+        // One tab (2026-11-24): Test Attempts, Question Bank and Admin & Ops'
+        // Assessment rules are its sub-tabs (their own URLs still open).
+        combo: [
+          { key: 'tests', label: 'Assessments', embed: 'lmsAssessmentDashboard' },
+          { key: 'attempts', label: 'Test attempts', embed: 'lmsAttemptsAdmin' },
+          { key: 'bank', label: 'Question bank', embed: 'lmsQuestionBank' },
+          { key: 'rules', label: 'Rules', embed: 'lmsAo_rules', roles: LMS_ADMINS },
+        ],
       },
       {
         key: 'curriculum',
@@ -1131,6 +1156,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'attempts',
         label: 'Test Attempts',
+        hideInNav: true, // inside LMS › Assessment
         Icon: AuditOutlined,
         // Stat tiles, filters, CSV export, per-topic breakdown, backed by
         // /api/lms/assessments/admin/{summary,attempts}. See pages/Lms/AttemptsAdmin.
@@ -1139,6 +1165,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'question-bank',
         label: 'Question Bank',
+        hideInNav: true, // inside LMS › Assessment
         Icon: DatabaseOutlined,
         // Upload JSON questions into a test, check + import, retire.
         // See pages/Lms/QuestionBank (Admin / Support / Teacher).
@@ -1147,6 +1174,7 @@ export const FEATURE_SECTIONS = [
       {
         key: 'certificates',
         label: 'Certificates',
+        hideFor: ['Support'], // in Support Manager › one tab per data
         Icon: TrophyOutlined,
         // One tab for certificates: the Certificate Center page (rules, run,
         // issue, history, external certificates) with the raw records below
@@ -1184,6 +1212,7 @@ export const FEATURE_SECTIONS = [
   // component as before (pages/Lms/SystemHealth).
   {
     key: 'admin-ops',
+    roles: LMS_ADMINS, // Admin & Ops boards — management
     label: 'Admin & Ops',
     module: 'LMS',
     route: '/admin-ops',
@@ -1196,10 +1225,10 @@ export const FEATURE_SECTIONS = [
       { key: 'automation', label: 'Automation', Icon: DeploymentUnitOutlined, embed: 'lmsAo_automation' },
       { key: 'security', label: 'Security & audit', Icon: SafetyCertificateOutlined, embed: 'lmsAo_security' },
       { key: 'evidence', label: 'Evidence repository', Icon: FolderOpenOutlined, embed: 'lmsAo_evidence' },
-      { key: 'rules', label: 'Assessment rules', Icon: ExperimentOutlined, embed: 'lmsAo_rules' },
+      { key: 'rules', label: 'Assessment rules', Icon: ExperimentOutlined, embed: 'lmsAo_rules', hideInNav: true }, // inside LMS › Assessment
       { key: 'finance', label: 'Finance & payments', Icon: WalletOutlined, embed: 'lmsAo_finance' },
       { key: 'roles', label: 'Roles & permissions', Icon: TeamOutlined, embed: 'lmsAo_roles' },
-      { key: 'policies', label: 'Policy centre', Icon: FileProtectOutlined, embed: 'lmsAo_policies' },
+      { key: 'policies', label: 'Policy centre', Icon: FileProtectOutlined, embed: 'lmsAo_policies', hideInNav: true }, // inside LMS › Policies
       { key: 'health', label: 'System health', Icon: HeartOutlined, embed: 'lmsAo_health' },
     ],
   },
@@ -1209,6 +1238,7 @@ export const FEATURE_SECTIONS = [
   // section, one screen per board in the board's sidebar order.
   {
     key: 'support-mgr',
+    roles: LMS_ADMINS_SUPPORT, // Support Manager boards (2F extension desk, 3D inactive outreach)
     label: 'Support Manager',
     module: 'LMS',
     route: '/support-mgr',
@@ -1216,13 +1246,66 @@ export const FEATURE_SECTIONS = [
     blurb: 'Today, attendance & escalations, tickets with SLA, communications, certificates, learners, batches & classes, recordings and feedback.',
     tabs: [
       { key: 'dashboard', label: 'Support dashboard', Icon: DashboardOutlined, embed: 'lmsSm_dashboard' },
-      { key: 'attendance', label: 'Attendance', Icon: CheckSquareOutlined, embed: 'lmsSm_attendance' },
-      { key: 'tickets', label: 'Tickets', Icon: CustomerServiceOutlined, embed: 'lmsSm_tickets' },
+      // One tab per kind of data (user ask 2026-11-24, Support had each twice):
+      // the support board and the LMS screen on the same data are sub-tabs of
+      // one tab. `combo` items: { embed } or { ref: '<section>/<tab>' }.
+      {
+        key: 'tickets',
+        label: 'Tickets',
+        Icon: CustomerServiceOutlined,
+        combo: [
+          { key: 'queue', label: 'SLA queue', embed: 'lmsSm_tickets' },
+          { key: 'all', label: 'All tickets', embed: 'supportTickets' },
+        ],
+      },
+      {
+        key: 'attendance',
+        label: 'Attendance',
+        Icon: CheckSquareOutlined,
+        combo: [
+          { key: 'escalations', label: 'Corrections & escalations', embed: 'lmsSm_attendance' },
+          { key: 'dashboard', label: 'Attendance dashboard', ref: 'lms/attendance' },
+        ],
+      },
       { key: 'comms', label: 'Communications', Icon: MailOutlined, embed: 'lmsSm_comms' },
-      { key: 'certificates', label: 'Certificates', Icon: TrophyOutlined, embed: 'lmsSm_certificates' },
-      { key: 'learners', label: 'Learners', Icon: TeamOutlined, embed: 'lmsSm_learners' },
-      { key: 'classes', label: 'Batches & classes', Icon: CalendarOutlined, embed: 'lmsSm_classes' },
-      { key: 'recordings', label: 'Recording ops', Icon: VideoCameraOutlined, embed: 'lmsSm_recordings' },
+      {
+        key: 'certificates',
+        label: 'Certificates',
+        Icon: TrophyOutlined,
+        combo: [
+          { key: 'issue', label: 'Approve & issue', embed: 'lmsSm_certificates' },
+          { key: 'roster', label: 'Roster, rules & send', ref: 'lms/certificates' },
+        ],
+      },
+      {
+        key: 'learners',
+        label: 'Learners',
+        Icon: TeamOutlined,
+        combo: [
+          { key: 'status', label: 'Status & import', embed: 'lmsSm_learners' },
+          { key: 'candidates', label: 'Candidates', ref: 'lms/students' },
+        ],
+      },
+      {
+        key: 'classes',
+        label: 'Batches & classes',
+        Icon: CalendarOutlined,
+        combo: [
+          { key: 'scheduler', label: 'Scheduler', embed: 'lmsSm_classes' },
+          { key: 'batches', label: 'Batches', ref: 'lms/batches' },
+          { key: 'live', label: 'Live classes', ref: 'lms/classes' },
+          { key: 'calendar', label: 'Calendar', ref: 'lms/calendar' },
+        ],
+      },
+      {
+        key: 'recordings',
+        label: 'Recordings',
+        Icon: VideoCameraOutlined,
+        combo: [
+          { key: 'library', label: 'Recordings', ref: 'lms/recordings' },
+          { key: 'recovery', label: 'Recovery & rename', embed: 'lmsSm_recordings' },
+        ],
+      },
       // Feedback centre: same screen as LMS › Feedback Centre — kept there only (2026-11-24)
       // LMS Additional Requirements (Figma 2F / 3D / 1B visibility: support sees every 360° read-only)
       { key: 'extension-desk', label: 'Extension desk', Icon: ClockCircleOutlined, embed: 'lmsGr_extensionDesk' },
@@ -1236,6 +1319,7 @@ export const FEATURE_SECTIONS = [
   // admin views 1B, 2A–2E, 2G, 3E). Same LMS permission as the other LMS sections.
   {
     key: 'learner-growth',
+    roles: LMS_ADMINS_SUPPORT, // 1B scoring, 3E rules: Admin, Support read-only
     label: 'Learner Growth',
     module: 'LMS',
     route: '/learner-growth',
@@ -1244,8 +1328,8 @@ export const FEATURE_SECTIONS = [
     tabs: [
       { key: 'scoring', label: '360° & Scoring', Icon: AimOutlined, embed: 'lmsGr_scoring' },
       { key: 'learner-360', label: 'Learner 360° · one learner', Icon: ProfileOutlined, embed: 'lmsGr_lookup' },
-      { key: 'projects', label: 'Project allocation', Icon: ProjectOutlined, embed: 'lmsGr_projects' },
-      { key: 'automations', label: 'Project automations', Icon: ApartmentOutlined, embed: 'lmsGr_flow' },
+      { key: 'projects', label: 'Project allocation', Icon: ProjectOutlined, embed: 'lmsGr_projects', roles: LMS_ADMINS },
+      { key: 'automations', label: 'Project automations', Icon: ApartmentOutlined, embed: 'lmsGr_flow', roles: LMS_ADMINS },
       { key: 'engagement', label: 'Engagement rules', Icon: ControlOutlined, embed: 'lmsGr_rules' },
     ],
   },
@@ -1255,6 +1339,7 @@ export const FEATURE_SECTIONS = [
   // for an admin role.
   {
     key: 'qa-env',
+    roles: LMS_ADMINS, // 4A–4E: QA / dev team
     label: 'QA & Releases',
     module: 'LMS',
     route: '/qa-env',

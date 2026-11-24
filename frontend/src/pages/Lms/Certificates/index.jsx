@@ -144,10 +144,10 @@ function SendCertificateCard({ courses, courseId, onSent }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   // preview of the uploaded PDF + pages taken out (server trims: pdf-pages)
-  const [pages, setPages] = useState({ total: 0, removed: [], url: '', loading: false, error: '' });
+  const [pages, setPages] = useState({ total: 0, removed: [], url: '', loading: false, error: '', template: null });
   const preview = useCallback(async (fl, removed) => {
     setPages((p) => ({ ...p, removed, loading: true, error: '' }));
-    const r = await lmsApi.certificatePdfPages(fl, removed).catch((e) => ({ success: false, message: e?.response?.data?.message || e.message }));
+    const r = await lmsApi.certificatePdfPages(fl, removed, nameRef.current).catch((e) => ({ success: false, message: e?.response?.data?.message || e.message }));
     if (!r?.success) {
       setPages((p) => ({ ...p, loading: false, error: r?.message || 'Preview failed.' }));
       return;
@@ -158,9 +158,18 @@ function SendCertificateCard({ courses, courseId, onSent }) {
     const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
     setPages((p) => {
       if (p.url) URL.revokeObjectURL(p.url);
-      return { total: r.result.total, removed, url, loading: false, error: '' };
+      return { total: r.result.total, removed, url, loading: false, error: '', template: r.result.template || null };
     });
   }, []);
+  // the preview prints the typed name (on our own template) — refresh it when the name settles
+  const nameRef = React.useRef('');
+  nameRef.current = f.name.trim();
+  useEffect(() => {
+    if (!file || f.mode !== 'upload') return undefined;
+    const t = setTimeout(() => preview(file, pages.removed), 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.name]);
   const pickFile = (fl) => {
     setFile(fl);
     setPages((p) => {
@@ -278,6 +287,13 @@ function SendCertificateCard({ courses, courseId, onSent }) {
                 Remove the last page
               </button>
             )}
+            {pages.total > 0 && (
+              <div className={`cert-prev-name ${pages.template ? 'ok' : 'warn'}`}>
+                {pages.template
+                  ? `This is our ${pages.template === 'elite' ? 'Elite' : 'Foundation'} certificate — the name, certificate ID and date are printed on it.`
+                  : 'Not one of our certificate templates — it is sent exactly as it is, the name is NOT added to it.'}
+              </div>
+            )}
             <small className="cert-prev-hint">Removed pages are left out of the email; the preview shows exactly what is sent.</small>
           </div>
           <div className="cert-prev-view">
@@ -295,6 +311,56 @@ function SendCertificateCard({ courses, courseId, onSent }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+// Issued certificates as a readable list (a table squeezed into this card broke
+// every cell over 3–4 lines): who + email, internship chip, ID, date, status, PDF.
+const shortCourse = (c) => String(c || '').replace(/^InternX-AI\s*[—-]\s*/i, '').trim() || '—';
+function IssuedList({ rows }) {
+  const [q, setQ] = useState('');
+  const [limit, setLimit] = useState(8);
+  const term = q.trim().toLowerCase();
+  const list = (rows || []).filter((r) => !term || [r.student, r.email, r.certificateId, r.course].some((v) => String(v || '').toLowerCase().includes(term)));
+  if (!rows || !rows.length) return <div className="cl-empty">No certificates issued yet.</div>;
+  return (
+    <div className="cl">
+      <Input allowClear className="cl-search" placeholder="Search name, email or certificate ID" value={q} onChange={(e) => { setQ(e.target.value); setLimit(8); }} />
+      <div className="cl-list">
+        {list.slice(0, limit).map((r) => {
+          const ok = ['Issued', 'Sent'].includes(r.status);
+          return (
+            <div key={r.id} className="cl-row">
+              <span className="cl-av">{String(r.student || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}</span>
+              <div className="cl-who">
+                <b title={r.student}>{r.student}</b>
+                {r.email && <small title={r.email}>{r.email}</small>}
+                <div className="cl-tags">
+                  <span className="cl-course" title={r.course}>{shortCourse(r.course)}</span>
+                  {r.source === 'Upload' && <span className="cl-src">Uploaded PDF</span>}
+                </div>
+              </div>
+              <div className="cl-meta">
+                <span className="cl-id">{r.certificateId || '—'}</span>
+                <small>{r.issuedOn ? dayjs(r.issuedOn).format('D MMM YYYY') : '—'}{r.grade ? ` · Grade ${r.grade}` : ''}</small>
+              </div>
+              <span className={`cl-status ${ok ? 'ok' : ''}`}>{r.status}</span>
+              {ok ? (
+                <Button size="small" className="cl-pdf" icon={<DownloadOutlined />} onClick={() => lmsApi.downloadCertificatePdf(r.id, false, slug(`${r.student}-${r.certificateId}`))}>
+                  PDF
+                </Button>
+              ) : <span />}
+            </div>
+          );
+        })}
+        {!list.length && <div className="cl-empty">No certificate matches “{q}”.</div>}
+      </div>
+      {list.length > limit && (
+        <button type="button" className="cl-more" onClick={() => setLimit((n) => n + 8)}>
+          Show more ({list.length - limit})
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -413,38 +479,7 @@ function TeacherCertificates({ isManagerRole }) {
           </Col>
           <Col xs={24} lg={14}>
             <Card size="small" className="cert-card cert-fill" title={<Space><FileDoneOutlined /> Issued certificates</Space>}>
-              <Table
-                rowKey="id"
-                size="small"
-                dataSource={history}
-                pagination={{ pageSize: 10 }}
-                locale={{ emptyText: 'None yet' }}
-                columns={[
-                  {
-                    title: 'Candidate',
-                    dataIndex: 'student',
-                    render: (v, r) => (
-                      <span>
-                        {v}
-                        {r.email && <div style={{ fontSize: 11.5, color: '#64748b' }}>{r.email}</div>}
-                        {r.source === 'Upload' && <Tag style={{ marginTop: 2 }}>Uploaded PDF</Tag>}
-                      </span>
-                    ),
-                  },
-                  { title: 'Internship', dataIndex: 'course' },
-                  { title: 'ID', dataIndex: 'certificateId' },
-                  { title: 'Grade', dataIndex: 'grade', width: 70 },
-                  { title: 'Issued', dataIndex: 'issuedOn', render: (v) => (v ? dayjs(v).format('D MMM YY') : '—') },
-                  { title: 'Status', dataIndex: 'status', render: (s) => <Tag color={['Issued', 'Sent'].includes(s) ? 'green' : 'default'}>{s}</Tag> },
-                  {
-                    title: '',
-                    width: 90,
-                    render: (_, r) => (['Issued', 'Sent'].includes(r.status) ? (
-                      <Button size="small" icon={<DownloadOutlined />} onClick={() => lmsApi.downloadCertificatePdf(r.id, false, slug(`${r.student}-${r.certificateId}`))}>PDF</Button>
-                    ) : null),
-                  },
-                ]}
-              />
+              <IssuedList rows={history} />
             </Card>
           </Col>
         </Row>

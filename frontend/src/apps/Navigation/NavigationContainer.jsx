@@ -99,7 +99,7 @@ function Sidebar({ collapsible, isMobile = false }) {
   const { state: stateApp, appContextAction } = useAppContext();
   const { isNavMenuClose } = stateApp;
   const { navMenu } = appContextAction;
-  const { canView, role } = usePermission();
+  const { canView, canEdit, canDelete, role } = usePermission();
   const { tickets } = useTickets();
   const openTicketsCount = tickets.filter((t) => t.status === 'Open').length;
   const { totalUnread } = useMessages();
@@ -177,7 +177,11 @@ function Sidebar({ collapsible, isMobile = false }) {
   // from config/featureSections.js — each an EXPANDABLE submenu whose children
   // are its sub-modules, routing to /<section>/<tab>. Team Chat lives inside
   // Messenger, so that section carries the unread-message badge.
-  const featureItems = FEATURE_SECTIONS.map((section) => {
+  // a section / tab drawn for certain roles only (featureSections `roles`)
+  // full LMS rights (view + edit + delete) open every LMS section, whatever the role
+  const lmsFull = role !== 'Student' && canView('LMS') && canEdit('LMS') && canDelete('LMS');
+  const roleOk = (x) => (!x.roles || x.roles.includes(role) || lmsFull) && !(x.hideFor && x.hideFor.includes(role)) && !x.hideInNav;
+  const featureItems = FEATURE_SECTIONS.filter(roleOk).map((section) => {
     const SectionIcon = section.Icon;
     const label =
       section.key === 'messenger' && totalUnread > 0 ? (
@@ -194,8 +198,8 @@ function Sidebar({ collapsible, isMobile = false }) {
     // here would just be a duplicate.
     let tabs =
       role === 'Support' && section.key === 'lms'
-        ? section.tabs.filter((t) => t.key !== 'overview')
-        : section.tabs;
+        ? section.tabs.filter((t) => t.key !== 'overview' && roleOk(t))
+        : section.tabs.filter(roleOk);
     // No permission for the section, but some tabs are open to everyone
     // (Messenger → Team Chat): show just those.
     if (!canView(section.module) && OPEN_TABS[section.key]) tabs = tabs.filter((t) => isOpenTab(section.key, t.key));
@@ -407,6 +411,8 @@ function Sidebar({ collapsible, isMobile = false }) {
     .map((item) =>
       item.children ? { ...item, children: item.children.filter((c) => canSeeKey(c.key)) } : item
     )
+    // Support's tickets are Support Manager › Tickets (SLA queue | All tickets)
+    .filter((item) => !(role === 'Support' && item.key === 'support'))
     .filter((item) => {
       // Sales carries both Sales and Calling screens, each already filtered by its own permission
       if (item.salesMenu) return item.children ? item.children.length > 0 : true;

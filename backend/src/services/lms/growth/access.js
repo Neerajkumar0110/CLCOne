@@ -9,9 +9,10 @@ const M = (n) => mongoose.model(n);
 const esc = (s) => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const rxEq = (s) => new RegExp(`^${esc(s)}$`, 'i');
 
-const isAdmin = (a) => !!(a && CRM_ADMIN_ROLES.includes(a.role));
-const isSupport = (a) => !!(a && a.role === 'Support');
-const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role)); // admin + support
+// _lmsAdmin: set for users with full LMS rights (routes/lmsApi → services/access/lmsAccess.hasLmsFull)
+const isAdmin = (a) => !!(a && (CRM_ADMIN_ROLES.includes(a.role) || a._lmsAdmin));
+const isSupport = (a) => !!(a && a.role === 'Support' && !a._lmsAdmin);
+const isManager = (a) => !!(a && (LMS_FULL_ACCESS_ROLES.includes(a.role) || a._lmsAdmin)); // admin + support
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
 const isStudent = (a) => !!(a && LMS_STUDENT_ROLES.includes(a.role));
 const roleKey = (a) => (isAdmin(a) ? 'admin' : isSupport(a) ? 'support' : isTeacher(a) ? 'mentor' : isStudent(a) ? 'learner' : 'other');

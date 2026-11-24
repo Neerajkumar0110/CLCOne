@@ -274,9 +274,10 @@ const lmsApi = {
     return request.post({ entity: 'lms/certificates/send', jsonData: fd });
   },
   // { total, kept, pdf (base64) } — the uploaded PDF with `removePages` (1-based) taken out
-  certificatePdfPages: (file, removePages = []) => {
+  certificatePdfPages: (file, removePages = [], name = '') => {
     const fd = new FormData();
     fd.append('file', file);
+    if (name) fd.append('name', name);
     if (removePages.length) fd.append('removePages', removePages.join(','));
     return request.post({ entity: 'lms/certificates/pdf-pages', jsonData: fd });
   },

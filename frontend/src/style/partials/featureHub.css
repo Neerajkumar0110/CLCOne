@@ -3546,3 +3546,15 @@
 .lead-user-pill .ant-select-selection-search-input { font-size: 14.5px; font-weight: 700; line-height: 22px !important; height: 22px !important; }
 .lead-user-pill .ant-select-selection-placeholder { color: var(--hub-text) !important; }
 .lead-user-pill .ant-select-selection-search { inset-inline-start: 0 !important; }
+
+/* one tab, several screens on the same data (ModuleScaffold ComboTab) */
+.hub-combo-bar {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin: 0 0 14px;
+  border: 1px solid var(--hub-border, #e2e8f0); border-radius: 12px; background: var(--hub-surface-2, #f8fafc);
+}
+.hub-combo-bar button {
+  height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--hub-muted, #64748b);
+}
+.hub-combo-bar button:hover { color: var(--hub-text, #0f172a); }
+.hub-combo-bar button.on { background: var(--hub-surface, #fff); color: var(--hub-text, #0f172a); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }

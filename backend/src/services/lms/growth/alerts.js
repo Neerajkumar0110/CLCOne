@@ -72,6 +72,54 @@ async function raise(l, kind, { episode, text, severity = 'wa', inactiveDays, la
   }
 }
 
+// Last activity from what the LMS already recorded before the tracker existed
+// (user ask 2026-11-24: the outreach queue was empty because inactivity only
+// counted from the tracker's first day): last login/seen, last lesson progress,
+// last class attended. → Map(learnerId → Date)
+async function historyLastActive(learners) {
+  const out = new Map();
+  if (!learners.length) return out;
+  const ids = learners.map((l) => l._id);
+  const put = (id, d) => {
+    if (!d) return;
+    const k = String(id);
+    const t = new Date(d);
+    if (!out.has(k) || out.get(k) < t) out.set(k, t);
+  };
+  const [admins, lessons, attended] = await Promise.all([
+    M('Admin').find({ _id: { $in: ids } }).select('_id lastSeenAt').lean(),
+    M('LessonProgress').aggregate([{ $match: { crmUser: { $in: ids } } }, { $group: { _id: '$crmUser', t: { $max: '$updated' } } }]),
+    M('AttendanceRecord').aggregate([
+      { $match: { status: { $in: ['Present', 'Late', 'Left Early'] } } },
+      { $group: { _id: { $toLower: '$student' }, t: { $max: '$date' } } },
+    ]),
+  ]);
+  admins.forEach((a) => put(a._id, a.lastSeenAt));
+  lessons.forEach((x) => put(x._id, x.t));
+  const byName = new Map(attended.map((x) => [x._id, x.t]));
+  learners.forEach((l) => put(l._id, byName.get(String(l.name || '').toLowerCase())));
+  return out;
+}
+
+// learners whose roster status says they dropped out — always on the outreach queue
+async function droppedLearners() {
+  const roster = await M('Student')
+    .find({ removed: { $ne: true }, status: { $in: ['Dropped', 'Withdrawn'] } })
+    .select('email name batch phone enrollmentId enrolledOn status')
+    .lean();
+  const emails = [...new Set(roster.map((r) => String(r.email || '').toLowerCase()).filter(Boolean))];
+  if (!emails.length) return [];
+  const admins = await M('Admin').find({ email: { $in: emails.map(A.rxEq) }, removed: { $ne: true } }).select('_id name email').lean();
+  const byEmail = new Map(roster.map((r) => [String(r.email).toLowerCase(), r]));
+  const batches = await M('Batch').find({ name: { $in: [...new Set(roster.map((r) => r.batch).filter(Boolean))] } }).select('name trainer').lean();
+  const mentorOf = new Map(batches.map((b) => [b.name, [].concat(b.trainer || [])[0] || null]));
+  return admins.map((a) => {
+    const r = byEmail.get(String(a.email).toLowerCase());
+    const mn = r && mentorOf.get(r.batch);
+    return { ...a, roster: r, batch: (r && r.batch) || '—', mentor: mn ? { name: mn } : null };
+  });
+}
+
 async function supportIds() {
   return (await M('Admin').find({ role: 'Support', removed: { $ne: true } }).select('_id email').lean());
 }
@@ -88,6 +136,7 @@ async function evaluate() {
   // data — before that "no activity" just means "not tracked yet".
   const first = await M('LmsActivityDay').findOne({ activeSec: { $gt: 0 } }).sort({ date: 1 }).select('date').lean();
   const trackingSince = first ? eng.istStart(first.date) : null;
+  const hist = await historyLastActive(learners);
   for (const l of learners) {
     // eslint-disable-next-line no-await-in-loop
     const s = await eng.summary({ crmUser: l._id, name: l.name, batch: l.batch }, { heatDays: 60 }).catch(() => null);
@@ -98,16 +147,20 @@ async function evaluate() {
     // eslint-disable-next-line no-await-in-loop
     await M('LmsScoreSnapshot').updateOne({ crmUser: l._id, week }, { $set: { engagement: s.score, batch: l.batch } }, { upsert: true }).catch(() => {});
 
-    const cands = [s.lastActive, l.roster && l.roster.enrolledOn, trackingSince].filter(Boolean).map((d) => new Date(d).getTime());
-    const since = trackingSince && cands.length ? Math.max(...cands) : null;
+    // last activity: the tracker, or what the LMS recorded before it (login, lessons, classes)
+    const h = hist.get(String(l._id));
+    const lastAny = [s.lastActive, h].filter(Boolean).map((d) => new Date(d)).sort((x, y) => y - x)[0] || null;
+    // never seen anywhere: count from enrolment, but not before tracking began
+    const cands = (lastAny ? [lastAny, l.roster && l.roster.enrolledOn] : [l.roster && l.roster.enrolledOn, trackingSince]).filter(Boolean).map((d) => new Date(d).getTime());
+    const since = (lastAny || trackingSince) && cands.length ? Math.max(...cands) : null;
     const inactiveDays = since ? Math.floor((Date.now() - since) / DAY) : null;
-    const episode = s.lastActive ? eng.istDate(s.lastActive) : 'never';
-    const lastTxt = s.lastActive ? `last active ${new Date(s.lastActive).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'never active in the LMS';
+    const episode = lastAny ? eng.istDate(lastAny) : 'never';
+    const lastTxt = lastAny ? `last active ${new Date(lastAny).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'never active in the LMS';
 
     // 1 · inactive N days → mentor
     if (R.inactiveMentor.on && inactiveDays != null && inactiveDays >= R.inactiveMentor.days) {
       // eslint-disable-next-line no-await-in-loop
-      const a = await raise(l, 'inactiveMentor', { episode, text: `Inactive ${inactiveDays} days · ${lastTxt}`, severity: 'er', inactiveDays, lastActive: s.lastActive });
+      const a = await raise(l, 'inactiveMentor', { episode, text: `Inactive ${inactiveDays} days · ${lastTxt}`, severity: 'er', inactiveDays, lastActive: lastAny });
       if (a && l.mentor && l.mentor._id) {
         // eslint-disable-next-line no-await-in-loop
         await realtime().notify([l.mentor._id], { type: 'lms.engagement.alert', title: `${l.name} inactive ${inactiveDays} days`, body: `${lastTxt}. Nudge them from Engagement Alerts.`, link: '/teacher/engagement' });
@@ -117,7 +170,7 @@ async function evaluate() {
     // 2 · inactive N days → support outreach queue
     if (R.inactiveSupport.on && inactiveDays != null && inactiveDays >= R.inactiveSupport.days) {
       // eslint-disable-next-line no-await-in-loop
-      const a = await raise(l, 'inactiveSupport', { episode, text: `Inactive ${inactiveDays} days · ${lastTxt}`, severity: 'er', inactiveDays, lastActive: s.lastActive, queue: 'to_contact' });
+      const a = await raise(l, 'inactiveSupport', { episode, text: `Inactive ${inactiveDays} days · ${lastTxt}`, severity: 'er', inactiveDays, lastActive: lastAny, queue: 'to_contact' });
       if (a) {
         // eslint-disable-next-line no-await-in-loop
         await realtime().notify(sup.map((x) => x._id), { type: 'lms.engagement.outreach', title: `Outreach: ${l.name} inactive ${inactiveDays} days`, body: `${l.batch} · mentor ${(l.mentor && l.mentor.name) || '—'}`, link: '/support-mgr/inactive' });
@@ -188,6 +241,24 @@ async function evaluate() {
           mailer().sendMail(to, { subject: `Readiness alert: ${l.name} at ${Math.round(snap.total)}`, text: `${l.name} (${l.batch}) hire-readiness is ${Math.round(snap.total)}, below ${R.readinessLow.below}.\n\nCareerLab LMS` }).catch(() => {});
         }
       }
+    }
+  }
+
+  // dropped-out learners (roster status Dropped / Withdrawn) — on the queue to win back
+  const dropped = await droppedLearners();
+  const dHist = await historyLastActive(dropped);
+  for (const l of dropped) {
+    const last = dHist.get(String(l._id)) || null;
+    const days = last ? Math.floor((Date.now() - last.getTime()) / DAY) : null;
+    const lastTxt = last ? `last active ${last.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'never active in the LMS';
+    // eslint-disable-next-line no-await-in-loop
+    const a = await raise(l, 'dropped', { episode: 'dropped', text: `Dropped out (${(l.roster && l.roster.status) || 'Dropped'}) · ${lastTxt}`, severity: 'er', inactiveDays: days, lastActive: last, queue: 'to_contact' });
+    if (a) {
+      // eslint-disable-next-line no-await-in-loop
+      await M('LmsEngagementAlert').updateOne({ _id: a._id }, { $set: { dropRisk: true, dropRiskAt: new Date() } });
+    } else {
+      // eslint-disable-next-line no-await-in-loop
+      await M('LmsEngagementAlert').updateOne({ key: `dropped:${l._id}:dropped`, status: 'open' }, { $set: { inactiveDays: days, lastActive: last, updated: new Date() } });
     }
   }
 
@@ -284,4 +355,4 @@ async function tick() {
   }
 }
 
-module.exports = { tick, evaluate, reminders, activeLearners, raise };
+module.exports = { tick, evaluate, reminders, activeLearners, droppedLearners, historyLastActive, raise };

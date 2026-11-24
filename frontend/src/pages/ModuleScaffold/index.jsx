@@ -1,11 +1,15 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { usePermission } from '@/context/permissionContext';
 import { message, Select, Table, Tag, Badge, Modal, Input } from 'antd';
 import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
 import { findFeatureTab } from '@/config/featureSections';
+const SupportTickets = lazy(() => import('@/pages/Support'));
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { DASH_CONFIGS } from '@/components/dashboard/configs';
 import BatchStudentsPanel from '@/pages/Lms/components/BatchStudentsPanel';
@@ -124,6 +128,7 @@ const EMBED = {
   lmsAssessmentDashboard: LmsAssessmentDashboard,
   hrmsUsers: HrmsUsers,
   payments: Payments,
+  supportTickets: SupportTickets,
 };
 
 /**
@@ -135,8 +140,26 @@ const EMBED = {
  */
 export default function SectionHub({ section: sectionProp, tab: tabProp }) {
   const location = useLocation();
+  const me = useSelector(selectCurrentAdmin);
   const resolved =
     sectionProp && tabProp ? { section: sectionProp, tab: tabProp } : findFeatureTab(location.pathname);
+
+  // screens drawn for certain roles only (featureSections `roles`) — a typed URL too
+  const perm = usePermission();
+  const lmsFull = me && me.role !== 'Student' && perm.canView('LMS') && perm.canEdit('LMS') && perm.canDelete('LMS');
+  const blocked = !lmsFull && resolved && [resolved.section, resolved.tab].some((x) => x && x.roles && !x.roles.includes(me && me.role));
+  if (blocked) {
+    return (
+      <div className="hub-page">
+        <div className="hub-header">
+          <div>
+            <h2>Not available for your role</h2>
+            <p>{resolved.section.label} › {resolved.tab.label} is for {[...new Set([...(resolved.section.roles || []), ...(resolved.tab.roles || [])])].join(', ')}.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!resolved) {
     return (
@@ -189,7 +212,7 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
         </div>
       )}
 
-      <TabBody section={section} tab={tab} />
+      {tab.combo ? <ComboTab section={section} tab={tab} /> : <TabBody section={section} tab={tab} />}
     </div>
   );
   // Sales screens wear the Sales One Place design (look only).
@@ -197,6 +220,57 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
 }
 
 // One sub-module's content. A tab may carry a `dashboard` key (analytics
+// One tab, several screens on the same data (featureSections `combo`): a pill
+// bar on top, the chosen screen below — either an embed, or another section's
+// tab (`ref`) rendered exactly as it is there. ?view= keeps the choice.
+function ComboTab({ section, tab }) {
+  const me = useSelector(selectCurrentAdmin);
+  const perm = usePermission();
+  const myRole = me && me.role;
+  const full = myRole !== 'Student' && perm.canView('LMS') && perm.canEdit('LMS') && perm.canDelete('LMS');
+  const items = tab.combo
+    .filter((c) => !c.roles || c.roles.includes(myRole) || full)
+    .map((c) => {
+      if (c.embed) return { ...c, sec: section, t: { key: `${tab.key}-${c.key}`, label: c.label, embed: c.embed } };
+      const hit = findFeatureTab(`/${c.ref}`);
+      return hit ? { ...c, sec: hit.section, t: hit.tab } : null;
+    })
+    .filter(Boolean);
+  const initial = (() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('view');
+      return items.some((i) => i.key === v) ? v : items[0] && items[0].key;
+    } catch (e) {
+      return items[0] && items[0].key;
+    }
+  })();
+  const [cur, setCur] = useState(initial);
+  const pick = (k) => {
+    setCur(k);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('view', k);
+      window.history.replaceState(null, '', u.toString());
+    } catch (e) {
+      /* ignore */
+    }
+  };
+  const active = items.find((i) => i.key === cur) || items[0];
+  if (!active) return null;
+  return (
+    <div className="hub-combo">
+      <div className="hub-combo-bar" role="tablist" aria-label={tab.label}>
+        {items.map((i) => (
+          <button key={i.key} type="button" role="tab" aria-selected={i.key === active.key} className={i.key === active.key ? 'on' : ''} onClick={() => pick(i.key)}>
+            {i.label}
+          </button>
+        ))}
+      </div>
+      <TabBody key={`${active.sec.key}/${active.t.key}`} section={active.sec} tab={active.t} />
+    </div>
+  );
+}
+
 // shell) on its own or alongside an `embed` / `entity` — in the latter case an
 // in-tab "Dashboard | Records" toggle switches between the two.
 function TabBody({ section, tab }) {
