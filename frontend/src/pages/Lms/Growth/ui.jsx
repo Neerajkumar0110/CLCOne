@@ -580,10 +580,15 @@ export function ScoreCard({ i, name, val, tone, lines = [], weight, foot = true 
 
 // Screen = the Figma Screen's main column: (QA banner) + topbar + content.
 // The LMS shell around it already gives the sidebar, search, bell and user.
+// The QA banner (Figma) says "masked dummy data · NOT production" — only true on
+// a real QA host (qa.…). On the live CRM these screens run on real data, so the
+// banner stays hidden there (2026-11-24).
+const ON_QA_HOST = typeof window !== 'undefined' && /^qa\./i.test(window.location.hostname);
+
 export function Screen({ crumb, title, actions, qa, children, contentStyle }) {
   return (
     <div className="g-root">
-      {qa && (
+      {qa && ON_QA_HOST && (
         <div className="g-qa-banner" role="note">
           <I n="alert" s={15} />
           QA ENVIRONMENT · qa.clcone.careerlabconsulting.com · masked dummy data · NOT production
