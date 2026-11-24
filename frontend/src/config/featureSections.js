@@ -1064,7 +1064,7 @@ export const FEATURE_SECTIONS = [
         // centre (publish → review → approval → re-accept tracking).
         combo: [
           { key: 'policies', label: 'Policies', embed: 'lmsPolicies' },
-          { key: 'publish', label: 'Publish & track', embed: 'lmsAo_policies', roles: LMS_ADMINS },
+          { key: 'publish', label: 'Publish & track', embed: 'lmsAo_policies', roles: LMS_ADMINS_SUPPORT },
         ],
       },
       {

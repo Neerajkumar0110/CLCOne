@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
+import NewPolicyModal from '../Policies/NewPolicyModal';
 import { useLoad, act, Head, Loading, fmtDate } from './shared';
 
 // Design A5 · Policy centre (publish & track). Writing / editing the policy
@@ -16,8 +16,8 @@ function steps(sel) {
 }
 
 export default function PolicyCentre() {
-  const navigate = useNavigate();
   const [id, setId] = useState(undefined);
+  const [creating, setCreating] = useState(false);
   const { data, loading, err, reload } = useLoad(() => lmsApi.opsPolicies(id), [id]);
   const sel = data && data.selected;
   const [f, setF] = useState({ changeSummary: '', materialChange: true, effectiveDate: '', approverName: '' });
@@ -47,6 +47,7 @@ export default function PolicyCentre() {
 
   return (
     <>
+      <NewPolicyModal open={creating} onClose={() => setCreating(false)} onCreated={(newId) => { setCreating(false); if (newId) setId(newId); reload(); }} />
       <Head title="Policy centre" sub="Support Manager drafts · Management publishes · old versions and acceptances are never deleted" />
       <Loading loading={loading} err={err} data={data}>
         {data && (
@@ -63,12 +64,12 @@ export default function PolicyCentre() {
                   </button>
                 );
               })}
-              <button type="button" className="ao-btn2" style={{ marginTop: 'auto' }} onClick={() => navigate('/lms/policies')}>+ New policy</button>
+              <button type="button" className="ao-btn2" style={{ marginTop: 'auto' }} onClick={() => setCreating(true)}>+ New policy</button>
             </div>
 
             <div className="ao-card">
               {!sel ? (
-                <div className="ao-empty">Create a policy in LMS → Policies to start the workflow.</div>
+                <div className="ao-empty">Press “+ New policy” to write one and start the workflow.</div>
               ) : (
                 <>
                   <div className="ao-hd"><b>{sel.title} · v{sel.version} ({sel.status})</b><span className="ao-muted" style={{ fontSize: 12 }}>by {sel.createdByName || '—'} · {fmtDate(sel.created)}</span></div>

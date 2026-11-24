@@ -13,6 +13,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import NewPolicyModal from './NewPolicyModal';
 import '../StudentDashboard/StudentHome.css';
 import '../components/LearnerDesign.css';
 import './StudentConsent.css';
@@ -21,16 +22,25 @@ const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
 /* ═══════════ TEACHER — read-only ═══════════ */
-function ViewPolicies() {
+function ViewPolicies({ canCreate }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   useEffect(() => {
     lmsApi.listPolicies({ status: 'published' }).then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
+  const created = () => {
+    setCreating(false);
+    message.success('Policy saved as a draft — publish it from “Publish & track”.', 6);
+  };
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head"><div><h2><FileProtectOutlined /> Policies</h2><p>Published policies (view only — managed by admin).</p></div></div>
+      <div className="lms-portal-head">
+        <div><h2><FileProtectOutlined /> Policies</h2><p>{canCreate ? 'Published policies. New ones start as a draft and go live from “Publish & track”.' : 'Published policies (view only — managed by admin).'}</p></div>
+        {canCreate && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>New policy</Button>}
+      </div>
+      {canCreate && <NewPolicyModal open={creating} onClose={() => setCreating(false)} onCreated={created} />}
       {rows.length === 0 ? <Card><Empty description="No published policies." /></Card> : rows.map((r) => (
         <Card key={r.id} size="small" style={{ marginBottom: 12 }} title={<Space><b>{r.title}</b><Tag>{r.category}</Tag><Text type="secondary">v{r.version}</Text></Space>}>
           <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>{r.content}</Paragraph>
@@ -206,6 +216,7 @@ export default function Policies() {
   const admin = useSelector(selectCurrentAdmin) || {};
   // Staff read published policies here; creating / publishing lives in
   // Admin & Ops → Policy centre.
-  if (MGR.includes(admin.role) || LMS_TEACHER_ROLES.includes(admin.role)) return <ViewPolicies />;
+  // managers (Support included — the API allows it) write new policies here too
+  if (MGR.includes(admin.role) || LMS_TEACHER_ROLES.includes(admin.role)) return <ViewPolicies canCreate={MGR.includes(admin.role)} />;
   return <StudentPolicies />;
 }
