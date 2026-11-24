@@ -11,7 +11,7 @@ const conversations = async (req, res) => {
   const Admin = mongoose.model('Admin');
   const Message = mongoose.model('Message');
 
-  const others = await Admin.find({ _id: { $ne: req.admin._id }, removed: false, enabled: true, ...peopleFilter(req.admin) })
+  const others = await Admin.find({ _id: { $ne: req.admin._id }, removed: false, enabled: true, ...(await peopleFilter(req.admin)) })
     .select('name surname photo role reportsTo')
     .lean();
 

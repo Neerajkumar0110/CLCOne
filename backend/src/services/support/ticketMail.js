@@ -76,6 +76,40 @@ async function newTicketMail(ticket) {
   );
 }
 
+// 48 hours passed and the ticket is still not solved → Support inbox
+async function slaBreachMail(ticket, due) {
+  const to = String(process.env.SUPPORT_EMAIL || '').trim();
+  if (!to) {
+    console.warn('[tickets] overdue mail not sent — SUPPORT_EMAIL not set');
+    return false;
+  }
+  const no = ticketNo(ticket);
+  const hours = Math.round((Date.now() - new Date(ticket.created).getTime()) / 3600000);
+  const inner = `<p style="font-size:14px;color:#b91c1c;margin:0 0 14px"><b>This ticket was raised ${hours} hours ago and is still not solved.</b> Every ticket must be solved within 48 hours.</p>
+<table style="border-collapse:collapse;font-size:14px">
+${row('Ticket', `<b>${esc(no)}</b>`)}
+${row('Raised by', `${esc(ticket.raisedByName)}${ticket.source === 'student' ? ' (Candidate)' : ''}`)}
+${row('Email', esc(ticket.raisedByEmail || '—'))}
+${row('Phone', esc(ticket.raisedByPhone || '—'))}
+${row('Category', esc(ticket.category))}
+${row('Status', esc(ticket.status || 'Open'))}
+${row('Owner', esc(ticket.ownerName || 'Not assigned'))}
+${row('Raised on', esc(fmtDate(ticket.created)))}
+${row('Was due by', esc(fmtDate(due)))}
+${row('Subject', `<b>${esc(ticket.subject)}</b>`)}
+</table>
+${ticket.description ? `<div style="margin-top:16px;padding:12px 14px;background:#f9fafb;border-radius:8px;font-size:14px;color:#374151;white-space:pre-wrap">${esc(ticket.description)}</div>` : ''}`;
+  return send(
+    {
+      to,
+      replyTo: ticket.raisedByEmail || undefined,
+      subject: `[${no}] Overdue — not solved in 48 hours: ${ticket.subject}`,
+      html: shell('Ticket not solved in 48 hours', inner, { href: `${baseUrl()}/support`, label: 'Open in CRM' }),
+    },
+    'overdue mail'
+  );
+}
+
 function newTicketHtml(ticket) {
   const no = ticketNo(ticket);
   const inner = `<table style="border-collapse:collapse;font-size:14px">
@@ -155,4 +189,4 @@ async function sendResolvedAndRecord(ticketId) {
   return { status, to, error };
 }
 
-module.exports = { newTicketMail, ticketResolvedMail, sendResolvedAndRecord, _emailHtml: { newTicketHtml, resolvedHtml } };
+module.exports = { newTicketMail, slaBreachMail, ticketResolvedMail, sendResolvedAndRecord, _emailHtml: { newTicketHtml, resolvedHtml } };

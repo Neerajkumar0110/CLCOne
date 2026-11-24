@@ -1987,7 +1987,24 @@ async function autoLifecycleTick() {
   };
   if (s.autoStartPolicy !== 'at-schedule') dueQ.autoStartAt = true;
   const due = await LmsLiveSession.find(dueQ).limit(10);
-  for (const d of due) await startSession(d._id, null, { auto: true }).catch(() => {});
+  for (const d of due) {
+    // Two sessions of one batch in the same slot (a doubled schedule): the
+    // second used to auto-start 30 s after the real class ended — a 5-min
+    // "class" with no teacher that marked everyone Absent (tickets
+    // 2026-11-19 / 16 Nov). A batch whose class already ran in this slot
+    // gets no second auto-start; a teacher can still start it by hand.
+    // eslint-disable-next-line no-await-in-loop
+    const alreadyHeld = d.batchName && (await LmsLiveSession.exists({
+      removed: false,
+      _id: { $ne: d._id },
+      batchName: d.batchName,
+      status: { $in: ['live', 'ended', 'recording_processing', 'recording_available'] },
+      actualStart: { $gte: new Date(new Date(d.scheduledStart).getTime() - 2 * 3600000) },
+    }));
+    if (alreadyHeld) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await startSession(d._id, null, { auto: true }).catch(() => {});
+  }
 
   // auto-end (schedule-based) — the class's scheduled window is over.
   if (s.autoEndPolicy !== 'manual') {

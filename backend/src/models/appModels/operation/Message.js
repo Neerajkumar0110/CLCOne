@@ -47,8 +47,18 @@ const schema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+
+  // 'whatsapp' = a copy of a Teacher/Support WhatsApp message with this
+  // student (services/whatsapp/teamChatBridge.js); wa points at the original.
+  via: { type: String },
+  wa: {
+    chatId: { type: mongoose.Schema.ObjectId },
+    messageId: { type: mongoose.Schema.ObjectId },
+    providerMessageId: { type: String },
+  },
 });
 
 schema.index({ conversationId: 1, created: 1 });
+schema.index({ 'wa.providerMessageId': 1 }, { sparse: true });
 
 module.exports = mongoose.model('Message', schema);

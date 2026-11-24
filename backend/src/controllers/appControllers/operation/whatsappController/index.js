@@ -33,6 +33,8 @@ function deropoFail(res, err, fallback) {
 
 async function requireAccess(req, res) {
   if (await access.hasAccess(req.admin)) return true;
+  // the lead's assigned agent may open the chats of their leads (leadLink)
+  if (req.admin && (await require('../../../../services/whatsapp/leadLink').assignedNumbers(req.admin._id)).length) return true;
   bad(res, 403, 'You do not have WhatsApp access. Ask an admin to turn it on for you.');
   return false;
 }
@@ -55,8 +57,11 @@ async function readableChat(req, res) {
     return null;
   }
   if (String(chat.userId) !== String(req.admin._id) && !access.isWhatsAppAdmin(req.admin)) {
-    bad(res, 403, 'This is not your chat.');
-    return null;
+    // the CRM lead with this number is assigned to the caller → their chat too
+    if (!(await require('../../../../services/whatsapp/leadLink').isAssignedTo(req.admin._id, chat.customerNumber))) {
+      bad(res, 403, 'This is not your chat.');
+      return null;
+    }
   }
   return chat;
 }
@@ -65,7 +70,8 @@ async function readableChat(req, res) {
 
 // GET /api/whatsapp/me — does this user get WhatsApp, and their device.
 async function me(req, res) {
-  const has = await access.hasAccess(req.admin);
+  // WhatsApp access, or (sales agent) chats of the leads assigned to them
+  const has = (await access.hasAccess(req.admin)) || (await require('../../../../services/whatsapp/leadLink').assignedNumbers(req.admin._id)).length > 0;
   const device = has ? await Device().findOne({ userId: req.admin._id }).lean() : null;
   return ok(res, {
     hasAccess: has,
@@ -168,7 +174,10 @@ async function listChats(req, res) {
   } else if (department) {
     filter.department = String(department);
   } else {
-    filter.userId = req.admin._id;
+    // my own number's chats + the chats of leads assigned to me (any number)
+    const mine = await require('../../../../services/whatsapp/leadLink').assignedNumbers(req.admin._id);
+    if (mine.length) filter.$and = [{ $or: [{ userId: req.admin._id }, { customerNumber: { $in: mine } }] }];
+    else filter.userId = req.admin._id;
   }
   if (q) {
     const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -176,7 +185,9 @@ async function listChats(req, res) {
   }
   // a linked phone brings its whole history (hundreds of chats) — list them all
   const rows = await Chat().find(filter).sort({ lastMessageAt: -1 }).limit(2000).lean();
-  return ok(res, rows);
+  // a number the CRM already has → the lead's name (saved on the chat too)
+  await require('../../../../services/whatsapp/leadLink').applyLeadNames(rows).catch(() => null);
+  return ok(res, rows.map((c) => ({ ...c, viaOther: String(c.userId) !== String(req.admin._id) })));
 }
 
 // POST /api/whatsapp/chats { number, name } — start (or reopen) a chat with a customer.
@@ -274,7 +285,8 @@ async function send(req, res) {
   // business number's chat — that business number (any WhatsApp admin).
   const device = await Device().findOne({ userId: chat.userId }).lean();
   const isBusiness = device && device.kind === 'business';
-  if (String(chat.userId) !== String(req.admin._id) && !(isBusiness && access.isWhatsAppAdmin(req.admin))) {
+  const assigned = String(chat.userId) !== String(req.admin._id) && (await require('../../../../services/whatsapp/leadLink').isAssignedTo(req.admin._id, chat.customerNumber));
+  if (String(chat.userId) !== String(req.admin._id) && !(isBusiness && access.isWhatsAppAdmin(req.admin)) && !assigned) {
     dropFile();
     return bad(res, 403, 'Only the user who owns this chat can reply.');
   }

@@ -103,6 +103,8 @@ const schema = new mongoose.Schema({
   stage: { type: String, enum: ['New', 'Triaged', 'Assigned', 'In progress', 'Resolved', 'Closed'] },
   waiting: { type: String, enum: ['learner', 'tech'] },
   slaDueAt: Date,
+  // when the "48 h passed, still not solved" email went to Support (once)
+  slaMailAt: Date,
   nextActionAt: Date,
   escalatedTo: String,
   // automation (jobs/lmsAutomationTick.js): when the raiser got the
@@ -130,6 +132,12 @@ const schema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// the 48-hour timer starts the moment any ticket is raised (every create path)
+schema.pre('save', function setSla(next) {
+  if (this.isNew && !this.slaDueAt) this.slaDueAt = require('../../../config/supportTickets').slaDueFor(this);
+  next();
 });
 
 module.exports = mongoose.model('Ticket', schema);

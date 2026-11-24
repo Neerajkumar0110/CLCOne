@@ -90,6 +90,11 @@ export default function ChatList({ chats, activeId, onPick, onToggleRead, showOw
                     </span>
                   )}
                 </div>
+                {!showOwner && c.viaOther && c.userName && (
+                  <span className="wa-owner-tag" style={{ background: tagColor(c.userId) }} title="Your lead — this chat is on this number">
+                    on {c.userName}'s number
+                  </span>
+                )}
                 {showOwner && c.userName && (
                   <span className="wa-owner-tag" style={{ background: tagColor(c.userId) }}>
                     by {c.userName}

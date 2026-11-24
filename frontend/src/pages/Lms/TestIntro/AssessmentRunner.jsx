@@ -36,6 +36,16 @@ export default function AssessmentRunner({ testType, title, onExit }) {
   const [suspendReason, setSuspendReason] = useState('');
   const streamsRef = useRef(null);
   const camRef = useRef(null);
+  // Ticket fix 2026-11-24: the per-question timer's interval held the
+  // answers from the moment the last question opened, so its auto-submit
+  // sent Q50 blank — and a click on "Submit test" plus the timer sent two
+  // submits (two results a second apart). Submit reads the live answers from
+  // these refs and goes out once.
+  const answersRef = useRef({});
+  const codeRef = useRef({});
+  const submitOnceRef = useRef(false);
+  answersRef.current = answers;
+  codeRef.current = code;
 
   const { warningCount, reportViolation } = useAssessmentProctor(attemptId, {
     onSuspended: (reason) => {
@@ -133,10 +143,12 @@ export default function AssessmentRunner({ testType, title, onExit }) {
   }
 
   function selectAnswer(attemptQuestionId, optionIndex) {
+    answersRef.current = { ...answersRef.current, [attemptQuestionId]: optionIndex };
     setAnswers((prev) => ({ ...prev, [attemptQuestionId]: optionIndex }));
   }
 
   function updateCode(attemptQuestionId, value) {
+    codeRef.current = { ...codeRef.current, [attemptQuestionId]: value };
     setCode((prev) => ({ ...prev, [attemptQuestionId]: value }));
   }
 
@@ -162,16 +174,19 @@ export default function AssessmentRunner({ testType, title, onExit }) {
   }
 
   async function handleSubmit() {
-    if (!attemptId) return;
+    if (!attemptId || submitOnceRef.current) return;
+    submitOnceRef.current = true;
     setSubmitting(true);
     setError('');
 
+    const liveAnswers = answersRef.current;
+    const liveCode = codeRef.current;
     const payload = {
       answers: questions.map((q) => {
         if (q.questionType === 'PROGRAMMING') {
-          return { attemptQuestionId: q.attemptQuestionId, submittedCode: code[q.attemptQuestionId] ?? '' };
+          return { attemptQuestionId: q.attemptQuestionId, submittedCode: liveCode[q.attemptQuestionId] ?? '' };
         }
-        return { attemptQuestionId: q.attemptQuestionId, selectedOption: answers[q.attemptQuestionId] ?? null };
+        return { attemptQuestionId: q.attemptQuestionId, selectedOption: liveAnswers[q.attemptQuestionId] ?? null };
       }),
     };
 
@@ -179,6 +194,8 @@ export default function AssessmentRunner({ testType, title, onExit }) {
       const res = await lmsApi.submitAssessment(attemptId, payload);
       const data = res && res.result;
       if (!data) {
+        // not saved → the learner can press Submit again
+        submitOnceRef.current = false;
         setError((res && res.message) || 'Something went wrong.');
         return;
       }
@@ -186,6 +203,7 @@ export default function AssessmentRunner({ testType, title, onExit }) {
       setResult({ score: data.score, gradableTotal: data.gradableTotal });
       setPhase('result');
     } catch (err) {
+      submitOnceRef.current = false;
       setError('Something went wrong.');
     } finally {
       setSubmitting(false);

@@ -263,8 +263,11 @@ export default function ChatThread({ chatId, readOnly = false, canSend = true, o
                   {m.media && <Media m={m} onOpen={setLightbox} />}
                   {cap && <div className="wa-bubble-text">{cap}</div>}
                   <div className="wa-bubble-meta">
+                    {m.via === 'teamchat' && (
+                      <span title="Written in Team Chat (LMS) — not sent on WhatsApp" style={{ color: '#5b5bd6', fontWeight: 600 }}>Team Chat ·</span>
+                    )}
                     {fmtTime(m.at)}
-                    <Status m={m} />
+                    {m.via !== 'teamchat' && <Status m={m} />}
                   </div>
                   {m.status === 'failed' && m.error && <div className="wa-bubble-err">{m.error}</div>}
                 </div>

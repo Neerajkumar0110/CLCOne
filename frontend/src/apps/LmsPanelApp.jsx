@@ -57,6 +57,8 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { logout as logoutAction } from '@/redux/auth/actions';
 import PageLoader from '@/components/PageLoader';
 import LmsNotificationBell from '@/apps/Header/LmsNotificationBell';
+import WhatsAppButton from '@/apps/Header/WhatsAppButton';
+import '@/apps/Header/chatChannels.css';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
@@ -67,6 +69,9 @@ const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
 
 const StudentDashboard = lazy(() => import('@/pages/Lms/StudentDashboard'));
+// Team Chat in the LMS (2026-11-24): a student talks to Support + their
+// batch's teachers; WhatsApp chats with Teacher/Support show here too.
+const TeamChat = lazy(() => import('@/pages/Communication').then((m) => ({ default: m.TeamChat })));
 const LearnerOverview = lazy(() => import('@/pages/Lms/Overview'));
 const LiveClasses = lazy(() => import('@/pages/Lms/LiveClasses'));
 const Recordings = lazy(() => import('@/pages/Lms/Recordings'));
@@ -456,6 +461,7 @@ const TEACHER_NAV = [
   ['/teacher/recordings', 'Recorded Classes', <PlayCircleOutlined />, <Recordings />],
   ['/teacher/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
   ['/teacher/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
+  ['/teacher/messages', 'Messages', <CommentOutlined />, <TeamChat />],
   ['#LEARNERS'],
   ['/teacher/students', 'Candidates', <TeamOutlined />, <PMCandidates />],
   ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <PMLearner360 />],
@@ -529,6 +535,7 @@ const STUDENT_NAV = [
   ['/learn/overview', 'Progress · timeline · documents', <TrophyOutlined />, <LearnerOverview />],
   ['/learn/certificates', 'Certificates', <TrophyOutlined />, <Certificates />],
   ['/learn/fees', 'Fees & receipts', <WalletOutlined />, <MyFees />],
+  ['/learn/messages', 'Messages', <CommentOutlined />, <TeamChat />],
   ['/learn/support', 'Help & Support', <CustomerServiceOutlined />, <SupportTickets />],
 ];
 // Learner pages R1 doesn't put in the sidebar — still routed, reached from
@@ -897,6 +904,8 @@ export default function LmsPanelApp() {
               ))}
             </select>
             </>)}
+            {/* teacher: link their own WhatsApp; chats with learners also show in Team Chat */}
+            {isTeacher && <WhatsAppButton />}
             <Button className="lms-logout-btn" type="text" icon={<LogoutOutlined />} onClick={() => dispatch(logoutAction())}>
               Logout
             </Button>

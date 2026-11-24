@@ -29,7 +29,8 @@ const startOfDay = (d = new Date()) => {
 // ── tickets: priority → P-level and SLA (D-06 still open: these are the
 // default targets, shown as such on the board) ──────────────────────────────
 const PRI = { Urgent: 'P0', High: 'P1', Medium: 'P2', Low: 'P3' };
-const SLA_H = { Urgent: 1, High: 4, Medium: 24, Low: 72 };
+// one 48 h target for every priority (2026-11-24, config/supportTickets.js)
+const SLA_H = { Urgent: 48, High: 48, Medium: 48, Low: 48 };
 const STAGES = ['New', 'Triaged', 'Assigned', 'In progress', 'Resolved', 'Closed'];
 const stageOf = (t) => t.stage || (t.status === 'Resolved' ? (t.learnerConfirmedAt ? 'Closed' : 'Resolved') : t.status === 'In Progress' ? 'In progress' : t.owner ? 'Assigned' : 'New');
 function slaOf(t, now = Date.now()) {

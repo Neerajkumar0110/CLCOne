@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SlaTimer from '@/components/SlaTimer';
 import { useSelector } from "react-redux";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
@@ -69,6 +70,8 @@ function mapTicket(t) {
     resolvedBy: t.resolvedByName || "",
     resolvedAt: t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : "",
     date: t.created ? new Date(t.created).toLocaleString() : "",
+    createdAt: t.created,
+    slaDueAt: t.slaDueAt,
   };
 }
 
@@ -139,7 +142,7 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
   const [stats, setStats] = useState({ Open: 0, "In Progress": 0, Resolved: 0 });
 
   const statuses = ["All", "Open", "In Progress", "Resolved"];
-  const columnCount = isAll ? 7 : 6;
+  const columnCount = isAll ? 8 : 7;
 
   const loadPage = async (targetPage) => {
     setLoading(true);
@@ -234,6 +237,7 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
                     <th>Priority</th>
                     <th>Raised By</th>
                     <th>Date</th>
+                    <th title="Every ticket must be solved within 48 hours">Time left (48h)</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -263,6 +267,7 @@ function ModuleTicketsPanel({ category, onStatusChange, canManage }) {
                         {t.payment && <span className="hub-badge hub-badge-gray" style={{ marginLeft: 6 }}>{inr(t.payment.amount)}</span>}
                       </td>
                       <td>{t.date}</td>
+                      <td><SlaTimer created={t.createdAt} slaDueAt={t.slaDueAt} status={t.status} /></td>
                       <td>
                         {canManage ? (
                           <select

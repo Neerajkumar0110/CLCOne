@@ -24,7 +24,7 @@ const create = async (req, res) => {
   }
 
   if (!(await canChatWith(req.admin, to))) {
-    return res.status(403).json({ success: false, result: null, message: 'You can only chat with the Sales team.' });
+    return res.status(403).json({ success: false, result: null, message: req.admin.role === 'Student' ? 'You can message your teachers and Support.' : 'You can only chat with the Sales team.' });
   }
   const recipient = await Admin.findOne({ _id: to, removed: false }).select('_id').lean();
   if (!recipient) {
@@ -42,6 +42,8 @@ const create = async (req, res) => {
   }).save();
 
   emitMessage(message);
+  // student ↔ Teacher/Support: the same line in that staff user's WhatsApp thread
+  require('../../../../services/whatsapp/teamChatBridge').teamChatToWa(message);
 
   return res.status(200).json({ success: true, result: message, message: 'Message sent' });
 };

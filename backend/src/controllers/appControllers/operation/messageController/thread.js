@@ -15,7 +15,7 @@ const thread = async (req, res) => {
 
   const { userId } = req.params;
   if (!(await canChatWith(req.admin, userId))) {
-    return res.status(403).json({ success: false, result: null, message: 'You can only chat with the Sales team.' });
+    return res.status(403).json({ success: false, result: null, message: req.admin.role === 'Student' ? 'You can message your teachers and Support.' : 'You can only chat with the Sales team.' });
   }
   const other = await Admin.findOne({ _id: userId, removed: false })
     .select('name surname photo role')

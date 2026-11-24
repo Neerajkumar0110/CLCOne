@@ -34,6 +34,8 @@ const schema = new mongoose.Schema({
   suspendReason: { type: String },
   startedAt: { type: Date, default: Date.now },
   submittedAt: { type: Date },
+  // set while a submit is being graded — one submit per attempt (testController.submitTest)
+  submitLockAt: { type: Date },
 
   candidate: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
   candidateName: { type: String },

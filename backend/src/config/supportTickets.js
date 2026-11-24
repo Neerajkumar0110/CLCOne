@@ -35,4 +35,9 @@ const PAYMENT_TICKET_CATEGORIES = ['Payment'];
 // keep in sync): "TKT-1A2B3C".
 const ticketNo = (ticket) => `TKT-${String(ticket._id).slice(-6).toUpperCase()}`;
 
-module.exports = { STUDENT_TICKET_CATEGORIES, LEGACY_TICKET_CATEGORIES, RESTRICTED_TICKET_CATEGORY, PAYMENT_TICKET_CATEGORIES, ticketNo };
+// Every ticket must be solved within 48 hours of being raised (user ask
+// 2026-11-24); past it Support is emailed (services/lms/automationRules.js).
+const TICKET_SLA_HOURS = 48;
+const slaDueFor = (t) => new Date(new Date((t && t.created) || Date.now()).getTime() + TICKET_SLA_HOURS * 3600000);
+
+module.exports = { TICKET_SLA_HOURS, slaDueFor, STUDENT_TICKET_CATEGORIES, LEGACY_TICKET_CATEGORIES, RESTRICTED_TICKET_CATEGORY, PAYMENT_TICKET_CATEGORIES, ticketNo };

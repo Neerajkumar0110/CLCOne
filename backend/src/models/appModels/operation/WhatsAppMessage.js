@@ -34,6 +34,10 @@ const schema = new mongoose.Schema(
     // WhatsApp's encrypted-file pointer, kept only until the file is downloaded
     mediaSrc: { type: { kind: String, url: String, directPath: String, mediaKey: String, mime: String, _id: false }, select: false },
     // the message this one replies to (quoted bubble)
+    // 'teamchat' = a Team Chat message with this student, shown in the
+    // thread but never sent to WhatsApp (services/whatsapp/teamChatBridge.js)
+    via: { type: String },
+    teamMessageId: { type: mongoose.Schema.ObjectId },
     quoted: {
       messageId: { type: mongoose.Schema.ObjectId },
       providerMessageId: String,

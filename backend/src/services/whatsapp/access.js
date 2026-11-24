@@ -4,7 +4,8 @@
 //   2. users[].mode === 'block'  → no, even if the department is on.
 //   3. users[].mode === 'allow'  → yes.
 //   4. department enabled AND the user's role ticked in it → yes.
-//   5. otherwise no.
+//   5. Support and Teacher — on by default (user ask 2026-11-24: header WhatsApp to link their own number)
+//   6. otherwise no.
 
 const mongoose = require('mongoose');
 const { CRM_ADMIN_ROLES, DEPARTMENT_ROLES, departmentOfRole } = require('../../config/roles');
@@ -32,6 +33,7 @@ function evaluate(config, user) {
   if (override && override.mode === 'block') return { on: false, source: 'block', viaDept };
   if (override && override.mode === 'allow') return { on: true, source: 'allow', viaDept };
   if (viaDept) return { on: true, source: 'department', viaDept };
+  if (['Support', 'Teacher'].includes(user.role)) return { on: true, source: 'role-default', viaDept };
   return { on: false, source: d && d.enabled ? 'role-off' : 'department-off', viaDept };
 }
 

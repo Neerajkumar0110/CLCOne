@@ -229,18 +229,20 @@ async function softwareSetup(ctx) {
 // Every run: each ticket gets its SLA target, the raiser gets an
 // acknowledgement once, and an open ticket past its SLA (not waiting on the
 // learner) is escalated to the Support Manager once.
-const SLA_H = { Urgent: 1, High: 4, Medium: 24, Low: 72 };
 async function ticketCreation(ctx) {
   const T = M('Ticket');
-  const { ticketNo } = require('../../config/supportTickets');
-  const open = await T.find({ removed: false, status: { $ne: 'Resolved' } }).select('subject priority created slaDueAt ackAt createdBy source escalatedTo waiting').lean();
+  const { ticketNo, slaDueFor, RESTRICTED_TICKET_CATEGORY } = require('../../config/supportTickets');
+  const open = await T.find({ removed: false, status: { $ne: 'Resolved' } }).select('subject description category priority status created slaDueAt slaMailAt ackAt createdBy source escalatedTo waiting raisedByName raisedByEmail raisedByPhone ownerName reference').lean();
+  let mailed = 0;
   let sla = 0;
   let acked = 0;
   let escalated = 0;
   for (const t of open) {
-    const due = t.slaDueAt || new Date(new Date(t.created).getTime() + (SLA_H[t.priority] || 24) * 3600000);
+    // 48 h from when it was raised, whatever the priority (older tickets
+    // carried a 1/4/24/72 h target — moved onto the same 48 h)
+    const due = slaDueFor(t);
     const set = {};
-    if (!t.slaDueAt) {
+    if (!t.slaDueAt || new Date(t.slaDueAt).getTime() !== due.getTime()) {
       set.slaDueAt = due;
       sla += 1;
     }
@@ -259,12 +261,24 @@ async function ticketCreation(ctx) {
       escalated += 1;
       tellSupport(ctx, { type: 'ticket.escalated', title: `SLA breached: ${ticketNo(t)} escalated`, body: t.subject, link: '/support' });
     }
+    // 48 h passed and still not solved → one email to Support (restricted
+    // policy tickets stay out of the shared inbox, as on creation)
+    if (!t.slaMailAt && !t.waiting && due < new Date() && t.category !== RESTRICTED_TICKET_CATEGORY) {
+      if (!ctx.dry) {
+        // eslint-disable-next-line no-await-in-loop
+        const sent = await require('../support/ticketMail').slaBreachMail(t, due);
+        if (sent) {
+          set.slaMailAt = new Date();
+          mailed += 1;
+        }
+      }
+    }
     if (!ctx.dry && (Object.keys(set).length || push.history)) {
       // eslint-disable-next-line no-await-in-loop
       await T.updateOne({ _id: t._id }, { $set: set, ...(push.history ? { $push: push } : {}) });
     }
   }
-  return `${sla} SLA set · ${acked} acknowledged · ${escalated} escalated`;
+  return `${sla} SLA set · ${acked} acknowledged · ${escalated} escalated · ${mailed} overdue mail(s)`;
 }
 
 // ── 6. query-assistance ────────────────────────────────────────────────────

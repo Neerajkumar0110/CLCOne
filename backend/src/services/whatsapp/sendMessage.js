@@ -100,6 +100,8 @@ async function sendWhatsAppMessage({ req, chat, device, text, file, replyTo, rem
       await mongoose
         .model('WhatsAppChat')
         .updateOne({ _id: chat._id }, { $set: { lastMessage: preview, lastMessageAt: saved.at, lastDirection: 'outgoing', deviceId: device.deviceId } });
+      // Teacher/Support → a student's number: the same message in Team Chat
+      require('./teamChatBridge').waToTeamChat(saved, chat);
     }
     return { saved, status, error, preview };
   } catch (e) {

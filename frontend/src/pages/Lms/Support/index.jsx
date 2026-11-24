@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SlaTimer from '@/components/SlaTimer';
 import { Tag, Skeleton, message, Descriptions } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -264,7 +265,10 @@ export default function SupportTickets() {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 12px', border: `1px solid ${viewing && viewing._id === t._id ? '#0e7490' : '#e2e8f0'}`, borderRadius: 8, fontSize: 13, background: '#fff', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer', color: '#0f172a' }}
               >
                 <span><b>{t.ticketNo}</b> · {t.subject}{t.paymentSnapshot ? ` · ${inr(t.paymentSnapshot.amount)}` : ''}</span>
-                <span className={`ld-chip ${STATUS_CHIP[t.status] || 'gray'}`}>{t.status}</span>
+                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <SlaTimer created={t.created} slaDueAt={t.slaDueAt} status={t.status} compact />
+                  <span className={`ld-chip ${STATUS_CHIP[t.status] || 'gray'}`}>{t.status}</span>
+                </span>
               </button>
             ))}
           </section>

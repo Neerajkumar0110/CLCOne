@@ -312,6 +312,8 @@ async function processLog(log, opts = {}) {
       if (opts.quiet) await job;
     }
     await Log.updateOne({ _id: log._id }, { $set: { handled: true, note: null } });
+    // Teacher/Support ↔ a student: the WhatsApp line also shows in Team Chat (not on a replay)
+    if (!opts.quiet) require('../../../../services/whatsapp/teamChatBridge').waToTeamChat(created, chat);
 
     // Every incoming WhatsApp chat is a lead (user ask 2026-11-14: "sab lead
     // chahiye, name ho ya na ho") — one lead per number; an existing lead with
@@ -329,6 +331,11 @@ async function processLog(log, opts = {}) {
         })
         .then(async (r) => {
           await saveChatAd(r && r.lead, p.ad, p.at);
+          // the CRM already knows this person → the chat carries the lead's name
+          const leadName = r && r.lead && require('../../../../services/whatsapp/leadLink').realName(r.lead.name);
+          if (leadName && leadName !== chat.customerName) {
+            await mongoose.model('WhatsAppChat').updateOne({ _id: chat._id }, { $set: { customerName: leadName } }).catch(() => {});
+          }
           // "Hello! Can I get more info on this?" → welcome + form link (once per lead; never on a replay)
           if (!opts.quiet && r && r.lead) {
             await require('../../../../services/whatsapp/autoReply').onIncoming({ lead: r.lead, deviceId: device.deviceId, number: p.from, text: p.text, ad: p.ad });

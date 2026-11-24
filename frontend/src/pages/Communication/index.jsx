@@ -420,6 +420,9 @@ export function TeamChat() {
                             gap: 4,
                           }}
                         >
+                          {m.via === "whatsapp" && (
+                            <span title="Sent on WhatsApp — the same message is in Team Chat" style={{ color: "#128C7E", fontWeight: 600, fontSize: 10.5 }}>WhatsApp ·</span>
+                          )}
                           {fmtTime(m.created)}
                           {mine && (
                             <span style={{ color: m.readAt ? "var(--hub-blue)" : "var(--hub-muted)", fontSize: 12, letterSpacing: -2 }}>

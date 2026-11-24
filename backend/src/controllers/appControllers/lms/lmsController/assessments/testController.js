@@ -243,6 +243,17 @@ async function submitTest(req, res) {
     if (attempt.status !== 'IN_PROGRESS') {
       return res.status(409).json({ success: false, message: 'This attempt is already closed.' });
     }
+    // Claim the attempt before grading (grading runs code and takes seconds):
+    // a second submit arriving meanwhile used to pass the check above and
+    // overwrite the score (ticket 2026-11-23, "two results a second apart").
+    // A claim older than 5 min (a crashed request) can be taken again.
+    const claimed = await AssessmentAttempt.updateOne(
+      { _id: attemptId, status: 'IN_PROGRESS', $or: [{ submitLockAt: null }, { submitLockAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) } }] },
+      { $set: { submitLockAt: new Date() } }
+    );
+    if (!claimed.modifiedCount) {
+      return res.status(409).json({ success: false, message: 'This attempt is already being submitted.' });
+    }
 
     const attemptQuestions = await AssessmentAttemptQuestion.find({ attemptId });
     const questions = await AssessmentQuestion.find({
@@ -332,6 +343,8 @@ async function submitTest(req, res) {
     });
   } catch (err) {
     console.error('Submit assessment error:', err);
+    // grading failed → release the claim so the learner can submit again
+    await mongoose.model('AssessmentAttempt').updateOne({ _id: req.params.attemptId, status: 'IN_PROGRESS' }, { $unset: { submitLockAt: 1 } }).catch(() => {});
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
 }

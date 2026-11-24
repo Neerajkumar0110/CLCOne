@@ -243,7 +243,10 @@ export default function Inbox({ initialDevice, configured, barSlot }) {
     setActiveId(res.result._id);
   };
 
-  if (!connected) {
+  // chats of my assigned leads on someone else's number — answered from that number
+  const viaOther = chats.some((c) => c.viaOther);
+  const activeChat = chats.find((c) => String(c._id) === String(activeId));
+  if (!connected && !viaOther) {
     return (
       <>
         <ConnectPanel device={device} configured={configured} onChanged={onChanged} />
@@ -285,7 +288,11 @@ export default function Inbox({ initialDevice, configured, barSlot }) {
 
   return (
     <>
-      {barSlot ? createPortal(bar, barSlot) : bar}
+      {connected ? (barSlot ? createPortal(bar, barSlot) : bar) : (
+        <div className="wa-bar">
+          <span className="wa-sub">Your own WhatsApp is not linked — the chats below are your leads' chats, answered from the number they came in on.</span>
+        </div>
+      )}
 
       <div className="wa-split">
         <div className="wa-col-list">
@@ -359,7 +366,7 @@ export default function Inbox({ initialDevice, configured, barSlot }) {
         </div>
         <div className="wa-col-thread">
           {activeId ? (
-            <ChatThread key={activeId} chatId={activeId} canSend={connected} onSent={loadChats} />
+            <ChatThread key={activeId} chatId={activeId} canSend={connected || !!(activeChat && activeChat.viaOther)} onSent={loadChats} />
           ) : (
             <div className="wa-thread wa-center wa-thread-empty">Select a chat, or press New to message a customer.</div>
           )}
