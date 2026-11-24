@@ -122,6 +122,10 @@ app.use('/api/code-editor', codeEditorPublicRouter);
 // is the access.
 app.use('/api/workday-public', workdayApi.publicRouter);
 
+// LMS recruiter profile link + 360° PDF verification (Figma 1D / 1F) —
+// before the bearer gate; the learner's unguessable link / a signed code is the access.
+app.use('/api/lms-public', require('./routes/appRoutes/lms/lmsGrowthPublicApi'));
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);

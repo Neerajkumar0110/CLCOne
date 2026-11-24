@@ -66,6 +66,18 @@ const certificateIssued = ({ name, certificateTitle, course, certificateId, scor
         </div>`,
 });
 
+// a certificate sent by hand from LMS › Certificates (the PDF is attached)
+const certificateSent = ({ name, certificateTitle, course, certificateId, verifyLink }) => ({
+  subject: `🎓 Your certificate from Career Lab Consulting${course ? ` — ${course}` : ''}`,
+  html: `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
+          <h2>Congratulations, ${esc(name)}!</h2>
+          <p>Please find your <b>${esc(certificateTitle)}</b>${course ? ` for <b>${esc(course)}</b>` : ''} attached to this email.</p>
+          <p>Certificate ID: <b>${certificateId}</b></p>
+          <p><a href="${verifyLink}" style="color:#2f5fd0;font-weight:600">Verify your certificate &rarr;</a></p>
+          <p style="color:#5b6575">— Team Career Lab Consulting</p>
+        </div>`,
+});
+
 // short class notices (cancelled / postponed / marked absent / time changed)
 const notice = (subject, body) => ({ subject, html: `<p>${body}</p>` });
 const classCancelled = ({ classTitle, course, scheduledTime, reason }) => notice(`Class cancelled: ${classTitle}`, `${course} · was scheduled ${scheduledTime}. Reason: ${reason}`);
@@ -97,6 +109,7 @@ module.exports = {
   projectReview,
   attendanceEscalation,
   certificateIssued,
+  certificateSent,
   classCancelled,
   classPostponed,
   markedAbsent,

@@ -2,6 +2,8 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import { Layout, Menu, Button, Grid, Drawer, Empty, message, ConfigProvider, theme as antdTheme } from 'antd';
 import axios from 'axios';
 import lmsApi from '@/pages/Lms/api';
+import growthApi from '@/pages/Lms/Growth/api';
+import { startActivityTracker } from '@/pages/Lms/Growth/tracker';
 import { getSocket } from '@/socket';
 import {
   DashboardOutlined,
@@ -40,6 +42,11 @@ import {
   WalletOutlined,
   CommentOutlined,
   CodeOutlined,
+  AimOutlined,
+  FieldTimeOutlined,
+  FireOutlined,
+  AlertOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -102,6 +109,15 @@ const PMClassHost = lazy(() => import('@/pages/Lms/PMBoards/ClassHost'));
 const PMReviews = lazy(() => import('@/pages/Lms/PMBoards/Reviews'));
 const PMAssess = lazy(() => import('@/pages/Lms/PMBoards/Assess'));
 const PMLearner360 = lazy(() => import('@/pages/Lms/PMBoards/Learner360'));
+// LMS Additional Requirements (Figma yKjb2ncoVnPG9Eqql6zwhI)
+const GrReport = lazy(() => import('@/pages/Lms/Growth/Learner360Report'));
+const GrMyProjects = lazy(() => import('@/pages/Lms/Growth/MyProjects'));
+const GrPractice = lazy(() => import('@/pages/Lms/Growth/PracticeTracker'));
+const GrContent = lazy(() => import('@/pages/Lms/Growth/ContentProgress'));
+const GrMentorLearners = lazy(() => import('@/pages/Lms/Growth/MentorLearners'));
+const GrProjectsHub = lazy(() => import('@/pages/Lms/Growth/ProjectsHub'));
+const GrStatusFlow = lazy(() => import('@/pages/Lms/Growth/StatusFlow'));
+const GrEngagement = lazy(() => import('@/pages/Lms/Growth/EngagementAlerts'));
 const PMCurriculum = lazy(() => import('@/pages/Lms/PMBoards/Curriculum'));
 const PMCandidates = lazy(() => import('@/pages/Lms/PMBoards/Candidates'));
 const PMProjectSetup = lazy(() => import('@/pages/Lms/PMBoards/ProjectSetup'));
@@ -144,7 +160,9 @@ const LD_THEME = {
 };
 // Learner routes already rebuilt to their board (they render their own
 // .ld-page); every other learner route gets the board shell around it.
-const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/classes', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/pm-feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support'];
+const BOARD_BUILT = ['/learn', '/learn/onboarding', '/learn/policies', '/learn/tests', '/learn/classes', '/learn/recordings', '/learn/projects', '/learn/feedback', '/learn/pm-feedback', '/learn/attendance', '/learn/overview', '/learn/certificates', '/learn/fees', '/learn/support', '/learn/report', '/learn/project-tasks', '/learn/practice', '/learn/content-progress'];
+// sidebar entries behind a feature flag (QA › Flags) — hidden when the flag is off for this user
+const FLAGGED = { '/learn/report': 'learner_360_v2', '/learn/project-tasks': 'project_deadline_timer', '/teacher/project-dashboard': 'project_deadline_timer', '/learn/practice': 'engagement_heatmap' };
 const isBoardBuilt = (path) => BOARD_BUILT.some((p) => path === p || (p !== '/learn' && path.startsWith(`${p}/`)));
 
 const ComingSoon = ({ title }) => (
@@ -400,6 +418,8 @@ const TEACHER_NAV = [
   ['#LEARNERS'],
   ['/teacher/students', 'Candidates', <TeamOutlined />, <PMCandidates />],
   ['/teacher/learner-360', 'Learner 360', <ProfileOutlined />, <PMLearner360 />],
+  ['/teacher/my-learners', 'My Learners · 360°', <AimOutlined />, <GrMentorLearners />],
+  ['/teacher/engagement', 'Engagement Alerts', <AlertOutlined />, <GrEngagement />],
   ['/teacher/doubts', 'Doubts / Questions', <QuestionCircleOutlined />, <PMDoubts />],
   ['/teacher/announcements', 'Announcements', <SoundOutlined />, <AnnouncementsPage />],
   ['#ASSESS'],
@@ -408,6 +428,8 @@ const TEACHER_NAV = [
   ['/teacher/attempts', 'Test Attempts', <AuditOutlined />, <AttemptsAdmin />],
   ['/teacher/question-bank', 'Question Bank', <DatabaseOutlined />, <QuestionBank />],
   ['/teacher/projects', 'Project reviews', <ProjectOutlined />, <PMReviews />],
+  ['/teacher/project-dashboard', 'Project allocation & timers', <FieldTimeOutlined />, <GrProjectsHub />],
+  ['/teacher/project-automation', 'Project status flow', <ApartmentOutlined />, <GrStatusFlow />],
   ['/teacher/assignments', 'Projects & assignments', <FileTextOutlined />, <PMProjectSetup />],
   ['#CONTENT'],
   ['/teacher/curriculum', 'Curriculum & material', <ScheduleOutlined />, <PMCurriculum />],
@@ -438,7 +460,11 @@ const STUDENT_NAV = [
   ['/learn/results', 'My Results', <LineChartOutlined />, <Results />],
   ['/learn/assignments', 'Assignments', <FileTextOutlined />, <Assignments />],
   ['/learn/projects', 'My Project', <ProjectOutlined />, <Projects />],
+  ['/learn/project-tasks', 'Allocated projects', <FieldTimeOutlined />, <GrMyProjects />],
+  ['/learn/practice', 'Practice Tracker', <FireOutlined />, <GrPractice />],
+  ['/learn/content-progress', 'Content Progress', <ReadOutlined />, <GrContent />],
   ['#ME'],
+  ['/learn/report', '360° Report', <AimOutlined />, <GrReport />],
   ['/learn/feedback', 'Weekly feedback', <CommentOutlined />, <WeeklyFeedback key="weekly" />],
   ['/learn/pm-feedback', 'PM feedback', <CommentOutlined />, <WeeklyFeedback key="pm" initialTab="pm" />],
   ['/learn/attendance', 'Attendance', <CheckSquareOutlined />, <Attendance />],
@@ -488,7 +514,16 @@ export default function LmsPanelApp() {
   }, [isTeacher, isDark, setTheme]);
   const base = isTeacher ? '/teacher' : '/learn';
   const canCodeEditor = CODE_EDITOR_TEST_EMAILS.includes(String(admin.email || '').toLowerCase());
-  const nav = useMemo(() => (isTeacher ? TEACHER_NAV : canCodeEditor ? [...STUDENT_NAV, CODE_EDITOR_ENTRY] : STUDENT_NAV), [isTeacher, canCodeEditor]);
+  // feature flags + the practice / engagement tracker (learners only)
+  const [flags, setFlags] = useState({});
+  useEffect(() => {
+    growthApi.myFlags().then((r) => r && r.success && setFlags(r.result || {}));
+    if (!isTeacher) startActivityTracker();
+  }, [isTeacher]);
+  const nav = useMemo(() => {
+    const base0 = isTeacher ? TEACHER_NAV : canCodeEditor ? [...STUDENT_NAV, CODE_EDITOR_ENTRY] : STUDENT_NAV;
+    return base0.filter((e) => !(FLAGGED[e[0]] && flags[FLAGGED[e[0]]] === false));
+  }, [isTeacher, canCodeEditor, flags]);
   // A "group:" entry (Quizzes & Exams / Major / Micro) has no route of its
   // own — its 5th element carries the real, routable leaf entries, to any
   // nesting depth.

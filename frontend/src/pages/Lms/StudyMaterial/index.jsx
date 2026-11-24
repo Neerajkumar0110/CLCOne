@@ -12,6 +12,7 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
+import MaterialViewer from '../Growth/MaterialViewer';
 
 // Same "New record" modal look used everywhere else in the LMS (Announcements,
 // Assignments, Projects) — see .crud-modal / .crud-form-grid in featureHub.css.
@@ -110,7 +111,7 @@ function StatCard({ icon, color, label, value, active, onClick }) {
   );
 }
 
-function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect }) {
+function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect, onView }) {
   return (
     <div className="material-file-card">
       <div className="material-file-left">
@@ -138,7 +139,11 @@ function FileCard({ m, canManage, onDelete, selectable, selected, onToggleSelect
         </div>
       </div>
       <div className="material-file-actions">
-        <a className="material-view-btn" href={m.fileUrl} target="_blank" rel="noreferrer" title="View"><EyeOutlined /></a>
+        {onView && m.sourceType !== 'link' ? (
+          <button type="button" className="material-view-btn" onClick={() => onView(m)} title="View" style={{ border: 0, cursor: 'pointer' }}><EyeOutlined /></button>
+        ) : (
+          <a className="material-view-btn" href={m.fileUrl} target="_blank" rel="noreferrer" title="View"><EyeOutlined /></a>
+        )}
         {m.sourceType === 'file' && (
           <a className="material-download-btn" href={m.fileUrl} download title="Download"><DownloadOutlined /></a>
         )}
@@ -676,6 +681,8 @@ function TeacherStudyMaterial() {
 }
 
 function StudentStudyMaterial() {
+  // in-LMS viewer so reading time / scroll depth count (Figma 3B)
+  const [viewing, setViewing] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -758,10 +765,11 @@ function StudentStudyMaterial() {
               ? <Empty description="No study material has been shared yet." />
               : <div className="material-empty-state"><p>No files match your search.</p></div>
           ) : (
-            <CurriculumList rows={filtered} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} />} />
+            <CurriculumList rows={filtered} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} onView={setViewing} />} />
           )}
         </div>
       </div>
+      {viewing && <MaterialViewer m={viewing} kind={viewKind(viewing)} onClose={() => setViewing(null)} />}
     </div>
   );
 }

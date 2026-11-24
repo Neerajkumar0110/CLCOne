@@ -39,6 +39,14 @@ async function healthExtras(req, res) {
     M('LiveRecording').countDocuments({ removed: false, status: 'FAILED' }),
     M('LmsWebhookEvent').countDocuments({ status: { $in: ['failed', 'dead'] } }).catch(() => 0),
   ]);
+  // transcripts + captions (Whisper on this server, night queue)
+  const tr = require('../../../../services/lms/transcriber').status();
+  const trRows = await M('LmsTranscript')
+    .aggregate([{ $match: { removed: false, kind: 'final' } }, { $group: { _id: '$status', n: { $sum: 1 } } }])
+    .catch(() => []);
+  const trc = Object.fromEntries(trRows.map((r) => [r._id, r.n]));
+  const trFailed = trc.failed || 0;
+  const trNote = `${trc.done || 0} ready · ${(trc.queued || 0) + (trc.processing || 0)} in queue${trFailed ? ` · ${trFailed} failed` : ''}`;
   const days = drive && drive.tokenExpiresAt ? Math.round((new Date(drive.tokenExpiresAt) - Date.now()) / (24 * 3600 * 1000)) : null;
   const t0 = Date.now();
   await mongoose.connection.db.admin().ping().catch(() => null);
@@ -51,7 +59,8 @@ async function healthExtras(req, res) {
       { name: 'Google Drive', state: !drive ? 'off' : days !== null && days <= 3 ? 'warn' : 'ok', note: !drive ? 'not connected' : days !== null ? `token ${days < 0 ? 'expired' : `expires ${days}d`}` : 'connected' },
       { name: 'Email SMTP', state: bounces > 10 ? 'warn' : 'ok', note: `${bounces} bounce${bounces === 1 ? '' : 's'} (24h)` },
       { name: 'WhatsApp API', state: 'off', note: 'not set up' },
-      { name: 'Transcription', state: 'off', note: 'not set up' },
+      // enabled() is false where Whisper isn't installed (laptop) — the counts still come from the shared DB
+      { name: 'Transcription', state: !tr.enabled && !trRows.length ? 'off' : trFailed ? 'warn' : 'ok', note: !tr.enabled && !trRows.length ? 'not set up' : trNote },
     ],
     jobs: JOBS.map((j) => {
       const last = snap[j.name];

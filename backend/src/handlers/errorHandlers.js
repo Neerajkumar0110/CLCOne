@@ -18,7 +18,12 @@ exports.catchErrors = (fn) => {
           error: error,
         });
       } else {
-        // Server Error
+        // Server Error — also kept for QA error monitoring (LMS Figma 4E)
+        try {
+          require('../services/lms/growth/qaLog').logError(req, error, fn.name);
+        } catch (_) {
+          /* logging must never break a response */
+        }
         return res.status(500).json({
           success: false,
           result: null,
@@ -69,6 +74,11 @@ exports.developmentErrors = (error, req, res, next) => {
   No stacktraces are leaked to admin
 */
 exports.productionErrors = (error, req, res, next) => {
+  try {
+    require('../services/lms/growth/qaLog').logError(req, error);
+  } catch (_) {
+    /* never break the response */
+  }
   return res.status(500).json({
     success: false,
     message: error.message,

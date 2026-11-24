@@ -1,4 +1,7 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { lmsConfig } = require('../../../../config/lms');
 const mongoose = require('mongoose');
 const { LMS_FULL_ACCESS_ROLES, LMS_TEACHER_ROLES } = require('../../../../config/roles');
 const certEngine = require('../../../../services/lms/certificateEngine');
@@ -19,7 +22,8 @@ const { isTeacherOfCourse } = require('../../../../services/lms');
 //  anyone (bearer):
 //   GET   /api/lms/certificates/verify/:certificateId
 
-const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
+// _lmsFull: set by permissions.certificateAccess for anyone with the LMS permission
+const isManager = (a) => !!(a && (LMS_FULL_ACCESS_ROLES.includes(a.role) || a._lmsFull));
 const isTeacher = (a) => !!(a && LMS_TEACHER_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
@@ -245,6 +249,14 @@ async function mine(req, res) {
 // Course is only looked up to know which real template (Foundation/Elite —
 // Course.durationHours) the PDF renderer should fill in.
 async function streamCertificatePdf(res, cert) {
+  if (cert.fileUrl && /^\/public\/uploads\/certificates\/[\w.-]+\.pdf$/i.test(cert.fileUrl)) {
+    const file = path.join(__dirname, '../../../../', cert.fileUrl.replace(/^\/public\//, 'public/'));
+    if (fs.existsSync(file)) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(cert.certificateId || 'certificate').replace(/[^a-z0-9-]/gi, '_')}.pdf"`);
+      return res.send(fs.readFileSync(file));
+    }
+  }
   const Course = mongoose.model('Course');
   const course = await Course.findOne({ title: rxEq(cert.course || ''), removed: false }).select('durationHours').lean();
   const buf = await certPdf.renderCertificatePdf({ cert, course });
@@ -289,6 +301,124 @@ async function previewMine(req, res) {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline; filename="certificate-preview.pdf"');
   res.send(buf);
+}
+
+// Drop pages (1-based list "3,4") from an uploaded PDF. Never leaves it empty.
+async function dropPages(bytes, removePages) {
+  const { PDFDocument } = require('pdf-lib');
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const total = doc.getPageCount();
+  const drop = [...new Set(String(removePages || '').split(',').map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n >= 1 && n <= total))].sort((x, y) => y - x);
+  if (drop.length >= total) throw Object.assign(new Error('A certificate needs at least one page.'), { status: 400 });
+  drop.forEach((n) => doc.removePage(n - 1));
+  return { total, kept: total - drop.length, bytes: drop.length ? Buffer.from(await doc.save()) : bytes };
+}
+
+// POST /api/lms/certificates/pdf-pages — multipart { file, removePages? } (managers).
+// Preview for "Send a certificate › Upload a PDF": page count, and the PDF with
+// the chosen pages taken out. Nothing is stored.
+async function pdfPages(req, res) {
+  const drop = () => req.file && fs.unlink(req.file.path, () => {});
+  if (!isManager(req.admin)) {
+    drop();
+    return bad(res, 403, 'Only LMS managers can send certificates.');
+  }
+  if (!req.file) return bad(res, 400, 'Choose a PDF.');
+  try {
+    const raw = fs.readFileSync(req.file.path);
+    if (raw.subarray(0, 5).toString() !== '%PDF-') return bad(res, 400, 'That file is not a PDF.');
+    const out = await dropPages(raw, (req.body || {}).removePages);
+    return ok(res, { total: out.total, kept: out.kept, pdf: out.bytes.toString('base64') });
+  } catch (e) {
+    return bad(res, e.status || 400, e.status ? e.message : 'This PDF could not be read.');
+  } finally {
+    drop();
+  }
+}
+
+// POST /api/lms/certificates/send — multipart { name, email, course?, title?, type?, file? }
+// (managers). Gives anyone a certificate: our real template (Foundation / Elite,
+// picked from the internship) with the name filled in, or an uploaded PDF as it
+// is. It is emailed from Career Lab with the PDF attached and recorded like any
+// other certificate (ID, verify link, Issued certificates list).
+async function sendManual(req, res) {
+  const dropUpload = () => req.file && fs.unlink(req.file.path, () => {});
+  if (!isManager(req.admin)) {
+    dropUpload();
+    return bad(res, 403, 'Only LMS managers can send certificates.');
+  }
+  const b = req.body || {};
+  const name = String(b.name || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!name) {
+    dropUpload();
+    return bad(res, 400, 'Enter the name to print on the certificate.');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    dropUpload();
+    return bad(res, 400, 'Enter a valid email address.');
+  }
+  const Course = mongoose.model('Course');
+  const course = mongoose.isValidObjectId(b.course) ? await Course.findOne({ _id: b.course, removed: false }).select('title durationHours').lean() : null;
+  const title = String(b.title || '').trim().slice(0, 120) || 'Certificate of Completion';
+  const type = ['Completion', 'Participation', 'Merit', 'Achievement'].includes(b.type) ? b.type : 'Completion';
+
+  let pdf;
+  let source = 'Template';
+  let fileUrl;
+  if (req.file) {
+    pdf = fs.readFileSync(req.file.path);
+    if (pdf.subarray(0, 5).toString() !== '%PDF-') {
+      dropUpload();
+      return bad(res, 400, 'That file is not a PDF.');
+    }
+    if (b.removePages) {
+      try {
+        pdf = (await dropPages(pdf, b.removePages)).bytes;
+        fs.writeFileSync(req.file.path, pdf);
+      } catch (e) {
+        dropUpload();
+        return bad(res, 400, e.status ? e.message : 'This PDF could not be read.');
+      }
+    }
+    source = 'Upload';
+    fileUrl = `/public/uploads/certificates/${path.basename(req.file.path)}`;
+  } else {
+    if (!course) return bad(res, 400, 'Pick the internship (its certificate template), or upload a PDF.');
+    pdf = await certPdf.renderCertificatePdf({ cert: { student: name }, course });
+  }
+
+  const base = String((lmsConfig.meeting && lmsConfig.meeting.crmBaseUrl) || '').replace(/\/+$/, '');
+  const certificateId = `CLC-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const cert = await mongoose.model('Certificate').create({
+    student: name,
+    email,
+    course: course ? course.title : String(b.courseName || '').trim().slice(0, 120) || undefined,
+    certificateId,
+    title,
+    type,
+    issuedOn: new Date(),
+    status: 'Issued',
+    verificationUrl: `${base}/#/verify/${certificateId}`,
+    issuedBy: req.admin.name || 'Admin',
+    source,
+    fileUrl,
+    notes: `Sent by hand to ${email}`,
+  });
+
+  const mailer = require('../../../../services/lms/mailer');
+  if (!mailer.ready()) return ok(res, { id: String(cert._id), certificateId, sent: false }, 'Certificate saved, but email is not set up on this server — download the PDF and send it yourself.');
+  const vars = { name, certificateTitle: title, course: cert.course || '', certificateId, verifyLink: cert.verificationUrl };
+  const fileName = `${name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'certificate'}-${certificateId}.pdf`;
+  const r = await mailer.sendMail([email], {
+    ...require('../../../../services/mail/inlineEmails').certificateSent(vars),
+    attachments: [{ filename: fileName, content: pdf, contentType: 'application/pdf' }],
+    templateKey: 'lms-certificate-sent',
+    vars,
+  });
+  if (!r.sent) return bad(res, 502, `Certificate ${certificateId} saved, but the email to ${email} could not be sent. Download the PDF from Issued certificates and send it.`);
+  await mongoose.model('Certificate').updateOne({ _id: cert._id }, { $set: { status: 'Sent' } });
+  return ok(res, { id: String(cert._id), certificateId, sent: true }, `Certificate sent to ${email}.`);
 }
 
 async function downloadForManager(req, res) {
@@ -382,4 +512,4 @@ async function verify(req, res) {
   });
 }
 
-module.exports = { getRule, upsertRule, issue, runForCourse, history, mine, verify, downloadMine, downloadForManager, previewMine, roster };
+module.exports = { getRule, upsertRule, issue, sendManual, pdfPages, runForCourse, history, mine, verify, downloadMine, downloadForManager, previewMine, roster };

@@ -11,6 +11,7 @@ import {
 import lmsApi from '../api';
 import CurriculumViewer from '../components/CurriculumViewer';
 import '../components/MyCourses.css';
+import { useContentProgress } from '../Growth/tracker';
 
 const COURSE_FILTERS = [
   { key: 'all', label: 'All Internships', icon: <AppstoreOutlined /> },
@@ -34,8 +35,10 @@ const { Text } = Typography;
 const ytEmbed = (id) => `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
 const vimeoEmbed = (id) => `https://player.vimeo.com/video/${id}`;
 
-function LessonPlayer({ lesson, onProgress, onComplete }) {
+function LessonPlayer({ lesson, onProgress, onComplete, course, module }) {
   const videoRef = useRef(null);
+  // 3B content progress (scroll depth, time on page, video watch %) — learners only
+  useContentProgress({ kind: 'lesson', ref: lesson && String(lesson.id), title: lesson && lesson.title, course, module, videoRef, enabled: !!lesson });
   const watched = useRef(0);
   const tick = useRef(null);
 
@@ -584,7 +587,12 @@ export default function LearningPage() {
             ) : lesson ? (
               <div className="lms-player-card">
                 <div className={FRAME_TYPES.has(lesson.type) ? 'lms-player-media' : 'lms-player-content'}>
-                  <LessonPlayer lesson={lesson} onProgress={onProgress} />
+                  <LessonPlayer
+                    lesson={lesson}
+                    onProgress={onProgress}
+                    course={(courses.find((c) => String(c.id || c._id) === String(courseId)) || {}).title || (outline && outline.title)}
+                    module={outline && lesson ? ((outline.modules || []).find((m) => (m.chapters || []).some((c) => (c.lessons || []).some((l) => String(l.id) === String(lesson.id)))) || {}).title : undefined}
+                  />
                 </div>
 
                 <div className="lms-player-lesson-meta">

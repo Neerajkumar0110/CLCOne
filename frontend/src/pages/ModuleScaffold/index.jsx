@@ -61,6 +61,21 @@ const LmsSupportManagerScreen = lazy(() => import('@/pages/Lms/SMBoards'));
 const SM_SCREENS = ['dashboard', 'attendance', 'tickets', 'comms', 'certificates', 'learners', 'classes', 'recordings', 'feedback'];
 const SM_EMBEDS = Object.fromEntries(SM_SCREENS.map((k) => [`lmsSm_${k}`, () => <LmsSupportManagerScreen screen={k} />]));
 const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
+// LMS Additional Requirements (Figma yKjb2ncoVnPG9Eqql6zwhI): Learner Growth + QA + support desks.
+const GR = {
+  lmsGr_scoring: lazy(() => import('@/pages/Lms/Growth/Scoring360')),
+  lmsGr_lookup: lazy(() => import('@/pages/Lms/Growth/Learner360Lookup')),
+  lmsGr_projects: lazy(() => import('@/pages/Lms/Growth/ProjectsHub')),
+  lmsGr_flow: lazy(() => import('@/pages/Lms/Growth/StatusFlow')),
+  lmsGr_rules: lazy(() => import('@/pages/Lms/Growth/EngagementRules')),
+  lmsGr_extensionDesk: lazy(() => import('@/pages/Lms/Growth/ExtensionDesk')),
+  lmsGr_inactive: lazy(() => import('@/pages/Lms/Growth/InactiveOutreach')),
+  lmsQa_pipeline: lazy(() => import('@/pages/Lms/Growth/QaPipeline')),
+  lmsQa_accounts: lazy(() => import('@/pages/Lms/Growth/QaAccounts')),
+  lmsQa_tests: lazy(() => import('@/pages/Lms/Growth/QaTests')),
+  lmsQa_bugs: lazy(() => import('@/pages/Lms/Growth/QaBugs')),
+  lmsQa_flags: lazy(() => import('@/pages/Lms/Growth/QaFlags')),
+};
 const LmsCurriculum = lazy(() => import('@/pages/Lms/Curriculum'));
 const LmsAttemptsAdmin = lazy(() => import('@/pages/Lms/AttemptsAdmin'));
 const LmsQuestionBank = lazy(() => import('@/pages/Lms/QuestionBank'));
@@ -102,6 +117,7 @@ const EMBED = {
   ...AO_EMBEDS,
   ...SM_EMBEDS,
   lmsLearner360: LmsLearner360,
+  ...GR,
   lmsCurriculum: LmsCurriculum,
   lmsAttemptsAdmin: LmsAttemptsAdmin,
   lmsQuestionBank: LmsQuestionBank,

@@ -73,6 +73,12 @@ import {
   ExperimentOutlined,
   FormOutlined,
   RocketOutlined,
+  AimOutlined,
+  BugOutlined,
+  FlagOutlined,
+  AlertOutlined,
+  ControlOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 
 /* ---- shared option lists (must match genFeatureModels.cjs) ---- */
@@ -1097,7 +1103,7 @@ export const FEATURE_SECTIONS = [
       },
       {
         key: 'learner-360',
-        label: 'Learner 360',
+        label: 'Learner 360 · batch report',
         Icon: ProfileOutlined,
         // Spec §16 Learner 360 report — attendance+curriculum+assessments+
         // project+acknowledgements+eligibility+certificate, one row per
@@ -1217,7 +1223,49 @@ export const FEATURE_SECTIONS = [
       { key: 'learners', label: 'Learners', Icon: TeamOutlined, embed: 'lmsSm_learners' },
       { key: 'classes', label: 'Batches & classes', Icon: CalendarOutlined, embed: 'lmsSm_classes' },
       { key: 'recordings', label: 'Recording ops', Icon: VideoCameraOutlined, embed: 'lmsSm_recordings' },
-      { key: 'feedback', label: 'Feedback centre', Icon: CommentOutlined, embed: 'lmsSm_feedback' },
+      // Feedback centre: same screen as LMS › Feedback Centre — kept there only (2026-11-24)
+      // LMS Additional Requirements (Figma 2F / 3D / 1B visibility: support sees every 360° read-only)
+      { key: 'extension-desk', label: 'Extension desk', Icon: ClockCircleOutlined, embed: 'lmsGr_extensionDesk' },
+      { key: 'inactive', label: 'Inactive learners', Icon: AlertOutlined, embed: 'lmsGr_inactive' },
+      // Learner 360° lookup: same screen as Learner Growth › Learner 360° (it is read-only for Support itself)
+    ],
+  },
+
+  // ===========================================================================
+  // Learner Growth (LMS Additional Requirements, Figma yKjb2ncoVnPG9Eqql6zwhI —
+  // admin views 1B, 2A–2E, 2G, 3E). Same LMS permission as the other LMS sections.
+  {
+    key: 'learner-growth',
+    label: 'Learner Growth',
+    module: 'LMS',
+    route: '/learner-growth',
+    Icon: AimOutlined,
+    blurb: 'Learner 360° scoring & leaderboard, project allocation with deadline timers, and engagement rules.',
+    tabs: [
+      { key: 'scoring', label: '360° & Scoring', Icon: AimOutlined, embed: 'lmsGr_scoring' },
+      { key: 'learner-360', label: 'Learner 360° · one learner', Icon: ProfileOutlined, embed: 'lmsGr_lookup' },
+      { key: 'projects', label: 'Project allocation', Icon: ProjectOutlined, embed: 'lmsGr_projects' },
+      { key: 'automations', label: 'Project automations', Icon: ApartmentOutlined, embed: 'lmsGr_flow' },
+      { key: 'engagement', label: 'Engagement rules', Icon: ControlOutlined, embed: 'lmsGr_rules' },
+    ],
+  },
+
+  // ===========================================================================
+  // QA (testing) environment (Figma 4A–4E) — dev & QA team; every API checks
+  // for an admin role.
+  {
+    key: 'qa-env',
+    label: 'QA & Releases',
+    module: 'LMS',
+    route: '/qa-env',
+    Icon: BugOutlined,
+    blurb: 'Release pipeline, test accounts & seed data, automated test runs, bugs per release, feature flags, access and logs.',
+    tabs: [
+      { key: 'pipeline', label: 'Release pipeline', Icon: RocketOutlined, embed: 'lmsQa_pipeline' },
+      { key: 'accounts', label: 'Test accounts & seed', Icon: UserOutlined, embed: 'lmsQa_accounts' },
+      { key: 'tests', label: 'Test runs', Icon: ExperimentOutlined, embed: 'lmsQa_tests' },
+      { key: 'bugs', label: 'Bug tracker', Icon: BugOutlined, embed: 'lmsQa_bugs' },
+      { key: 'flags', label: 'Flags, access & logs', Icon: FlagOutlined, embed: 'lmsQa_flags' },
     ],
   },
 

@@ -444,7 +444,7 @@ export function ClassBoard({ row, meName, onJoin, joining, room, onPopOut, onRoo
                 </div>
               </div>
             ))}
-          {tab === 'trans' && <div className="ld-muted" style={{ fontSize: 13 }}>Live captions / transcript are not set up yet — the recording will be in Recordings after the class.</div>}
+          {tab === 'trans' && <div className="ld-muted" style={{ fontSize: 13 }}>Live captions during the class are not set up yet. After the class, its recording gets a transcript and subtitles (CC) automatically — open it in Recordings.</div>}
         </section>
       </div>
     </div>

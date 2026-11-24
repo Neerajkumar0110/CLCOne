@@ -59,6 +59,9 @@ const NAV_KEY_MODULE = Object.fromEntries(
 // "current path" for /calling folds the query param in, the same way
 // "sales/leads" folds a real route segment in for feature sections.
 const CALLING_TABS = ['dashboard', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports', 'demos'];
+// LMS-module sections shown as submenus inside the one LMS menu (see featureItems).
+const LMS_FOLDED = ['admin-ops', 'support-mgr', 'learner-growth', 'qa-env'];
+
 function pathKeyFor(loc) {
   if (loc.pathname === '/') return 'dashboard';
   const base = loc.pathname.slice(1);
@@ -221,7 +224,23 @@ function Sidebar({ collapsible, isMobile = false }) {
       label,
       children: buildTabItems(section.key, tabs),
     };
-  });
+  })
+    // Everything LMS sits under ONE "LMS" menu (user ask 2026-11-24): the other
+    // LMS sections become nested submenus there. Their routes, tab keys and
+    // permission (module LMS) stay exactly as they were.
+    .reduce((acc, item) => {
+      const lms = acc.find((i) => i.key === 'lms');
+      if (LMS_FOLDED.includes(item.key) && lms) {
+        lms.children = [...lms.children, item];
+        return acc;
+      }
+      if (item.key === 'lms') {
+        const early = acc.filter((i) => LMS_FOLDED.includes(i.key));
+        const rest = acc.filter((i) => !LMS_FOLDED.includes(i.key));
+        return [...rest, { ...item, children: [...item.children, ...early] }];
+      }
+      return [...acc, item];
+    }, []);
 
   // Sales = ONE sidebar tab for everything sales uses (user ask 2026-11-17,
   // from 30 days of real usage): the day's work first, then records & team,
@@ -422,6 +441,8 @@ function Sidebar({ collapsible, isMobile = false }) {
   useEffect(() => {
     const active = FEATURE_SECTIONS.find((s) => currentPath.startsWith(s.key + '/'));
     let want = active ? active.key : null;
+    // a folded LMS section opens inside the LMS menu
+    const parent = active && LMS_FOLDED.includes(active.key) ? 'lms' : null;
     if (!want && (currentPath === 'reports' || currentPath === 'performance')) want = 'reports-group';
     if (!want && ['finance', 'invoice', 'finance-payments'].includes(currentPath)) want = 'finance-group';
     if (!want && currentPath.startsWith('calling-')) want = 'sales';
@@ -431,7 +452,7 @@ function Sidebar({ collapsible, isMobile = false }) {
     if (want) {
       setOpenKeys((prev) => {
         const v3More = /^sales-v3\/(pipeline|deals|quotes|candidates|callsdash|campaigns)$/.test(currentPath);
-        const add = [want, ...(inMore ? ['sales-more'] : []), ...(v3More ? ['sales-v3-more'] : [])].filter((k) => !prev.includes(k));
+        const add = [...(parent ? [parent] : []), want, ...(inMore ? ['sales-more'] : []), ...(v3More ? ['sales-v3-more'] : [])].filter((k) => !prev.includes(k));
         return add.length ? [...prev, ...add] : prev;
       });
     }

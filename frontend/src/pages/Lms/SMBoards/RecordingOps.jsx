@@ -3,6 +3,7 @@ import { Alert, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
 import { SMPage, useLoad, Loading, res, fmtDay, errText, downloadCsv } from './shared';
+import TranscriptQueueCard from '../Recordings/TranscriptQueueCard';
 
 // S7 — recording recovery for one batch + date range: every scheduled
 // session with the sources checked (BBB / link / Drive backup), an evidence
@@ -135,8 +136,9 @@ export default function SMRecordingOps() {
             <span>✓ duplicate check on import</span>
             <span>✓ correct batch / session / date mapping</span>
             <span>✓ playback test from a learner account</span>
-            <span>○ captions / transcript — not available yet</span>
+            <span>✓ transcript + subtitles (CC) — made automatically at night; failures listed below</span>
           </div>
+          <TranscriptQueueCard compact />
           <button type="button" className="ld-btn" style={{ marginTop: 'auto' }} onClick={exportInv}>Export inventory (evidence)</button>
         </section>
       </div>

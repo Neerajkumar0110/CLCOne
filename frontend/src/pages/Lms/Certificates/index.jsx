@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Divider, Row, Col, Collapse, Progress, Tooltip,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Row, Col, Tooltip,
 } from 'antd';
 import {
   TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined,
   LockOutlined, CheckCircleFilled, ClockCircleOutlined, FileDoneOutlined, EyeOutlined,
+  SendOutlined, UploadOutlined, FilePdfOutlined, MailOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
+import { usePermission } from '@/context/permissionContext';
 import { request } from '@/request';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
@@ -30,6 +32,8 @@ function slug(s) {
 function BatchRoster() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(() => new Set());
+  const [q, setQ] = useState('');
   const load = useCallback(() => {
     setLoading(true);
     lmsApi.certificateRoster().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Roster load failed')).finally(() => setLoading(false));
@@ -39,53 +43,90 @@ function BatchRoster() {
   if (loading) return <Skeleton active paragraph={{ rows: 3 }} />;
   if (!rows.length) return <Empty description="No candidates yet." />;
 
+  // real batches first (A–Z), then test batches, then candidates with no batch
+  const kind = (r) => (!r.batch || r.batch === '—' ? 2 : /^QA[-_ ]/i.test(r.batch) ? 1 : 0);
+  const sorted = [...rows].sort((x, y) => kind(x) - kind(y) || String(x.batch).localeCompare(String(y.batch)));
+  const oneCourse = new Set(rows.map((r) => r.course)).size === 1 ? rows[0].course : null;
+  const total = rows.reduce((n, r) => n + r.total, 0);
+  const done = rows.reduce((n, r) => n + r.completed, 0);
+  const term = q.trim().toLowerCase();
+  const match = (st) => !term || [st.name, st.email].some((v) => String(v || '').toLowerCase().includes(term));
+  const shown = sorted
+    .map((r) => ({ ...r, list: r.students.filter(match) }))
+    .filter((r) => !term || r.list.length || String(r.batch).toLowerCase().includes(term));
+  const toggle = (k) => setOpen((o) => { const n = new Set(o); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
   return (
-    <Collapse
-      items={rows.map((b) => ({
-        key: b.batch,
-        label: (
-          <Space>
-            <b>{b.batch}</b>
-            <Text type="secondary">{b.course}</Text>
-            <Tag color={b.completed === b.total ? 'green' : 'blue'}>{b.completed}/{b.total} completed</Tag>
-          </Space>
-        ),
-        children: (
-          <Table
-            rowKey="email"
-            size="small"
-            pagination={false}
-            dataSource={b.students}
-            columns={[
-              { title: 'Candidate', dataIndex: 'name' },
-              { title: 'Email', dataIndex: 'email' },
-              { title: 'Progress', dataIndex: 'progress', width: 140, render: (v) => <Progress percent={v} size="small" /> },
-              { title: 'Status', dataIndex: 'status', width: 100 },
-              {
-                title: 'Certificate',
-                width: 170,
-                render: (_, s) => (s.certificate
-                  ? <Tag color="gold">{s.certificate.certificateId} · {s.certificate.grade}</Tag>
-                  : <Tag>Not yet</Tag>),
-              },
-              {
-                title: '',
-                width: 100,
-                render: (_, s) => (s.certificate ? (
-                  <Button
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    onClick={() => lmsApi.downloadCertificatePdf(s.certificate.id, false, slug(`${s.name}-${s.certificate.certificateId}`))}
-                  >
-                    PDF
-                  </Button>
-                ) : null),
-              },
-            ]}
-          />
-        ),
-      }))}
-    />
+    <div className="cr">
+      <div className="cr-top">
+        <div className="cr-stats">
+          <div><b>{rows.filter((r) => kind(r) !== 2).length}</b><span>Batches</span></div>
+          <div><b>{total}</b><span>Candidates</span></div>
+          <div className="ok"><b>{done}</b><span>Completed</span></div>
+          <div className="wait"><b>{total - done}</b><span>Still learning</span></div>
+        </div>
+        <Input allowClear className="cr-search" placeholder="Search a candidate or batch" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {oneCourse && <div className="cr-course">All candidates are on <b>{oneCourse}</b></div>}
+
+      <div className="cr-list">
+        {shown.map((r) => {
+          const k = r.batch;
+          const isOpen = open.has(k) || !!term;
+          const pct = r.total ? Math.round((r.completed / r.total) * 100) : 0;
+          const label = kind(r) === 2 ? 'No batch assigned' : r.batch;
+          return (
+            <div key={k} className={`cr-batch ${isOpen ? 'open' : ''}`}>
+              <button type="button" className="cr-head" aria-expanded={isOpen} onClick={() => toggle(k)}>
+                <span className={`cr-ico k${kind(r)}`}>{kind(r) === 2 ? '?' : String(label).slice(0, 2).toUpperCase()}</span>
+                <span className="cr-name">
+                  <b title={label}>{label}</b>
+                  <small>
+                    {kind(r) === 1 && <em className="cr-tag">Test</em>}
+                    {r.total} candidate{r.total === 1 ? '' : 's'}
+                    {!oneCourse && r.course ? ` · ${r.course}` : ''}
+                  </small>
+                </span>
+                <span className="cr-done">
+                  <span className="cr-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+                  <span className={r.completed === r.total ? 'all' : ''}>{r.completed}/{r.total} completed</span>
+                </span>
+                <span className="cr-chev" aria-hidden="true">›</span>
+              </button>
+              {isOpen && (
+                <div className="cr-body">
+                  {r.list.length === 0 && <div className="cr-empty">No candidate matches “{q}”.</div>}
+                  {r.list.map((st) => (
+                    <div key={st.email || st.name} className="cr-row">
+                      <span className="cr-av">{String(st.name || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}</span>
+                      <span className="cr-who">
+                        <b>{st.name}</b>
+                        <small>{st.email}</small>
+                      </span>
+                      <span className="cr-prog">
+                        <span className="cr-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, st.progress || 0)}%` }} /></span>
+                        <small>{st.progress || 0}% done</small>
+                      </span>
+                      <span className="cr-status">{st.status ? <Tag>{st.status}</Tag> : null}</span>
+                      <span className="cr-cert">
+                        {st.certificate ? (
+                          <>
+                            <Tag color="gold" icon={<SafetyCertificateOutlined />}>{st.certificate.certificateId}{st.certificate.grade ? ` · ${st.certificate.grade}` : ''}</Tag>
+                            <Button size="small" icon={<DownloadOutlined />} onClick={() => lmsApi.downloadCertificatePdf(st.certificate.id, false, slug(`${st.name}-${st.certificate.certificateId}`))}>PDF</Button>
+                          </>
+                        ) : (
+                          <span className="cr-not">{st.eligible ? 'Ready to issue' : 'Not earned yet'}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -93,6 +134,170 @@ function BatchRoster() {
 // trainer on anything, so teacherDashboard()'s "my own courses" list always
 // comes back empty for them (same gap fixed earlier for Assignments/
 // AssessmentDashboard) — they instead get every course in the system.
+// Give anyone a certificate (user ask 2026-11-24): name + email, then either
+// our certificate template for the chosen internship with the name filled in,
+// or any PDF uploaded here. It is emailed from Career Lab with the PDF attached
+// and lands in Issued certificates (ID + verify link). Managers only.
+function SendCertificateCard({ courses, courseId, onSent }) {
+  const [f, setF] = useState({ name: '', email: '', course: courseId || null, title: 'Certificate of Completion', mode: 'template' });
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  // preview of the uploaded PDF + pages taken out (server trims: pdf-pages)
+  const [pages, setPages] = useState({ total: 0, removed: [], url: '', loading: false, error: '' });
+  const preview = useCallback(async (fl, removed) => {
+    setPages((p) => ({ ...p, removed, loading: true, error: '' }));
+    const r = await lmsApi.certificatePdfPages(fl, removed).catch((e) => ({ success: false, message: e?.response?.data?.message || e.message }));
+    if (!r?.success) {
+      setPages((p) => ({ ...p, loading: false, error: r?.message || 'Preview failed.' }));
+      return;
+    }
+    const bin = atob(r.result.pdf);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+    setPages((p) => {
+      if (p.url) URL.revokeObjectURL(p.url);
+      return { total: r.result.total, removed, url, loading: false, error: '' };
+    });
+  }, []);
+  const pickFile = (fl) => {
+    setFile(fl);
+    setPages((p) => {
+      if (p.url) URL.revokeObjectURL(p.url);
+      return { total: 0, removed: [], url: '', loading: false, error: '' };
+    });
+    if (fl) preview(fl, []);
+  };
+  const togglePage = (n) => {
+    const removed = pages.removed.includes(n) ? pages.removed.filter((x) => x !== n) : [...pages.removed, n].sort((x, y) => x - y);
+    if (removed.length >= pages.total) return message.warning('A certificate needs at least one page.');
+    preview(file, removed);
+  };
+  useEffect(() => {
+    setF((x) => (x.course ? x : { ...x, course: courseId || null }));
+  }, [courseId]);
+  const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim());
+  const ready = f.name.trim() && emailOk && (f.mode === 'upload' ? !!file : !!f.course);
+
+  const send = async () => {
+    if (!ready || busy) return;
+    setBusy(true);
+    setDone(null);
+    const courseName = (courses.find((c) => c.value === f.course) || {}).label;
+    const r = await lmsApi
+      .sendCertificate({
+        name: f.name.trim(),
+        email: f.email.trim(),
+        title: f.title.trim(),
+        course: f.course || undefined,
+        courseName: f.mode === 'upload' ? courseName : undefined,
+        file: f.mode === 'upload' ? file : undefined,
+        removePages: f.mode === 'upload' && pages.removed.length ? pages.removed.join(',') : undefined,
+      })
+      .catch((e) => ({ success: false, message: e?.response?.data?.message || e.message }));
+    setBusy(false);
+    if (r?.success) {
+      message.success(r.message || 'Certificate sent');
+      setDone({ ok: true, text: `${r.message || 'Sent'} · ID ${r.result?.certificateId || ''}` });
+      setF((x) => ({ ...x, name: '', email: '' }));
+      pickFile(null);
+      onSent?.();
+    } else {
+      setDone({ ok: false, text: r?.message || 'Could not send the certificate.' });
+      onSent?.();
+    }
+  };
+
+  return (
+    <Card size="small" className="cert-card cert-send" title={<Space><SendOutlined /> Send a certificate — to anyone, by email</Space>}>
+      <div className="cert-send-grid">
+        <label className="cert-send-fld">
+          <span>Name on the certificate</span>
+          <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Riya Sharma" maxLength={80} />
+        </label>
+        <label className="cert-send-fld">
+          <span>Email (the certificate goes here)</span>
+          <Input prefix={<MailOutlined />} type="email" value={f.email} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" status={f.email && !emailOk ? 'error' : undefined} />
+        </label>
+        <label className="cert-send-fld">
+          <span>Internship</span>
+          <Select value={f.course} onChange={(v) => set('course', v)} options={courses} placeholder="Internship" allowClear={f.mode === 'upload'} />
+        </label>
+        <label className="cert-send-fld">
+          <span>Certificate title</span>
+          <Input value={f.title} onChange={(e) => set('title', e.target.value)} maxLength={120} />
+        </label>
+      </div>
+
+      <div className="cert-send-modes" role="radiogroup" aria-label="Which certificate">
+        <button type="button" role="radio" aria-checked={f.mode === 'template'} className={f.mode === 'template' ? 'on' : ''} onClick={() => set('mode', 'template')}>
+          <TrophyOutlined />
+          <span><b>Our certificate</b><small>The internship's Career Lab certificate with this name printed on it</small></span>
+        </button>
+        <button type="button" role="radio" aria-checked={f.mode === 'upload'} className={f.mode === 'upload' ? 'on' : ''} onClick={() => set('mode', 'upload')}>
+          <UploadOutlined />
+          <span><b>Upload a PDF</b><small>Any certificate PDF you already have — sent exactly as it is</small></span>
+        </button>
+      </div>
+
+      {f.mode === 'upload' && (
+        <label className={`cert-send-drop ${file ? 'has' : ''}`}>
+          <input type="file" accept="application/pdf,.pdf" onChange={(e) => pickFile(e.target.files?.[0] || null)} />
+          <FilePdfOutlined />
+          {file ? (
+            <span><b>{file.name}</b> · {(file.size / 1048576).toFixed(1)} MB — click to change</span>
+          ) : (
+            <span><b>Choose a PDF</b> (up to 10 MB)</span>
+          )}
+        </label>
+      )}
+
+      {f.mode === 'upload' && file && (
+        <div className="cert-prev">
+          <div className="cert-prev-pages">
+            <div className="cert-prev-h">
+              <b>Pages</b>
+              <small>{pages.total ? `${pages.total - pages.removed.length} of ${pages.total} will be sent` : pages.loading ? 'Reading the PDF…' : ''}</small>
+            </div>
+            {pages.error && <div className="cert-prev-err">{pages.error}</div>}
+            <div className="cert-prev-chips">
+              {Array.from({ length: pages.total }, (_, i) => i + 1).map((n) => {
+                const gone = pages.removed.includes(n);
+                return (
+                  <button key={n} type="button" className={gone ? 'gone' : ''} disabled={pages.loading} onClick={() => togglePage(n)} title={gone ? 'Put this page back' : 'Remove this page'}>
+                    Page {n}
+                    <span aria-hidden="true">{gone ? '↺' : '✕'}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {pages.total > 1 && !pages.removed.includes(pages.total) && (
+              <button type="button" className="cert-prev-last" disabled={pages.loading} onClick={() => togglePage(pages.total)}>
+                Remove the last page
+              </button>
+            )}
+            <small className="cert-prev-hint">Removed pages are left out of the email; the preview shows exactly what is sent.</small>
+          </div>
+          <div className="cert-prev-view">
+            {pages.url ? <iframe title="Certificate preview" src={pages.url} /> : <div className="cert-prev-wait">{pages.loading ? 'Loading preview…' : pages.error || ''}</div>}
+          </div>
+        </div>
+      )}
+
+      <div className="cert-send-foot">
+        <span className="cert-send-note">
+          {done ? <span className={done.ok ? 'ok' : 'err'}>{done.text}</span> : 'Emailed from Career Lab with the PDF attached, and added to Issued certificates with a verify link.'}
+        </span>
+        <Button type="primary" icon={<SendOutlined />} loading={busy} disabled={!ready} onClick={send}>
+          Send certificate
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function TeacherCertificates({ isManagerRole }) {
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState(null);
@@ -163,39 +368,51 @@ function TeacherCertificates({ isManagerRole }) {
         <Select style={{ minWidth: 240 }} value={courseId} onChange={setCourseId} options={courses} placeholder="Internship" />
       </div>
 
-      <Card size="small" title={<Space><TeamOutlined /> Batch roster — who's in which batch, who's completed</Space>} style={{ marginBottom: 12 }}>
+      <Card size="small" className="cert-card" title={<Space><TeamOutlined /> Batch roster — who's in which batch, who's completed</Space>}>
         <BatchRoster />
       </Card>
 
+      {isManagerRole && (
+        <SendCertificateCard
+          courses={courses}
+          courseId={courseId}
+          onSent={async () => {
+            const h = await lmsApi.certHistory();
+            setHistory((h && h.result) || []);
+          }}
+        />
+      )}
+
       {!courseId ? <Card><Empty description="No internships assigned." /></Card> : (
-        <Row gutter={[12, 12]}>
+        <Row gutter={[16, 16]} align="stretch" className="cert-row">
           <Col xs={24} lg={10}>
-            <Card size="small" title="Issue criteria">
-              <Form form={ruleForm} layout="vertical">
-                <Form.Item name="title" label="Certificate title"><Input /></Form.Item>
-                <Form.Item name="type" label="Type"><Select options={['Completion', 'Participation', 'Merit', 'Achievement'].map((v) => ({ value: v, label: v }))} /></Form.Item>
-                <Space wrap>
-                  <Form.Item name="minCoursePercent" label="Min internship %"><InputNumber min={0} max={100} /></Form.Item>
-                  <Form.Item name="minAttendancePercent" label="Min attendance %"><InputNumber min={0} max={100} /></Form.Item>
-                  <Form.Item name="minQuizPercent" label="Min quiz %"><InputNumber min={0} max={100} /></Form.Item>
-                  <Form.Item name="validMonths" label="Valid (months, 0=∞)"><InputNumber min={0} /></Form.Item>
-                </Space>
-                <Space size="large">
+            <Card size="small" className="cert-card cert-fill" title={<Space><SafetyCertificateOutlined /> Issue criteria</Space>}>
+              <Form form={ruleForm} layout="vertical" className="cert-rule">
+                <div className="cert-rule-2">
+                  <Form.Item name="title" label="Certificate title"><Input /></Form.Item>
+                  <Form.Item name="type" label="Type"><Select options={['Completion', 'Participation', 'Merit', 'Achievement'].map((v) => ({ value: v, label: v }))} /></Form.Item>
+                </div>
+                <div className="cert-rule-4">
+                  <Form.Item name="minCoursePercent" label="Min internship %"><InputNumber min={0} max={100} addonAfter="%" /></Form.Item>
+                  <Form.Item name="minAttendancePercent" label="Min attendance %"><InputNumber min={0} max={100} addonAfter="%" /></Form.Item>
+                  <Form.Item name="minQuizPercent" label="Min quiz %"><InputNumber min={0} max={100} addonAfter="%" /></Form.Item>
+                  <Form.Item name="validMonths" label="Valid for" tooltip="0 = never expires"><InputNumber min={0} addonAfter="months" /></Form.Item>
+                </div>
+                <div className="cert-rule-checks">
                   <Form.Item name="requireAllAssignments" valuePropName="checked" noStyle><Checkbox>All assignments evaluated</Checkbox></Form.Item>
                   <Form.Item name="autoIssue" valuePropName="checked" noStyle><Checkbox>Auto-issue</Checkbox></Form.Item>
                   <Form.Item name="enabled" valuePropName="checked" noStyle initialValue><Checkbox>Enabled</Checkbox></Form.Item>
-                </Space>
-                <Divider style={{ margin: '12px 0' }} />
-                <Space>
+                </div>
+                <div className="cert-rule-btns">
                   <Button type="primary" onClick={saveRule}>Save rule</Button>
                   <Button icon={<ReloadOutlined />} loading={running} onClick={runNow}>Re-check all candidates</Button>
                   <Button onClick={() => setIssueOpen(true)}>Issue manually</Button>
-                </Space>
+                </div>
               </Form>
             </Card>
           </Col>
           <Col xs={24} lg={14}>
-            <Card size="small" title="Issued certificates">
+            <Card size="small" className="cert-card cert-fill" title={<Space><FileDoneOutlined /> Issued certificates</Space>}>
               <Table
                 rowKey="id"
                 size="small"
@@ -203,7 +420,17 @@ function TeacherCertificates({ isManagerRole }) {
                 pagination={{ pageSize: 10 }}
                 locale={{ emptyText: 'None yet' }}
                 columns={[
-                  { title: 'Candidate', dataIndex: 'student' },
+                  {
+                    title: 'Candidate',
+                    dataIndex: 'student',
+                    render: (v, r) => (
+                      <span>
+                        {v}
+                        {r.email && <div style={{ fontSize: 11.5, color: '#64748b' }}>{r.email}</div>}
+                        {r.source === 'Upload' && <Tag style={{ marginTop: 2 }}>Uploaded PDF</Tag>}
+                      </span>
+                    ),
+                  },
                   { title: 'Internship', dataIndex: 'course' },
                   { title: 'ID', dataIndex: 'certificateId' },
                   { title: 'Grade', dataIndex: 'grade', width: 70 },
@@ -504,7 +731,10 @@ function StudentCertificates() {
 
 export default function Certificates() {
   const admin = useSelector(selectCurrentAdmin) || {};
-  const isManagerRole = MGR.includes(admin.role);
+  const { canView } = usePermission();
+  // everyone with the LMS permission gets the admin page (user ask 2026-11-24);
+  // a learner keeps their own certificates view
+  const isManagerRole = admin.role !== 'Student' && (MGR.includes(admin.role) || canView('LMS'));
   if (isManagerRole || LMS_TEACHER_ROLES.includes(admin.role)) return <TeacherCertificates isManagerRole={isManagerRole} />;
   return <StudentCertificates />;
 }

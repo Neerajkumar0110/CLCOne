@@ -525,7 +525,19 @@ async function deleteRecording(req, res) {
     { new: true }
   );
   if (!r) return res.status(404).json({ success: false, message: 'Recording not found.' });
-  // metadata is kept on purpose
+  // metadata is kept on purpose; its transcript + captions go with the video
+  // (no longer served, dropped from the queue; a running job is stopped)
+  try {
+    const T = mongoose.model('LmsTranscript');
+    const rows = await T.find({ recording: r._id, removed: false }).select('_id').lean();
+    if (rows.length) {
+      await T.updateMany({ recording: r._id }, { $set: { removed: true, segments: [], status: 'skipped', error: 'recording deleted', updated: new Date() } });
+      const tr = require('../../../../services/lms/transcriber');
+      rows.forEach((x) => tr.stopRow(x._id, 'recording deleted'));
+    }
+  } catch (e) {
+    console.error('[deleteRecording] transcript cleanup', e.message);
+  }
   return res.status(200).json({ success: true, result: { id: String(r._id), status: r.status } });
 }
 

@@ -14,7 +14,8 @@ async function loadRec(req, res) {
     return null;
   }
   const rec = await mongoose.model('LiveRecording').findById(req.params.id).lean();
-  if (!rec || rec.removed) {
+  // a deleted recording takes its transcript + captions with it
+  if (!rec || rec.removed || rec.status === 'DELETED') {
     res.status(404).json({ success: false, message: 'Recording not found.' });
     return null;
   }
@@ -34,9 +35,33 @@ const ms2 = (ms, sep = '.') => {
   return `${h}:${m}:${s}${sep}${String(t % 1000).padStart(3, '0')}`;
 };
 
+// cue text: WebVTT reads & < > as markup, and a line break or "-->" inside
+// a cue would end it early
+const vttText = (t) =>
+  String(t || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/-->/g, '→')
+    .replace(/\s*\n\s*/g, ' ')
+    .trim();
+
+// valid UTF-8 WebVTT: time-ordered cues, every end after its start
 function toVtt(segments) {
-  return `WEBVTT\n\n${segments.map((s, i) => `${i + 1}\n${ms2(s.s)} --> ${ms2(s.e)}\n${s.t}\n`).join('\n')}`;
+  const cues = (segments || [])
+    .filter((s) => s && String(s.t || '').trim() && Number.isFinite(s.s) && Number.isFinite(s.e))
+    .slice()
+    .sort((a, b) => a.s - b.s)
+    .map((s) => ({ s: s.s, e: s.e > s.s ? s.e : s.s + 1000, t: vttText(s.t) }));
+  return `WEBVTT\n\n${cues.map((c, i) => `${i + 1}\n${ms2(c.s)} --> ${ms2(c.e)}\n${c.t}\n`).join('\n')}`;
 }
+
+// what a caption track / transcript is written in → <track srclang / label>
+const LANG = {
+  roman: { code: 'hi-Latn', label: 'Hinglish (English letters)' },
+  english: { code: 'en', label: 'English' },
+  hindi: { code: 'hi', label: 'Hindi' },
+};
 
 const transcriber = () => require('../../../../services/lms/transcriber');
 // what the stored text is written in (rows done before modes existed = Devanagari)
@@ -81,6 +106,44 @@ async function getTranscript(req, res) {
     });
   }
   return res.status(200).json({ success: true, result: { ...publicRow(t, ctx.access), queueAhead } });
+}
+
+// GET /api/lms/recordings/:id/transcript-status — small, for the player:
+// { status: NONE | PENDING | PROCESSING | READY | FAILED, transcriptAvailable,
+//   captionsAvailable, language, languageLabel }. Only what this user may see.
+async function transcriptStatus(req, res) {
+  const ctx = await loadRec(req, res);
+  if (!ctx) return;
+  const t = await T().findOne({ recording: ctx.rec._id, kind: 'final', removed: false }).select('status textMode segments.s').lean();
+  const has = !!(t && t.segments && t.segments.length && ['done', 'queued', 'processing'].includes(t.status));
+  const map = { queued: 'PENDING', processing: 'PROCESSING', done: 'READY', failed: 'FAILED', skipped: 'FAILED' };
+  const mode = t ? textModeOf(t) : null;
+  return res.status(200).json({
+    success: true,
+    result: {
+      status: t ? map[t.status] : 'NONE',
+      transcriptAvailable: has,
+      captionsAvailable: has,
+      language: has && mode ? LANG[mode].code : null,
+      languageLabel: has && mode ? LANG[mode].label : null,
+    },
+  });
+}
+
+// GET /api/lms/recordings/:id/captions.vtt — the caption track the player
+// loads (inline, not a download). Same access check as the video; the
+// player fetches it with the login token, so no public caption URL exists.
+// While a re-write in another language runs, the current text is served.
+async function captionsVtt(req, res) {
+  const ctx = await loadRec(req, res);
+  if (!ctx) return;
+  const t = await T().findOne({ recording: ctx.rec._id, kind: 'final', removed: false, status: { $in: ['done', 'queued', 'processing'] } }).lean();
+  if (!t || !t.segments || !t.segments.length) return res.status(404).json({ success: false, message: 'Captions not ready yet.' });
+  res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+  res.setHeader('Cache-Control', 'private, no-store');
+  const mode = textModeOf(t);
+  if (mode) res.setHeader('Content-Language', LANG[mode].code);
+  return res.send(toVtt(t.segments));
 }
 
 // GET /api/lms/recordings/:id/transcript.vtt | .txt
@@ -147,7 +210,7 @@ async function requestTranscript(req, res) {
   const t = await T().findOneAndUpdate(
     { recording: ctx.rec._id, kind: 'final' },
     {
-      $set: { status: 'queued', mode, priority: 10, attempts: 0, error: null, removed: false, requestedBy: req.admin._id, updated: new Date() },
+      $set: { status: 'queued', mode, priority: 10, attempts: 0, error: null, retryAfter: null, removed: false, requestedBy: req.admin._id, updated: new Date() },
       $setOnInsert: { liveSession: ctx.rec.liveSession, recordedAt: ctx.rec.startedAt || ctx.rec.created },
     },
     { upsert: true, new: true }
@@ -166,4 +229,74 @@ async function transcriptQueue(req, res) {
   return res.status(200).json({ success: true, result: { counts, running, worker: require('../../../../services/lms/transcriber').status() } });
 }
 
-module.exports = { getTranscript, downloadTranscript, editTranscriptLine, requestTranscript, transcriptQueue, toVtt };
+const isMgr = (admin) => require('../../../../config/roles').LMS_FULL_ACCESS_ROLES.includes(admin.role);
+
+// GET /api/lms/transcripts?status=failed|skipped|queued|processing|done — manager /
+// support: the recordings behind each count, newest class first, with the reason.
+async function listTranscripts(req, res) {
+  if (!isMgr(req.admin)) return res.status(403).json({ success: false, message: 'Managers only.' });
+  const status = ['failed', 'skipped', 'queued', 'processing', 'done'].includes(req.query.status) ? req.query.status : 'failed';
+  const rows = await T().find({ removed: false, kind: 'final', status }).select('-segments').sort({ recordedAt: -1 }).limit(200).lean();
+  const recs = await mongoose
+    .model('LiveRecording')
+    .find({ _id: { $in: rows.map((r) => r.recording) } })
+    .select('className batchName courseTitle startedAt status provider')
+    .lean();
+  const byId = new Map(recs.map((r) => [String(r._id), r]));
+  return res.status(200).json({
+    success: true,
+    result: rows.map((t) => {
+      const r = byId.get(String(t.recording)) || {};
+      return {
+        id: String(t._id),
+        recording: String(t.recording),
+        className: r.className,
+        batchName: r.batchName,
+        courseTitle: r.courseTitle,
+        date: r.startedAt || t.recordedAt,
+        recordingStatus: r.status,
+        status: t.status,
+        mode: t.textMode || t.mode || null,
+        attempts: t.attempts || 0,
+        error: t.error,
+        retryAfter: t.retryAfter,
+        durationSec: t.durationSec,
+        processingMs: t.processingMs,
+        finishedAt: t.finishedAt,
+        updated: t.updated,
+      };
+    }),
+  });
+}
+
+// POST /api/lms/transcripts/retry  { ids?: [transcriptId] } — manager: put
+// failed / skipped rows (all, or the picked ones) back in the queue. They run
+// in the night window like any other row, one at a time, so a big retry
+// never loads the server during classes.
+async function retryTranscripts(req, res) {
+  if (!isMgr(req.admin)) return res.status(403).json({ success: false, message: 'Managers only.' });
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.filter((x) => mongoose.isValidObjectId(x)) : null;
+  const q = { removed: false, kind: 'final', status: { $in: ['failed', 'skipped'] } };
+  if (ids && ids.length) q._id = { $in: ids };
+  const r = await T().updateMany(q, { $set: { status: 'queued', attempts: 0, error: null, retryAfter: null, requestedBy: req.admin._id, updated: new Date() } });
+  setImmediate(() => transcriber().tick().catch(() => {}));
+  return res.status(200).json({ success: true, result: { queued: r.modifiedCount }, message: `${r.modifiedCount} recording(s) back in the queue — they run tonight.` });
+}
+
+// POST /api/lms/transcripts/backfill  { mode? } — manager: re-write every
+// finished transcript written in another script than the default (the first
+// ones, 15–16 Nov 2026, are Devanagari). Normal priority = night window
+// only, one at a time; the old text stays readable meanwhile. Transcripts
+// corrected by hand are left alone.
+async function backfillTranscripts(req, res) {
+  if (!isMgr(req.admin)) return res.status(403).json({ success: false, message: 'Managers only.' });
+  const tr = transcriber();
+  const mode = (req.body && tr.MODES[req.body.mode] && req.body.mode) || tr.DEFAULT_MODE;
+  // a row with no textMode was written before modes existed = Devanagari ('hindi')
+  const q = { removed: false, kind: 'final', status: 'done', edited: { $ne: true }, 'segments.0': { $exists: true } };
+  q.$or = mode === 'hindi' ? [{ textMode: { $in: ['roman', 'english'] } }] : [{ textMode: { $ne: mode } }];
+  const r = await T().updateMany(q, { $set: { status: 'queued', mode, priority: 0, attempts: 0, error: null, retryAfter: null, requestedBy: req.admin._id, updated: new Date() } });
+  return res.status(200).json({ success: true, result: { queued: r.modifiedCount, mode }, message: `${r.modifiedCount} transcript(s) will be re-written at night.` });
+}
+
+module.exports = { transcriptStatus, captionsVtt, listTranscripts, retryTranscripts, backfillTranscripts, LANG, getTranscript, downloadTranscript, editTranscriptLine, requestTranscript, transcriptQueue, toVtt };

@@ -79,6 +79,10 @@ const P = {
     const vars = { projectTitle: 'Sales forecasting model', decision: 'revision requested', feedback: 'Add a validation split and explain the metrics.' };
     return { ...L('./inlineEmails').projectReview(vars), vars };
   },
+  'lms-certificate-sent': () => {
+    const vars = { name: NAME, certificateTitle: 'Certificate of Completion', course: COURSE, certificateId: 'CLC-2026-00413', verifyLink: `${BASE}/verify/CLC-2026-00413` };
+    return { ...L('./inlineEmails').certificateSent(vars), vars };
+  },
   'lms-certificate-issued': () => {
     const vars = { name: NAME, certificateTitle: 'Certificate of Completion', course: COURSE, certificateId: 'CLC-2026-00412', score: 88, grade: 'A', verifyLink: `${BASE}/verify/CLC-2026-00412` };
     return { ...L('./inlineEmails').certificateIssued(vars), vars };

@@ -91,6 +91,23 @@ const DB_MAP = {
   LiveClass: 'lmsDb',
   LiveRecording: 'lmsDb',
   LmsTranscript: 'lmsDb', // class transcripts (WhisperLiveKit phase 1)
+  // LMS Additional Requirements (Figma yKjb2ncoVnPG9Eqql6zwhI, 23 Nov 2026)
+  LmsGrowthConfig: 'lmsDb', // 360° weights / levels / visibility + engagement rules
+  LmsLearnerProfile: 'lmsDb', // 360° profile: skills, links, education, resume
+  LmsMentorRemark: 'lmsDb', // learner-visible mentor remarks (360° + PDF)
+  LmsShareLink: 'lmsDb', // recruiter public profile links
+  LmsScoreSnapshot: 'lmsDb', // weekly hire-readiness history (rank, trend)
+  LmsProjectBrief: 'lmsDb', // project definitions (2A)
+  LmsProjectAllocation: 'lmsDb', // project allocations, timer, submissions, review (2B–2G)
+  LmsActivityDay: 'lmsDb', // active learning time per day / item (3A)
+  LmsContentProgress: 'lmsDb', // reading / video progress per item (3B)
+  LmsEngagementAlert: 'lmsDb', // inactive / low-engagement alerts (3C / 3D)
+  LmsRelease: 'lmsDb', // QA release pipeline (4A)
+  LmsTestCase: 'lmsDb', // QA test cases (4C)
+  LmsTestRun: 'lmsDb', // QA test runs (4C)
+  LmsBug: 'lmsDb', // QA bugs linked to releases (4D)
+  LmsFeatureFlag: 'lmsDb', // feature flags (4E)
+  LmsQaLog: 'lmsDb', // QA access + run logs / errors (4B / 4E)
   LmsDriveConnection: 'lmsDb',
   HolidayRule: 'lmsDb',
   LmsAnnouncement: 'lmsDb',

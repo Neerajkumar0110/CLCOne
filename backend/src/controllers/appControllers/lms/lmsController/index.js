@@ -199,6 +199,8 @@ module.exports = {
   certRuleGet: certificates.getRule,
   certRuleUpsert: certificates.upsertRule,
   certIssue: certificates.issue,
+  certSendManual: certificates.sendManual,
+  certPdfPages: certificates.pdfPages,
   certRunForCourse: certificates.runForCourse,
   certHistory: certificates.history,
   certMine: certificates.mine,

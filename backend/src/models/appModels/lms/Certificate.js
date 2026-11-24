@@ -25,5 +25,10 @@ module.exports = mongoose.model(
     { name: 'replacedBy', type: 'String' },
     { name: 'replaces', type: 'String' },
     { name: 'correctionReason', type: 'String' },
+    // Sent by hand from LMS › Certificates (name + email): who it went to, and
+    // whether the PDF was our template with the name filled in or an uploaded file
+    { name: 'email', type: 'String' },
+    { name: 'source', type: 'String', enum: ['Auto', 'Template', 'Upload'], default: 'Auto' },
+    { name: 'fileUrl', type: 'String' },
   ])
 );

@@ -215,6 +215,10 @@ if (!RUN_BACKGROUND_JOBS) {
   // is live) — services/lms/transcriber.js.
   require('./jobs/lmsTranscribeTick')();
 
+  // Project deadlines / reminders / auto-disqualify + engagement alerts
+  // (LMS Additional Requirements, Figma 2G / 3C / 3E).
+  require('./jobs/lmsGrowthTick')();
+
   // Custom emails from Messenger › Email, on their own schedule.
   require('./jobs/emailScheduleTick')();
 

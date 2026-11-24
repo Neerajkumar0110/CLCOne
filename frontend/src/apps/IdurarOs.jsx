@@ -24,6 +24,8 @@ const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
 const PublicKycForm = lazy(() => import('@/pages/Payments/PublicKycForm'));
 const VerifyCertificate = lazy(() => import('@/pages/Lms/VerifyCertificate'));
 const FinanceKycForm = lazy(() => import('@/pages/Payments/FinanceKycForm'));
+const PublicProfile = lazy(() => import('@/pages/Lms/Growth/PublicProfile'));
+const Verify360Page = lazy(() => import('@/pages/Lms/Growth/PublicProfile').then((m) => ({ default: m.Verify360 })));
 
 const DefaultApp = () => {
   const current = useSelector(selectCurrentAdmin);
@@ -105,6 +107,20 @@ export default function IdurarOs() {
             <Route path="/verify" element={<VerifyCertificate />} />
             <Route path="/verify/:certificateId" element={<VerifyCertificate />} />
             <Route path="*" element={<Navigate to={legacyVerify ? `/verify/${legacyVerify[1]}` : '/verify'} replace />} />
+          </Routes>
+        </Suspense>
+      </Localization>
+    );
+  }
+
+  // Recruiter profile link + 360° PDF verification (LMS Figma 1D / 1F) — no login.
+  if (location.pathname.startsWith('/p/') || location.pathname.startsWith('/verify-360/')) {
+    return (
+      <Localization>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/p/:token" element={<PublicProfile />} />
+            <Route path="/verify-360/:code" element={<Verify360Page />} />
           </Routes>
         </Suspense>
       </Localization>

@@ -54,7 +54,7 @@ function Highlight({ text, q }) {
   );
 }
 
-export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, dark = false, style }) {
+export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, playerKey, dark = false, className = '', style }) {
   const [data, setData] = useState(null);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(-1);
@@ -122,7 +122,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
       el.removeEventListener('timeupdate', onTime);
       el.removeEventListener('seeked', onTime);
     };
-  }, [segs, isFrame, mediaRef, data]);
+  }, [segs, isFrame, mediaRef, data, playerKey]);
 
   // keep the active line in view while following the video
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
   const pct = data && data.durationSec ? Math.min(100, Math.round(((data.progressSec || 0) / data.durationSec) * 100)) : 0;
 
   return (
-    <div className={`tp ${dark ? 'tp-dark' : ''}`} style={style}>
+    <div className={`tp ${dark ? 'tp-dark' : ''} ${className}`} style={style} role="region" aria-label="Transcript">
       <div className="tp-head">
         <span className="tp-title">
           <FileTextOutlined /> Transcript
@@ -293,6 +293,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
       )}
 
       {showList && isFrame && segs.length > 0 && <div className="tp-hint">Click any line — the class video jumps to that moment.</div>}
+      {/* speaker names are never guessed — Whisper does not tell speakers apart */}
 
       <div
         className="tp-list"
@@ -316,8 +317,10 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
         )}
         {status === 'queued' && !hasText && (
           <div className="tp-empty">
-            <b>In the transcript queue{data.queueAhead != null ? ` — ${data.queueAhead} ahead` : ''}.</b>
-            <span>It is made at night when the server is free (never during a live class).</span>
+            <b>Transcript and subtitles are being prepared.</b>
+            <span>
+              In the queue{data.queueAhead != null ? ` — ${data.queueAhead} ahead` : ''}. Made at night when the server is free (never during a live class). The video plays normally meanwhile.
+            </span>
             {canEdit && (
               <button type="button" className="tp-btn" disabled={busy} onClick={() => requestNow()}>
                 <ThunderboltOutlined /> Transcribe this first
@@ -327,7 +330,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
         )}
         {status === 'processing' && !hasText && (
           <div className="tp-empty">
-            <b>Writing the transcript… {pct ? `${pct}%` : ''}</b>
+            <b>Transcript and subtitles are being prepared… {pct ? `${pct}%` : ''}</b>
             <div className="tp-bar">
               <span style={{ width: `${pct || 3}%` }} />
             </div>
@@ -337,6 +340,7 @@ export default function TranscriptPanel({ rec, mediaRef, isFrame, onSeekFrame, d
         {(status === 'failed' || status === 'skipped') && (
           <div className="tp-empty">
             <b>{status === 'skipped' ? 'No transcript for this recording.' : 'The transcript could not be made.'}</b>
+            <span>The video still plays normally.{canEdit ? '' : ' The support team can see this and will retry it.'}</span>
             {canEdit && data.error && <span className="tp-err">{data.error}</span>}
             {canEdit && status === 'failed' && (
               <button type="button" className="tp-btn" disabled={busy} onClick={() => requestNow()}>

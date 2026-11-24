@@ -28,6 +28,9 @@ const schema = new mongoose.Schema({
   worker: { type: String }, // host running it (only one process may claim a row)
   attempts: { type: Number, default: 0 },
   error: { type: String },
+  // a failed run waits before its next try (backoff: 10 min, 20 min, …)
+  retryAfter: { type: Date },
+  processingMs: { type: Number }, // how long the last successful run took
 
   // Which writing the NEXT run produces (teacher / manager pick it in the panel):
   //   roman   — Hinglish in English letters, the teacher's own words (default)

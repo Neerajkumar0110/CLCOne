@@ -38,6 +38,11 @@ const DEFAULT_MODE = MODES[process.env.TRANSCRIBE_MODE] ? process.env.TRANSCRIBE
 const modeOf = (row) => (row && MODES[row.mode] ? row.mode : DEFAULT_MODE);
 const WINDOW = process.env.TRANSCRIBE_WINDOW || '22:15-09:30'; // IST (process TZ)
 const MAX_ATTEMPTS = 3;
+// backoff before the next try of a failed run: 10 min, 20 min, 40 min …
+const RETRY_BASE_MS = 10 * 60 * 1000;
+// a run that takes longer than this is killed and counted as a failed try
+// (a 2-hour class takes well under an hour with `small` on the VPS)
+const RUN_TIMEOUT_MS = Number(process.env.TRANSCRIBE_TIMEOUT_MIN || 300) * 60 * 1000;
 const BBB_PUBLISHED = process.env.BBB_PUBLISHED_DIR || '/var/bigbluebutton/published/presentation';
 const LIVE_STATES = ['starting', 'live', 'ending'];
 const HOST = os.hostname();
@@ -80,6 +85,28 @@ function mediaFor(rec) {
     return fs.existsSync(p) ? p : null;
   }
   return null; // 'external' (Drive / YouTube link) — no local file
+}
+
+// Whisper output → clean, time-ordered caption lines: no empty text, end
+// always after start, no line running past the next one's start (WebVTT
+// players drop or stack such cues).
+function cleanSegments(raw) {
+  const segs = (raw || [])
+    .map((x) => ({ s: Math.max(0, Math.round(Number(x.s) || 0)), e: Math.round(Number(x.e) || 0), t: String(x.t || '').replace(/\s+/g, ' ').trim() }))
+    .filter((x) => x.t)
+    .sort((a, b) => a.s - b.s);
+  for (let i = 0; i < segs.length; i++) {
+    if (segs[i].e <= segs[i].s) segs[i].e = segs[i].s + 1000;
+    const next = segs[i + 1];
+    if (next && segs[i].e > next.s && next.s > segs[i].s) segs[i].e = next.s;
+  }
+  return segs;
+}
+
+// temp files never outlive a run (audio is read straight from the media file;
+// only the JSON result is written to /tmp)
+function cleanupTemp(out) {
+  for (const f of [out, `${out}.part`]) fs.unlink(f, () => {});
 }
 
 // Every playable recording gets a queue row (once).
@@ -129,8 +156,18 @@ async function runOne(row) {
   const mode = modeOf(row);
   const args = ['-n', '19', PYTHON, SCRIPT, media, out, '--model', MODEL, '--threads', String(THREADS), ...MODES[mode]];
 
+  const startedAt = Date.now();
   const proc = spawn('nice', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   child = { proc, id: String(row._id), killedFor: null };
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      proc.kill('SIGTERM');
+    } catch (_) {
+      /* already gone */
+    }
+  }, RUN_TIMEOUT_MS);
   let stderr = '';
   let lastSave = 0;
   proc.stderr.on('data', (d) => {
@@ -152,23 +189,69 @@ async function runOne(row) {
   });
 
   const code = await new Promise((resolve) => proc.on('close', resolve));
+  clearTimeout(timer);
   const killedFor = child && child.killedFor;
   child = null;
 
   if (killedFor) {
+    cleanupTemp(out);
     // a class went live / the night ended — back to the queue, no attempt used
-    await T.updateOne({ _id: row._id }, { $set: { status: 'queued', progressSec: 0, worker: null, error: `paused: ${killedFor}`, updated: new Date() } });
+    // (not a row removed meanwhile — its recording was deleted)
+    await T.updateOne({ _id: row._id, removed: false }, { $set: { status: 'queued', progressSec: 0, worker: null, error: `paused: ${killedFor}`, updated: new Date() } });
     return;
   }
-  if (code === 0 && fs.existsSync(out)) {
-    const j = JSON.parse(fs.readFileSync(out, 'utf8'));
-    fs.unlink(out, () => {});
-    const segments = (j.segments || []).map((s) => ({ s: s.s, e: s.e, t: s.t }));
+  if (!timedOut && code === 0 && fs.existsSync(out)) {
+    let j = null;
+    try {
+      j = JSON.parse(fs.readFileSync(out, 'utf8'));
+    } catch (_) {
+      stderr = 'transcript file was not valid JSON';
+    }
+    cleanupTemp(out);
+    if (j) return saveDone(row, j, mode, startedAt);
+  }
+  cleanupTemp(out);
+  await markFailed(row, timedOut ? `took longer than ${Math.round(RUN_TIMEOUT_MS / 60000)} min — stopped` : stderr.trim().split('\n').pop() || `exit ${code}`);
+}
+
+// A run failed: try again later (backoff), or give up after MAX_ATTEMPTS —
+// then it is listed for managers / support (Recording ops, transcript queue).
+async function markFailed(row, reason) {
+  const T = mongoose.model('LmsTranscript');
+  const attempts = (row.attempts || 0) + 1;
+  const final = attempts >= MAX_ATTEMPTS;
+  await T.updateOne(
+    { _id: row._id, removed: false },
+    {
+      $set: {
+        status: final ? 'failed' : 'queued',
+        attempts,
+        error: String(reason || 'failed').slice(0, 500),
+        retryAfter: final ? null : new Date(Date.now() + RETRY_BASE_MS * 2 ** (attempts - 1)),
+        worker: null,
+        updated: new Date(),
+      },
+    }
+  );
+  if (final) {
+    console.error(`[transcriber] gave up on recording ${row.recording} after ${attempts} tries`);
+    try {
+      require('../../socket').emitLmsBroadcast('lms:transcript', { recording: String(row.recording), status: 'failed' });
+    } catch (_) {
+      /* no socket */
+    }
+  }
+}
+
+async function saveDone(row, j, mode, startedAt) {
+  const T = mongoose.model('LmsTranscript');
+  {
+    const segments = cleanSegments(j.segments);
     // the language was switched while this ran → keep this text, but the new one stays queued
     const now = await T.findById(row._id).select('mode').lean();
     const switched = now && modeOf(now) !== mode;
     await T.updateOne(
-      { _id: row._id },
+      { _id: row._id, removed: false },
       {
         $set: {
           status: switched ? 'queued' : 'done',
@@ -181,6 +264,9 @@ async function runOne(row) {
           durationSec: j.duration,
           progressSec: j.duration,
           error: null,
+          retryAfter: null,
+          attempts: 0,
+          processingMs: Date.now() - startedAt,
           worker: null,
           finishedAt: new Date(),
           updated: new Date(),
@@ -192,21 +278,7 @@ async function runOne(row) {
     } catch (_) {
       /* no socket */
     }
-    return;
   }
-  const attempts = (row.attempts || 0) + 1;
-  await T.updateOne(
-    { _id: row._id },
-    {
-      $set: {
-        status: attempts >= MAX_ATTEMPTS ? 'failed' : 'queued',
-        attempts,
-        error: (stderr.trim().split('\n').pop() || `exit ${code}`).slice(0, 500),
-        worker: null,
-        updated: new Date(),
-      },
-    }
-  );
 }
 
 let busy = false;
@@ -225,7 +297,7 @@ async function tick() {
     if (live) return;
     await seedQueue();
     const T = mongoose.model('LmsTranscript');
-    const filter = { status: 'queued', removed: false, kind: 'final' };
+    const filter = { status: 'queued', removed: false, kind: 'final', $or: [{ retryAfter: null }, { retryAfter: { $lte: new Date() } }] };
     if (!inWindow()) filter.priority = { $gt: 0 }; // daytime: only "Transcribe now"
     const row = await T.findOneAndUpdate(
       filter,
@@ -235,7 +307,8 @@ async function tick() {
     if (!row) return;
     runOne(row).catch(async (e) => {
       child = null;
-      await T.updateOne({ _id: row._id }, { $set: { status: 'queued', worker: null, error: e.message, updated: new Date() } }).catch(() => {});
+      // counts as a try — an error that keeps coming back must not loop for ever
+      await markFailed(row, e.message).catch(() => {});
     });
   } catch (e) {
     console.error('[transcriber]', e.message);
@@ -257,4 +330,4 @@ function status() {
   return { enabled: enabled(), running: child ? child.id : null, model: MODEL, mode: DEFAULT_MODE, window: WINDOW, inWindow: inWindow() };
 }
 
-module.exports = { tick, recoverOnBoot, status, mediaFor, inWindow, enabled, stop, stopRow, MODES, DEFAULT_MODE, modeOf };
+module.exports = { cleanSegments, MAX_ATTEMPTS, tick, recoverOnBoot, status, mediaFor, inWindow, enabled, stop, stopRow, MODES, DEFAULT_MODE, modeOf };

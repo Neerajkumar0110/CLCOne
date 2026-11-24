@@ -248,6 +248,13 @@ async function kpiBlock(from, to) {
   const endedSessions = await M('LmsLiveSession').countDocuments({ removed: { $ne: true }, scheduledStart: { $gte: from, $lt: to }, status: { $in: ['ended', 'recording_processing', 'recording_available'] } }).catch(() => 0);
   const availableRec = await M('LiveRecording').countDocuments({ removed: false, status: 'AVAILABLE', startedAt: { $gte: from, $lt: to } });
   const recordings = endedSessions ? Math.min(100, pct(availableRec, endedSessions)) : null;
+  // captions = a finished transcript (it is also the WebVTT caption track)
+  const recIds = availableRec
+    ? (await M('LiveRecording').find({ removed: false, status: 'AVAILABLE', startedAt: { $gte: from, $lt: to } }).select('_id').lean()).map((r) => r._id)
+    : [];
+  const captioned = recIds.length
+    ? await M('LmsTranscript').countDocuments({ recording: { $in: recIds }, kind: 'final', removed: false, status: 'done', 'segments.0': { $exists: true } }).catch(() => 0)
+    : 0;
 
   const feedbackRows = await M('WeeklyFeedback').countDocuments({ created: { $gte: from, $lt: to } }).catch(() => 0);
 
@@ -286,7 +293,7 @@ async function kpiBlock(from, to) {
       { label: 'Ticket SLA compliance', value: resolved.length ? f(pct(withinSla, resolved.length)) : null, note: `${resolved.length} resolved · 48h until D-06` },
       { label: 'Milestones on time', value: msDue ? f(pct(msOnTime, msDue)) : null, note: `${msDue} milestone(s) due` },
       { label: 'Automation success', value: autoAll ? f(pct(autoOk, autoAll)) : null, note: `${autoOk} / ${autoAll} jobs + emails` },
-      { label: 'Captions available', value: null, note: 'no transcription service' },
+      { label: 'Captions available', value: availableRec ? f(pct(captioned, availableRec)) : null, note: `${captioned} / ${availableRec} recordings have transcript + CC` },
       { label: 'Repeat incidents', value: null, note: 'incident log not set up' },
       { label: 'Support satisfaction', value: null, note: 'no rating collected yet' },
       { label: 'Corrective actions closed', value: actionsAll ? `${cnt(actions, 'Done')}/${actionsAll}` : null, note: 'from feedback actions' },

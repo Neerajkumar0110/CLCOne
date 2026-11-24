@@ -1,7 +1,7 @@
 const express = require('express');
 const { catchErrors } = require('../../../handlers/errorHandlers');
 const lms = require('../../../controllers/appControllers/lms/lmsController/index');
-const { requireManager } = require('../../../controllers/appControllers/lms/lmsController/permissions');
+const { requireManager, certificateAccess, requireCertificateAccess } = require('../../../controllers/appControllers/lms/lmsController/permissions');
 // Learners only: live classes, recordings, tests and projects stay locked
 // until every mandatory policy is accepted (staff pass straight through).
 const { requirePoliciesAccepted } = require('../../../controllers/appControllers/lms/lmsController/policies');
@@ -143,7 +143,14 @@ router.route('/recordings/:id/play').get(requirePoliciesAccepted, catchErrors(lm
   const tr = require('../../../controllers/appControllers/lms/lmsController/transcripts');
   router.route('/recordings/:id/transcript').get(requirePoliciesAccepted, catchErrors(tr.getTranscript)).patch(catchErrors(tr.editTranscriptLine)).post(catchErrors(tr.requestTranscript));
   router.route('/recordings/:id/transcript/:format(vtt|txt)').get(requirePoliciesAccepted, catchErrors(tr.downloadTranscript));
+  router.route('/recordings/:id/transcript-status').get(requirePoliciesAccepted, catchErrors(tr.transcriptStatus));
+  // caption track for the player's Subtitles / CC (inline WebVTT, auth checked)
+  router.route('/recordings/:id/captions.vtt').get(requirePoliciesAccepted, catchErrors(tr.captionsVtt));
   router.route('/transcripts/status').get(catchErrors(tr.transcriptQueue));
+  // manager / support: failed list, retry, re-write old ones (night queue)
+  router.route('/transcripts').get(catchErrors(tr.listTranscripts));
+  router.route('/transcripts/retry').post(catchErrors(tr.retryTranscripts));
+  router.route('/transcripts/backfill').post(catchErrors(tr.backfillTranscripts));
 }
 // Manual recording upload — fallback for the mock provider (BigBlueButton
 // records automatically). The class teacher (or a manager) uploads the file
@@ -243,10 +250,24 @@ router.route('/students/:id/detail').get(catchErrors(lms.studentDetail));
 }
 
 // ── certificates ───────────────────────────────────────────────────
+// staff certificate screens: anyone with the LMS permission works like an admin
+router.use(['/courses/:courseId/certificate-rule', '/certificates'], catchErrors(certificateAccess));
 router.route('/courses/:courseId/certificate-rule').get(catchErrors(lms.certRuleGet)).post(catchErrors(lms.certRuleUpsert));
 router.route('/certificates').get(catchErrors(lms.certHistory));
 router.route('/certificates/roster').get(catchErrors(lms.certRoster));
 router.route('/certificates/issue').post(catchErrors(lms.certIssue));
+// give anyone a certificate by name + email (template or uploaded PDF), emailed from Career Lab
+router.route('/certificates/send').post(
+  requireCertificateAccess,
+  learnerUpload({ dir: 'certificates', prefix: () => 'cert', exts: ['.pdf'], maxMB: 10 }),
+  catchErrors(lms.certSendManual)
+);
+// preview an uploaded certificate PDF with some pages taken out (nothing stored)
+router.route('/certificates/pdf-pages').post(
+  requireCertificateAccess,
+  learnerUpload({ dir: 'certificates/tmp', prefix: () => 'preview', exts: ['.pdf'], maxMB: 10 }),
+  catchErrors(lms.certPdfPages)
+);
 router.route('/certificates/run/:courseId').post(catchErrors(lms.certRunForCourse));
 router.route('/certificates/verify/:certificateId').get(catchErrors(lms.certVerify));
 router.route('/certificates/:id/download').get(catchErrors(lms.certDownloadForManager));
@@ -500,5 +521,8 @@ router.route('/admin/pilot/liveclass/:id/end').post(requireManager, catchErrors(
 router.route('/admin/pilot/sso-link').post(requireManager, catchErrors(lms.pilotSsoLink));
 router.route('/admin/pilot/status/:sessionId').get(requireManager, catchErrors(lms.pilotStatus));
 router.route('/admin/pilot/teardown').post(requireManager, catchErrors(lms.pilotTeardown));
+
+// LMS Additional Requirements — 360°, projects, engagement, QA (Figma yKjb2ncoVnPG9Eqql6zwhI)
+router.use('/growth', require('./lmsGrowthApi'));
 
 module.exports = router;

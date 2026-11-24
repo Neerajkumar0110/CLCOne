@@ -78,6 +78,10 @@ const lmsApi = {
   recordingTranscriptEdit: (id, index, text) => request.patch({ entity: `lms/recordings/${id}/transcript`, jsonData: { index, text } }),
   recordingTranscriptRequest: (id, mode) => request.post({ entity: `lms/recordings/${id}/transcript`, jsonData: mode ? { mode } : {} }),
   transcriptQueue: () => request.get({ entity: 'lms/transcripts/status' }),
+  recordingTranscriptStatus: (id) => request.get({ entity: `lms/recordings/${id}/transcript-status` }),
+  transcriptList: (status) => request.get({ entity: `lms/transcripts?status=${encodeURIComponent(status || 'failed')}` }),
+  transcriptRetry: (ids) => request.post({ entity: 'lms/transcripts/retry', jsonData: ids && ids.length ? { ids } : {} }),
+  transcriptBackfill: (mode) => request.post({ entity: 'lms/transcripts/backfill', jsonData: mode ? { mode } : {} }),
   // Manual upload — fallback for the mock provider (no recorder of its own);
   // BigBlueButton records automatically. Lets the class teacher (or a
   // manager) attach a video file they recorded themselves.
@@ -262,6 +266,20 @@ const lmsApi = {
   certRule: (courseId) => request.get({ entity: `lms/courses/${courseId}/certificate-rule` }),
   saveCertRule: (courseId, b) => request.post({ entity: `lms/courses/${courseId}/certificate-rule`, jsonData: b }),
   issueCertificate: (b) => request.post({ entity: 'lms/certificates/issue', jsonData: b }),
+  // name + email (+ internship for the template, or a PDF file) → emailed certificate
+  sendCertificate: ({ file, ...fields }) => {
+    const fd = new FormData();
+    Object.entries(fields).forEach(([k, v]) => v != null && v !== '' && fd.append(k, v));
+    if (file) fd.append('file', file);
+    return request.post({ entity: 'lms/certificates/send', jsonData: fd });
+  },
+  // { total, kept, pdf (base64) } — the uploaded PDF with `removePages` (1-based) taken out
+  certificatePdfPages: (file, removePages = []) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (removePages.length) fd.append('removePages', removePages.join(','));
+    return request.post({ entity: 'lms/certificates/pdf-pages', jsonData: fd });
+  },
   runCertificates: (courseId) => request.post({ entity: `lms/certificates/run/${courseId}`, jsonData: {} }),
   certHistory: (f = {}) => request.get({ entity: `lms/certificates${qs(f)}` }),
   myCertificates: () => request.get({ entity: 'lms/my/certificates' }),

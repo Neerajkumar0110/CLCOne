@@ -13,6 +13,9 @@ import { request } from '@/request';
 import lmsApi from '../api';
 import DriveImportModal from './DriveImportModal';
 import TranscriptPanel, { withStartTime } from './TranscriptPanel';
+import { videoSourceFor, useCaptions, useTrackMode, ccState } from './captions';
+import TranscriptQueueCard from './TranscriptQueueCard';
+import { useContentProgress } from '../Growth/tracker';
 import './driveImport.css';
 import './Recordings.css';
 import '../components/LearnerDesign.css';
@@ -114,6 +117,36 @@ export default function Recordings() {
   // (already set below), regardless of what's rendered inside it.
   const mediaRef = useRef(null);
   const [showTranscript, setShowTranscript] = useState(true);
+  // Subtitles / CC — its own switch: the Transcript panel and CC never turn
+  // each other on or off (spec §7 "independent controls").
+  const [ccOn, setCcOn] = useState(false);
+  // 'video' = native player (CC + synced transcript), 'frame' = BBB's own
+  // playback page (slides / chat as BBB shows them; no CC possible there)
+  const [playerMode, setPlayerMode] = useState('video');
+  const [queueOpen, setQueueOpen] = useState(false);
+  const videoSrc = videoSourceFor(playing);
+  const useVideo = !!(playing && videoSrc && playerMode === 'video');
+  const captions = useCaptions(playing && playing.id);
+  const cc = ccState(captions.info, !!videoSrc);
+  useTrackMode(mediaRef, captions.src, ccOn && useVideo, setCcOn, `${playing && playing.id}:${useVideo}`);
+  // 3B content progress: watch %, pauses, rewatches (learners only; the server ignores staff)
+  useContentProgress({
+    kind: 'recording',
+    ref: playing && playing.id,
+    title: playing ? [playing.className, playing.batchName].filter(Boolean).join(' · ') || 'Recording' : '',
+    course: playing && playing.courseTitle,
+    module: playing && playing.className,
+    videoRef: mediaRef,
+    enabled: !!playing,
+  });
+  const toggleCc = () => {
+    if (!cc.ready) return message.info(cc.note);
+    if (!useVideo) setPlayerMode('video'); // CC only exists in the video player
+    setCcOn((v) => !v);
+  };
+  const captionTrack = captions.src ? (
+    <track kind="captions" src={captions.src} srcLang={(captions.info && captions.info.language) || 'hi'} label={(captions.info && captions.info.languageLabel) || 'Captions'} />
+  ) : null;
   // BBB player is another origin — a transcript click re-opens it at that second
   const seekFrame = (sec) => setPlaying((p) => (p ? { ...p, baseUrl: p.baseUrl || p.url, url: withStartTime(p.baseUrl || p.url, sec) } : p));
   const goFullscreen = () => {
@@ -172,7 +205,11 @@ export default function Recordings() {
     try {
       const res = await lmsApi.recordingPlay(rec.id);
       const url = res && res.result && res.result.url;
-      if (url) setPlaying({ ...rec, url, provider: res.result.provider, downloadUrl: (res.result && res.result.downloadUrl) || null });
+      if (url) {
+        setPlayerMode('video');
+        setCcOn(false);
+        setPlaying({ ...rec, url, provider: res.result.provider, downloadUrl: (res.result && res.result.downloadUrl) || null });
+      }
       else message.info(`Recording is ${rec.status.toLowerCase()}.`);
     } catch (e) {
       message.error('Not available.');
@@ -411,7 +448,7 @@ export default function Recordings() {
         FAILED: 'the team is checking it',
         DELETED: 'recording not available',
       })[r.status] || '—';
-    const isFrame = playing && (playing.provider === 'bigbluebutton' || playing.provider === 'external');
+    const isFrame = !!playing && !useVideo;
     return (
       <div className="ld-page">
         <div className="ld-head">
@@ -476,7 +513,9 @@ export default function Recordings() {
                 isFrame ? (
                   <iframe ref={mediaRef} title="recording" src={playing.url} style={{ width: '100%', height: '100%', border: 0, display: 'block' }} allowFullScreen />
                 ) : (
-                  <video ref={mediaRef} controls src={playing.url} style={{ width: '100%', height: '100%', background: '#000' }} allowFullScreen />
+                  <video key={videoSrc} ref={mediaRef} className="rec-video" controls preload="metadata" src={videoSrc} style={{ width: '100%', height: '100%', background: '#000' }} allowFullScreen>
+                    {captionTrack}
+                  </video>
                 )
               ) : (
                 <span style={{ color: '#e2e8f0', fontSize: 13, padding: 16, textAlign: 'center' }}>Click a Ready recording — it plays right here</span>
@@ -484,16 +523,40 @@ export default function Recordings() {
             </div>
             <b style={{ fontSize: 15 }}>{playing ? recTitle(playing) : 'No recording selected'}</b>
             {playing && (
-              <div style={{ display: 'flex', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
-                <button type="button" className="ld-link" onClick={goFullscreen}>Fullscreen</button>
-                {canDownload(playing) && <button type="button" className="ld-link" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>{downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}</button>}
+              <div className="rec-ctrls" role="toolbar" aria-label="Player options">
+                <button type="button" className={`rec-ctrl${showTranscript ? ' on' : ''}`} aria-pressed={showTranscript} onClick={() => setShowTranscript((v) => !v)}>
+                  <FileTextOutlined aria-hidden="true" /> Transcript
+                </button>
+                <Tooltip title={cc.note}>
+                  <button type="button" className={`rec-ctrl${ccOn && useVideo ? ' on' : ''}${cc.ready ? '' : ' off'}`} aria-pressed={ccOn && useVideo} aria-disabled={!cc.ready} aria-label={`Subtitles / CC — ${cc.note}`} onClick={toggleCc}>
+                    <span className="rec-cc" aria-hidden="true">CC</span> Subtitles
+                  </button>
+                </Tooltip>
+                <button type="button" className="rec-ctrl" onClick={goFullscreen}>
+                  <FullscreenOutlined aria-hidden="true" /> Fullscreen
+                </button>
+                {canDownload(playing) && (
+                  <button type="button" className="rec-ctrl" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>
+                    <DownloadOutlined aria-hidden="true" /> {downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}
+                  </button>
+                )}
+                {playing.provider === 'bigbluebutton' && videoSrc && (
+                  <button type="button" className="rec-ctrl" onClick={() => setPlayerMode((m) => (m === 'video' ? 'frame' : 'video'))} title={useVideo ? 'BBB player: slides and chat the way BBB shows them (no subtitles there)' : 'Back to the video player with subtitles'}>
+                    {useVideo ? 'Open BBB player' : 'Video player with CC'}
+                  </button>
+                )}
               </div>
             )}
-            {playing && (
+            {/* the open transcript panel already says it; with it closed, say it here */}
+            {playing && !showTranscript && !cc.ready && captions.info && ['PENDING', 'PROCESSING'].includes(captions.info.status) && (
+              <div className="rec-prep" role="status">Transcript and subtitles are being prepared — the video plays normally meanwhile.</div>
+            )}
+            {playing && showTranscript && (
               <TranscriptPanel
                 rec={playing}
                 mediaRef={mediaRef}
                 isFrame={isFrame}
+                playerKey={`${playing.id}:${useVideo}`}
                 onSeekFrame={seekFrame}
                 style={{ height: 340, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}
               />
@@ -540,11 +603,22 @@ export default function Recordings() {
                 <ExportOutlined /> Import all from Drive
               </button>
             )}
+            {isManager && (
+              <button type="button" className="refresh-btn" onClick={() => setQueueOpen(true)}>
+                <FileTextOutlined /> Transcripts &amp; CC
+              </button>
+            )}
             <button type="button" className="refresh-btn" onClick={load}>
               <ReloadOutlined /> Refresh
             </button>
           </div>
         </div>
+
+        {isManager && (
+          <Modal open={queueOpen} onCancel={() => setQueueOpen(false)} footer={null} width={720} title={null} destroyOnClose>
+            <TranscriptQueueCard />
+          </Modal>
+        )}
 
         <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onFileChosen} />
         {isManager && <DriveImportModal open={driveOpen} onClose={() => setDriveOpen(false)} onImported={load} />}
@@ -742,7 +816,7 @@ export default function Recordings() {
                 </span>
               )}
             </span>
-            <Space size={8} style={{ flexShrink: 0 }}>
+            <Space size={8} wrap style={{ flexShrink: 1, justifyContent: "flex-end" }}>
               {playing && playing.url && (
                 <>
                   <Tooltip title="Fullscreen">
@@ -762,10 +836,24 @@ export default function Recordings() {
                   )}
                 </>
               )}
-              {playing && playing.url && (
-                <Button size="small" icon={<FileTextOutlined />} type={showTranscript ? 'primary' : 'default'} onClick={() => setShowTranscript((v) => !v)}>
+              {playing && playing.url && playing.provider !== 'external' && (
+                <Button size="small" icon={<FileTextOutlined />} type={showTranscript ? 'primary' : 'default'} aria-pressed={showTranscript} onClick={() => setShowTranscript((v) => !v)}>
                   Transcript
                 </Button>
+              )}
+              {playing && playing.url && playing.provider !== 'external' && (
+                <Tooltip title={cc.note}>
+                  <Button size="small" type={ccOn && useVideo ? 'primary' : 'default'} aria-pressed={ccOn && useVideo} aria-label={`Subtitles / CC — ${cc.note}`} className={cc.ready ? '' : 'rec-btn-off'} onClick={toggleCc}>
+                    <span className="rec-cc" aria-hidden="true">CC</span>&nbsp;Subtitles
+                  </Button>
+                </Tooltip>
+              )}
+              {playing && playing.provider === 'bigbluebutton' && videoSrc && (
+                <Tooltip title={useVideo ? 'BBB player: slides and chat the way BBB shows them (no subtitles there)' : 'Back to the video player with subtitles'}>
+                  <Button size="small" onClick={() => setPlayerMode((m) => (m === 'video' ? 'frame' : 'video'))}>
+                    {useVideo ? 'BBB player' : 'Video player'}
+                  </Button>
+                </Tooltip>
               )}
               <Button size="small" onClick={() => setPlaying(null)}>Close</Button>
             </Space>
@@ -780,9 +868,12 @@ export default function Recordings() {
           // (provider 'mock'/'jitsi', a direct .mp4 file) play in <video>.
           // Synced transcript on the right (TranscriptPanel), toggled by the
           // header's "Transcript" button.
-          <div style={{ display: 'flex', width: '100%', height: '100%', minHeight: 0 }}>
-            <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
-              {playing.provider === 'bigbluebutton' || playing.provider === 'external' ? (
+          // A BBB class with its full-class video file plays in <video> too
+          // (same timeline as the transcript → Subtitles / CC + live line
+          // highlight); "BBB player" switches to BBB's own page.
+          <div className="rec-stage" style={{ display: 'flex', width: '100%', height: '100%', minHeight: 0 }}>
+            <div className="rec-stage-media" style={{ flex: 1, minWidth: 0, height: '100%' }}>
+              {!useVideo ? (
                 <iframe
                   key={playing.url}
                   ref={mediaRef}
@@ -794,13 +885,18 @@ export default function Recordings() {
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <video
+                    key={videoSrc}
                     ref={mediaRef}
+                    className="rec-video"
                     controls
                     autoPlay
-                    src={playing.url}
+                    preload="metadata"
+                    src={videoSrc}
                     style={{ maxWidth: '100%', maxHeight: '100%', background: '#000' }}
                     allowFullScreen
-                  />
+                  >
+                    {captionTrack}
+                  </video>
                 </div>
               )}
             </div>
@@ -809,8 +905,10 @@ export default function Recordings() {
                 dark
                 rec={playing}
                 mediaRef={mediaRef}
-                isFrame={playing.provider === 'bigbluebutton'}
+                isFrame={!useVideo}
+                playerKey={`${playing.id}:${useVideo}`}
                 onSeekFrame={seekFrame}
+                className="rec-stage-tp"
                 style={{ width: 400, maxWidth: '42vw', flexShrink: 0, height: '100%', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
               />
             )}
