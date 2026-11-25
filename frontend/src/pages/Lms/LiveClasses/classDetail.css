@@ -50,6 +50,9 @@
 .cd-rbtn:disabled { opacity: .6; cursor: default; }
 .cd-rbtn.leave { background: #b91c1c; border-color: #b91c1c; color: #fff; }
 .cd-room iframe { flex: 1; width: 100%; border: 0; background: #0f172a; }
+/* Ctrl+A / a drag on the page painted the class frame in the blue selection colour (2026-11-25) */
+.cd-room, .cd-room iframe { -webkit-user-select: none; user-select: none; }
+.cd-room iframe::selection, .cd-room::selection { background: transparent; }
 @media (max-width: 760px) { .cd-room { min-height: 420px; height: 70vh; } }
 /* class chat (L4 Chat tab) */
 .cd-chat { display: flex; flex-direction: column; gap: 8px; max-height: 340px; min-height: 120px; overflow-y: auto; font-size: 13px; line-height: 19px; padding-right: 4px; }

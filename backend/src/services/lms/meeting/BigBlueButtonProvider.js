@@ -147,7 +147,15 @@ class BigBlueButtonProvider extends MeetingProvider {
     // external-video button also renders as webcamFullscreenButton, so that
     // one is only hidden inside the webcam list.
     params['userdata-bbb_custom_style'] =
-      '[data-test="webcamsFullscreenButton"],[data-test="webcamVideoList"] [data-test="webcamFullscreenButton"]{display:none!important}';
+      '[data-test="webcamsFullscreenButton"],[data-test="webcamVideoList"] [data-test="webcamFullscreenButton"]{display:none!important}' +
+      // A stray click-drag / double-click / Ctrl+A inside the class selected
+      // the whole page and Chrome painted its blue selection colour over the
+      // teacher's screen share ("some people see a blue screen", 2026-11-25).
+      // Nothing in the class view is selectable; chat text and every input
+      // still are.
+      'body,body *{-webkit-user-select:none!important;user-select:none!important}' +
+      'input,textarea,[contenteditable="true"],[contenteditable="true"] *,[data-test="chatMessages"] *,[data-test="chatUserMessageText"],[data-test="chatUserMessageText"] *{-webkit-user-select:text!important;user-select:text!important}' +
+      'video::selection,canvas::selection,img::selection{background:transparent!important}';
     // Inside the learner's class board: no Messages / Notes / Users side
     // panel and no button to open it — the board's own Chat tab is the class
     // chat (mirrored into BBB public chat, see sendChatMessage). A new tab
