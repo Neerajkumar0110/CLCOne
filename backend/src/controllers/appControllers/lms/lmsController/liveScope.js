@@ -212,13 +212,24 @@ async function listRecordings(req, res) {
       : []
   );
   // not yet released to learners (2-hour delay) reads as still processing
-  const shownStatus = (r) => (r.status === 'AVAILABLE' && !ownTaught(r) && !releasedToStudents(r) ? 'PROCESSING' : r.status);
+  // a recording still 'recording / processing' a day after its class is stuck — shown as failed,
+  // so it matches the class's own (ended) status (LMS testing report #38)
+  const stuck = (r) => ['RECORDING', 'PROCESSING', 'AWAITING_UPLOAD'].includes(r.status) && now - new Date(r.endedAt || r.startedAt || r.created) > 24 * 3600 * 1000;
+  const shownStatus = (r) => (stuck(r) ? 'FAILED' : r.status === 'AVAILABLE' && !ownTaught(r) && !releasedToStudents(r) ? 'PROCESSING' : r.status);
+  // one entry per class: a failed / deleted copy is hidden when the same class has a
+  // playable one; same-named classes that remain get their date in the name (report #38)
+  const keyOf = (r) => `${r.batchName}|${r.className}`;
+  const hasGood = new Set(rows.filter((r) => r.status === 'AVAILABLE').map(keyOf));
+  rows = rows.filter((r) => r.status === 'AVAILABLE' || !hasGood.has(keyOf(r)) || (isManager(admin) && req.query.all === '1'));
+  const nameCount = rows.reduce((m, r) => m.set(keyOf(r), (m.get(keyOf(r)) || 0) + 1), new Map());
+  const dayOf = (r) => new Date(r.startedAt || r.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
 
   return res.status(200).json({
     success: true,
     result: rows.map((r) => ({
       id: String(r._id),
-      className: r.className,
+      className: nameCount.get(keyOf(r)) > 1 ? `${r.className} · ${dayOf(r)}` : r.className,
+      failReason: stuck(r) ? 'Processing did not finish within a day — ask Support to recover it (Recovery & rename).' : r.failReason || undefined,
       sessionIndex: r.liveSession ? sessIndex.get(String(r.liveSession)) || null : null,
       courseTitle: r.courseTitle,
       batchName: r.batchName,

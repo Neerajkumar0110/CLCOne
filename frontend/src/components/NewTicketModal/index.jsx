@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
+import { request } from "@/request";
 import HubModal from "@/components/HubModal";
 import { TICKET_CATEGORY_MODULES } from "@/config/permissionModules";
 
@@ -16,6 +19,23 @@ export default function NewTicketModal({ open, onClose, onAdd, initialCategory }
   const [category, setCategory] = useState(initialCategory || TICKET_CATEGORIES[0]);
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
+  // Support / admin: raise it on behalf of a learner (they get the confirmation)
+  const me = useSelector(selectCurrentAdmin) || {};
+  const canBehalf = ["owner", "Super Admin", "Admin", "Support"].includes(me.role);
+  const [who, setWho] = useState(null);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState([]);
+  const timer = useRef(null);
+  const search = (v) => {
+    setQ(v);
+    setWho(null);
+    clearTimeout(timer.current);
+    if (v.trim().length < 2) return setFound([]);
+    timer.current = setTimeout(async () => {
+      const r = await request.get({ entity: `lms/announcements/learners?q=${encodeURIComponent(v.trim())}` }).catch(() => null);
+      setFound((r && r.success && r.result) || []);
+    }, 250);
+  };
 
   useEffect(() => {
     if (open) setCategory(initialCategory || TICKET_CATEGORIES[0]);
@@ -28,10 +48,14 @@ export default function NewTicketModal({ open, onClose, onAdd, initialCategory }
       category,
       priority,
       description: description.trim(),
+      ...(who ? { onBehalfOf: who.id } : {}),
     });
     if (res?.success) {
       setSubject("");
       setDescription("");
+      setWho(null);
+      setQ("");
+      setFound([]);
       onClose();
     }
   };
@@ -52,6 +76,22 @@ export default function NewTicketModal({ open, onClose, onAdd, initialCategory }
         </>
       }
     >
+      {canBehalf && (
+        <div className="hub-form-row" style={{ position: "relative" }}>
+          <label>On behalf of (optional)</label>
+          <input className="hub-input" value={who ? `${who.name} · ${who.email}` : q} onChange={(e) => search(e.target.value)} placeholder="Learner name or the start of the email — leave empty for yourself" />
+          {!who && found.length > 0 && (
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 5, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 20px rgba(15,23,42,.12)", maxHeight: 220, overflow: "auto" }}>
+              {found.map((p) => (
+                <button key={p.id} type="button" onClick={() => { setWho(p); setFound([]); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", border: 0, background: "none", cursor: "pointer", fontSize: 13 }}>
+                  <b>{p.name}</b> <span style={{ color: "#64748b" }}>· {p.email}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {who && <small style={{ color: "#0e7490" }}>They get the confirmation email and see the ticket in their LMS.</small>}
+        </div>
+      )}
       <div className="hub-form-row">
         <label>Subject</label>
         <input className="hub-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Briefly describe the problem" />

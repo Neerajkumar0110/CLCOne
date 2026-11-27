@@ -3,6 +3,7 @@ import { message } from 'antd';
 import api from './api';
 import { C, I, IB, Chip, Btn, Card, Row, Col, Field, Table, Tabs, Check, Toggle, Lbl, Screen, Loading } from './ui';
 import { toLocalInput, kb, fileTone } from './projectsShared';
+import './projectsX.css';
 
 // Figma 2A "Create project" (Admin / Mentor). Save draft, or Save & allocate → 2B.
 
@@ -102,6 +103,27 @@ export default function ProjectCreate({ id, onDone, onCancel }) {
     setUp(false);
     if (added.length) set('resources', [...f.resources, ...added]);
   };
+  // a project document (.docx / .txt / .md) fills title, description and
+  // requirements; the file is kept as a resource too (LMS testing report #7)
+  const fillFromDoc = async (file) => {
+    if (!file) return;
+    setUp(true);
+    const r = await api.extractProjectFile(file);
+    setUp(false);
+    if (!r.success) return message.error(r.message);
+    const x = r.result.extracted || {};
+    const { extracted, ...res } = r.result;
+    setF((prev) => ({
+      ...prev,
+      title: prev.title || x.title || prev.title,
+      description: x.description ? (prev.description ? `${prev.description}\n\n${x.description}` : x.description) : prev.description,
+      deliverables: x.deliverables && x.deliverables.length ? [...new Set([...(prev.deliverables || []), ...x.deliverables])] : prev.deliverables,
+      stack: x.stack && x.stack.length ? [...new Set([...(prev.stack || []), ...x.stack])] : prev.stack,
+      resources: [...(prev.resources || []), res],
+    }));
+    if (x.unsupported) message.info(x.reason, 6);
+    else message.success('Details filled from the document — check and edit them.');
+  };
   const addLink = () => {
     const v = link.trim();
     if (!v) return;
@@ -117,7 +139,7 @@ export default function ProjectCreate({ id, onDone, onCancel }) {
   };
 
   return (
-    <Screen
+    <Screen className="pjx pjx-create"
       crumb={`LMS / Projects / ${id ? f.title || 'Edit' : 'New'}`}
       title={id ? `Edit · ${f.title}` : 'New project'}
       actions={
@@ -138,7 +160,17 @@ export default function ProjectCreate({ id, onDone, onCancel }) {
     >
       <Row className="g-rm" style={{ alignItems: 'flex-start' }}>
         <Col>
-          <Card title="Project details" i="folder">
+          <Card
+            title="Project details"
+            i="folder"
+            right={
+              <label className="g-btn k-g sm" style={{ cursor: up ? 'wait' : 'pointer' }} title="Upload the project document (.docx / .txt / .md) — title, description and requirements are filled from it">
+                <I n="upload" s={13} />
+                {up ? 'Reading…' : 'Fill from document'}
+                <input type="file" accept=".docx,.txt,.md,.pdf" hidden disabled={up} onChange={(e) => { fillFromDoc(e.target.files && e.target.files[0]); e.target.value = ''; }} />
+              </label>
+            }
+          >
             <Field label="Project title" htmlFor="p-title">
               <input id="p-title" className="g-input" value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Churn Prediction API" />
             </Field>

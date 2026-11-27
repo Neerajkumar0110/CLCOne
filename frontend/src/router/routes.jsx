@@ -29,6 +29,10 @@ const featureRoutes = [
   // LMS duplicates folded into one tab each
   { path: '/lms/certificate-center', element: <Navigate to="/lms/certificates" replace /> },
   { path: '/lms/quizzes/*', element: <Navigate to="/lms/assessment-dashboard" replace /> },
+  // /learn/* is the learner panel; staff who open a learner link land on the
+  // CRM screen instead of a 404 (policy approval = LMS › Policies › Publish & track)
+  { path: '/learn/policies', element: <Navigate to="/lms/policies?view=publish" replace /> },
+  { path: '/learn/*', element: <Navigate to="/lms/overview" replace /> },
 ];
 
 function OldAdminOps() {

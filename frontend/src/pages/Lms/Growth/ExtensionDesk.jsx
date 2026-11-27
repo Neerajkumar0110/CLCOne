@@ -6,7 +6,8 @@ import { fmtDT } from './projectsShared';
 
 // Figma 2F "Extension & notification desk" (Support). Support never decides
 // an extension — it nudges the mentor, tells the learner the decision, and
-// asks mentors to re-allocate disqualified learners.
+// asks mentors to re-allocate disqualified learners. Since 2026-11-26 (LMS
+// testing report #35) Support can approve / reject a pending request too.
 
 const KIND = {
   allocated: ['mail', 'Allocated'],
@@ -60,7 +61,7 @@ export default function ExtensionDesk() {
               ['Asked', 60],
               ['Reason', 180],
               ['Mentor decision', 140],
-              ['', 96],
+              ['', 210],
             ]}
             rows={data.extensions.map((a) => {
               const e = a.extension;
@@ -80,9 +81,17 @@ export default function ExtensionDesk() {
                 );
               const btn =
                 e.status === 'pending' ? (
-                  <Btn k="g" sm i="bell" disabled={busy} onClick={() => run(() => api.nudge(a.id))} title={(e.nudges || []).length ? `Nudged ${e.nudges.length}×` : ''}>
-                    Nudge
-                  </Btn>
+                  <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+                    <Btn k="p" sm i="check" disabled={busy} onClick={() => run(() => api.decideExtension(a.id, { decision: 'approve', days: e.days }))}>
+                      Approve
+                    </Btn>
+                    <Btn k="g" sm i="x" disabled={busy} onClick={() => run(() => api.decideExtension(a.id, { decision: 'reject' }))}>
+                      Reject
+                    </Btn>
+                    <Btn k="g" sm i="bell" disabled={busy} onClick={() => run(() => api.nudge(a.id))} title={(e.nudges || []).length ? `Nudged ${e.nudges.length}×` : 'Remind the mentor'}>
+                      Nudge
+                    </Btn>
+                  </span>
                 ) : (
                   <Btn k="g" sm i={e.status === 'approved' ? 'send' : 'msg'} disabled={busy} onClick={() => run(() => api.notifyDecision(a.id))} title={e.notifiedAt ? `Sent ${fmtDT(e.notifiedAt)}` : ''}>
                     {e.status === 'approved' ? 'Notify' : 'Reply'}

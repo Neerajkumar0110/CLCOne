@@ -603,6 +603,19 @@ async function outreachEmail(req, res) {
   if (text.length < 5) return bad(res, 400, 'Write the message.');
   const r = await require('../../../../../services/lms/mailer').sendMail([a.learnerEmail], { subject: 'We miss you at CareerLab', text: `${text}\n\nCareerLab Support` });
   await require('../../../../../services/lms/realtime').notify([a.learner], { type: 'lms.engagement.outreach', title: 'A message from CareerLab Support', body: text, link: '/learn' });
+  // the email is part of the contact history and puts the learner on Follow-up (LMS testing report #36)
+  const now = new Date();
+  const outcome = r.sent ? 'Email sent' : 'Email not delivered (in-app only)';
+  a.contacts = a.contacts || [];
+  a.contacts.push({ at: now, by: req.admin.name, channel: 'email', outcome, notes: text.slice(0, 1000) });
+  a.lastContactAt = now;
+  a.lastOutcome = outcome;
+  if (a.queue !== 'resolved') {
+    a.queue = 'follow_up';
+    if (!a.followUpAt || a.followUpAt < now) a.followUpAt = new Date(now.getTime() + 2 * 24 * 3600 * 1000);
+  }
+  a.updated = now;
+  await a.save();
   return ok(res, { sent: r.sent || 0 }, r.sent ? 'Email sent' : `Email not sent${r.skipped ? ` (${r.skipped})` : ''} — in-app message delivered`);
 }
 

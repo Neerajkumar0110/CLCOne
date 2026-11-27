@@ -97,7 +97,7 @@ async function autoAdvance(batchId) {
   const n = frontier + 1;
 
   const existing = await AssessmentDeliveryRecord.find({ batch: batchDoc.name })
-    .select('sessionId status auto')
+    .select('sessionId status auto manual')
     .lean();
   const bySession = new Map(existing.map((r) => [r.sessionId, r]));
 
@@ -109,7 +109,7 @@ async function autoAdvance(batchId) {
     const rec = bySession.get(unitId);
     // A teacher's own decision stands — only fill in PENDING, or refresh a
     // date this function set itself.
-    if (rec && rec.status !== 'PENDING' && !rec.auto) continue;
+    if (rec && (rec.manual || (rec.status !== 'PENDING' && !rec.auto))) continue;
     // eslint-disable-next-line no-await-in-loop
     await AssessmentDeliveryRecord.findOneAndUpdate(
       { sessionId: unitId, batch: batchDoc.name },

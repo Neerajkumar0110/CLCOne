@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { message } from 'antd';
+import { message, Modal, Button } from 'antd';
 import api from './api';
-import { C, Chip, Btn, Av, Card, Row, Col, KPI, Table, Donut, Screen, Loading, ErrorBox, useData } from './ui';
+import { C, Chip, Btn, Av, Card, Row, Col, KPI, Donut, Screen, Loading, ErrorBox, useData, I } from './ui';
+import './projectsX.css';
 import { StatusChip, statusOf, TimePill, useNow } from './projectsShared';
 
 // Figma 2D "Project dashboard" (Mentor; Admin sees every batch). Live —
@@ -41,6 +42,7 @@ export default function ProjectDashboard({ go }) {
   const { data, error, loading, reload } = useData(() => api.projectDashboard(flt), [flt.batch, flt.brief, flt.status, flt.due]);
   const now = useNow(data && data.serverNow);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState(null); // allocation opened in the modal
   useEffect(() => {
     const iv = setInterval(reload, 60000);
     return () => clearInterval(iv);
@@ -94,6 +96,7 @@ export default function ProjectDashboard({ go }) {
 
   return (
     <Screen
+      className="pjx"
       crumb="LMS / Projects"
       title="Projects · all learners"
       actions={
@@ -110,7 +113,8 @@ export default function ProjectDashboard({ go }) {
         <KPI i="checkc" label="Qualification rate" val={k.qualificationRate == null ? '—' : `${k.qualificationRate}%`} sub="of decided projects" tone="ok" bar={k.qualificationRate || 0} style={{ flex: 1 }} />
       </Row>
 
-      <Row g={10} className="g-ac g-wrap">
+      <Row g={10} className="g-ac g-wrap pjx-filters">
+        <span className="pjx-f-ic"><I n="filter" s={15} /></span>
         {sel('batch', 'Batch', 'layers', [['', 'All'], ...data.batches.map((b) => [b, b])])}
         {sel('brief', 'Project', 'folder', [['', 'All'], ...data.briefs.map((b) => [b.id, b.title])])}
         {sel('status', 'Status', 'flag', [['', 'All'], ...MIX.map(([v, l]) => [v, l])])}
@@ -128,37 +132,29 @@ export default function ProjectDashboard({ go }) {
 
       <Row className="g-rm" style={{ alignItems: 'flex-start' }}>
         <Card title="Allocations" i="list" sub="Live · refreshed every minute" style={{ flex: 1 }}>
-          <Table
-            cols={[
-              ['Learner', 'f'],
-              ['Project', 160],
-              ['Status', 150],
-              ['Time left', 140],
-              ['Submission', 130],
-              ['Score', 50],
-              ['', 100],
-            ]}
-            rows={data.rows.map((a) => {
+          <div className="pjx-list">
+            <div className="pjx-tr pjx-th"><span>Learner</span><span>Project</span><span>Status</span><span>Time left</span><span>Submission</span><span>Score</span><span /></div>
+            {data.rows.length === 0 && <div className="pjx-empty"><I n="folder" s={22} /><b>No allocations match</b><span>Create a project and allocate it.</span></div>}
+            {data.rows.map((a) => {
               const [l, kk] = actionFor(a);
-              return [
-                <>
-                  <Av name={a.groupName || a.learnerName} s={24} />
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }} title={a.memberNames.join(', ')}>
-                    {a.groupName ? `${a.groupName} · ${a.memberNames.length}` : a.learnerName}
+              return (
+                <div key={a.id} className={`pjx-tr st-${statusOf(a)}`} role="button" tabIndex={0} onClick={() => setView(a)} onKeyDown={(e) => { if (e.key === 'Enter') setView(a); }}>
+                  <span className="pjx-l">
+                    <Av name={a.groupName || a.learnerName} s={28} />
+                    <span title={a.memberNames.join(', ')}><b>{a.groupName ? `${a.groupName} · ${a.memberNames.length}` : a.learnerName}</b><small>{a.batch}</small></span>
                   </span>
-                </>,
-                a.title,
-                <StatusChip a={a} />,
-                <TimePill a={a} now={now} />,
-                subText(a),
-                <b style={{ fontSize: 12.5 }}>{a.review && a.review.published ? a.review.score : a.status === 'disqualified' ? '0' : '—'}</b>,
-                <Btn k={kk} sm onClick={() => act(a)} disabled={busy}>
-                  {l}
-                </Btn>,
-              ];
+                  <span className="pjx-p" title={a.title}>{a.title}</span>
+                  <span><StatusChip a={a} /></span>
+                  <span><TimePill a={a} now={now} /></span>
+                  <span className="pjx-sub">{subText(a)}</span>
+                  <span className="pjx-score">{a.review && a.review.published ? a.review.score : a.status === 'disqualified' ? '0' : '—'}</span>
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <Btn k={kk} sm onClick={() => act(a)} disabled={busy}>{l}</Btn>
+                  </span>
+                </div>
+              );
             })}
-            empty="No allocations match. Create a project and allocate it."
-          />
+          </div>
         </Card>
 
         <Col style={{ width: 300, flexShrink: 0 }}>
@@ -222,6 +218,49 @@ export default function ProjectDashboard({ go }) {
           </Card>
         </Col>
       </Row>
+
+      <Modal open={!!view} onCancel={() => setView(null)} footer={null} width={640} centered destroyOnClose rootClassName="pjx-modal">
+        {view && (() => {
+          const [l, kk] = actionFor(view);
+          return (
+            <div className="pjx-m">
+              <div className="pjx-m-head">
+                <span className="pjx-m-tag"><StatusChip a={view} /></span>
+                <h3>{view.title}</h3>
+                <span>{view.groupName ? `${view.groupName} · ${view.memberNames.join(', ')}` : view.learnerName} · {view.batch}</span>
+              </div>
+              <div className="pjx-m-body">
+                <div className="pjx-kv">
+                  <div><small>Time left</small><TimePill a={view} now={now} /></div>
+                  <div><small>Deadline</small><b>{view.deadline ? new Date(view.deadline).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}</b></div>
+                  <div><small>Submission</small><b>{subText(view)}</b></div>
+                  <div><small>Score</small><b>{view.review && view.review.published ? view.review.score : view.status === 'disqualified' ? '0' : '—'}</b></div>
+                </div>
+                {view.submission && (
+                  <div className="pjx-links">
+                    {view.submission.githubUrl && <a href={view.submission.githubUrl} target="_blank" rel="noopener noreferrer"><I n="link" s={13} /> GitHub</a>}
+                    {view.submission.demoUrl && <a href={view.submission.demoUrl} target="_blank" rel="noopener noreferrer"><I n="link" s={13} /> Demo</a>}
+                    {view.submittedAt && <span>Submitted {new Date(view.submittedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>}
+                  </div>
+                )}
+                {view.extension && view.extension.status === 'pending' && (
+                  <div className="pjx-ext"><I n="clock" s={15} /><span><b>Extension asked · +{view.extension.days} day{view.extension.days === 1 ? '' : 's'}</b><small>{view.extension.reason}</small></span></div>
+                )}
+              </div>
+              <div className="pjx-m-foot">
+                <Button onClick={() => setView(null)}>Close</Button>
+                {view.extension && view.extension.status === 'pending' && (
+                  <>
+                    <Button danger disabled={busy} onClick={async () => { await decide(view, 'reject'); setView(null); }}>Reject extension</Button>
+                    <Button disabled={busy} onClick={async () => { await decide(view, 'approve'); setView(null); }}>Approve extension</Button>
+                  </>
+                )}
+                <Btn k={kk === 'g' ? 'p' : kk} onClick={() => { act(view); if (l !== 'Remind') setView(null); }} disabled={busy}>{l}</Btn>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </Screen>
   );
 }

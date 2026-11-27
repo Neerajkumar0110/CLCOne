@@ -45,9 +45,11 @@ const policyReminder = ({ policyTitle, version }) => ({
   html: `<p>You still have a pending acknowledgement for <b>${esc(policyTitle)}</b> (v${esc(version)}). Please sign in to the portal to complete it.</p>`,
 });
 
-const projectReview = ({ projectTitle, decision, feedback }) => ({
-  subject: `Project review — ${projectTitle}: ${decision}`,
-  html: `<p>Your project <b>${esc(projectTitle)}</b> was reviewed.</p><p>Decision: <b>${esc(decision)}</b></p>${feedback ? `<p>${esc(feedback)}</p>` : ''}`,
+const projectReview = ({ projectTitle, decision, feedback, score }) => ({
+  subject: `Project result — ${projectTitle}: ${decision}`,
+  html: card(
+    `<h2 style="margin:0 0 8px;font-size:19px">${esc(projectTitle)}</h2><p style="margin:0 0 12px">Result: <b style="color:${/^Qualified/.test(decision) ? '#166534' : /^Not/.test(decision) ? '#b91c1c' : '#9a3412'}">${esc(decision)}</b>${score != null && score !== '' ? ` · score ${esc(score)}` : ''}</p>${feedback ? `<div style="padding:12px 14px;background:#f8fafc;border-left:3px solid #0e7490;border-radius:6px"><b>${/^Not/.test(decision) ? 'Reason' : 'Feedback'}:</b><br>${esc(feedback)}</div>` : ''}<p style="color:#889;font-size:12px;margin:18px 0 0">Open My Project in the LMS for the full review.</p>`
+  ),
 });
 
 // body = the queue's level text (plain text with new lines)
@@ -80,13 +82,23 @@ const certificateSent = ({ name, certificateTitle, course, certificateId, verify
 
 // short class notices (cancelled / postponed / marked absent / time changed)
 const notice = (subject, body) => ({ subject, html: `<p>${body}</p>` });
+// a new assignment for the learner (assignments.create)
+const assignmentAssigned = ({ name, title, due, link, teacher }) => ({
+  subject: `New assignment: ${title}`,
+  html: card(
+    `<p>Hi ${esc(name || 'there')},</p><p>${esc(teacher || 'Your Project Manager')} has given you a new assignment:</p><p style="font-size:17px;font-weight:600;margin:6px 0">${esc(title)}</p>${due ? `<p>Due: <b>${esc(due)}</b></p>` : ''}<p><a href="${esc(link)}" style="display:inline-block;background:#0e7490;color:#fff;padding:9px 18px;border-radius:8px;text-decoration:none">Open the assignment</a></p>`
+  ),
+});
 const classCancelled = ({ classTitle, course, scheduledTime, reason }) => notice(`Class cancelled: ${classTitle}`, `${course} · was scheduled ${scheduledTime}. Reason: ${reason}`);
 const classPostponed = ({ classTitle, course, fromTime, toTime, extra = '' }) => notice(`Class postponed: ${classTitle}`, `${course} · moved from ${fromTime} to ${toTime}.${extra}`);
 const markedAbsent = ({ classTitle, course, classTime }) => notice(`Marked absent: ${classTitle}`, `${course} · ${classTime}. Contact your coordinator if this is incorrect.`);
 const classRescheduled = ({ classTitle, course, fromTime, toTime }) => notice(`Class time changed: ${classTitle}`, `${course} · was ${fromTime}, now ${toTime}.`);
 
 // automation reminder to a learner (services/lms/automationRules.js)
-const automationLearner = ({ title, message, link }) => ({ subject: title, html: `<p>${message}</p>${link ? `<p><a href="${link}">Open</a></p>` : ''}` });
+const automationLearner = ({ title, message, link }) => ({
+  subject: title,
+  html: card(`<h2 style="margin:0 0 8px;font-size:19px">${esc(title)}</h2><p style="color:#334;margin:0 0 16px">${esc(message)}</p>${link ? `<p style="margin:0 0 14px"><a href="${esc(link)}" style="display:inline-block;background:#0e7490;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Open in the LMS</a></p>` : ''}<p style="color:#889;font-size:12px;margin:18px 0 0">CareerLab Consulting · InternX-AI</p>`),
+});
 
 const qualifiedDraft = ({ results, qualified }) => ({
   subject: `DRAFT — qualified / not-qualified report (${results} results)`,
@@ -99,6 +111,7 @@ const mgmtReport = ({ kind, label, kpis }) => ({
 });
 
 module.exports = {
+  assignmentAssigned,
   esc,
   card,
   assessmentResult,

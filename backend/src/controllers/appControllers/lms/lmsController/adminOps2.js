@@ -100,12 +100,15 @@ const d = (x) => (x ? new Date(x).toISOString().slice(0, 16).replace('T', ' ') :
 
 async function buildReport(key, q, admin) {
   const { from, to } = rangeOf(q);
-  const batch = q.batch && q.batch !== 'all' ? String(q.batch) : null;
+  // one or several batches: ?batch=A,B (LMS testing report #22 — 4:00 and 5:30 PM together)
+  const batchList = q.batch && q.batch !== 'all' ? String(q.batch).split(',').map((x) => x.trim()).filter(Boolean) : [];
+  const batch = batchList.length ? true : null;
+  const bq = (field) => (batchList.length ? { [field]: { $in: batchList } } : {});
   const full = isMgmt(admin);
   const email = (e) => (full ? e : maskEmail(e));
   switch (key) {
     case 'learner-360': {
-      const students = await M('Student').find({ removed: false, ...(batch ? { batch } : {}) }, { name: 1, email: 1, batch: 1, status: 1, course: 1 }).lean();
+      const students = await M('Student').find({ removed: false, ...bq('batch') }, { name: 1, email: 1, batch: 1, status: 1, course: 1 }).lean();
       const attempts = await M('AssessmentAttempt').find({ status: 'SUBMITTED' }, { candidateEmail: 1, testType: 1, qualified: 1 }).lean();
       const pending = await M('PolicyAcknowledgement').find({ removed: false, status: 'pending' }, { studentEmail: 1 }).lean();
       const att = await M('LmsLiveSession').aggregate([
@@ -123,7 +126,7 @@ async function buildReport(key, q, admin) {
     }
     case 'batch-attendance': {
       const rows = await M('LmsLiveSession').aggregate([
-        { $match: { scheduledStart: { $gte: from, $lt: to }, ...(batch ? { batchName: batch } : {}), status: { $in: ['ended', 'recording_processing', 'recording_available'] } } },
+        { $match: { scheduledStart: { $gte: from, $lt: to }, ...bq('batchName'), status: { $in: ['ended', 'recording_processing', 'recording_available'] } } },
         { $unwind: '$participants' },
         { $match: { 'participants.role': 'student' } },
         { $project: { batchName: 1, title: 1, scheduledStart: 1, p: '$participants' } },
@@ -133,7 +136,7 @@ async function buildReport(key, q, admin) {
       return rows.map((r) => ({ Date: d(r.scheduledStart), Batch: r.batchName || '', Class: r.title || '', Learner: r.p.name || '', Email: email(r.p.email), Status: r.p.attendanceStatus, 'Minutes': r.p.totalDurationMin || 0, Corrected: r.p.correctedByName ? `by ${r.p.correctedByName}` : '' }));
     }
     case 'assessment-attempts': {
-      const rows = await M('AssessmentAttempt').find({ startedAt: { $gte: from, $lt: to }, ...(batch ? { candidateBatch: batch } : {}) }).sort({ startedAt: -1 }).limit(5000).lean();
+      const rows = await M('AssessmentAttempt').find({ startedAt: { $gte: from, $lt: to }, ...bq('candidateBatch') }).sort({ startedAt: -1 }).limit(5000).lean();
       return rows.map((r) => ({ Started: d(r.startedAt), Learner: r.candidateName || '', Email: email(r.candidateEmail), Batch: r.candidateBatch || '', Test: r.testType, Status: r.status, Score: r.score ?? '', Out_of: r.totalCount ?? '', Qualified: r.qualified === true ? 'yes' : r.qualified === false ? 'no' : '', Warnings: r.warningCount || 0 }));
     }
     case 'project-progress': {
@@ -150,11 +153,11 @@ async function buildReport(key, q, admin) {
     }
     case 'class-incidents': {
       const rows = await M('AuditLog').find({ module: 'liveclass', created: { $gte: from, $lt: to } }).sort({ created: -1 }).lean();
-      const cancelled = await M('LmsLiveSession').find({ status: 'cancelled', scheduledStart: { $gte: from, $lt: to } }, { title: 1, batchName: 1, scheduledStart: 1 }).lean();
+      const cancelled = await M('LmsLiveSession').find({ status: 'cancelled', scheduledStart: { $gte: from, $lt: to } }, { title: 1, batchName: 1, scheduledStart: 1 }).lean().then((x) => (batchList.length ? x.filter((c) => batchList.includes(c.batchName)) : x));
       return [...rows.map((r) => ({ When: d(r.created), Kind: r.action, Class: (r.meta && r.meta.title) || '', Batch: (r.meta && r.meta.batch) || '', By: r.performedByName || 'system', Reason: r.reason || '' })), ...cancelled.map((c) => ({ When: d(c.scheduledStart), Kind: 'cancelled', Class: c.title || '', Batch: c.batchName || '', By: '', Reason: '' }))];
     }
     case 'recording-inventory': {
-      const rows = await M('LiveRecording').find({ removed: false, ...(batch ? { batchName: batch } : {}), startedAt: { $gte: from, $lt: to } }).sort({ startedAt: -1 }).lean();
+      const rows = await M('LiveRecording').find({ removed: false, ...bq('batchName'), startedAt: { $gte: from, $lt: to } }).sort({ startedAt: -1 }).lean();
       return rows.map((r) => ({ Class: r.className || '', Batch: r.batchName || '', Teacher: r.teacherName || '', Started: d(r.startedAt), Minutes: r.durationMin || 0, Status: r.status, Published: d(r.publishedAt), Failure: r.failReason || '' }));
     }
     case 'tickets': {
@@ -223,9 +226,13 @@ async function reportDownload(req, res) {
   if (!def) return bad(res, 404, 'Unknown report.');
   if (def.restricted && !isMgmt(req.admin)) return bad(res, 403, 'Restricted report.');
   const format = def.formats.includes(req.query.format) ? req.query.format : def.formats[0];
-  const rows = (await buildReport(def.key, req.query, req.admin)) || [];
+  let rows = (await buildReport(def.key, req.query, req.admin)) || [];
+  // "Fields": basic = no contact details (the field picker was a dead control)
+  if (req.query.fields === 'basic') rows = rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !/^(e-?mail|phone|mobile)/i.test(k))));
+  // Preview = the first rows on screen, to check the data before downloading
+  if (req.query.format === 'json') return ok(res, { name: def.name, total: rows.length, columns: rows[0] ? Object.keys(rows[0]) : [], rows: rows.slice(0, 200) });
   const sensitive = !!def.sensitive && isMgmt(req.admin);
-  await audit.record({ module: 'export', action: 'download', entityType: 'Report', admin: req.admin, meta: { report: `${def.name}${req.query.batch && req.query.batch !== 'all' ? ` · ${req.query.batch}` : ''}`, rows: rows.length, sensitive, format, filters: { batch: req.query.batch || 'all', from: req.query.from || '', to: req.query.to || '' } } });
+  await audit.record({ module: 'export', action: 'download', entityType: 'Report', admin: req.admin, meta: { report: `${def.name}${req.query.batch && req.query.batch !== 'all' ? ` · ${req.query.batch}` : ''}`, rows: rows.length, sensitive, format, filters: { batch: req.query.batch || 'all', from: req.query.from || '', to: req.query.to || '', fields: req.query.fields || 'role' } } });
   const base = `${def.key}-${new Date().toISOString().slice(0, 10)}`;
   if (format === 'pdf') return sendPdf(res, def.name, rows, base);
   return sendSheets(res, { [def.name]: rows }, base, format);
@@ -271,9 +278,20 @@ async function automationToggle(req, res) {
 // ── A9 · login monitoring, alerts, audit viewer ──────────────────────────
 
 // GET /api/lms/admin/ops/security?q=&module=
+// ?from=&to= (YYYY-MM-DD, default last 7 days) · ?user= name / email · ?q= any audit text or event id
+// (was: the latest 25 logins and 12 events only — LMS testing report #29)
 async function security(req, res) {
-  const lmsUsers = await lmsUserIds();
-  const logins = await M('LoginActivity').find({ removed: false, admin: { $in: lmsUsers } }).sort({ loginAt: -1 }).limit(25).lean();
+  let lmsUsers = await lmsUserIds();
+  const from = req.query.from && !Number.isNaN(new Date(req.query.from).getTime()) ? new Date(req.query.from) : new Date(Date.now() - 7 * 86400000);
+  const to = req.query.to && !Number.isNaN(new Date(req.query.to).getTime()) ? new Date(new Date(req.query.to).getTime() + 86400000) : new Date(Date.now() + 60000);
+  const userQ = String(req.query.user || '').trim();
+  let userIds = null;
+  if (userQ) {
+    const rx = new RegExp(esc(userQ), 'i');
+    userIds = (await M('Admin').find({ $or: [{ name: rx }, { surname: rx }, { email: new RegExp(`^${esc(userQ)}`, 'i') }] }).select('_id').limit(200).lean()).map((a) => a._id);
+    lmsUsers = lmsUsers.filter((id) => userIds.some((u) => String(u) === String(id)));
+  }
+  const logins = await M('LoginActivity').find({ removed: false, admin: { $in: lmsUsers }, loginAt: { $gte: from, $lt: to } }).sort({ loginAt: -1 }).limit(500).lean();
   const admins = await M('Admin').find({ _id: { $in: logins.map((l) => l.admin) } }, { role: 1 }).lean();
   const roleOf = new Map(admins.map((a) => [String(a._id), a.role]));
   const since = new Date(Date.now() - 12 * 3600 * 1000);
@@ -285,9 +303,14 @@ async function security(req, res) {
   ]);
   const aq = { module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE };
   if (req.query.module && req.query.module !== 'all') aq.module = String(req.query.module);
-  const term = String(req.query.q || '').trim().replace(/^ev_/, '');
-  if (term) aq.$expr = { $regexMatch: { input: { $toString: '$_id' }, regex: `${esc(term)}$`, options: 'i' } };
-  const [auditRows, modules] = await Promise.all([M('AuditLog').find(aq).sort({ created: -1 }).limit(12).lean(), M('AuditLog').distinct('module')]);
+  aq.created = { $gte: from, $lt: to };
+  if (userIds) aq.performedBy = { $in: userIds };
+  const term = String(req.query.q || '').trim();
+  if (term) {
+    const rx = new RegExp(esc(term.replace(/^ev_/, '')), 'i');
+    aq.$or = [{ performedByName: rx }, { module: rx }, { action: rx }, { reason: rx }, { entityType: rx }, { $expr: { $regexMatch: { input: { $toString: '$_id' }, regex: `${esc(term.replace(/^ev_/, ''))}$`, options: 'i' } } }];
+  }
+  const [auditRows, modules, auditTotal] = await Promise.all([M('AuditLog').find(aq).sort({ created: -1 }).limit(300).lean(), M('AuditLog').distinct('module'), M('AuditLog').countDocuments(aq)]);
   const live = await liveSettings.get().catch(() => ({}));
   return ok(res, {
     logins: logins.map((l) => ({ at: l.loginAt, user: l.adminName || 'user', role: roleOf.get(String(l.admin)) || '', open: !l.logoutAt, minutes: l.durationSeconds ? Math.round(l.durationSeconds / 60) : null, ip: l.ip || null, device: l.device || null, newDevice: !!l.newDevice, newIp: !!l.newIp })),
@@ -296,7 +319,10 @@ async function security(req, res) {
       // D-09: a login from a device / IP this user has not used in 30 days (services/security/loginDevice.js)
       ...logins.filter((l) => l.newDevice || l.newIp).slice(0, 10).map((l) => ({ kind: l.newDevice ? 'New device' : 'New IP', text: `${l.adminName || 'user'} · ${l.device || ''}${l.ip ? ` · ${l.ip}` : ''}` })),
     ],
-    audit: auditRows.map(auditRow),
+    // a readable label + the full record for the detail view
+    audit: auditRows.map((r) => ({ ...auditRow(r), at: r.created, label: `${r.performedByName || 'System'} · ${String(r.action || '').replace(/[._-]+/g, ' ')} · ${r.module}${r.entityType ? ` (${r.entityType})` : ''}`, before: r.before || null, after: r.after || null, meta: r.meta || null, role: r.performedByRole || '' })),
+    auditTotal,
+    range: { from, to },
     modules: modules.filter((m) => !NOISY_AUDIT.includes(m)).sort(),
     retention: [
       { label: 'Login sessions', value: 'kept (no purge job yet)' },
@@ -309,13 +335,15 @@ async function security(req, res) {
 
 // ── A10 · central evidence repository ────────────────────────────────────
 
-const EV_TYPES = ['All', 'Policy', 'Attendance', 'Assessment', 'Feedback', 'Project', 'Ticket', 'Communication', 'Certificate', 'Security'];
+const EV_TYPES = ['All', 'Policy', 'Attendance', 'Assessment', 'Feedback', 'Project', 'Ticket', 'Communication', 'Certificate', 'Upload', 'Security'];
 
 // GET /api/lms/admin/ops/evidence?type=
 async function evidence(req, res) {
   const type = EV_TYPES.includes(req.query.type) ? req.query.type : 'All';
   const want = (t) => type === 'All' || type === t;
-  const N = type === 'All' ? 6 : 40;
+  // ?q= a learner's name (or email start): that learner's evidence, tickets and reports together (report #30)
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const N = q ? 200 : type === 'All' ? 6 : 40;
   const out = [];
   const id = (p, x) => `EV-${p}-${String(x).slice(-5).toUpperCase()}`;
   const full = isMgmt(req.admin);
@@ -325,7 +353,10 @@ async function evidence(req, res) {
   }
   if (want('Attendance')) {
     const r = await M('AuditLog').find({ module: 'attendance', action: 'correct' }).sort({ created: -1 }).limit(N).lean();
-    r.forEach((x) => out.push({ id: id('ATT', x._id), type: 'Attendance', who: (x.meta && (x.meta.studentName || x.meta.learner)) || '—', obj: 'correction', v: '—', src: `${x.performedByName || 'staff'} correction`, t: x.created, scope: 'Learner + SM + PM', ret: '3 yrs', detail: [['Change', `${_h.summarise(x.before)} → ${_h.summarise(x.after)}`], ['Reason', x.reason || '—'], ['By', x.performedByName || '—']] }));
+    const recIds = r.filter((x) => !(x.meta && (x.meta.studentName || x.meta.learner)) && x.entityId).map((x) => x.entityId);
+    const recs = recIds.length ? await M('AttendanceRecord').find({ _id: { $in: recIds } }).select('student batch date').lean().catch(() => []) : [];
+    const recBy = new Map(recs.map((x) => [String(x._id), x]));
+    r.forEach((x) => out.push({ id: id('ATT', x._id), type: 'Attendance', who: (x.meta && (x.meta.studentName || x.meta.learner)) || (recBy.get(String(x.entityId)) || {}).student || '—', obj: 'correction', v: '—', src: `${x.performedByName || 'staff'} correction`, t: x.created, scope: 'Learner + SM + PM', ret: '3 yrs', detail: [['Change', `${_h.summarise(x.before)} → ${_h.summarise(x.after)}`], ['Reason', x.reason || '—'], ['By', x.performedByName || '—']] }));
   }
   if (want('Assessment')) {
     const r = await M('AssessmentAttempt').find({ status: 'SUBMITTED' }).sort({ submittedAt: -1 }).limit(N).lean();
@@ -333,7 +364,10 @@ async function evidence(req, res) {
   }
   if (want('Feedback')) {
     const r = await M('WeeklyFeedback').find({}).sort({ created: -1 }).limit(N).lean().catch(() => []);
-    r.forEach((x) => out.push({ id: id('FB', x._id), type: 'Feedback', who: '—', obj: `${x.week || ''} · ${x.batch || ''}`, v: x.formVersion || '1.2', src: 'form', t: x.created, scope: 'Mgmt (anon.)', ret: '2 yrs', detail: [['Week', x.week || '—'], ['Batch', x.batch || '—']] }));
+    r.forEach((x) => {
+      const avg = (x.answers || []).length ? Math.round(((x.answers.reduce((s, n) => s + n, 0) / x.answers.length) * 10)) / 10 : null;
+      out.push({ id: id('FB', x._id), type: 'Feedback', who: x.studentName || '—', obj: `${x.kind === 'pm' ? 'PM feedback' : 'Weekly feedback'} · ${x.weekKey || ''}`, v: x.formVersion || '1.2', src: x.late ? 'form (late)' : 'form', t: x.created, scope: 'Mgmt', ret: '2 yrs', detail: [['Learner', x.studentName || '—'], ['Form', x.kind === 'pm' ? 'PM feedback' : 'Weekly feedback'], ['Week', x.weekKey || '—'], ['Batch', x.batch || '—'], ['Project Manager', x.teacherName || '—'], ['Average rating', avg == null ? '—' : `${avg} / 5`], ['Comment', x.comment || '—'], ['Concern raised', x.concern ? (x.concernText || 'yes') : 'no']] });
+    });
   }
   if (want('Project')) {
     const r = await M('Project').find({ removed: { $ne: true }, 'submissions.0': { $exists: true } }).lean();
@@ -344,22 +378,44 @@ async function evidence(req, res) {
   }
   if (want('Ticket')) {
     const r = await M('Ticket').find({ removed: false }).sort({ created: -1 }).limit(N).lean();
-    r.forEach((x) => out.push({ id: id('TKT', x._id), type: 'Ticket', who: x.raisedByName || '—', obj: x.subject, v: '—', src: x.source || 'learner', t: x.created, scope: 'SM', ret: '2 yrs', detail: [['Subject', x.subject], ['Status', x.status], ['History', `${(x.history || []).length} change(s)`]] }));
+    r.forEach((x) => out.push({ id: id('TKT', x._id), type: 'Ticket', who: x.raisedByName || '—', obj: x.subject, v: '—', src: x.source || 'learner', t: x.created, scope: 'SM', ret: '2 yrs', detail: [['Subject', x.subject], ['Learner', x.raisedByName || '—'], ['Email', full ? x.raisedByEmail || '—' : maskEmail(x.raisedByEmail || '')], ['Category', x.category], ['Priority', x.priority], ['Status', x.status], ['Owner', x.ownerName || '—'], ['Raised', x.created], ['Resolved', x.resolvedAt || '—'], ['Resolution', x.resolutionNote || '—'], ['History', `${(x.history || []).length} change(s)`]] }));
   }
   if (want('Communication')) {
     const r = await M('EmailDeliveryLog').find({}).sort({ sentAt: -1 }).limit(N).lean();
-    r.forEach((x) => out.push({ id: id('COM', x._id), type: 'Communication', who: full ? x.recipient : maskEmail(x.recipient), obj: x.subject || x.kind || 'email', v: '—', src: 'mailer', t: x.sentAt, scope: 'SM', ret: '2 yrs', detail: [['Subject', x.subject || '—'], ['Status', x.status], ['Error', x.error || '—']] }));
+    const mails = [...new Set(r.map((x) => String(x.recipient || '').toLowerCase()).filter(Boolean))];
+    const people = mails.length ? await M('Admin').find({ email: { $in: mails } }).select('name surname email').lean() : [];
+    const nameBy = new Map(people.map((a) => [String(a.email).toLowerCase(), [a.name, a.surname].filter(Boolean).join(' ')]));
+    r.forEach((x) => {
+      const nm = nameBy.get(String(x.recipient || '').toLowerCase());
+      out.push({ id: id('COM', x._id), type: 'Communication', who: nm || (full ? x.recipient : maskEmail(x.recipient)), obj: x.subject || x.kind || 'email', v: '—', src: x.templateKey || 'mailer', t: x.sentAt, scope: 'SM', ret: '2 yrs', detail: [['Learner', nm || '—'], ['Email', full ? x.recipient : maskEmail(x.recipient)], ['Subject', x.subject || '—'], ['Template', x.templateKey || x.kind || '—'], ['Status', x.status], ['Error', x.error || '—']] });
+    });
   }
   if (want('Certificate')) {
     const r = await M('Certificate').find({}).sort({ created: -1 }).limit(N).lean().catch(() => []);
-    r.forEach((x) => out.push({ id: id('CRT', x._id), type: 'Certificate', who: x.studentName || '—', obj: x.certificateId || x.title || '', v: '1', src: 'approver', t: x.issuedAt || x.created, scope: 'Learner + SM', ret: 'permanent', detail: [['Certificate', x.certificateId || '—'], ['Status', x.status || '—']] }));
+    r.forEach((x) => out.push({ id: id('CRT', x._id), type: 'Certificate', who: x.student || x.studentName || '—', obj: x.certificateId || x.title || '', v: '1', src: x.source || 'approver', t: x.issuedOn || x.issuedAt || x.created, scope: 'Learner + SM', ret: 'permanent', detail: [['Learner', x.student || '—'], ['Certificate', x.certificateId || '—'], ['Title', x.title || '—'], ['Internship', x.course || '—'], ['Batch', x.batch || '—'], ['Issued', x.issuedOn || '—'], ['Status', x.status || '—']] }));
+  }
+  if (want('Upload')) {
+    // documents staff uploaded as evidence (report #20)
+    const r = await M('AuditLog').find({ module: 'evidence', action: 'upload' }).sort({ created: -1 }).limit(N).lean();
+    r.forEach((x) => out.push({ id: id('UPL', x._id), type: 'Upload', who: (x.meta && x.meta.learner) || '—', obj: (x.meta && x.meta.title) || 'document', v: '1', src: `${x.performedByName || 'staff'} upload`, t: x.created, scope: 'SM + Mgmt', ret: '3 yrs', url: x.meta && x.meta.url, detail: [['Title', (x.meta && x.meta.title) || '—'], ['Learner', (x.meta && x.meta.learner) || '—'], ['Note', (x.meta && x.meta.note) || '—'], ['File', (x.meta && x.meta.name) || '—'], ['Uploaded by', x.performedByName || '—']] }));
   }
   if (want('Security') && full) {
     const r = await M('LoginActivity').aggregate([{ $match: { removed: false, logoutAt: null, loginAt: { $gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) }, admin: { $in: await lmsUserIds() } } }, { $group: { _id: '$admin', name: { $first: '$adminName' }, n: { $sum: 1 }, t: { $max: '$loginAt' } } }, { $match: { n: { $gt: 1 } } }, { $limit: N }]);
     r.forEach((x) => out.push({ id: id('SEC', x._id), type: 'Security', who: x.name || '—', obj: 'Concurrent login', v: '—', src: 'monitor', t: x.t, scope: 'Admin only', ret: '180 days', detail: [['Open sessions', x.n]] }));
   }
   out.sort((a, b) => new Date(b.t || 0) - new Date(a.t || 0));
-  return ok(res, { types: EV_TYPES, type, rows: out.slice(0, 60) });
+  const shown = q ? out.filter((r) => String(r.who || '').toLowerCase().includes(q) || (r.detail || []).some(([k, v]) => k === 'Email' && String(v || '').toLowerCase().startsWith(q))) : out;
+  return ok(res, { types: EV_TYPES, type, q, rows: shown.slice(0, q ? 200 : 60) });
+}
+
+// POST /api/lms/admin/ops/evidence { title, learner, note, url, name } — keep an uploaded document as evidence
+async function evidenceAdd(req, res) {
+  const b = req.body || {};
+  const title = String(b.title || '').trim();
+  if (title.length < 3) return bad(res, 400, 'Give the document a title.');
+  if (!/^public\/uploads\/evidence\/[\w.-]+$/.test(String(b.url || ''))) return bad(res, 400, 'Upload the file first.');
+  const row = await M('AuditLog').create({ module: 'evidence', action: 'upload', entityType: 'Evidence', performedBy: req.admin._id, performedByName: nameOf(req.admin), performedByRole: req.admin.role, meta: { title: title.slice(0, 160), learner: String(b.learner || '').slice(0, 120), note: String(b.note || '').slice(0, 1000), url: b.url, name: String(b.name || '').slice(0, 160) } });
+  return ok(res, { id: String(row._id) });
 }
 
 // ── A11 · readiness, assessment & attendance rules ───────────────────────
@@ -422,4 +478,4 @@ async function rulesDiscard(req, res) {
   return rules(req, res);
 }
 
-module.exports = { healthExtras, reportsOverview, reportDownload, automationList, automationToggle, security, evidence, rules, rulesPropose, rulesApprove, rulesDiscard };
+module.exports = { healthExtras, reportsOverview, reportDownload, automationList, automationToggle, security, evidence, evidenceAdd, rules, rulesPropose, rulesApprove, rulesDiscard };

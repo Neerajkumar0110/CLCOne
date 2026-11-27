@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const deropo = require('../../../../services/whatsapp/deropo');
 const access = require('../../../../services/whatsapp/access');
-const { departmentOfRole, LMS_PANEL_ROLES } = require('../../../../config/roles');
+const { departmentOfRole } = require('../../../../config/roles');
 
 // /api/whatsapp/* — mounted behind adminAuth.isValidAuthToken (app.js).
 // Every route checks WhatsApp access itself (services/whatsapp/access.js);
@@ -183,11 +183,19 @@ async function listChats(req, res) {
     const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ customerName: rx }, { customerNumber: rx }];
   }
+  // only numbers that are connected right now — a user who disconnected
+  // (or never linked) shows no chats anywhere; they stay saved and come back
+  // when the number is linked again (user ask 2026-11-24)
+  const connected = await Device().distinct('userId', { status: 'connected' });
+  filter.$and = [...(filter.$and || []), { userId: { $in: connected } }];
   // a linked phone brings its whole history (hundreds of chats) — list them all
   const rows = await Chat().find(filter).sort({ lastMessageAt: -1 }).limit(2000).lean();
   // a number the CRM already has → the lead's name (saved on the chat too)
   await require('../../../../services/whatsapp/leadLink').applyLeadNames(rows).catch(() => null);
-  return ok(res, rows.map((c) => ({ ...c, viaOther: String(c.userId) !== String(req.admin._id) })));
+  // "on X's number" is for an agent's own inbox (a lead's chat on someone
+  // else's number) — never in the admin's per-user / department view
+  const ownInbox = !userId && !department;
+  return ok(res, rows.map((c) => ({ ...c, viaOther: ownInbox && String(c.userId) !== String(req.admin._id) })));
 }
 
 // POST /api/whatsapp/chats { number, name } — start (or reopen) a chat with a customer.
@@ -388,7 +396,8 @@ async function sendCurriculum(req, res) {
 
 async function crmUsers() {
   const Admin = mongoose.model('Admin');
-  return Admin.find({ removed: false, enabled: true, role: { $nin: LMS_PANEL_ROLES } })
+  // staff incl. Teachers (they have WhatsApp too); never students
+  return Admin.find({ removed: false, enabled: true, role: { $ne: 'Student' } })
     .select('name surname email role')
     .sort({ name: 1 })
     .lean();
@@ -421,8 +430,8 @@ async function getAccess(req, res) {
       hasAccess: e.on,
       source: e.source,
       device: d ? { status: d.status, phoneNumber: d.phoneNumber, lastCheckedAt: d.lastCheckedAt } : null,
-      chats: c ? c.chats : 0,
-      unread: c ? c.unread : 0,
+      chats: c && d && d.status === 'connected' ? c.chats : 0,
+      unread: c && d && d.status === 'connected' ? c.unread : 0,
     };
   });
   return ok(res, {

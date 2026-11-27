@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Button, Modal, Empty, Tag, Skeleton, Tooltip, InputNumber, Input, Checkbox, DatePicker, Table, Alert, message } from 'antd';
+import { Button, Select, Modal, Empty, Tag, Skeleton, Tooltip, InputNumber, Input, Checkbox, DatePicker, Table, Alert, message } from 'antd';
 import { LeftOutlined, RightOutlined, CalendarOutlined, ClockCircleOutlined, ReadOutlined, MoreOutlined, EditOutlined, CheckOutlined, CloseOutlined, LeftOutlined as BackOutlined, GiftOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -42,6 +42,13 @@ const t = (v) => (v ? dayjs(v).format('h:mm A') : '—');
 // to its own title (the renameable "Class N" / custom name) rather than the
 // generic batch name, so renamed extra classes actually show their name.
 const primaryLabel = (s) => s.topic || s.title || s.batchName || s.courseTitle;
+// A class that covers two curriculum chapters used to read "Topic 1 + Topic 2" in
+// the month cell (LMS testing report #37): the cell shows the first topic and
+// "+1 more"; the tooltip and the day list keep every topic.
+const chipLabel = (s) => {
+  const parts = s.topic ? String(s.topic).split(" + ") : [];
+  return parts.length > 1 ? `${parts[0]}  +${parts.length - 1} more` : primaryLabel(s);
+};
 const secondaryLabel = (s) => (s.topic ? s.batchName || s.courseTitle : null);
 
 export default function LmsCalendar() {
@@ -49,7 +56,22 @@ export default function LmsCalendar() {
   const canSeePostpone = POSTPONE_ROLES.includes(admin.role) || admin.role === 'Teacher';
 
   const [cursor, setCursor] = useState(() => dayjs().startOf('month'));
-  const [sessions, setSessions] = useState([]);
+  // every class the server lets this person see (resolveRole): a Teacher → the
+  // batches they teach, Support / admins → every batch, a learner → their own
+  // batch. A teacher who only ever joined another batch's class as a guest
+  // doesn't get that batch on their calendar.
+  const [rawSessions, setSessions] = useState([]);
+  const [batchSel, setBatchSel] = useState('');
+  const isTeacherRole = admin.role === 'Teacher';
+  const isLearner = admin.role === 'Student';
+  const scoped = useMemo(() => (isTeacherRole ? rawSessions.filter((s) => s.myRole === 'teacher') : rawSessions), [rawSessions, isTeacherRole]);
+  const batchOptions = useMemo(() => [...new Set(scoped.map((s) => s.batchName || s.courseTitle).filter(Boolean))].sort(), [scoped]);
+  const sessions = useMemo(() => (batchSel ? scoped.filter((s) => (s.batchName || s.courseTitle) === batchSel) : scoped), [scoped, batchSel]);
+  const scopeLine = isLearner
+    ? `Your batch${batchOptions.length === 1 ? `: ${batchOptions[0]}` : 'es'}`
+    : isTeacherRole
+      ? `Batches you teach${batchOptions.length ? ` (${batchOptions.length})` : ''}`
+      : 'All batches';
   const [loading, setLoading] = useState(true);
   const [holidays, setHolidays] = useState(new Map()); // "YYYY-MM-DD" -> name
   const [holidayPanel, setHolidayPanel] = useState(false);
@@ -245,12 +267,25 @@ export default function LmsCalendar() {
           <div className="lms-cal-title">
             <span className="lms-cal-title-icon"><CalendarOutlined /></span>
             <span>{cursor.format('MMMM YYYY')}</span>
+            <span className="lms-cal-scope">{scopeLine}</span>
           </div>
           <div className="lms-cal-nav">
             <span className="lms-cal-summary">
               {loading ? 'Loading…' : `${sessions.length} class${sessions.length === 1 ? '' : 'es'} · ${batchCount} batch${batchCount === 1 ? '' : 'es'}`}
             </span>
             <div className="lms-cal-nav-btns">
+              {batchOptions.length > 1 && (
+                <Select
+                  size="small"
+                  allowClear
+                  showSearch
+                  style={{ minWidth: 170 }}
+                  placeholder="All my batches"
+                  value={batchSel || undefined}
+                  onChange={(v) => setBatchSel(v || '')}
+                  options={batchOptions.map((b) => ({ value: b, label: b }))}
+                />
+              )}
               {canSeePostpone && (
                 <Button size="small" icon={<GiftOutlined />} onClick={openHolidays}>Holidays</Button>
               )}
@@ -314,7 +349,7 @@ export default function LmsCalendar() {
                         title={
                           <div className="lms-cal-tooltip-body">
                             <div className="lms-cal-tooltip-time">{t(s.scheduledStart)}–{t(s.scheduledEnd)}</div>
-                            <div className="lms-cal-tooltip-name">{primaryLabel(s)}</div>
+                            <div className="lms-cal-tooltip-name" style={{ whiteSpace: "pre-line" }}>{s.topic ? String(s.topic).split(' + ').join('\n') : primaryLabel(s)}</div>
                             {secondaryLabel(s) && <div className="lms-cal-tooltip-topic"><ReadOutlined /> {secondaryLabel(s)}</div>}
                           </div>
                         }
@@ -325,7 +360,7 @@ export default function LmsCalendar() {
                         >
                           <span className="lms-cal-chip-dot" />
                           <span className="lms-cal-chip-time">{t(s.scheduledStart)}</span>
-                          <span className="lms-cal-chip-name">{primaryLabel(s)}</span>
+                          <span className="lms-cal-chip-name">{chipLabel(s)}</span>
                         </div>
                       </Tooltip>
                     ))}

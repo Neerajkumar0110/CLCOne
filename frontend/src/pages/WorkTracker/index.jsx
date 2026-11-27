@@ -27,6 +27,8 @@ import storePersist from "@/redux/storePersist";
 import "@/components/Workday/workday.css";
 import "./worktracker.css";
 import Sales360 from "./Sales360";
+// Attendance & Leave ERP — its whole admin side is this one tab (design A1–A14).
+const AdminErp = React.lazy(() => import("@/pages/AttendanceErp/admin/AdminErp"));
 
 // HRMS → Work & Leave Tracker (backend /api/workday/admin/*). Who's working,
 // on a break, on leave, auto-started or missing — for any day — with their
@@ -613,7 +615,21 @@ function TimelineModal({ target, onClose }) {
 }
 
 export default function WorkTracker() {
-  const [tab, setTab] = useState("board");
+  const [tab, setTabState] = useState(() => {
+    try {
+      return localStorage.getItem("workTracker.tab") || "board";
+    } catch (e) {
+      return "board";
+    }
+  });
+  const setTab = (t) => {
+    setTabState(t);
+    try {
+      localStorage.setItem("workTracker.tab", t);
+    } catch (e) {
+      /* private window */
+    }
+  };
   const [timeline, setTimeline] = useState(null);
   const [focusUser, setFocusUser] = useState("");
   return (
@@ -623,6 +639,7 @@ export default function WorkTracker() {
           ["board", "Day board"],
           ["360", "360° Performance"],
           ["leaves", "Leave requests"],
+          ["erp", "Attendance ERP"],
         ].map(([k, l]) => (
           <button key={k} type="button" className={`hub-btn ${tab === k ? "hub-btn-primary" : ""}`} onClick={() => setTab(k)}>{l}</button>
         ))}
@@ -638,6 +655,11 @@ export default function WorkTracker() {
       )}
       {tab === "360" && <Sales360 initialUser={focusUser} />}
       {tab === "leaves" && <Leaves />}
+      {tab === "erp" && (
+        <React.Suspense fallback={<div style={{ padding: 24, color: "var(--hub-muted)" }}>Loading Attendance ERP…</div>}>
+          <AdminErp />
+        </React.Suspense>
+      )}
       <TimelineModal target={timeline} onClose={() => setTimeline(null)} />
     </div>
   );

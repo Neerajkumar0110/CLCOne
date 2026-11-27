@@ -7,6 +7,7 @@ import { applyChartTheme } from '@/components/dashboard/chartTheme';
 import { useTheme } from '@/context/themeContext';
 import KpiTile from '../components/KpiTile';
 import '@/components/dashboard/dashboard.css';
+import { tablePagination } from '../components/ui';
 
 const KPI = ({ title, value, suffix, tone }) => (
   <KpiTile title={title} value={value} suffix={suffix} tone={tone} />
@@ -98,7 +99,7 @@ export default function Analytics() {
             rowKey={(r) => r.email || r.name}
             size="small"
             dataSource={live.perStudent}
-            pagination={{ pageSize: 10 }}
+            pagination={tablePagination({ defaultPageSize: 10 })}
             locale={{ emptyText: 'No attendance data yet' }}
             columns={[
               { title: 'Candidate', dataIndex: 'name' },

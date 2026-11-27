@@ -134,7 +134,8 @@ function TeacherAssignments({ isManagerRole }) {
   const save = async () => {
     let v;
     try { v = await form.validateFields(); } catch (e) { return; }
-    const body = { ...v, dueDate: v.dueDate ? v.dueDate.toISOString() : undefined };
+    const { audience, ...rest } = v;
+    const body = { ...rest, learnerIds: audience === 'some' ? v.learnerIds : undefined, dueDate: v.dueDate ? v.dueDate.toISOString() : undefined };
     const res = editing && editing.id ? await lmsApi.updateAssignment(editing.id, body) : await lmsApi.createAssignment(body);
     if (!res || res.success === false) return; // errorHandler already showed the real reason
     setEditing(null);
@@ -240,7 +241,7 @@ function TeacherAssignments({ isManagerRole }) {
                       <tr key={r.id}>
                         <td className="assignment-id">{r.code || '—'}</td>
                         <td className="assignment-title">{r.title}</td>
-                        <td className="batch">{r.batch || '—'}</td>
+                        <td className="batch">{r.batch || '—'}{r.assignedToNames && r.assignedToNames.length ? <div style={{ fontSize: 11.5, color: '#64748b' }} title={r.assignedToNames.join(', ')}>for {r.assignedToNames.length === 1 ? r.assignedToNames[0] : `${r.assignedToNames.length} learners`}</div> : null}</td>
                         <td>{fmt(r.dueDate)}</td>
                         <td className="marks">{r.maxMarks}</td>
                         <td><span className={`status ${st}`}>{ASG_STATUS_LABEL[st]}</span></td>
@@ -314,6 +315,7 @@ function TeacherAssignments({ isManagerRole }) {
             <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch</Lbl>} rules={[{ required: true, message: 'Batch is required' }]} className="crud-form-full">
               <Select options={batches} disabled={!!editing?.id} showSearch optionFilterProp="label" placeholder="Select a batch…" />
             </Form.Item>
+            {!editing?.id && <AudienceFields form={form} />}
             <Form.Item name="title" label={<Lbl icon={<FileTextOutlined />}>Title</Lbl>} rules={[{ required: true, message: 'Title is required' }]} className="crud-form-full">
               <Input placeholder="e.g. Week 3 — Data cleaning project" />
             </Form.Item>
@@ -578,6 +580,45 @@ function StudentAssignments() {
         </Form>
       </Modal>
     </div>
+  );
+}
+
+// Whole batch, or chosen learners of it (name or the start of the email) — report #9
+function AudienceFields({ form }) {
+  const batch = Form.useWatch('batch', form);
+  const audience = Form.useWatch('audience', form) || 'batch';
+  const [people, setPeople] = useState([]);
+  useEffect(() => {
+    setPeople([]);
+    if (!batch) return;
+    lmsApi.assignmentBatchLearners(batch).then((r) => setPeople((r && r.result) || []));
+  }, [batch]);
+  return (
+    <>
+      <Form.Item name="audience" initialValue="batch" label={<Lbl icon={<TeamOutlined />}>Assign to</Lbl>} className="crud-form-full">
+        <Select
+          options={[
+            { value: 'batch', label: 'Whole batch' },
+            { value: 'some', label: 'Selected learners only' },
+          ]}
+        />
+      </Form.Item>
+      {audience === 'some' && (
+        <Form.Item name="learnerIds" label="Learners" rules={[{ required: true, message: 'Pick at least one learner' }]} className="crud-form-full">
+          <Select
+            mode="multiple"
+            placeholder={batch ? 'Type a name or the start of an email…' : 'Pick the batch first'}
+            disabled={!batch}
+            options={people.map((p) => ({ value: p.id, label: `${p.name}${p.email ? ` · ${p.email}` : ''}`, name: p.name, email: p.email }))}
+            filterOption={(input, o) => {
+              const t = String(input || '').toLowerCase();
+              return String(o.name || '').toLowerCase().includes(t) || String(o.email || '').toLowerCase().startsWith(t);
+            }}
+            notFoundContent={batch ? 'No learner matches' : null}
+          />
+        </Form.Item>
+      )}
+    </>
   );
 }
 

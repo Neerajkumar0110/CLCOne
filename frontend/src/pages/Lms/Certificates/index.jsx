@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Row, Col, Tooltip,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Space, Empty, Skeleton, message, Typography, Row, Col, Tooltip, AutoComplete,
 } from 'antd';
 import {
   TrophyOutlined, SafetyCertificateOutlined, ReloadOutlined, DownloadOutlined, TeamOutlined,
@@ -17,6 +17,7 @@ import { request } from '@/request';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
+import { tablePagination } from '../components/ui';
 
 const { Text, Paragraph, Title } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -138,6 +139,36 @@ function BatchRoster() {
 // our certificate template for the chosen internship with the name filled in,
 // or any PDF uploaded here. It is emailed from Career Lab with the PDF attached
 // and lands in Issued certificates (ID + verify link). Managers only.
+// Name / email box with learner suggestions from the first letters (LMS testing
+// report #34) — picking one fills both. Free text still works (anyone can get one).
+function LearnerAuto({ value, field, onText, onPick, placeholder, status }) {
+  const [opts, setOpts] = useState([]);
+  const timer = React.useRef(null);
+  const search = (q) => {
+    onText(q);
+    clearTimeout(timer.current);
+    if (String(q || '').trim().length < 2) return setOpts([]);
+    timer.current = setTimeout(async () => {
+      const r = await request.get({ entity: `lms/announcements/learners?q=${encodeURIComponent(q.trim())}` }).catch(() => null);
+      const rows = (r && r.success && r.result) || [];
+      setOpts(rows.map((p) => ({ value: `${p.id}`, label: <span><b>{p.name}</b> <span style={{ color: '#64748b' }}>· {p.email}</span></span>, p })));
+    }, 250);
+  };
+  return (
+    <AutoComplete
+      value={value}
+      options={opts}
+      onSearch={search}
+      onChange={(v, o) => { if (!o || !o.p) onText(v); }}
+      onSelect={(v, o) => { if (o && o.p) onPick(o.p); }}
+      style={{ width: '100%' }}
+      status={status}
+    >
+      <Input prefix={field === 'email' ? <MailOutlined /> : undefined} placeholder={placeholder} maxLength={field === 'name' ? 80 : 120} />
+    </AutoComplete>
+  );
+}
+
 function SendCertificateCard({ courses, courseId, onSent }) {
   const [f, setF] = useState({ name: '', email: '', course: courseId || null, title: 'Certificate of Completion', mode: 'template' });
   const [file, setFile] = useState(null);
@@ -224,11 +255,11 @@ function SendCertificateCard({ courses, courseId, onSent }) {
       <div className="cert-send-grid">
         <label className="cert-send-fld">
           <span>Name on the certificate</span>
-          <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Riya Sharma" maxLength={80} />
+          <LearnerAuto value={f.name} field="name" onText={(v) => set('name', v)} onPick={(p) => setF((x) => ({ ...x, name: p.name, email: p.email }))} placeholder="Type a name — or pick a learner" />
         </label>
         <label className="cert-send-fld">
           <span>Email (the certificate goes here)</span>
-          <Input prefix={<MailOutlined />} type="email" value={f.email} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" status={f.email && !emailOk ? 'error' : undefined} />
+          <LearnerAuto value={f.email} field="email" onText={(v) => set('email', v)} onPick={(p) => setF((x) => ({ ...x, name: x.name || p.name, email: p.email }))} placeholder="name@example.com — or type the start of it" status={f.email && !emailOk ? 'error' : undefined} />
         </label>
         <label className="cert-send-fld">
           <span>Internship</span>
@@ -622,7 +653,7 @@ function ExternalReview() {
         size="small"
         rowKey="id"
         dataSource={rows}
-        pagination={{ pageSize: 10 }}
+        pagination={tablePagination({ defaultPageSize: 10 })}
         locale={{ emptyText: <Empty description="Nothing here" /> }}
         columns={[
           { title: 'Learner', render: (_, r) => <><b>{r.studentName}</b><br /><Typography.Text type="secondary">{r.studentEmail}</Typography.Text></> },

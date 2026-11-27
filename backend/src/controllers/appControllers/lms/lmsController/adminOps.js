@@ -10,7 +10,10 @@ const audit = require('../../../../services/lms/auditLog');
 const M = (n) => mongoose.model(n);
 const ok = (res, result) => res.status(200).json({ success: true, result });
 const bad = (res, code, message) => res.status(code).json({ success: false, message });
-const isMgmt = (a) => CRM_ADMIN_ROLES.includes(a && a.role);
+// CRM admins, or anyone with full LMS rights (req.admin._lmsFull, set in lmsApi.js)
+const isMgmt = (a) => !!a && (CRM_ADMIN_ROLES.includes(a.role) || !!a._lmsFull);
+// policy approve / publish / send back: owner, Super Admin, Admin only
+const isPolicyAdmin = (a) => !!a && CRM_ADMIN_ROLES.includes(a.role);
 const nameOf = (a) => (a && (a.name || a.email)) || 'unknown';
 const same = (a, b) => a && b && String(a) === String(b);
 const pct = (n, d) => (d > 0 ? Math.round((n / d) * 1000) / 10 : null);
@@ -39,6 +42,25 @@ function monthRange(q) {
   const y = m ? Number(m[1]) : now.getFullYear();
   const mo = m ? Number(m[2]) - 1 : now.getMonth();
   return { from: new Date(y, mo, 1), to: new Date(y, mo + 1, 1), label: new Date(y, mo, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' }) };
+}
+
+// KPI / audit period (LMS testing report #21): ?day=YYYY-MM-DD, or
+// ?from=&to= (YYYY-MM-DD, inclusive), else ?month=YYYY-MM (default this month)
+function periodRange(q = {}) {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const day = d.exec(String(q.day || ''));
+  if (day) {
+    const from = new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]));
+    return { from, to: new Date(from.getTime() + 86400000), label: from.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) };
+  }
+  const f = d.exec(String(q.from || ''));
+  const t = d.exec(String(q.to || ''));
+  if (f && t) {
+    const from = new Date(Number(f[1]), Number(f[2]) - 1, Number(f[3]));
+    const to = new Date(Number(t[1]), Number(t[2]) - 1, Number(t[3]) + 1);
+    if (to > from) return { from, to, label: `${from.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(to.getTime() - 86400000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` };
+  }
+  return monthRange(q.month);
 }
 
 // ── A1 · exception approvals + decision register ─────────────────────────
@@ -160,9 +182,77 @@ async function approvalDecide(req, res) {
   return ok(res, { ...approvalRow(doc.toObject()), execution: execution || null, message: execution ? execution.note : undefined });
 }
 
+// Exception requests after they are raised (LMS testing report #20):
+// POST /api/lms/admin/ops/approvals/:id/edit   { detail, learnerName, scope, evidence } — while pending
+// POST /api/lms/admin/ops/approvals/:id/remove { reason }                              — withdraw / delete
+// POST /api/lms/admin/ops/approvals/:id/status { status: pending|approved|rejected, reason } — change a decided one
+const canManageRequest = (admin, doc) => same(doc.requestedBy, admin._id) || isMgmt(admin) || admin.role === 'Support';
+async function loadRequest(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) return bad(res, 404, 'Request not found.') && null;
+  const doc = await M('LmsApproval').findOne({ _id: req.params.id, removed: false });
+  if (!doc) return bad(res, 404, 'Request not found.') && null;
+  if (!canManageRequest(req.admin, doc)) return bad(res, 403, 'Not allowed.') && null;
+  return doc;
+}
+async function approvalEdit(req, res) {
+  const doc = await loadRequest(req, res);
+  if (!doc) return;
+  if (doc.status !== 'pending') return bad(res, 409, 'Only a pending request can be edited — change its status instead.');
+  const b = req.body || {};
+  const before = { detail: doc.detail, learnerName: doc.learnerName, scope: doc.scope, evidence: doc.evidence };
+  if (b.detail !== undefined) doc.detail = String(b.detail).trim().slice(0, 200);
+  if (b.learnerName !== undefined) doc.learnerName = String(b.learnerName).trim().slice(0, 120);
+  if (b.scope !== undefined) doc.scope = String(b.scope).trim().slice(0, 120);
+  if (b.evidence !== undefined) {
+    if (String(b.evidence).trim().length < 5) return bad(res, 400, 'Evidence is mandatory.');
+    doc.evidence = String(b.evidence).trim().slice(0, 1000);
+  }
+  await doc.save();
+  await audit.record({ module: 'approval', action: 'edit', entityType: 'LmsApproval', entityId: doc._id, admin: req.admin, before, after: { detail: doc.detail, learnerName: doc.learnerName, scope: doc.scope, evidence: doc.evidence } });
+  return ok(res, approvalRow(doc.toObject()));
+}
+async function approvalRemove(req, res) {
+  const doc = await loadRequest(req, res);
+  if (!doc) return;
+  const reason = String((req.body || {}).reason || '').trim();
+  if (reason.length < 3) return bad(res, 400, 'Say why it is being deleted.');
+  doc.removed = true;
+  await doc.save();
+  await audit.record({ module: 'approval', action: 'delete', entityType: 'LmsApproval', entityId: doc._id, admin: req.admin, reason, before: { status: doc.status, type: doc.type } });
+  return ok(res, { id: String(doc._id) });
+}
+async function approvalStatus(req, res) {
+  const doc = await loadRequest(req, res);
+  if (!doc) return;
+  if (!isMgmt(req.admin) && req.admin.role !== 'Support') return bad(res, 403, 'Only Operations / Management can change a decision.');
+  const b = req.body || {};
+  if (!['pending', 'approved', 'rejected'].includes(b.status)) return bad(res, 400, 'status must be pending, approved or rejected.');
+  const reason = String(b.reason || '').trim();
+  if (reason.length < 3) return bad(res, 400, 'A reason is required.');
+  const before = doc.status;
+  if (before === b.status) return bad(res, 409, `Already ${before}.`);
+  doc.status = b.status;
+  if (b.status === 'pending') {
+    doc.decidedBy = undefined;
+    doc.decidedByName = undefined;
+    doc.decidedAt = undefined;
+    doc.decisionReason = undefined;
+    doc.approvals = [];
+  } else {
+    doc.decidedBy = req.admin._id;
+    doc.decidedByName = nameOf(req.admin);
+    doc.decidedAt = new Date();
+    doc.decisionReason = reason;
+  }
+  await doc.save();
+  await audit.record({ module: 'approval', action: 'status-change', entityType: 'LmsApproval', entityId: doc._id, admin: req.admin, reason, before: { status: before }, after: { status: doc.status } });
+  return ok(res, approvalRow(doc.toObject()));
+}
+
 // POST /api/lms/admin/ops/decisions/:code { status, note } — management only.
 async function decisionSet(req, res) {
-  if (!isMgmt(req.admin)) return bad(res, 403, 'Only Management can change the decision register.');
+  // Management, full-LMS staff or Support (LMS testing report #20)
+  if (!isMgmt(req.admin) && req.admin.role !== 'Support') return bad(res, 403, 'Only Management or Support can change the decision register.');
   const code = String(req.params.code || '');
   if (!DECISIONS.some(([c]) => c === code)) return bad(res, 404, 'Unknown decision.');
   const status = String((req.body || {}).status || '');
@@ -303,27 +393,31 @@ async function kpiBlock(from, to) {
 
 // GET /api/lms/admin/ops/kpis?month=YYYY-MM
 async function kpis(req, res) {
-  const { from, to, label } = monthRange(req.query.month);
-  const [block, batches, signals, auditRows] = await Promise.all([
+  const { from, to, label } = periodRange(req.query);
+  // the audit of the chosen period (was always the latest 12 rows — nothing before ~23rd showed)
+  const [block, batches, signals, auditRows, auditTotal] = await Promise.all([
     kpiBlock(from, to),
     attendanceByBatch(from, to),
     securitySignals(),
-    M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(12).lean(),
+    M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE, created: { $gte: from, $lt: to } }).sort({ created: -1 }).limit(200).lean(),
+    M('AuditLog').countDocuments({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE, created: { $gte: from, $lt: to } }),
   ]);
   const live = await require('../../../../services/lms/settingsService').get().catch(() => ({}));
-  return ok(res, { month: label, ...block, threshold: live.presentThresholdPct || 90, batches, signals, audit: auditRows.map(auditRow) });
+  return ok(res, { month: label, from, to, ...block, threshold: live.presentThresholdPct || 90, batches, signals, audit: auditRows.map(auditRow), auditTotal });
 }
 
 // GET /api/lms/admin/ops/kpis/export?month=&format=xlsx|csv
 async function kpisExport(req, res) {
-  const { from, to, label } = monthRange(req.query.month);
+  const { from, to, label } = periodRange(req.query);
   const block = await kpiBlock(from, to);
   const batches = await attendanceByBatch(from, to);
-  const auditRows = (await M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE }).sort({ created: -1 }).limit(500).lean()).map(auditRow);
+  // the audit of the same period as the KPIs (was the latest 500 rows of any date — report #21)
+  const auditRows = (await M('AuditLog').find({ module: { $nin: NOISY_AUDIT }, ...LMS_AUDIT_SCOPE, created: { $gte: from, $lt: to } }).sort({ created: -1 }).limit(5000).lean()).map(auditRow);
   const sheets = {
     KPIs: block.kpis.map((k) => ({ KPI: k.label, Value: k.value || '—', Note: k.note })),
     Attendance: batches.map((b) => ({ Batch: b.batch, Present: b.present, Total: b.total, 'Percent': b.pct })),
-    Audit: auditRows.map((a) => ({ Time: new Date(a.at).toISOString(), Actor: a.actor, Action: `${a.module} · ${a.action}`, Object: a.object, Change: a.change, Reason: a.reason })),
+    Audit: auditRows.map((a) => ({ Time: new Date(a.at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), Actor: a.actor, Action: `${a.module} · ${a.action}`, Object: a.object, Change: a.change, Reason: a.reason, Source: a.source })),
+    Period: [{ Period: label, From: from.toLocaleDateString('en-IN'), To: new Date(to.getTime() - 1).toLocaleDateString('en-IN'), 'Active learners': block.active }],
   };
   await audit.record({ module: 'export', action: 'download', entityType: 'Report', admin: req.admin, meta: { report: `Management KPIs · ${label}`, rows: auditRows.length, sensitive: true } });
   return sendSheets(res, sheets, `management-${label.replace(/\s+/g, '-')}`, req.query.format);
@@ -579,6 +673,15 @@ async function policies(req, res) {
     liveVersion: g.live && g.live.version,
     draftId: g.draft && String(g.draft._id),
     draftVersion: g.draft && g.draft.version,
+    requestedAt: (g.draft && g.draft.approvalRequestedAt) || null,
+    requestedByName: (g.draft && g.draft.approvalRequestedByName) || '',
+    rejectedAt: (g.draft && g.draft.rejectedAt) || null,
+    approvedAt: (g.draft && g.draft.approvedAt) || null,
+    approverId: (g.draft && g.draft.approverId && String(g.draft.approverId)) || null,
+    approverName: (g.draft && g.draft.approverName) || '',
+    byAdmin: !!((g.live && g.live.byAdmin) || (g.draft && g.draft.byAdmin)),
+    createdByName: ((g.live || g.draft) && (g.live || g.draft).createdByName) || '',
+    createdByRole: ((g.live || g.draft) && (g.live || g.draft).createdByRole) || '',
   }));
   const selectedId = mongoose.isValidObjectId(req.query.id) ? req.query.id : (list[0] && (list[0].draftId || list[0].liveId)) || null;
   const selected = selectedId ? docs.find((d) => String(d._id) === String(selectedId)) : null;
@@ -619,10 +722,22 @@ async function policies(req, res) {
       approverName: selected.approverName || '',
       approvalRequestedAt: selected.approvalRequestedAt,
       approvalRequestedByName: selected.approvalRequestedByName,
+      rejectedAt: selected.rejectedAt,
+      rejectedByName: selected.rejectedByName,
+      rejectNote: selected.rejectNote,
+      approvedByName: selected.approvedByName,
+      approvedAt: selected.approvedAt,
+      approverId: selected.approverId ? String(selected.approverId) : '',
+      byAdmin: !!selected.byAdmin,
+      createdByRole: selected.createdByRole || '',
+      publishedAt: selected.publishedAt,
     },
     acks,
-    approvers: (await M('Admin').find({ removed: false, enabled: true, role: { $in: CRM_ADMIN_ROLES } }, { name: 1, role: 1 }).lean()).map((a) => `${a.name} (${a.role === 'Admin' ? 'Admin' : 'Management'})`),
-    canPublish: isMgmt(req.admin),
+    approvers: (await M('Admin').find({ removed: false, enabled: true, role: { $in: CRM_ADMIN_ROLES } }, { name: 1, surname: 1, email: 1, role: 1 }).sort({ name: 1 }).lean())
+      .map((a) => ({ id: String(a._id), name: [a.name, a.surname].filter(Boolean).join(' ') || a.email, role: a.role, email: a.email })),
+    isAdmin: isPolicyAdmin(req.admin),
+    canPublish: isPolicyAdmin(req.admin),
+    me: String(req.admin._id),
   });
 }
 
@@ -637,17 +752,101 @@ async function policySendForApproval(req, res) {
   if (summary.length < 5) return bad(res, 400, 'Write a change summary.');
   doc.changeSummary = summary.slice(0, 2000);
   doc.materialChange = b.materialChange !== false;
-  doc.approverName = String(b.approverName || '').slice(0, 120);
+  if (!mongoose.isValidObjectId(b.approverId)) return bad(res, 400, 'Choose the Admin who should approve it.');
+  const approver = await M('Admin').findOne({ _id: b.approverId, removed: false, enabled: true, role: { $in: CRM_ADMIN_ROLES } }, { name: 1, surname: 1, email: 1, role: 1 }).lean();
+  if (!approver) return bad(res, 400, 'That person cannot approve policies — choose an Admin.');
+  doc.approverId = approver._id;
+  doc.approverName = `${[approver.name, approver.surname].filter(Boolean).join(' ') || approver.email} (${approver.role})`.slice(0, 120);
+  doc.approvedAt = undefined;
+  doc.approvedBy = undefined;
+  doc.approvedByName = undefined;
   if (b.effectiveDate && !Number.isNaN(new Date(b.effectiveDate).getTime())) doc.effectiveDate = new Date(b.effectiveDate);
   doc.approvalRequestedAt = new Date();
   doc.approvalRequestedByName = nameOf(req.admin);
+  doc.approvalRequestedBy = req.admin._id;
+  doc.rejectedAt = undefined;
+  doc.rejectedByName = undefined;
+  doc.rejectNote = undefined;
   doc.updated = new Date();
   await doc.save();
+  // only the chosen Admin gets the request in the bell
+  await require('../../../../services/lms/realtime').notify([approver._id], {
+    type: 'lms.policy.approval',
+    title: `📝 Policy waiting for your approval: ${doc.title}`,
+    body: `${nameOf(req.admin)} asked you to approve v${doc.version}: ${summary}`.slice(0, 240),
+    link: '/lms/policies?view=publish',
+    actorName: nameOf(req.admin),
+  });
   await audit.record({ module: 'policy', action: 'send-for-approval', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin, reason: summary, meta: { approver: doc.approverName, material: doc.materialChange } });
   return ok(res, { sent: true });
 }
 
+// POST /api/lms/admin/ops/policies/:id/reject { note } — Admin sends the
+// request back to Support with a reason; the draft stays editable
+async function policyReject(req, res) {
+  if (!isPolicyAdmin(req.admin)) return bad(res, 403, 'Only an Admin can send a policy back.');
+  if (!mongoose.isValidObjectId(req.params.id)) return bad(res, 404, 'Policy not found.');
+  const doc = await M('PolicyDocument').findOne({ _id: req.params.id, removed: false });
+  if (!doc) return bad(res, 404, 'Policy not found.');
+  if (doc.status !== 'draft' || !doc.approvalRequestedAt) return bad(res, 409, 'There is no approval request on this policy.');
+  if (doc.approverId && !same(doc.approverId, req.admin._id) && !['owner', 'Super Admin'].includes(req.admin.role)) return bad(res, 403, `This request was sent to ${doc.approverName}.`);
+  const note = String((req.body && req.body.note) || '').trim();
+  if (note.length < 3) return bad(res, 400, 'Write why it is sent back.');
+  const by = doc.approvalRequestedBy;
+  doc.rejectedAt = new Date();
+  doc.rejectedByName = nameOf(req.admin);
+  doc.rejectNote = note.slice(0, 1000);
+  doc.approvalRequestedAt = undefined;
+  doc.approvedAt = undefined;
+  doc.approvedBy = undefined;
+  doc.approvedByName = undefined;
+  doc.updated = new Date();
+  await doc.save();
+  if (by) {
+    await require('../../../../services/lms/realtime').notify([by], {
+      type: 'lms.policy.rejected',
+      title: `↩️ Policy sent back: ${doc.title}`,
+      body: `${nameOf(req.admin)}: ${note}`.slice(0, 240),
+      link: '/lms/policies?view=publish',
+      actorName: nameOf(req.admin),
+    });
+  }
+  await audit.record({ module: 'policy', action: 'reject', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin, reason: note });
+  return ok(res, { rejected: true });
+}
+
+// POST /api/lms/admin/ops/policies/:id/approve — the chosen Admin approves;
+// Support can then publish it
+async function policyApprove(req, res) {
+  if (!isPolicyAdmin(req.admin)) return bad(res, 403, 'Only an Admin can approve a policy.');
+  if (!mongoose.isValidObjectId(req.params.id)) return bad(res, 404, 'Policy not found.');
+  const doc = await M('PolicyDocument').findOne({ _id: req.params.id, removed: false });
+  if (!doc) return bad(res, 404, 'Policy not found.');
+  if (doc.status !== 'draft' || !doc.approvalRequestedAt) return bad(res, 409, 'There is no approval request on this policy.');
+  if (doc.approvedAt) return ok(res, { approved: true });
+  if (doc.approverId && !same(doc.approverId, req.admin._id) && !['owner', 'Super Admin'].includes(req.admin.role)) return bad(res, 403, `This request was sent to ${doc.approverName}.`);
+  doc.approvedAt = new Date();
+  doc.approvedBy = req.admin._id;
+  doc.approvedByName = nameOf(req.admin);
+  doc.updated = new Date();
+  await doc.save();
+  if (doc.approvalRequestedBy) {
+    await require('../../../../services/lms/realtime').notify([doc.approvalRequestedBy], {
+      type: 'lms.policy.approved',
+      title: `✅ Policy approved — you can publish it: ${doc.title}`,
+      body: `${nameOf(req.admin)} approved v${doc.version}. Open Publish & track and press Publish.`,
+      link: '/lms/policies?view=publish',
+      actorName: nameOf(req.admin),
+    });
+  }
+  await audit.record({ module: 'policy', action: 'approve', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin });
+  return ok(res, { approved: true });
+}
+
 module.exports = {
+  approvalEdit,
+  approvalRemove,
+  approvalStatus,
   approvalsList,
   approvalCreate,
   approvalDecide,
@@ -663,6 +862,8 @@ module.exports = {
   roleApprove,
   policies,
   policySendForApproval,
+  policyReject,
+  policyApprove,
   // shared with adminOps2.js
   _h: { M, ok, bad, isMgmt, nameOf, getCfg, setCfg, auditRow, sendSheets, monthRange, pct, NOISY_AUDIT, summarise, lmsUserIds, LMS_AUDIT_SCOPE },
 };

@@ -296,6 +296,16 @@ export default function SupportTickets() {
                   ))}
                 </div>
               )}
+              {(viewing.status !== 'Resolved' && viewing.resolutionNote) || (viewing.supportFiles || []).length > 0 ? (
+                <div className="ld-soft" style={{ borderLeft: '3px solid #0e7490' }}>
+                  {viewing.status !== 'Resolved' && viewing.resolutionNote && (
+                    <div style={{ whiteSpace: 'pre-wrap' }}><span className="ld-muted">Support replied: </span>{viewing.resolutionNote}</div>
+                  )}
+                  {(viewing.supportFiles || []).map((a) => (
+                    <div key={a.url}>📎 <a href={`${BASE_URL}${a.url}`} target="_blank" rel="noopener noreferrer">{a.name}</a> <span className="ld-muted">· from {a.byName || 'Support'}</span></div>
+                  ))}
+                </div>
+              ) : null}
               <ol className="tk-history" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(history.length ? history : [{ action: 'created', at: viewing.created }]).map((h, i, arr) => (
                   <li key={i} style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: '18px' }}>

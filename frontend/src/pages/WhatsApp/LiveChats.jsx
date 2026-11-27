@@ -23,7 +23,8 @@ export default function LiveChats() {
     const res = await waApi.getAccess();
     setLoading(false);
     if (!res?.success) return toast.error(res?.message || 'Could not load users.');
-    setUsers(res.result.users.filter((u) => u.hasAccess));
+    // only people whose WhatsApp is connected right now (user ask 2026-11-24)
+    setUsers(res.result.users.filter((u) => u.hasAccess && u.device && u.device.status === 'connected'));
   }, []);
 
   useEffect(() => {
@@ -157,7 +158,7 @@ export default function LiveChats() {
           {mode === 'user' ? (
             <>
               <div className="wa-col-title">Users ({users.length})</div>
-              {users.length === 0 && <div className="wa-empty">Nobody has WhatsApp yet — turn it on in Individual or Department.</div>}
+              {users.length === 0 && <div className="wa-empty">No WhatsApp number is connected right now.</div>}
               {users.map((u) => userRow(u, true))}
             </>
           ) : (

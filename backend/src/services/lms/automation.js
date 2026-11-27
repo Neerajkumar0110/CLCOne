@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 // no job are shown as not automated yet instead of a fake toggle.
 const RULES = [
   { key: 'pre-session-reminder', n: 'Pre-session reminder', t: 'Calendar has topic/time/link', a: 'Reminder to correct batch, log delivery', h: 'Missing data alerts owner', job: 'lmsLiveTick', pausable: false },
+  { key: 'absence-10d', n: 'Absent 10+ days email', t: '10+ continuous days absent', a: 'Level-3 email, logged (max once in 3 days)', h: 'Stops on Dropped / incident mode', job: 'auto:absence-10d', pausable: true },
   { key: 'attendance-absence', n: 'Attendance / absence', t: 'Attendance synced + reconciled', a: 'Absence list, check-in form', h: 'No "disengaged" label by automation', job: 'lmsLiveTick', pausable: false },
   { key: 'assessment-coordination', n: 'Assessment coordination', t: 'Schedule + roster', a: 'Reminders, pending-attempt report', h: 'Result verified before release', job: 'auto:assessment-coordination', pausable: true },
   { key: 'weekly-feedback', n: 'Weekly feedback', t: 'Window opens / closes', a: 'Send form, limited reminders, summary', h: 'Serious feedback → authorised person', job: 'auto:weekly-feedback', pausable: true },

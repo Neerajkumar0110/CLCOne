@@ -7,7 +7,7 @@ const { SUPER_ADMIN_ROLES, LMS_FULL_ACCESS_ROLES } = require('../../../../config
 
 function requireManager(req, res, next) {
   const role = req.admin && req.admin.role;
-  if (LMS_FULL_ACCESS_ROLES.includes(role)) return next();
+  if (LMS_FULL_ACCESS_ROLES.includes(role) || (req.admin && req.admin._lmsFull)) return next();
   return res.status(403).json({ success: false, message: 'LMS admin actions require a management role.' });
 }
 

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES } = require('../../../../config/roles');
+const { LMS_FULL_ACCESS_ROLES, LMS_STUDENT_ROLES, CRM_ADMIN_ROLES } = require('../../../../config/roles');
 const realtime = require('../../../../services/lms/realtime');
 const auditLog = require('../../../../services/lms/auditLog');
 const { CATEGORIES } = require('../../../../config/lmsPolicyCategories');
@@ -18,6 +18,9 @@ const { CATEGORIES } = require('../../../../config/lmsPolicyCategories');
 
 const isManager = (a) => !!(a && LMS_FULL_ACCESS_ROLES.includes(a.role));
 const isStudent = (a) => !!(a && LMS_STUDENT_ROLES.includes(a.role));
+// approve + publish and delete: owner / Super Admin / Admin only — Support
+// writes drafts and asks for approval (2026-11-27)
+const isPolicyAdmin = (a) => !!(a && CRM_ADMIN_ROLES.includes(a.role));
 const rxEq = (s) => new RegExp(`^${String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
 const bad = (res, code, message) => res.status(code).json({ success: false, result: null, message });
@@ -42,6 +45,8 @@ async function create(req, res) {
   const b = req.body || {};
   const title = String(b.title || '').trim();
   if (!title) return bad(res, 400, 'Title is required.');
+  // a policy document is a PDF or a Word file only (LMS testing report #5)
+  if (b.fileUrl && !/\.(pdf|docx?)(\?.*)?$/i.test(String(b.fileUrl))) return bad(res, 400, 'The policy document must be a PDF or Word (.doc / .docx) file.');
   const category = CATEGORIES.includes(b.category) ? b.category : 'Other';
   const slug = slugify(b.slug || title);
   const audience = ['all', 'course', 'batch'].includes(b.audience) ? b.audience : 'all';
@@ -74,6 +79,8 @@ async function create(req, res) {
     effectiveDate: b.effectiveDate ? new Date(b.effectiveDate) : undefined,
     createdBy: req.admin._id,
     createdByName: req.admin.name,
+    createdByRole: req.admin.role,
+    byAdmin: isPolicyAdmin(req.admin),
   });
 
   await auditLog.record({
@@ -84,6 +91,8 @@ async function create(req, res) {
     admin: req.admin,
     after: { title, category, version },
   });
+  // an Admin's own policy needs nobody's approval — it goes live for everyone now
+  if (isPolicyAdmin(req.admin)) return publish({ admin: req.admin, params: { id: String(doc._id) }, body: {} }, res);
   return ok(res, { id: String(doc._id), version }, `Draft created (v${version}).`);
 }
 
@@ -119,6 +128,8 @@ async function publish(req, res) {
   const doc = await PolicyDocument.findOne({ _id: req.params.id, removed: false });
   if (!doc) return bad(res, 404, 'Not found.');
   if (doc.status === 'published') return bad(res, 400, 'Already published.');
+  // Support publishes only after the chosen Admin approved it; an Admin may publish directly
+  if (!isPolicyAdmin(req.admin) && !doc.approvedAt) return bad(res, 403, 'An Admin has to approve this policy first — use “Send for approval”.');
 
   const emails = await resolveRosterEmails({ audience: doc.audience, courseTitle: doc.courseTitle, batch: doc.batch });
   const admins = emails.length
@@ -126,6 +137,14 @@ async function publish(req, res) {
     : [];
 
   doc.status = 'published';
+  if (!doc.approvedAt) {
+    doc.approvedAt = new Date();
+    doc.approvedBy = req.admin._id;
+    doc.approvedByName = req.admin.name || req.admin.email;
+  }
+  doc.rejectedAt = undefined;
+  doc.rejectNote = undefined;
+  doc.rejectedByName = undefined;
   doc.publishedAt = new Date();
   doc.publishedBy = req.admin._id;
   doc.effectiveDate = doc.effectiveDate || new Date();
@@ -170,6 +189,17 @@ async function publish(req, res) {
     }
   }
 
+  const tell = [doc.approvalRequestedBy, doc.approvedBy].filter((x) => x && String(x) !== String(req.admin._id));
+  if (tell.length) {
+    await realtime.notify(tell, {
+      type: 'lms.policy.published.staff',
+      title: `📢 Policy published: ${doc.title}`,
+      body: `${req.admin.name || 'Support'} published v${doc.version} · it is live for learners.`,
+      link: '/lms/policies?view=publish',
+      actorName: req.admin.name,
+    });
+  }
+
   await auditLog.record({
     module: 'policy',
     action: 'publish',
@@ -199,15 +229,22 @@ async function archive(req, res) {
 // while keeping the acknowledgement trail; this removes the document row
 // itself (soft-delete, same as everywhere else in this app).
 async function remove(req, res) {
-  if (!isManager(req.admin)) return bad(res, 403, 'Only an Admin/Super Admin can delete a policy.');
+  if (!isPolicyAdmin(req.admin)) return bad(res, 403, 'Only an Admin can delete a policy.');
   const PolicyDocument = mongoose.model('PolicyDocument');
   const doc = await PolicyDocument.findOne({ _id: req.params.id, removed: false });
   if (!doc) return bad(res, 404, 'Not found.');
-  doc.removed = true;
-  doc.updated = new Date();
-  await doc.save();
-  await auditLog.record({ module: 'policy', action: 'delete', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin, before: { title: doc.title, status: doc.status } });
-  return ok(res, { id: String(doc._id) }, 'Policy deleted.');
+  // 2026-11-27: delete = gone for everyone — every version of this policy
+  // (same slug) and every learner's acknowledgement row, so it leaves the
+  // learner consent page and no longer locks anyone's LMS. Soft-delete, so
+  // the audit trail can still be recovered from the DB.
+  const now = new Date();
+  const versions = await PolicyDocument.find({ slug: doc.slug, removed: false }).select('_id').lean();
+  const ids = versions.map((v) => v._id);
+  await PolicyDocument.updateMany({ _id: { $in: ids } }, { $set: { removed: true, updated: now } });
+  const acks = await mongoose.model('PolicyAcknowledgement').updateMany({ policy: { $in: ids }, removed: { $ne: true } }, { $set: { removed: true, updated: now } });
+  await auditLog.record({ module: 'policy', action: 'delete', entityType: 'PolicyDocument', entityId: doc._id, admin: req.admin, before: { title: doc.title, status: doc.status, versions: ids.length, acknowledgements: acks.modifiedCount || 0 } });
+  realtime.broadcast('lms:policy', { title: doc.title, removed: true });
+  return ok(res, { id: String(doc._id), versions: ids.length, learners: acks.modifiedCount || 0 }, `Policy deleted for everyone (${ids.length} version${ids.length === 1 ? '' : 's'}, ${acks.modifiedCount || 0} learner record${acks.modifiedCount === 1 ? '' : 's'}).`);
 }
 
 async function acknowledgementReport(req, res) {
@@ -260,14 +297,18 @@ async function acknowledgementReport(req, res) {
 
 async function myPolicies(req, res) {
   if (!isStudent(req.admin) && !isManager(req.admin)) return bad(res, 403, 'Not available.');
+  await ensurePolicyRows(req.admin).catch(() => {});
   const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
   const PolicyDocument = mongoose.model('PolicyDocument');
   const rows = await PolicyAcknowledgement.find({ student: req.admin._id, removed: { $ne: true } })
     .sort({ status: 1, created: -1 })
     .lean();
   const docs = await PolicyDocument.find({ _id: { $in: rows.map((r) => r.policy) } })
-    .select('title category content fileUrl mandatory version effectiveDate status')
+    .select('title category content fileUrl fileText mandatory version effectiveDate status')
     .lean();
+  // PDF → readable text for the consent modal (best-effort, cached on the doc)
+  const policyText = require('../../../../services/lms/policyText');
+  await Promise.all(docs.map(async (d) => { d.fileText = await policyText.textFor(d).catch(() => d.fileText || ''); }));
   const byId = Object.fromEntries(docs.map((d) => [String(d._id), d]));
   return ok(
     res,
@@ -279,7 +320,9 @@ async function myPolicies(req, res) {
         title: r.policyTitle,
         category: d.category,
         content: d.content,
-        fileUrl: d.fileUrl,
+        // learners read text only — the PDF itself stays with staff (2026-11-27)
+        fileUrl: isStudent(req.admin) ? '' : d.fileUrl,
+        fileText: d.content && String(d.content).trim() ? '' : d.fileText || '',
         mandatory: d.mandatory,
         version: r.policyVersion,
         effectiveDate: d.effectiveDate,
@@ -306,8 +349,42 @@ async function markOpened(req, res) {
 // How many mandatory, published, already-effective policies this learner
 // still has to acknowledge. Drives the server gate below and the panel's
 // redirect to the consent page.
+// A learner who joined after a policy was published had no acknowledgement
+// row, so the T&C prompt never reached them (LMS testing report #5 "new
+// learners"). Every published mandatory policy that applies to this learner
+// (all / their internship / their batch) gets a pending row on first look.
+// Checked at most every 5 minutes per learner.
+const ensuredAt = new Map();
+async function ensurePolicyRows(admin) {
+  if (!isStudent(admin) || !admin.email) return;
+  const key = String(admin._id);
+  if (Date.now() - (ensuredAt.get(key) || 0) < 5 * 60 * 1000) return;
+  ensuredAt.set(key, Date.now());
+  const roster = await mongoose.model('Student').find({ removed: { $ne: true }, email: rxEq(admin.email) }).select('course batch').lean();
+  if (!roster.length) return;
+  const titles = [...new Set(roster.map((r) => r.course).filter(Boolean))];
+  const batches = [...new Set(roster.map((r) => r.batch).filter(Boolean))];
+  const PolicyDocument = mongoose.model('PolicyDocument');
+  const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
+  const docs = await PolicyDocument.find({
+    removed: { $ne: true },
+    status: 'published',
+    mandatory: true,
+    $or: [{ audience: 'all' }, { audience: 'course', courseTitle: { $in: titles.map(rxEq) } }, { audience: 'batch', batch: { $in: batches } }],
+  })
+    .select('slug title version')
+    .lean();
+  if (!docs.length) return;
+  const have = new Set((await PolicyAcknowledgement.distinct('policy', { student: admin._id, policy: { $in: docs.map((d) => d._id) } })).map(String));
+  for (const d of docs.filter((x) => !have.has(String(x._id)))) {
+    // eslint-disable-next-line no-await-in-loop
+    await PolicyAcknowledgement.create({ policy: d._id, policySlug: d.slug, policyTitle: d.title, policyVersion: d.version, student: admin._id, studentName: admin.name, studentEmail: admin.email, status: 'pending' }).catch(() => {});
+  }
+}
+
 async function pendingMandatoryCount(admin) {
   if (!isStudent(admin)) return 0;
+  await ensurePolicyRows(admin).catch(() => {});
   const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
   const PolicyDocument = mongoose.model('PolicyDocument');
   const pending = await PolicyAcknowledgement.find({ student: admin._id, status: 'pending', removed: { $ne: true } }).select('policy').lean();
@@ -329,7 +406,13 @@ async function requirePoliciesAccepted(req, res, next) {
   try {
     if (!isStudent(req.admin)) return next();
     const n = await pendingMandatoryCount(req.admin);
-    if (!n) return next();
+    if (!n) {
+      // optional feedback lock (Admin & Ops › Rules) — report #10
+      if (await require('./feedback').feedbackOverdue(req.admin).catch(() => false)) {
+        return res.status(403).json({ success: false, result: null, code: 'FEEDBACK_PENDING', message: 'Please send this week\'s feedback first (Weekly feedback) — it unlocks at once.' });
+      }
+      return next();
+    }
     return res.status(403).json({
       success: false,
       result: null,
@@ -369,6 +452,7 @@ async function acknowledge(req, res) {
 }
 
 module.exports = {
+  ensurePolicyRows,
   create,
   list,
   getOne,

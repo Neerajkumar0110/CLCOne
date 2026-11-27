@@ -16,16 +16,36 @@ const create = async (req, res) => {
     });
   }
 
+  // Support / admin can raise it ON BEHALF OF a learner (LMS testing report #23):
+  // the learner is the raiser (they see it in Help & Support and get the
+  // confirmation), and the history says who opened it for them.
+  let onBehalf = null;
+  const staffMay = ['owner', 'Super Admin', 'Admin', 'Support'].includes(req.admin.role);
+  if (staffMay && body.onBehalfOf && mongoose.isValidObjectId(body.onBehalfOf)) {
+    onBehalf = await mongoose.model('Admin').findOne({ _id: body.onBehalfOf, removed: false }).select('name surname email phone role').lean();
+  }
+  delete body.onBehalfOf;
+
   body.removed = false;
   body.status = 'Open';
-  body.createdBy = req.admin._id;
-  body.raisedByName = req.admin.name;
-  body.raisedByEmail = req.admin.email;
-  body.source = 'crm';
+  body.createdBy = onBehalf ? onBehalf._id : req.admin._id;
+  body.raisedByName = onBehalf ? [onBehalf.name, onBehalf.surname].filter(Boolean).join(' ') : req.admin.name;
+  body.raisedByEmail = onBehalf ? onBehalf.email : req.admin.email;
+  if (onBehalf && onBehalf.phone) body.raisedByPhone = onBehalf.phone;
+  body.source = onBehalf && onBehalf.role === 'Student' ? 'student' : 'crm';
+  body.history = [{ at: new Date(), action: 'created', status: 'Open', byName: req.admin.name, note: onBehalf ? `Raised by ${req.admin.name} on behalf of ${body.raisedByName}` : undefined }];
   delete body.payment;
   delete body.paymentSnapshot;
 
   const result = await new Model(body).save();
+
+  // confirmations: the person it is for (email + LMS) and the Support inbox
+  const ticketMail = require('../../../../services/support/ticketMail');
+  ticketMail.newTicketMail(result.toObject()).catch(() => {});
+  ticketMail.raisedConfirmationMail(result.toObject(), onBehalf ? req.admin.name : null).catch(() => {});
+  if (onBehalf) {
+    require('../../../../notify').notifyUser({ recipient: onBehalf._id, actorName: req.admin.name, module: onBehalf.role === 'Student' ? 'LMS' : 'Support', type: 'ticket.created', title: `Ticket raised for you: ${result.subject}`, body: `${req.admin.name} opened it on your behalf — we will reply within 48 hours.`, link: onBehalf.role === 'Student' ? '/learn/support' : '/support' });
+  }
 
   // Support is open to every role (see frontend/src/config/
   // defaultPermissionMatrix.js) — so, unlike Leads/Invoices, this goes to

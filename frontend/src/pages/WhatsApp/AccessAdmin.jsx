@@ -17,6 +17,8 @@ function evaluate(departments, u) {
   if (u.mode === 'block') return { on: false, reason: viaDept ? 'Blocked individually (dept is on)' : 'Blocked individually' };
   if (u.mode === 'allow') return { on: true, reason: viaDept ? 'Allowed (also via department)' : 'Allowed individually' };
   if (viaDept) return { on: true, reason: `Via ${u.department} department` };
+  // Support + Teacher have WhatsApp by default (backend access.js, 2026-11-24)
+  if (['Support', 'Teacher'].includes(u.role)) return { on: true, reason: `${u.role} — on by default` };
   if (!d) return { on: false, reason: 'No department access' };
   return { on: false, reason: d.enabled ? `Role not enabled in ${u.department}` : `${u.department} department is off` };
 }
@@ -223,7 +225,7 @@ export default function AccessAdmin({ me }) {
             { key: 'autoreply', label: 'Auto-reply' },
             { key: 'individual', label: 'Individual' },
             { key: 'department', label: 'Department' },
-            { key: 'live', label: 'Live Chats', count: withAccess.length },
+            { key: 'live', label: 'Live Chats', count: stats.connected },
             { key: 'inbox', label: 'My Inbox' },
           ]}
         />

@@ -84,6 +84,12 @@ async function processWebhookLog(log) {
       googleAdGroupId: log.adGroupId,
       googleAdId: log.adId,
       rawGoogleData: log.payload,
+      // a fresh campaign lead is called before any auto-dialer / imported
+      // lead — first free user, right away (services/calling/instantLeads.js;
+      // every campaign since 2026-11-25, was Facebook + WhatsApp only)
+      ...(mapped.phone && Date.now() - new Date(log.created || log.createdAt || Date.now()).getTime() < 2 * 60 * 60 * 1000
+        ? { instantDispatch: { status: 'pending', at: new Date() } }
+        : {}),
     });
 
     try {

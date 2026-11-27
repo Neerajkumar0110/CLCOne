@@ -1,25 +1,39 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, message } from 'antd';
+import { Alert, message, Modal, Button, Input, Tooltip } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  TeamOutlined, SearchOutlined, UploadOutlined, DownloadOutlined, UserOutlined, CheckCircleOutlined, PauseCircleOutlined,
+  StopOutlined, ClockCircleOutlined, TrophyOutlined, LockOutlined, LogoutOutlined, InboxOutlined, MailOutlined, SwapOutlined,
+  FileProtectOutlined, CustomerServiceOutlined, IdcardOutlined, WarningOutlined, FileExcelOutlined, RightOutlined,
+} from '@ant-design/icons';
 import lmsApi from '../api';
 import { request } from '@/request';
-import { SMPage, useLoad, Loading, res, errText, downloadCsv } from './shared';
+import { useLoad, Loading, res, errText, downloadCsv } from './shared';
+import '../AdminOps/mgmt.css';
+import '../AdminOps/opsPages.css';
+import './smDesign.css';
+import './learners.css';
 
 // S9 — learner management: status pills with counts, roster (onboarding,
 // consent, open tickets), status change with the rule for each status
 // (On Hold / Deferred apply directly; Dropped / Suspended / Withdrawn go to
 // an Ops approval), reset-login link (password never shown), bulk CSV import
 // with a validation preview (only valid rows are created) and export.
+// 2026-11-27 redesign: gradient hero, icon status cards, learner rows, the
+// learner's status change opens in a modal, CSV import preview in a modal.
 
 const STATUSES = ['Active', 'On Hold', 'Dropped', 'Deferred', 'Completed', 'Suspended', 'Withdrawn', 'Archived'];
-const CHIP = { Active: 'hai', 'On Hold': 'adh', Dropped: 'gray', Deferred: 'naya', Completed: 'hai', Suspended: 'red', Withdrawn: 'gray', Archived: 'gray' };
+const ST_LOOK = {
+  Active: [CheckCircleOutlined, 'ok'], 'On Hold': [PauseCircleOutlined, 'mid'], Dropped: [LogoutOutlined, 'none'], Deferred: [ClockCircleOutlined, 'info'],
+  Completed: [TrophyOutlined, 'ok'], Suspended: [StopOutlined, 'bad'], Withdrawn: [LogoutOutlined, 'none'], Archived: [InboxOutlined, 'none'],
+};
 const RULES = {
-  'On Hold': ['Applied directly (audited)', 'Access and reminders paused by the approved rule · withdrawal is not assumed.', 'Apply On Hold'],
-  Deferred: ['Applied directly (audited)', 'Moved to a new batch / schedule · old attendance history is kept.', 'Apply Deferred'],
-  Active: ['Applied directly (audited)', 'Access and reminders back on.', 'Apply Active'],
-  Dropped: ['Needs Ops Manager approval', 'Out of the attendance denominator · class / feedback reminders stop · access per policy · the learner is notified.', 'Send for approval'],
-  Suspended: ['Needs Management approval', 'Access blocked immediately · all reminder jobs cancelled.', 'Send for approval'],
-  Withdrawn: ['Ops + Finance check', 'Refund / dues Finance dekhega · access band · history retained.', 'Send for approval'],
+  'On Hold': ['Applied directly (audited)', 'Access and reminders paused by the approved rule · withdrawal is not assumed.', 'Apply On Hold', 'ok'],
+  Deferred: ['Applied directly (audited)', 'Moved to a new batch / schedule · old attendance history is kept.', 'Apply Deferred', 'ok'],
+  Active: ['Applied directly (audited)', 'Access and reminders back on.', 'Apply Active', 'ok'],
+  Dropped: ['Needs Ops Manager approval', 'Out of the attendance denominator · class / feedback reminders stop · access per policy · the learner is notified.', 'Send for approval', 'mid'],
+  Suspended: ['Needs Management approval', 'Access blocked immediately · all reminder jobs cancelled.', 'Send for approval', 'bad'],
+  Withdrawn: ['Ops + Finance check', 'Refund / dues are checked by Finance · access off · history retained.', 'Send for approval', 'mid'],
 };
 
 function parseCsv(text) {
@@ -52,6 +66,7 @@ export default function SMLearners() {
   if (error) return <Alert type="error" showIcon message={error} style={{ margin: 24 }} />;
   const cur = sel && data.rows.find((r) => r.id === sel);
   const rule = RULES[next];
+  const open = (r) => { setSel(r.id); setNext(r.status === 'On Hold' ? 'Active' : 'On Hold'); setReason(''); };
 
   const apply = async () => {
     if (reason.trim().length < 5) return message.warning('Write the reason + evidence.');
@@ -61,12 +76,14 @@ export default function SMLearners() {
       if (r && r.success === false) throw new Error(r.message);
       message.success(r.message || 'Done.');
       setReason('');
+      setSel(null);
       reload();
     } catch (e) {
       message.error(errText(e, 'Could not change status.'));
     } finally {
       setBusy('');
     }
+    return null;
   };
   const creds = async () => {
     setBusy('creds');
@@ -81,7 +98,7 @@ export default function SMLearners() {
     }
   };
   const onFile = async (file) => {
-    if (!file) return;
+    if (!file) return null;
     const raw = await (file.text ? file.text() : new Promise((ok, fail) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result || '')); fr.onerror = fail; fr.readAsText(file); })).catch(() => '');
     const list = parseCsv(raw);
     if (!list.length) return message.error('The CSV is empty or could not be read.');
@@ -99,6 +116,7 @@ export default function SMLearners() {
       return { ...r, email, err };
     });
     setImp({ file: file.name, rows: checked });
+    return null;
   };
   const runImport = async () => {
     const ok = imp.rows.filter((r) => !r.err);
@@ -117,74 +135,139 @@ export default function SMLearners() {
     reload();
   };
   const exportRows = () => downloadCsv('learners.csv', rows.map((r) => ({ Name: r.name, 'Learner ID': r.enrollmentId, Email: r.email, Batch: r.batch, Status: r.status, Onboarding: `${r.onboarding.done}/${r.onboarding.total}`, Consent: r.consent, 'Open tickets': r.openTickets })));
+  const valid = imp ? imp.rows.filter((r) => !r.err).length : 0;
 
   return (
-    <SMPage title="Learner management" sub="Statuses · learner management · passwords are never shown / set — only a secure reset link">
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <button type="button" className={`ld-pill${!status ? ' on' : ''}`} style={{ height: 32, fontSize: 12 }} onClick={() => setStatus('')}>All · {data.total}</button>
-        {STATUSES.map((s) => <button key={s} type="button" className={`ld-pill${status === s ? ' on' : ''}`} style={{ height: 32, fontSize: 12 }} onClick={() => setStatus(s)}>{s} · {data.counts[s] || 0}</button>)}
+    <div className="mg op lrx">
+      <div className="mg-hero lrx-hero">
+        <div className="mg-hero-l">
+          <span className="mg-hero-ic"><TeamOutlined /></span>
+          <div style={{ minWidth: 0 }}>
+            <span className="mg-kicker">Learner management</span>
+            <h1>Statuses, onboarding &amp; import</h1>
+            <p>Change a learner&apos;s status with the right approval, resend login details and bulk-import from CSV. Passwords are never shown or set — only a secure reset link.</p>
+          </div>
+        </div>
+        <div className="op-hero-r">
+          <Button icon={<UploadOutlined />} onClick={() => fileRef.current && fileRef.current.click()}>Bulk import CSV</Button>
+          <Button icon={<DownloadOutlined />} onClick={exportRows}>Export</Button>
+          <input ref={fileRef} type="file" accept=".csv,text/csv" hidden aria-label="CSV file" onChange={(e) => { onFile(e.target.files[0]); e.target.value = ''; }} />
+        </div>
       </div>
-      <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 14, flex: 1, minHeight: 0 }}>
-        <section className="ld-card" aria-label="Learners">
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input className="ld-inp" style={{ width: 260 }} placeholder="Search name, learner ID, email" aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button type="button" className="ld-btn2 sm" onClick={() => fileRef.current && fileRef.current.click()}>Bulk import CSV</button>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" hidden aria-label="CSV file" onChange={(e) => onFile(e.target.files[0])} />
-            <button type="button" className="ld-btn2 sm" onClick={exportRows}>Export</button>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="ld-table">
-              <thead><tr><th /><th>Learner</th><th>Batch</th><th>Status</th><th>Onboarding</th><th>Consent</th><th>Open tickets</th></tr></thead>
-              <tbody>
-                {rows.length === 0 && <tr><td colSpan={7} className="ld-muted">No learner found.</td></tr>}
-                {rows.slice(0, 200).map((r) => (
-                  <tr key={r.id} className={`click${sel === r.id ? ' sm-rowsel' : ''}`} onClick={() => { setSel(r.id); setNext(r.status === 'On Hold' ? 'Active' : 'On Hold'); }}>
-                    <td><input type="checkbox" aria-label={`Select ${r.name}`} checked={sel === r.id} readOnly /></td>
-                    <td className={r.status === 'Dropped' ? 'ld-muted' : ''}><b>{r.name}</b><br /><span className="ld-muted">{r.enrollmentId || 'no ID'} · {r.emailMasked}{!r.hasAccount ? ' · no login' : ''}</span></td>
-                    <td>{r.batch || <span className="ld-muted">unassigned</span>}</td>
-                    <td><span className={`ld-chip ${CHIP[r.status] || 'gray'}`}>{r.status}</span>{r.pendingChange && <><br /><span className="ld-muted" style={{ fontSize: 11 }}>pending: {r.pendingChange}</span></>}</td>
-                    <td>{r.onboarding.done}/{r.onboarding.total}</td>
-                    <td>{r.consent}</td>
-                    <td>{r.openTickets}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {imp && (
-            <div className="ld-soft" style={{ marginTop: 'auto' }}>
-              <b>Bulk import preview ({imp.file}):</b> {imp.rows.length} rows · <span style={{ color: '#166534' }}>{imp.rows.filter((r) => !r.err).length} valid</span> · <span style={{ color: '#991b1b' }}>{imp.rows.filter((r) => r.err === 'duplicate email').length} duplicate emails</span> · <span style={{ color: '#9a3412' }}>{imp.rows.filter((r) => r.err && r.err !== 'duplicate email').length} other errors</span> — only valid rows will be imported
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button type="button" className="ld-btn sm" disabled={busy === 'import' || !imp.rows.some((r) => !r.err)} onClick={runImport}>{busy === 'import' ? 'Importing…' : 'Import valid rows'}</button>
-                <button type="button" className="ld-btn2 sm" disabled={!imp.rows.some((r) => r.err)} onClick={() => downloadCsv('import-errors.csv', imp.rows.filter((r) => r.err))}>Download error report</button>
-                <button type="button" className="ld-link" onClick={() => setImp(null)}>Cancel</button>
+
+      <div className="lrx-st">
+        <button type="button" className={`lrx-st-b all${!status ? ' on' : ''}`} onClick={() => setStatus('')}><span className="lrx-st-ic"><TeamOutlined /></span><b>{data.total}</b><small>All learners</small></button>
+        {STATUSES.map((s) => {
+          const [Ic, tone] = ST_LOOK[s];
+          return <button key={s} type="button" className={`lrx-st-b ${tone}${status === s ? ' on' : ''}`} onClick={() => setStatus(s)}><span className="lrx-st-ic"><Ic /></span><b>{data.counts[s] || 0}</b><small>{s}</small></button>;
+        })}
+      </div>
+
+      <section className="mg-card lrx-list">
+        <div className="mg-hd">
+          <span className="mg-hd-ic g1"><UserOutlined /></span>
+          <div><b>{status || 'All learners'} · {rows.length}</b><small>Click a learner to change status or resend login details</small></div>
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Search name, learner ID, email" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 280 }} />
+        </div>
+        <div className="mg-card-body" style={{ padding: 0, gap: 0 }}>
+          <div className="lrx-tr lrx-th"><span>Learner</span><span>Batch</span><span>Status</span><span><IdcardOutlined /> Onboarding</span><span><FileProtectOutlined /> Consent</span><span><CustomerServiceOutlined /> Tickets</span><span /></div>
+          {rows.length === 0 && <div className="mg-empty">No learner found.</div>}
+          {rows.slice(0, 200).map((r) => {
+            const [Ic, tone] = ST_LOOK[r.status] || [UserOutlined, 'none'];
+            const pct = r.onboarding.total ? Math.round((r.onboarding.done / r.onboarding.total) * 100) : 0;
+            return (
+              <div key={r.id} className={`lrx-tr${r.status === 'Dropped' ? ' dim' : ''}`} role="button" tabIndex={0} onClick={() => open(r)} onKeyDown={(e) => { if (e.key === 'Enter') open(r); }}>
+                <span className="lrx-name">
+                  <span className="mg-actor"><i>{String(r.name || '?')[0]}</i></span>
+                  <span><b>{r.name}</b><small>{r.enrollmentId || 'no ID'} · {r.emailMasked}{!r.hasAccount ? ' · no login' : ''}</small></span>
+                </span>
+                <span>{r.batch ? <span className="attx-batch">{r.batch}</span> : <span className="lrx-un"><WarningOutlined /> unassigned</span>}</span>
+                <span><span className={`smx-st ${tone}`}><Ic /> {r.status}</span>{r.pendingChange && <small className="lrx-pend">pending: {r.pendingChange}</small>}</span>
+                <span className="lrx-ob"><i><span style={{ width: `${pct}%` }} /></i><small>{r.onboarding.done}/{r.onboarding.total}</small></span>
+                <span><span className={`smx-st ${r.consent === 'pending' ? 'mid' : r.consent === 'accepted' || r.consent === 'done' ? 'ok' : ''}`}>{r.consent}</span></span>
+                <span>{r.openTickets ? <span className="smx-st bad">{r.openTickets} open</span> : <span className="lrx-zero">0</span>}</span>
+                <span className="lrx-go"><RightOutlined /></span>
               </div>
-              <div className="ld-muted" style={{ fontSize: 12, marginTop: 4 }}>CSV columns: name, email, phone, batch, course</div>
-            </div>
-          )}
-        </section>
-        <section className="ld-card" aria-label="Change status">
-          {!cur && <div className="ld-empty">Pick a learner from the table.</div>}
-          {cur && (
-            <>
-              <div className="ld-hd"><b style={{ fontSize: 15 }}>{cur.name} · change status</b><span className={`ld-chip ${CHIP[cur.status] || 'gray'}`}>{cur.status}</span></div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {Object.keys(RULES).filter((k) => k !== cur.status).map((k) => <button key={k} type="button" className={`ld-pill${next === k ? ' on' : ''}`} style={{ height: 32, fontSize: 12 }} onClick={() => setNext(k)}>{k}</button>)}
+            );
+          })}
+        </div>
+        {rows.length > 200 && <div className="mg-foot">Showing the first 200 — narrow with search or a status card</div>}
+      </section>
+
+      <Modal open={!!cur} onCancel={() => setSel(null)} footer={null} width={620} centered destroyOnClose rootClassName="mg-modal">
+        {cur && (() => {
+          const [Ic, tone] = ST_LOOK[cur.status] || [UserOutlined, 'none'];
+          return (
+            <div className="mg-m">
+              <div className="mg-m-head lrx-m-head">
+                <span className="mg-act"><Ic /> {cur.status}</span>
+                <h3>{cur.name}</h3>
+                <span>{cur.enrollmentId || 'no ID'} · {cur.emailMasked} · {cur.batch || 'unassigned'}{!cur.hasAccount ? ' · no login yet' : ''}</span>
               </div>
-              {rule && <div className="ld-warn" style={{ lineHeight: '20px' }}><b>{rule[0]}</b><br />{rule[1]}</div>}
-              <label className="ld-label">Reason + evidence (required)<textarea className="ld-inp" style={{ height: 70, padding: 8, resize: 'none' }} placeholder="22 din absent, 3 calls, L3 email unanswered (TKT-…)" value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-              <button type="button" className="ld-btn" disabled={busy === 'status' || !rule} onClick={apply}>{busy === 'status' ? 'Saving…' : rule ? rule[2] : 'Pick a status'}</button>
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <b style={{ fontSize: 14 }}>Other actions</b>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button type="button" className="ld-btn2 sm" onClick={() => navigate('/lms/students')}>Transfer batch</button>
-                  <button type="button" className="ld-btn2 sm" disabled={busy === 'creds'} onClick={creds}>{cur.hasAccount ? 'Resend login details' : 'Send invite'}</button>
+              <div className="mg-m-body">
+                <div className="lrx-kv">
+                  <div><small>Onboarding</small><b>{cur.onboarding.done}/{cur.onboarding.total}</b></div>
+                  <div><small>Consent</small><b>{cur.consent}</b></div>
+                  <div><small>Open tickets</small><b>{cur.openTickets}</b></div>
+                  <div><small>Status</small><b className={`lrx-kv-st ${tone}`}>{cur.status}</b></div>
+                </div>
+                <div className="mg-m-cap">Change status to</div>
+                <div className="lrx-next">
+                  {Object.keys(RULES).filter((k) => k !== cur.status).map((k) => {
+                    const [NIc, nt] = ST_LOOK[k];
+                    return <button key={k} type="button" className={`lrx-next-b ${nt}${next === k ? ' on' : ''}`} onClick={() => setNext(k)}><NIc /> {k}</button>;
+                  })}
+                </div>
+                {rule && (
+                  <div className={`lrx-rule ${rule[3]}`}>
+                    {rule[3] === 'ok' ? <CheckCircleOutlined /> : <LockOutlined />}
+                    <span><b>{rule[0]}</b><small>{rule[1]}</small></span>
+                  </div>
+                )}
+                <label className="ao-label">Reason + evidence (required)<Input.TextArea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Absent 22 days, 3 calls, L3 email unanswered (TKT-…)" /></label>
+                <div className="mg-m-cap">Other actions</div>
+                <div className="op-chips">
+                  <Button icon={<SwapOutlined />} onClick={() => navigate('/lms/students')}>Transfer batch</Button>
+                  <Tooltip title="Sends a secure reset link — the password is never shown"><Button icon={<MailOutlined />} loading={busy === 'creds'} onClick={creds}>{cur.hasAccount ? 'Resend login details' : 'Send invite'}</Button></Tooltip>
                 </div>
               </div>
-            </>
-          )}
-        </section>
-      </div>
-    </SMPage>
+              <div className="mg-m-foot" style={{ gap: 8 }}>
+                <Button onClick={() => setSel(null)}>Close</Button>
+                <Button type="primary" loading={busy === 'status'} disabled={!rule || reason.trim().length < 5} onClick={apply}>{rule ? rule[2] : 'Pick a status'}</Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      <Modal open={!!imp} onCancel={() => setImp(null)} footer={null} width={760} centered destroyOnClose rootClassName="mg-modal">
+        {imp && (
+          <div className="mg-m">
+            <div className="mg-m-head lrx-m-head"><span className="mg-act"><FileExcelOutlined /> Bulk import preview</span><h3>{imp.file}</h3><span>{imp.rows.length} rows · only valid rows will be imported · columns: name, email, phone, batch, course</span></div>
+            <div className="mg-m-body">
+              <div className="lrx-kv">
+                <div className="ok"><small>Valid</small><b>{valid}</b></div>
+                <div className="bad"><small>Duplicate emails</small><b>{imp.rows.filter((r) => r.err === 'duplicate email').length}</b></div>
+                <div className="mid"><small>Other errors</small><b>{imp.rows.filter((r) => r.err && r.err !== 'duplicate email').length}</b></div>
+              </div>
+              <div className="lrx-imp">
+                {imp.rows.map((r, i) => (
+                  <div key={i} className={`lrx-imp-r${r.err ? ' bad' : ''}`}>
+                    {r.err ? <WarningOutlined /> : <CheckCircleOutlined />}
+                    <span><b>{r.name || '—'}</b><small>{r.email || '—'}{r.batch ? ` · ${r.batch}` : ''}</small></span>
+                    {r.err ? <span className="smx-st bad">{r.err}</span> : <span className="smx-st ok">ready</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mg-m-foot" style={{ gap: 8 }}>
+              <Button icon={<DownloadOutlined />} disabled={!imp.rows.some((r) => r.err)} onClick={() => downloadCsv('import-errors.csv', imp.rows.filter((r) => r.err))}>Error report</Button>
+              <Button onClick={() => setImp(null)}>Cancel</Button>
+              <Button type="primary" icon={<UploadOutlined />} loading={busy === 'import'} disabled={!valid} onClick={runImport}>Import {valid} valid row{valid === 1 ? '' : 's'}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 }

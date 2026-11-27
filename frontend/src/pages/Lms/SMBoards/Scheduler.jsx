@@ -1,15 +1,25 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, message } from 'antd';
+import { Alert, Modal, message, Button, Input, Select, Switch, Tooltip } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import {
+  CalendarOutlined, PlusOutlined, ClockCircleOutlined, EditOutlined, TeamOutlined, UserOutlined, LeftOutlined, RightOutlined,
+  VideoCameraOutlined, CheckCircleOutlined, FieldTimeOutlined, AppstoreAddOutlined, PlayCircleOutlined, StopOutlined, BellOutlined,
+} from '@ant-design/icons';
 import lmsApi from '../api';
-import { SMPage, useLoad, Loading, res, errText } from './shared';
+import { useLoad, Loading, res, errText } from './shared';
 import DuplicateClassesAlert from '../components/DuplicateClassesAlert';
+import '../AdminOps/mgmt.css';
+import '../AdminOps/opsPages.css';
+import './smDesign.css';
+import './scheduler.css';
 
 // S6 — batches & live-class scheduler: batch list | week calendar of the
 // chosen batch + class-time change (calendar, reminders, rooms and learners
 // follow) + rename | schedule a class (one date or Mon–Fri for N weeks,
 // BigBlueButton, recording on/off). Existing endpoints: live-class create,
 // batch rename, recording toggle; new: /admin/sm/batches/:id/time.
+// 2026-11-27 redesign: gradient hero, batch cards, week calendar card;
+// schedule / change time / rename / class details open in modals.
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PROV = { BBB: 'BigBlueButton — live, recording + attendance events auto', Zoom: 'Zoom — licence / API decision pending (D-12), not connected', 'Google Meet': 'Google Meet — provider decision pending (D-12), not connected' };
@@ -21,6 +31,8 @@ const mondayOf = (d) => {
 };
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const stCls = (s) => (['live', 'starting'].includes(s) ? 'live' : ['ended', 'recording_processing', 'recording_available'].includes(s) ? 'done' : s === 'cancelled' ? 'off' : 'next');
+const ST_LABEL = { live: 'Live now', done: 'Held', off: 'Cancelled', next: 'Upcoming' };
+const hm = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
 export default function SMScheduler() {
   const navigate = useNavigate();
@@ -28,6 +40,8 @@ export default function SMScheduler() {
   const [week, setWeek] = useState(() => mondayOf(new Date()));
   const [time, setTime] = useState(null);
   const [rename, setRename] = useState(null);
+  const [modal, setModal] = useState(''); // 'schedule' | 'time' | 'rename' | ''
+  const [ev, setEv] = useState(null);
   const [form, setForm] = useState({ title: '', teacher: '', date: ymd(new Date(Date.now() + 86400000)), start: '', end: '', repeat: '0', rec: true, provider: 'BBB' });
   const [busy, setBusy] = useState('');
   const { data, loading, error, reload } = useLoad(async () => res(await lmsApi.smBatches()), []);
@@ -40,7 +54,7 @@ export default function SMScheduler() {
   const events = useMemo(() => ((cal.data || []).filter((c) => b && c.batchName === b.name)), [cal.data, b]);
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} style={{ margin: 24 }} />;
-  if (!b) return <SMPage title="Batches & live-class scheduler"><section className="ld-card"><div className="ld-empty">No batch.</div></section></SMPage>;
+  if (!b) return <div className="mg op"><div className="mg-card"><div className="mg-empty">No batch yet.</div></div></div>;
 
   const hours = [...new Set(events.map((e) => new Date(e.scheduledStart).getHours()))].sort((x, y) => x - y);
   const rowsH = hours.length ? hours : [Number(String(b.classTime || '18').slice(0, 2))];
@@ -50,6 +64,7 @@ export default function SMScheduler() {
   });
   const curTime = time || { classTime: b.classTime || '', endTime: b.endTime || '' };
   const curName = rename === null ? b.name : rename;
+  const today = ymd(new Date());
 
   const applyTime = () => {
     if (!curTime.classTime || !curTime.endTime || (curTime.classTime === b.classTime && curTime.endTime === b.endTime)) return message.warning('Pick a new time.');
@@ -57,6 +72,7 @@ export default function SMScheduler() {
       title: `Change ${b.name} to ${curTime.classTime}–${curTime.endTime}?`,
       content: `Future classes, calendar, reminders, BBB rooms and the learner view all update · ${b.learners} learners will be notified.`,
       okText: `Apply & notify ${b.learners} learners`,
+      centered: true,
       onOk: async () => {
         const r = await lmsApi.smBatchTime(b.id, curTime).catch((e) => ({ success: false, message: errText(e, 'Failed.') }));
         if (r && r.success === false) {
@@ -65,10 +81,12 @@ export default function SMScheduler() {
         }
         message.success(r.message || 'Time changed.');
         setTime(null);
+        setModal('');
         reload();
         cal.reload();
       },
     });
+    return null;
   };
   const saveName = async () => {
     if (!curName.trim() || curName === b.name) return;
@@ -78,6 +96,7 @@ export default function SMScheduler() {
       if (r && r.success === false) throw new Error(r.message);
       message.success('Renamed — calendar, reports, learner view updated.');
       setRename(null);
+      setModal('');
       reload();
       cal.reload();
     } catch (e) {
@@ -115,107 +134,203 @@ export default function SMScheduler() {
       }
       message.success(`${made} class${made > 1 ? 'es' : ''} created for ${b.name}.`);
       setForm({ ...form, title: '' });
+      setModal('');
       cal.reload();
     } catch (e) {
       message.error(`${made ? `${made} created, then: ` : ''}${errText(e, 'Could not create.')}`);
     } finally {
       setBusy('');
     }
+    return null;
   };
+  const pick = (x) => { setSelId(x.id); setTime(null); setRename(null); };
+  const running = batches.filter((x) => x.status === 'Running').length;
 
   return (
-    <SMPage title="Batches & live-class scheduler">
-      <DuplicateClassesAlert load={lmsApi.smDuplicates} request={lmsApi.smDuplicateRequest} onChanged={cal.reload} />
-      <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr) 360px', gap: 14, flex: 1, minHeight: 0 }}>
-        <section className="ld-card pm-scroll" style={{ gap: 8 }} aria-label="Batches">
-          <b style={{ fontSize: 14 }}>Batches · {batches.length}</b>
-          {batches.map((x) => (
-            <button key={x.id} type="button" className={`sm-b${x.id === b.id ? ' on' : ''}`} onClick={() => { setSelId(x.id); setTime(null); setRename(null); }}>
-              <span><b>{x.name}</b><br /><span className="ld-muted">{x.classTime ? `${x.classTime}–${x.endTime}` : 'no time'} · {x.learners}{x.seats ? ` / ${x.seats}` : ''}</span></span>
-              <span className={`ld-chip ${x.status === 'Running' ? 'hai' : x.status === 'Completed' ? 'gray' : 'naya'}`}>{x.status === 'Running' ? 'Active' : x.status || '—'}</span>
-            </button>
-          ))}
-          <button type="button" className="ld-btn2" style={{ marginTop: 'auto' }} onClick={() => navigate('/lms/batches')}>+ New batch</button>
-        </section>
-
-        <section className="ld-card" aria-label="Week calendar">
-          <div className="ld-hd">
-            <b style={{ fontSize: 15 }}>Week of {week.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · {b.name}</b>
-            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button type="button" className="ld-btn2 xs" aria-label="Previous week" onClick={() => setWeek(new Date(week.getTime() - 7 * 86400000))}>‹</button>
-              <button type="button" className="ld-btn2 xs" aria-label="Next week" onClick={() => setWeek(new Date(week.getTime() + 7 * 86400000))}>›</button>
-              <span className="ld-muted" style={{ fontSize: 12 }}>IST</span>
-            </span>
+    <div className="mg op sch">
+      <div className="mg-hero sch-hero">
+        <div className="mg-hero-l">
+          <span className="mg-hero-ic"><CalendarOutlined /></span>
+          <div style={{ minWidth: 0 }}>
+            <span className="mg-kicker">Batches &amp; live-class scheduler</span>
+            <h1>Plan every batch&apos;s classes</h1>
+            <p>Pick a batch to see its week. Schedule classes (one date or Mon–Fri for weeks), change the class time for everyone at once, or rename the batch.</p>
           </div>
-          <div className="sm-cal">
-            <div />
-            {DAYS.map((d, i) => <div key={d} className="h">{d} {new Date(week.getTime() + i * 86400000).getDate()}</div>)}
-            {rowsH.map((h) => (
-              <React.Fragment key={h}>
-                <div className="t">{h % 12 || 12} {h < 12 ? 'AM' : 'PM'}</div>
-                {DAYS.map((d, i) => {
-                  const c = cell(i, h);
-                  return c.length ? (
-                    <div key={d} className={`ev ${stCls(String(c[0].status || c[0].lifecycle).toLowerCase())}`} title={c[0].title}>{(c[0].title || '').replace(/^.*—\s*/, '')}{['live', 'starting'].includes(c[0].status) ? ' · LIVE' : ''}</div>
-                  ) : <div key={d} className="slot" />;
-                })}
-              </React.Fragment>
+        </div>
+        <div className="op-hero-r">
+          <div className="rp-hero-stats"><span><b>{running}/{batches.length}</b><small>batches running</small></span></div>
+          <Button type="primary" icon={<PlusOutlined />} className="sch-cta" onClick={() => setModal('schedule')}>Schedule a class</Button>
+        </div>
+      </div>
+
+      <DuplicateClassesAlert load={lmsApi.smDuplicates} request={lmsApi.smDuplicateRequest} onChanged={cal.reload} />
+
+      <div className="sch-grid">
+        <section className="mg-card sch-batches" aria-label="Batches">
+          <div className="mg-hd">
+            <span className="mg-hd-ic g1"><TeamOutlined /></span>
+            <div><b>Batches · {batches.length}</b><small>Pick one to see its week</small></div>
+          </div>
+          <div className="mg-card-body" style={{ gap: 8 }}>
+            {batches.map((x) => (
+              <button key={x.id} type="button" className={`sch-b${x.id === b.id ? ' on' : ''}`} onClick={() => pick(x)}>
+                <span className="sch-b-ic">{String(x.name).slice(0, 2)}</span>
+                <span className="sch-b-t">
+                  <b>{x.name}</b>
+                  <small><ClockCircleOutlined /> {x.classTime ? `${x.classTime}–${x.endTime}` : 'no time'} · <TeamOutlined /> {x.learners}{x.seats ? `/${x.seats}` : ''}</small>
+                </span>
+                <span className={`sch-dot ${x.status === 'Running' ? 'ok' : x.status === 'Completed' ? 'off' : 'info'}`} title={x.status || '—'} />
+              </button>
             ))}
           </div>
-          {events.length === 0 && <div className="ld-empty">No class this week for {b.name}.</div>}
-
-          <div className="ld-hd" style={{ marginTop: 8 }}><b style={{ fontSize: 15 }}>Change class time · {b.name}</b></div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input className="ld-inp" type="time" aria-label="New start" value={curTime.classTime} onChange={(e) => setTime({ ...curTime, classTime: e.target.value })} />
-            <span>→</span>
-            <input className="ld-inp" type="time" aria-label="New end" value={curTime.endTime} onChange={(e) => setTime({ ...curTime, endTime: e.target.value })} />
-          </div>
-          {time && (curTime.classTime !== b.classTime || curTime.endTime !== b.endTime) && (
-            <div className="ld-warn">{b.classTime}–{b.endTime} → <b>{curTime.classTime}–{curTime.endTime}</b> · {b.learners} learners · calendar, reminders, BBB room and learner view all update together</div>
-          )}
-          <div style={{ display: 'flex', gap: 8 }}><button type="button" className="ld-btn" disabled={!time} onClick={applyTime}>Apply &amp; notify {b.learners} learners</button></div>
-
-          <div className="ld-hd" style={{ marginTop: 8 }}><b style={{ fontSize: 15 }}>Rename batch</b></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
-            <input className="ld-inp" aria-label="Batch name" value={curName} onChange={(e) => setRename(e.target.value)} />
-            <button type="button" className="ld-btn2 sm" disabled={busy === 'rename' || !curName.trim() || curName === b.name} onClick={saveName}>Save — calendar, reports, learner view</button>
-          </div>
+          <div className="mg-foot"><Button block icon={<AppstoreAddOutlined />} onClick={() => navigate('/lms/batches')}>New batch</Button></div>
         </section>
 
-        <section className="ld-card pm-form" aria-label="Schedule a class">
-          <div className="ld-hd"><b style={{ fontSize: 15 }}>Schedule a class</b></div>
-          <label className="ld-label">Batch<select className="ld-inp" value={b.id} onChange={(e) => setSelId(e.target.value)}>{batches.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-          <label className="ld-label">Topic / session<input className="ld-inp" placeholder="S81 · Multi-agent systems" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-          <label className="ld-label">Project Manager
-            <select className="ld-inp" value={form.teacher} onChange={(e) => setForm({ ...form, teacher: e.target.value })}>
-              <option value="">Batch trainer ({b.trainer || '—'})</option>
-              {data.teachers.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <label className="ld-label">Date<input className="ld-inp" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
-            <label className="ld-label">Start<input className="ld-inp" type="time" aria-label="Start time" value={startT} onChange={(e) => setForm({ ...form, start: e.target.value })} /></label>
-            <label className="ld-label">End<input className="ld-inp" type="time" aria-label="End time" value={endT} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
-          </div>
-          <label className="ld-label">Repeat
-            <select className="ld-inp" value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })}>
-              <option value="0">Just this date</option>
-              <option value="1">Mon–Fri · 1 week</option>
-              <option value="2">Mon–Fri · 2 weeks</option>
-              <option value="4">Mon–Fri · 4 weeks</option>
-            </select>
-          </label>
-          <div className="sm-cap">Meeting provider</div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {Object.keys(PROV).map((p) => <button key={p} type="button" className={`ld-seg${form.provider === p ? ' on' : ''}`} onClick={() => setForm({ ...form, provider: p })}>{p}</button>)}
-          </div>
-          <div className="ld-muted" style={{ fontSize: 12 }}>{PROV[form.provider]}</div>
-          <label className="pm-check"><input type="checkbox" checked={form.rec} onChange={(e) => setForm({ ...form, rec: e.target.checked })} /> Recording ON (default)</label>
-          <label className="pm-check"><input type="checkbox" checked disabled /> Join window opens early (live settings)</label>
-          <label className="pm-check"><input type="checkbox" checked disabled /> Notify only this batch</label>
-          <button type="button" className="ld-btn" style={{ marginTop: 'auto' }} disabled={busy === 'create' || form.provider !== 'BBB'} onClick={create}>{busy === 'create' ? 'Creating…' : 'Create & add to calendar'}</button>
-        </section>
+        <div className="sch-main">
+          <section className="sch-info">
+            <span className="sch-info-ic">{String(b.name).slice(0, 2)}</span>
+            <div className="sch-info-t">
+              <b>{b.name}</b>
+              <span className="op-chips">
+                <span className={`mg-pill ${b.status === 'Running' ? 'ok' : b.status === 'Completed' ? 'none' : 'mid'}`}>{b.status === 'Running' ? 'Active' : b.status || '—'}</span>
+                <span className="sch-chip"><ClockCircleOutlined /> {b.classTime ? `${b.classTime}–${b.endTime}` : 'no time set'} IST</span>
+                <span className="sch-chip"><TeamOutlined /> {b.learners}{b.seats ? ` / ${b.seats}` : ''} learners</span>
+                {b.trainer && <span className="sch-chip"><UserOutlined /> {b.trainer}</span>}
+              </span>
+            </div>
+            <div className="op-chips">
+              <Button icon={<FieldTimeOutlined />} onClick={() => setModal('time')}>Change time</Button>
+              <Button icon={<EditOutlined />} onClick={() => setModal('rename')}>Rename</Button>
+              <Button type="primary" icon={<PlusOutlined />} className="sch-cta" onClick={() => setModal('schedule')}>Schedule</Button>
+            </div>
+          </section>
+
+          <section className="mg-card sch-cal-card" aria-label="Week calendar">
+            <div className="mg-hd">
+              <span className="mg-hd-ic g3"><CalendarOutlined /></span>
+              <div><b>Week of {week.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</b><small>{events.length} class{events.length === 1 ? '' : 'es'} this week · click a class for details · IST</small></div>
+              <span className="sch-nav">
+                <Button size="small" icon={<LeftOutlined />} aria-label="Previous week" onClick={() => setWeek(new Date(week.getTime() - 7 * 86400000))} />
+                <Button size="small" onClick={() => setWeek(mondayOf(new Date()))}>This week</Button>
+                <Button size="small" icon={<RightOutlined />} aria-label="Next week" onClick={() => setWeek(new Date(week.getTime() + 7 * 86400000))} />
+              </span>
+            </div>
+            <div className="sch-cal">
+              <div className="sch-cal-c" />
+              {DAYS.map((d, i) => {
+                const day = new Date(week.getTime() + i * 86400000);
+                return <div key={d} className={`sch-cal-h${ymd(day) === today ? ' today' : ''}`}><small>{d}</small><b>{day.getDate()}</b></div>;
+              })}
+              {rowsH.map((h) => (
+                <React.Fragment key={h}>
+                  <div className="sch-cal-t">{h % 12 || 12} {h < 12 ? 'AM' : 'PM'}</div>
+                  {DAYS.map((d, i) => {
+                    const c = cell(i, h);
+                    if (!c.length) return <div key={d} className="sch-slot" />;
+                    const st = stCls(String(c[0].status || c[0].lifecycle).toLowerCase());
+                    return (
+                      <button key={d} type="button" className={`sch-ev ${st}`} onClick={() => setEv(c[0])} title={c[0].title}>
+                        <small>{st === 'live' ? <><i className="sch-live" /> LIVE</> : hm(c[0].scheduledStart)}</small>
+                        <b>{(c[0].title || '').replace(/^.*—\s*/, '')}</b>
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+            {events.length === 0 && <div className="sch-none"><CalendarOutlined /> No class this week for {b.name} — <button type="button" onClick={() => setModal('schedule')}>schedule one</button></div>}
+            <div className="mg-foot sch-legend">
+              <span><i className="next" /> Upcoming</span><span><i className="live" /> Live</span><span><i className="done" /> Held</span><span><i className="off" /> Cancelled</span>
+            </div>
+          </section>
+        </div>
       </div>
-    </SMPage>
+
+      {/* schedule a class */}
+      <Modal open={modal === 'schedule'} onCancel={() => setModal('')} footer={null} width={620} centered destroyOnClose rootClassName="mg-modal">
+        <div className="mg-m">
+          <div className="mg-m-head sch-m-head"><span className="mg-act">New class</span><h3><PlusOutlined /> Schedule a class</h3><span>Adds to the calendar and notifies only this batch</span></div>
+          <div className="mg-m-body sch-form">
+            <label className="ao-label">Batch<Select value={b.id} onChange={(v) => setSelId(v)} options={batches.map((x) => ({ value: x.id, label: x.name }))} /></label>
+            <label className="ao-label">Topic / session<Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="S81 · Multi-agent systems" /></label>
+            <label className="ao-label">Project Manager<Select value={form.teacher} onChange={(v) => setForm({ ...form, teacher: v })} options={[{ value: '', label: `Batch trainer (${b.trainer || '—'})` }, ...data.teachers.map((t) => ({ value: t, label: t }))]} /></label>
+            <div className="sch-3">
+              <label className="ao-label">Date<input className="mg-date sch-in" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
+              <label className="ao-label">Start<input className="mg-date sch-in" type="time" value={startT} onChange={(e) => setForm({ ...form, start: e.target.value })} /></label>
+              <label className="ao-label">End<input className="mg-date sch-in" type="time" value={endT} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
+            </div>
+            <label className="ao-label">Repeat<Select value={form.repeat} onChange={(v) => setForm({ ...form, repeat: v })} options={[{ value: '0', label: 'Just this date' }, { value: '1', label: 'Mon–Fri · 1 week' }, { value: '2', label: 'Mon–Fri · 2 weeks' }, { value: '4', label: 'Mon–Fri · 4 weeks' }]} /></label>
+            <div className="mg-m-cap">Meeting provider</div>
+            <div className="sch-prov">
+              {Object.keys(PROV).map((p) => <button key={p} type="button" className={`sch-prov-b${form.provider === p ? ' on' : ''}${p !== 'BBB' ? ' na' : ''}`} onClick={() => setForm({ ...form, provider: p })}><VideoCameraOutlined /> {p}</button>)}
+            </div>
+            <small className="mg-rsn">{PROV[form.provider]}</small>
+            <div className="sch-opts">
+              <span><Switch size="small" checked={form.rec} onChange={(v) => setForm({ ...form, rec: v })} /> Recording {form.rec ? 'ON' : 'OFF'}</span>
+              <span className="fixed"><CheckCircleOutlined /> Join window opens early</span>
+              <span className="fixed"><BellOutlined /> Notify only this batch</span>
+            </div>
+          </div>
+          <div className="mg-m-foot" style={{ gap: 8 }}>
+            <Button onClick={() => setModal('')}>Cancel</Button>
+            <Button type="primary" icon={<CalendarOutlined />} loading={busy === 'create'} disabled={form.provider !== 'BBB'} onClick={create}>Create &amp; add to calendar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* change time */}
+      <Modal open={modal === 'time'} onCancel={() => { setModal(''); setTime(null); }} footer={null} width={520} centered destroyOnClose rootClassName="mg-modal">
+        <div className="mg-m">
+          <div className="mg-m-head sch-m-head"><span className="mg-act">{b.name}</span><h3><FieldTimeOutlined /> Change class time</h3><span>Calendar, reminders, BBB room and learner view all update together</span></div>
+          <div className="mg-m-body">
+            <div className="smx-oldnew">
+              <div><small>Now</small><b>{b.classTime || '—'}–{b.endTime || '—'}</b></div>
+              <span className="smx-arrow">→</span>
+              <div><small>New time</small><span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input className="mg-date sch-in" type="time" value={curTime.classTime} onChange={(e) => setTime({ ...curTime, classTime: e.target.value })} />–<input className="mg-date sch-in" type="time" value={curTime.endTime} onChange={(e) => setTime({ ...curTime, endTime: e.target.value })} /></span></div>
+            </div>
+            <div className="smx-checks"><span className="info"><BellOutlined /> {b.learners} learners will be notified of the new time</span></div>
+          </div>
+          <div className="mg-m-foot" style={{ gap: 8 }}>
+            <Button onClick={() => { setModal(''); setTime(null); }}>Cancel</Button>
+            <Button type="primary" disabled={!time} onClick={applyTime}>Apply &amp; notify {b.learners} learners</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* rename */}
+      <Modal open={modal === 'rename'} onCancel={() => { setModal(''); setRename(null); }} footer={null} width={480} centered destroyOnClose rootClassName="mg-modal">
+        <div className="mg-m">
+          <div className="mg-m-head sch-m-head"><span className="mg-act">{b.name}</span><h3><EditOutlined /> Rename batch</h3><span>The new name shows in the calendar, reports and the learner view</span></div>
+          <div className="mg-m-body"><label className="ao-label">Batch name<Input value={curName} onChange={(e) => setRename(e.target.value)} /></label></div>
+          <div className="mg-m-foot" style={{ gap: 8 }}>
+            <Button onClick={() => { setModal(''); setRename(null); }}>Cancel</Button>
+            <Button type="primary" loading={busy === 'rename'} disabled={!curName.trim() || curName === b.name} onClick={saveName}>Save name</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* class details */}
+      <Modal open={!!ev} onCancel={() => setEv(null)} footer={null} width={480} centered destroyOnClose rootClassName="mg-modal">
+        {ev && (() => {
+          const st = stCls(String(ev.status || ev.lifecycle).toLowerCase());
+          const StIc = st === 'live' ? PlayCircleOutlined : st === 'done' ? CheckCircleOutlined : st === 'off' ? StopOutlined : ClockCircleOutlined;
+          return (
+            <div className="mg-m">
+              <div className={`mg-m-head sch-m-head ${st}`}><span className="mg-act"><StIc /> {ST_LABEL[st]}</span><h3>{(ev.title || '').replace(/^.*—\s*/, '')}</h3><span>{b.name}</span></div>
+              <div className="mg-m-body">
+                <div className="lrx-kv">
+                  <div><small>Date</small><b>{new Date(ev.scheduledStart).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</b></div>
+                  <div><small>Time</small><b>{hm(ev.scheduledStart)}{ev.scheduledEnd ? `–${hm(ev.scheduledEnd)}` : ''}</b></div>
+                  {ev.teacherName && <div><small>Project Manager</small><b>{ev.teacherName}</b></div>}
+                </div>
+                <div className="mg-m-cap">Full title</div>
+                <div className="mg-m-box">{ev.title}</div>
+              </div>
+              <div className="mg-m-foot"><Tooltip title="Close"><Button type="primary" onClick={() => setEv(null)}>Close</Button></Tooltip></div>
+            </div>
+          );
+        })()}
+      </Modal>
+    </div>
   );
 }

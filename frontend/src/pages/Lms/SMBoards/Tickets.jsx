@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, message } from 'antd';
+import { Alert, Image, Modal, message } from 'antd';
+import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
+import { request } from '@/request';
 import { SMPage, useLoad, Loading, res, fmtDayTime, shortName, errText } from './shared';
 
 // S3 — ticket queue with SLA: filter pills (open / SLA at risk / unassigned
@@ -21,6 +23,34 @@ const FILTERS = [
   ['done', 'Resolved', (t) => ['Resolved', 'Closed'].includes(t.stage)],
 ];
 const statusLabel = (t) => (t.waiting ? `Waiting · ${t.waiting}` : t.stage);
+// live SLA clock: the server sends dueAt; the browser counts it down every
+// second (state flips to risk / breached on its own, no reload needed)
+const SLA_TOTAL_MS = 48 * 3600 * 1000;
+const p2 = (n) => String(n).padStart(2, '0');
+const clock = (ms) => {
+  const sec = Math.floor(Math.abs(ms) / 1000);
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  return `${d ? `${d}d ` : ''}${p2(h)}h ${p2(Math.floor((sec % 3600) / 60))}m ${p2(sec % 60)}s`;
+};
+function liveSla(sla, now) {
+  if (!sla || !sla.dueAt || ['done', 'paused'].includes(sla.state)) return sla;
+  const left = new Date(sla.dueAt).getTime() - now;
+  if (left < 0) return { ...sla, state: 'breached', label: `Breached ${clock(left)}` };
+  return { ...sla, state: left < SLA_TOTAL_MS * 0.25 ? 'risk' : 'ok', label: `${clock(left)} left` };
+}
+function useNow(ms = 1000) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return now;
+}
+const slaColor = (st) => (st === 'breached' ? '#991b1b' : st === 'risk' ? '#9a3412' : undefined);
+// stored as "public/uploads/tickets/…" — relative to the backend, not the page
+const fileUrl = (u) => (!u ? '' : /^(https?:|blob:|data:)/.test(u) ? u : `${BASE_URL}${String(u).replace(/^\//, '')}`);
+const isImg = (a) => /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(String(a.url || '')) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(a.name || ''));
 const toLocal = (v) => {
   if (!v) return '';
   const d = new Date(v);
@@ -157,16 +187,37 @@ function Problems({ data, reload }) {
   );
 }
 
+function SlaLive({ sla, cell }) {
+  const now = useNow(1000);
+  const v = liveSla(sla, now);
+  const hot = ['breached', 'risk'].includes(v.state);
+  const style = { color: slaColor(v.state) || (cell ? undefined : '#0f172a'), fontWeight: hot || !cell ? 600 : 400, fontSize: 13, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
+  return <span className={['paused', 'done'].includes(v.state) ? 'ld-muted' : ''} style={style}>{v.label}</span>;
+}
+
 function Detail({ t, owners, problems, onSaved }) {
   const [f, setF] = useState({});
   const [note, setNote] = useState('');
   const [reply, setReply] = useState('');
+  const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState('');
   useEffect(() => {
     setF({ category: t.category, priority: t.priority, ownerId: t.ownerId || '', nextActionAt: toLocal(t.nextActionAt), waiting: t.waiting || '' });
     setNote('');
     setReply(t.resolutionNote || '');
+    setFiles([]);
   }, [t]);
+  const attach = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    setBusy('upload');
+    const r = await request.post({ entity: 'lms/admin/sm/tickets/upload', jsonData: fd });
+    setBusy('');
+    if (r && r.success) setFiles((x) => [...x, r.result]);
+  };
   const i = STAGES.indexOf(t.stage);
   const next = i >= STAGES.length - 1 ? null : STAGES[i + 1];
   const save = async (key, extra, ok) => {
@@ -179,6 +230,7 @@ function Detail({ t, owners, problems, onSaved }) {
       if (f.nextActionAt !== toLocal(t.nextActionAt)) body.nextActionAt = f.nextActionAt ? new Date(f.nextActionAt).toISOString() : null;
       if ((f.waiting || '') !== (t.waiting || '')) body.waiting = f.waiting || null;
       if (note.trim()) body.note = note.trim();
+      if (files.length && (body.reply || key === 'files')) body.files = files;
       const r = await lmsApi.smTicketUpdate(t.id, body);
       if (r && r.success === false) throw new Error(r.message);
       message.success(ok);
@@ -196,46 +248,137 @@ function Detail({ t, owners, problems, onSaved }) {
     return save('move', { stage: next, ...(next === 'Resolved' ? { reply: reply.trim() } : {}) }, `Moved to ${next}.`);
   };
   return (
-    <section className="ld-card" aria-label="Ticket detail">
-      <div className="ld-hd"><b style={{ fontSize: 15 }}>{t.code} · {t.subject}</b><span className={`ld-chip ${PCHIP[t.p]}`}>{t.p}</span></div>
-      <div className="ld-steps" style={{ gap: 4 }}>
-        {STAGES.map((s, k) => <div key={s} className={`ld-stp${k < i ? ' done' : ''}${k === i ? ' on' : ''}`} style={{ minWidth: 0, height: 30, fontSize: 11 }}>{s}</div>)}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <label className="ld-label">Category<select className="ld-inp" value={f.category || ''} onChange={(e) => setF({ ...f, category: e.target.value })}>{[...new Set([t.category, ...CATEGORIES])].map((c) => <option key={c}>{c}</option>)}</select></label>
-        <label className="ld-label">Priority<select className="ld-inp" value={f.priority || ''} onChange={(e) => setF({ ...f, priority: e.target.value })}>{PRIORITIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-        <label className="ld-label">Owner<select className="ld-inp" value={f.ownerId || ''} onChange={(e) => setF({ ...f, ownerId: e.target.value })}><option value="">— Unassigned</option>{owners.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.role})</option>)}</select></label>
-        <label className="ld-label">Next action due<input className="ld-inp" type="datetime-local" value={f.nextActionAt || ''} onChange={(e) => setF({ ...f, nextActionAt: e.target.value })} /></label>
-        <label className="ld-label">Waiting on<select className="ld-inp" value={f.waiting || ''} onChange={(e) => setF({ ...f, waiting: e.target.value })}><option value="">— Not waiting (SLA running)</option><option value="learner">Learner</option><option value="tech">Tech team</option></select></label>
-        <div className="ld-label">SLA<b style={{ fontSize: 13, color: t.sla.state === 'breached' ? '#991b1b' : t.sla.state === 'risk' ? '#9a3412' : '#0f172a' }}>{t.sla.label}</b></div>
-      </div>
-      <div className="ld-soft">
-        <b>Evidence:</b> {t.attachments.length ? t.attachments.map((a, k) => <a key={k} href={a.url} target="_blank" rel="noreferrer" style={{ marginRight: 6 }}>{a.name}</a>) : 'no attachment'}
-        {t.reference ? ` · ${t.reference}` : ''}{t.batch ? ` · ${t.batch}` : ''} · raised {fmtDayTime(t.created)} by {t.learner}
-        {t.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{t.description.slice(0, 400)}</div>}
-      </div>
-      {t.internalNotes.length > 0 && (
-        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {t.internalNotes.slice(-3).map((n, k) => <span key={k} className="ld-muted"><b>{n.byName}</b> · {fmtDayTime(n.at)}: {n.text}</span>)}
+    <div className="tk-modal" aria-label="Ticket detail">
+      <header className="tk-head">
+        <div className="tk-head-main">
+          <div className="tk-tags">
+            <span className="tk-code">{t.code}</span>
+            <span className={`ld-chip ${PCHIP[t.p]}`}>{t.p}</span>
+            <span className="ld-chip naya">{t.category}</span>
+            <span className="ld-chip gray">{statusLabel(t)}</span>
+          </div>
+          <h2 className="tk-title">{t.subject}</h2>
+          <div className="tk-meta">
+            <span>👤 {t.learner}</span>
+            {t.batch && <span>🎓 {t.batch}</span>}
+            <span>🕒 Raised {fmtDayTime(t.created)}</span>
+            {t.owner && <span>🧑‍💼 {t.owner}</span>}
+          </div>
         </div>
-      )}
-      <label className="ld-label">Internal note<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="Staff only, not shown to the learner" value={note} onChange={(e) => setNote(e.target.value)} /></label>
-      <label className="ld-label">Reply to learner<textarea className="ld-inp" style={{ height: 56, padding: 8, resize: 'none' }} placeholder="The learner sees this (with Resolve or separately)" value={reply} onChange={(e) => setReply(e.target.value)} /></label>
-      {t.escalatedTo && <div style={{ fontSize: 13 }}>Escalated to <b>{t.escalatedTo}</b></div>}
-      <ProblemLink t={t} problems={problems} onSaved={onSaved} />
-      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
-        <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => save('save', {}, 'Saved.')}>Save</button>
-        <button type="button" className="ld-btn2" disabled={!!busy || t.escalatedTo === 'LMS tech'} onClick={() => save('esc', { escalateTo: 'LMS tech', waiting: 'tech' }, 'Escalated to LMS tech.')}>Escalate to LMS tech</button>
-        <button type="button" className="ld-btn2" disabled={!!busy || !reply.trim()} onClick={() => save('reply', { reply: reply.trim() }, 'Reply sent to the learner.')}>Send reply</button>
-        <button type="button" className="ld-btn" disabled={!!busy} onClick={move}>{next ? `Move to ${next}` : 'Reopen'}</button>
+        <SlaBadge sla={t.sla} />
+      </header>
+
+      <div className="tk-steps">
+        {STAGES.map((s, k) => (
+          <div key={s} className={`tk-step${k < i ? ' done' : ''}${k === i ? ' on' : ''}`}>
+            <span className="tk-dot">{k < i ? '✓' : k + 1}</span>
+            <span className="tk-step-l">{s}</span>
+          </div>
+        ))}
       </div>
-    </section>
+
+      <div className="tk-grid">
+        <div className="tk-col">
+          <section className="tk-box">
+            <div className="tk-cap">Learner's issue</div>
+            {t.description ? <div className="tk-desc">{t.description}</div> : <div className="ld-muted">No description.</div>}
+            {t.attachments.some(isImg) && (
+              <div className="tk-shots">
+                <Image.PreviewGroup>
+                  {t.attachments.filter(isImg).map((a, k) => (
+                    <figure key={k} className="tk-shot">
+                      <Image src={fileUrl(a.url)} alt={a.name || 'Screenshot'} />
+                      <figcaption title={a.name}>{a.name}</figcaption>
+                    </figure>
+                  ))}
+                </Image.PreviewGroup>
+              </div>
+            )}
+            <div className="tk-files">
+              {t.attachments.filter((a) => !isImg(a)).map((a, k) => <a key={k} className="tk-file" href={fileUrl(a.url)} target="_blank" rel="noreferrer">📎 {a.name}</a>)}
+              {!t.attachments.length && <span className="ld-muted" style={{ fontSize: 12 }}>No attachment</span>}
+              {t.reference && <span className="tk-ref">{t.reference}</span>}
+            </div>
+          </section>
+
+          {t.internalNotes.length > 0 && (
+            <section className="tk-box">
+              <div className="tk-cap">Internal notes</div>
+              <div className="tk-notes">
+                {t.internalNotes.slice(-3).map((n, k) => (
+                  <div key={k} className="tk-note"><b>{n.byName}</b><span className="ld-muted"> · {fmtDayTime(n.at)}</span><div>{n.text}</div></div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="tk-box">
+            <label className="ld-label">Reply to learner<textarea className="ld-inp tk-ta" placeholder="The learner sees this (with Resolve or separately)" value={reply} onChange={(e) => setReply(e.target.value)} /></label>
+            <div className="tk-files">
+              <label className="ld-btn2 tk-attach" style={{ cursor: busy === 'upload' ? 'wait' : 'pointer' }}>
+                {busy === 'upload' ? 'Uploading…' : '📎 Attach file'}
+                <input type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" disabled={!!busy} onChange={attach} />
+              </label>
+              {files.map((x, k) => (
+                <span key={k} className="ld-chip gray">{x.name} <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== k))} style={{ border: 0, background: 'none', cursor: 'pointer' }} aria-label={`Remove ${x.name}`}>×</button></span>
+              ))}
+              {files.length > 0 && !reply.trim() && <button type="button" className="ld-btn2 tk-attach" disabled={!!busy} onClick={() => save('files', {}, 'File sent to the learner.')}>Send file</button>}
+              {(t.supportFiles || []).length > 0 && <span className="ld-muted" style={{ fontSize: 12 }}>Already shared: {t.supportFiles.map((x) => x.name).join(', ')}</span>}
+            </div>
+            <label className="ld-label">Internal note<textarea className="ld-inp tk-ta sm" placeholder="Staff only, not shown to the learner" value={note} onChange={(e) => setNote(e.target.value)} /></label>
+          </section>
+        </div>
+
+        <aside className="tk-col">
+          <section className="tk-box">
+            <div className="tk-cap">Ticket details</div>
+            <label className="ld-label">Category<select className="ld-inp" value={f.category || ''} onChange={(e) => setF({ ...f, category: e.target.value })}>{[...new Set([t.category, ...CATEGORIES])].map((c) => <option key={c}>{c}</option>)}</select></label>
+            <label className="ld-label">Priority<select className="ld-inp" value={f.priority || ''} onChange={(e) => setF({ ...f, priority: e.target.value })}>{PRIORITIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+            <label className="ld-label">Owner<select className="ld-inp" value={f.ownerId || ''} onChange={(e) => setF({ ...f, ownerId: e.target.value })}><option value="">— Unassigned</option>{owners.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.role})</option>)}</select></label>
+            <label className="ld-label">Next action due<input className="ld-inp" type="datetime-local" value={f.nextActionAt || ''} onChange={(e) => setF({ ...f, nextActionAt: e.target.value })} /></label>
+            <label className="ld-label">Waiting on<select className="ld-inp" value={f.waiting || ''} onChange={(e) => setF({ ...f, waiting: e.target.value })}><option value="">— Not waiting (SLA running)</option><option value="learner">Learner</option><option value="tech">Tech team</option></select></label>
+            {t.escalatedTo && <div className="tk-esc">⚠ Escalated to <b>{t.escalatedTo}</b></div>}
+          </section>
+          <section className="tk-box">
+            <div className="tk-cap">Problem record</div>
+            <ProblemLink t={t} problems={problems} onSaved={onSaved} />
+          </section>
+        </aside>
+      </div>
+
+      <footer className="tk-foot">
+        <div className="tk-foot-l">
+          <button type="button" className="ld-btn2" disabled={!!busy} onClick={() => save('save', {}, 'Saved.')}>Save</button>
+          <button type="button" className="ld-btn2" disabled={!!busy || t.escalatedTo === 'LMS tech'} onClick={() => save('esc', { escalateTo: 'LMS tech', waiting: 'tech' }, 'Escalated to LMS tech.')}>Escalate to LMS tech</button>
+        </div>
+        <div className="tk-foot-l">
+          <button type="button" className="ld-btn2" disabled={!!busy || !reply.trim()} onClick={() => save('reply', { reply: reply.trim() }, 'Reply sent to the learner.')}>Send reply</button>
+          <button type="button" className="ld-btn" disabled={!!busy} onClick={move}>{next ? `Move to ${next} →` : 'Reopen'}</button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// big live SLA pill for the modal header
+function SlaBadge({ sla }) {
+  const now = useNow(1000);
+  const v = liveSla(sla, now) || {};
+  const text = String(v.label || '');
+  const main = text.replace(/^Breached\s+/, '').replace(/\s+left$/, '');
+  const cap = v.state === 'breached' ? 'SLA breached' : v.state === 'paused' ? 'SLA paused' : v.state === 'done' ? 'SLA' : v.state === 'risk' ? 'SLA at risk · left' : 'SLA · time left';
+  return (
+    <div className={`tk-sla ${v.state || 'ok'}`} role="timer" aria-live="off">
+      <span className="tk-sla-cap">⏱ {cap}</span>
+      <span className="tk-sla-v">{main}</span>
+    </div>
   );
 }
 
 export default function SMTickets() {
   const [filter, setFilter] = useState('open');
   const [sel, setSel] = useState('');
+  const [open, setOpen] = useState(false);
   const { data, loading, error, reload } = useLoad(async () => res(await lmsApi.smTickets()), []);
   const prb = useLoad(async () => res(await lmsApi.smProblems().catch(() => null)) || { rows: [], suggestions: [] }, []);
   const problems = (prb.data && prb.data.rows) || [];
@@ -246,9 +389,6 @@ export default function SMTickets() {
   const rows = (data && data.rows) || [];
   const fn = (FILTERS.find((x) => x[0] === filter) || FILTERS[0])[2];
   const list = rows.filter(fn).sort((a, b) => ({ breached: 0, risk: 1, ok: 2, paused: 3, done: 4 }[a.sla.state] - { breached: 0, risk: 1, ok: 2, paused: 3, done: 4 }[b.sla.state]));
-  useEffect(() => {
-    if (list.length && !list.some((t) => t.id === sel)) setSel(list[0].id);
-  }, [filter, data]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} style={{ margin: 24 }} />;
   const cur = rows.find((t) => t.id === sel);
@@ -261,22 +401,23 @@ export default function SMTickets() {
         <button type="button" className={`ld-pill${filter === 'prb' ? ' on' : ''}`} onClick={() => setFilter('prb')}>Problems (PRB) · {problems.filter((p) => p.status !== 'Resolved').length}{prb.data && prb.data.suggestions.length ? ' · ⚠' : ''}</button>
       </div>
       {filter === 'prb' ? <Problems data={prb.data || { rows: [], suggestions: [] }} reload={reloadAll} /> : (
-      <div className="sm-g" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 460px', gap: 14, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <section className="ld-card" aria-label="Tickets">
           <div style={{ overflowX: 'auto' }}>
             <table className="ld-table">
-              <thead><tr><th>ID</th><th>Learner / batch</th><th>Category</th><th>Pri</th><th>Owner</th><th>Status</th><th>SLA</th></tr></thead>
+              <thead><tr><th>ID</th><th>Learner / batch</th><th>Category</th><th>Pri</th><th>Owner</th><th>Status</th><th>SLA</th><th aria-label="Open" /></tr></thead>
               <tbody>
-                {list.length === 0 && <tr><td colSpan={7} className="ld-muted">No ticket in this filter.</td></tr>}
+                {list.length === 0 && <tr><td colSpan={8} className="ld-muted">No ticket in this filter.</td></tr>}
                 {list.map((t) => (
-                  <tr key={t.id} className={`click${sel === t.id ? ' sm-rowsel' : ''}`} onClick={() => setSel(t.id)}>
-                    <td><b>{t.code}</b></td>
+                  <tr key={t.id} className={`click${sel === t.id ? ' sm-rowsel' : ''}`} onClick={() => { setSel(t.id); setOpen(true); }} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') { setSel(t.id); setOpen(true); } }}>
+                    <td style={{ whiteSpace: 'nowrap' }}><b>{t.code}</b></td>
                     <td>{shortName(t.learner)}{t.batch ? ` · ${t.batch}` : ''}</td>
                     <td>{t.category}</td>
                     <td><span className={`ld-chip ${PCHIP[t.p]}`}>{t.p}</span></td>
                     <td>{t.owner || '—'}</td>
-                    <td>{statusLabel(t)}</td>
-                    <td style={{ color: t.sla.state === 'breached' ? '#991b1b' : t.sla.state === 'risk' ? '#9a3412' : undefined, fontWeight: ['breached', 'risk'].includes(t.sla.state) ? 600 : 400 }} className={['paused', 'done'].includes(t.sla.state) ? 'ld-muted' : ''}>{t.sla.label}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{statusLabel(t)}</td>
+                    <td><SlaLive sla={t.sla} cell /></td>
+                    <td style={{ textAlign: 'right' }}><span className="ld-link" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>Open →</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -286,7 +427,17 @@ export default function SMTickets() {
             SLA targets (default until D-06): P0 {data.slaHours.Urgent}h · P1 {data.slaHours.High}h · P2 {data.slaHours.Medium}h · P3 {data.slaHours.Low}h · "Waiting" pauses the clock
           </div>
         </section>
-        {cur ? <Detail t={cur} owners={data.owners} problems={problems} onSaved={reloadAll} /> : <section className="ld-card"><div className="ld-empty">Pick a ticket.</div></section>}
+        <Modal
+          open={open && !!cur}
+          onCancel={() => setOpen(false)}
+          footer={null}
+          width={1040}
+          centered
+          rootClassName="tk-modal-root"
+          styles={{ body: { padding: 0 } }}
+        >
+          {cur && <Detail t={cur} owners={data.owners} problems={problems} onSaved={reloadAll} />}
+        </Modal>
       </div>
       )}
     </SMPage>

@@ -18,7 +18,8 @@ const url = (v) => {
   const s = str(v, 400);
   return !s || /^https?:\/\//i.test(s) ? s : `https://${s}`;
 };
-const canAuthor = (a) => A.isAdmin(a) || A.isTeacher(a);
+// admin, mentor or Support (Support uploads + assigns projects — LMS testing report #7 #8)
+const canAuthor = (a) => A.isAdmin(a) || A.isTeacher(a) || A.isManager(a);
 const crmBase = () => require('../../../../../services/lms').lmsConfig.meeting.crmBaseUrl.replace(/\/+$/, '');
 
 // ── shaping ──
@@ -93,7 +94,8 @@ async function loadAlloc(req, res, { manage = false, learnerOk = true } = {}) {
   const isMember = String(a.learner) === me || (a.members || []).map(String).includes(me);
   let allowed = false;
   if (A.isAdmin(req.admin)) allowed = true;
-  else if (A.isSupport(req.admin)) allowed = !manage;
+  // Support manages projects too: assign, extensions, notices (LMS testing report #7 #8 #35)
+  else if (A.isSupport(req.admin)) allowed = true;
   else if (A.isTeacher(req.admin)) {
     const batches = (await A.mentorBatches(req.admin)).map((b) => b.name);
     allowed = String(a.mentor) === me || String(a.allocatedBy) === me || batches.includes(a.batch);
@@ -220,7 +222,9 @@ async function uploadFile(req, res) {
   }
   if (size > 50 * 1024 * 1024) return bad(res, 400, 'Max 50 MB per file.');
   const name = (f && f.name) || String(req.body.file).split('/').pop();
-  return ok(res, { name, url: `${crmBase()}/${req.body.file}`, size, kind: (name.split('.').pop() || '').toLowerCase() });
+  // "Fill from document": read title / description / requirements out of it
+  const extracted = String(req.body.extract || '') === '1' ? require('../../../../../services/lms/growth/docExtract').extract(require('path').join(process.cwd(), 'src', req.body.file), name) : undefined;
+  return ok(res, { name, url: `${crmBase()}/${req.body.file}`, size, kind: (name.split('.').pop() || '').toLowerCase(), ...(extracted ? { extracted } : {}) });
 }
 
 // ── 2B allocate ──
@@ -264,6 +268,7 @@ async function candidates(req, res) {
       return {
         id: String(l._id),
         name: l.name,
+        email: l.email || '',
         track: courseOf.get(String(l.email).toLowerCase()) || '',
         skill: s.level || null,
         skillScore: s.score ?? null,
@@ -480,7 +485,8 @@ async function requestExtension(req, res) {
 async function decideExtension(req, res) {
   const ctx = await loadAlloc(req, res, { manage: true, learnerOk: false });
   if (!ctx) return;
-  if (!(A.isTeacher(req.admin) || A.isAdmin(req.admin))) return bad(res, 403, 'The mentor decides extensions (support can only nudge).');
+  // mentor, admin or Support (Extension desk, LMS testing report #35)
+  if (!(A.isTeacher(req.admin) || A.isManager(req.admin))) return bad(res, 403, 'Only the mentor, Support or an admin can decide an extension.');
   const a = ctx.a;
   if (!a.extension || a.extension.status !== 'pending') return bad(res, 409, 'No pending request.');
   const approve = req.body.decision === 'approve';
@@ -505,7 +511,7 @@ async function decideExtension(req, res) {
   await P.notice(a, {
     kind: `extension-${approve ? 'approved' : 'rejected'}`,
     title: approve ? `Extension approved: ${a.briefTitle}` : `Extension not approved: ${a.briefTitle}`,
-    body: approve ? `Your mentor approved +${days} day(s). New deadline ${P.fmt(a.deadline)} IST — your timer has resumed.` : `Your mentor did not approve the extension. The deadline stays ${P.fmt(a.deadline)} IST.`,
+    body: approve ? `Your extension of +${days} day(s) was approved. New deadline ${P.fmt(a.deadline)} IST — your timer has resumed.` : `Your extension request was not approved. The deadline stays ${P.fmt(a.deadline)} IST.`,
     toSupport: approve,
   });
   return ok(res, pub(a), approve ? 'Approved — deadline moved, learner notified' : 'Rejected — learner notified');
@@ -549,7 +555,7 @@ async function review(req, res) {
     await P.notice(a, {
       kind: 'result',
       title: `Result: ${a.briefTitle} — ${decision === 'qualified' ? 'Qualified' : 'Not Qualified'} (${score}/100)`,
-      body: `${req.admin.name} reviewed your project: ${score} / 100 (passing ${pass}).${a.review.feedback ? `\n\nFeedback: ${a.review.feedback}` : ''}${a.resubmit && a.resubmit.allowed ? `\n\nYou can resubmit until ${P.fmt(a.resubmit.deadline)} IST.` : ''}`,
+      body: `${req.admin.name} reviewed your project: ${score} / 100 (passing ${pass}).${decision !== 'qualified' ? `\n\nReason: the score ${score} is below the passing ${pass}${a.review.feedback ? ` — ${a.review.feedback}` : '.'}` : a.review.feedback ? `\n\nFeedback: ${a.review.feedback}` : ''}${a.resubmit && a.resubmit.allowed ? `\n\nYou can resubmit until ${P.fmt(a.resubmit.deadline)} IST.` : ''}`,
     });
     await pushScore(a);
   }

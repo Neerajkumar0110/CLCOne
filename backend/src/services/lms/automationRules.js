@@ -93,7 +93,7 @@ async function assessmentCoordination(ctx) {
       if (toldThisRun || (await notifiedSince(l.admin._id, type, new Date(Date.now() - 7 * DAY)))) continue;
       toldThisRun = true; // one reminder per learner per day, the earliest open test first
       // eslint-disable-next-line no-await-in-loop
-      await tellLearner(ctx, l.admin, { type, title: `Your ${t === 'BASIC' ? 'Readiness' : t.replace('_', ' ')} test is open`, body: 'This test is open for you and not attempted yet. Take it from your Assessments page.', link: '/learn/assessment-dashboard' });
+      await tellLearner(ctx, l.admin, { type, title: `Your ${t === 'BASIC' ? 'Readiness' : t.replace('_', ' ')} test is open`, body: 'This test is open for you and not attempted yet. Take it from your Assessments page.', link: '/learn/assessment-dashboard', email: true }); // + email (LMS testing report #23)
       reminded += 1;
     }
   }
@@ -165,11 +165,12 @@ async function onboarding(ctx) {
     const p = byId.get(String(l.admin._id));
     const complete = p && p.calendarAt && p.setupAt && p.deviceAt;
     if (Date.now() - since > NEW_LEARNER_DAYS * DAY) continue; // onboarding is for new learners only
-    if (Date.now() - since < 2 * DAY) {
+    // first week (was 2 days — a missed run meant no welcome at all); once ever
+    if (Date.now() - since < 7 * DAY) {
       // eslint-disable-next-line no-await-in-loop
       if (!(await notifiedSince(l.admin._id, 'onboarding.welcome', new Date(0)))) {
         // eslint-disable-next-line no-await-in-loop
-        await tellLearner(ctx, l.admin, { type: 'onboarding.welcome', title: `Welcome to ${l.batch}!`, body: 'Start with your onboarding checklist: calendar, software setup and a device check.', link: '/learn/onboarding' });
+        await tellLearner(ctx, l.admin, { type: 'onboarding.welcome', title: `Welcome to ${l.batch}!`, body: 'Start with your onboarding checklist: calendar, software setup and a device check.', link: '/learn/onboarding', email: true });
         welcomed += 1;
       }
     }
@@ -178,7 +179,7 @@ async function onboarding(ctx) {
       if (await notifiedSince(l.admin._id, 'onboarding.reminder', new Date(Date.now() - 3 * DAY))) continue;
       const left = [!(p && p.calendarAt) && 'calendar', !(p && p.setupAt) && 'software setup', !(p && p.deviceAt) && 'device check'].filter(Boolean).join(', ');
       // eslint-disable-next-line no-await-in-loop
-      await tellLearner(ctx, l.admin, { type: 'onboarding.reminder', title: 'Finish your onboarding', body: `Still to do: ${left}.`, link: '/learn/onboarding' });
+      await tellLearner(ctx, l.admin, { type: 'onboarding.reminder', title: 'Finish your onboarding', body: `Still to do: ${left}.`, link: '/learn/onboarding', email: true });
       reminded += 1;
     }
   }
@@ -338,6 +339,7 @@ async function sessionChange(ctx) {
   const rows = await S.find({ removed: false, status: { $in: ['scheduled', 'upcoming'] }, scheduledStart: { $gte: new Date() }, batchName: { $nin: [null, ''] } }).select('title batchName courseTitle scheduledStart announcedStart').lean();
   let baseline = 0;
   let told = 0;
+  const changed = {};
   for (const s of rows) {
     if (!s.announcedStart) {
       baseline += 1;
@@ -346,24 +348,38 @@ async function sessionChange(ctx) {
       continue;
     }
     if (Math.abs(new Date(s.announcedStart) - new Date(s.scheduledStart)) < 60000) continue;
-    told += 1;
+    (changed[s.batchName] = changed[s.batchName] || []).push(s);
+  }
+  // ONE message per batch per run. A whole-schedule rebuild moved ~94 classes
+  // of a batch on 17 Nov and every learner got ~94 emails (2,500 in two hours,
+  // Gmail's daily limit hit) — now they get one with the list.
+  for (const [batchName, list] of Object.entries(changed)) {
+    told += list.length;
     if (ctx.dry) continue;
+    list.sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart));
     // eslint-disable-next-line no-await-in-loop
-    const roster = await M('Student').find({ removed: false, batch: s.batchName, status: 'Active' }).select('email').lean();
+    const roster = await M('Student').find({ removed: false, batch: batchName, status: 'Active' }).select('email').lean();
     // eslint-disable-next-line no-await-in-loop
     const admins = await M('Admin').find({ removed: false, email: { $in: roster.map((r) => rxEq(r.email)) }, rosterHold: { $ne: true } }).select('_id email').lean();
-    const title = `Class time changed: ${s.title}`;
-    const body = `${s.courseTitle || s.batchName} · was ${fmt(s.announcedStart)}, now ${fmt(s.scheduledStart)}.`;
+    const s = list[0];
+    const single = list.length === 1;
+    const title = single ? `Class time changed: ${s.title}` : `${list.length} class times changed · ${batchName}`;
+    const lines = list.slice(0, 8).map((x) => `${x.title}: ${fmt(x.announcedStart)} → ${fmt(x.scheduledStart)}`);
+    const body = single ? `${s.courseTitle || batchName} · was ${fmt(s.announcedStart)}, now ${fmt(s.scheduledStart)}.` : `Next: ${s.title} now ${fmt(s.scheduledStart)}. Open Live Classes for the full schedule.`;
     // eslint-disable-next-line no-await-in-loop
     await require('./realtime').notify(admins.map((a) => a._id), { type: 'live.rescheduled', title, body, link: '/learn/classes', actorName: 'Automation' });
+    const vars = single
+      ? { classTitle: s.title, course: s.courseTitle || batchName, fromTime: fmt(s.announcedStart), toTime: fmt(s.scheduledStart) }
+      : { classTitle: `${list.length} classes`, course: s.courseTitle || batchName, fromTime: '', toTime: '' };
+    const mail = single
+      ? require('../mail/inlineEmails').classRescheduled(vars)
+      : { subject: title, html: `<p>The schedule of <b>${batchName}</b> changed. ${list.length} class${list.length === 1 ? '' : 'es'} moved:</p><ul>${lines.map((l) => `<li>${l}</li>`).join('')}</ul>${list.length > 8 ? `<p>… and ${list.length - 8} more. </p>` : ''}<p>Open <b>Live Classes</b> in the LMS for the full, current schedule.</p>` };
     // eslint-disable-next-line no-await-in-loop
-    const vars = { classTitle: s.title, course: s.courseTitle || s.batchName, fromTime: fmt(s.announcedStart), toTime: fmt(s.scheduledStart) };
+    await require('./mailer').sendMail(admins.map((a) => a.email), { ...mail, templateKey: 'lms-class-rescheduled', vars }).catch(() => {});
     // eslint-disable-next-line no-await-in-loop
-    await require('./mailer').sendMail(admins.map((a) => a.email), { ...require('../mail/inlineEmails').classRescheduled(vars), templateKey: 'lms-class-rescheduled', vars }).catch(() => {});
-    // eslint-disable-next-line no-await-in-loop
-    await S.updateOne({ _id: s._id }, { $set: { announcedStart: s.scheduledStart } });
+    await S.updateMany({ _id: { $in: list.map((x) => x._id) } }, [{ $set: { announcedStart: '$scheduledStart' } }]);
   }
-  return `${told} batch(es) told about a new class time${baseline ? ` · ${baseline} class(es) recorded as baseline` : ''}`;
+  return `${told} class time change(s) in ${Object.keys(changed).length} batch(es) — one message per batch${baseline ? ` · ${baseline} class(es) recorded as baseline` : ''}`;
 }
 
 // ── 8. project-due ─────────────────────────────────────────────────────────
@@ -388,7 +404,16 @@ async function projectDue(ctx) {
     if (ctx.dry) continue;
     const to = [p.student, ...(isLate && p.mentor ? [p.mentor] : [])];
     // eslint-disable-next-line no-await-in-loop
-    await require('./realtime').notify(to, { type, title: isLate ? `Project overdue: ${p.title}` : `Project due ${fmt(p.dueDate)}: ${p.title}`, body: isLate ? `${p.studentName || 'Learner'} · was due ${fmt(p.dueDate)}. Submit it, or ask for an extension.` : 'Submit it from your Projects page before the due time.', link: '/learn/projects', actorName: 'Automation' });
+    const title = isLate ? `Project overdue: ${p.title}` : `Project due ${fmt(p.dueDate)}: ${p.title}`;
+    const body = isLate ? `${p.studentName || 'Learner'} · was due ${fmt(p.dueDate)}. Submit it, or ask for an extension.` : `Due ${fmt(p.dueDate)}. Submit it from your Projects page before the due time.`;
+    // eslint-disable-next-line no-await-in-loop
+    await require('./realtime').notify(to, { type, title, body, link: '/learn/projects', actorName: 'Automation' });
+    // + email to the learner (and the mentor when overdue) — report #24
+    // eslint-disable-next-line no-await-in-loop
+    const people = await M('Admin').find({ _id: { $in: to } }).select('email').lean();
+    const base = (require('../../config/lms').lmsConfig.meeting.crmBaseUrl || '').replace(/\/$/, '');
+    // eslint-disable-next-line no-await-in-loop
+    await require('./mailer').sendMail(people.map((x) => x.email), { ...require('../mail/inlineEmails').automationLearner({ title, message: body, link: `${base}/learn/projects` }), templateKey: 'lms-project-due' }).catch(() => {});
   }
   let report = '';
   if (istDow() === 1) {
@@ -452,22 +477,34 @@ async function qualifiedReport(ctx) {
 // ── 11. mgmt-report ────────────────────────────────────────────────────────
 // Monday 09:00 (last week) and the 1st 09:00 (last month): KPI summary to
 // Management only — counts and percentages, no learner-level detail.
+// Same sources as the Management KPI board (LMS testing report #27): classes =
+// finished sessions only; attendance = live-class join data per seat (the
+// old AttendanceRecord count also held ghost / duplicate sessions).
+const ENDED_STATES = ['ended', 'recording_processing', 'recording_available'];
 async function kpis(from, to) {
-  const [classes, att, opened, resolved, breached, feedback, newLearners] = await Promise.all([
-    M('LmsLiveSession').countDocuments({ removed: false, actualStart: { $gte: from, $lt: to } }),
-    M('AttendanceRecord').aggregate([{ $match: { removed: { $ne: true }, date: { $gte: from, $lt: to } } }, { $group: { _id: null, n: { $sum: 1 }, p: { $sum: { $cond: [{ $in: ['$status', ['Present', 'Late']] }, 1, 0] } } } }]),
+  const [classes, att, opened, resolved, breached, feedback, newLearners, resolvedRows] = await Promise.all([
+    M('LmsLiveSession').countDocuments({ removed: false, status: { $in: ENDED_STATES }, scheduledStart: { $gte: from, $lt: to } }),
+    M('LmsLiveSession').aggregate([
+      { $match: { removed: false, status: { $in: ENDED_STATES }, scheduledStart: { $gte: from, $lt: to } } },
+      { $unwind: '$participants' },
+      { $match: { 'participants.role': 'student', 'participants.attendanceStatus': { $ne: 'EXCUSED' } } },
+      { $group: { _id: null, n: { $sum: 1 }, p: { $sum: { $cond: [{ $in: ['$participants.attendanceStatus', ['PRESENT', 'LATE']] }, 1, 0] } } } },
+    ]),
     M('Ticket').countDocuments({ removed: false, created: { $gte: from, $lt: to } }),
     M('Ticket').countDocuments({ removed: false, resolvedAt: { $gte: from, $lt: to } }),
     M('Ticket').countDocuments({ removed: false, created: { $gte: from, $lt: to }, escalatedTo: { $nin: [null, ''] } }),
     M('WeeklyFeedback').countDocuments({ created: { $gte: from, $lt: to } }),
     M('Student').countDocuments({ removed: false, created: { $gte: from, $lt: to } }),
+    M('Ticket').find({ removed: false, resolvedAt: { $gte: from, $lt: to } }).select('created resolvedAt').lean(),
   ]);
   const a = att[0] || { n: 0, p: 0 };
+  const inSla = resolvedRows.filter((t) => new Date(t.resolvedAt) - new Date(t.created) <= 48 * 3600 * 1000).length;
   return [
     ['Classes held', classes],
-    ['Attendance (present + late)', a.n ? `${Math.round((a.p / a.n) * 100)}% of ${a.n} records` : 'no records'],
+    ['Attendance (present + late)', a.n ? `${Math.round((a.p / a.n) * 100)}% of ${a.n} learner seats` : 'no finished classes'],
     ['Tickets opened', opened],
     ['Tickets resolved', resolved],
+    ['Resolved within 48 h', resolvedRows.length ? `${Math.round((inSla / resolvedRows.length) * 100)}% (${inSla} / ${resolvedRows.length})` : '—'],
     ['Tickets escalated (SLA / manual)', breached],
     ['Feedback responses', feedback],
     ['New learners', newLearners],
@@ -521,6 +558,8 @@ const RUNNERS = {
   'referral-handoff': { run: referralHandoff, when: daily(12), daily: true, schedule: 'Daily 12:00' },
   'qualified-report': { run: qualifiedReport, when: (now, st) => istDow(now) === 1 && daily(10)(now, st), daily: true, schedule: 'Monday 10:00' },
   'mgmt-report': { run: mgmtReport, when: daily(9), daily: true, schedule: 'Monday 09:00 weekly · 1st 09:00 monthly' },
+  // 10+ days continuously absent → Level-3 email, automatically (LMS testing report #32)
+  'absence-10d': { run: (ctx) => require('../../controllers/appControllers/lms/lmsController/smBoards').autoAbsenceEmails({ dry: ctx.dry }), when: daily(10, 30), daily: true, schedule: 'Daily 10:30' },
 };
 
 module.exports = { RUNNERS, _h: { activeLearners, kpis, words, overlap, dayKey, istHour, istDow } };

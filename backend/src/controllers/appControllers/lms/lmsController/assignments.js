@@ -52,6 +52,40 @@ async function assertOwnsAssignmentCourse(admin, assignment) {
 // permission check matches what the teacher actually sees everywhere else,
 // and the course is derived from the batch instead of asking them to know
 // which Course document backs it.
+// email + LMS notification (sidebar dot on "Assignments") for a new assignment
+async function notifyAssigned(doc, batchDoc, by) {
+  let people;
+  if (doc.assignedTo && doc.assignedTo.length) {
+    people = await mongoose.model('Admin').find({ _id: { $in: doc.assignedTo } }).select('name email').lean();
+  } else if (batchDoc) {
+    people = await require('../../../../services/lms/growth/access').learnersOf([batchDoc.name]);
+  } else return;
+  if (!people.length) return;
+  const due = doc.dueDate ? new Date(doc.dueDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  await require('../../../../services/lms/realtime').notify(
+    people.map((p) => p._id),
+    { type: 'lms.assignment', title: `New assignment: ${doc.title}`, body: due ? `Due ${due}` : 'Open it in Assignments', link: '/learn/assignments', actorName: by && by.name }
+  );
+  const base = (require('../../../../config/lms').lmsConfig.meeting.crmBaseUrl || '').replace(/\/$/, '');
+  const mail = require('../../../../services/lms/mailer');
+  const tpl = require('../../../../services/mail/inlineEmails').assignmentAssigned;
+  for (const p of people) {
+    // eslint-disable-next-line no-await-in-loop
+    await mail.sendMail([p.email], { ...tpl({ name: p.name, title: doc.title, due, link: `${base}/learn/assignments`, teacher: by && by.name }), templateKey: 'lms-assignment-new' });
+  }
+}
+
+// GET /lms/assignments/batch-learners?batch=<batch id> — pick learners for an individual assignment
+async function batchLearners(req, res) {
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Not allowed.');
+  if (!mongoose.isValidObjectId(req.query.batch)) return ok(res, []);
+  const batchDoc = await mongoose.model('Batch').findOne({ _id: req.query.batch, removed: false }).select('name trainer').lean();
+  if (!batchDoc) return ok(res, []);
+  if (!isManager(req.admin) && !trainerIncludes(batchDoc.trainer, req.admin.name)) return bad(res, 403, 'Not your batch.');
+  const rows = await require('../../../../services/lms/growth/access').learnersOf([batchDoc.name]);
+  return ok(res, rows.map((l) => ({ id: String(l._id), name: l.name || '', email: l.email || '' })).sort((a, b) => a.name.localeCompare(b.name)));
+}
+
 async function create(req, res) {
   if (!isManager(req.admin) && !isTeacher(req.admin)) return bad(res, 403, 'Project Managers only.');
   const Batch = mongoose.model('Batch');
@@ -77,6 +111,19 @@ async function create(req, res) {
     return bad(res, 400, 'A valid batch is required.');
   }
 
+  // only some learners of the batch (report #9) — every id must be in that batch
+  let assignedTo;
+  let assignedToNames;
+  if (Array.isArray(b.learnerIds) && b.learnerIds.length) {
+    if (!batchDoc) return bad(res, 400, 'Pick the batch first.');
+    const inBatch = await require('../../../../services/lms/growth/access').learnersOf([batchDoc.name]);
+    const byId = new Map(inBatch.map((l) => [String(l._id), l]));
+    const picked = b.learnerIds.map(String).filter((id) => byId.has(id));
+    if (!picked.length) return bad(res, 400, 'Those learners are not in this batch.');
+    assignedTo = picked;
+    assignedToNames = picked.map((id) => byId.get(id).name || byId.get(id).email);
+  }
+
   const Assignment = mongoose.model('Assignment');
   const doc = await Assignment.create({
     course: course._id,
@@ -96,8 +143,11 @@ async function create(req, res) {
     submissionType: ['pdf', 'doc', 'image', 'text', 'file', 'link'].includes(b.submissionType) ? b.submissionType : 'file',
     allowResubmission: b.allowResubmission !== false,
     published: b.published !== false,
+    assignedTo,
+    assignedToNames,
   });
-  return ok(res, { id: String(doc._id), code: doc.code }, 'Assignment created.');
+  if (doc.published) notifyAssigned(doc, batchDoc, req.admin).catch((e) => console.error('[lms] assignment notice failed:', e.message));
+  return ok(res, { id: String(doc._id), code: doc.code }, assignedTo ? `Assignment created for ${assignedTo.length} learner${assignedTo.length === 1 ? '' : 's'} — notified by email and in the LMS.` : 'Assignment created — the batch is notified by email and in the LMS.');
 }
 
 async function list(req, res) {
@@ -132,6 +182,7 @@ async function list(req, res) {
       maxMarks: r.maxMarks,
       passingMarks: r.passingMarks,
       published: r.published,
+      assignedToNames: r.assignedToNames || [],
       submissions: byA[String(r._id)] || { submitted: 0, evaluated: 0, resubmit_requested: 0 },
     }))
   );
@@ -273,12 +324,15 @@ async function myList(req, res) {
   subs.forEach((s) => { subByA[String(s.assignment)] = s; });
   return ok(
     res,
-    rows.map((r) => {
+    rows
+      .filter((r) => !(r.assignedTo && r.assignedTo.length) || !courseIds || r.assignedTo.map(String).includes(String(req.admin._id)))
+      .map((r) => {
       const s = subByA[String(r._id)];
       return {
         id: String(r._id),
         code: r.code || '',
         title: r.title,
+        individual: !!(r.assignedTo && r.assignedTo.length),
         course: cName[String(r.course)] || '',
         description: r.description,
         instructions: r.instructions,
@@ -339,4 +393,5 @@ async function submit(req, res) {
   return ok(res, { id: String(s._id), status: s.status }, 'Submitted.');
 }
 
-module.exports = { create, list, getOne, update, remove, submissions, evaluate, myList, submit };
+module.exports = {
+  batchLearners, create, list, getOne, update, remove, submissions, evaluate, myList, submit };

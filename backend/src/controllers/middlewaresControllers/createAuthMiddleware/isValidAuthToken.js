@@ -63,6 +63,8 @@ const isValidAuthToken = async (req, res, next, { userModel, jwtSecret = 'JWT_SE
     else {
       const reqUserName = userModel.toLowerCase();
       req[reqUserName] = user;
+      // remember the real client IP (nginx forwards it on /api) for the login log (report #29)
+      try { require('../../../services/security/loginDevice').rememberIp(user._id, req.headers, req.ip); } catch (e) { /* never block */ }
       next();
     }
   } catch (error) {

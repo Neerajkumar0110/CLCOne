@@ -1,10 +1,97 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, Checkbox, DatePicker, message } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Form, Input, Select, Checkbox, DatePicker, Button, message } from 'antd';
+import { UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
 import {
   FileProtectOutlined, TagOutlined, AppstoreOutlined, FileTextOutlined, LinkOutlined, CalendarOutlined, TeamOutlined, CheckSquareOutlined,
 } from '@ant-design/icons';
 import { request } from '@/request';
 import lmsApi from '../api';
+import './policyDesign.css';
+import { useSelector } from 'react-redux';
+import { selectCurrentAdmin } from '@/redux/auth/selectors';
+
+// Delete a policy for everyone (all versions + every learner's pending /
+// accepted record) after one confirm — used by both Policies tabs.
+export function confirmDeletePolicy(policy, onDone) {
+  if (!policy) return;
+  Modal.confirm({
+    title: `Delete “${policy.title}”?`,
+    content: 'It is removed for everyone: all versions, and every learner’s pending or accepted record. Learners will no longer see it and it will not lock anyone’s LMS.',
+    okText: 'Delete for everyone',
+    okButtonProps: { danger: true },
+    cancelText: 'Cancel',
+    centered: true,
+    onOk: async () => {
+      try {
+        const r = await lmsApi.deletePolicy(policy.id);
+        if (r && r.success === false) throw new Error(r.message);
+        message.success((r && r.message) || 'Policy deleted.');
+        if (onDone) onDone();
+      } catch (e) {
+        message.error((e && e.message) || 'Could not delete the policy.');
+      }
+    },
+  });
+}
+
+// Upload the policy document — PDF / DOC / DOCX only (LMS testing report #5).
+// Writes the served URL into the hidden fileUrl field.
+const POLICY_EXTS = ['.pdf', '.doc', '.docx'];
+function PolicyFileField({ form }) {
+  const url = Form.useWatch('fileUrl', form);
+  const [busy, setBusy] = useState(false);
+  const inp = useRef(null);
+  const pick = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const ext = `.${String(file.name).split('.').pop().toLowerCase()}`;
+    if (!POLICY_EXTS.includes(ext)) return message.error('Only PDF or Word (.doc / .docx) files can be attached to a policy.');
+    if (file.size > 20 * 1024 * 1024) return message.error('The file is larger than 20 MB.');
+    const fd = new FormData();
+    fd.append('file', file);
+    setBusy(true);
+    const r = await request.post({ entity: 'lms/policies/upload', jsonData: fd });
+    setBusy(false);
+    if (!(r && r.success)) return;
+    form.setFieldsValue({ fileUrl: r.result.url });
+    // learners read text only: the PDF's text goes into "Policy text" (2026-11-27)
+    const text = r.result.text || '';
+    if (!text) {
+      if (ext === '.pdf') message.warning('Could not read text from this PDF (a scanned image?) — please type or paste the policy text.', 6);
+      return;
+    }
+    const cur = String(form.getFieldValue('content') || '').trim();
+    if (!cur) {
+      form.setFieldsValue({ content: text });
+      message.success('Text taken from the PDF — check it in “Policy text”. Learners read this text.');
+    } else {
+      Modal.confirm({
+        title: 'Replace the policy text with the PDF text?',
+        content: 'Learners read the policy text, not the PDF. Replace what is typed now with the text read from the PDF?',
+        okText: 'Replace',
+        cancelText: 'Keep mine',
+        centered: true,
+        onOk: () => form.setFieldsValue({ content: text }),
+      });
+    }
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <Button icon={<UploadOutlined />} loading={busy} onClick={() => inp.current && inp.current.click()}>
+        {busy ? 'Uploading…' : url ? 'Replace file' : 'Upload PDF / Word'}
+      </Button>
+      <input ref={inp} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={busy} onChange={pick} style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
+      {url ? (
+        <>
+          <PaperClipOutlined style={{ color: '#64748b' }} />
+          <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 13, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{decodeURIComponent(String(url).split('/').pop())}</a>
+          <button type="button" onClick={() => form.setFieldsValue({ fileUrl: '' })} style={{ border: 0, background: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 // "New policy" form — used by Admin & Ops → Policy centre, the one place
 // policies are created; the draft then goes through that screen's
@@ -31,6 +118,9 @@ const Lbl = ({ icon, children }) => (
 
 export default function NewPolicyModal({ open, onClose, onCreated }) {
   const [form] = Form.useForm();
+  // owner / Super Admin / Admin: published at once, no approval (2026-11-27)
+  const me = useSelector(selectCurrentAdmin) || {};
+  const direct = ['owner', 'Super Admin', 'Admin'].includes(me.role);
   const [courses, setCourses] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +144,7 @@ export default function NewPolicyModal({ open, onClose, onCreated }) {
       }
       message.success(res.message || 'Draft created.');
       form.resetFields();
-      onCreated(res.result && res.result.id);
+      onCreated(res.result && res.result.id, direct);
     } catch (e) {
       message.error('Could not create draft.');
     } finally {
@@ -70,19 +160,24 @@ export default function NewPolicyModal({ open, onClose, onCreated }) {
         <span className="crud-modal-title">
           <span className="crud-modal-title-icon"><FileProtectOutlined /></span>
           <span>
-            <span className="crud-modal-title-kicker">New record</span>
+            <span className="crud-modal-title-kicker">{direct ? 'Admin policy · goes live at once' : 'New record · needs Admin approval'}</span>
             <span className="crud-modal-title-main">New Policy</span>
           </span>
         </span>
       }
       onCancel={onClose}
       onOk={create}
-      okText="Save as draft"
+      okText={direct ? 'Publish to learners' : 'Save as draft'}
       confirmLoading={saving}
       destroyOnClose
       maskClosable={false}
       width={780}
     >
+      <div className={`pol-alert ${direct ? 'ok' : 'info'}`} style={{ marginBottom: 16 }}>
+        <span>{direct
+          ? <><b>You are an Admin — no approval needed.</b> When you press “Publish to learners” this policy goes live for everyone it applies to at once (they are notified), and Support sees it as an Admin policy.</>
+          : <><b>Saved as a draft.</b> Then open it in “Publish &amp; track”, choose an Admin and send it for approval — after the Admin approves, you publish it.</>}</span>
+      </div>
       <Form form={form} layout="vertical" className="crud-form" preserve={false} initialValues={{ category: 'Other', audience: 'all', mandatory: true }} scrollToFirstError={{ behavior: 'smooth', block: 'center' }}>
         <div className="crud-form-grid">
           <Form.Item name="title" label={<Lbl icon={<TagOutlined />}>Title</Lbl>} rules={[{ required: true, message: 'Title is required' }]}>
@@ -94,8 +189,11 @@ export default function NewPolicyModal({ open, onClose, onCreated }) {
           <Form.Item name="content" label={<Lbl icon={<FileTextOutlined />}>Policy text</Lbl>} className="crud-form-full" rules={[{ required: true, message: 'Policy text is required' }]}>
             <Input.TextArea rows={6} placeholder="Full policy text learners will read before acknowledging" />
           </Form.Item>
-          <Form.Item name="fileUrl" label={<Lbl icon={<LinkOutlined />}>Attached document URL</Lbl>} extra="Optional">
-            <Input placeholder="https://..." />
+          <Form.Item label={<Lbl icon={<LinkOutlined />}>Policy document</Lbl>} extra="Optional · PDF or Word (.doc / .docx) only, up to 20 MB">
+            <PolicyFileField form={form} />
+          </Form.Item>
+          <Form.Item name="fileUrl" hidden>
+            <Input />
           </Form.Item>
           <Form.Item name="effectiveDate" label={<Lbl icon={<CalendarOutlined />}>Effective date</Lbl>}>
             <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />

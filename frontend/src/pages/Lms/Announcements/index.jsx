@@ -5,8 +5,9 @@ import {
 import {
   SoundOutlined, PlusOutlined, DeleteOutlined, TagOutlined, FileTextOutlined,
   TeamOutlined, ReadOutlined, BellOutlined, FlagOutlined, ExclamationCircleOutlined,
-  SearchOutlined, UserOutlined, ClockCircleOutlined, CalendarOutlined, RightOutlined, LeftOutlined,
+  SearchOutlined, UserOutlined, ClockCircleOutlined, CalendarOutlined, RightOutlined, LeftOutlined, MailOutlined,
 } from '@ant-design/icons';
+import { AnnouncementModal, plainText, scopeOf } from './AnnouncementView';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -35,6 +36,9 @@ function TeacherAnnouncements() {
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState(null);
+  const [q, setQ] = useState('');
+  const [pri, setPri] = useState('all');
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -52,44 +56,127 @@ function TeacherAnnouncements() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // one click = one send: the button stays busy until the server answers
+  // (a second click emailed everyone twice — LMS testing report #3)
+  const [sending, setSending] = useState(false);
   const send = async () => {
+    if (sending) return;
     let v; try { v = await form.validateFields(); } catch (e) { return; }
+    setSending(true);
     try {
       const res = await lmsApi.createAnnouncement({ ...v, channels: v.channels || ['in_app'] });
-      message.success(`Sent to ${res?.result?.recipients ?? 0} candidates (${res?.result?.emailed ?? 0} emailed)`);
+      if (!res || res.success === false) return; // the error toast already says why
+      const r = res.result || {};
+      message.success(`Sent to ${r.recipients ?? 0} candidate${r.recipients === 1 ? '' : 's'}${r.emailing ? ` — ${r.emailing} email${r.emailing === 1 ? '' : 's'} going out now` : ''}`);
       setOpen(false); form.resetFields(); load();
-    } catch (e) { message.error('Send failed.'); }
+    } catch (e) { message.error('Send failed.'); } finally { setSending(false); }
+  };
+  const [found, setFound] = useState([]);
+  const findLearners = async (q) => {
+    if (String(q || '').trim().length < 2) return;
+    const r = await lmsApi.announcementLearners(q);
+    const fresh = (r && r.result) || [];
+    setFound((prev) => {
+      const m = new Map(prev.map((x) => [x.id, x]));
+      fresh.forEach((x) => m.set(x.id, x));
+      return [...m.values()];
+    });
   };
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
+  const needle = q.trim().toLowerCase();
+  const shown = rows.filter((r) => (pri === 'all' || (r.priority === 'important' ? 'important' : 'general') === pri)
+    && (!needle || `${r.title} ${r.body} ${scopeOf(r)}`.toLowerCase().includes(needle)));
+  const importantN = rows.filter((r) => r.priority === 'important').length;
+  const reached = rows.reduce((n, r) => n + (r.recipientsCount || 0), 0);
+  const emailed = rows.reduce((n, r) => n + (r.emailedCount || 0), 0);
+  const remove = (r) => Modal.confirm({
+    title: `Delete “${r.title}”?`,
+    content: 'Learners will no longer see this announcement. Emails already sent cannot be taken back.',
+    okText: 'Delete',
+    okButtonProps: { danger: true },
+    centered: true,
+    onOk: async () => {
+      await lmsApi.deleteAnnouncement(r.id);
+      setView(null);
+      message.success('Announcement deleted.');
+      load();
+    },
+  });
+  const openNew = () => { setOpen(true); setTimeout(() => form.setFieldsValue({ audience: 'course', priority: 'general', channels: ['in_app'] }), 0); };
+
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div><h2><SoundOutlined /> Announcements</h2><p>Broadcast to an internship, a batch, or everyone.</p></div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setOpen(true); setTimeout(() => form.setFieldsValue({ audience: 'course', priority: 'general', channels: ['in_app'] }), 0); }}>
-          New announcement
-        </Button>
+    <div className="pol" style={{ padding: 4 }}>
+      <div className="pol-hero">
+        <div className="pol-hero-l">
+          <span className="pol-hero-ic"><SoundOutlined /></span>
+          <div>
+            <h2>Announcements</h2>
+            <p>Broadcast to an internship, one or more batches, chosen learners or everyone — in-app and by email. Click an announcement to read it.</p>
+          </div>
+        </div>
+        <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openNew}>New announcement</Button>
       </div>
+
+      <div className="pol-stats">
+        <div className="pol-stat"><span className="pol-stat-ic violet"><SoundOutlined /></span><div><b>{rows.length}</b><span>Sent</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic amber"><ExclamationCircleOutlined /></span><div><b>{importantN}</b><span>Important</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic teal"><BellOutlined /></span><div><b>{reached}</b><span>Recipients reached</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic blue"><MailOutlined /></span><div><b>{emailed}</b><span>Emails sent</span></div></div>
+      </div>
+
       {rows.length === 0 ? (
-        <Card><Empty description="Nothing sent yet." /></Card>
+        <div className="pol-empty">
+          <span className="pol-empty-ic"><SoundOutlined /></span>
+          <b>Nothing sent yet</b>
+          <span>Send the first announcement to an internship, a batch or everyone.</span>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openNew}>New announcement</Button>
+        </div>
       ) : (
-        <Table
-          rowKey="id"
-          dataSource={rows}
-          pagination={false}
-          columns={[
-            { title: 'Title', dataIndex: 'title' },
-            { title: 'Priority', render: (_, r) => <Tag color={r.priority === 'important' ? 'red' : 'purple'}>{r.priority === 'important' ? 'Important' : 'General'}</Tag> },
-            { title: 'Scope', render: (_, r) => <Tag>{r.audience === 'all' ? 'All' : r.audience === 'batch' ? r.batch : r.courseTitle}</Tag> },
-            { title: 'Recipients', dataIndex: 'recipientsCount', width: 100 },
-            { title: 'Emailed', dataIndex: 'emailedCount', width: 90 },
-            { title: 'Sent', dataIndex: 'sentAt', render: (v) => dayjs(v).format('D MMM, HH:mm') },
-            { title: '', width: 50, render: (_, r) => <Button size="small" danger icon={<DeleteOutlined />} onClick={async () => { await lmsApi.deleteAnnouncement(r.id); load(); }} /> },
-          ]}
-          expandable={{ expandedRowRender: (r) => <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{r.body}</Paragraph> }}
-        />
+        <>
+          <div className="pol-tools">
+            <Input allowClear prefix={<SearchOutlined />} placeholder="Search announcements" value={q} onChange={(e) => setQ(e.target.value)} />
+            <div className="pol-pills">
+              <button type="button" className={`pol-pill${pri === 'all' ? ' on' : ''}`} onClick={() => setPri('all')}>All · {rows.length}</button>
+              <button type="button" className={`pol-pill${pri === 'important' ? ' on' : ''}`} onClick={() => setPri('important')}>Important · {importantN}</button>
+              <button type="button" className={`pol-pill${pri === 'general' ? ' on' : ''}`} onClick={() => setPri('general')}>General · {rows.length - importantN}</button>
+            </div>
+          </div>
+          {shown.length === 0 ? (
+            <div className="pol-empty"><span className="pol-empty-ic"><SearchOutlined /></span><b>No match</b><span>Try another word or filter.</span></div>
+          ) : (
+            <div className="pol-list" role="list">
+              {shown.map((r) => {
+                const important = r.priority === 'important';
+                return (
+                  <div key={r.id} role="listitem" className="pol-row anm-row" tabIndex={0} onClick={() => setView(r)} onKeyDown={(e) => { if (e.key === 'Enter') setView(r); }}>
+                    <span className="pol-row-t">
+                      <span className={`pol-card-ic${important ? ' anm-imp' : ''}`}>{important ? <ExclamationCircleOutlined /> : <SoundOutlined />}</span>
+                      <span style={{ minWidth: 0 }}>
+                        <b>{r.title}</b>
+                        <small className="anm-ex">{plainText(r.body)}</small>
+                      </span>
+                    </span>
+                    <span className="pol-row-v">
+                      <span className={`pol-chip ${important ? 'red' : 'violet'}`}>{important ? 'Important' : 'General'}</span>
+                      <span className="pol-chip blue" title={scopeOf(r)}><TeamOutlined /> {scopeOf(r).length > 28 ? `${scopeOf(r).slice(0, 28)}…` : scopeOf(r)}</span>
+                      <span className="pol-chip"><BellOutlined /> {r.recipientsCount || 0}</span>
+                      {r.emailedCount ? <span className="pol-chip"><MailOutlined /> {r.emailedCount}</span> : null}
+                      <span className="anm-date">{dayjs(r.sentAt).format('D MMM, HH:mm')}</span>
+                    </span>
+                    <span className="anm-act">
+                      <Button size="small" danger type="text" icon={<DeleteOutlined />} aria-label="Delete announcement" onClick={(e) => { e.stopPropagation(); remove(r); }} />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
+
+      <AnnouncementModal item={view} onClose={() => setView(null)} onDelete={remove} />
 
       <Modal
         className="crud-modal"
@@ -105,7 +192,9 @@ function TeacherAnnouncements() {
         }
         onCancel={() => setOpen(false)}
         onOk={send}
-        okText="Send"
+        okText={sending ? 'Sending…' : 'Send'}
+        confirmLoading={sending}
+        okButtonProps={{ disabled: sending }}
         destroyOnClose
         maskClosable={false}
         width={640}
@@ -122,7 +211,7 @@ function TeacherAnnouncements() {
               <Select options={[{ value: 'general', label: 'General' }, { value: 'important', label: 'Important' }]} />
             </Form.Item>
             <Form.Item name="audience" label={<Lbl icon={<TeamOutlined />}>Audience</Lbl>} className="crud-form-full">
-              <Select options={[{ value: 'course', label: 'An internship' }, { value: 'batch', label: 'A batch' }, { value: 'all', label: 'All candidates' }]} />
+              <Select options={[{ value: 'course', label: 'An internship' }, { value: 'batches', label: 'One or more batches' }, { value: 'learners', label: 'Specific learners' }, { value: 'all', label: 'All candidates' }]} />
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(p, c) => p.audience !== c.audience}>
               {({ getFieldValue }) => {
@@ -134,10 +223,25 @@ function TeacherAnnouncements() {
                     </Form.Item>
                   );
                 }
-                if (a === 'batch') {
+                if (a === 'batch' || a === 'batches') {
                   return (
-                    <Form.Item name="batch" label={<Lbl icon={<TeamOutlined />}>Batch</Lbl>} rules={[{ required: true, message: 'Batch is required' }]} className="crud-form-full">
-                      <Select options={batches} showSearch optionFilterProp="label" placeholder="Select a batch…" />
+                    <Form.Item name="batches" label={<Lbl icon={<TeamOutlined />}>Batches</Lbl>} rules={[{ required: true, message: 'Pick one or more batches' }]} className="crud-form-full">
+                      <Select mode="multiple" options={batches.map((x) => ({ value: x.label, label: x.label }))} showSearch optionFilterProp="label" placeholder="Pick one or more batches…" />
+                    </Form.Item>
+                  );
+                }
+                if (a === 'learners') {
+                  return (
+                    <Form.Item name="learnerIds" label={<Lbl icon={<TeamOutlined />}>Learners</Lbl>} rules={[{ required: true, message: 'Pick at least one learner' }]} className="crud-form-full">
+                      <Select
+                        mode="multiple"
+                        showSearch
+                        filterOption={false}
+                        onSearch={findLearners}
+                        placeholder="Type a name or the start of an email…"
+                        notFoundContent="Type 2+ letters"
+                        options={found.map((x) => ({ value: x.id, label: `${x.name} · ${x.email}` }))}
+                      />
                     </Form.Item>
                   );
                 }
@@ -173,6 +277,7 @@ function ReadOnlyAnnouncements({ isTeacher }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [view, setView] = useState(null);
 
   useEffect(() => {
     lmsApi.myAnnouncements().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
@@ -238,22 +343,20 @@ function ReadOnlyAnnouncements({ isTeacher }) {
               {pageRows.map((r) => {
                 const important = r.priority === 'important';
                 return (
-                  <div className={`announcement-card ${important ? 'important' : 'general'}`} key={r.id}>
+                  <div className={`announcement-card ${important ? 'important' : 'general'}`} key={r.id} role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setView(r)} onKeyDown={(e) => { if (e.key === 'Enter') setView(r); }}>
                     <div className="announcement-card-icon"><SoundOutlined /></div>
                     <div className="announcement-card-body">
                       <div className="announcement-card-title-row">
                         <h3 className="announcement-card-title">{r.title}</h3>
                         <span className={`announcement-type ${important ? 'important' : 'general'}`}>{important ? 'Important' : 'General'}</span>
                       </div>
-                      {r.body && <p className="announcement-description">{r.body}</p>}
+                      {r.body && <p className="announcement-description">{plainText(r.body)}</p>}
                       <div className="announcement-meta">
+                        <span className="announcement-meta-item"><CalendarOutlined /> {dayjs(r.sentAt).format('D MMM YYYY, hh:mm A')}</span>
                         <span className="announcement-meta-item"><UserOutlined /> By {r.from}</span>
+                        {r.scope && <span className="announcement-meta-item"><TeamOutlined /> {r.scope}</span>}
                         <span className="announcement-meta-item"><ClockCircleOutlined /> {readTime(r.body)} min read</span>
                       </div>
-                    </div>
-                    <div className="announcement-card-right">
-                      <span className="announcement-date"><CalendarOutlined /> {dayjs(r.sentAt).format('D MMM YYYY, hh:mm A')}</span>
-                      <span className="announcement-arrow"><RightOutlined /></span>
                     </div>
                   </div>
                 );
@@ -276,6 +379,7 @@ function ReadOnlyAnnouncements({ isTeacher }) {
           </>
         )}
       </div>
+      <AnnouncementModal item={view} onClose={() => setView(null)} />
     </div>
   );
 }

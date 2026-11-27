@@ -126,11 +126,19 @@ app.use('/api/workday-public', workdayApi.publicRouter);
 // before the bearer gate; the learner's unguessable link / a signed code is the access.
 app.use('/api/lms-public', require('./routes/appRoutes/lms/lmsGrowthPublicApi'));
 
+// CLC Desktop Agent heartbeat — before the bearer gate; the agent's own
+// device token (routes/appRoutes/erpApi.js) is the access.
+const erpApi = require('./routes/appRoutes/erpApi');
+app.use('/api/erp-agent-public', erpApi.agentPublic);
+
 app.use('/api', coreAuthRouter);
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/api/calling', adminAuth.isValidAuthToken, callingApiRouter);
 app.use('/api/workday', adminAuth.isValidAuthToken, workdayApi.router);
+// Attendance ERP (HRMS › Work & Leave Tracker › Attendance ERP + /employee portal)
+app.use('/api/attendance-erp', adminAuth.isValidAuthToken, erpApi.router);
+app.use('/api/erp-agent', adminAuth.isValidAuthToken, erpApi.agentAuthed);
 app.use('/api/whatsapp', adminAuth.isValidAuthToken, whatsappApi.router);
 app.use('/api/email-center', adminAuth.isValidAuthToken, emailCenterApi);
 // friendly HTML for a plain browser hitting an /api/lms/... URL with no token

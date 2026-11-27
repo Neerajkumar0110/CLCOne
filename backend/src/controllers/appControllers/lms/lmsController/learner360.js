@@ -191,4 +191,26 @@ async function learnerTimeline(req, res) {
   });
 }
 
-module.exports = { courseReport, courseReportExport, learnerTimeline };
+// GET /api/lms/admin/learner-360-courses — internships with how many learners
+// each has, busiest first (the report opened on an empty course — report #11)
+async function coursesWithLearners(req, res) {
+  if (!isManager(req.admin) && !isTeacher(req.admin)) return res.status(403).json({ success: false, message: 'Not allowed.' });
+  const [courses, counts] = await Promise.all([
+    mongoose.model('Course').find({ removed: false }).select('title').lean(),
+    mongoose.model('Student').aggregate([{ $match: { removed: false } }, { $group: { _id: { $toLower: { $trim: { input: { $ifNull: ['$course', ''] } } } }, n: { $sum: 1 } } }]),
+  ]);
+  const by = new Map(counts.map((c) => [c._id, c.n]));
+  let rows = courses.map((c) => ({ id: String(c._id), title: c.title, learners: by.get(String(c.title || '').trim().toLowerCase()) || 0 }));
+  if (isTeacher(req.admin) && !isManager(req.admin)) {
+    const mine = [];
+    for (const c of rows) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await assertOwnsCourse(req.admin, c.id)) mine.push(c);
+    }
+    rows = mine;
+  }
+  rows.sort((a, b) => b.learners - a.learners || a.title.localeCompare(b.title));
+  return res.status(200).json({ success: true, result: rows });
+}
+
+module.exports = { courseReport, courseReportExport, learnerTimeline, coursesWithLearners };

@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { usePermission } from '@/context/permissionContext';
 import { message, Select, Table, Tag, Badge, Modal, Input } from 'antd';
-import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ApiOutlined, BarChartOutlined, TableOutlined, UsergroupAddOutlined, SyncOutlined, ReadOutlined, FilterOutlined, WarningOutlined, StopOutlined, CheckCircleOutlined, DeleteOutlined, UndoOutlined } from '@ant-design/icons';
 
 import CrudTab from '@/components/CrudTab';
 import SectionOverview from '@/components/SectionOverview';
@@ -19,6 +19,10 @@ import CandidateDetailModal from '@/pages/Lms/components/CandidateDetailModal';
 import lmsApi from '@/pages/Lms/api';
 import { request } from '@/request';
 import SalesTheme from '@/components/SalesTheme';
+import LmsUi from '@/components/LmsUi';
+import '@/pages/Lms/SMBoards/learners.css';
+import '@/pages/Lms/SMBoards/scheduler.css';
+const LMS_UI_SECTIONS = ['lms', 'admin-ops', 'support-mgr', 'learner-growth', 'qa-env'];
 
 // Messenger's "Team Chat" reuses the real-time chat from the Communication page.
 const WhatsApp = lazy(() => import('@/pages/WhatsApp'));
@@ -62,7 +66,7 @@ const AO_SCREENS = ['approvals', 'kpis', 'reports', 'automation', 'security', 'e
 const AO_EMBEDS = Object.fromEntries(AO_SCREENS.map((k) => [`lmsAo_${k}`, () => <LmsAdminOpsScreen screen={k} />]));
 // Support Manager section: one embed per board (lmsSm_<screen>).
 const LmsSupportManagerScreen = lazy(() => import('@/pages/Lms/SMBoards'));
-const SM_SCREENS = ['dashboard', 'attendance', 'tickets', 'comms', 'certificates', 'learners', 'classes', 'recordings', 'feedback'];
+const SM_SCREENS = ['dashboard', 'attendance', 'tickets', 'escalations', 'comms', 'certificates', 'learners', 'classes', 'recordings', 'feedback'];
 const SM_EMBEDS = Object.fromEntries(SM_SCREENS.map((k) => [`lmsSm_${k}`, () => <LmsSupportManagerScreen screen={k} />]));
 const LmsLearner360 = lazy(() => import('@/pages/Lms/Learner360'));
 // LMS Additional Requirements (Figma yKjb2ncoVnPG9Eqql6zwhI): Learner Growth + QA + support desks.
@@ -215,8 +219,10 @@ export default function SectionHub({ section: sectionProp, tab: tabProp }) {
       {tab.combo ? <ComboTab section={section} tab={tab} /> : <TabBody section={section} tab={tab} />}
     </div>
   );
-  // Sales screens wear the Sales One Place design (look only).
-  return section.key === 'sales' ? <SalesTheme>{page}</SalesTheme> : page;
+  // Sales screens wear the Sales One Place design (look only); the LMS /
+  // Support / Admin & Ops screens wear the LMS design system (look only).
+  if (section.key === 'sales') return <SalesTheme>{page}</SalesTheme>;
+  return LMS_UI_SECTIONS.includes(section.key) ? <LmsUi>{page}</LmsUi> : page;
 }
 
 // One sub-module's content. A tab may carry a `dashboard` key (analytics
@@ -325,6 +331,12 @@ function TabBody({ section, tab }) {
   const [unassignedRows, setUnassignedRows] = useState([]);
   const [unassignedLoading, setUnassignedLoading] = useState(false);
   const [unassignedCount, setUnassignedCount] = useState(0);
+  // 2026-11-27 — "Show deleted": soft-deleted candidates + Restore
+  const [deletedOnly, setDeletedOnly] = useState(false);
+  const [deletedRows, setDeletedRows] = useState([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [restoringId, setRestoringId] = useState(null);
 
   useEffect(() => {
     if (tab.entity !== 'student') return;
@@ -347,6 +359,42 @@ function TabBody({ section, tab }) {
       })
       .finally(() => setUnassignedLoading(false));
   };
+
+  const loadDeleted = () => {
+    setDeletedLoading(true);
+    request
+      .get({ entity: 'lms/students/deleted-list' })
+      .then((res) => {
+        const rows = res && res.success ? res.result : [];
+        setDeletedRows(rows);
+        setDeletedCount(rows.length);
+      })
+      .finally(() => setDeletedLoading(false));
+  };
+  useEffect(() => {
+    if (tab.entity === 'student') loadDeleted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.entity, studentsRefreshTick]);
+  const restoreStudent = (row) =>
+    Modal.confirm({
+      title: `Restore ${row.name}?`,
+      content: `${row.email}${row.batch ? ` · ${row.batch}` : ''} goes back to the Candidates list with the same status, batch and history. Their LMS login follows the status again.`,
+      okText: 'Restore',
+      centered: true,
+      onOk: async () => {
+        setRestoringId(row.id);
+        try {
+          const res = await request.post({ entity: `lms/students/${row.id}/restore`, jsonData: {} });
+          if (res && res.success === false) throw new Error(res.message);
+          message.success((res && res.message) || 'Restored.');
+          setStudentsRefreshTick((t) => t + 1);
+        } catch (e) {
+          message.error((e && e.message) || 'Could not restore.');
+        } finally {
+          setRestoringId(null);
+        }
+      },
+    });
 
   useEffect(() => {
     if (tab.entity === 'student' && unassignedOnly) loadUnassigned();
@@ -393,10 +441,10 @@ function TabBody({ section, tab }) {
   const records = embedNode && !tab.entity ? (
     embedNode
   ) : tab.entity ? (
-    <>
+    <div className={tab.entity === 'student' || tab.entity === 'batch' ? 'stx' : undefined}>
       {embedNode && <div style={{ marginBottom: 20 }}>{embedNode}</div>}
       {tab.entity === 'student' && (
-        <div className="hub-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+        <div className="hub-row stx-bar" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
           <div className="hub-row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <FilterOutlined style={{ color: 'var(--hub-muted)' }} />
             <Select
@@ -427,11 +475,20 @@ function TabBody({ section, tab }) {
               type="button"
               className="hub-btn"
               style={unassignedOnly ? { background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' } : undefined}
-              onClick={() => setUnassignedOnly((v) => !v)}
+              onClick={() => { setUnassignedOnly((v) => !v); setDeletedOnly(false); }}
               title="Candidates with no batch assigned yet"
             >
               <WarningOutlined /> {unassignedOnly ? 'Showing unassigned only' : 'Show unassigned only'}
               {unassignedCount > 0 && <Badge count={unassignedCount} size="small" style={{ marginInlineStart: 6 }} />}
+            </button>
+            <button
+              type="button"
+              className={`hub-btn stx-del-btn${deletedOnly ? ' on' : ''}`}
+              onClick={() => { setDeletedOnly((v) => !v); setUnassignedOnly(false); }}
+              title="Candidates that were deleted — restore them from here"
+            >
+              <DeleteOutlined /> {deletedOnly ? 'Showing deleted' : 'Show deleted'}
+              {deletedCount > 0 && <Badge count={deletedCount} size="small" color="#64748b" style={{ marginInlineStart: 6 }} />}
             </button>
           </div>
           <button type="button" className="hub-btn hub-btn-primary" onClick={() => setAssignStudent(true)}>
@@ -439,7 +496,35 @@ function TabBody({ section, tab }) {
           </button>
         </div>
       )}
-      {tab.entity === 'student' && unassignedOnly ? (
+      {tab.entity === 'student' && deletedOnly ? (
+        <div className="hub-card stx-deleted" style={{ padding: 0 }}>
+          <div className="stx-del-hd"><DeleteOutlined /> <b>Deleted candidates · {deletedRows.length}</b><span>Restore puts them back with the same status, batch and history</span></div>
+          <Table
+            rowKey="id"
+            loading={deletedLoading}
+            dataSource={deletedRows}
+            pagination={deletedRows.length > 20 ? { pageSize: 20 } : false}
+            locale={{ emptyText: 'No deleted candidates.' }}
+            columns={[
+              { title: 'Name', dataIndex: 'name', render: (v, r) => <span className="stx-del-name"><i>{String(v || '?')[0]}</i><span><b>{v}</b><small>{r.email}</small></span></span> },
+              { title: 'Phone', dataIndex: 'phone', width: 140, render: (v) => v || '—' },
+              { title: 'Internship', dataIndex: 'course', render: (v) => v || '—' },
+              { title: 'Batch', dataIndex: 'batch', width: 140, render: (v) => v || '—' },
+              { title: 'Status', dataIndex: 'status', width: 110, render: (v) => <Tag>{v || '—'}</Tag> },
+              { title: 'Added on', dataIndex: 'created', width: 130, render: (v) => (v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—') },
+              {
+                title: '',
+                width: 120,
+                render: (_, row) => (
+                  <button type="button" className="hub-btn stx-restore" disabled={restoringId === row.id} onClick={() => restoreStudent(row)}>
+                    <UndoOutlined /> {restoringId === row.id ? 'Restoring…' : 'Restore'}
+                  </button>
+                ),
+              },
+            ]}
+          />
+        </div>
+      ) : tab.entity === 'student' && unassignedOnly ? (
         <div className="hub-card" style={{ padding: 0 }}>
           <Table
             rowKey="id"
@@ -664,7 +749,7 @@ function TabBody({ section, tab }) {
       {tab.entity === 'student' && (
         <CandidateDetailModal open={!!detailStudentId} studentId={detailStudentId} onClose={() => setDetailStudentId(null)} />
       )}
-    </>
+    </div>
   ) : tab.stats ? (
     <SectionOverview key={`${section.key}/${tab.key}`} stats={tab.stats} note={tab.note} />
   ) : (

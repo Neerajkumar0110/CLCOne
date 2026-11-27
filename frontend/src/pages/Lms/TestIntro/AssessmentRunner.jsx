@@ -421,7 +421,7 @@ export default function AssessmentRunner({ testType, title, onExit }) {
             </div>
             {meta.maxAttempts ? (
               <div className="ld-muted" style={{ fontSize: 12 }}>
-                Rules: {questions.length} questions · pass {meta.passPct}% · {meta.maxAttempts} attempts{meta.cooldownDays ? ` · ${meta.cooldownDays} din cooldown` : ''}
+                Rules: {questions.length} questions · pass {meta.passPct}% · {meta.maxAttempts} attempts{meta.cooldownDays ? ` · ${meta.cooldownDays}-day cooldown` : ''}
               </div>
             ) : null}
           </section>

@@ -84,7 +84,7 @@ function Board() {
           </div>
           <div className="pm-g5" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
             <div className="ld-kv"><span className="ld-muted">Pass mark</span><b style={{ fontSize: 15 }}>{s.qualifyPct}%</b></div>
-            <div className="ld-kv"><span className="ld-muted">Attempts · cooldown</span><b style={{ fontSize: 15 }}>{s.maxAttempts} · {s.cooldownDays} din</b></div>
+            <div className="ld-kv"><span className="ld-muted">Attempts · cooldown</span><b style={{ fontSize: 15 }}>{s.maxAttempts} · {s.cooldownDays} days</b></div>
             <div className="ld-kv"><span className="ld-muted">Attempted</span><b style={{ fontSize: 15 }}>{t.attempted} / {t.roster}</b></div>
             <div className="ld-kv"><span className="ld-muted">Qualified (draft)</span><b style={{ fontSize: 15, color: '#166534' }}>{t.qualified}</b></div>
             <div className="ld-kv"><span className="ld-muted">Technical review</span><b style={{ fontSize: 15, color: t.technical ? '#9a3412' : undefined }}>{t.technical}</b></div>

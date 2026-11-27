@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Space, Empty, Skeleton, message, Typography, Select, InputNumber, Checkbox, Row, Col, Progress, Divider, Alert, List,
+  Card, Table, Tag, Button, Space, Empty, Skeleton, message, Typography, Select, InputNumber, Checkbox, Row, Col, Progress, Divider, Alert, List, Tabs, Modal, Input,
 } from 'antd';
 import {
   SafetyCertificateOutlined, ReloadOutlined, SaveOutlined, CheckOutlined, CalendarOutlined, ReadOutlined,
   FileDoneOutlined, QuestionCircleOutlined, ThunderboltOutlined, ProjectOutlined, EyeOutlined,
-  WarningOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  WarningOutlined, CheckCircleOutlined, CloseCircleOutlined, PlusOutlined, SearchOutlined, TeamOutlined, SettingOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
@@ -13,6 +13,8 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
 import './Eligibility.css';
+import '../Policies/policyDesign.css';
+import { tablePagination } from '../components/ui';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -63,6 +65,11 @@ function ManageEligibility({ canEdit }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  // 2026-11-27: two tabs (report | criteria); a candidate's full report opens in a modal
+  const [tab, setTab] = useState('report');
+  const [view, setView] = useState(null);
+  const [q, setQ] = useState('');
+  const [stateF, setStateF] = useState('all');
 
   useEffect(() => {
     (async () => {
@@ -117,6 +124,79 @@ function ManageEligibility({ canEdit }) {
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} style={{ padding: 24 }} />;
 
+  const needle = q.trim().toLowerCase();
+  const counts = report.reduce((m, r) => ({ ...m, [r.state]: (m[r.state] || 0) + 1 }), {});
+  const shownReport = report.filter((r) => (stateF === 'all' || r.state === stateF) && (!needle || `${r.student} ${r.email || ''}`.toLowerCase().includes(needle)));
+  const learner360 = (id) => `${String(window.location.pathname).startsWith('/teacher') ? '/teacher/growth/learner-360' : '/learner-growth/learner-360'}?learner=${id}`;
+
+  const reportTab = (
+    <div className="elg-tab">
+      <div className="elg-stats">
+        {[['all', 'All candidates', report.length, 'violet'], ['Eligible', 'Eligible', counts.Eligible || 0, 'teal'], ['Not Yet Eligible', 'Not yet eligible', counts['Not Yet Eligible'] || 0, 'amber'], ['Action Required', 'Action required', counts['Action Required'] || 0, 'red']].map(([k, label, n, tone]) => (
+          <button key={k} type="button" className={`elg-stat ${tone}${stateF === k ? ' on' : ''}`} onClick={() => setStateF(k)}>
+            <b>{n}</b><span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="elg-tools">
+        <Input allowClear prefix={<SearchOutlined />} placeholder="Search candidate" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 300 }} />
+        <Button icon={<ReloadOutlined />} loading={running} onClick={loadReport}>Refresh</Button>
+      </div>
+      <Table
+        rowKey={(r) => r.id || r.email}
+        pagination={tablePagination({ defaultPageSize: 10 })}
+        dataSource={shownReport}
+        loading={running && !report.length}
+        locale={{ emptyText: report.length ? 'No candidate in this filter' : 'No enrolled candidates yet' }}
+        onRow={(r) => ({ onClick: () => setView(r), style: { cursor: 'pointer' } })}
+        scroll={{ x: 640 }}
+        columns={[
+          { title: 'Candidate', dataIndex: 'student', render: (v, r) => <span className="elg-name"><b>{v}</b>{r.email && <small>{r.email}</small>}</span> },
+          {
+            title: 'Score',
+            width: 220,
+            render: (_, r) => (
+              <div className="elg-score">
+                <Progress percent={Math.min(100, Number(r.score) || 0)} showInfo={false} size="small" strokeColor={r.score >= r.threshold ? '#14b8a6' : '#f59e0b'} />
+                <span><b>{r.score}%</b> / {r.threshold}%</span>
+              </div>
+            ),
+          },
+          { title: 'Status', dataIndex: 'state', width: 150, render: (v) => <Tag color={STATE_COLOR[v]}>{v}</Tag> },
+          { title: 'Still needed', width: 120, render: (_, r) => ((r.missing || []).length ? <span className="elg-miss">{r.missing.length} item{r.missing.length === 1 ? '' : 's'}</span> : <span className="elg-ok">—</span>) },
+          { title: '', width: 90, render: (_, r) => <Button size="small" icon={<PlusOutlined />} onClick={(e) => { e.stopPropagation(); setView(r); }}>View</Button> },
+        ]}
+      />
+    </div>
+  );
+
+  const criteriaTab = (
+    <div className="elg-tab">
+      <Card size="small" title="Criteria (mandatory gate + weighted score)">
+        <Table
+          rowKey="key" size="small" pagination={false} dataSource={criteria} scroll={{ x: 520 }}
+          columns={[
+            { title: 'Criterion', dataIndex: 'label', width: 190 },
+            { title: 'On', dataIndex: 'enabled', width: 50, render: (v, r) => <Checkbox disabled={!canEdit} checked={v !== false} onChange={(e) => updateCriterion(r.key, { enabled: e.target.checked })} /> },
+            { title: 'Mandatory', dataIndex: 'mandatory', width: 90, render: (v, r) => <Checkbox disabled={!canEdit} checked={!!v} onChange={(e) => updateCriterion(r.key, { mandatory: e.target.checked })} /> },
+            { title: 'Min %', dataIndex: 'minPercent', width: 90, render: (v, r) => <InputNumber disabled={!canEdit} size="small" min={0} max={100} value={v} onChange={(val) => updateCriterion(r.key, { minPercent: val })} /> },
+            { title: 'Weight', dataIndex: 'weight', width: 80, render: (v, r) => <InputNumber disabled={!canEdit} size="small" min={0} value={v} onChange={(val) => updateCriterion(r.key, { weight: val })} /> },
+          ]}
+        />
+        <Divider style={{ margin: '12px 0' }} />
+        <Space align="center" wrap>
+          <Text strong>Overall eligibility threshold</Text>
+          <InputNumber disabled={!canEdit} min={0} max={100} value={threshold} onChange={setThreshold} addonAfter="%" />
+          {canEdit && <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>Save rule</Button>}
+        </Space>
+      </Card>
+    </div>
+  );
+
+  const v = view;
+  const pass = v ? (v.items || []).filter((it) => it.applicable && it.passed).length : 0;
+  const appl = v ? (v.items || []).filter((it) => it.applicable).length : 0;
+
   return (
     <div className="lms-portal" style={{ padding: 4 }}>
       <div className="lms-portal-head">
@@ -125,46 +205,69 @@ function ManageEligibility({ canEdit }) {
       </div>
 
       {!courseId ? <Card><Empty description="No internships." /></Card> : (
-        <Row gutter={[12, 12]}>
-          <Col xs={24} lg={14}>
-            <Card size="small" title="Criteria (mandatory gate + weighted score)">
-              <Table
-                rowKey="key" size="small" pagination={false} dataSource={criteria}
-                columns={[
-                  { title: 'Criterion', dataIndex: 'label', width: 190 },
-                  { title: 'On', dataIndex: 'enabled', width: 50, render: (v, r) => <Checkbox disabled={!canEdit} checked={v !== false} onChange={(e) => updateCriterion(r.key, { enabled: e.target.checked })} /> },
-                  { title: 'Mandatory', dataIndex: 'mandatory', width: 90, render: (v, r) => <Checkbox disabled={!canEdit} checked={!!v} onChange={(e) => updateCriterion(r.key, { mandatory: e.target.checked })} /> },
-                  { title: 'Min %', dataIndex: 'minPercent', width: 90, render: (v, r) => <InputNumber disabled={!canEdit} size="small" min={0} max={100} value={v} onChange={(val) => updateCriterion(r.key, { minPercent: val })} /> },
-                  { title: 'Weight', dataIndex: 'weight', width: 80, render: (v, r) => <InputNumber disabled={!canEdit} size="small" min={0} value={v} onChange={(val) => updateCriterion(r.key, { weight: val })} /> },
-                ]}
-              />
-              <Divider style={{ margin: '12px 0' }} />
-              <Space align="center">
-                <Text strong>Overall eligibility threshold</Text>
-                <InputNumber disabled={!canEdit} min={0} max={100} value={threshold} onChange={setThreshold} addonAfter="%" />
-                {canEdit && <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>Save rule</Button>}
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} lg={10}>
-            <Card size="small" title="Live candidate report" extra={<Button size="small" icon={<ReloadOutlined />} loading={running} onClick={loadReport}>Refresh</Button>}>
-              <Table
-                rowKey="email" size="small" pagination={{ pageSize: 10 }} dataSource={report}
-                locale={{ emptyText: 'No enrolled candidates yet' }}
-                columns={[
-                  { title: 'Candidate', dataIndex: 'student' },
-                  { title: 'Score', render: (_, r) => `${r.score}% / ${r.threshold}%` },
-                  { title: 'Status', dataIndex: 'state', render: (v) => <Tag color={STATE_COLOR[v]}>{v}</Tag> },
-                ]}
-                expandable={{
-                  rowExpandable: (r) => r.missing && r.missing.length > 0,
-                  expandedRowRender: (r) => <Paragraph style={{ margin: 0 }} type="secondary">Missing: {r.missing.join(', ')}</Paragraph>,
-                }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        <Tabs
+          className="elg-tabs"
+          activeKey={tab}
+          onChange={setTab}
+          items={[
+            { key: 'report', label: <span><TeamOutlined /> Live candidate report <span className="elg-badge">{report.length}</span></span>, children: reportTab },
+            { key: 'criteria', label: <span><SettingOutlined /> Criteria &amp; threshold</span>, children: criteriaTab },
+          ]}
+        />
       )}
+
+      <Modal open={!!v} onCancel={() => setView(null)} footer={null} width={760} centered destroyOnClose rootClassName="pol-modal">
+        {v && (
+          <div className="pol-m">
+            <div className={`pol-m-head elg-head ${v.state === 'Eligible' ? 'ok' : v.state === 'Action Required' ? 'bad' : 'mid'}`}>
+              <div className="elg-head-row">
+                <div style={{ minWidth: 0 }}>
+                  <div className="pol-m-tags"><Tag color={STATE_COLOR[v.state]} style={{ margin: 0 }}>{v.state}</Tag><span className="pol-chip">{pass}/{appl} criteria met</span></div>
+                  <h3 style={{ marginTop: 8 }}>{v.student}</h3>
+                  {v.email && <div className="pol-m-meta"><span>{v.email}</span></div>}
+                </div>
+                <Progress type="circle" size={84} percent={Math.min(100, Number(v.score) || 0)} format={() => <span className="elg-ring"><b>{v.score}%</b><small>of {v.threshold}%</small></span>} strokeColor={v.score >= v.threshold ? '#14b8a6' : '#f59e0b'} />
+              </div>
+            </div>
+            <div className="pol-m-body">
+              <section className="pol-box">
+                <div className="pol-cap">Criteria · required vs achieved</div>
+                <div className="elg-crit">
+                  {(v.items || []).map((it) => {
+                    const st = !it.applicable ? 'na' : it.passed ? 'pass' : it.mandatory ? 'fail' : 'warn';
+                    const pct = it.applicable ? Math.min(100, Number(it.achieved) || 0) : 0;
+                    return (
+                      <div key={it.key} className={`elg-c ${st}`}>
+                        <span className="elg-c-ic">{reqMeta(it.key).icon}</span>
+                        <div className="elg-c-main">
+                          <div className="elg-c-top">
+                            <b>{it.label}{it.mandatory && <span className="elg-req" title="Mandatory"> *</span>}</b>
+                            <span className="elg-c-val">{it.applicable ? <><b>{it.achieved}%</b> / {it.required}%</> : <>— / {it.required}%</>}</span>
+                          </div>
+                          <div className="elg-trk"><div style={{ width: `${pct}%` }} /><i style={{ left: `${Math.min(100, it.required)}%` }} /></div>
+                        </div>
+                        <span className={`elg-pill ${st}`}>{st === 'na' ? 'n/a' : st === 'pass' ? 'Pass' : 'Below'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="pol-note"><span className="elg-req">*</span> mandatory — must be met regardless of the overall score · the line on each bar is the required level</div>
+              </section>
+              {(v.missing || []).length > 0 && (
+                <div className="pol-alert bad"><WarningOutlined /><span><b>Still needed:</b> {v.missing.join(', ')}</span></div>
+              )}
+              {v.state === 'Eligible' && <div className="pol-alert ok"><CheckCircleOutlined /><span><b>Eligible</b> · all mandatory criteria met and the score is above the threshold.</span></div>}
+            </div>
+            <div className="pol-m-foot">
+              <span className="pol-note">Computed live from attendance, curriculum, assignments, quizzes and policies</span>
+              <div className="pol-m-foot-r">
+                {v.id && <Button href={learner360(v.id)}>Open full Learner 360 report →</Button>}
+                <Button type="primary" onClick={() => setView(null)}>Close</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

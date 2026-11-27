@@ -1121,12 +1121,18 @@ export const FEATURE_SECTIONS = [
       },
       {
         key: 'learner-360',
-        label: 'Learner 360 · batch report',
+        label: 'Learner 360',
         Icon: ProfileOutlined,
         // Spec §16 Learner 360 report — attendance+curriculum+assessments+
         // project+acknowledgements+eligibility+certificate, one row per
         // student, CSV/XLSX export. See pages/Lms/Learner360.
-        embed: 'lmsLearner360',
+        // One Learner 360 entry (LMS testing report #11): the batch report, one
+        // learner's full 360° and the scoring board were three places.
+        combo: [
+          { key: 'batch', label: 'Batch report', embed: 'lmsLearner360' },
+          { key: 'learner', label: 'One learner', embed: 'lmsGr_lookup' },
+          { key: 'scoring', label: '360° & Scoring', embed: 'lmsGr_scoring' },
+        ],
       },
       {
         key: 'assessment-dashboard',
@@ -1142,7 +1148,7 @@ export const FEATURE_SECTIONS = [
           { key: 'tests', label: 'Assessments', embed: 'lmsAssessmentDashboard' },
           { key: 'attempts', label: 'Test attempts', embed: 'lmsAttemptsAdmin' },
           { key: 'bank', label: 'Question bank', embed: 'lmsQuestionBank' },
-          { key: 'rules', label: 'Rules', embed: 'lmsAo_rules', roles: LMS_ADMINS },
+          { key: 'rules', label: 'Rules', embed: 'lmsAo_rules', roles: LMS_ADMINS_SUPPORT },
         ],
       },
       {
@@ -1212,7 +1218,7 @@ export const FEATURE_SECTIONS = [
   // component as before (pages/Lms/SystemHealth).
   {
     key: 'admin-ops',
-    roles: LMS_ADMINS, // Admin & Ops boards — management
+    roles: LMS_ADMINS_SUPPORT, // Admin & Ops boards — management + Support (LMS testing report 2026-11-26)
     label: 'Admin & Ops',
     module: 'LMS',
     route: '/admin-ops',
@@ -1227,9 +1233,9 @@ export const FEATURE_SECTIONS = [
       { key: 'evidence', label: 'Evidence repository', Icon: FolderOpenOutlined, embed: 'lmsAo_evidence' },
       { key: 'rules', label: 'Assessment rules', Icon: ExperimentOutlined, embed: 'lmsAo_rules', hideInNav: true }, // inside LMS › Assessment
       { key: 'finance', label: 'Finance & payments', Icon: WalletOutlined, embed: 'lmsAo_finance' },
-      { key: 'roles', label: 'Roles & permissions', Icon: TeamOutlined, embed: 'lmsAo_roles' },
+      { key: 'roles', label: 'Roles & permissions', Icon: TeamOutlined, embed: 'lmsAo_roles', roles: LMS_ADMINS },
       { key: 'policies', label: 'Policy centre', Icon: FileProtectOutlined, embed: 'lmsAo_policies', hideInNav: true }, // inside LMS › Policies
-      { key: 'health', label: 'System health', Icon: HeartOutlined, embed: 'lmsAo_health' },
+      { key: 'health', label: 'System health', Icon: HeartOutlined, embed: 'lmsAo_health', roles: LMS_ADMINS },
     ],
   },
 
@@ -1256,6 +1262,7 @@ export const FEATURE_SECTIONS = [
         combo: [
           { key: 'queue', label: 'SLA queue', embed: 'lmsSm_tickets' },
           { key: 'all', label: 'All tickets', embed: 'supportTickets' },
+          { key: 'escalations', label: 'Staff escalations', embed: 'lmsSm_escalations' },
         ],
       },
       {
@@ -1288,15 +1295,17 @@ export const FEATURE_SECTIONS = [
       },
       {
         key: 'classes',
-        label: 'Batches & classes',
+        label: 'Batches & scheduler',
         Icon: CalendarOutlined,
         combo: [
           { key: 'scheduler', label: 'Scheduler', embed: 'lmsSm_classes' },
           { key: 'batches', label: 'Batches', ref: 'lms/batches' },
-          { key: 'live', label: 'Live classes', ref: 'lms/classes' },
-          { key: 'calendar', label: 'Calendar', ref: 'lms/calendar' },
         ],
       },
+      // their own sidebar entries — Support found them too deep inside
+      // "Batches & classes" (LMS testing report #12, #13)
+      { key: 'live-classes', label: 'Live classes', Icon: VideoCameraOutlined, embed: 'lmsLiveClasses' },
+      { key: 'calendar', label: 'Calendar', Icon: CalendarOutlined, embed: 'lmsCalendar' },
       {
         key: 'recordings',
         label: 'Recordings',
@@ -1326,10 +1335,10 @@ export const FEATURE_SECTIONS = [
     Icon: AimOutlined,
     blurb: 'Learner 360° scoring & leaderboard, project allocation with deadline timers, and engagement rules.',
     tabs: [
-      { key: 'scoring', label: '360° & Scoring', Icon: AimOutlined, embed: 'lmsGr_scoring' },
-      { key: 'learner-360', label: 'Learner 360° · one learner', Icon: ProfileOutlined, embed: 'lmsGr_lookup' },
-      { key: 'projects', label: 'Project allocation', Icon: ProjectOutlined, embed: 'lmsGr_projects', roles: LMS_ADMINS },
-      { key: 'automations', label: 'Project automations', Icon: ApartmentOutlined, embed: 'lmsGr_flow', roles: LMS_ADMINS },
+      { key: 'scoring', label: '360° & Scoring', Icon: AimOutlined, embed: 'lmsGr_scoring', hideInNav: true }, // inside LMS › Learner 360
+      { key: 'learner-360', label: 'Learner 360° · one learner', Icon: ProfileOutlined, embed: 'lmsGr_lookup', hideInNav: true }, // inside LMS › Learner 360
+      { key: 'projects', label: 'Project allocation', Icon: ProjectOutlined, embed: 'lmsGr_projects', roles: LMS_ADMINS_SUPPORT },
+      { key: 'automations', label: 'Project automations', Icon: ApartmentOutlined, embed: 'lmsGr_flow', roles: LMS_ADMINS_SUPPORT },
       { key: 'engagement', label: 'Engagement rules', Icon: ControlOutlined, embed: 'lmsGr_rules' },
     ],
   },

@@ -164,6 +164,9 @@ if (!RUN_BACKGROUND_JOBS) {
   const startWorkdayTick = require('./jobs/workdayTick');
   startWorkdayTick();
 
+  // Attendance ERP: inactive / offline / auto lunch / needs-review (see jobs/erpAttendanceTick.js).
+  require('./jobs/erpAttendanceTick')();
+
   // End-of-day email to every agent who missed at least one routed call today
   // (never picked up — see CallRecord.missedByAgent / plivoAnswer.js's
   // leg=agent-hangup branch). No-op unless CALLING_PROVIDER=cloud, since

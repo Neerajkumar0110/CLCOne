@@ -4,6 +4,7 @@ import Login from '@/pages/Login';
 
 import ForgetPassword from '@/pages/ForgetPassword';
 import ResetPassword from '@/pages/ResetPassword';
+import EmployeeLogin from '@/pages/AttendanceErp/portal/EmployeeLogin';
 
 import { useDispatch } from 'react-redux';
 
@@ -24,6 +25,9 @@ export default function AuthRouter() {
       <Route element={<Login />} path="/login" />
       <Route element={<Navigate to="/login" replace />} path="/logout" />
       <Route element={<ForgetPassword />} path="/forgetpassword" />
+      {/* Attendance ERP — Employee Portal sign-in (E0) */}
+      <Route element={<EmployeeLogin />} path="/employee/login" />
+      <Route element={<Navigate to="/employee/login" replace />} path="/employee/*" />
       <Route element={<ResetPassword />} path="/resetpassword/:userId/:resetToken" />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

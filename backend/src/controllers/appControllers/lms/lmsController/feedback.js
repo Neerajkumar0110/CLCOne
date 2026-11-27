@@ -412,7 +412,36 @@ async function adminRemind(req, res) {
   );
 }
 
+// Feedback lock (LMS testing report #10) — OFF unless Admin & Ops › Rules turns
+// it on. When on: the weekly feedback is past its due time and this learner has
+// not sent it → classes, recordings, tests and projects wait (same set as the
+// policy lock); sending the feedback unlocks at once.
+async function feedbackLockState() {
+  const row = await mongoose.model('LmsAdminConfig').findOne({ key: 'feedback-lock' }).lean();
+  return { on: !!(row && row.value && row.value.on) };
+}
+async function feedbackOverdue(admin) {
+  if (!admin || admin.role !== 'Student') return false;
+  if (!(await feedbackLockState()).on) return false;
+  const win = targetWindow();
+  if (!win || !win.late) return false;
+  const done = await mongoose.model('WeeklyFeedback').exists({ student: admin._id, kind: 'weekly', weekKey: win.weekKey });
+  return !done;
+}
+async function getFeedbackLock(req, res) {
+  return ok(res, await feedbackLockState());
+}
+async function setFeedbackLock(req, res) {
+  const on = !!(req.body && req.body.on);
+  await mongoose.model('LmsAdminConfig').findOneAndUpdate({ key: 'feedback-lock' }, { $set: { value: { on }, updatedBy: req.admin._id, updated: new Date() } }, { upsert: true });
+  await require('../../../../services/lms/auditLog').record({ module: 'feedback', action: on ? 'lock-on' : 'lock-off', entityType: 'Setting', admin: req.admin }).catch(() => {});
+  return ok(res, { on }, on ? 'Feedback lock is ON.' : 'Feedback lock is OFF.');
+}
+
 module.exports = {
+  feedbackOverdue,
+  getFeedbackLock,
+  setFeedbackLock,
   mine,
   submit,
   mySummary,

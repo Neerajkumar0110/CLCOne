@@ -76,6 +76,7 @@ function ticketRow(t, roster) {
     reference: t.reference || '',
     expected: t.expected || '',
     attachments: t.attachments || [],
+    supportFiles: t.supportFiles || [],
     internalNotes: (t.internalNotes || []).slice(-10),
     history: (t.history || []).slice(-12),
     resolutionNote: t.resolutionNote || '',
@@ -179,12 +180,32 @@ async function ticketUpdate(req, res) {
     t.resolutionNote = String(b.reply).slice(0, 2000);
     hist('status', t.status, 'Reply sent to learner');
   }
+  // files sent to the learner (policy PDF, form …) — only our own upload folder
+  const files = (Array.isArray(b.files) ? b.files : [])
+    .filter((x) => x && /^public\/uploads\/tickets\/support\/[\w.-]+$/.test(String(x.url || '')))
+    .slice(0, 5)
+    .map((x) => ({ name: String(x.name || 'file').slice(0, 120), url: String(x.url), at: new Date(), byName: by }));
+  if (files.length) {
+    t.supportFiles = [...(t.supportFiles || []), ...files];
+    hist('note', t.status, `File shared with the learner: ${files.map((x) => x.name).join(', ')}`);
+  }
   t.updated = new Date();
   await t.save();
-  if ((resolvedNow || b.reply) && t.createdBy && t.source === 'student') {
+  if (files.length && t.raisedByEmail) {
+    const base = (require('../../../../config/lms').lmsConfig.meeting.crmBaseUrl || '').replace(/\/$/, '');
+    const esc = (v) => String(v || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    require('../../../../services/lms/mailer')
+      .sendMail([t.raisedByEmail], {
+        subject: `[${require('../../../../config/supportTickets').ticketNo(t)}] Support shared a document with you`,
+        html: `<div style="font:15px/1.6 Arial,sans-serif;color:#17202c;max-width:520px"><p>Hi ${esc(t.raisedByName)},</p><p>Support shared ${files.length === 1 ? 'a document' : 'documents'} on your ticket <b>${esc(t.subject)}</b>:</p><ul>${files.map((x) => `<li><a href="${base}/${x.url}">${esc(x.name)}</a></li>`).join('')}</ul>${b.reply ? `<p>${esc(b.reply)}</p>` : ''}<p>You can also open it in the LMS → Help &amp; Support.</p></div>`,
+        templateKey: 'support-ticket-file',
+      })
+      .catch(() => {});
+  }
+  if ((resolvedNow || b.reply || files.length) && t.createdBy && t.source === 'student') {
     await realtime.notify([t.createdBy], {
       type: 'lms.ticket.update',
-      title: resolvedNow ? `✅ Ticket resolved: ${t.subject}` : `💬 Support replied: ${t.subject}`,
+      title: resolvedNow ? `✅ Ticket resolved: ${t.subject}` : files.length && !b.reply ? `📎 Support shared a file: ${t.subject}` : `💬 Support replied: ${t.subject}`,
       body: String(b.reply || t.resolutionNote || '').slice(0, 200),
       link: '/learn/support',
       actorName: by,
@@ -199,12 +220,20 @@ async function ticketUpdate(req, res) {
 // GET /api/lms/admin/sm/attendance?sessionId=
 async function attendanceBoard(req, res) {
   const S = M('LmsLiveSession');
+  // ?batch=&date=YYYY-MM-DD picks that batch's class of that day (report #32 — the picker only had the last 40)
+  const wantBatch = String(req.query.batch || '').trim();
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(req.query.date || ''));
   let s = mongoose.isValidObjectId(req.query.sessionId) ? await S.findOne({ _id: req.query.sessionId, removed: false }).lean() : null;
-  if (!s) s = await S.findOne({ removed: false, status: { $in: [...ENDED, 'live'] }, actualStart: { $ne: null } }).sort({ actualStart: -1 }).lean();
-  if (!s) return ok(res, { session: null, rows: [], recent: [] });
+  if (!s && dm) {
+    const day = new Date(`${dm[1]}-${dm[2]}-${dm[3]}T00:00:00+05:30`);
+    s = await S.findOne({ removed: false, ...(wantBatch ? { batchName: wantBatch } : {}), status: { $in: [...ENDED, 'live'] }, scheduledStart: { $gte: day, $lt: new Date(day.getTime() + DAY) } }).sort({ scheduledStart: 1 }).lean();
+  }
+  if (!s) s = await S.findOne({ removed: false, ...(wantBatch ? { batchName: wantBatch } : {}), status: { $in: [...ENDED, 'live'] }, actualStart: { $ne: null } }).sort({ actualStart: -1 }).lean();
+  const batchNames = (await M('Batch').find({ removed: false }).select('name').sort({ name: 1 }).lean()).map((b) => b.name);
+  if (!s) return ok(res, { batches: batchNames, session: null, rows: [], recent: [] });
   const [roster, recent, settings, held, cancelled] = await Promise.all([
     M('Student').find({ removed: false, batch: s.batchName }).select('name email status attendancePct').lean(),
-    S.find({ removed: false, status: { $in: [...ENDED, 'live'] }, actualStart: { $ne: null } }).sort({ actualStart: -1 }).limit(40).select('title batchName actualStart').lean(),
+    S.find({ removed: false, ...(wantBatch ? { batchName: wantBatch } : {}), status: { $in: [...ENDED, 'live'] }, actualStart: { $ne: null } }).sort({ actualStart: -1 }).limit(wantBatch ? 300 : 80).select('title batchName actualStart').lean(),
     require('../../../../services/lms/settingsService').get().catch(() => ({})),
     S.countDocuments({ removed: false, batchName: s.batchName, status: { $in: ENDED } }),
     S.countDocuments({ removed: false, batchName: s.batchName, status: 'cancelled' }),
@@ -232,6 +261,7 @@ async function attendanceBoard(req, res) {
   });
   rows.sort((a, b) => (a.dropped ? 1 : 0) - (b.dropped ? 1 : 0) || a.name.localeCompare(b.name));
   return ok(res, {
+    batches: batchNames,
     session: {
       id: String(s._id),
       title: s.title,
@@ -296,7 +326,8 @@ async function buildEscalations() {
     const days = streak ? Math.round((new Date(streakTo) - new Date(streakFrom)) / DAY) + 1 : 0;
     const pct = r.attendancePct || 0;
     let level = 0;
-    if (streak && days >= 10) level = 3;
+    const band = pct <= 10 && counted.length >= 3; // 0–10 % attendance → Level 3 matrix (LMS testing report #32)
+    if ((streak && days >= 10) || band) level = 3;
     else if (pct < 80 && counted.length >= 5) level = 2;
     else if (mine.length && mine[mine.length - 1].st === 'ABSENT') level = 1;
     if (!level) return;
@@ -307,10 +338,11 @@ async function buildEscalations() {
       name: r.name,
       email: r.email,
       batch: r.batch,
-      stat: level === 3 ? `${days} days continuous · ${pct}%` : level === 2 ? `irregular · ${pct}%` : `missed 1 · ${pct}%`,
+      stat: level === 3 ? (streak && days >= 10 ? `${days} days continuous · ${pct}%` : `${pct}% attendance (0–10% band)`) : level === 2 ? `irregular · ${pct}%` : `missed 1 · ${pct}%`,
       subject: T.subject,
       body: T.body(v),
       lastSent: lastSent.get(lc(r.email)) || null,
+      continuous10: !!(streak && days >= 10),
     });
   });
   return out;
@@ -351,8 +383,57 @@ async function escalationSend(req, res) {
   return ok(res, { delivered, level: row.level }, 'Email sent and logged.');
 }
 
+// Daily (automation 'absence-10d', 10:30): learners absent for 10+ continuous
+// days get the Level-3 email automatically — same text, checks and audit as the
+// manual "Send" (LMS testing report #32). Not during an incident; not twice in 3 days.
+async function autoAbsenceEmails({ dry } = {}) {
+  const setting = await M('LmsSetting').findOne({ key: 'incident' }).lean().catch(() => null);
+  if (setting && setting.incidentMode) return 'incident mode — held';
+  const rows = (await buildEscalations()).filter((r) => r.level === 3 && r.continuous10);
+  let sent = 0;
+  for (const row of rows) {
+    if (row.lastSent && Date.now() - new Date(row.lastSent.at).getTime() < 3 * DAY) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const stu = await M('Student').findOne({ removed: false, email: rxEq(row.email), batch: row.batch }).lean();
+    if (!stu || ['Dropped', 'Completed', 'Deferred'].includes(stu.status)) continue;
+    if (dry) {
+      sent += 1;
+      continue;
+    }
+    const m = require('../../../../services/mail/inlineEmails').attendanceEscalation({ subject: row.subject, body: row.body });
+    let delivered = true;
+    try {
+      const bodyHtml = m.html.replace(/<p>— Career Lab Support<\/p>$/, '');
+      // eslint-disable-next-line no-await-in-loop
+      const r = await require('../../../../services/lms/mailer').sendMail([row.email], { ...m, templateKey: 'lms-attendance-escalation', vars: { name: row.name, level: row.level, status: row.stat, bodyHtml } });
+      if (r && r.ok === false) delivered = false;
+    } catch (e) {
+      delivered = false;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await audit.record({ module: 'attendance', action: 'escalation.send', entityType: 'Student', entityId: stu._id, admin: null, after: { email: row.email, level: row.level, template: 'absence-l3 v2 (auto 10 days)', channel: 'email', delivered } }).catch(() => {});
+    if (delivered) sent += 1;
+  }
+  return `${sent} absence email(s) for ${rows.length} learner(s) absent 10+ days`;
+}
+
 // ── S1 dashboard ───────────────────────────────────────────────────────────
+// the board is the same for everyone for a minute — cached per batch filter
+// (it reads a dozen collections; slow to open — LMS testing report #32).
+// ?fresh=1 skips the cache.
+const dashCache = new Map();
 async function dashboard(req, res) {
+  const ck = String(req.query.batch || '');
+  const hit = dashCache.get(ck);
+  if (!req.query.fresh && hit && Date.now() - hit.at < 60000) return res.status(200).json(hit.body);
+  const json = res.json.bind(res);
+  res.json = (body) => {
+    if (body && body.success) dashCache.set(ck, { at: Date.now(), body });
+    return json(body);
+  };
+  return dashboardUncached(req, res);
+}
+async function dashboardUncached(req, res) {
   const batch = String(req.query.batch || '').trim();
   const S = M('LmsLiveSession');
   const today = startOfDay();
@@ -801,6 +882,7 @@ async function commsBoard(req, res) {
 }
 
 module.exports = {
+  autoAbsenceEmails,
   dashboard,
   ticketList,
   ticketUpdate,

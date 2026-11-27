@@ -81,7 +81,9 @@ class BigBlueButtonProvider extends MeetingProvider {
       record: record ? 'true' : 'false',
       // recording follows the configured policy — no manual start needed
       autoStartRecording: record ? 'true' : 'false',
-      allowStartStopRecording: 'true',
+      // recording runs the whole class — a teacher could stop it by mistake and the class
+      // ended with "No recording was made" (LMS testing report #26)
+      allowStartStopRecording: record ? 'false' : 'true',
       welcome: `Welcome to ${session.title || 'the class'}.`,
       meta_source: 'clc-crm',
       meta_courseName: session.courseTitle || '',

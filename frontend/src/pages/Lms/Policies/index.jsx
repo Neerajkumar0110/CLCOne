@@ -4,7 +4,7 @@ import {
 } from 'antd';
 import {
   FileProtectOutlined, PlusOutlined, CloudUploadOutlined, InboxOutlined, EyeOutlined, DeleteOutlined,
-  TagOutlined, AppstoreOutlined, FileTextOutlined, LinkOutlined, CalendarOutlined, TeamOutlined, CheckSquareOutlined,
+  TagOutlined, AppstoreOutlined, FileTextOutlined, LinkOutlined, CalendarOutlined, TeamOutlined, CheckSquareOutlined, SearchOutlined, CheckCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -13,39 +13,176 @@ import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
-import NewPolicyModal from './NewPolicyModal';
+import NewPolicyModal, { confirmDeletePolicy } from './NewPolicyModal';
 import '../StudentDashboard/StudentHome.css';
 import '../components/LearnerDesign.css';
 import './StudentConsent.css';
+import './policyDesign.css';
+import { PolicyBody } from './PolicyConsentModal';
+import './policyConsent.css';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 
-/* ═══════════ TEACHER — read-only ═══════════ */
-function ViewPolicies({ canCreate }) {
+/* ═══════════ STAFF — published policies (cards + read modal) ═══════════ */
+const AUDIENCE = { all: 'All candidates', course: 'One internship', batch: 'One batch' };
+const fmtD = (d) => (d ? dayjs(d).format('D MMM YYYY') : '');
+const audienceOf = (r) => [AUDIENCE[r.audience] || 'All candidates', r.batch, r.courseTitle].filter(Boolean).join(' · ');
+
+export function PolicyReadModal({ policy, onClose, onDeleted }) {
+  const r = policy;
+  return (
+    <Modal open={!!r} onCancel={onClose} footer={null} width={820} centered destroyOnClose rootClassName="pol-modal">
+      {r && (
+        <div className="pol-m">
+          <div className="pol-m-head">
+            <div className="pol-m-tags">
+              <span className="pol-chip teal">v{r.version}</span>
+              {r.category && <span className="pol-chip blue">{r.category}</span>}
+              {r.status && r.status !== 'published' ? <span className="pol-chip amber">{r.status}</span> : <span className="pol-chip green">Live</span>}
+              {r.mandatory !== false ? <span className="pol-chip red">Mandatory</span> : <span className="pol-chip">Optional</span>}
+              {r.byAdmin && <span className="pol-chip violet">Admin policy · no approval needed</span>}
+            </div>
+            <h3>{r.title}</h3>
+            <div className="pol-m-meta">
+              <span><TeamOutlined /> {audienceOf(r)}</span>
+              {r.effectiveDate && <span><CalendarOutlined /> Effective {fmtD(r.effectiveDate)}</span>}
+              {r.publishedAt && <span><CheckSquareOutlined /> Published {fmtD(r.publishedAt)}</span>}
+            </div>
+          </div>
+          <div className="pol-m-body">
+            {r.fileUrl && (
+              <a className="pol-doc" href={r.fileUrl} target="_blank" rel="noopener noreferrer">
+                <span className="pol-doc-ic"><FileTextOutlined /></span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{decodeURIComponent(String(r.fileUrl).split('/').pop())}</span>
+                <span style={{ marginLeft: 'auto', flex: 'none' }}>Open document →</span>
+              </a>
+            )}
+            <div className="pol-m-text">{r.content || 'No policy text.'}</div>
+          </div>
+          <div className="pol-m-foot">
+            <span className="pol-note">Learners see this text with an unticked checkbox · acceptance saves learner ID + version + time</span>
+            <div className="pol-m-foot-r">
+              {onDeleted && <Button danger icon={<DeleteOutlined />} onClick={() => confirmDeletePolicy(r, () => onDeleted(r))}>Delete</Button>}
+              <Button onClick={onClose}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function ViewPolicies({ canCreate, canDelete }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState(null);
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('');
+  const navigate = useNavigate();
+  const load = () =>
+    lmsApi.listPolicies({ status: 'published' }).then((r) => {
+      // newest published version per policy
+      const by = new Map();
+      ((r && r.result) || []).forEach((x) => {
+        const k = x.slug || x.id;
+        if (!by.has(k) || (by.get(k).version || 0) < (x.version || 0)) by.set(k, x);
+      });
+      setRows([...by.values()]);
+    }).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   useEffect(() => {
-    lmsApi.listPolicies({ status: 'published' }).then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
-  }, []);
-  const created = () => {
+    load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // an Admin's policy is live at once (the modal already said "Published to N");
+  // Support's is a draft that still needs an Admin's approval
+  const created = (newId, direct) => {
     setCreating(false);
-    message.success('Policy saved as a draft — publish it from “Publish & track”.', 6);
+    if (direct) load();
+    else message.info('Draft saved — open “Publish & track”, choose an Admin and send it for approval.', 6);
   };
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
+  const cats = [...new Set(rows.map((r) => r.category).filter(Boolean))].sort();
+  const needle = q.trim().toLowerCase();
+  const shown = rows.filter((r) => (!cat || r.category === cat) && (!needle || `${r.title} ${r.category} ${r.content}`.toLowerCase().includes(needle)));
   return (
-    <div className="lms-portal" style={{ padding: 4 }}>
-      <div className="lms-portal-head">
-        <div><h2><FileProtectOutlined /> Policies</h2><p>{canCreate ? 'Published policies. New ones start as a draft and go live from “Publish & track”.' : 'Published policies (view only — managed by admin).'}</p></div>
-        {canCreate && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>New policy</Button>}
+    <div className="pol">
+      <div className="pol-hero">
+        <div className="pol-hero-l">
+          <span className="pol-hero-ic"><FileProtectOutlined /></span>
+          <div>
+            <h2>Policies</h2>
+            <p>{canCreate ? 'Live policies learners have to read and accept. A new policy starts as a draft and goes live from “Publish & track” after approval.' : 'Live policies (view only — managed by admin).'}</p>
+          </div>
+        </div>
+        {canCreate && <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setCreating(true)}>New policy</Button>}
       </div>
+
+      <div className="pol-stats">
+        <div className="pol-stat"><span className="pol-stat-ic teal"><FileProtectOutlined /></span><div><b>{rows.length}</b><span>Live policies</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic amber"><CheckSquareOutlined /></span><div><b>{rows.filter((r) => r.mandatory !== false).length}</b><span>Mandatory</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic blue"><AppstoreOutlined /></span><div><b>{cats.length}</b><span>Categories</span></div></div>
+        <div className="pol-stat"><span className="pol-stat-ic violet"><LinkOutlined /></span><div><b>{rows.filter((r) => r.fileUrl).length}</b><span>With document</span></div></div>
+      </div>
+
       {canCreate && <NewPolicyModal open={creating} onClose={() => setCreating(false)} onCreated={created} />}
-      {rows.length === 0 ? <Card><Empty description="No published policies." /></Card> : rows.map((r) => (
-        <Card key={r.id} size="small" style={{ marginBottom: 12 }} title={<Space><b>{r.title}</b><Tag>{r.category}</Tag><Text type="secondary">v{r.version}</Text></Space>}>
-          <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>{r.content}</Paragraph>
-        </Card>
-      ))}
+
+      {rows.length === 0 ? (
+        <div className="pol-empty">
+          <span className="pol-empty-ic"><FileProtectOutlined /></span>
+          <b>No live policy yet</b>
+          <span>{canCreate ? 'Write a policy with “New policy”. It is saved as a draft — send it for approval and publish it from “Publish & track”, then it shows here.' : 'Nothing has been published yet.'}</span>
+          {canCreate && (
+            <Space wrap style={{ justifyContent: 'center' }}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>New policy</Button>
+              <Button onClick={() => navigate({ search: '?view=publish' })}>Open Publish &amp; track</Button>
+            </Space>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="pol-tools">
+            <Input allowClear prefix={<SearchOutlined />} placeholder="Search policies" value={q} onChange={(e) => setQ(e.target.value)} />
+            {cats.length > 1 && (
+              <div className="pol-pills">
+                <button type="button" className={`pol-pill${!cat ? ' on' : ''}`} onClick={() => setCat('')}>All · {rows.length}</button>
+                {cats.map((c) => <button key={c} type="button" className={`pol-pill${cat === c ? ' on' : ''}`} onClick={() => setCat(c)}>{c} · {rows.filter((r) => r.category === c).length}</button>)}
+              </div>
+            )}
+          </div>
+          {shown.length === 0 ? (
+            <div className="pol-empty"><span className="pol-empty-ic"><SearchOutlined /></span><b>No match</b><span>Try another word or category.</span></div>
+          ) : (
+            <div className="pol-grid">
+              {shown.map((r) => (
+                <button key={r.id} type="button" className="pol-card" onClick={() => setView(r)}>
+                  <div className="pol-card-top">
+                    <span className="pol-card-ic"><FileTextOutlined /></span>
+                    <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <span className="pol-chip teal">v{r.version}</span>
+                      {r.byAdmin && <span className="pol-chip violet">Admin policy</span>}
+                      {r.mandatory !== false && <span className="pol-chip red">Mandatory</span>}
+                    </span>
+                  </div>
+                  <h3>{r.title}</h3>
+                  <div className="pol-card-x">{r.content}</div>
+                  <div className="pol-card-f">
+                    {r.category && <span className="pol-chip blue">{r.category}</span>}
+                    {r.effectiveDate && <span><CalendarOutlined /> {fmtD(r.effectiveDate)}</span>}
+                    {r.fileUrl && <span><LinkOutlined /> Document</span>}
+                    <span className="go">Read →</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <PolicyReadModal
+        policy={view}
+        onClose={() => setView(null)}
+        onDeleted={canDelete ? (r) => { setView(null); setRows((xs) => xs.filter((x) => (x.slug || x.id) !== (r.slug || r.id))); } : undefined}
+      />
     </div>
   );
 }
@@ -58,18 +195,13 @@ function ViewPolicies({ canCreate }) {
 // ones are accepted the server keeps classes, recordings, tests and projects
 // locked (requirePoliciesAccepted) and the panel redirects here.
 function StudentPolicies() {
+  // 2026-11-27: view-only. Accepting happens in PolicyConsentModal (opened by
+  // the panel over every page while a policy is pending); here the learner
+  // re-reads what they already agreed to.
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState(null);
-  const [agree, setAgree] = useState(false);
-  const [accepting, setAccepting] = useState(false);
-  // onboarding checklist: "STEP x OF n" + the batch line of the board header
-  const [ob, setOb] = useState(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    lmsApi.myOnboarding().then((r) => setOb((r && r.result) || null)).catch(() => {});
-  }, []);
+  const [q, setQ] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -81,132 +213,77 @@ function StudentPolicies() {
   }, []);
   useEffect(() => {
     load();
+    window.addEventListener('lms:updates', load);
+    return () => window.removeEventListener('lms:updates', load);
   }, [load]);
-
-  const open = (r) => {
-    setView(r);
-    if (!r.openedAt) {
-      lmsApi.markPolicyOpened(r.policyId).catch(() => {});
-      setRows((xs) => xs.map((x) => (x.id === r.id ? { ...x, openedAt: new Date().toISOString() } : x)));
-    }
-  };
-
-  const pending = rows.filter((r) => r.status === 'pending');
-
-  const acceptAll = async () => {
-    setAccepting(true);
-    let failed = 0;
-    for (const r of pending) {
-      // eslint-disable-next-line no-await-in-loop
-      const res = await lmsApi.acknowledgePolicy(r.policyId).catch(() => null);
-      if (!res || res.success === false) failed += 1;
-    }
-    setAccepting(false);
-    setAgree(false);
-    window.dispatchEvent(new Event('lms:updates'));
-    if (failed) {
-      message.error(`${failed} polic${failed === 1 ? 'y' : 'ies'} could not be accepted — please try again.`);
-      load();
-      return;
-    }
-    message.success('Policies accepted.');
-    navigate('/learn');
-  };
 
   if (loading) return <Skeleton active paragraph={{ rows: 5 }} style={{ padding: 24 }} />;
 
-  const chipFor = (r) => {
-    if (r.status === 'acknowledged') return <span className="ld-chip hai">Accepted</span>;
-    if (r.openedAt) return <span className="ld-chip hai">Read</span>;
-    return <span className="ld-chip gray">Not opened</span>;
-  };
-  const mandatoryPending = pending.filter((r) => r.mandatory !== false).length;
-  const stepNo = ob && ob.steps ? ob.steps.findIndex((s) => s.key === 'policies') + 1 : 0;
+  const accepted = rows.filter((r) => r.status === 'acknowledged');
+  const pendingN = rows.length - accepted.length;
+  const needle = q.trim().toLowerCase();
+  const shown = accepted.filter((r) => !needle || `${r.title} ${r.category || ''}`.toLowerCase().includes(needle));
 
-  // design board L1 — same header, 460px policy list | acknowledgement card
   return (
-    <div className="ld-page" style={{ padding: '36px 56px', gap: 20 }}>
-      <div className="ld-head">
-        <div style={{ gap: 6 }}>
-          <div className="ld-eyebrow">{stepNo ? `Step ${stepNo} of ${ob.total} · ` : ''}Account activation</div>
-          <h1 style={{ fontSize: 32 }}>{pending.length ? 'Accept the policies before starting the LMS' : 'Policies & agreements'}</h1>
-          <div className="ld-muted" style={{ fontSize: 15 }}>
-            {mandatoryPending ? 'Until you accept, classes, recordings and tests stay locked — even through a direct link.' : 'You have accepted all required policies.'}
+    <div className="ld-page spv" style={{ gap: 18 }}>
+      <div className="spv-hero">
+        <span className="spv-hero-ic"><FileProtectOutlined /></span>
+        <div style={{ minWidth: 0 }}>
+          <span className="spv-kicker">My policies</span>
+          <h1>Policies you have accepted</h1>
+          <p>Open any policy to read it again. New policies appear as a pop-up to accept — they show up here once you agree.</p>
+        </div>
+        <div className="spv-stats">
+          <span><b>{accepted.length}</b><small>accepted</small></span>
+          {pendingN > 0 && <span className="warn"><b>{pendingN}</b><small>to accept</small></span>}
+        </div>
+      </div>
+
+      {accepted.length > 0 && (
+        <div className="spv-tools">
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Search policies" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
+        </div>
+      )}
+
+      {accepted.length === 0 ? (
+        <div className="spv-empty"><FileProtectOutlined /><b>No accepted policies yet</b><span>{pendingN ? 'Accept the policy shown in the pop-up — it will then be listed here.' : 'No policies have been published for you yet.'}</span></div>
+      ) : (
+        <div className="spv-grid">
+          {shown.map((r) => (
+            <button type="button" key={r.id} className="spv-card" onClick={() => setView(r)}>
+              <span className="spv-card-top">
+                <span className="spv-card-ic"><FileTextOutlined /></span>
+                <span className="spv-chips">
+                  <span className="spv-chip v">v{r.version}</span>
+                  <span className="spv-chip ok"><CheckCircleOutlined /> Accepted</span>
+                </span>
+              </span>
+              <b className="spv-title">{r.title}</b>
+              {r.category && <span className="spv-cat">{r.category}</span>}
+              <span className="spv-foot">
+                <span>{r.acknowledgedAt ? `Accepted ${dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm')}` : ''}</span>
+                <span className="spv-view"><EyeOutlined /> View</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Modal open={!!view} title={null} width={820} centered destroyOnClose onCancel={() => setView(null)} footer={null} rootClassName="pcm-root">
+        {view && (
+          <div className="pcm">
+            <div className="pcm-head">
+              <span className="pcm-ic"><FileProtectOutlined /></span>
+              <div style={{ minWidth: 0 }}>
+                <span className="pcm-kicker" style={{ color: '#a7f3d0' }}><CheckCircleOutlined /> Accepted{view.acknowledgedAt ? ` · ${dayjs(view.acknowledgedAt).format('D MMM YYYY, HH:mm')}` : ''}</span>
+                <h3>{view.title}</h3>
+                <span className="pcm-sub">Version {view.version}{view.category ? ` · ${view.category}` : ''}{view.effectiveDate ? ` · effective ${dayjs(view.effectiveDate).format('D MMM YYYY')}` : ''}</span>
+              </div>
+            </div>
+            <div className="pcm-body"><PolicyBody p={view} tall /></div>
+            <div className="pcm-foot"><span className="pcm-note" style={{ padding: 0 }}>Read-only copy of the version you accepted.</span><Button type="primary" onClick={() => setView(null)}>Close</Button></div>
           </div>
-        </div>
-      </div>
-
-      <div className="ld-grid" style={{ gridTemplateColumns: pending.length ? '460px minmax(0, 1fr)' : 'minmax(0, 720px)', gap: 20, flex: 1 }}>
-        <section className="ld-card p20" aria-label="Your policies" style={{ gap: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Policies for you ({rows.length})</div>
-          {ob && ob.batch && (
-            <div className="ld-muted" style={{ fontSize: 13, marginBottom: 8 }}>Batch: {ob.batch}{ob.batchTime ? ` · ${ob.batchTime}` : ''}</div>
-          )}
-          {rows.length === 0 ? (
-            <div className="ld-empty">No policies have been published for you yet.</div>
-          ) : (
-            <div>
-              {rows.map((r) => (
-                <div className="ld-pol" key={r.id}>
-                  <span style={{ minWidth: 0 }}>
-                    <b>{r.title}</b> <span className="ld-muted">v{r.version}</span>
-                    {r.mandatory === false && <span className="ld-muted"> · optional</span>}
-                    {r.status === 'acknowledged' && r.acknowledgedAt && <div className="ld-muted" style={{ fontSize: 12 }}>Accepted {dayjs(r.acknowledgedAt).format('D MMM YYYY, HH:mm')}</div>}
-                  </span>
-                  <span style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                    {chipFor(r)}
-                    <button type="button" className="ld-link" onClick={() => open(r)}>Open</button>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          {mandatoryPending > 0 && (
-            <div className="ld-soft ld-muted" style={{ marginTop: 'auto', padding: 14, borderRadius: 10 }}>
-              Locked till accepted: <b style={{ color: '#0f172a' }}>Live Classes · Recordings · Tests · Projects</b>. Support and this page stay open.
-            </div>
-          )}
-        </section>
-
-        {pending.length > 0 && (
-          <section className="ld-card p20" aria-label="Learner policy acknowledgement" style={{ gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Learner Policy Acknowledgement</div>
-            <div style={{ fontSize: 14, lineHeight: '22px', padding: 16, border: '1px solid #e2e8f0', borderRadius: 10, background: '#fcfdfe' }}>
-              I confirm that I have been given access to the Learner Policies, LMS Usage Guidelines, Attendance Requirements, Assessment Rules, Communication Guidelines, applicable Course Terms, and Privacy Notice provided by Career Lab Consulting. I have had the opportunity to read them and seek clarification where needed. I agree to follow the applicable policies and use the LMS responsibly. I will keep my login credentials confidential, provide accurate information, follow assessment instructions, and report technical issues through the designated support channels. I understand that mandatory policy acceptance is required before my LMS access is activated.
-            </div>
-            <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, cursor: 'pointer' }}>
-              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ width: 20, height: 20, margin: '2px 0 0' }} />
-              <span>I have read all the policies above and I accept them.</span>
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, fontSize: 13 }}>
-              <div className="ld-kv"><div className="ld-muted">Saved with acceptance</div><b>Learner ID + version</b></div>
-              <div className="ld-kv"><div className="ld-muted">Timestamp</div><b>{dayjs().format('D MMM YYYY')}, IST</b></div>
-              <div className="ld-kv"><div className="ld-muted">Audit ref</div><b>Event ID auto</b></div>
-            </div>
-            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <button type="button" className="ld-link" onClick={() => navigate('/learn/support', { state: { raise: { category: 'Other', subject: 'Question about a policy', description: 'Policy name:\nMy question:' } } })}>
-                Something unclear? Ask Support
-              </button>
-              <button type="button" className="ld-btn" style={{ fontSize: 15, padding: '0 20px' }} disabled={!agree || accepting} onClick={acceptAll}>
-                {accepting ? 'Accepting…' : 'Accept & continue →'}
-              </button>
-            </div>
-          </section>
         )}
-      </div>
-
-      <Modal open={!!view} title={view ? `${view.title} · v${view.version}` : ''} width={680} destroyOnClose onCancel={() => setView(null)} footer={<Button onClick={() => setView(null)}>Close</Button>}>
-        <div style={{ maxHeight: 420, overflowY: 'auto', border: '1px solid #e3e8ef', borderRadius: 8, padding: 14, marginBottom: 12, whiteSpace: 'pre-wrap' }}>
-          {view?.content || 'No content provided.'}
-        </div>
-        {view?.fileUrl && (
-          <p>
-            <a href={view.fileUrl} target="_blank" rel="noopener noreferrer">
-              View attached document
-            </a>
-          </p>
-        )}
-        {view?.effectiveDate && <Text type="secondary">Effective from {dayjs(view.effectiveDate).format('D MMM YYYY')}</Text>}
       </Modal>
     </div>
   );
@@ -217,6 +294,6 @@ export default function Policies() {
   // Staff read published policies here; creating / publishing lives in
   // Admin & Ops → Policy centre.
   // managers (Support included — the API allows it) write new policies here too
-  if (MGR.includes(admin.role) || LMS_TEACHER_ROLES.includes(admin.role)) return <ViewPolicies canCreate={MGR.includes(admin.role)} />;
+  if (MGR.includes(admin.role) || LMS_TEACHER_ROLES.includes(admin.role)) return <ViewPolicies canCreate={MGR.includes(admin.role)} canDelete={['owner', 'Super Admin', 'Admin'].includes(admin.role)} />;
   return <StudentPolicies />;
 }

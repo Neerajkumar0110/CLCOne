@@ -26,6 +26,7 @@ const shape = (t) => ({
   reference: t.reference || null,
   expected: t.expected || null,
   attachments: t.attachments || [],
+  supportFiles: t.supportFiles || [],
   history: t.history || [],
   learnerConfirmedAt: t.learnerConfirmedAt || null,
   reopenCount: t.reopenCount || 0,
@@ -136,6 +137,7 @@ async function create(req, res) {
     link: '/support',
   });
   if (!restricted) newTicketMail(ticket.toObject()).catch(() => {});
+  require('../../../../services/support/ticketMail').raisedConfirmationMail(ticket.toObject()).catch(() => {});
 
   return res.status(200).json({ success: true, result: shape(ticket), message: `Ticket ${no} raised — Support has been notified.` });
 }

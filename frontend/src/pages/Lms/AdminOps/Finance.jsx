@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { message } from 'antd';
+import { message, Modal, Button, Input, Select } from 'antd';
+import {
+  WalletOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined, CalendarOutlined, RollbackOutlined, SearchOutlined,
+  CreditCardOutlined, CloseCircleOutlined, ReloadOutlined, ToolOutlined, LockOutlined,
+} from '@ant-design/icons';
 import lmsApi from '../api';
-import { useLoad, act, Head, Loading, money } from './shared';
+import { useLoad, act, Loading, money } from './shared';
+import './mgmt.css';
+import './opsPages.css';
 
 // Design A3 · Finance — payments & provisioning. Rows are the real Razorpay
 // payment requests; the fix panel shows the payment → learner → batch →
 // access chain for the selected row. Card data / secrets are never returned.
-const GW_CHIP = { VERIFIED: 'hai', PENDING: 'adh' };
-const PROV_CHIP = { DONE: 'hai', FAILED: 'red', PENDING: 'red', WAITING: 'gray' };
+// 2026-11-27 redesign: gradient hero + KPI tiles, payment rows, the chain +
+// fix form open in a modal.
+const GW_TONE = { VERIFIED: 'ok', PENDING: 'mid' };
+const PROV_TONE = { DONE: 'ok', FAILED: 'bad', PENDING: 'bad', WAITING: 'none' };
 
 export default function Finance() {
   const [q, setQ] = useState('');
@@ -20,19 +28,16 @@ export default function Finance() {
   const [busy, setBusy] = useState(false);
 
   const rows = (data && data.rows) || [];
-  const firstProblem = rows.find((r) => r.provisioning.key === 'FAILED' || r.provisioning.key === 'PENDING');
-  const selId = sel || (firstProblem || rows[0] || {}).id;
 
   useEffect(() => {
-    if (!selId) return;
+    if (!sel) return;
     setDetail(null);
-    lmsApi.opsPaymentDetail(selId).then((r) => {
-      const d = r && r.result;
-      setDetail(d || null);
+    lmsApi.opsPaymentDetail(sel).then((r) => {
+      setDetail((r && r.result) || null);
       setBatch('');
       setReason('');
     });
-  }, [selId]);
+  }, [sel]);
 
   const recheck = async (id) => {
     const r = await act(lmsApi.opsPaymentRecheck(id));
@@ -40,95 +45,126 @@ export default function Finance() {
   };
   const retry = async () => {
     setBusy(true);
-    const r = await act(lmsApi.opsPaymentProvision(selId, { batch: batch || undefined, reason }), 'Provisioning done');
+    const r = await act(lmsApi.opsPaymentProvision(sel, { batch: batch || undefined, reason }), 'Provisioning done');
     setBusy(false);
     if (r) {
       reload();
-      setSel(selId);
-      lmsApi.opsPaymentDetail(selId).then((x) => setDetail(x && x.result));
+      lmsApi.opsPaymentDetail(sel).then((x) => setDetail(x && x.result));
     }
   };
 
   const k = data && data.kpis;
   const needsFix = detail && detail.chain.some((c) => !c.ok) && detail.row.gateway === 'VERIFIED';
+  const tiles = k ? [
+    [WalletOutlined, 'g3', money(k.collected), 'Collected (this month)', 'ok'],
+    [CheckCircleOutlined, 'g2', k.verified, 'Payments verified', 'ok'],
+    [WarningOutlined, 'g6', k.notProvisioned, 'Paid, not provisioned', k.notProvisioned ? 'bad' : 'ok'],
+    [StopOutlined, 'g1', k.duplicateWebhooks, 'Duplicate webhooks blocked', 'none'],
+    [CalendarOutlined, 'g4', k.emiDueWeek, 'EMI due this week', k.emiDueWeek ? 'mid' : 'none'],
+    [RollbackOutlined, 'g5', k.refunds, 'Refund requests', k.refunds ? 'mid' : 'none'],
+  ] : [];
+
   return (
-    <>
-      <Head title="Finance — payments & provisioning" sub="Spec §16 · card data / gateway secrets are never shown · only order / reference ID" />
+    <div className="mg op">
+      <div className="mg-hero fn-hero">
+        <div className="mg-hero-l">
+          <span className="mg-hero-ic"><CreditCardOutlined /></span>
+          <div style={{ minWidth: 0 }}>
+            <span className="mg-kicker">Finance · spec §16</span>
+            <h1>Payments &amp; provisioning</h1>
+            <p>Every verified payment should become a learner with a batch and access. Card data and gateway secrets are never shown — only the order / reference ID.</p>
+          </div>
+        </div>
+        <form className="op-hero-search" onSubmit={(e) => { e.preventDefault(); setTerm(q); }}>
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Order / reference ID / learner" value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value) setTerm(''); }} aria-label="Search order" />
+          <Button htmlType="submit">Search</Button>
+        </form>
+      </div>
+
       <Loading loading={loading} err={err} data={data}>
         {data && (
           <>
-            <div className="ao-kgrid">
-              <div className="ao-k"><b>{money(k.collected)}</b><span>Collected (this month)</span></div>
-              <div className="ao-k"><b>{k.verified}</b><span>Payments verified</span></div>
-              <div className="ao-k"><b style={{ color: k.notProvisioned ? '#991b1b' : undefined }}>{k.notProvisioned}</b><span>Paid, not provisioned</span></div>
-              <div className="ao-k"><b>{k.duplicateWebhooks}</b><span>Duplicate webhooks blocked</span></div>
-              <div className="ao-k"><b>{k.emiDueWeek}</b><span>EMI due this week</span></div>
-              <div className="ao-k"><b>{k.refunds}</b><span>Refund requests</span></div>
+            <div className="mg-kpis op-kpis">
+              {tiles.map(([Ic, g, v, label, tone]) => (
+                <div className={`mg-k ${tone}`} key={label}>
+                  <div className="mg-k-top"><span className={`mg-k-ic ${g}`}><Ic /></span></div>
+                  <b className="mg-k-v">{v}</b>
+                  <span className="mg-k-l">{label}</span>
+                </div>
+              ))}
             </div>
-            <div className="ao-grid-2" style={{ gridTemplateColumns: 'minmax(0, 1fr) 380px' }}>
-              <div className="ao-card">
-                <div className="ao-hd">
-                  <b>Payment → enrollment log</b>
-                  <form onSubmit={(e) => { e.preventDefault(); setTerm(q); setSel(null); }}>
-                    <input aria-label="Search order" placeholder="Search order / reference ID / learner" className="ao-inp sm" style={{ width: 240 }} value={q} onChange={(e) => setQ(e.target.value)} />
-                  </form>
-                </div>
-                <div className="ao-tablewrap">
-                  <table className="ao-table small num">
-                    <thead><tr><th>Order ID</th><th>Learner</th><th>Amount</th><th>Gateway (server verify)</th><th>Webhooks</th><th>Provisioning</th><th /></tr></thead>
-                    <tbody>
-                      {rows.length === 0 && <tr><td colSpan={7} className="ao-empty">No payments match.</td></tr>}
-                      {rows.map((r) => (
-                        <tr key={r.id} className={`click${r.id === selId ? ' sel' : ''}`} onClick={() => setSel(r.id)}>
-                          <td>{r.id === selId ? <b>{r.order}</b> : r.order}</td>
-                          <td>{r.learner}</td>
-                          <td>{money(r.amount)}{r.installment ? ` ${r.installment}` : ''}</td>
-                          <td><span className={`ao-chip ${GW_CHIP[r.gateway] || 'gray'}`}>{r.gateway}</span>{r.amountMismatch && <span className="ao-chip red" style={{ marginLeft: 4 }}>Amount mismatch</span>}</td>
-                          <td>{r.webhooks}{r.webhooks > 1 && <span className="ao-muted"> ({r.webhooks - 1} dup ignored)</span>}</td>
-                          <td><span className={`ao-chip ${PROV_CHIP[r.provisioning.key] || 'gray'}`}>{r.provisioning.text}</span></td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            {r.gateway === 'PENDING' && <button type="button" className="ao-btn2 sm" onClick={() => recheck(r.id)}>Recheck</button>}
-                            {(r.provisioning.key === 'FAILED' || r.provisioning.key === 'PENDING') && <button type="button" className="ao-btn2 sm" onClick={() => setSel(r.id)}>Fix</button>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="ao-muted" style={{ fontSize: 12, marginTop: 'auto' }}>The browser success screen is not trusted · the same webhook arriving twice still creates only one learner (idempotent)</div>
+
+            <section className="mg-card op-list">
+              <div className="mg-hd">
+                <span className="mg-hd-ic g3"><CreditCardOutlined /></span>
+                <div><b>Payment → enrollment log · {rows.length}</b><small>Click a payment to see its chain and fix provisioning</small></div>
               </div>
-              <div className="ao-card">
-                {!detail ? (
-                  <div className="ao-empty">Select a payment.</div>
-                ) : (
-                  <>
-                    <div className="ao-hd"><b>{detail.row.order} · {needsFix ? 'fix' : 'status'}</b><span className={`ao-chip ${needsFix ? 'red' : 'hai'}`}>{needsFix ? 'Action' : 'OK'}</span></div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {detail.chain.map((c) => (
-                        <div key={c.step} className={`ao-node${c.ok ? '' : ' bad'}`}><span>{c.step}</span><b className={c.ok ? 'ok' : 'no'}>{c.ok ? '✓' : '✗'} {c.text}</b></div>
-                      ))}
-                    </div>
-                    {detail.error && <div className="ao-err">{detail.error}</div>}
-                    {needsFix && (
-                      <>
-                        <label className="ao-label">Assign batch
-                          <select className="ao-inp full" value={batch} onChange={(e) => setBatch(e.target.value)}>
-                            <option value="">Keep current</option>
-                            {detail.batches.map((b) => <option key={b.name} value={b.name}>{b.name} ({b.size}{b.cap ? `/${b.cap}` : ''})</option>)}
-                          </select>
-                        </label>
-                        <label className="ao-label">Reason (audit)<input className="ao-inp full" value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-                        <button type="button" className="ao-btn" style={{ marginTop: 'auto' }} disabled={busy || reason.trim().length < 3} onClick={retry}>{busy ? 'Working…' : 'Retry provisioning'}</button>
-                        <div className="ao-muted" style={{ fontSize: 12 }}>The welcome email goes only after provisioning succeeds</div>
-                      </>
-                    )}
-                  </>
+              <div className="mg-tbl">
+                <div className="mg-tr fn-tr mg-th"><span>Order</span><span>Learner</span><span>Amount</span><span>Gateway (server verify)</span><span>Webhooks</span><span>Provisioning</span><span /></div>
+                {rows.length === 0 && (
+                  <div className="op-empty"><span className="op-empty-ic g3"><WalletOutlined /></span><b>No payments {term ? 'match' : 'yet'}</b><span>{term ? 'Try another order ID or name.' : 'Razorpay payment requests will show up here.'}</span></div>
                 )}
+                {rows.map((r) => (
+                  <div className={`mg-tr fn-tr${PROV_TONE[r.provisioning.key] === 'bad' ? ' bad' : ''}`} key={r.id} role="button" tabIndex={0} onClick={() => setSel(r.id)} onKeyDown={(e) => { if (e.key === 'Enter') setSel(r.id); }}>
+                    <span><code className="sc-ev">{r.order}</code></span>
+                    <span className="mg-obj">{r.learner}</span>
+                    <span className="fn-amt">{money(r.amount)}{r.installment ? <small> {r.installment}</small> : null}</span>
+                    <span className="op-chips"><span className={`mg-pill ${GW_TONE[r.gateway] || 'none'}`}>{r.gateway}</span>{r.amountMismatch && <span className="mg-pill bad">Amount mismatch</span>}</span>
+                    <span>{r.webhooks}{r.webhooks > 1 && <small className="mg-rsn"> ({r.webhooks - 1} dup ignored)</small>}</span>
+                    <span><span className={`mg-pill ${PROV_TONE[r.provisioning.key] || 'none'}`}>{r.provisioning.text}</span></span>
+                    <span onClick={(e) => e.stopPropagation()} className="op-chips">
+                      {r.gateway === 'PENDING' && <Button size="small" icon={<ReloadOutlined />} onClick={() => recheck(r.id)}>Recheck</Button>}
+                      {PROV_TONE[r.provisioning.key] === 'bad' && <Button size="small" type="primary" danger icon={<ToolOutlined />} onClick={() => setSel(r.id)}>Fix</Button>}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </div>
+              <div className="mg-foot"><LockOutlined /> The browser success screen is not trusted · the same webhook arriving twice still creates only one learner (idempotent)</div>
+            </section>
           </>
         )}
       </Loading>
-    </>
+
+      <Modal open={!!sel} onCancel={() => setSel(null)} footer={null} width={620} centered destroyOnClose rootClassName="mg-modal">
+        <div className="mg-m">
+          <div className="mg-m-head fn-m-head">
+            <span className="mg-act">{detail ? (needsFix ? 'Needs a fix' : 'Status') : 'Loading…'}</span>
+            <h3>{detail ? detail.row.order : '…'}</h3>
+            {detail && <span>{detail.row.learner} · {money(detail.row.amount)} · gateway {detail.row.gateway}</span>}
+          </div>
+          <div className="mg-m-body">
+            {!detail ? <div className="mg-empty">Loading…</div> : (
+              <>
+                <div className="mg-m-cap">Payment → learner → batch → access</div>
+                <div className="op-chain">
+                  {detail.chain.map((c, i) => (
+                    <div key={c.step} className={`op-node ${c.ok ? 'ok' : 'bad'}`}>
+                      <i>{c.ok ? <CheckCircleOutlined /> : <CloseCircleOutlined />}</i>
+                      <div><small>Step {i + 1} · {c.step}</small><b>{c.text}</b></div>
+                    </div>
+                  ))}
+                </div>
+                {detail.error && <div className="op-err"><WarningOutlined /> {detail.error}</div>}
+                {needsFix && (
+                  <div className="op-fix">
+                    <div className="mg-m-cap">Fix provisioning</div>
+                    <label className="ao-label">Assign batch
+                      <Select value={batch} onChange={setBatch} style={{ width: '100%' }} options={[{ value: '', label: 'Keep current' }, ...detail.batches.map((b) => ({ value: b.name, label: `${b.name} (${b.size}${b.cap ? `/${b.cap}` : ''})` }))]} />
+                    </label>
+                    <label className="ao-label">Reason (saved in the audit)<Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. webhook arrived before the batch existed" /></label>
+                    <small className="mg-rsn">The welcome email goes only after provisioning succeeds</small>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="mg-m-foot" style={{ gap: 8 }}>
+            {detail && detail.row.gateway === 'PENDING' && <Button icon={<ReloadOutlined />} onClick={() => recheck(sel)}>Recheck gateway</Button>}
+            <Button onClick={() => setSel(null)}>Close</Button>
+            {needsFix && <Button type="primary" icon={<ToolOutlined />} loading={busy} disabled={reason.trim().length < 3} onClick={retry}>Retry provisioning</Button>}
+          </div>
+        </div>
+      </Modal>
+    </div>
   );
 }

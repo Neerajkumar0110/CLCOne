@@ -318,6 +318,8 @@ async function review(req, res) {
   if (!p.submissions.length) return bad(res, 400, 'Nothing submitted yet.');
   const b = req.body || {};
   if (!['approved', 'revision_requested', 'rejected'].includes(b.decision)) return bad(res, 400, 'Invalid decision.');
+  // a learner is never disqualified without being told why (LMS testing report #25)
+  if (b.decision === 'rejected' && String(b.feedback || '').trim().length < 5) return bad(res, 400, 'Write the reason — the learner gets it in the email.');
 
   const last = p.submissions[p.submissions.length - 1];
   const rubricScores = Array.isArray(b.rubricScores) ? b.rubricScores : [];
@@ -355,14 +357,14 @@ async function review(req, res) {
 
   await realtime.notify([p.student], {
     type: 'lms.project.reviewed',
-    title: b.decision === 'approved' ? `✅ Project approved: ${p.title}` : b.decision === 'rejected' ? `❌ Project rejected: ${p.title}` : `✏️ Revision requested: ${p.title}`,
+    title: b.decision === 'approved' ? `✅ Project qualified: ${p.title}` : b.decision === 'rejected' ? `❌ Project not qualified: ${p.title}` : `✏️ Revision requested: ${p.title}`,
     body: b.feedback || '',
     link: '/learn/projects',
     actorName: req.admin.name,
   });
   try {
     const mailer = require('../../../../services/lms/mailer');
-    const vars = { projectTitle: p.title, decision: b.decision.replace('_', ' '), feedback: b.feedback || '' };
+    const vars = { projectTitle: p.title, decision: b.decision === 'approved' ? 'Qualified' : b.decision === 'rejected' ? 'Not qualified' : 'Revision requested', feedback: b.feedback || '', score: totalScore };
     await mailer.sendMail([p.studentEmail], { ...require('../../../../services/mail/inlineEmails').projectReview(vars), templateKey: 'lms-project-review', vars });
   } catch (e) {
     /* non-fatal */

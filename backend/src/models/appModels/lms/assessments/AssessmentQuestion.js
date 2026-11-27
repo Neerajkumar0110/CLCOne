@@ -18,6 +18,9 @@ const schema = new mongoose.Schema({
   partOrder: { type: Number, default: 0 },
   retired: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
+  // which upload brought it in — a wrong upload can be removed as one (questionBank.removeImport)
+  importId: { type: String, index: true },
+  importedByName: { type: String },
 });
 
 schema.index({ type: 1, questionType: 1 });

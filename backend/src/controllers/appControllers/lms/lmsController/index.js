@@ -156,6 +156,7 @@ module.exports = {
   // assignments
   assignmentCreate: assignments.create,
   assignmentList: assignments.list,
+  assignmentBatchLearners: assignments.batchLearners,
   assignmentGet: assignments.getOne,
   assignmentUpdate: assignments.update,
   assignmentDelete: assignments.remove,
@@ -190,6 +191,7 @@ module.exports = {
   doubtPin: engagement.pinDoubt,
 
   // announcements
+  announcementLearners: engagement.announcementLearners,
   announcementCreate: engagement.createAnnouncement,
   announcementList: engagement.listAnnouncements,
   announcementDelete: engagement.deleteAnnouncement,
@@ -265,6 +267,8 @@ module.exports = {
   opsRoleApprove: adminOps.roleApprove,
   opsPolicies: adminOps.policies,
   opsPolicySendForApproval: adminOps.policySendForApproval,
+  opsPolicyReject: adminOps.policyReject,
+  opsPolicyApprove: adminOps.policyApprove,
   opsHealth: adminOps2.healthExtras,
   opsReports: adminOps2.reportsOverview,
   opsReportDownload: adminOps2.reportDownload,
@@ -272,6 +276,12 @@ module.exports = {
   opsAutomationToggle: adminOps2.automationToggle,
   opsSecurity: adminOps2.security,
   opsEvidence: adminOps2.evidence,
+  feedbackLockGet: require('./feedback').getFeedbackLock,
+  feedbackLockSet: require('./feedback').setFeedbackLock,
+  opsApprovalEdit: require('./adminOps').approvalEdit,
+  opsApprovalRemove: require('./adminOps').approvalRemove,
+  opsApprovalStatus: require('./adminOps').approvalStatus,
+  opsEvidenceAdd: adminOps2.evidenceAdd,
   opsRules: adminOps2.rules,
   opsRulesPropose: adminOps2.rulesPropose,
   opsRulesApprove: adminOps2.rulesApprove,
@@ -360,6 +370,7 @@ module.exports = {
 
   // learner 360 report
   learner360Report: learner360.courseReport,
+  learner360Courses: learner360.coursesWithLearners,
   learner360Export: learner360.courseReportExport,
   learnerTimeline: learner360.learnerTimeline,
   // Project Manager boards (design P1–P10)
@@ -381,6 +392,7 @@ module.exports = {
   // Support Manager boards (design S1–S7, S9)
   smDashboard: smBoards.dashboard,
   smTickets: smBoards.ticketList,
+  ...(({ escalationList, escalationCreate, escalationUpdate }) => ({ escalationList, escalationCreate, escalationUpdate }))(require('./staffEscalations')),
   smTicketUpdate: smBoards.ticketUpdate,
   smAttendance: smBoards.attendanceBoard,
   smEscalations: smBoards.escalationList,
@@ -417,5 +429,7 @@ module.exports = {
   // students-tab alerts
   studentsUnassignedCount: studentAlerts.unassignedCount,
   studentsUnassignedList: studentAlerts.unassignedList,
+  studentsDeletedList: studentAlerts.deletedList,
+  studentRestore: studentAlerts.restore,
   studentDetail: candidateDetail.candidateDetail,
 };

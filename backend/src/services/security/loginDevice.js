@@ -35,9 +35,23 @@ function parseUserAgent(ua = '') {
   return { browser, os, deviceType, device: `${browser} on ${os} (${deviceType})` };
 }
 
+// The socket.io connection reaches the API through nginx without the client
+// IP, so every login showed the server's own address (::1) — LMS testing report
+// #29. The last real IP seen on an authenticated /api request stands in.
+const lastIp = new Map();
+const LOOPBACK = /^(::1|127.0.0.1|::ffff:127.0.0.1|)$/;
+function rememberIp(adminId, headers = {}, fallback = '') {
+  const ip = clientIp(headers, fallback);
+  if (adminId && ip && !LOOPBACK.test(ip)) lastIp.set(String(adminId), { ip, at: Date.now() });
+}
+
 // Fields to store on a new LoginActivity row for this connection.
 async function describe(adminId, headers = {}, remoteAddress = '') {
-  const ip = clientIp(headers, remoteAddress);
+  let ip = clientIp(headers, remoteAddress);
+  if (LOOPBACK.test(ip)) {
+    const seen = lastIp.get(String(adminId));
+    if (seen && Date.now() - seen.at < 15 * 60 * 1000) ip = seen.ip;
+  }
   const userAgent = String(headers['user-agent'] || '').slice(0, 400);
   const d = parseUserAgent(userAgent);
   const out = { ip, userAgent, browser: d.browser, os: d.os, deviceType: d.deviceType, device: d.device, newDevice: false, newIp: false };
@@ -56,4 +70,4 @@ async function describe(adminId, headers = {}, remoteAddress = '') {
   return out;
 }
 
-module.exports = { describe, clientIp, parseUserAgent, NEW_WINDOW_DAYS };
+module.exports = { describe, clientIp, parseUserAgent, rememberIp, NEW_WINDOW_DAYS };

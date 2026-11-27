@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Connect CLC Desktop Agent</title>
+<style>
+  body { margin: 0; font-family: Inter, 'Segoe UI', system-ui, sans-serif; background: #0b1020; color: #e2e8f0; padding: 26px; }
+  h1 { font-size: 18px; margin: 0 0 6px; color: #fff; }
+  p { font-size: 13px; color: #94a3b8; line-height: 19px; margin: 0 0 16px; }
+  label { display: block; font-size: 12px; color: #cbd5e1; margin: 12px 0 6px; }
+  input { width: 100%; box-sizing: border-box; height: 42px; border-radius: 10px; border: 1px solid #1f2937; background: #111827; color: #fff; padding: 0 12px; font-size: 14px; }
+  #code { font-size: 24px; letter-spacing: 8px; text-align: center; }
+  button { width: 100%; height: 44px; margin-top: 18px; border: 0; border-radius: 10px; background: #4f46e5; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .6; }
+  #msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  .ok { color: #4ade80; } .err { color: #fca5a5; }
+</style>
+</head>
+<body>
+  <h1>Connect this laptop</h1>
+  <p>In the Employee Portal open <b>Desktop agent</b> and click <b>Connect this laptop</b>. Type the 6-digit code here. Only "keyboard / mouse used — yes or no" is sent, never keys, text or screens.</p>
+  <label for="code">6-digit code</label>
+  <input id="code" inputmode="numeric" maxlength="6" autofocus>
+  <label for="server">Server</label>
+  <input id="server">
+  <button id="go">Connect</button>
+  <div id="msg"></div>
+<script>
+  const { ipcRenderer } = require('electron');
+  const q = new URLSearchParams(location.search);
+  document.getElementById('server').value = q.get('server') || 'https://clcone.careerlabconsulting.com';
+  const go = document.getElementById('go');
+  const msg = document.getElementById('msg');
+  go.onclick = async () => {
+    go.disabled = true;
+    msg.textContent = 'Connecting…';
+    msg.className = '';
+    const r = await ipcRenderer.invoke('pair', { code: document.getElementById('code').value.trim(), server: document.getElementById('server').value.trim() });
+    msg.textContent = r.message;
+    msg.className = r.ok ? 'ok' : 'err';
+    go.disabled = false;
+  };
+  document.getElementById('code').addEventListener('keydown', (e) => e.key === 'Enter' && go.click());
+</script>
+</body>
+</html>

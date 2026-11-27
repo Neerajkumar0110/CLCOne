@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Radio, Space, Empty, Skeleton, message, Typography, DatePicker, Drawer, Steps, Checkbox, List, Divider, Timeline, Alert, Popconfirm,
+  Card, Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Radio, Space, Empty, Skeleton, message, Typography, DatePicker, Steps, Checkbox, List, Divider, Timeline, Alert, Popconfirm,
 } from 'antd';
 import {
   ProjectOutlined, PlusOutlined, GithubOutlined, LinkOutlined, SendOutlined, CheckCircleOutlined,
@@ -17,6 +17,8 @@ import { request } from '@/request';
 import { BASE_URL } from '@/config/serverApiConfig';
 import lmsApi from '../api';
 import '../components/LearnerDesign.css';
+import '../Policies/policyDesign.css';
+import { tablePagination } from '../components/ui';
 
 const { Text, Paragraph } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -41,8 +43,32 @@ const STATUS_COLOR = {
 };
 const STATUS_LABEL = {
   assigned: 'Assigned', in_progress: 'In Progress', submitted: 'Submitted',
-  in_review: 'In Review', revision_requested: 'Revision Requested', approved: 'Approved', rejected: 'Rejected',
+  // qualification wording, as the learner sees it (LMS testing report #25)
+  in_review: 'In Review', revision_requested: 'Revision Requested', approved: 'Qualified', rejected: 'Not qualified',
 };
+
+const PJ_TONE = { assigned: '', in_progress: 'blue', submitted: 'amber', in_review: 'amber', revision_requested: 'amber', approved: 'green', rejected: 'red' };
+
+// A long one-paragraph brief ("… 1. Assigned Project … 2. Mandatory …") reads
+// as numbered sections; anything past ~700 chars folds behind "Show full".
+function ProblemText({ text }) {
+  const [full, setFull] = useState(false);
+  const raw = String(text || '').trim();
+  if (!raw) return <div className="pjm-empty">No problem statement.</div>;
+  const parts = raw.split(/\n+|\s(?=\d{1,2}\.\s+[A-Z])/).map((x) => x.trim()).filter(Boolean);
+  const long = raw.length > 700;
+  return (
+    <div className={`pjm-ps${long && !full ? ' folded' : ''}`}>
+      {parts.map((p, i) => {
+        const m = p.match(/^(\d{1,2})\.\s+(.*)$/s);
+        return m
+          ? <p key={i} className="pjm-ps-n"><b>{m[1]}</b><span>{m[2]}</span></p>
+          : <p key={i}>{p}</p>;
+      })}
+      {long && <button type="button" className="pjm-more" onClick={() => setFull((v) => !v)}>{full ? 'Show less ▲' : 'Show full brief ▼'}</button>}
+    </div>
+  );
+}
 
 /* ═══════════ MANAGER / MENTOR — assign, review ═══════════ */
 function ManageProjects() {
@@ -139,7 +165,7 @@ function ManageProjects() {
 
       {rows.length === 0 ? <Card><Empty description="No projects yet." /></Card> : (
         <Table
-          rowKey="id" dataSource={rows} pagination={{ pageSize: 12 }} onRow={(r) => ({ onClick: () => openDetail(r), style: { cursor: 'pointer' } })}
+          rowKey="id" dataSource={rows} pagination={tablePagination({ defaultPageSize: 12 })} onRow={(r) => ({ onClick: () => openDetail(r), style: { cursor: 'pointer' } })}
           columns={[
             { title: 'Project ID', dataIndex: 'code', render: (v) => v || '—' },
             { title: 'Candidate', dataIndex: 'student' },
@@ -301,148 +327,179 @@ function ManageProjects() {
         </Form>
       </Modal>
 
-      <Drawer open={!!detail} onClose={() => setDetail(null)} width={640} closable={false}>
-        {detail && (
-          <div className="submission-page" style={{ margin: '-24px' }}>
-            <div className="page" style={{ maxWidth: 'none' }}>
-              <div className="submission-header">
-                <button type="button" className="back-btn" onClick={() => setDetail(null)}><CloseOutlined /></button>
-                <h1>{detail.title} — {detail.studentName}</h1>
-              </div>
-
-              <div className="top-info">
-                <div className="meta">
-                  {detail.code && <span className="badge project">{detail.code}</span>}
-                  <span className={`badge${['submitted', 'in_review'].includes(detail.status) ? ' submitted' : ''}`}>
-                    {STATUS_LABEL[detail.status] || detail.status}
-                  </span>
-                  {detail.dueDate && <span className="badge due">Due {dayjs(detail.dueDate).format('D MMM YYYY')}</span>}
-                </div>
-                {detail.finalScore != null && (
-                  <div className="score-card">
-                    <div>
-                      <span className="score-label">Final score</span>
-                      <span className="score-value">{detail.finalScore}%</span>
+      <Modal open={!!detail} onCancel={() => setDetail(null)} footer={null} width={1040} centered destroyOnClose rootClassName="pol-modal">
+        {detail && (() => {
+          const d = detail;
+          const at = STAGE_AT[d.status] ?? 0;
+          const ms = d.milestones || [];
+          const msDone = ms.filter((m) => m.status === 'done').length;
+          const subs = d.submissions || [];
+          const canReview = d.status !== 'approved' && d.status !== 'rejected' && subs.length > 0;
+          const maxTotal = (d.rubric || []).reduce((n, r) => n + (Number(r.maxMarks) || 0), 0);
+          const given = (d.rubric || []).reduce((n, r) => n + (Number(reviewState.rubricMarks[r.criterion]) || 0), 0);
+          const overdue = d.dueDate && dayjs(d.dueDate).isBefore(dayjs(), 'day') && !['approved', 'rejected'].includes(d.status);
+          return (
+            <div className="pol-m">
+              <div className="pol-m-head pjm-head">
+                <div className="pjm-head-row">
+                  <div style={{ minWidth: 0 }}>
+                    <div className="pol-m-tags">
+                      {d.code && <span className="pol-chip violet">{d.code}</span>}
+                      <span className={`pol-chip ${PJ_TONE[d.status] || ''}`}>{STATUS_LABEL[d.status] || d.status}</span>
+                      {d.dueDate && <span className={`pol-chip ${overdue ? 'red' : 'blue'}`}><CalendarOutlined /> {overdue ? 'Overdue · ' : 'Due '}{dayjs(d.dueDate).format('D MMM YYYY')}</span>}
+                      {d.blocker && d.blocker.text && <span className="pol-chip amber">Blocker flagged</span>}
                     </div>
-                    <div>
-                      <span className="score-label">Grade</span>
-                      <span className="score-value">{detail.finalGrade}</span>
+                    <h3 style={{ marginTop: 8 }}>{d.title}</h3>
+                    <div className="pol-m-meta">
+                      <span><UserOutlined /> <b>{d.studentName}</b>{d.studentEmail ? ` · ${d.studentEmail}` : ''}</span>
+                      {d.batch && <span><TeamOutlined /> {d.batch}</span>}
+                      {d.courseTitle && <span><ProjectOutlined /> {d.courseTitle}</span>}
+                      {d.mentorName && <span>PM: {d.mentorName}</span>}
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="detail-card">
-                <div className="section-title">Problem statement</div>
-                <div style={{ padding: '16px 20px', color: '#425873', fontSize: 13, lineHeight: 1.6 }}>{detail.problemStatement || '—'}</div>
-
-                <div className="section-title">Milestones</div>
-                <div style={{ padding: '6px 20px 16px' }}>
-                  <List size="small" dataSource={detail.milestones} renderItem={(m) => (
-                    <List.Item style={{ border: 'none', padding: '8px 0' }}>
-                      <Space>
-                        {m.status === 'done' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <Tag>{m.status}</Tag>}
-                        <span>{m.title}</span>
-                        {m.dueDate && <Text type="secondary">({dayjs(m.dueDate).format('D MMM')})</Text>}
-                      </Space>
-                    </List.Item>
-                  )} />
-                </div>
-
-                <div className="section-title">Submissions</div>
-                <div style={{ padding: '16px 20px' }}>
-                  {(!detail.submissions || detail.submissions.length === 0) ? <Text type="secondary">No submission yet.</Text> : (
-                    <Timeline items={detail.submissions.slice().reverse().map((s) => ({
-                      children: (
-                        <div key={s.version}>
-                          <b>v{s.version}</b> — {dayjs(s.submittedAt).format('D MMM, HH:mm')}
-                          <br />{s.note}
-                          <br />
-                          {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> repo</a>}{' '}
-                          {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8 }}><LinkOutlined /> live</a>}
-                          {s.review && <Alert style={{ marginTop: 6 }} type={s.review.decision === 'approved' ? 'success' : s.review.decision === 'rejected' ? 'error' : 'warning'} message={`${s.review.decision.replace('_', ' ')} by ${s.review.byName}`} description={s.review.feedback} />}
-                        </div>
-                      ),
-                    }))} />
+                  {d.finalScore != null && (
+                    <div className="pjm-score"><b>{d.finalScore}%</b><span>Grade {d.finalGrade || '—'}</span></div>
                   )}
                 </div>
+              </div>
 
-                {detail.status !== 'approved' && detail.status !== 'rejected' && detail.submissions && detail.submissions.length > 0 && (
-                  <>
-                    <button type="button" className="review-latest" onClick={() => setReviewOpen((o) => !o)}>
-                      <span><CheckCircleOutlined /> &nbsp;REVIEW LATEST SUBMISSION</span>
-                      <span>{reviewOpen ? '▲' : '▼'}</span>
-                    </button>
-                    {reviewOpen && (
-                      <div className="evaluation">
-                        <div className="form-group">
-                          <label className="form-label"><FlagOutlined /> Decision</label>
-                          <select
-                            className="decision-select"
-                            value={reviewState.decision}
-                            onChange={(e) => setReviewState((s) => ({ ...s, decision: e.target.value }))}
-                          >
-                            <option value="" disabled>Select a decision…</option>
-                            <option value="approved">Approve</option>
-                            <option value="revision_requested">Request revision</option>
-                            <option value="rejected">Reject</option>
-                          </select>
-                        </div>
-                        <div className="marks-grid" style={{ marginTop: 18 }}>
-                          {(detail.rubric || []).map((r) => (
-                            <div className="mark-field" key={r.criterion}>
-                              <label>{r.criterion} (max {r.maxMarks})</label>
-                              <input
-                                className="mark-input"
-                                type="number"
-                                min={0}
-                                max={r.maxMarks}
-                                value={reviewState.rubricMarks[r.criterion] ?? ''}
-                                onChange={(e) => setReviewState((s) => ({ ...s, rubricMarks: { ...s.rubricMarks, [r.criterion]: e.target.value } }))}
-                                placeholder="0"
-                              />
+              <div className="pol-steps" aria-label="Project lifecycle">
+                {STAGES.map((s, i) => (
+                  <div key={s} className={`pol-step${stageCls(i, at, d.status)}`}>
+                    <i>{i < at ? <CheckCircleOutlined /> : d.status === 'rejected' && i === at ? <CloseOutlined /> : i + 1}</i>
+                    <span>{stageLabel(s, d)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pol-m-body">
+                {d.blocker && d.blocker.text && (
+                  <div className="pol-alert bad"><FlagOutlined /><span><b>Blocker:</b> {d.blocker.text}{d.blocker.at ? ` · flagged ${dayjs(d.blocker.at).format('D MMM')}` : ''}</span></div>
+                )}
+                <div className="pol-m-grid">
+                  <div className="pjm-col">
+                    <section className="pol-box">
+                      <div className="pol-cap"><FileTextOutlined /> Problem statement</div>
+                      <ProblemText text={d.problemStatement} />
+                      {d.scope && <><div className="pol-cap" style={{ marginTop: 4 }}>Scope</div><ProblemText text={d.scope} /></>}
+                    </section>
+
+                    <section className="pol-box">
+                      <div className="pol-cap">Submissions · {subs.length}</div>
+                      {subs.length === 0 ? <div className="pjm-empty">No submission yet — the candidate hasn&apos;t sent anything.</div> : (
+                        <div className="pjm-subs">
+                          {subs.slice().reverse().map((s, i) => (
+                            <div key={s.version} className={`pjm-sub${i === 0 ? ' cur' : ''}`}>
+                              <div className="pjm-sub-top">
+                                <b>v{s.version}</b>
+                                <span className="pol-note">{dayjs(s.submittedAt).format('D MMM YYYY, h:mm A')}</span>
+                                {i === 0 && <span className="pol-chip teal">Latest</span>}
+                              </div>
+                              {s.note && <div className="pjm-sub-note">{s.note}</div>}
+                              <div className="pjm-links">
+                                {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer"><GithubOutlined /> Repo</a>}
+                                {s.deploymentUrl && <a href={s.deploymentUrl} target="_blank" rel="noopener noreferrer"><LinkOutlined /> Live</a>}
+                                {s.demoUrl && <a href={s.demoUrl} target="_blank" rel="noopener noreferrer"><LinkOutlined /> Demo</a>}
+                                {(s.files || []).map((x) => <a key={x.url} href={`${BASE_URL}${x.url}`} target="_blank" rel="noopener noreferrer"><FileTextOutlined /> {x.name}</a>)}
+                              </div>
+                              {s.review && (
+                                <div className={`pol-alert ${s.review.decision === 'approved' ? 'ok' : s.review.decision === 'rejected' ? 'bad' : 'info'}`}>
+                                  <span><b>{STATUS_LABEL[s.review.decision] || s.review.decision.replace('_', ' ')}</b> by {s.review.byName}{s.review.feedback ? ` — ${s.review.feedback}` : ''}</span>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
-                        <label className="feedback-label">Feedback</label>
-                        <textarea
-                          className="feedback"
-                          value={reviewState.feedback}
-                          onChange={(e) => setReviewState((s) => ({ ...s, feedback: e.target.value }))}
-                          placeholder="Notes for the candidate…"
-                        />
-                        {reviewState.decision === 'revision_requested' && (
-                          <>
-                            <label className="feedback-label">Requested changes (one per line)</label>
-                            <textarea
-                              className="feedback"
-                              value={reviewState.changes || ''}
-                              onChange={(e) => setReviewState((s) => ({ ...s, changes: e.target.value }))}
-                              placeholder={'README setup steps\nSample output screenshots'}
-                            />
-                          </>
-                        )}
-                        <div className="review-actions">
-                          <button type="button" className="cancel-btn" onClick={() => setDetail(null)}>Cancel</button>
-                          <button type="button" className="save-btn" disabled={saving} onClick={submitReview}>{saving ? 'Saving…' : 'Save review'}</button>
+                      )}
+                    </section>
+                  </div>
+
+                  <div className="pjm-col">
+                    <section className="pol-box">
+                      <div className="pjm-cap-row"><span className="pol-cap"><FlagOutlined /> Milestones</span><span className="pol-note">{msDone}/{ms.length} done</span></div>
+                      {ms.length > 0 && <div className="pjm-bar"><div style={{ width: `${ms.length ? (msDone / ms.length) * 100 : 0}%` }} /></div>}
+                      {ms.length === 0 ? <div className="pjm-empty">No milestones set.</div> : (
+                        <div className="pjm-ms">
+                          {ms.map((m, i) => (
+                            <div key={i} className={`pjm-m ${m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'on' : ''}`}>
+                              <i>{m.status === 'done' ? <CheckCircleOutlined /> : i + 1}</i>
+                              <span className="pjm-m-t">{m.title}</span>
+                              {m.dueDate && <span className="pol-note">{dayjs(m.dueDate).format('D MMM')}</span>}
+                            </div>
+                          ))}
                         </div>
+                      )}
+                    </section>
+
+                    {canReview ? (
+                      <section className="pol-box pjm-review">
+                        <div className="pjm-cap-row"><span className="pol-cap"><CheckCircleOutlined /> Review v{subs[subs.length - 1].version}</span>{maxTotal > 0 && <span className="pol-chip">{given}/{maxTotal}</span>}</div>
+                        <div className="pjm-dec">
+                          {[['approved', 'Approve', 'ok'], ['revision_requested', 'Request revision', 'mid'], ['rejected', 'Reject', 'bad']].map(([k, label, tone]) => (
+                            <button key={k} type="button" className={`pjm-dec-b ${tone}${reviewState.decision === k ? ' on' : ''}`} onClick={() => setReviewState((s) => ({ ...s, decision: k }))}>{label}</button>
+                          ))}
+                        </div>
+                        {(d.rubric || []).length > 0 && (
+                          <div className="pjm-rubric">
+                            {(d.rubric || []).map((r) => (
+                              <label key={r.criterion} className="pjm-rb">
+                                <span>{r.criterion}</span>
+                                <InputNumber size="small" min={0} max={r.maxMarks} value={reviewState.rubricMarks[r.criterion] === '' ? null : reviewState.rubricMarks[r.criterion]} onChange={(v) => setReviewState((s) => ({ ...s, rubricMarks: { ...s.rubricMarks, [r.criterion]: v ?? '' } }))} placeholder="0" style={{ width: 72 }} />
+                                <small>/ {r.maxMarks}</small>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        <Input.TextArea rows={3} value={reviewState.feedback} onChange={(e) => setReviewState((s) => ({ ...s, feedback: e.target.value }))} placeholder="Feedback for the candidate…" />
+                        {reviewState.decision === 'revision_requested' && (
+                          <Input.TextArea rows={3} value={reviewState.changes || ''} onChange={(e) => setReviewState((s) => ({ ...s, changes: e.target.value }))} placeholder={'Requested changes — one per line\nREADME setup steps\nSample output screenshots'} />
+                        )}
+                      </section>
+                    ) : (
+                      <div className={`pol-alert ${d.status === 'approved' ? 'ok' : d.status === 'rejected' ? 'bad' : 'info'}`}>
+                        <CheckCircleOutlined />
+                        <span>{d.status === 'approved' ? 'Qualified — review is closed.' : d.status === 'rejected' ? 'Not qualified — review is closed.' : 'Review opens once the candidate submits.'}</span>
                       </div>
                     )}
-                  </>
-                )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pol-m-foot">
+                <div>
+                  {isMgr && (
+                    <Popconfirm title="Delete this project?" description="Removes the whole record — assignment, milestones and every submission." okText="Delete" okButtonProps={{ danger: true }} onConfirm={async () => { await remove({ id: d.id || d._id }); setDetail(null); }}>
+                      <Button danger icon={<DeleteOutlined />}>Delete</Button>
+                    </Popconfirm>
+                  )}
+                </div>
+                <div className="pol-m-foot-r">
+                  <Button onClick={() => setDetail(null)}>Close</Button>
+                  {canReview && <Button type="primary" loading={saving} disabled={!reviewState.decision} onClick={submitReview}>Save review</Button>}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </Drawer>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }
 
 /* ═══════════ STUDENT — my project(s) ═══════════ */
 // design board L6 "Project 360": lifecycle bar, then Milestones | Submission | Review
-const STAGES = ['Assigned', 'In progress', 'Submitted', 'Under review', 'Changes requested', 'Approved', 'Eligibility updated'];
-const STAGE_AT = { assigned: 0, in_progress: 1, submitted: 2, in_review: 3, revision_requested: 4, rejected: 4, approved: 6 };
+// 2026-11-27: only the steps the API really moves through. "Under review" (no
+// route ever set it) and "Eligibility updated" (eligibility never counted
+// projects) were removed. A rejected project ends on a red "Not qualified".
+const STAGES = ['Assigned', 'In progress', 'Submitted', 'Changes requested', 'Qualified'];
+const STAGE_AT = { assigned: 0, in_progress: 1, submitted: 2, in_review: 2, revision_requested: 3, rejected: 4, approved: 5 };
+const stageLabel = (s, p) => {
+  const n = (p.submissions || []).length;
+  if (s === 'Submitted' && n) return `Submitted v${n}`;
+  if (s === 'Qualified' && p.status === 'rejected') return 'Not qualified';
+  return s;
+};
+const stageCls = (i, at, status) => (i < at ? ' done' : i === at ? (status === 'rejected' ? ' bad' : ' on') : '');
 const MS_CHIP = { done: ['hai', 'Done'], in_progress: ['naya', 'In progress'], pending: ['gray', 'Not started'] };
 const DECISION_CHIP = { approved: 'hai', rejected: 'red', revision_requested: 'adh' };
 
@@ -544,7 +601,7 @@ function ProjectBlock({ p, onChanged }) {
       </div>
       <div className="ld-steps" aria-label="Project lifecycle">
         {STAGES.map((s, i) => (
-          <div key={s} className={`ld-stp${i < at ? ' done' : i === at ? ' on' : ''}`}>{s === 'Submitted' && (p.submissions || []).length ? `Submitted v${p.submissions.length}` : s}</div>
+          <div key={s} className={`ld-stp${stageCls(i, at, p.status)}`}>{stageLabel(s, p)}</div>
         ))}
       </div>
 
@@ -651,7 +708,7 @@ function ProjectBlock({ p, onChanged }) {
               </div>
             );
           })()}
-          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval only by the Project Manager / authorised approver · the eligibility update is logged in the audit</div>
+          <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Final approval only by the Project Manager / authorised approver · every decision is logged in the audit</div>
         </section>
       </div>
     </div>

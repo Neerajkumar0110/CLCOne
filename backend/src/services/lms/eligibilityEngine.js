@@ -137,9 +137,11 @@ async function evaluate(crmUserId, courseId) {
   const mandatoryFailed = [];
   const notStarted = [];
 
-  for (const c of (R.criteria || []).filter((c) => c.enabled !== false)) {
-    // eslint-disable-next-line no-await-in-loop
-    const m = await metricFor(c.key, { crmUserId, courseId, roster });
+  // every criterion's metric at once (was one after another — slow page, report #6)
+  const active = (R.criteria || []).filter((c) => c.enabled !== false);
+  const metrics = await Promise.all(active.map((c) => metricFor(c.key, { crmUserId, courseId, roster }).catch(() => ({ applicable: false, achievedPercent: 0 }))));
+  for (const [ci, c] of active.entries()) {
+    const m = metrics[ci];
     const passed = !m.applicable || m.achievedPercent >= (c.minPercent || 0);
     if (m.applicable) {
       weightedSum += m.achievedPercent * (c.weight || 1);

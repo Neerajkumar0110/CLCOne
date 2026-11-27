@@ -1,0 +1,860 @@
+/* ===================================================================
+   LMS design system — Teacher panel, Learner panel, Support / Admin
+   LMS screens. LOOK ONLY. Scoped to .lu (page) and body.lu-on (popups
+   portaled to <body>), so Sales / HR / Marketing screens are untouched.
+   Colours come from the live theme via --lu-* (see LmsUi/index.jsx), so
+   palettes and dark mode keep working.
+   =================================================================== */
+
+.lu,
+body.lu-on {
+  /* radius scale */
+  --lu-r-xs: 6px;
+  --lu-r-sm: 8px;
+  --lu-r-md: 10px;
+  --lu-r-lg: 12px;
+  --lu-r-xl: 16px;
+  --lu-r-2xl: 20px;
+  /* spacing scale */
+  --lu-s1: 4px;
+  --lu-s2: 8px;
+  --lu-s3: 12px;
+  --lu-s4: 16px;
+  --lu-s5: 20px;
+  --lu-s6: 24px;
+  --lu-s8: 32px;
+  /* type scale */
+  --lu-t-page: 24px;
+  --lu-t-section: 18px;
+  --lu-t-card: 15px;
+  --lu-t-body: 14px;
+  --lu-t-small: 13px;
+  --lu-t-caption: 12px;
+  --lu-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --lu-shadow-2: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --lu-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---------- page frame: never wider than the screen ---------- */
+.lu {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  font-size: var(--lu-t-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.lu img,
+.lu video,
+.lu iframe,
+.lu canvas,
+.lu svg:not([width]) {
+  max-width: 100%;
+}
+.lu img,
+.lu video {
+  height: auto;
+}
+.lu pre,
+.lu code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* flex children with long text must be allowed to shrink */
+.lu .ant-row > *,
+.lu .ant-space-item,
+.lu .ant-card-head-title,
+.lu .ant-list-item-meta-content {
+  min-width: 0;
+}
+
+/* ---------- typography ---------- */
+.lu h1:not(.ld-page h1) { font-size: var(--lu-t-page); line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; }
+.lu h2:not(.ld-page h2) { font-size: 20px; line-height: 1.3; font-weight: 700; letter-spacing: -0.005em; }
+.lu h3:not(.ld-page h3) { font-size: var(--lu-t-section); line-height: 1.35; font-weight: 650; }
+.lu h4:not(.ld-page h4) { font-size: var(--lu-t-card); line-height: 1.4; font-weight: 600; }
+.lu h5:not(.ld-page h5), .lu h6:not(.ld-page h6) { font-size: var(--lu-t-body); line-height: 1.4; font-weight: 600; }
+.lu h1:not(.ld-page h1), .lu h2:not(.ld-page h2), .lu h3:not(.ld-page h3), .lu h4:not(.ld-page h4), .lu h5:not(.ld-page h5), .lu h6:not(.ld-page h6) { overflow-wrap: break-word; }
+.lu p { overflow-wrap: break-word; }
+.lu small:not(.ld-page small) { font-size: var(--lu-t-caption); }
+
+/* reusable helpers */
+.lu-ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.lu-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---------- buttons ---------- */
+.lu .ant-btn,
+body.lu-on .ant-modal .ant-btn,
+body.lu-on .ant-drawer .ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.16s var(--lu-ease), border-color 0.16s var(--lu-ease), color 0.16s var(--lu-ease), box-shadow 0.16s var(--lu-ease), transform 0.08s;
+  max-width: 100%;
+}
+.lu .ant-btn > span:not(.anticon) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lu .ant-btn .anticon + span,
+.lu .ant-btn span + .anticon {
+  margin-inline-start: 0 !important;
+}
+.lu .ant-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+.lu .ant-btn-primary:not(:disabled):hover {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--lu-primary) 28%, transparent);
+}
+.lu .ant-btn:disabled,
+.lu .ant-btn-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.lu .ant-btn-dangerous.ant-btn-primary {
+  box-shadow: none;
+}
+.lu .ant-btn-icon-only {
+  flex-shrink: 0;
+}
+
+/* custom button classes used across the LMS boards → one size system */
+.lu .hub-btn,
+.lu .ao-btn,
+.lu .ao-btn2,
+body.lu-on .ant-modal .hub-btn {
+  border-radius: var(--lu-r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background-color 0.16s var(--lu-ease), border-color 0.16s var(--lu-ease), color 0.16s var(--lu-ease), filter 0.16s;
+}
+.lu .hub-btn:not(:disabled):hover,
+.lu .ao-btn:not(:disabled):hover,
+.lu .ao-btn2:not(:disabled):hover {
+  filter: brightness(0.97);
+}
+.lu .hub-btn:disabled,
+.lu .ao-btn:disabled,
+.lu .ao-btn2:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- inputs / selects / pickers ---------- */
+.lu .hub-input,
+body.lu-on .ant-modal .hub-input {
+  border-radius: var(--lu-r-sm);
+  min-height: 36px;
+  padding: 0 12px;
+  transition: border-color 0.16s var(--lu-ease), box-shadow 0.16s var(--lu-ease);
+}
+.lu textarea.hub-input,
+body.lu-on .ant-modal textarea.hub-input {
+  padding: 8px 12px;
+}
+.lu .hub-input:focus,
+body.lu-on .ant-modal .hub-input:focus {
+  outline: none;
+  border-color: var(--lu-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lu-primary) 18%, transparent);
+}
+.lu .ant-input,
+.lu .ant-input-affix-wrapper,
+.lu .ant-select-selector,
+.lu .ant-picker,
+.lu .ant-input-number {
+  transition: border-color 0.16s var(--lu-ease), box-shadow 0.16s var(--lu-ease);
+}
+.lu .ant-select-selection-item,
+.lu .ant-select-selection-placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lu .ant-select-multiple .ant-select-selection-item {
+  border-radius: var(--lu-r-xs);
+}
+.lu .ant-form-item-label > label {
+  font-weight: 500;
+  white-space: normal;
+  height: auto;
+  min-height: 24px;
+}
+.lu .ant-form-item-explain,
+.lu .ant-form-item-extra {
+  font-size: var(--lu-t-caption);
+  overflow-wrap: break-word;
+}
+.lu .ant-input-affix-wrapper .ant-input-prefix {
+  color: var(--lu-faint);
+  margin-inline-end: 8px;
+}
+
+/* ---------- cards ---------- */
+.lu .ant-card {
+  border-radius: var(--lu-r-lg);
+  border-color: var(--lu-border);
+  box-shadow: var(--lu-shadow-1);
+}
+.lu .ant-card-head {
+  min-height: 48px;
+  border-bottom-color: var(--lu-border);
+}
+.lu .ant-card-head-title {
+  font-size: var(--lu-t-card);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lu .ant-card-hoverable:hover {
+  box-shadow: var(--lu-shadow-2);
+}
+.lu .ant-card-extra {
+  flex-shrink: 0;
+}
+/* the LMS boards' own card classes */
+.lu .ao-card,
+.lu .lms-card,
+.lu .hub-card {
+  border-radius: var(--lu-r-lg);
+}
+
+/* ---------- tables ---------- */
+.lu .ant-table-wrapper {
+  max-width: 100%;
+}
+.lu .ant-table-wrapper .ant-table:not(.ant-table-bordered) .ant-table-container {
+  border: 1px solid var(--lu-border);
+  border-radius: var(--lu-r-lg);
+}
+.lu .ant-table-wrapper .ant-table:not(.ant-table-bordered) .ant-table-container > .ant-table-content > table > tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+.lu .ant-table-wrapper .ant-table-content,
+.lu .ant-table-wrapper .ant-table-body {
+  /* wide data scrolls INSIDE the table, never the page */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.lu .ant-table-thead > tr > th {
+  font-size: var(--lu-t-caption);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--lu-muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.lu .ant-table-thead > tr > th::before {
+  display: none; /* the stubby column separators */
+}
+.lu .ant-table-tbody > tr > td {
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  transition: background-color 0.12s;
+}
+.lu .ant-table-tbody > tr > td .ant-space {
+  flex-wrap: wrap;
+}
+.lu .ant-table-cell-ellipsis {
+  max-width: 280px;
+}
+.lu .ant-table-placeholder .ant-table-cell {
+  border-bottom: 0;
+}
+.lu .ant-table-pagination.ant-pagination {
+  margin: 12px 0 0;
+  row-gap: 8px;
+}
+
+/* ---------- pagination ---------- */
+.lu .ant-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 8px;
+}
+.lu .ant-pagination .ant-pagination-item,
+.lu .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+.lu .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+  border-radius: var(--lu-r-sm);
+  border: 1px solid var(--lu-border);
+  font-weight: 500;
+  transition: border-color 0.16s, background-color 0.16s, color 0.16s;
+}
+.lu .ant-pagination .ant-pagination-item:not(.ant-pagination-item-active):hover {
+  border-color: var(--lu-primary);
+}
+.lu .ant-pagination .ant-pagination-item-active {
+  border-color: var(--lu-primary);
+  background: var(--lu-primary);
+}
+.lu .ant-pagination .ant-pagination-item-active a {
+  color: #fff !important;
+}
+.lu .ant-pagination .ant-pagination-total-text {
+  color: var(--lu-muted);
+  font-size: var(--lu-t-small);
+  margin-inline-end: auto;
+}
+.lu .ant-pagination-disabled .ant-pagination-item-link {
+  opacity: 0.45;
+}
+
+/* ---------- tags / status badges ---------- */
+.lu .ant-tag,
+body.lu-on .ant-modal .ant-tag {
+  border-radius: var(--lu-r-xs);
+  font-size: var(--lu-t-caption);
+  line-height: 20px;
+  padding-inline: 8px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.lu .ant-tag .anticon + span {
+  margin-inline-start: 0;
+}
+.lu .ant-badge-count {
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* ---------- tabs ---------- */
+.lu .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+.lu .ant-tabs-tab {
+  font-weight: 500;
+}
+.lu .ant-tabs-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.lu .ant-tabs-tab .anticon {
+  margin-inline-end: 0 !important;
+}
+.lu .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+  border-radius: var(--lu-r-sm) var(--lu-r-sm) 0 0;
+}
+.lu .ant-segmented {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* ---------- accordion (antd Collapse) ---------- */
+.lu .ant-collapse {
+  border-radius: var(--lu-r-lg);
+  border-color: var(--lu-border);
+  overflow: hidden;
+  background: var(--lu-surface);
+}
+.lu .ant-collapse > .ant-collapse-item {
+  border-bottom-color: var(--lu-border);
+}
+.lu .ant-collapse > .ant-collapse-item:last-child,
+.lu .ant-collapse > .ant-collapse-item:last-child > .ant-collapse-header {
+  border-radius: 0 0 var(--lu-r-lg) var(--lu-r-lg);
+}
+.lu .ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  align-items: center;
+  font-weight: 600;
+  transition: background-color 0.16s var(--lu-ease);
+}
+.lu .ant-collapse > .ant-collapse-item > .ant-collapse-header:hover {
+  background: var(--lu-hover);
+}
+.lu .ant-collapse > .ant-collapse-item-active > .ant-collapse-header {
+  color: var(--lu-primary);
+}
+.lu .ant-collapse-expand-icon .anticon {
+  transition: transform 0.22s var(--lu-ease) !important;
+}
+.lu .ant-collapse-header-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lu .ant-collapse-content {
+  border-top-color: var(--lu-border);
+}
+.lu .ant-collapse-ghost {
+  background: transparent;
+}
+
+/* native <details> used as an accordion */
+.lu details.lu-acc {
+  border: 1px solid var(--lu-border);
+  border-radius: var(--lu-r-lg);
+  background: var(--lu-surface);
+}
+.lu details.lu-acc > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-weight: 600;
+  border-radius: var(--lu-r-lg);
+  transition: background-color 0.16s var(--lu-ease);
+}
+.lu details.lu-acc > summary::-webkit-details-marker {
+  display: none;
+}
+.lu details.lu-acc > summary::after {
+  content: '';
+  margin-inline-start: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.22s var(--lu-ease);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.lu details.lu-acc[open] > summary::after {
+  transform: rotate(45deg);
+}
+.lu details.lu-acc > summary:hover {
+  background: var(--lu-hover);
+}
+.lu details.lu-acc[open] > summary {
+  border-bottom: 1px solid var(--lu-border);
+  border-radius: var(--lu-r-lg) var(--lu-r-lg) 0 0;
+}
+.lu details.lu-acc > :not(summary) {
+  margin: 12px 16px;
+}
+
+/* ---------- alerts ---------- */
+.lu .ant-alert {
+  border-radius: var(--lu-r-md);
+  align-items: flex-start;
+}
+.lu .ant-alert .ant-alert-message,
+.lu .ant-alert .ant-alert-description {
+  overflow-wrap: break-word;
+}
+
+/* ---------- lists / descriptions ---------- */
+.lu .ant-list-item-meta-title,
+.lu .ant-list-item-meta-description {
+  overflow-wrap: break-word;
+}
+.lu .ant-descriptions-item-content {
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+.lu .ant-descriptions-bordered .ant-descriptions-view {
+  border-radius: var(--lu-r-lg);
+}
+
+/* ---------- modals / drawers (portaled) ---------- */
+body.lu-on .ant-modal {
+  max-width: calc(100vw - 24px);
+}
+body.lu-on .ant-modal .ant-modal-content {
+  border-radius: var(--lu-r-xl);
+  padding: 20px 24px;
+  overflow-x: hidden;
+}
+body.lu-on .ant-modal .ant-modal-header {
+  margin-bottom: 16px;
+  padding-inline-end: 28px;
+}
+body.lu-on .ant-modal .ant-modal-title {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+body.lu-on .ant-modal .ant-modal-close {
+  top: 16px;
+  inset-inline-end: 16px;
+  border-radius: var(--lu-r-sm);
+}
+body.lu-on .ant-modal .ant-modal-body {
+  overflow-wrap: break-word;
+}
+body.lu-on .ant-modal .ant-modal-body img {
+  max-width: 100%;
+}
+body.lu-on .ant-modal .ant-modal-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+body.lu-on .ant-modal .ant-modal-footer > .ant-btn + .ant-btn {
+  margin-inline-start: 0;
+}
+body.lu-on .ant-modal-mask {
+  backdrop-filter: blur(2px);
+}
+body.lu-on .ant-drawer .ant-drawer-content {
+  overflow-x: hidden;
+}
+
+/* ---------- dropdowns / popovers / pickers (portaled) ---------- */
+body.lu-on .ant-select-dropdown,
+body.lu-on .ant-dropdown .ant-dropdown-menu,
+body.lu-on .ant-picker-dropdown .ant-picker-panel-container,
+body.lu-on .ant-popover .ant-popover-inner {
+  border-radius: var(--lu-r-md);
+  box-shadow: var(--lu-shadow-2);
+}
+body.lu-on .ant-select-dropdown {
+  padding: 4px;
+  max-width: min(480px, calc(100vw - 16px));
+}
+body.lu-on .ant-select-dropdown .ant-select-item {
+  border-radius: var(--lu-r-xs);
+}
+body.lu-on .ant-select-dropdown .ant-select-item-option-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.lu-on .ant-dropdown .ant-dropdown-menu {
+  padding: 4px;
+}
+body.lu-on .ant-dropdown .ant-dropdown-menu-item {
+  border-radius: var(--lu-r-xs);
+  gap: 8px;
+}
+body.lu-on .ant-dropdown .ant-dropdown-menu-item .anticon {
+  font-size: 14px;
+}
+body.lu-on .ant-popover .ant-popover-inner {
+  padding: 12px 14px;
+  max-width: min(420px, calc(100vw - 16px));
+}
+body.lu-on .ant-tooltip .ant-tooltip-inner {
+  border-radius: var(--lu-r-sm);
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 7px 10px;
+  max-width: min(320px, calc(100vw - 16px));
+  overflow-wrap: break-word;
+}
+
+/* ---------- the one premium tooltip (OverflowTooltip.jsx) ---------- */
+.lu-tip {
+  position: fixed;
+  z-index: 3000;
+  left: 0;
+  top: 0;
+  max-width: min(340px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
+  font: 500 12.5px/1.45 Inter, system-ui, sans-serif;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px) scale(0.98);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.lu-tip[data-side='bottom'] {
+  transform: translateY(-3px) scale(0.98);
+}
+.lu-tip.on {
+  opacity: 1;
+  transform: none;
+}
+[data-theme='dark'] .lu-tip {
+  background: rgba(241, 245, 249, 0.97);
+  color: #0f172a;
+}
+
+/* ---------- empty / loading ---------- */
+.lu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+  padding: 32px 16px;
+  color: var(--lu-muted);
+}
+.lu-empty.compact {
+  padding: 20px 12px;
+}
+.lu-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: var(--lu-primary);
+  background: var(--lu-primary-soft, rgba(14, 116, 144, 0.08));
+}
+.lu-empty.compact .lu-empty-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.lu-empty-title {
+  font-size: var(--lu-t-body);
+  font-weight: 600;
+  color: var(--lu-text);
+}
+.lu-empty-text {
+  font-size: var(--lu-t-small);
+  max-width: 360px;
+}
+.lu-empty-action {
+  margin-top: 12px;
+}
+.lu-empty-mini {
+  padding: 10px 12px;
+  color: var(--lu-faint);
+  font-size: var(--lu-t-small);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lu .ant-skeleton .ant-skeleton-title,
+.lu .ant-skeleton .ant-skeleton-paragraph > li {
+  border-radius: var(--lu-r-xs);
+}
+
+/* ---------- focus (keyboard) ---------- */
+.lu :focus-visible,
+body.lu-on .ant-modal :focus-visible {
+  outline: 2px solid var(--lu-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.lu .ant-input:focus-visible,
+.lu .ant-select :focus-visible,
+.lu .hub-input:focus-visible,
+.lu textarea:focus-visible,
+.lu input:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lu *,
+  .lu-tip {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------- tablet ---------- */
+@media (max-width: 1024px) {
+  .lu .ant-table-thead > tr > th,
+  .lu .ant-table-tbody > tr > td {
+    padding: 8px 10px;
+  }
+  .lu .ant-card-body {
+    padding: 16px;
+  }
+}
+
+/* ---------- phone ---------- */
+@media (max-width: 768px) {
+  .lu {
+    --lu-t-page: 20px;
+    --lu-t-section: 16px;
+  }
+  .lu h1 { font-size: 20px; }
+  .lu h2 { font-size: 18px; }
+  .lu h3 { font-size: 16px; }
+  /* filter rows and toolbars wrap instead of pushing the page sideways */
+  .lu .ant-space-horizontal:not(.ant-space-compact) {
+    flex-wrap: wrap;
+  }
+  .lu .ant-card-head {
+    flex-wrap: wrap;
+    padding-block: 8px;
+  }
+  .lu .ant-card-head-wrapper {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .lu .ant-card-body {
+    padding: 14px;
+  }
+  .lu .ant-table-thead > tr > th,
+  .lu .ant-table-tbody > tr > td {
+    padding: 8px;
+    font-size: 12.5px;
+  }
+  .lu .ant-pagination .ant-pagination-options,
+  .lu .ant-pagination .ant-pagination-jump-prev,
+  .lu .ant-pagination .ant-pagination-jump-next {
+    display: none;
+  }
+  .lu .ant-pagination .ant-pagination-total-text {
+    flex-basis: 100%;
+  }
+  body.lu-on .ant-modal {
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+    top: 8px;
+  }
+  body.lu-on .ant-modal .ant-modal-content {
+    padding: 16px;
+    border-radius: 14px;
+  }
+  body.lu-on .ant-modal .ant-modal-footer > .ant-btn {
+    flex: 1 1 auto;
+  }
+  .lu .ant-tabs-nav {
+    margin-bottom: 12px;
+  }
+  .lu .ant-form-horizontal .ant-form-item-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .lu .ant-form-horizontal .ant-form-item-label {
+    text-align: start;
+    flex: none !important;
+    max-width: 100% !important;
+  }
+  .lu .ant-form-horizontal .ant-form-item-control {
+    max-width: 100% !important;
+  }
+  .lu .ant-descriptions-view table {
+    table-layout: fixed;
+  }
+}
+@media (max-width: 480px) {
+  .lu .ant-pagination .ant-pagination-item:not(.ant-pagination-item-active) {
+    display: none;
+  }
+  .lu .ant-btn:not(.ant-btn-icon-only) {
+    padding-inline: 12px;
+  }
+}
+
+/* ---------- fixed-width side panels (Growth / 360 boards) stack on small screens ---------- */
+@media (max-width: 900px) {
+  .lu .g-row:has(> [style*="width: 280px"]),
+  .lu .g-row:has(> [style*="width: 290px"]),
+  .lu .g-row:has(> [style*="width: 300px"]),
+  .lu .g-row:has(> [style*="width: 310px"]),
+  .lu .g-row:has(> [style*="width: 320px"]),
+  .lu .g-row:has(> [style*="width: 330px"]),
+  .lu .g-row:has(> [style*="width: 340px"]),
+  .lu .g-row:has(> [style*="width: 350px"]),
+  .lu .g-row:has(> [style*="width: 360px"]),
+  .lu .g-row:has(> [style*="width: 370px"]),
+  .lu .g-row:has(> [style*="width: 380px"]),
+  .lu .g-row:has(> [style*="width: 390px"]),
+  .lu .g-row:has(> [style*="width: 400px"]),
+  .lu .g-row:has(> [style*="width: 410px"]),
+  .lu .g-row:has(> [style*="width: 420px"]),
+  .lu .g-row:has(> [style*="width: 430px"]),
+  .lu .g-row:has(> [style*="width: 440px"]),
+  .lu .g-row:has(> [style*="width: 450px"]),
+  .lu .g-row:has(> [style*="width: 460px"]),
+  .lu .g-row:has(> [style*="width: 470px"]),
+  .lu .g-row:has(> [style*="width: 480px"]),
+  .lu .g-row:has(> [style*="width: 490px"]),
+  .lu .g-row:has(> [style*="width: 500px"]),
+  .lu .g-row:has(> [style*="width: 510px"]),
+  .lu .g-row:has(> [style*="width: 520px"]),
+  .lu .g-row:has(> [style*="width: 530px"]),
+  .lu .g-row:has(> [style*="width: 540px"]),
+  .lu .g-row:has(> [style*="width: 550px"]),
+  .lu .g-row:has(> [style*="width: 560px"]) {
+    flex-wrap: wrap;
+  }
+  .lu .g-row > [style*="width: 280px"],
+  .lu .g-row > [style*="width: 290px"],
+  .lu .g-row > [style*="width: 300px"],
+  .lu .g-row > [style*="width: 310px"],
+  .lu .g-row > [style*="width: 320px"],
+  .lu .g-row > [style*="width: 330px"],
+  .lu .g-row > [style*="width: 340px"],
+  .lu .g-row > [style*="width: 350px"],
+  .lu .g-row > [style*="width: 360px"],
+  .lu .g-row > [style*="width: 370px"],
+  .lu .g-row > [style*="width: 380px"],
+  .lu .g-row > [style*="width: 390px"],
+  .lu .g-row > [style*="width: 400px"],
+  .lu .g-row > [style*="width: 410px"],
+  .lu .g-row > [style*="width: 420px"],
+  .lu .g-row > [style*="width: 430px"],
+  .lu .g-row > [style*="width: 440px"],
+  .lu .g-row > [style*="width: 450px"],
+  .lu .g-row > [style*="width: 460px"],
+  .lu .g-row > [style*="width: 470px"],
+  .lu .g-row > [style*="width: 480px"],
+  .lu .g-row > [style*="width: 490px"],
+  .lu .g-row > [style*="width: 500px"],
+  .lu .g-row > [style*="width: 510px"],
+  .lu .g-row > [style*="width: 520px"],
+  .lu .g-row > [style*="width: 530px"],
+  .lu .g-row > [style*="width: 540px"],
+  .lu .g-row > [style*="width: 550px"],
+  .lu .g-row > [style*="width: 560px"] {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+}
+
+/* ---------- Team Chat on a phone: list on top, thread below ---------- */
+@media (max-width: 640px) {
+  .lu-chat {
+    flex-direction: column;
+    height: auto !important;
+  }
+  .lu-chat > .hub-chat-people-list {
+    width: 100% !important;
+    max-height: 220px;
+    border-bottom: 1px solid var(--lu-border, #e2e8f0);
+  }
+  .lu-chat > :last-child {
+    min-height: 440px;
+    border-left: 0 !important;
+  }
+}
+
+.lu-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}

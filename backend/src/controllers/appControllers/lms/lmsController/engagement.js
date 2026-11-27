@@ -212,7 +212,7 @@ async function createAnnouncement(req, res) {
   const b = req.body || {};
   const title = String(b.title || '').trim();
   if (!title) return bad(res, 400, 'Title is required.');
-  const audience = ['all', 'course', 'batch'].includes(b.audience) ? b.audience : 'course';
+  const audience = ['all', 'course', 'batch', 'batches', 'learners'].includes(b.audience) ? b.audience : 'course';
   const priority = b.priority === 'important' ? 'important' : 'general';
   const channels = Array.isArray(b.channels) && b.channels.length ? b.channels.filter((c) => ['in_app', 'email'].includes(c)) : ['in_app'];
 
@@ -239,14 +239,36 @@ async function createAnnouncement(req, res) {
         if (!owns) return bad(res, 403, 'Not your batch.');
       }
     }
+    if (audience === 'batches') {
+      b.batches = [...new Set((Array.isArray(b.batches) ? b.batches : []).map(String).filter(Boolean))];
+      if (!b.batches.length) return bad(res, 400, 'Pick one or more batches.');
+    }
+    if (audience === 'learners') {
+      b.learnerIds = [...new Set((Array.isArray(b.learnerIds) ? b.learnerIds : []).filter((x) => mongoose.isValidObjectId(x)).map(String))];
+      if (!b.learnerIds.length) return bad(res, 400, 'Pick at least one learner.');
+    }
   }
+
+  // one click = one announcement: the same text from the same person within
+  // 2 minutes is a double-click, not a new announcement (it emailed everyone
+  // twice on 24 Nov — LMS testing report #3)
+  const dupe = await Announcement.findOne({ removed: false, teacherCrmUser: req.admin._id, title, body: b.body || '', sentAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) } }).select('_id').lean();
+  if (dupe) return bad(res, 409, 'This announcement was just sent — it is not sent twice.');
 
   // resolve recipient roster rows -> emails
   const rq = { removed: false };
   if (audience === 'course' && course) rq.course = rxEq(course.title);
   if (audience === 'batch') rq.batch = b.batch;
-  const roster = await Student.find(rq).select('email name').lean();
-  const emails = [...new Set(roster.map((r) => (r.email || '').toLowerCase()).filter(Boolean))];
+  if (audience === 'batches') rq.batch = { $in: b.batches };
+  let learnerDocs = [];
+  let emails;
+  if (audience === 'learners') {
+    learnerDocs = await Admin.find({ _id: { $in: b.learnerIds }, removed: false, role: 'Student' }).select('name email').lean();
+    emails = [...new Set(learnerDocs.map((r) => (r.email || '').toLowerCase()).filter(Boolean))];
+  } else {
+    const roster = await Student.find(rq).select('email name').lean();
+    emails = [...new Set(roster.map((r) => (r.email || '').toLowerCase()).filter(Boolean))];
+  }
 
   const ann = await Announcement.create({
     teacherCrmUser: req.admin._id,
@@ -258,6 +280,9 @@ async function createAnnouncement(req, res) {
     course: course ? course._id : undefined,
     courseTitle: course ? course.title : undefined,
     batch: audience === 'batch' ? b.batch : undefined,
+    batches: audience === 'batches' ? b.batches : undefined,
+    learners: audience === 'learners' ? learnerDocs.map((l) => l._id) : undefined,
+    learnerNames: audience === 'learners' ? learnerDocs.map((l) => l.name || l.email) : undefined,
     channels,
     recipientsCount: emails.length,
     sentAt: new Date(),
@@ -275,23 +300,42 @@ async function createAnnouncement(req, res) {
       notified = r.created || admins.length;
     }
   }
-  realtime.broadcast('lms:announcement', { title, from: req.admin.name, scope: audience === 'all' ? 'all' : audience === 'batch' ? b.batch : (course && course.title) });
+  realtime.broadcast('lms:announcement', { title, from: req.admin.name, scope: audience === 'all' ? 'all' : audience === 'batch' ? b.batch : audience === 'batches' ? b.batches.join(', ') : audience === 'learners' ? 'learners' : (course && course.title) });
 
-  let emailed = 0;
-  if (channels.includes('email') && emails.length) {
-    try {
-      const mailer = require('../../../../services/lms/mailer');
-      const vars = { title, message: b.body || '', from: req.admin.name, course: course ? course.title : '' };
-      const r = await mailer.sendMail(emails, { ...require('../../../../services/mail/inlineEmails').announcement(vars), templateKey: 'lms-announcement', vars });
-      emailed = r.sent || 0;
-    } catch (e) {
-      /* non-fatal */
-    }
+  // emails go out in the background (one per learner takes a while — the
+  // Send button used to sit there and got pressed again); the count is saved when done
+  const willEmail = channels.includes('email') && emails.length;
+  if (willEmail) {
+    (async () => {
+      let emailed = 0;
+      try {
+        const mailer = require('../../../../services/lms/mailer');
+        const vars = { title, message: b.body || '', from: req.admin.name, course: course ? course.title : '' };
+        const r = await mailer.sendMail(emails, { ...require('../../../../services/mail/inlineEmails').announcement(vars), templateKey: 'lms-announcement', vars });
+        emailed = r.sent || 0;
+      } catch (e) {
+        /* non-fatal */
+      }
+      await Announcement.updateOne({ _id: ann._id }, { $set: { emailedCount: emailed } }).catch(() => {});
+    })();
   }
-  ann.emailedCount = emailed;
-  await ann.save();
 
-  return ok(res, { id: String(ann._id), recipients: emails.length, notified, emailed }, 'Announcement sent.');
+  return ok(res, { id: String(ann._id), recipients: emails.length, notified, emailing: willEmail ? emails.length : 0 }, 'Announcement sent.');
+}
+
+// GET /api/lms/announcements/learners?q= — learners by name or the start of the email
+async function announcementLearners(req, res) {
+  if (!isManager(req.admin)) return bad(res, 403, 'Managers only.');
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return ok(res, []);
+  const e = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rows = await mongoose
+    .model('Admin')
+    .find({ removed: false, role: 'Student', $or: [{ name: new RegExp(e, 'i') }, { surname: new RegExp(e, 'i') }, { email: new RegExp(`^${e}`, 'i') }] })
+    .select('name surname email')
+    .limit(25)
+    .lean();
+  return ok(res, rows.map((a) => ({ id: String(a._id), name: [a.name, a.surname].filter(Boolean).join(' '), email: a.email })));
 }
 
 async function listAnnouncements(req, res) {
@@ -336,7 +380,7 @@ async function myAnnouncements(req, res) {
   }
   const rows = await Announcement.find({
     removed: false,
-    $or: [{ audience: 'all' }, { audience: 'course', course: { $in: courseIds } }, { audience: 'batch', batch: { $in: batches } }],
+    $or: [{ audience: 'all' }, { audience: 'course', course: { $in: courseIds } }, { audience: 'batch', batch: { $in: batches } }, { audience: 'batches', batches: { $in: batches } }, { audience: 'learners', learners: req.admin._id }],
   }).sort({ sentAt: -1 }).limit(100).lean();
   return ok(
     res,
@@ -346,7 +390,7 @@ async function myAnnouncements(req, res) {
       body: r.body,
       from: r.teacherName,
       priority: r.priority === 'important' ? 'important' : 'general',
-      scope: r.audience === 'all' ? 'All candidates' : r.audience === 'batch' ? r.batch : r.courseTitle,
+      scope: r.audience === 'all' ? 'All candidates' : r.audience === 'batch' ? r.batch : r.audience === 'batches' ? (r.batches || []).join(', ') : r.audience === 'learners' ? 'For you' : r.courseTitle,
       sentAt: r.sentAt,
     }))
   );
@@ -354,5 +398,5 @@ async function myAnnouncements(req, res) {
 
 module.exports = {
   askDoubt, listDoubts, getDoubt, replyDoubt, resolveDoubt, pinDoubt,
-  createAnnouncement, listAnnouncements, deleteAnnouncement, myAnnouncements,
+  createAnnouncement, listAnnouncements, deleteAnnouncement, myAnnouncements, announcementLearners,
 };

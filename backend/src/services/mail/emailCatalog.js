@@ -68,6 +68,9 @@ const CATALOG = [
   { key: 'hr-sales-welcome', group: G.hr, name: 'CRM account ready (sales)', to: 'New sales user', when: 'When a sales account is created', vars: ['name', 'loginEmail', 'loginLink'] },
   { key: 'hr-no-logout', group: G.hr, name: 'You didn’t log out today', to: 'Sales user who did not log out', when: 'End of the work day', vars: ['name', 'day'] },
   { key: 'hr-leave-request', group: G.hr, name: 'Leave request (for approval)', to: 'Leave approver', when: 'When a user applies for leave', vars: ['employee', 'duration'] },
+  { key: 'hr-erp-leave-request', group: G.hr, name: 'New leave request (Employee Portal)', to: 'LEAVE_ADMIN_EMAIL + LEAVE_NOTIFICATION_EMAIL', when: 'When an employee applies for leave in /employee', vars: ['employee', 'leaveType', 'from', 'to', 'duration', 'reason', 'link'] },
+  { key: 'hr-erp-leave-approved', group: G.hr, name: 'Your leave is approved', to: 'Employee', when: 'When an admin approves a leave in Attendance ERP', vars: ['first', 'leaveType', 'dates', 'by', 'balance', 'link'] },
+  { key: 'hr-erp-leave-rejected', group: G.hr, name: 'Your leave was not approved', to: 'Employee', when: 'When an admin rejects a leave in Attendance ERP', vars: ['first', 'leaveType', 'dates', 'reason', 'link'] },
 
   // ── Login ────────────────────────────────────────────────────────────────
   { key: 'auth-otp', group: G.auth, name: 'Login code (OTP)', to: 'Person signing in', when: 'On every login request — valid 10 minutes', vars: ['name', 'otp'], sensitive: ['otp'], locked: true },

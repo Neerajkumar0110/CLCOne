@@ -87,6 +87,12 @@ async function processFormResponse(response, { form, conn }) {
     linkedinCampaignId: response.campaign,
     linkedinCreativeId: response.creative,
     rawLinkedInData: response,
+    // a fresh campaign lead is called before any auto-dialer / imported
+    // lead — first free user, right away (services/calling/instantLeads.js;
+    // every campaign since 2026-11-25, was Facebook + WhatsApp only)
+    ...(mapped.phone && (!response.submittedAt || Date.now() - Number(response.submittedAt) < 2 * 60 * 60 * 1000)
+      ? { instantDispatch: { status: 'pending', at: new Date() } }
+      : {}),
   });
 
   try {

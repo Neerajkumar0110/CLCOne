@@ -4,6 +4,8 @@ const OWNER_MAX_SESSIONS = 10; // devices the owner / a teacher can be logged in
 // Roles allowed on several devices at once (owner: 2026-11-16; Teacher: 2026-11-16,
 // e.g. class on a laptop + board/phone). Everyone else stays single-session.
 const MULTI_SESSION_ROLES = ['owner', 'Teacher'];
+// Single accounts with their own device limit (email → max devices).
+const EMAIL_MAX_SESSIONS = { 'support@careerlabconsulting.com': 2 };
 
 // "Mobi" shows up in effectively every phone browser's UA string (Android,
 // iPhone) — iPad's default Safari UA doesn't include it, so a tablet counts
@@ -65,6 +67,21 @@ async function issueSession({ user, UserPasswordModel, remember, req }) {
     return token;
   }
 
+  // Named accounts allowed a fixed number of devices (user asks 2026-11-27:
+  // the shared Support login on 2 devices). The newest N sessions are kept;
+  // a login beyond that drops the oldest, which logs out on its next request.
+  const perAccount = EMAIL_MAX_SESSIONS[String(user.email || '').toLowerCase()];
+  if (perAccount) {
+    await UserPasswordModel.findOneAndUpdate(
+      { user: user._id },
+      {
+        $push: { loggedSessions: { $each: [token], $slice: -perAccount } },
+        $unset: { otpCode: '', otpSalt: '', otpExpires: '' },
+      }
+    ).exec();
+    return token;
+  }
+
   // Everyone else: ONE session at a time. A new login replaces every older
   // session, so the other device/browser is logged out — at once through
   // the socket (endOtherSessions), else on its next request (its token is
@@ -83,4 +100,19 @@ async function issueSession({ user, UserPasswordModel, remember, req }) {
   return token;
 }
 
-module.exports = { issueSession };
+// Attendance ERP: a staff login starts (or resumes) today's attendance
+// session — services/hr/erpAttendance.js. Never blocks or fails the login.
+async function issueSessionAndStartDay(args) {
+  const token = await issueSession(args);
+  try {
+    const E = require('../../../services/hr/erpAttendance');
+    if (args.user && E.isTrackedRole(args.user.role)) {
+      E.startSession(args.user, { source: 'login', ua: args.req && args.req.headers['user-agent'] }).catch((e) => console.error('[erp] start on login failed:', e.message));
+    }
+  } catch (e) {
+    /* attendance is a side effect of the login */
+  }
+  return token;
+}
+
+module.exports = { issueSession: issueSessionAndStartDay };

@@ -3,7 +3,8 @@ import {
   Card, Table, Button, Modal, Form, Input, InputNumber, Select, Checkbox, Drawer, Space, Empty,
   Skeleton, message, Typography, Radio, Progress, Result, List, Divider, Statistic, Alert,
 } from 'antd';
-import { PlusOutlined, FormOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { PlusOutlined, FormOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, CheckCircleOutlined, WarningOutlined, BarChartOutlined } from '@ant-design/icons';
+import { RowActions } from '@/components/LmsUi';
 import { useSelector } from 'react-redux';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
@@ -136,7 +137,7 @@ function TeacherQuizzes() {
           rowKey="id"
           dataSource={rows}
           scroll={{ x: 'max-content' }}
-          pagination={tablePagination({ pageSize: 10 })}
+          pagination={tablePagination({ defaultPageSize: 10 })}
           columns={[
             { title: 'Title', dataIndex: 'title', fixed: 'left', width: 220, render: (v) => <Text strong>{v}</Text> },
             { title: 'Type', dataIndex: 'type', width: 100, render: (t) => <StatusPill tone="info">{t}</StatusPill> },
@@ -146,14 +147,15 @@ function TeacherQuizzes() {
             { title: 'Pass %', dataIndex: 'passingPercent', width: 80, align: 'center' },
             { title: 'Status', dataIndex: 'published', width: 110, render: (p) => <StatusPill tone={p ? 'success' : 'neutral'}>{p ? 'Published' : 'Draft'}</StatusPill> },
             {
-              title: '', width: 260, render: (_, r) => (
-                <Space>
-                  <Button size="small" onClick={() => openQuestions(r)}>Questions</Button>
-                  <Button size="small" onClick={() => openResults(r)}>Results</Button>
-                  <Button size="small" icon={<EditOutlined />} onClick={() => openQuizEditor(r)} />
-                  <Button size="small" danger icon={<DeleteOutlined />} onClick={() =>
-                    Modal.confirm({ title: 'Delete quiz?', onOk: async () => { await lmsApi.deleteQuiz(r.id); load(); } })} />
-                </Space>
+              title: '', width: 150, render: (_, r) => (
+                <RowActions
+                  items={[
+                    { key: 'questions', label: 'Questions', onClick: () => openQuestions(r) },
+                    { key: 'results', label: 'Results', icon: <BarChartOutlined />, onClick: () => openResults(r) },
+                    { key: 'edit', label: 'Edit quiz', icon: <EditOutlined />, onClick: () => openQuizEditor(r) },
+                    { key: 'delete', label: 'Delete quiz', icon: <DeleteOutlined />, danger: true, onClick: () => Modal.confirm({ title: 'Delete quiz?', onOk: async () => { await lmsApi.deleteQuiz(r.id); load(); } }) },
+                  ]}
+                />
               ),
             },
           ]}

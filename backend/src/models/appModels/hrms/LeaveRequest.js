@@ -9,7 +9,7 @@ module.exports = mongoose.model(
     { name: 'employee', type: 'String', required: true },
     { name: 'employeeId', type: 'String' },
     { name: 'department', type: 'String', enum: ["Sales","Marketing","Operations","Engineering","HR","Finance","Support","Training","Admin"] },
-    { name: 'leaveType', type: 'String', enum: ["Casual","Sick","Earned","Unpaid","Comp Off","Maternity","Paternity","Bereavement"], default: "Casual" },
+    { name: 'leaveType', type: 'String', enum: ["Casual","Sick","Earned","Unpaid","Comp Off","Maternity","Paternity","Bereavement","Emergency","Other"], default: "Casual" },
     { name: 'fromDate', type: 'Date' },
     { name: 'toDate', type: 'Date' },
     { name: 'days', type: 'Number', default: 1 },
@@ -36,5 +36,10 @@ module.exports = mongoose.model(
     { name: 'fromTime', type: 'String' },
     { name: 'decisionToken', type: 'String' }, // one-click Approve/Reject link from the email
     { name: 'decisionBy', type: 'String' },
+    // Attendance ERP portal (/employee › Apply Leave): optional attachment
+    // (ErpFile id + file name) and where the request came from.
+    { name: 'attachmentId', type: 'String' },
+    { name: 'attachmentName', type: 'String' },
+    { name: 'source', type: 'String' },
   ])
 );

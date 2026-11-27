@@ -118,6 +118,20 @@ async function startLoginSession(adminId, adminName, handshake) {
     const LoginActivity = mongoose.model('LoginActivity');
     const where = handshake ? await require('./services/security/loginDevice').describe(adminId, handshake.headers, handshake.address) : {};
     await new LoginActivity({ admin: adminId, adminName, loginAt: new Date(), ...where }).save();
+    // a sign-in from a device not used in 30 days → email the account owner (LMS testing report #29)
+    if (where.newDevice) {
+      const who = await mongoose.model('Admin').findById(adminId).select('name email').lean();
+      if (who && who.email) {
+        const esc = (v) => String(v || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+        require('./services/lms/mailer')
+          .sendMail([who.email], {
+            subject: 'New sign-in to your CareerLab account',
+            html: `<div style="font:15px/1.6 Arial,sans-serif;color:#17202c;max-width:520px"><h2 style="margin:0 0 8px">New sign-in</h2><p>Hi ${esc(who.name)}, your account was just opened on a device we have not seen in the last 30 days:</p><p><b>${esc(where.device)}</b><br>IP ${esc(where.ip || 'unknown')} · ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p><p>If this was you, nothing to do. If not, change your password and tell Support at once.</p></div>`,
+            templateKey: 'security-new-device',
+          })
+          .catch(() => {});
+      }
+    }
   } catch (err) {
     console.error('startLoginSession failed:', err.message);
   }
@@ -235,6 +249,16 @@ function emitLeadEvent(event, payload) {
   io.to('staff').emit(event, payload);
 }
 
+// Attendance ERP (services/hr/erpAttendance.js): live status change → every
+// staff socket (the admin Live Activity / Dashboard re-fetch; the payload is
+// only the employee id + status) and the employee's own tabs.
+function emitErp(event, payload, userId) {
+  if (!io) return;
+  let target = io.to('staff').to('admins');
+  if (userId) target = target.to(`user:${String(userId)}`);
+  target.emit(event, payload);
+}
+
 function emitCallBroadcast(event, payload) {
   if (!io) return;
   io.emit(event, payload);
@@ -269,5 +293,6 @@ module.exports = {
   emitCallToAgent,
   emitCallBroadcast,
   emitWhatsApp,
+  emitErp,
   getOnlineUserIds,
 };

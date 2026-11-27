@@ -15,6 +15,9 @@ const schema = new mongoose.Schema({
 
   content: { type: String, default: '' }, // rich/plain text body
   fileUrl: { type: String, default: '' }, // optional uploaded PDF/doc
+  // text pulled out of the uploaded PDF so learners read it in the consent
+  // modal (services/lms/policyText.js) — filled on first read, '' = not yet
+  fileText: { type: String, default: '' },
 
   mandatory: { type: Boolean, default: true },
   audience: { type: String, enum: ['all', 'course', 'batch'], default: 'all' },
@@ -44,6 +47,20 @@ const schema = new mongoose.Schema({
   approverName: { type: String, default: '' },
   approvalRequestedAt: Date,
   approvalRequestedByName: String,
+  approvalRequestedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  // admin sent the request back to Support (2026-11-27): note + who / when;
+  // cleared when Support sends it again
+  rejectedAt: Date,
+  rejectedByName: String,
+  rejectNote: String,
+  approvedByName: String,
+  // the one Admin Support sent it to; after that Admin approves, Support publishes
+  approverId: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  approvedAt: Date,
+  approvedBy: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+  // written by an owner / Super Admin / Admin → published at once, no approval
+  createdByRole: String,
+  byAdmin: { type: Boolean, default: false },
 
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },

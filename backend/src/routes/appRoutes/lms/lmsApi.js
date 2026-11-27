@@ -12,6 +12,31 @@ const { singleStorageUpload } = require('../../../middlewares/uploadMiddleware')
 // (lmsWebhookApi.js) mounted before the bearer gate.
 const router = express.Router();
 
+// Staff with full LMS rights (view + edit + delete on the LMS module) work as
+// LMS admins on every /api/lms route — Admin & Ops decisions, finance,
+// reports, rules … (LMS testing report 2026-11-26: "Support side" gaps).
+// Handlers read req.admin._lmsFull. Cached a minute per user.
+const lmsFullCache = new Map();
+router.use(async (req, res, next) => {
+  try {
+    const a = req.admin;
+    if (a && a.role !== 'Student') {
+      const key = String(a._id);
+      const hit = lmsFullCache.get(key);
+      let full;
+      if (hit && Date.now() - hit.at < 60000) full = hit.full;
+      else {
+        full = await require('../../../services/access/lmsAccess').hasLmsFull(a);
+        lmsFullCache.set(key, { full, at: Date.now() });
+      }
+      if (full) a._lmsFull = true;
+    }
+  } catch (e) {
+    /* role checks in the handlers still apply */
+  }
+  next();
+});
+
 // One-file learner upload into src/public/uploads/<dir>/<prefix>-<random>.<ext>
 // (served by corePublicRouter at /public/uploads/...). Extension whitelist +
 // size cap; the handler decides who may use the file.
@@ -116,6 +141,7 @@ router.route('/lessons/:id/complete').post(catchErrors(lms.learnMarkComplete));
 // ── assignments ─────────────────────────────────────────────────────
 router.route('/assignments').get(catchErrors(lms.assignmentList)).post(catchErrors(lms.assignmentCreate));
 router.route('/my/assignments').get(catchErrors(lms.assignmentMyList));
+router.route('/assignments/batch-learners').get(catchErrors(lms.assignmentBatchLearners));
 router.route('/assignments/:id').get(catchErrors(lms.assignmentGet)).patch(catchErrors(lms.assignmentUpdate)).delete(catchErrors(lms.assignmentDelete));
 router.route('/assignments/:id/submissions').get(catchErrors(lms.assignmentSubmissions));
 router.route('/assignments/:id/submit').post(catchErrors(lms.assignmentSubmit));
@@ -216,6 +242,7 @@ router.route('/doubts/:id/pin').post(catchErrors(lms.doubtPin));
 
 // ── announcements ──────────────────────────────────────────────────
 router.route('/announcements').get(catchErrors(lms.announcementList)).post(catchErrors(lms.announcementCreate));
+router.route('/announcements/learners').get(catchErrors(lms.announcementLearners));
 router.route('/announcements/:id').delete(catchErrors(lms.announcementDelete));
 router.route('/my/announcements').get(catchErrors(lms.announcementMine));
 
@@ -231,6 +258,12 @@ router.route('/my/materials').get(catchErrors(lms.materialMine));
 // ── students-tab alerts ──────────────────────────────────────────────
 router.route('/students/unassigned-count').get(catchErrors(lms.studentsUnassignedCount));
 router.route('/students/unassigned-list').get(catchErrors(lms.studentsUnassignedList));
+{
+  const { LMS_FULL_ACCESS_ROLES } = require('../../../config/roles');
+  const mgmtOnly = (fn) => catchErrors(async (req, res) => (LMS_FULL_ACCESS_ROLES.includes(req.admin.role) ? fn(req, res) : res.status(403).json({ success: false, result: null, message: 'Management role required.' })));
+  router.route('/students/deleted-list').get(mgmtOnly(lms.studentsDeletedList));
+  router.route('/students/:id/restore').post(mgmtOnly(lms.studentRestore));
+}
 router.route('/students/detail-by-email').get(catchErrors(lms.studentDetail));
 router.route('/students/:id/detail').get(catchErrors(lms.studentDetail));
 // Candidates tab → Deactivate / Activate (services/lms/candidateAccess.js)
@@ -349,6 +382,18 @@ router.route('/admin/communication/delivery-summary').get(requireManager, catchE
 // ── Support Manager boards (design S1–S7, S9) ───────────────────────
 router.route('/admin/sm/dashboard').get(requireManager, catchErrors(lms.smDashboard));
 router.route('/admin/sm/tickets').get(requireManager, catchErrors(lms.smTickets));
+// staff escalations (LMS testing report #01)
+router.route('/admin/sm/escalations').get(requireManager, catchErrors(lms.escalationList)).post(requireManager, catchErrors(lms.escalationCreate));
+router.route('/admin/sm/escalations/:id').post(requireManager, catchErrors(lms.escalationUpdate));
+router.post(
+  '/admin/sm/tickets/upload',
+  requireManager,
+  learnerUpload({ dir: 'tickets/support', prefix: () => 'support', exts: ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg'], maxMB: 20 }),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ success: false, result: null, message: 'Attach a PDF, Word file or image (up to 20 MB).' });
+    return res.status(200).json({ success: true, result: { name: req.file.originalname, url: `public/uploads/tickets/support/${req.file.filename}` }, message: 'Attached.' });
+  }
+);
 router.route('/admin/sm/tickets/:id').post(requireManager, catchErrors(lms.smTicketUpdate));
 router.route('/admin/sm/attendance').get(requireManager, catchErrors(lms.smAttendance));
 router.route('/admin/sm/escalations').get(requireManager, catchErrors(lms.smEscalations));
@@ -371,6 +416,7 @@ router.route('/admin/sm/problems/:id').post(requireManager, catchErrors(lms.smPr
 router.route('/admin/sm/ops-status').get(requireManager, catchErrors(lms.smOpsStatus));
 
 // ── learner 360 report ───────────────────────────────────────────────
+router.route('/admin/learner-360-courses').get(catchErrors(lms.learner360Courses));
 router.route('/admin/learner-360/:courseId').get(catchErrors(lms.learner360Report));
 router.route('/admin/learner-360/:courseId/export').get(catchErrors(lms.learner360Export));
 router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTimeline));
@@ -388,6 +434,8 @@ router.route('/admin/learner-timeline/:crmUserId').get(catchErrors(lms.learnerTi
   router.route('/assessments/bank/import').post(catchErrors(bank.importQuestions));
   router.route('/assessments/bank/questions').get(catchErrors(bank.list));
   router.route('/assessments/bank/questions/:id').patch(catchErrors(bank.setRetired));
+  router.route('/assessments/bank/imports').get(catchErrors(bank.imports));
+  router.route('/assessments/bank/imports/:id/remove').post(catchErrors(bank.removeImport));
 }
 router.route('/assessments/start/:testType').post(requirePoliciesAccepted, catchErrors(lms.assessmentStart));
 router.route('/assessments/gate-issue').post(catchErrors(lms.assessmentGateIssue));
@@ -432,6 +480,23 @@ router
 
 // ── policy & acknowledgement centre ─────────────────────────────────
 router.route('/policies').get(catchErrors(lms.policyList)).post(requireManager, catchErrors(lms.policyCreate));
+// policy document: PDF / DOC / DOCX only (LMS testing report #5)
+router.post(
+  '/policies/upload',
+  requireManager,
+  learnerUpload({ dir: 'policies', prefix: () => 'policy', exts: ['.pdf', '.doc', '.docx'], maxMB: 20 }),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ success: false, result: null, message: 'Only PDF or Word (.doc / .docx) files can be attached to a policy.' });
+    const base = (require('../../../config/lms').lmsConfig.meeting.crmBaseUrl || '').replace(/\/$/, '');
+    // a PDF comes back as text too, so the form fills "Policy text" — learners
+    // only ever read text, never the PDF (2026-11-27)
+    let text = '';
+    if (/.pdf$/i.test(req.file.filename)) {
+      try { text = await require('../../../services/lms/policyText').textOfFile(req.file.path); } catch (e) { text = ''; }
+    }
+    return res.status(200).json({ success: true, result: { url: `${base}/public/uploads/policies/${req.file.filename}`, name: req.file.originalname, text }, message: text ? 'Uploaded — text taken from the PDF.' : 'Uploaded.' });
+  }
+);
 router.route('/policies/:id').get(catchErrors(lms.policyGet)).delete(requireManager, catchErrors(lms.policyDelete));
 router.route('/policies/:id/publish').post(requireManager, catchErrors(lms.policyPublish));
 router.route('/policies/:id/archive').post(requireManager, catchErrors(lms.policyArchive));
@@ -451,6 +516,9 @@ router.route('/feedback/admin/remind').post(requireManager, catchErrors(lms.feed
 // LMS → Admin & Ops (design page 6, A1–A11) — see lmsController/adminOps*.js
 router.route('/admin/ops/approvals').get(requireManager, catchErrors(lms.opsApprovals)).post(requireManager, catchErrors(lms.opsApprovalCreate));
 router.route('/admin/ops/approvals/:id/decide').post(requireManager, catchErrors(lms.opsApprovalDecide));
+router.route('/admin/ops/approvals/:id/edit').post(requireManager, catchErrors(lms.opsApprovalEdit));
+router.route('/admin/ops/approvals/:id/remove').post(requireManager, catchErrors(lms.opsApprovalRemove));
+router.route('/admin/ops/approvals/:id/status').post(requireManager, catchErrors(lms.opsApprovalStatus));
 router.route('/admin/ops/decisions/:code').post(requireManager, catchErrors(lms.opsDecisionSet));
 router.route('/admin/ops/kpis').get(requireManager, catchErrors(lms.opsKpis));
 router.route('/admin/ops/kpis/export').get(requireManager, catchErrors(lms.opsKpisExport));
@@ -463,6 +531,8 @@ router.route('/admin/ops/roles/:role/draft').post(requireManager, catchErrors(lm
 router.route('/admin/ops/roles/:role/approve').post(requireManager, catchErrors(lms.opsRoleApprove));
 router.route('/admin/ops/policies').get(requireManager, catchErrors(lms.opsPolicies));
 router.route('/admin/ops/policies/:id/send-for-approval').post(requireManager, catchErrors(lms.opsPolicySendForApproval));
+router.route('/admin/ops/policies/:id/reject').post(requireManager, catchErrors(lms.opsPolicyReject));
+router.route('/admin/ops/policies/:id/approve').post(requireManager, catchErrors(lms.opsPolicyApprove));
 router.route('/admin/ops/health').get(requireManager, catchErrors(lms.opsHealth));
 router.route('/admin/ops/reports').get(requireManager, catchErrors(lms.opsReports));
 router.route('/admin/ops/reports/:key').get(requireManager, catchErrors(lms.opsReportDownload));
@@ -470,7 +540,14 @@ router.route('/admin/ops/readiness-gate').get(requireManager, catchErrors(lms.op
 router.route('/admin/ops/automation').get(requireManager, catchErrors(lms.opsAutomation));
 router.route('/admin/ops/automation/:key').post(requireManager, catchErrors(lms.opsAutomationToggle));
 router.route('/admin/ops/security').get(requireManager, catchErrors(lms.opsSecurity));
-router.route('/admin/ops/evidence').get(requireManager, catchErrors(lms.opsEvidence));
+router.route('/admin/ops/feedback-lock').get(requireManager, catchErrors(lms.feedbackLockGet)).post(requireManager, catchErrors(lms.feedbackLockSet));
+router.route('/admin/ops/evidence').get(requireManager, catchErrors(lms.opsEvidence)).post(requireManager, catchErrors(lms.opsEvidenceAdd));
+router.post(
+  '/admin/ops/evidence/upload',
+  requireManager,
+  learnerUpload({ dir: 'evidence', prefix: () => 'ev', exts: ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.xlsx', '.csv', '.txt'], maxMB: 20 }),
+  (req, res) => (req.file ? res.status(200).json({ success: true, result: { url: `public/uploads/evidence/${req.file.filename}`, name: req.file.originalname } }) : res.status(400).json({ success: false, message: 'PDF, Word, image, Excel/CSV or text — up to 20 MB.' }))
+);
 router.route('/admin/ops/rules').get(requireManager, catchErrors(lms.opsRules));
 router.route('/admin/ops/rules/proposal').post(requireManager, catchErrors(lms.opsRulesPropose));
 router.route('/admin/ops/rules/approve').post(requireManager, catchErrors(lms.opsRulesApprove));

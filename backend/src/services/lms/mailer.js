@@ -77,11 +77,12 @@ async function sendBatchClassEmail(recipients, payload) {
 // jobs/lmsLiveTick.js's notifiedEmail10min flag), to every Active student
 // on the batch roster. The time is formatted with fmtDateTime (en-IN
 // locale — month/day names are English, e.g. "Thu, 8 Oct, 06:00 pm").
-function liveClassReminderEmailHtml({ title, courseTitle, batchName, scheduledStart, joinPageUrl, minutes = 10 }) {
+function liveClassReminderEmailHtml({ title, topic, courseTitle, batchName, scheduledStart, joinPageUrl, minutes = 10 }) {
   return `<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#17202c;max-width:520px;margin:0 auto">
   <h2 style="margin:0 0 6px">Your class starts in ${minutes} minutes</h2>
   <p style="color:#556;margin:0 0 14px">${esc(title || courseTitle || batchName)}${courseTitle && title && courseTitle !== title ? ` · ${esc(courseTitle)}` : ''}</p>
   <div style="border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;margin:14px 0">
+    ${topic ? `<p style="margin:0 0 6px;color:#334"><b>Today's topic:</b> ${esc(topic)}</p>` : ''}
     <p style="margin:0;color:#334"><b>Start time:</b> ${esc(fmtDate(scheduledStart))}</p>
     ${batchName ? `<p style="margin:6px 0 0;color:#334"><b>Batch:</b> ${esc(batchName)}</p>` : ''}
   </div>

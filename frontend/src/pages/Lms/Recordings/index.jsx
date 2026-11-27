@@ -7,6 +7,7 @@ import {
   FullscreenOutlined, ExportOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined,
   LockOutlined, ClockCircleOutlined, UserOutlined, MoreOutlined, CodeOutlined, DatabaseOutlined,
   ExperimentOutlined, ApiOutlined, ThunderboltOutlined, FileTextOutlined, CloudDownloadOutlined,
+  SoundOutlined, CaretRightOutlined, BookOutlined, RightOutlined,
 } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { request } from '@/request';
@@ -19,6 +20,7 @@ import { useContentProgress } from '../Growth/tracker';
 import './driveImport.css';
 import './Recordings.css';
 import '../components/LearnerDesign.css';
+import './recLearner.css';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const STATUS_LABEL = { AWAITING_UPLOAD: 'AWAITING UPLOAD', NOT_STARTED: 'NOT STARTED' };
@@ -117,6 +119,11 @@ export default function Recordings() {
   // (already set below), regardless of what's rendered inside it.
   const mediaRef = useRef(null);
   const [showTranscript, setShowTranscript] = useState(true);
+  // learner Fullscreen → the full-window player the support side uses (2026-11-27)
+  const [theater, setTheater] = useState(false);
+  const theaterAt = useRef(0);
+  const playingId = playing && playing.id;
+  useEffect(() => { theaterAt.current = 0; }, [playingId]);
   // Subtitles / CC — its own switch: the Transcript panel and CC never turn
   // each other on or off (spec §7 "independent controls").
   const [ccOn, setCcOn] = useState(false);
@@ -149,6 +156,21 @@ export default function Recordings() {
   ) : null;
   // BBB player is another origin — a transcript click re-opens it at that second
   const seekFrame = (sec) => setPlaying((p) => (p ? { ...p, baseUrl: p.baseUrl || p.url, url: withStartTime(p.baseUrl || p.url, sec) } : p));
+  // Video player ⇄ BBB player (2026-11-27). BBB's page is another origin, so
+  // subtitles can't be drawn there — switching turns CC off (instead of it
+  // looking stuck "on") and opens BBB at the moment you were watching.
+  const switchPlayer = () => {
+    if (playerMode === 'video') {
+      const el = mediaRef.current;
+      const t = el && el.tagName === 'VIDEO' ? Math.floor(el.currentTime || 0) : 0;
+      if (ccOn) message.info('Subtitles show only in the Video player — the BBB player shows slides and chat.', 4);
+      setCcOn(false);
+      setPlaying((p) => (p ? { ...p, baseUrl: p.baseUrl || p.url, url: t > 1 ? withStartTime(p.baseUrl || p.url, t) : p.baseUrl || p.url } : p));
+      setPlayerMode('frame');
+    } else {
+      setPlayerMode('video');
+    }
+  };
   const goFullscreen = () => {
     const el = mediaRef.current;
     if (!el) return;
@@ -449,17 +471,55 @@ export default function Recordings() {
         DELETED: 'recording not available',
       })[r.status] || '—';
     const isFrame = !!playing && !useVideo;
+    const readyN = filteredRows.filter((r) => r.status === 'AVAILABLE').length;
+    const probN = filteredRows.filter((r) => ['FAILED', 'DELETED'].includes(r.status)).length;
+    // Fullscreen = the same full-window player + transcript the support side
+    // gets (2026-11-27). The small inline player unmounts while it's open, so
+    // mediaRef points at the big one; the watch position carries over.
+    const openTheater = () => {
+      const el = mediaRef.current;
+      theaterAt.current = el && typeof el.currentTime === 'number' ? el.currentTime : 0;
+      setTheater(true);
+    };
+    const closeTheater = () => {
+      const el = mediaRef.current;
+      theaterAt.current = el && typeof el.currentTime === 'number' ? el.currentTime : 0;
+      setTheater(false);
+    };
+    const resumeAt = (e) => {
+      if (theaterAt.current) {
+        try { e.currentTarget.currentTime = theaterAt.current; } catch (x) { /* not seekable yet */ }
+      }
+    };
+    const player = (big) => (playing && playing.url ? (
+      isFrame ? (
+        <iframe ref={mediaRef} title="recording" src={playing.url} style={{ width: '100%', height: '100%', border: 0, display: 'block' }} allowFullScreen />
+      ) : (
+        <video key={`${videoSrc}:${big}`} ref={mediaRef} className="rec-video" controls autoPlay={big} preload="metadata" src={videoSrc} onLoadedMetadata={resumeAt} controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} style={big ? { maxWidth: '100%', maxHeight: '100%', background: '#000' } : { width: '100%', height: '100%', background: '#000' }}>
+          {captionTrack}
+        </video>
+      )
+    ) : null);
+
     return (
-      <div className="ld-page">
-        <div className="ld-head">
-          <div>
-            <h1>Recordings &amp; study material</h1>
-            <div className="ld-muted ld-sub">Only your batch's recordings · Ready only once playback has been verified</div>
+      <div className="ld-page rcl">
+        <div className="rcl-hero">
+          <div className="rcl-hero-l">
+            <span className="rcl-hero-ic"><PlaySquareOutlined /></span>
+            <div>
+              <span className="rcl-kicker">Your batch · class recordings</span>
+              <h1>Recordings &amp; study material</h1>
+              <p>Only your batch&apos;s recordings · a recording shows Ready once its playback has been checked.</p>
+            </div>
+          </div>
+          <div className="rcl-hero-stats">
+            <span><b>{readyN}</b><small>ready to watch</small></span>
+            <span><b>{filteredRows.length - readyN - probN}</b><small>in progress</small></span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="ld-inp" style={{ width: 260 }} placeholder="Search topic or batch…" aria-label="Search recordings" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="rcl-filters">
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Search topic or batch…" aria-label="Search recordings" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 240 }} />
           <select className="ld-inp" aria-label="Module" value={f.courseTitle} onChange={(e) => setF((x) => ({ ...x, courseTitle: e.target.value }))}>
             <option value="">All modules</option>
             {courses.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -474,56 +534,51 @@ export default function Recordings() {
               {batches.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
           )}
-          <div style={{ width: 12 }} />
-          {['All', 'Ready', 'In progress', 'Problem'].map((l) => (
-            <button key={l} type="button" className={`ld-pill${lFilter === l ? ' on' : ''}`} onClick={() => setLFilter(l)}>{l}</button>
-          ))}
+          <span className="rcl-pills">
+            {['All', 'Ready', 'In progress', 'Problem'].map((l) => (
+              <button key={l} type="button" className={`rcl-pill${lFilter === l ? ' on' : ''}`} onClick={() => setLFilter(l)}>{l}</button>
+            ))}
+          </span>
         </div>
 
-        <div className="ld-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 420px', flex: 1 }}>
-          <section className="ld-card" aria-label="Recordings" style={{ gap: 12, overflow: 'hidden' }}>
+        <div className="rcl-grid">
+          <section className="rcl-card rcl-list" aria-label="Recordings">
             {err && <div className="ld-warn">{err}</div>}
-            <div className="ld-tablewrap">
-              <table className="ld-table rec-table">
-                <thead><tr><th>Session</th><th>Date</th><th>Topic</th><th>Duration</th><th>Status</th><th>CC / transcript</th></tr></thead>
-                <tbody>
-                  {!loading && shown.length === 0 && <tr><td colSpan={6} className="ld-empty">No recordings here.</td></tr>}
-                  {shown.map((r) => {
-                    const st = L_STATUS[r.status] || ['gray', r.status];
-                    return (
-                      <tr key={r.id} onClick={() => r.canPlay && play(r)} style={{ cursor: r.canPlay ? 'pointer' : 'default', background: playing && playing.id === r.id ? '#f0fdfa' : undefined }}>
-                        <td><b>{r.sessionIndex ? `S${r.sessionIndex}` : r.batchName || '—'}</b></td>
-                        <td>{r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</td>
-                        <td>{r.className || r.courseTitle || '—'}</td>
-                        <td>{fmtDuration(r.durationMin)}</td>
-                        <td><span className={`ld-chip ${st[0]}`}>{st[1]}</span></td>
-                        <td className="ld-muted">{ccNote(r)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="rcl-tr rcl-th"><span>Session</span><span>Topic</span><span>Duration</span><span>Status</span><span>Transcript</span></div>
+            <div className="rcl-rows">
+              {!loading && shown.length === 0 && <div className="rcl-empty"><PlaySquareOutlined /> No recordings here.</div>}
+              {shown.map((r) => {
+                const st = L_STATUS[r.status] || ['gray', r.status];
+                const on = playing && playing.id === r.id;
+                return (
+                  <div key={r.id} role="button" tabIndex={r.canPlay ? 0 : -1} className={`rcl-tr${on ? ' on' : ''}${r.canPlay ? '' : ' na'}`} onClick={() => r.canPlay && play(r)} onKeyDown={(e) => { if (e.key === 'Enter' && r.canPlay) play(r); }}>
+                    <span className="rcl-ses">
+                      <span className="rcl-play">{on ? <SoundOutlined /> : <CaretRightOutlined />}</span>
+                      <span><b>{r.sessionIndex ? `S${r.sessionIndex}` : r.batchName || '—'}</b><small>{r.date ? new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</small></span>
+                    </span>
+                    <span className="rcl-topic" title={r.className || r.courseTitle}>{r.className || r.courseTitle || '—'}</span>
+                    <span className="rcl-dur"><ClockCircleOutlined /> {fmtDuration(r.durationMin)}</span>
+                    <span><span className={`ld-chip ${st[0]}`}>{st[1]}</span></span>
+                    <span className="rcl-cc">{ccNote(r)}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="ld-muted" style={{ fontSize: 13, marginTop: 'auto' }}>Recording missing ya galat topic? <button type="button" className="ld-link" onClick={reportRecording}>Report it</button> — a task goes to the content owner.</div>
+            <div className="rcl-foot">Recording missing or the wrong topic? <button type="button" className="ld-link" onClick={reportRecording}>Report it</button> — a task goes to the content owner.</div>
           </section>
 
-          <section className="ld-card" aria-label="Player" style={{ gap: 12 }}>
-            <div style={{ height: 210, background: '#0f172a', borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {playing && playing.url ? (
-                isFrame ? (
-                  <iframe ref={mediaRef} title="recording" src={playing.url} style={{ width: '100%', height: '100%', border: 0, display: 'block' }} allowFullScreen />
-                ) : (
-                  <video key={videoSrc} ref={mediaRef} className="rec-video" controls preload="metadata" src={videoSrc} style={{ width: '100%', height: '100%', background: '#000' }} allowFullScreen>
-                    {captionTrack}
-                  </video>
-                )
-              ) : (
-                <span style={{ color: '#e2e8f0', fontSize: 13, padding: 16, textAlign: 'center' }}>Click a Ready recording — it plays right here</span>
-              )}
+          <section className="rcl-card rcl-player" aria-label="Player">
+            <div className="rcl-screen">
+              {!theater && player(false)}
+              {theater && <span className="rcl-screen-note"><FullscreenOutlined /> Playing in full screen</span>}
+              {!playing && <span className="rcl-screen-note"><PlaySquareOutlined /> Click a Ready recording — it plays right here</span>}
             </div>
-            <b style={{ fontSize: 15 }}>{playing ? recTitle(playing) : 'No recording selected'}</b>
+            <b className="rcl-title">{playing ? recTitle(playing) : 'No recording selected'}</b>
             {playing && (
-              <div className="rec-ctrls" role="toolbar" aria-label="Player options">
+              <div className="rec-ctrls rcl-ctrls" role="toolbar" aria-label="Player options">
+                <button type="button" className="rec-ctrl rcl-full" onClick={openTheater}>
+                  <FullscreenOutlined aria-hidden="true" /> Fullscreen
+                </button>
                 <button type="button" className={`rec-ctrl${showTranscript ? ' on' : ''}`} aria-pressed={showTranscript} onClick={() => setShowTranscript((v) => !v)}>
                   <FileTextOutlined aria-hidden="true" /> Transcript
                 </button>
@@ -532,41 +587,81 @@ export default function Recordings() {
                     <span className="rec-cc" aria-hidden="true">CC</span> Subtitles
                   </button>
                 </Tooltip>
-                <button type="button" className="rec-ctrl" onClick={goFullscreen}>
-                  <FullscreenOutlined aria-hidden="true" /> Fullscreen
-                </button>
-                {canDownload(playing) && (
-                  <button type="button" className="rec-ctrl" disabled={downloadingId === playing.id} onClick={() => downloadRecording(playing)}>
-                    <DownloadOutlined aria-hidden="true" /> {downloadingId === playing.id ? 'Downloading…' : 'Download MP4'}
-                  </button>
-                )}
                 {playing.provider === 'bigbluebutton' && videoSrc && (
-                  <button type="button" className="rec-ctrl" onClick={() => setPlayerMode((m) => (m === 'video' ? 'frame' : 'video'))} title={useVideo ? 'BBB player: slides and chat the way BBB shows them (no subtitles there)' : 'Back to the video player with subtitles'}>
-                    {useVideo ? 'Open BBB player' : 'Video player with CC'}
+                  <button type="button" className="rec-ctrl" onClick={switchPlayer} title={useVideo ? 'BBB player: slides and chat the way BBB shows them (no subtitles there)' : 'Back to the video player with subtitles'}>
+                    {useVideo ? 'BBB player' : 'Video player'}
                   </button>
                 )}
               </div>
             )}
-            {/* the open transcript panel already says it; with it closed, say it here */}
             {playing && !showTranscript && !cc.ready && captions.info && ['PENDING', 'PROCESSING'].includes(captions.info.status) && (
               <div className="rec-prep" role="status">Transcript and subtitles are being prepared — the video plays normally meanwhile.</div>
             )}
-            {playing && showTranscript && (
+            {playing && showTranscript && !theater && (
               <TranscriptPanel
                 rec={playing}
                 mediaRef={mediaRef}
                 isFrame={isFrame}
                 playerKey={`${playing.id}:${useVideo}`}
                 onSeekFrame={seekFrame}
-                style={{ height: 340, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}
+                style={{ height: 320, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}
               />
             )}
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <b style={{ fontSize: 14 }}>Session material</b>
-              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={() => navigate('/learn/material')}>Study material for your batch →</button>
-            </div>
+            <button type="button" className="rcl-mat" onClick={() => navigate('/learn/material')}><BookOutlined /> Study material for your batch <RightOutlined /></button>
           </section>
         </div>
+
+        <Modal
+          open={theater && !!playing}
+          footer={null}
+          closable={false}
+          width="100vw"
+          style={{ top: 0, margin: 0, maxWidth: 'none', paddingBottom: 0 }}
+          className="lms-recording-player-modal"
+          bodyStyle={{ padding: 0, background: '#000' }}
+          onCancel={closeTheater}
+          destroyOnClose
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ overflow: 'hidden', minWidth: 0, display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }} title={playing ? recTitle(playing) : ''}>{playing ? recTitle(playing) : ''}</span>
+              <Space size={8} wrap style={{ flexShrink: 1, justifyContent: 'flex-end' }}>
+                <Button size="small" icon={<FullscreenOutlined />} onClick={goFullscreen}>Full screen</Button>
+                {playing && playing.provider !== 'external' && (
+                  <Button size="small" icon={<FileTextOutlined />} type={showTranscript ? 'primary' : 'default'} aria-pressed={showTranscript} onClick={() => setShowTranscript((v) => !v)}>Transcript</Button>
+                )}
+                {playing && playing.provider !== 'external' && (
+                  <Tooltip title={cc.note}>
+                    <Button size="small" type={ccOn && useVideo ? 'primary' : 'default'} aria-pressed={ccOn && useVideo} className={cc.ready ? '' : 'rec-btn-off'} onClick={toggleCc}><span className="rec-cc" aria-hidden="true">CC</span>&nbsp;Subtitles</Button>
+                  </Tooltip>
+                )}
+                {playing && playing.provider === 'bigbluebutton' && videoSrc && (
+                  <Button size="small" onClick={switchPlayer}>{useVideo ? 'BBB player' : 'Video player'}</Button>
+                )}
+                <Button size="small" onClick={closeTheater}>Close</Button>
+              </Space>
+            </div>
+          }
+        >
+          {playing && playing.url && (
+            <div className="rec-stage" style={{ display: 'flex', width: '100%', height: '100%', minHeight: 0 }}>
+              <div className="rec-stage-media" style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {player(true)}
+              </div>
+              {showTranscript && playing.provider !== 'external' && (
+                <TranscriptPanel
+                  dark
+                  rec={playing}
+                  mediaRef={mediaRef}
+                  isFrame={isFrame}
+                  playerKey={`${playing.id}:${useVideo}:big`}
+                  onSeekFrame={seekFrame}
+                  className="rec-stage-tp"
+                  style={{ width: 400, maxWidth: '42vw', flexShrink: 0, height: '100%', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+                />
+              )}
+            </div>
+          )}
+        </Modal>
       </div>
     );
   }
@@ -850,7 +945,7 @@ export default function Recordings() {
               )}
               {playing && playing.provider === 'bigbluebutton' && videoSrc && (
                 <Tooltip title={useVideo ? 'BBB player: slides and chat the way BBB shows them (no subtitles there)' : 'Back to the video player with subtitles'}>
-                  <Button size="small" onClick={() => setPlayerMode((m) => (m === 'video' ? 'frame' : 'video'))}>
+                  <Button size="small" onClick={switchPlayer}>
                     {useVideo ? 'BBB player' : 'Video player'}
                   </Button>
                 </Tooltip>

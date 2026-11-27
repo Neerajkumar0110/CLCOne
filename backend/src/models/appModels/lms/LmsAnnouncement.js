@@ -11,10 +11,14 @@ const schema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String },
 
-  audience: { type: String, enum: ['all', 'course', 'batch'], default: 'course' },
+  // batches = several batches in one go; learners = chosen people (LMS testing report #4)
+  audience: { type: String, enum: ['all', 'course', 'batch', 'batches', 'learners'], default: 'course' },
   course: { type: mongoose.Schema.ObjectId, ref: 'Course' },
   courseTitle: String,
   batch: { type: String },
+  batches: { type: [String], default: undefined },
+  learners: { type: [{ type: mongoose.Schema.ObjectId, ref: 'Admin' }], default: undefined },
+  learnerNames: { type: [String], default: undefined },
 
   priority: { type: String, enum: ['important', 'general'], default: 'general' },
 

@@ -779,6 +779,23 @@ export default function Learner360Report({ learnerId, crumbBase = 'LMS / 360° R
               {e ? e.level.label : 'No activity yet'}
             </Chip>
           </span>
+          {e && e.periods && (
+            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }} aria-label="Engagement by period">
+              <thead>
+                <tr style={{ color: C.sub, textAlign: 'left' }}><th style={{ fontWeight: 600 }} /><th>Active</th><th>Days</th><th>Logins</th></tr>
+              </thead>
+              <tbody>
+                {[['Today', e.periods.today], ['This week', e.periods.week], ['This month', e.periods.month]].map(([k, p]) => (
+                  <tr key={k} style={{ borderTop: `1px solid ${C.ln}` }}>
+                    <td style={{ padding: '4px 0', fontWeight: 600 }}>{k}</td>
+                    <td>{fmtHM(p.min)}</td>
+                    <td>{p.daysActive}</td>
+                    <td>{p.logins}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           {e && <Heat days={e.heat} cell={13} />}
         </Card>
       </Row>

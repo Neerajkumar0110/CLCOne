@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Table, Select, Input, Button, Upload, Tag, Tooltip, Space, message, Typography, Empty, Popconfirm } from 'antd';
 import {
   DatabaseOutlined,
@@ -421,6 +421,54 @@ function UploadTab({ tests, testType, setTestType, onImported }) {
   );
 }
 
+// Uploads into this test — a wrong upload is removed as a whole (LMS testing report #16).
+function UploadsPanel({ testType, onChanged }) {
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(null);
+  const load = useCallback(async () => {
+    const r = await request.get({ entity: `lms/assessments/bank/imports?testType=${testType}` });
+    setRows((r && r.success && r.result) || []);
+  }, [testType]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  if (!rows.length) return null;
+  const remove = async (id) => {
+    setBusy(id);
+    const r = await request.post({ entity: `lms/assessments/bank/imports/${id}/remove`, jsonData: {} });
+    setBusy(null);
+    if (r && r.success) {
+      load();
+      onChanged();
+    }
+  };
+  return (
+    <div style={{ margin: '10px 0 14px', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Uploads into this test</div>
+      {rows.map((u) => (
+        <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderTop: '1px solid #eef2f7', fontSize: 13, flexWrap: 'wrap' }}>
+          <span>
+            {u.at ? new Date(u.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'} · {u.total} question{u.total === 1 ? '' : 's'}
+            {u.active !== u.total ? ` (${u.active} active)` : ''}
+            {u.by ? <span style={{ color: '#64748b' }}> · by {u.by}</span> : null}
+          </span>
+          <Popconfirm
+            title="Remove this whole upload?"
+            description="Questions no learner has had are deleted; ones already used in attempts are kept as Removed."
+            okText="Remove upload"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => remove(u.id)}
+          >
+            <Button size="small" danger loading={busy === u.id} disabled={!u.active}>
+              Remove this upload
+            </Button>
+          </Popconfirm>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BankTab({ tests, testType, setTestType, refreshKey, onChanged }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -474,7 +522,7 @@ function BankTab({ tests, testType, setTestType, refreshKey, onChanged }) {
           style={{ width: 130 }}
           options={[
             { value: 'active', label: 'Active' },
-            { value: 'retired', label: 'Retired' },
+            { value: 'retired', label: 'Removed' },
             { value: 'all', label: 'All' },
           ]}
         />
@@ -482,6 +530,7 @@ function BankTab({ tests, testType, setTestType, refreshKey, onChanged }) {
         <Button icon={<ReloadOutlined />} onClick={load} />
       </div>
       {test && <PoolBar pool={test.pool} perAttempt={test.perAttempt} fixedSet={test.fixedSet} />}
+      {testType && <UploadsPanel testType={testType} onChanged={() => { load(); onChanged(); }} />}
       {!testType ? (
         <Empty description="Pick a test to see its questions." />
       ) : (
@@ -517,9 +566,9 @@ function BankTab({ tests, testType, setTestType, refreshKey, onChanged }) {
                     Restore
                   </Button>
                 ) : (
-                  <Popconfirm title="Retire this question? New attempts won't get it." okText="Retire" onConfirm={() => toggle(r)}>
+                  <Popconfirm title="Remove this question? New attempts won't get it (you can restore it)." okText="Remove" onConfirm={() => toggle(r)}>
                     <Button size="small" danger icon={<StopOutlined />} loading={busyId === r.id}>
-                      Retire
+                      Remove
                     </Button>
                   </Popconfirm>
                 ),
@@ -554,7 +603,7 @@ export default function QuestionBank() {
       <PageHeading
         icon={<DatabaseOutlined />}
         title="Question Bank"
-        description="Upload test questions as JSON, choose the test they go into, check them and import — or review and retire existing ones."
+        description="Upload test questions as JSON, choose the test they go into, check them and import — or review and remove existing ones (a wrong upload can be removed as a whole)."
       />
 
       <div className="qb-tests">

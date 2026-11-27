@@ -64,6 +64,9 @@ import { useAppContext } from '@/context/appContext';
 import { useTheme } from '@/context/themeContext';
 import '@/pages/Lms/components/LearnerDesign.css';
 import useSidebarLogo from '@/hooks/useSidebarLogo';
+// one LMS design system (radius / type / tables / modals / tooltip) — look only
+import LmsUi from '@/components/LmsUi';
+import PolicyConsentModal from '@/pages/Lms/Policies/PolicyConsentModal';
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -517,6 +520,7 @@ const STUDENT_NAV = [
   basicTestEntry('/learn', 'Readiness test'),
   ['#LEARN'],
   ['/learn/classes', 'My Classes (live)', <VideoCameraOutlined />, <LiveClasses />],
+  ['/learn/calendar', 'Calendar', <CalendarOutlined />, <LmsCalendar />],
   ['/learn/recordings', 'Recordings', <PlayCircleOutlined />, <Recordings />],
   ['/learn/material', 'Study material', <FolderOpenOutlined />, <StudyMaterial />],
   ['/learn/curriculum', 'Curriculum progress', <ScheduleOutlined />, <Curriculum />],
@@ -546,7 +550,6 @@ const STUDENT_NAV = [
 const STUDENT_MORE = [
   ...flattenNavLeaves([quizzesGroup('/learn', 'Major & Micro tests', { withBasic: false })]),
   ['/learn/courses', 'My Internships', null, <LearningPage />],
-  ['/learn/calendar', 'Calendar', null, <LmsCalendar />],
   ['/learn/doubts', 'My Doubts', null, <Doubts />],
   ['/learn/eligibility', 'My Eligibility', null, <Eligibility />],
   ['/learn/notifications', 'Announcements', null, <AnnouncementsPage />],
@@ -647,6 +650,7 @@ export default function LmsPanelApp() {
     };
     socket?.on('notification:new', onNotification);
     socket?.on('lms:announcement', pollUpdates);
+    socket?.on('lms:policy', pollUpdates);
     socket?.on('lms:doubt', pollUpdates);
 
     return () => {
@@ -656,6 +660,7 @@ export default function LmsPanelApp() {
       window.removeEventListener('lms:updates', onLive);
       socket?.off('notification:new', onNotification);
       socket?.off('lms:announcement', pollUpdates);
+      socket?.off('lms:policy', pollUpdates);
       socket?.off('lms:doubt', pollUpdates);
     };
   }, [pollUpdates]);
@@ -734,17 +739,25 @@ export default function LmsPanelApp() {
   useEffect(() => {
     if (policyGate && !enrollmentId) lmsApi.myOnboarding().then((r) => setEnrollmentId((r && r.result && r.result.enrollmentId) || '')).catch(() => {});
   }, [policyGate, enrollmentId]);
-  const POLICY_GATED = ['/learn/classes', '/learn/recordings', '/learn/assessment-dashboard', '/learn/projects', '/learn/quizzes', '/learn/tests'];
   const shell = (path, element) =>
     isTeacher ? element : (
       <ConfigProvider theme={LD_THEME}>
         <div className={isBoardBuilt(path) ? 'ld-root' : 'ld-root ld-page ld-legacy'}>{element}</div>
       </ConfigProvider>
     );
-  const gate = (path, element) =>
-    policyGate && POLICY_GATED.some((p) => path === p || path.startsWith(`${p}/`)) ? <Navigate to="/learn/policies" replace /> : shell(path, element);
+  // 2026-11-27: pending mandatory policies open PolicyConsentModal over every
+  // page (below) instead of redirecting; the server still refuses gated data.
+  const gate = (path, element) => shell(path, element);
   const routes = (
     <Suspense fallback={<PageLoader />}>
+      {policyGate && (
+        <PolicyConsentModal
+          open
+          learnerName={[`${admin.name || ''} ${admin.surname || ''}`.trim(), enrollmentId].filter(Boolean).join(' · ')}
+          onLogout={() => dispatch(logoutAction())}
+          onDone={pollUpdates}
+        />
+      )}
       {accessHold ? (
         <AccessHoldScreen info={updates.access} onRequested={pollUpdates} />
       ) : financeHold ? (
@@ -806,23 +819,6 @@ export default function LmsPanelApp() {
     </>
   );
 
-  // Board L1: until the mandatory policies are accepted the consent page is
-  // an account-activation screen — full width, no sidebar, a dark top bar
-  // with the brand and the learner's name · enrollment ID.
-  if (policyGate && location.pathname === '/learn/policies') {
-    return (
-      <div className="ld-activate">
-        <header className="ld-actbar">
-          <div className="ld-brand" style={{ padding: 0 }}><img className="ld-logo" src={logoWide} alt="Career Lab Consulting" style={{ height: 34 }} /></div>
-          <div className="ld-actbar-r">
-            <span>{[`${admin.name || ''} ${admin.surname || ''}`.trim(), enrollmentId].filter(Boolean).join(' · ')}</span>
-            <button type="button" onClick={() => dispatch(logoutAction())}>Logout</button>
-          </div>
-        </header>
-        {routes}
-      </div>
-    );
-  }
 
   return (
     <Layout hasSider style={{ minHeight: '100vh' }}>
@@ -912,7 +908,7 @@ export default function LmsPanelApp() {
           </div>
         </Header>
         <Content style={{ margin: 10, overflow: 'initial', width: 'calc(100% - 20px)', padding: 0, maxWidth: 'none' }}>
-          {routes}
+          <LmsUi>{routes}</LmsUi>
         </Content>
         {/* board L16: on a phone the learner's main pages sit in a bottom tab bar (44px targets); ☰ still opens the full menu */}
         {!isTeacher && isMobile && (

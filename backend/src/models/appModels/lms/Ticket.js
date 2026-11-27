@@ -75,6 +75,8 @@ const schema = new mongoose.Schema({
   expected: String,
   // screenshots the learner attached (design L9 "Screenshot attach karein")
   attachments: { type: [{ _id: false, name: String, url: String }], default: undefined },
+  // files Support sends the learner with a reply (e.g. a policy PDF) — LMS testing report #5
+  supportFiles: { type: [{ _id: false, name: String, url: String, at: Date, byName: String }], default: undefined },
   // Status timeline shown to the raiser — appended on create, on every
   // status change by Support, and when the learner confirms or reopens.
   history: {
@@ -105,6 +107,14 @@ const schema = new mongoose.Schema({
   slaDueAt: Date,
   // when the "48 h passed, still not solved" email went to Support (once)
   slaMailAt: Date,
+  // staff escalation (category "Internal escalation"): who is accountable for which task
+  escalation: {
+    _id: false,
+    against: { type: mongoose.Schema.ObjectId, ref: 'Admin' },
+    againstName: String,
+    task: String,
+    taskDueAt: Date,
+  },
   nextActionAt: Date,
   escalatedTo: String,
   // automation (jobs/lmsAutomationTick.js): when the raiser got the

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import api from './api';
 import { C, I, IB, Chip, Btn, Av, Card, Row, Col, Table, Check, KV, Note, Screen, Loading, ErrorBox, Field, useData } from './ui';
 import { fmtDT } from './projectsShared';
@@ -44,6 +44,8 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
   const [rule, setRule] = useState({ track: '', minSkill: 'intermediate', on: true });
   const [notify, setNotify] = useState({ email: true, inApp: true, copyMentor: true });
   const [busy, setBusy] = useState(false);
+  // learner lookup: name, or the beginning of the email (LMS testing report #8)
+  const [q, setQ] = useState('');
 
   const cand = candQ.data;
   useEffect(() => {
@@ -57,7 +59,14 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
     }
   }, [brief]);
   const rows = useMemo(() => (cand ? cand.rows : []), [cand]);
-  const visible = useMemo(() => rows.filter((r) => !minSkill || (r.skill && ORDER.indexOf(r.skill) >= ORDER.indexOf(minSkill))), [rows, minSkill]);
+  const visible = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return rows.filter(
+      (r) =>
+        (!minSkill || (r.skill && ORDER.indexOf(r.skill) >= ORDER.indexOf(minSkill))) &&
+        (!t || String(r.name || '').toLowerCase().includes(t) || String(r.email || '').toLowerCase().startsWith(t))
+    );
+  }, [rows, minSkill, q]);
   useEffect(() => {
     // default: everyone matching the brief's skill level and not already on it
     if (!rows.length) return;
@@ -76,8 +85,27 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
   const count = mode === 'bulk' ? rows.filter((r) => !r.allocated).length : mode === 'auto' ? autoMatch.filter((r) => !r.allocated).length : picked.length;
   const deadline = brief.deadline ? new Date(brief.deadline) : brief.durationDays ? new Date(Date.now() + brief.durationDays * 86400000) : null;
 
-  const go = async () => {
+  // confirm learner(s), project and notifications before anything is sent (report #8)
+  const go = () => {
     if (!count) return message.error('Nobody selected.');
+    const names = mode === 'individual' ? picked.map((r) => `${r.name}${r.email ? ` (${r.email})` : ''}`) : [];
+    Modal.confirm({
+      title: `Assign "${brief.title}"?`,
+      width: 520,
+      okText: `Assign & notify ${count}`,
+      content: (
+        <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+          <div><b>Project:</b> {brief.title}{brief.track ? ` · ${brief.track}` : ''}</div>
+          <div><b>Batch:</b> {batch || '—'} · <b>Mode:</b> {(MODES.find((m) => m[0] === mode) || [])[2]}</div>
+          <div><b>Learners ({count}):</b> {names.length ? names.slice(0, 8).join(', ') + (names.length > 8 ? ` +${names.length - 8} more` : '') : mode === 'bulk' ? 'everyone in the batch' : mode === 'auto' ? 'everyone matching the rule' : `${count}`}</div>
+          <div><b>Deadline:</b> {deadline ? fmtDT(deadline) : '—'}</div>
+          <div><b>Notify:</b> {[notify.email && 'email', notify.inApp && 'LMS notification', notify.copyMentor && 'copy to mentor'].filter(Boolean).join(' · ') || 'nobody'}</div>
+        </div>
+      ),
+      onOk: send,
+    });
+  };
+  const send = async () => {
     setBusy(true);
     const body = { mode, batch, notify };
     if (mode === 'individual') body.learnerIds = picked.map((r) => r.id);
@@ -146,7 +174,11 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
           sub={mode === 'bulk' ? `Whole batch · ${rows.filter((r) => !r.allocated).length} learners` : mode === 'auto' ? `${autoMatch.length} match the rule` : `${picked.length} of ${rows.length} selected`}
           style={{ flex: 1 }}
           right={
-            <Row g={8} style={{ width: 'auto' }}>
+            <Row g={8} style={{ width: 'auto', flexWrap: 'wrap' }}>
+              <div className="g-input" style={{ padding: '5px 10px', width: 'auto' }}>
+                <I n="search" s={13} c={C.fa} />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email starts with…" aria-label="Find a learner by name or email" style={{ border: 0, outline: 0, fontSize: 12, width: 170, background: 'transparent' }} />
+              </div>
               <div className="g-input" style={{ padding: '5px 10px', width: 'auto' }}>
                 <I n="layers" s={13} c={C.fa} />
                 <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Batch" style={{ fontSize: 12, fontWeight: 600 }}>
@@ -180,7 +212,10 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
               r.allocated ? <Chip s={10}>Has it</Chip> : <Check on={mode === 'bulk' || (mode === 'auto' ? autoMatch.includes(r) : sel.has(r.id))} onChange={() => mode !== 'bulk' && mode !== 'auto' && toggle(r.id)} label="" />,
               <>
                 <Av name={r.name} s={24} />
-                <span style={{ fontSize: 12.5, fontWeight: 500 }}>{r.name}</span>
+                <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.25 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{r.name}</span>
+                  {r.email ? <span className="g-s11 g-fa">{r.email}</span> : null}
+                </span>
               </>,
               r.track || '—',
               r.skill ? (
@@ -192,7 +227,7 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
               ),
               String(r.active),
             ])}
-            empty="No learners in this batch."
+            empty={q ? 'No learner matches that name / email.' : 'No learners in this batch.'}
           />
           <span className="g-s11 g-fa">Skill level comes from each learner's real coding + assessment scores (Learner 360°).</span>
         </Card>
@@ -249,6 +284,22 @@ export default function ProjectAllocate({ briefId, onDone, onCancel }) {
         )}
 
         <Col style={{ width: 330, flexShrink: 0 }}>
+          <Card title="Project details" i="file" sub="What the learner gets">
+            {brief.description ? <span className="g-s12" style={{ whiteSpace: 'pre-wrap', maxHeight: 160, overflow: 'auto', display: 'block' }}>{brief.description}</span> : <span className="g-s12 g-fa">No description.</span>}
+            {(brief.deliverables || []).length > 0 && (
+              <>
+                <span className="g-s11 g-mut" style={{ fontWeight: 600, marginTop: 6 }}>Requirements / deliverables</span>
+                <ul style={{ margin: '2px 0 0 16px', padding: 0, fontSize: 12 }}>
+                  {brief.deliverables.slice(0, 10).map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {(brief.stack || []).length > 0 && <KV k="Stack" v={brief.stack.join(', ')} />}
+            {(brief.resources || []).length > 0 && <KV k="Resources" v={`${brief.resources.length} file${brief.resources.length === 1 ? '' : 's'} / link${brief.resources.length === 1 ? '' : 's'}`} />}
+            <KV k="Pass score" v={`${brief.passScore || 60}%`} />
+          </Card>
           <Card title="Auto-allocation rule" i="zap">
             <Field label="Track" htmlFor="ar-track">
               <select id="ar-track" className="g-input" value={rule.track} onChange={(e) => setRule({ ...rule, track: e.target.value })}>

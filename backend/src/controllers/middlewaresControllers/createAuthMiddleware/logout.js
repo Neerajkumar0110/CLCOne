@@ -25,6 +25,18 @@ const logout = async (req, res, { userModel }) => {
       }
     ).exec();
 
+  // Attendance ERP: signing out of the CRM everywhere is the end of the
+  // working day (an owner still signed in on another device is not).
+  try {
+    const left = await UserPassword.findOne({ user: req.admin._id }).select('loggedSessions').lean();
+    if (!left || !(left.loggedSessions || []).length) {
+      const E = require('../../../services/hr/erpAttendance');
+      if (E.isTrackedRole(req.admin.role)) await E.logout(req.admin, { type: 'auth' });
+    }
+  } catch (e) {
+    console.error('[erp] logout hook failed:', e.message);
+  }
+
   return res.json({
     success: true,
     result: {},

@@ -138,6 +138,15 @@ async function summary({ crmUser, name, batch }, { asOf = new Date(), heatDays =
     bestStreak: st.best,
     todayMin: Math.round((byDate[today] || 0) / 60),
     weekMin: Math.round(sumRange(week0, today) / 60),
+    // daily / weekly / monthly view of one learner (LMS testing report #39)
+    periods: (() => {
+      const month0 = `${today.slice(0, 7)}-01`;
+      const span = (x, y) => {
+        const rows = days.filter((d) => d.date >= x && d.date <= y);
+        return { min: Math.round(rows.reduce((t, d) => t + (d.activeSec || 0), 0) / 60), daysActive: rows.filter((d) => (d.activeSec || 0) > 60).length, logins: rows.reduce((t, d) => t + (d.logins || 0), 0) };
+      };
+      return { today: span(today, today), week: span(week0, today), month: span(month0, today) };
+    })(),
     lastWeekMin: Math.round(sumRange(addDays(week0, -7), addDays(today, -7)) / 60),
     monthMin: Math.round(sumRange(`${today.slice(0, 8)}01`, today) / 60),
     avgDailyMin14: Math.round(avg14),

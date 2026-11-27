@@ -9,7 +9,14 @@ import { Chip, Btn, Av, Card, Table, Screen, Loading, ErrorBox, useData } from '
 export default function Learner360Lookup() {
   const [batch, setBatch] = useState('');
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(null);
+  // ?learner=<id> opens that learner straight away (Eligibility → "Open full Learner 360 report")
+  const [open, setOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('learner') || null;
+    } catch (e) {
+      return null;
+    }
+  });
   const { data: d, error, loading } = useData(() => api.leaderboard(batch || undefined), [batch]);
   useEffect(() => {
     if (d && !batch && d.batches.length) setBatch(d.batches[0]);

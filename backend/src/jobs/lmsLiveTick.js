@@ -128,12 +128,15 @@ async function runNotifications() {
         const emails = students.map((a) => a.email).filter(Boolean);
         if (emails.length) {
           const base = (lmsConfig.meeting.crmBaseUrl || '').replace(/\/+$/, '');
+          // today's curriculum topic in the reminder (LMS testing report #23 "pre-session topic")
+          const topic = session.batch && !session.titleCustom ? await require('../services/lms/chapterProgress').topicForSession(session.batch, session._id).catch(() => null) : null;
           await mailer.sendLiveClassReminderEmail(emails, {
+            topic,
             title: session.title,
             courseTitle: session.courseTitle,
             batchName: session.batchName,
             scheduledStart: session.scheduledStart,
-            joinPageUrl: `${base}/#/lms/classes`,
+            joinPageUrl: `${base}/learn/classes`,
             minutes: emailMins,
           });
         }

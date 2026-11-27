@@ -50,11 +50,14 @@ export function PageHeading({ icon, title, description, actions, size = 'lg', cl
 
 // Consistent AntD Table pagination across all three pages — page-size
 // switcher, a human "x–y of n" total, and sensible size steps.
+// Pass defaultPageSize (not pageSize) for a client-side table so the
+// rows-per-page switcher actually works; pageSize stays for controlled tables.
 export function tablePagination(overrides = {}) {
+  const size = overrides.pageSize || overrides.defaultPageSize;
   return {
     showSizeChanger: true,
-    pageSizeOptions: [10, 25, 50, 100],
-    showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+    pageSizeOptions: [...new Set([10, 25, 50, 100, ...(size ? [size] : [])])].sort((a, b) => a - b),
+    showTotal: (total, range) => (total ? `Showing ${range[0]}–${range[1]} of ${total}` : ''),
     ...overrides,
   };
 }

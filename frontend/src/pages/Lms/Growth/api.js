@@ -81,6 +81,8 @@ const api = {
   saveBrief: (id, body) => (id ? api.put(`projects/briefs/${id}`, body) : api.post('projects/briefs', body)),
   archiveBrief: (id) => api.del(`projects/briefs/${id}`),
   uploadProjectFile: (file) => api.upload('projects/upload', file),
+  // upload + read title / description / requirements out of a .docx / .txt / .md
+  extractProjectFile: (file) => api.upload('projects/upload', file, 'file', { extract: '1' }),
   candidates: (briefId, batch) => api.get(`projects/allocate/${briefId}/candidates`, { batch }),
   allocate: (briefId, body) => api.post(`projects/allocate/${briefId}`, body),
   projectDashboard: (f) => api.get('projects/dashboard', f),

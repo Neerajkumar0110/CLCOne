@@ -1,0 +1,29 @@
+{
+  "name": "clc-desktop-agent",
+  "productName": "CLC Desktop Agent",
+  "version": "1.0.0",
+  "description": "Attendance ERP presence agent: reports whether the keyboard / mouse was used (never which keys) and laptop power events.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg"
+  },
+  "dependencies": {},
+  "optionalDependencies": {
+    "uiohook-napi": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.careerlab.clcagent",
+    "productName": "CLC Desktop Agent",
+    "files": ["main.js", "setup.html", "icon.png"],
+    "win": { "target": "nsis" },
+    "nsis": { "oneClick": true, "perMachine": false },
+    "mac": { "category": "public.app-category.productivity" }
+  }
+}

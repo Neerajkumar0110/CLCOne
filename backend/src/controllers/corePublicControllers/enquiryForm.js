@@ -174,6 +174,10 @@ const submitEnquiry = async (req, res) => {
       message: summary,
       enquiryAt: new Date(),
       attribution: { ...at, landingPage: clean(b.landing_page, 300) || undefined, referrer: req.get('referer') || undefined },
+      // a fresh campaign lead is called before any auto-dialer / imported
+      // lead — first free user, right away (services/calling/instantLeads.js;
+      // every campaign since 2026-11-25, was Facebook + WhatsApp only)
+      ...(phone ? { instantDispatch: { status: 'pending', at: new Date() } } : {}),
     }).save();
   }
 

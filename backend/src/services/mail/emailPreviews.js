@@ -219,6 +219,18 @@ const P = {
     const vars = { employee: NAME, role: 'Executive', leaveType: 'Casual', when: '20 Nov (full day)', reason: 'Family function', approveLink: `${BASE}/api/workday-public/leave-decision?action=approve`, rejectLink: `${BASE}/api/workday-public/leave-decision?action=reject` };
     return { ...L('../hr/workday')._emailHtml.leaveEmail(vars), vars };
   },
+  'hr-erp-leave-request': () => {
+    const vars = { employee: NAME, leaveType: 'Casual Leave', from: '28 Nov 2026', to: '28 Nov 2026', duration: '1 day', reason: 'Personal work', link: `${BASE}/hr/work-tracker` };
+    return { ...L('../hr/erpLeave').requestEmail(vars), vars };
+  },
+  'hr-erp-leave-approved': () => {
+    const vars = { first: NAME.split(' ')[0], leaveType: 'Casual Leave', dates: '28 Nov 2026', from: '28 Nov 2026', by: 'Neeraj · 26 Nov 2026', balance: '5 Casual left', link: `${BASE}/employee/leaves` };
+    return { ...L('../hr/erpLeave').decisionEmail(vars, true), vars };
+  },
+  'hr-erp-leave-rejected': () => {
+    const vars = { first: NAME.split(' ')[0], leaveType: 'Casual Leave', dates: '28 Nov 2026', from: '28 Nov 2026', reason: 'Month-end admissions push on 28 Nov. Please take 30 Nov instead.', link: `${BASE}/employee/apply-leave` };
+    return { ...L('../hr/erpLeave').decisionEmail(vars, false), vars };
+  },
   'auth-otp': () => {
     const vars = { name: NAME, otp: '482913' };
     return { subject: '482913 is your Career Lab Consulting login code', html: L('../../emailTemplate/otpEmail').otpEmail({ name: NAME, otp: '482913', brand: 'Career Lab Consulting', minutes: 10 }), vars };

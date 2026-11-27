@@ -33,7 +33,9 @@ async function notice(a, { kind, title, body, link = '/learn/project-tasks', toM
     let sent = 0;
     let err = null;
     try {
-      const r = await require('../mailer').sendMail(emails, { subject: title, text: `${body}\n\nOpen it in CareerLab LMS.\n\nCareerLab LMS` });
+      // a proper email (was plain text — LMS testing report #24)
+      const base = (require('../../../config/lms').lmsConfig.meeting.crmBaseUrl || '').replace(/\/$/, '');
+      const r = await require('../mailer').sendMail(emails, { ...require('../../mail/inlineEmails').automationLearner({ title, message: body, link: `${base}${link}` }), templateKey: `lms-project-${String(kind).split('-')[0]}` });
       sent = r.sent || 0;
       if (r.skipped) err = r.skipped;
     } catch (e) {

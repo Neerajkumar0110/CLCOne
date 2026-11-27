@@ -20,7 +20,7 @@ const M = (n) => mongoose.model(n);
 const ok = (res, result, message) => res.status(200).json({ success: true, result, message });
 const bad = (res, code, message) => res.status(code).json({ success: false, result: null, message });
 const nameOf = (a) => [a && a.name, a && a.surname].filter(Boolean).join(' ') || (a && a.email) || 'staff';
-const isAdmin = (a) => CRM_ADMIN_ROLES.includes(a && a.role);
+const isAdmin = (a) => !!a && (CRM_ADMIN_ROLES.includes(a.role) || !!a._lmsFull);
 
 // ── DATA-02 duplicate classes ──────────────────────────────────────────────
 // GET /api/lms/admin/sm/classes/duplicates?batch=

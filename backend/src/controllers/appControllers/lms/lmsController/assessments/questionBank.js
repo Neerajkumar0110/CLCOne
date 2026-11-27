@@ -178,6 +178,8 @@ async function importQuestions(req, res) {
   const docs = [];
   let skipped = 0;
   let invalid = 0;
+  const importId = crypto.randomUUID();
+  const importedByName = `${req.admin.name || ''} ${req.admin.surname || ''}`.trim();
   for (const raw of questions) {
     const { q, errors } = normalize(raw);
     if (errors.length) {
@@ -204,6 +206,8 @@ async function importQuestions(req, res) {
       difficulty: q.difficulty,
       partOrder: q.partOrder,
       retired: q.retired,
+      importId,
+      importedByName,
     });
   }
   if (docs.length) await Q.insertMany(docs);
@@ -216,7 +220,7 @@ async function importQuestions(req, res) {
       performedBy: req.admin._id,
       performedByName: `${req.admin.name || ''} ${req.admin.surname || ''}`.trim(),
       performedByRole: req.admin.role,
-      after: { testType, added: docs.length, skipped, invalid },
+      after: { testType, added: docs.length, skipped, invalid, importId },
     })
     .catch(() => {});
   const label = (TESTS.find((t) => t.key === testType) || {}).label || testType;
@@ -255,11 +259,64 @@ async function setRetired(req, res) {
     // never retire below what one attempt needs
     const left = await Q.countDocuments({ type: doc.type, questionType: doc.questionType, retired: false });
     const need = TYPE_MIX[doc.type][doc.questionType] || 0;
-    if (left - 1 < need) return bad(res, `Can't retire — this test needs ${need} active ${doc.questionType} questions per attempt and only ${left} are active.`);
+    if (left - 1 < need) return bad(res, `Can't remove — this test needs ${need} active ${doc.questionType} questions per attempt and only ${left} are active.`);
   }
   doc.retired = retire;
   await doc.save();
-  return ok(res, { id: doc._id, retired: doc.retired }, retire ? 'Question retired — new attempts won\'t get it.' : 'Question restored.');
+  return ok(res, { id: doc._id, retired: doc.retired }, retire ? 'Question removed — new attempts won\'t get it.' : 'Question restored.');
 }
 
-module.exports = { tests, preview, check, importQuestions, list, setRetired };
+// GET /lms/assessments/bank/imports?testType= — the uploads into one test (newest first)
+async function imports(req, res) {
+  if (!guard(req, res)) return;
+  const { testType } = req.query;
+  if (!TEST_KEYS.includes(testType)) return bad(res, 'Pick a test.');
+  const rows = await mongoose.model('AssessmentQuestion').aggregate([
+    { $match: { type: testType, importId: { $nin: [null, ''] } } },
+    { $group: { _id: '$importId', total: { $sum: 1 }, active: { $sum: { $cond: ['$retired', 0, 1] } }, at: { $min: '$createdAt' }, by: { $first: '$importedByName' } } },
+    { $sort: { at: -1 } },
+    { $limit: 30 },
+  ]);
+  return ok(res, rows.map((r) => ({ id: r._id, total: r.total, active: r.active, at: r.at, by: r.by || '' })));
+}
+
+// POST /lms/assessments/bank/imports/:id/remove — take a wrong upload out again.
+// Questions no learner ever got are deleted; ones already used in an attempt
+// are only removed from the pool (their results keep pointing at them).
+// Refused if the test would be left without enough questions for an attempt.
+async function removeImport(req, res) {
+  if (!guard(req, res)) return;
+  const Qm = mongoose.model('AssessmentQuestion');
+  const qs = await Qm.find({ importId: String(req.params.id) }).select('_id type questionType retired').lean();
+  if (!qs.length) return bad(res, 'Upload not found.', 404);
+  const type = qs[0].type;
+  if (TYPE_MIX[type]) {
+    for (const [qt, need] of Object.entries(TYPE_MIX[type])) {
+      // eslint-disable-next-line no-await-in-loop
+      const activeNow = await Qm.countDocuments({ type, questionType: qt, retired: false });
+      const leaving = qs.filter((x) => x.questionType === qt && !x.retired).length;
+      if (need && activeNow - leaving < need) return bad(res, `Can't remove this upload — the test needs ${need} active ${qt} questions per attempt and only ${activeNow - leaving} would be left. Upload the correct questions first.`);
+    }
+  }
+  const ids = qs.map((x) => x._id);
+  const used = new Set(await mongoose.model('AssessmentAttemptQuestion').distinct('questionId', { questionId: { $in: ids } }));
+  const del = ids.filter((id) => !used.has(id));
+  const keep = ids.filter((id) => used.has(id));
+  if (del.length) await Qm.deleteMany({ _id: { $in: del } });
+  if (keep.length) await Qm.updateMany({ _id: { $in: keep } }, { $set: { retired: true } });
+  mongoose
+    .model('AuditLog')
+    .create({
+      module: 'assessment',
+      action: 'questions.import.remove',
+      entityType: 'AssessmentQuestion',
+      performedBy: req.admin._id,
+      performedByName: `${req.admin.name || ''} ${req.admin.surname || ''}`.trim(),
+      performedByRole: req.admin.role,
+      after: { testType: type, importId: String(req.params.id), deleted: del.length, removedFromPool: keep.length },
+    })
+    .catch(() => {});
+  return ok(res, { deleted: del.length, removed: keep.length, pool: await poolStats(type) }, `Upload removed — ${del.length} question${del.length === 1 ? '' : 's'} deleted${keep.length ? `, ${keep.length} already used in attempts kept as Removed` : ''}.`);
+}
+
+module.exports = { tests, preview, check, importQuestions, list, setRetired, imports, removeImport };

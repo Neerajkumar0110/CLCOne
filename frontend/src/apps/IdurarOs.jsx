@@ -17,6 +17,8 @@ import { notification } from 'antd';
 
 const ErpApp = lazy(() => import('./ErpApp'));
 const LmsPanelApp = lazy(() => import('./LmsPanelApp'));
+// Attendance ERP — the Employee Portal (/employee/*), its own layout.
+const EmployeePortal = lazy(() => import('@/pages/AttendanceErp/portal/EmployeePortal'));
 // Public post-payment KYC form (/kyc/:token) — reached by a student straight
 // off the payment email/QR, never through a CRM login. Bypasses the
 // isLoggedIn branch below entirely, the one architectural spot that can
@@ -29,8 +31,15 @@ const Verify360Page = lazy(() => import('@/pages/Lms/Growth/PublicProfile').then
 
 const DefaultApp = () => {
   const current = useSelector(selectCurrentAdmin);
+  const location = useLocation();
   // Teacher / Student accounts get their own LMS panel — never the CRM shell.
   const isLmsPanel = !!current && LMS_PANEL_ROLES.includes(current.role);
+  const isEmployeePortal = !isLmsPanel && location.pathname.startsWith('/employee');
+  // Attendance ERP: presence heartbeat (mouse / keyboard used yes-no only)
+  // from every CRM and portal tab of a staff account.
+  useEffect(() => {
+    if (current && !isLmsPanel) import('@/pages/AttendanceErp/tracker').then((m) => m.startErpTracker()).catch(() => {});
+  }, [current, isLmsPanel]);
 
   return (
     <Localization>
@@ -41,7 +50,15 @@ const DefaultApp = () => {
               <NotificationsProvider>
                 <TicketsProvider>
                   <Suspense fallback={<PageLoader />}>
-                    {isLmsPanel ? <LmsPanelApp /> : <ErpApp />}
+                    {isLmsPanel ? (
+                      <LmsPanelApp />
+                    ) : isEmployeePortal ? (
+                      <Routes>
+                        <Route path="/employee/*" element={<EmployeePortal />} />
+                      </Routes>
+                    ) : (
+                      <ErpApp />
+                    )}
                   </Suspense>
                 </TicketsProvider>
               </NotificationsProvider>

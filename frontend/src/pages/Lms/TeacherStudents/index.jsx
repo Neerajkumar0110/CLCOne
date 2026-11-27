@@ -3,6 +3,7 @@ import { Row, Table, Tag, Input, Select, Button, Space, Progress, Empty } from '
 import { TeamOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
+import { tablePagination } from '../components/ui';
 
 const STATUS_COLOR = { Active: 'green', 'On Hold': 'gold', Completed: 'blue', Dropped: 'default', Deferred: 'orange' };
 
@@ -92,7 +93,7 @@ export default function TeacherStudents() {
         size="small"
         loading={loading}
         dataSource={students}
-        pagination={{ pageSize: 25, showSizeChanger: true }}
+        pagination={tablePagination({ defaultPageSize: 25 })}
         scroll={{ x: 1000 }}
         locale={{ emptyText: <Empty description="No candidates in your batches yet." /> }}
         columns={[

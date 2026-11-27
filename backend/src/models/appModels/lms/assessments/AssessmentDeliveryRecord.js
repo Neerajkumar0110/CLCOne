@@ -16,6 +16,8 @@ const schema = new mongoose.Schema({
   // auto-marked delivered has not actually been taught any more. Those get
   // retracted to PENDING on the next pass. A human decision never is.
   auto: { type: Boolean, default: false },
+  // set by a person (tracker toggle) — the auto-advance never overrides it (LMS testing report #18)
+  manual: { type: Boolean, default: false },
   plannedDate: { type: Date },
   actualDate: { type: Date },
   notes: { type: String },

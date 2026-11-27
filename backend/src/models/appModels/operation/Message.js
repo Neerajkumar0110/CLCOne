@@ -16,7 +16,9 @@ const schema = new mongoose.Schema({
     index: true,
   },
   from: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
-  to: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
+  // a direct message has `to`; a group message has `group` instead (ChatGroup)
+  to: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: function () { return !this.group; } },
+  group: { type: mongoose.Schema.ObjectId, ref: 'ChatGroup', index: true },
   text: {
     type: String,
     trim: true,

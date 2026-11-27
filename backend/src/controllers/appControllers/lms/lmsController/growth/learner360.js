@@ -322,12 +322,13 @@ async function getConfig(req, res) {
   if (!A.isManager(req.admin)) return bad(res, 403, 'Admins only.');
   const c = await cfg.get();
   const batches = await M('Batch').find({ removed: { $ne: true } }).select('name status').sort({ startDate: -1 }).lean();
-  return ok(res, { ...c, batches: batches.map((b) => b.name), canEdit: A.isAdmin(req.admin) });
+  // Support edits too (LMS testing report #39 — the 360 controls were dead for Support)
+  return ok(res, { ...c, batches: batches.map((b) => b.name), canEdit: A.isManager(req.admin) });
 }
 
 // PUT /api/lms/growth/config  { weights, batchWeights, levels, realtime, mentorPdf, engagement }
 async function saveConfig(req, res) {
-  if (!A.isAdmin(req.admin)) return bad(res, 403, 'Only an admin can change scoring settings (support is read-only).');
+  if (!A.isManager(req.admin)) return bad(res, 403, 'Only an admin or Support can change scoring settings.');
   const b = req.body || {};
   const set = { updated: new Date(), updatedBy: req.admin._id, updatedByName: req.admin.name };
   const num = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));

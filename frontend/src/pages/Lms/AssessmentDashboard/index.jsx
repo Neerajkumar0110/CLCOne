@@ -27,6 +27,7 @@ import { request } from '@/request';
 import lmsApi from '@/pages/Lms/api';
 import { BasicTest, MajorTestPythonSql, MajorTestNlp, MajorTestLlm, MicroTestSqlDb, MicroTestNlpSerp } from '../TestIntro/variants';
 import './AssessmentDashboard.css';
+import './asx.css';
 
 const TRACK_LABEL = { FOUNDATION: 'Foundation (6-Month)', ELITE: 'Elite (12-Month)' };
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
@@ -222,173 +223,151 @@ export default function AssessmentDashboard() {
     );
   }
 
+  const staff = isTeacher || isManagerRole;
+  const cur = (progress && progress.curriculumPercent) || 0;
+  const openN = cards.filter((c) => !c.locked).length;
+  const nextLocked = cards.filter((c) => c.locked).sort((a, b) => (thresholds[a.testType] || 0) - (thresholds[b.testType] || 0))[0];
+  const marks = cards
+    .map((c) => ({ key: c.key, at: Math.min(100, thresholds[c.testType] || 0), color: c.color, title: c.title, open: !c.locked }))
+    .sort((a, b) => a.at - b.at);
+  const batchRow = batches.find((b) => b.name === batch);
+
   return (
-    <div className="assessment-dashboard-v2">
+    <div className="asx">
       {contextHolder}
 
-      <div className="asm-hero">
-        <div className="asm-hero-dot asm-hero-dot-1" />
-        <div className="asm-hero-dot asm-hero-dot-2" />
-
-        <div className="asm-hero-left">
-          <div className="asm-hero-illustration">
-            <FileDoneOutlined />
-          </div>
-
-          <div className="asm-hero-content">
-            <div className="asm-hero-label">
-              <AimOutlined /> ASSESSMENT PORTAL
-            </div>
-            <h1>{firstName ? <>Welcome, <span>{firstName}</span></> : 'Your Assessment Dashboard'}</h1>
+      <div className="asx-hero">
+        <div className="asx-hero-l">
+          <span className="asx-hero-ic"><FileDoneOutlined /></span>
+          <div style={{ minWidth: 0 }}>
+            <span className="asx-kicker"><AimOutlined /> {staff ? 'Assessment control' : 'Assessment portal'}</span>
+            <h1>{staff ? 'Assessments' : firstName ? <>Welcome, <span>{firstName}</span></> : 'Your assessments'}</h1>
             <p>
-              {firstName
-                ? 'This is your assessment portal. Select an assessment to begin, or review your previous results.'
-                : 'Select an assessment to begin, or review your previous results.'}
+              {staff
+                ? 'Every test unlocks automatically once the batch has covered enough of its curriculum. Pick a batch to see where it stands — and unlock a test early if needed.'
+                : 'Each test opens as your batch covers more of the curriculum. Pick an open test to begin — locked ones show how far away they are.'}
             </p>
           </div>
         </div>
-
-        <div className="asm-keepgoing">
-          <div className="asm-keepgoing-icon"><AimOutlined /></div>
-          <div>
-            <strong>Keep going!</strong>
-            <p>Every assessment builds your future.</p>
+        {staff && !batchesLoading && batches.length > 0 && (
+          <div className="asx-batch">
+            <small>Batch</small>
+            <Select
+              value={batch}
+              onChange={setBatch}
+              style={{ width: '100%' }}
+              options={batches.map((b) => ({ value: b.name, label: b.course ? `${b.name} — ${b.course}` : b.name }))}
+              showSearch
+              optionFilterProp="label"
+              popupMatchSelectWidth={false}
+            />
+            {batchRow && batchRow.course && <span className="asx-batch-sub">{batchRow.course}</span>}
           </div>
-          <ArrowRightOutlined className="asm-keepgoing-arrow" />
-        </div>
+        )}
       </div>
 
-      {(isTeacher || isManagerRole) && !batchesLoading && batches.length > 0 && (
-        <div className="asm-batchbar">
-          <span className="asm-batchbar-label">Batch</span>
-          <Select
-            value={batch}
-            onChange={setBatch}
-            style={{ minWidth: 260 }}
-            options={batches.map((b) => ({ value: b.name, label: b.course ? `${b.name} — ${b.course}` : b.name }))}
-            showSearch
-            optionFilterProp="label"
-          />
-          {progress && (
-            <span className="asm-course-info">
-              {TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack} <b>•</b> {progress.curriculumPercent}% curriculum delivered
-              <Tooltip title="How much of this batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
-                <InfoCircleOutlined className="asm-info-icon" />
+      {progress && (
+        <section className="asx-track" aria-label="Curriculum progress and unlocks">
+          <div className="asx-track-top">
+            <div className="asx-track-big">
+              <b>{cur}%</b>
+              <span>curriculum delivered{!staff && batch ? ` · ${batch}` : ''}</span>
+            </div>
+            <div className="asx-track-stats">
+              <span className="asx-ts"><b>{TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack || '—'}</b><small>Track</small></span>
+              <span className="asx-ts ok"><b>{openN}/{cards.length}</b><small>Tests open</small></span>
+              <span className="asx-ts"><b>{nextLocked ? `${thresholds[nextLocked.testType] || 0}%` : 'All open'}</b><small>{nextLocked ? `Next unlock · ${Math.max(0, (thresholds[nextLocked.testType] || 0) - cur)}% to go` : 'Nothing locked'}</small></span>
+            </div>
+          </div>
+          <div className="asx-bar">
+            <div className="asx-bar-fill" style={{ width: `${Math.min(100, cur)}%` }} />
+            {marks.map((m) => (
+              <Tooltip key={m.key} title={`${m.title} — unlocks at ${m.at}%${m.open ? ' · open' : ''}`}>
+                <span className={`asx-mark${m.open ? ' open' : ''}`} style={{ left: `${m.at}%`, '--c': m.color }}>{m.open ? <UnlockOutlined /> : <LockOutlined />}</span>
               </Tooltip>
-            </span>
-          )}
-        </div>
-      )}
-      {!isTeacher && !isManagerRole && !batchesLoading && progress && (
-        <div className="asm-course-info">
-          <span>{batch}</span>
-          <b>•</b>
-          <span>{TRACK_LABEL[progress.resolvedTrack] || progress.resolvedTrack}</span>
-          <b>•</b>
-          <span>{progress.curriculumPercent}% curriculum delivered</span>
-          <Tooltip title="How much of your batch's curriculum has been marked delivered/completed so far — see the Curriculum Tracker tab. Each test below unlocks once this crosses its own threshold.">
-            <InfoCircleOutlined className="asm-info-icon" />
-          </Tooltip>
-        </div>
+            ))}
+          </div>
+          <div className="asx-bar-scale"><span>0%</span><span>50%</span><span>100%</span></div>
+          <div className="asx-note">
+            <InfoCircleOutlined /> The % comes from the Curriculum Tracker (topics marked delivered). Each marker on the bar is a test&apos;s unlock point.
+          </div>
+        </section>
       )}
 
-      <div className="asm-section-header">
-        <div className="asm-section-title">
-          <div className="asm-section-icon">
-            <FileTextOutlined />
-          </div>
-          <div>
-            <h2>Your Assessments</h2>
-            <p>Explore and complete your assessments. Track your progress and performance.</p>
-          </div>
+      <div className="asx-sec">
+        <div>
+          <h2>{staff ? 'Tests for this batch' : 'Your assessments'}</h2>
+          <p>{openN} open · {cards.length - openN} locked</p>
         </div>
-        <span className="asm-count">{cards.length} Assessments</span>
       </div>
 
       {progressLoading || batchesLoading ? (
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (
-        <div className="asm-grid">
-          {cards.map((c) => (
-            <article
-              key={c.key}
-              className={`asm-card${c.locked ? ' is-locked' : ''}`}
-              style={{ background: tint(c.color, 0.08), border: `1px solid ${tint(c.color, 0.28)}` }}
-              onClick={() => (c.locked ? clickLocked(c) : openTest(c))}
-            >
-              <c.Icon className="asm-card-decoration" style={{ color: c.color }} />
-
-              <div className="asm-card-top">
-                <div className="asm-card-icon" style={{ background: c.color }}>
-                  <c.Icon />
+        <div className="asx-grid">
+          {cards.map((c) => {
+            const need = thresholds[c.testType] || 0;
+            const ov = isManagerRole && batchOverrideByType[c.testType];
+            const reach = need ? Math.min(100, Math.round((cur / need) * 100)) : 100;
+            return (
+              <article
+                key={c.key}
+                className={`asx-card${c.locked ? ' locked' : ''}`}
+                style={{ '--c': c.color, '--ct': tint(c.color, 0.1), '--cb': tint(c.color, 0.3) }}
+                role="button"
+                tabIndex={0}
+                onClick={() => (c.locked ? clickLocked(c) : openTest(c))}
+                onKeyDown={(e) => { if (e.key === 'Enter') (c.locked ? clickLocked(c) : openTest(c)); }}
+              >
+                <div className="asx-card-top">
+                  <span className="asx-card-ic"><c.Icon /></span>
+                  <span className={`asx-state ${c.locked ? 'lock' : 'open'}`}>{c.locked ? <><LockOutlined /> Locked</> : <><UnlockOutlined /> Open</>}</span>
                 </div>
-                {c.locked && <LockOutlined className="asm-card-lock" />}
-              </div>
-
-              <span className="asm-type" style={{ background: tint(c.color, 0.15), color: c.color }}>{c.eyebrow}</span>
-
-              <h3 className={c.locked ? 'is-muted' : ''}>{c.title}</h3>
-              <p className={`asm-desc${c.locked ? ' is-muted' : ''}`}>{c.description}</p>
-
-              {c.locked ? (
-                <div className="asm-card-bottom asm-locked-bottom">
-                  <span className="asm-unlock-text">
-                    <LockOutlined /> Unlocks at {thresholds[c.testType] || 0}%
-                    {progress ? ` (now ${progress.curriculumPercent}%)` : ''}
-                  </span>
-                  {isManagerRole ? (
-                    <Button
-                      size="small"
-                      icon={<UnlockOutlined />}
-                      onClick={(e) => { e.stopPropagation(); openUnlockModal(c); }}
-                    >
-                      Unlock…
-                    </Button>
+                <span className="asx-eyebrow">{c.eyebrow}</span>
+                <h3>{c.title}</h3>
+                <p className="asx-desc">{c.description}</p>
+                <div className="asx-meta">
+                  <span><ClockCircleOutlined /> {c.duration}</span>
+                  <span>{need ? <><AimOutlined /> Unlocks at {need}%</> : <><UnlockOutlined /> Always open</>}</span>
+                </div>
+                {c.locked && (
+                  <div className="asx-reach">
+                    <div className="asx-reach-bar"><div style={{ width: `${reach}%` }} /></div>
+                    <small>{cur}% of {need}% · {Math.max(0, need - cur)}% to go</small>
+                  </div>
+                )}
+                {ov && (
+                  <Tag
+                    color="purple"
+                    style={{ margin: 0, alignSelf: 'flex-start' }}
+                    closeIcon={<CloseOutlined />}
+                    onClose={(e) => { e.preventDefault(); e.stopPropagation(); revokeOverride(ov.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Manually unlocked for this batch
+                  </Tag>
+                )}
+                <div className="asx-foot">
+                  {c.locked ? (
+                    isManagerRole ? (
+                      <Button icon={<UnlockOutlined />} onClick={(e) => { e.stopPropagation(); openUnlockModal(c); }}>Unlock early…</Button>
+                    ) : (
+                      <span className="asx-foot-lock"><LockOutlined /> Opens automatically</span>
+                    )
                   ) : (
-                    <div className="asm-locked-button">
-                      <LockOutlined />
-                    </div>
+                    <span className="asx-go">{staff ? 'Open test' : 'Start test'} <ArrowRightOutlined /></span>
                   )}
                 </div>
-              ) : (
-                <div className="asm-card-bottom asm-unlocked-bottom">
-                  <span className="asm-duration">
-                    <ClockCircleOutlined /> {c.duration}
-                  </span>
-                  <div className="asm-progress-area">
-                    <div className="asm-progress-circle" style={{ '--card-color': c.color, '--pct': '0%' }}>
-                      <span />
-                    </div>
-                    <div className="asm-progress-text">
-                      <strong>0% completed</strong>
-                      <div className="asm-progress-line" style={{ '--card-color': c.color, '--pct': '0%' }}>
-                        <span />
-                      </div>
-                    </div>
-                  </div>
-                  <button type="button" className="asm-start-btn" style={{ background: c.color }}>
-                    <ArrowRightOutlined />
-                  </button>
-                </div>
-              )}
-              {isManagerRole && batchOverrideByType[c.testType] && (
-                <Tag
-                  color="purple"
-                  style={{ marginTop: 8 }}
-                  closeIcon={<CloseOutlined />}
-                  onClose={(e) => { e.preventDefault(); e.stopPropagation(); revokeOverride(batchOverrideByType[c.testType].id); }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Manually unlocked for this batch
-                </Tag>
-              )}
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
 
       <Modal
-        title={unlockModal ? `Unlock "${unlockModal.title}"` : ''}
+        className="crud-modal"
+        centered
+        title={unlockModal ? `Unlock "${unlockModal.title}" early` : ''}
         open={!!unlockModal}
         onCancel={() => setUnlockModal(null)}
         onOk={submitUnlock}

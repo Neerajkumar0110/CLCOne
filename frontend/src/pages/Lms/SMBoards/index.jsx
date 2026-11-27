@@ -8,6 +8,7 @@ const SCREENS = {
   dashboard: lazy(() => import('./Dashboard')),
   attendance: lazy(() => import('./Attendance')),
   tickets: lazy(() => import('./Tickets')),
+  escalations: lazy(() => import('./Escalations')),
   comms: lazy(() => import('./Comms')),
   certificates: lazy(() => import('./Certificates')),
   learners: lazy(() => import('./Learners')),

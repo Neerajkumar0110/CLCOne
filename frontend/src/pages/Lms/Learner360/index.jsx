@@ -3,6 +3,7 @@ import { Card, Table, Tag, Button, Select, Space, Empty, Skeleton, message, Prog
 import { ProfileOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { request } from '@/request';
 import lmsApi from '../api';
+import { tablePagination } from '../components/ui';
 
 const STATE_COLOR = { Eligible: 'green', 'Not Yet Eligible': 'gold', 'Action Required': 'red' };
 
@@ -18,8 +19,9 @@ export default function Learner360() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    request.list({ entity: 'course', options: { items: 300 } }).then((c) => {
-      const list = ((c && c.result) || []).map((x) => ({ value: x._id || x.id, label: x.title }));
+    // busiest internship first, with its learner count — never opens on an empty one
+    request.get({ entity: 'lms/admin/learner-360-courses' }).then((c) => {
+      const list = ((c && c.result) || []).map((x) => ({ value: x.id, label: `${x.title} · ${x.learners} learner${x.learners === 1 ? '' : 's'}` }));
       setCourses(list);
       if (list[0]) setCourseId(list[0].value);
     }).catch(() => message.error('Could not load internships')).finally(() => setLoading(false));
@@ -56,7 +58,7 @@ export default function Learner360() {
 
       {rows.length === 0 ? <Card><Empty description="No enrolled candidates yet." /></Card> : (
         <Table
-          rowKey="email" size="small" dataSource={rows} pagination={{ pageSize: 15 }} scroll={{ x: 1400 }}
+          rowKey="email" size="small" dataSource={rows} pagination={tablePagination({ defaultPageSize: 15 })} scroll={{ x: 1400 }}
           columns={[
             { title: 'Candidate', dataIndex: 'student', fixed: 'left', width: 150 },
             { title: 'Email', dataIndex: 'email', width: 190 },

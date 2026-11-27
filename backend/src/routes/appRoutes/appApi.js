@@ -73,6 +73,11 @@ const routerApp = (entity, controller) => {
     router.route(`/${entity}/thread/:userId`).get(catchErrors(controller['thread']));
     router.route(`/${entity}/conversations`).get(catchErrors(controller['conversations']));
     router.route(`/${entity}/read-all`).patch(catchErrors(controller['markAllRead']));
+    // Team Chat groups (LMS testing report #40)
+    router.route(`/${entity}/groups`).get(catchErrors(controller['groupList'])).post(catchErrors(controller['groupCreate']));
+    router.route(`/${entity}/groups/:id/thread`).get(catchErrors(controller['groupThread']));
+    router.route(`/${entity}/groups/:id/send`).post(catchErrors(controller['groupSend']));
+    router.route(`/${entity}/groups/:id/members`).post(catchErrors(controller['groupMembers']));
   }
 
   if (entity === 'notification') {

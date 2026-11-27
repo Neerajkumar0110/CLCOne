@@ -17,6 +17,15 @@ async function tick() {
   try {
     const PolicyAcknowledgement = mongoose.model('PolicyAcknowledgement');
     const PolicyDocument = mongoose.model('PolicyDocument');
+    // learners who joined after a policy went out (and never opened the LMS)
+    // get their pending row here too — else they were never reminded (report #28)
+    try {
+      const ensure = require('../controllers/appControllers/lms/lmsController/policies').ensurePolicyRows;
+      const learners = await mongoose.model('Admin').find({ role: 'Student', removed: false, rosterHold: { $ne: true } }).select('name email role').lean();
+      for (const a of learners) await ensure(a).catch(() => {}); // eslint-disable-line no-await-in-loop
+    } catch (e) {
+      /* reminders below still run */
+    }
     const cutoff = new Date(Date.now() - CYCLE_HOURS * 3600 * 1000);
     const due = await PolicyAcknowledgement.find({
       removed: { $ne: true },
@@ -38,7 +47,8 @@ async function tick() {
     const Student = mongoose.model('Student');
     const emails = [...new Set(due.map((r) => (r.studentEmail || '').toLowerCase()).filter(Boolean))];
     const activeEmails = new Set(
-      (await Student.find({ removed: false, status: 'Active', email: { $in: emails } }).select('email').lean()).map((s) => (s.email || '').toLowerCase())
+      // case-insensitive: roster emails with capitals were treated as inactive and never reminded
+      (await Student.find({ removed: false, status: 'Active', email: { $in: emails.map((e) => new RegExp(`^${e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } }).select('email').lean()).map((s) => (s.email || '').toLowerCase())
     );
 
     for (const row of due) {

@@ -120,7 +120,7 @@ function Profile({ email }) {
               {row('Assessments', item('quiz') || item('assessment'), (i) => (i.passed ? '✓ Passed' : `${i.achieved}%`))}
               <div className="ld-li">
                 <span>Project</span>
-                {project ? <b style={{ color: project.overdueDays ? '#991b1b' : undefined }}>{project.overdueDays ? `overdue ${project.overdueDays} din` : project.status.replace('_', ' ')}</b> : <span className="ld-muted">none assigned</span>}
+                {project ? <b style={{ color: project.overdueDays ? '#991b1b' : undefined }}>{project.overdueDays ? `overdue by ${project.overdueDays} days` : project.status.replace('_', ' ')}</b> : <span className="ld-muted">none assigned</span>}
               </div>
               {row('Assignments', item('assignment'), (i) => (i.passed ? '✓' : `${i.achieved}%`))}
               <div className="ld-muted" style={{ fontSize: 12, marginTop: 'auto' }}>Score {e.score}% / {e.threshold}% · calculated {evWhen(e.calculatedAt)}</div>

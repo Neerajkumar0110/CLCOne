@@ -585,9 +585,9 @@ export function ScoreCard({ i, name, val, tone, lines = [], weight, foot = true 
 // banner stays hidden there (2026-11-24).
 const ON_QA_HOST = typeof window !== 'undefined' && /^qa\./i.test(window.location.hostname);
 
-export function Screen({ crumb, title, actions, qa, children, contentStyle }) {
+export function Screen({ crumb, title, actions, qa, children, contentStyle, className }) {
   return (
-    <div className="g-root">
+    <div className={cx('g-root', className)}>
       {qa && ON_QA_HOST && (
         <div className="g-qa-banner" role="note">
           <I n="alert" s={15} />

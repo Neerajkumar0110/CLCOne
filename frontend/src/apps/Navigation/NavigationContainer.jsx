@@ -60,7 +60,9 @@ const NAV_KEY_MODULE = Object.fromEntries(
 // "sales/leads" folds a real route segment in for feature sections.
 const CALLING_TABS = ['dashboard', 'dial', 'campaigns', 'dialer', 'agent', 'history', 'callbacks', 'recordings', 'reports', 'demos'];
 // LMS-module sections shown as submenus inside the one LMS menu (see featureItems).
-const LMS_FOLDED = ['admin-ops', 'support-mgr', 'learner-growth', 'qa-env'];
+// order inside the LMS menu (LMS testing report #19): Admin & Ops, Support
+// Manager, QA & Releases, Learner Growth
+const LMS_FOLDED = ['admin-ops', 'support-mgr', 'qa-env', 'learner-growth'];
 
 function pathKeyFor(loc) {
   if (loc.pathname === '/') return 'dashboard';
@@ -244,7 +246,18 @@ function Sidebar({ collapsible, isMobile = false }) {
         return [...rest, { ...item, children: [...item.children, ...early] }];
       }
       return [...acc, item];
-    }, []);
+    }, [])
+    .map((item) =>
+      item.key === 'lms'
+        ? {
+            ...item,
+            children: [
+              ...item.children.filter((c) => !LMS_FOLDED.includes(c.key)),
+              ...LMS_FOLDED.map((k) => item.children.find((c) => c.key === k)).filter(Boolean),
+            ],
+          }
+        : item
+    );
 
   // Sales = ONE sidebar tab for everything sales uses (user ask 2026-11-17,
   // from 30 days of real usage): the day's work first, then records & team,

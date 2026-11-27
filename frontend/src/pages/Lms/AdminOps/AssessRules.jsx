@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { request } from '@/request';
 import lmsApi from '../api';
 import { useLoad, act, Head, Loading, fmtTime } from './shared';
 
@@ -42,6 +43,25 @@ function ReadinessGate() {
         {!g.canChange && <> · only Management can switch it</>}
       </div>
     </>
+  );
+}
+
+// Feedback lock switch (LMS testing report #10) — off by default
+function FeedbackLock() {
+  const [on, setOn] = React.useState(null);
+  React.useEffect(() => {
+    request.get({ entity: 'lms/admin/ops/feedback-lock' }).then((r) => setOn(!!(r && r.result && r.result.on)));
+  }, []);
+  const flip = async () => {
+    const r = await request.post({ entity: 'lms/admin/ops/feedback-lock', jsonData: { on: !on } });
+    if (r && r.success) setOn(!on);
+  };
+  return (
+    <div className="ao-card" style={{ gap: 6 }}>
+      <div className="ao-hd"><b>Weekly feedback lock</b><span className={`ao-chip ${on ? 'hai' : 'gray'}`}>{on === null ? '…' : on ? 'ON' : 'OFF'}</span></div>
+      <div className="ao-muted" style={{ fontSize: 13 }}>When ON: a learner whose weekly feedback is past its due time cannot open live classes, recordings, tests or projects until they send it (Support, policies and the dashboard stay open). Sending the feedback unlocks at once.</div>
+      <button type="button" className={on ? 'ao-btn2 md' : 'ao-btn sm'} style={{ alignSelf: 'flex-start' }} disabled={on === null} onClick={flip}>{on ? 'Turn OFF' : 'Turn ON'}</button>
+    </div>
   );
 }
 
@@ -125,6 +145,7 @@ export default function AssessRules() {
           </div>
         )}
       </Loading>
+      <FeedbackLock />
     </>
   );
 }

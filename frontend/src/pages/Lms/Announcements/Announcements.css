@@ -937,3 +937,38 @@
     gap: 12px;
   }
 }
+
+/* Readable learner cards (LMS testing report #3): the 70 px icon and the
+   190 px date column squeezed the text in the LMS panel. Smaller icon, the
+   date moved into the meta row, the body gets the full width. */
+.announcement-card { align-items: flex-start; min-height: 0; padding: 18px 20px 16px 24px; }
+.announcement-card-icon { width: 44px; height: 44px; margin-right: 14px; border-radius: 12px; font-size: 20px; }
+.announcement-card-title-row { flex-wrap: wrap; row-gap: 6px; }
+.announcement-card-title { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.announcement-description { max-width: none; font-size: 14.5px; line-height: 1.65; color: #475569; margin: 4px 0 12px; overflow-wrap: anywhere; }
+.announcement-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+@media (max-width: 600px) {
+  .announcement-card { padding: 14px 14px 12px 18px; }
+  .announcement-card-icon { display: none; }
+}
+
+/* staff list + announcement modal (2026-11-27) */
+.anm-row { cursor: pointer; grid-template-columns: minmax(0, 1fr) auto auto; }
+.anm-ex { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 560px; }
+.anm-date { font-size: 12px; color: var(--hub-muted, #64748b); white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 84px; text-align: right; }
+.anm-imp { background: #fee2e2 !important; color: #b91c1c !important; }
+.anm-act { display: flex; }
+.anm-head.important { background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 50%, #fff 100%); }
+.anm-text { white-space: normal; }
+.anm-rich { display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.7; color: #0f172a; overflow-wrap: anywhere; }
+.anm-rich strong { font-weight: 700; }
+.anm-h { font-weight: 700; font-size: 15px; margin-top: 4px; }
+.anm-gap { height: 8px; }
+.anm-li { display: flex; gap: 10px; align-items: flex-start; padding-left: 2px; }
+.anm-num { flex: none; min-width: 22px; height: 22px; margin-top: 2px; border-radius: 50%; background: #ecfeff; color: #0e7490; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.anm-dot { flex: none; width: 6px; height: 6px; margin-top: 10px; border-radius: 50%; background: #14b8a6; }
+.anm-link { color: #0e7490; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+@media (max-width: 760px) {
+  .anm-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .anm-row .pol-row-v { grid-column: 1 / -1; justify-content: flex-start; }
+}

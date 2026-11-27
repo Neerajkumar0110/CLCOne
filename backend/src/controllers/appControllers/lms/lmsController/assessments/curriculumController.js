@@ -45,7 +45,9 @@ async function getSessions(req, res) {
     // teacher's Segmented toggle) is still honoured as-is, so a teacher can
     // still browse the other track's syllabus on purpose.
     const sessionTrack = track || resolvedTrack;
-    const sessions = await AssessmentCurriculumSession.find(sessionTrack ? { track: sessionTrack } : {})
+    // Elite = the Foundation syllabus (months 1–6) + the Elite units after it —
+    // the ELITE rows alone are only the later months (LMS testing report #18)
+    const sessions = await AssessmentCurriculumSession.find(sessionTrack === 'ELITE' ? { track: { $in: ['FOUNDATION', 'ELITE'] } } : sessionTrack ? { track: sessionTrack } : {})
       .sort({ order: 1 })
       .lean();
 
@@ -138,7 +140,12 @@ async function updateDelivery(req, res) {
     }
 
     const data = { updatedAt: new Date() };
-    if (status !== undefined) data.status = status;
+    if (status !== undefined) {
+      data.status = status;
+      // a person decided — keep it (the auto-advance used to flip it straight back)
+      data.manual = true;
+      data.auto = false;
+    }
     if (plannedDate !== undefined) data.plannedDate = plannedDate ? new Date(plannedDate) : null;
     if (actualDate !== undefined) data.actualDate = actualDate ? new Date(actualDate) : null;
     if (notes !== undefined) data.notes = notes;

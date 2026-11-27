@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import HubTabs from "@/components/HubTabs";
 import HubModal from "@/components/HubModal";
 import { useSocket } from "@/context/socketContext";
+import TeamGroups from "./TeamGroups";
 import { useMessages } from "@/context/messagesContext";
 import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import { request } from "@/request";
@@ -60,6 +61,8 @@ function Attachment({ attachment }) {
 // (pages/ModuleScaffold SectionHub) — it has no hub-page wrapper of its own,
 // so it embeds cleanly.
 export function TeamChat() {
+  // People (1:1) | Groups (LMS testing report #40)
+  const [mode, setMode] = useState("people");
   const currentAdmin = useSelector(selectCurrentAdmin);
   const { onlineIds } = useSocket();
   const { conversations, markConversationRead, bumpConversationPreview, setActiveConversationId } = useMessages();
@@ -208,13 +211,30 @@ export function TeamChat() {
     draftInputRef.current?.focus();
   };
 
+  const modeBar = (
+    <div style={{ display: "flex", gap: 6, padding: "8px 10px", borderBottom: "1px solid #eef2f7" }}>
+      {[["people", "People"], ["groups", "Groups"]].map(([k, l]) => (
+        <button key={k} type="button" className={`hub-btn${mode === k ? " hub-btn-primary" : ""}`} style={{ height: 28, padding: "0 14px", fontSize: 12.5 }} onClick={() => setMode(k)}>{l}</button>
+      ))}
+    </div>
+  );
+  if (mode === "groups") {
+    return (
+      <div className="hub-card" style={{ padding: 0, overflow: "hidden" }}>
+        {modeBar}
+        <TeamGroups />
+      </div>
+    );
+  }
+
   return (
     <div className="hub-card" style={{ padding: 0, overflow: "hidden" }}>
+      {modeBar}
       {/* A fixed height (not minHeight) is what makes the inner overflowY:
           "auto" panels below actually scroll — with only a minHeight, the
           flex column just kept growing taller as more messages arrived
           instead of clipping and scrolling internally. */}
-      <div style={{ display: "flex", height: 560 }}>
+      <div className="lu-chat" style={{ display: "flex", height: 560 }}>
         {/* Contact list — every registered admin, not just a fixed team */}
         <div className="hub-chat-people-list" style={{ width: 240, flexShrink: 0, overflowY: "auto" }}>
           <div className="hub-chat-people-heading">

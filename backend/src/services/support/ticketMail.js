@@ -76,6 +76,25 @@ async function newTicketMail(ticket) {
   );
 }
 
+// "We have your ticket" to the person it is for — also when Support raised it
+// on their behalf (LMS testing report #23)
+async function raisedConfirmationMail(ticket, byStaffName) {
+  const to = String(ticket.raisedByEmail || '').trim();
+  if (!to) return false;
+  const no = ticketNo(ticket);
+  const link = ticket.source === 'student' ? `${baseUrl()}/learn/support` : `${baseUrl()}/support`;
+  const inner = `<p style="font-size:14px;color:#374151;margin:0 0 14px">Hi ${esc(ticket.raisedByName || '')}, ${byStaffName ? `${esc(byStaffName)} from Support opened this ticket for you.` : 'we have received your ticket.'} We aim to solve it within 48 hours.</p>
+<table style="border-collapse:collapse;font-size:14px">
+${row('Ticket', `<b>${esc(no)}</b>`)}
+${row('Subject', esc(ticket.subject))}
+${row('Category', esc(ticket.category))}
+${row('Priority', esc(ticket.priority))}
+${row('Raised on', esc(fmtDate(ticket.created)))}
+</table>
+${ticket.description ? `<div style="margin-top:16px;padding:12px 14px;background:#f9fafb;border-radius:8px;font-size:14px;color:#374151;white-space:pre-wrap">${esc(ticket.description)}</div>` : ''}`;
+  return send({ to, subject: `[${no}] We have your ticket — ${ticket.subject}`, html: shell('Ticket received', inner, { href: link, label: 'View ticket' }), templateKey: 'support-ticket-received' }, 'confirmation mail');
+}
+
 // 48 hours passed and the ticket is still not solved → Support inbox
 async function slaBreachMail(ticket, due) {
   const to = String(process.env.SUPPORT_EMAIL || '').trim();
@@ -189,4 +208,4 @@ async function sendResolvedAndRecord(ticketId) {
   return { status, to, error };
 }
 
-module.exports = { newTicketMail, slaBreachMail, ticketResolvedMail, sendResolvedAndRecord, _emailHtml: { newTicketHtml, resolvedHtml } };
+module.exports = { newTicketMail, raisedConfirmationMail, slaBreachMail, ticketResolvedMail, sendResolvedAndRecord, _emailHtml: { newTicketHtml, resolvedHtml } };

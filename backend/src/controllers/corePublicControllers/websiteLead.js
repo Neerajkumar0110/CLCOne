@@ -96,6 +96,10 @@ const submitWebsiteLead = async (req, res) => {
     // Form Builder questions of its own (custom_* keys), with the label the
     // page showed, and the "agree to be contacted" tick.
     formAnswers: formAnswers.length ? formAnswers : undefined,
+    // a fresh campaign lead is called before any auto-dialer / imported
+    // lead — first free user, right away (services/calling/instantLeads.js;
+    // every campaign since 2026-11-25, was Facebook + WhatsApp only)
+    ...(phoneNumber ? { instantDispatch: { status: 'pending', at: new Date() } } : {}),
     contactConsent: b.consent == null ? undefined : ['on', 'true', 'yes', '1'].includes(clean(b.consent).toLowerCase()),
     attribution,
     color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],

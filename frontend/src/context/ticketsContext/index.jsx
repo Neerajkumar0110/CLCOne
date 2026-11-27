@@ -48,6 +48,7 @@ export function TicketsProvider({ children }) {
         category: ticket.category,
         priority: ticket.priority,
         description: ticket.description,
+        ...(ticket.onBehalfOf ? { onBehalfOf: ticket.onBehalfOf } : {}),
       },
     });
     if (res?.success) {

@@ -24,6 +24,7 @@ methods.uploadMessage = uploadMessage;
 methods.thread = thread;
 methods.conversations = conversations;
 methods.markAllRead = markAllRead;
+Object.assign(methods, require('./groups'));
 methods.read = blocked;
 methods.update = blocked;
 methods.delete = blocked;

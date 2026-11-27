@@ -96,7 +96,7 @@ export default function TestIntro({ icon, eyebrow, title, description, testType 
               <div className="ld-kv"><span className="ld-muted">Questions</span><b>{totalQ ? `${totalQ} · ${mix.map(([k, n]) => `${n} ${MIX_LABEL[k] || k}`).join(' · ')}` : 'Project-style task'}</b></div>
               <div className="ld-kv"><span className="ld-muted">Time limit</span><b>{totalQ ? `${totalMin} min` : '—'}</b></div>
               <div className="ld-kv"><span className="ld-muted">Pass mark</span><b>{rules ? `${rules.qualifyPct}%` : '—'}</b></div>
-              <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays} din${t ? ` · ${t.remaining} left` : ''}` : '—'}</b></div>
+              <div className="ld-kv"><span className="ld-muted">Attempts / cooldown</span><b>{rules ? `${rules.maxAttempts} · ${rules.cooldownDays}-day cooldown${t ? ` · ${t.remaining} left` : ''}` : '—'}</b></div>
             </div>
             <div className="ld-muted" style={{ fontSize: 13 }}>The camera stays on · tab switches are logged (review signal only) · a technical failure does not use up an attempt.</div>
             {blockReason && <span className="ld-chip adh" style={{ alignSelf: 'flex-start', height: 'auto', padding: '4px 10px', whiteSpace: 'normal' }}>{blockReason}</span>}

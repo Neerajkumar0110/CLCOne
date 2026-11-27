@@ -89,12 +89,15 @@ async function courseReport(req, res) {
   const roster = await Student.find({ course: rxEq(course.title), removed: false }).select('email').lean();
   const emails = [...new Set(roster.map((r) => (r.email || '').toLowerCase()).filter(Boolean))];
   const admins = emails.length ? await Admin.find({ email: { $in: emails.map(rxEq) }, removed: false }).select('_id name email').lean() : [];
+  // 8 learners at a time (was strictly one by one); each row carries the full
+  // per-criterion breakdown the (+) opens (report #6)
   const rows = [];
-  for (const a of admins) {
+  for (let i = 0; i < admins.length; i += 8) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await engine.evaluate(a._id, course._id).catch(() => null);
-    if (r) rows.push({ student: a.name, email: a.email, score: r.score, threshold: r.threshold, eligible: r.eligible, state: r.state, missing: r.missing });
+    const part = await Promise.all(admins.slice(i, i + 8).map((a) => engine.evaluate(a._id, course._id).then((r) => (r ? { a, r } : null)).catch(() => null)));
+    part.filter(Boolean).forEach(({ a, r }) => rows.push({ id: String(a._id), student: a.name, email: a.email, score: r.score, threshold: r.threshold, eligible: r.eligible, state: r.state, missing: r.missing, items: r.items }));
   }
+  rows.sort((x, y) => String(x.student || '').localeCompare(String(y.student || '')));
   return ok(res, rows);
 }
 

@@ -1,112 +1,207 @@
 import React, { useState } from 'react';
-import { Alert } from 'antd';
+import { Alert, Modal, Button, Select } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import {
+  TeamOutlined, VideoCameraOutlined, UserDeleteOutlined, CustomerServiceOutlined, WarningOutlined, FileProtectOutlined,
+  CheckSquareOutlined, TrophyOutlined, ExperimentOutlined, MessageOutlined, ProjectOutlined, PlayCircleOutlined, CloudServerOutlined,
+  CreditCardOutlined, ArrowRightOutlined, DashboardOutlined, ExpandAltOutlined,
+} from '@ant-design/icons';
 import lmsApi from '../api';
-import { SMPage, useLoad, Loading, res } from './shared';
+import { useLoad, Loading, res } from './shared';
+import '../AdminOps/mgmt.css';
+import '../AdminOps/opsPages.css';
+import './smDesign.css';
 
 // S1 — Support Manager "today": 6 KPIs and 9 exception cards across
 // attendance, readiness & consent, assessments, weekly feedback, projects,
 // recordings, system, payment → provisioning and tickets. One aggregate
 // endpoint (/admin/sm/dashboard), every number is a live count.
-
-const Li = ({ label, value, tone, last }) => (
-  <div className="ld-li" style={last ? { borderBottom: 0 } : undefined}>
-    <span>{label}</span>
-    <b style={tone ? { color: tone } : undefined}>{value}</b>
-  </div>
-);
-const RED = '#991b1b';
-const AMB = '#9a3412';
-const GRN = '#166534';
+// 2026-11-27 redesign: gradient hero, icon KPI tiles, equal-height exception
+// cards with toned rows; any card opens in a modal with a link to its page.
 
 export default function SMDashboard() {
   const navigate = useNavigate();
   const [batch, setBatch] = useState('');
+  const [open, setOpen] = useState(null);
   const { data, loading, error } = useLoad(async () => res(await lmsApi.smDashboard(batch ? { batch } : {})), [batch]);
   if (loading && !data) return <Loading />;
   if (error) return <Alert type="error" showIcon message={error} style={{ margin: 24 }} />;
   const d = data;
   const k = d.kpis;
-  const go = (p) => () => navigate(p);
-  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  const wk = d.feedback.week ? new Date(`${d.feedback.week}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+
+  // tone: 'bad' red, 'mid' amber, 'ok' green, undefined neutral
+  const cards = [
+    {
+      key: 'att', title: 'Attendance exceptions', icon: CheckSquareOutlined, g: 'g3', to: '/support-mgr/attendance',
+      desc: 'Learners whose attendance needs a follow-up, by escalation level.',
+      rows: [
+        ['Level 3 · absent 10+ days', d.attendance.l3, d.attendance.l3 ? 'bad' : 'ok'],
+        ['Level 2 · irregular', d.attendance.l2, d.attendance.l2 ? 'mid' : 'ok'],
+        ['Level 1 · missed last class', d.attendance.l1],
+        ['Dropped status to reconcile', d.attendance.droppedToReconcile],
+      ],
+    },
+    {
+      key: 'rd', title: 'Readiness & consent', icon: FileProtectOutlined, g: 'g1',
+      desc: 'Policy consent still pending and the readiness test pipeline.',
+      rows: [
+        [d.readiness.policyLabel ? `${d.readiness.policyLabel} pending` : 'Policy consent pending', d.readiness.policiesPending, d.readiness.policiesPending ? 'mid' : 'ok'],
+        ['Readiness not passed', d.readiness.readinessNotPassed],
+        ['Readiness not taken yet', d.readiness.readinessNotTaken],
+        ['Technical review (suspended attempts)', d.readiness.technical, d.readiness.technical ? 'mid' : undefined],
+      ],
+    },
+    {
+      key: 'as', title: 'Assessment queue', icon: TrophyOutlined, g: 'g4',
+      desc: 'Who still has to attempt a test and who is on their last attempt.',
+      rows: [
+        ['Test types running', d.assessments.testTypes],
+        ['Not attempted any test', d.assessments.notAttempted],
+        ['Last attempt left', d.assessments.lastAttemptLeft, d.assessments.lastAttemptLeft ? 'mid' : undefined],
+        ['Result reports verified by PMs', d.assessments.verified],
+      ],
+    },
+    {
+      key: 'fb', title: `Weekly feedback${wk ? ` · week of ${wk}` : ''}`, icon: MessageOutlined, g: 'g5', to: '/support-mgr/feedback',
+      desc: 'Response rate per batch for the latest feedback week.',
+      rows: [
+        ...d.feedback.rates.map((r) => [`${r.batch}${r.time ? ` ${r.time}` : ''}`, `${r.pct}%`, r.pct >= 80 ? 'ok' : r.pct >= 60 ? 'mid' : 'bad']),
+        ['Delivery failures (24h)', d.feedback.deliveryFailures, d.feedback.deliveryFailures ? 'bad' : undefined],
+      ],
+    },
+    {
+      key: 'pj', title: 'Projects', icon: ProjectOutlined, g: 'g2',
+      desc: 'Milestones and reviews running late.',
+      rows: [
+        ['Overdue milestones', d.projects.overdue, d.projects.overdue ? 'mid' : 'ok'],
+        ['Reviews pending over 3 days', d.projects.reviewsPending, d.projects.reviewsPending ? 'mid' : 'ok'],
+        ['Blocked learners', d.projects.blocked, d.projects.blocked ? 'bad' : 'ok'],
+      ],
+    },
+    {
+      key: 'rc', title: 'Recording health', icon: PlayCircleOutlined, g: 'g6', to: '/support-mgr/recordings',
+      desc: 'Class recordings by processing state.',
+      rows: [
+        ['Failed / retry queue', d.recordings.failed, d.recordings.failed ? 'bad' : 'ok'],
+        ['Processing', d.recordings.processing],
+        ['Deleted at source', d.recordings.deleted],
+        ['Available', d.recordings.available, 'ok'],
+      ],
+    },
+    {
+      key: 'sy', title: 'System & automation', icon: CloudServerOutlined, g: 'g2',
+      desc: 'Meeting provider, webhooks and email delivery.',
+      rows: [
+        [`Meeting provider (${d.system.provider === 'bigbluebutton' ? 'BBB' : d.system.provider})`, d.system.provider === 'mock' ? 'Not live' : 'Healthy', d.system.provider === 'mock' ? 'mid' : 'ok'],
+        ['Webhook failures', d.system.webhookFails, d.system.webhookFails ? 'bad' : undefined],
+        ['Email failures (24h)', d.system.mailFails, d.system.mailFails ? 'bad' : undefined],
+      ],
+    },
+    {
+      key: 'py', title: 'Payment → provisioning', icon: CreditCardOutlined, g: 'g3',
+      desc: 'Paid learners who still have no LMS login.',
+      rows: [['Paid, no LMS login yet', d.payments.paidNotProvisioned, d.payments.paidNotProvisioned ? 'bad' : 'ok']],
+    },
+    {
+      key: 'tk', title: 'Tickets', icon: CustomerServiceOutlined, g: 'g5', to: '/support-mgr/tickets',
+      desc: 'Support tickets that need someone to pick them up.',
+      rows: [
+        ['Unassigned', d.tickets.unassigned, d.tickets.unassigned ? 'mid' : 'ok'],
+        ['Waiting for learner / tech', d.tickets.waiting],
+      ],
+    },
+  ];
+  const kpis = [
+    [TeamOutlined, 'g1', k.activeLearners, 'Active learners', null, 'none'],
+    [VideoCameraOutlined, 'g3', k.classesToday, 'Classes today', `${k.liveNow} live now`, k.liveNow ? 'ok' : 'none'],
+    [UserDeleteOutlined, 'g4', k.absentYesterday, 'Absent yesterday', null, k.absentYesterday ? 'mid' : 'ok'],
+    [CustomerServiceOutlined, 'g5', k.openTickets, 'Open tickets', k.slaRisk ? `${k.slaRisk} SLA at risk` : 'all within SLA', k.slaRisk ? 'bad' : 'ok'],
+    [WarningOutlined, 'g6', k.failedJobs, 'Failed jobs (24h)', null, k.failedJobs ? 'bad' : 'ok'],
+    [FileProtectOutlined, 'g2', k.pendingConsent, 'Pending consent', null, k.pendingConsent ? 'mid' : 'ok'],
+  ];
+  const cur = cards.find((c) => c.key === open);
+  const flagged = (c) => c.rows.filter((r) => r[2] === 'bad' || r[2] === 'mid').length;
 
   return (
-    <SMPage
-      title="Support Manager — today"
-      sub={`Role: Support Manager (dedicated, not Super Admin) · ${batch || 'all batches'} · ${today}`}
-      right={
-        <select className="ld-inp" aria-label="Batch" value={batch} onChange={(e) => setBatch(e.target.value)}>
-          <option value="">All batches ({d.batches.length})</option>
-          {d.batches.map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
-      }
-    >
-      <div className="sm-g6" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12 }}>
-        <div className="sm-kpi"><span className="lab">Active learners</span><span className="num">{k.activeLearners}</span></div>
-        <div className="sm-kpi"><span className="lab">Classes today</span><span className="num">{k.classesToday}</span><span className="sub">{k.liveNow} live now</span></div>
-        <div className="sm-kpi"><span className="lab">Absent yesterday</span><span className="num" style={{ color: k.absentYesterday ? AMB : undefined }}>{k.absentYesterday}</span></div>
-        <div className="sm-kpi"><span className="lab">Open tickets</span><span className="num">{k.openTickets}</span>{k.slaRisk > 0 && <span className="sub" style={{ color: RED, fontWeight: 600 }}>{k.slaRisk} SLA at risk</span>}</div>
-        <div className="sm-kpi"><span className="lab">Failed jobs (24h)</span><span className="num" style={{ color: k.failedJobs ? RED : undefined }}>{k.failedJobs}</span></div>
-        <div className="sm-kpi"><span className="lab">Pending consent</span><span className="num">{k.pendingConsent}</span></div>
+    <div className="mg op smx">
+      <div className="mg-hero smx-hero">
+        <div className="mg-hero-l">
+          <span className="mg-hero-ic"><DashboardOutlined /></span>
+          <div style={{ minWidth: 0 }}>
+            <span className="mg-kicker">Support Manager · today</span>
+            <h1>{today}</h1>
+            <p>Dedicated Support Manager role (not Super Admin) · {batch || 'all batches'} · every number is a live count — click a card for details.</p>
+          </div>
+        </div>
+        <div className="op-hero-search">
+          <Select value={batch} onChange={setBatch} style={{ minWidth: 220 }} options={[{ value: '', label: `All batches (${d.batches.length})` }, ...d.batches.map((b) => ({ value: b, label: b }))]} />
+        </div>
       </div>
 
-      <div className="sm-g3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, flex: 1, minHeight: 0 }}>
-        <section className="ld-card" aria-label="Attendance exceptions">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Attendance exceptions</b><button type="button" className="ld-link" style={{ fontSize: 12 }} onClick={go('/support-mgr/attendance')}>Open →</button></div>
-          <Li label="Level 3 · 10+ din absent" value={d.attendance.l3} tone={d.attendance.l3 ? RED : undefined} />
-          <Li label="Level 2 · irregular" value={d.attendance.l2} />
-          <Li label="Level 1 · missed last class" value={d.attendance.l1} />
-          <Li label="Dropped status to reconcile" value={d.attendance.droppedToReconcile} last />
-        </section>
-        <section className="ld-card" aria-label="Readiness and consent">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Readiness &amp; consent</b></div>
-          <Li label={d.readiness.policyLabel ? `${d.readiness.policyLabel} pending` : 'Policy consent pending'} value={d.readiness.policiesPending} />
-          <Li label="Readiness not passed" value={d.readiness.readinessNotPassed} />
-          <Li label="Readiness not taken yet" value={d.readiness.readinessNotTaken} />
-          <Li label="Technical review (suspended attempts)" value={d.readiness.technical} last />
-        </section>
-        <section className="ld-card" aria-label="Assessment queue">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Assessment queue</b></div>
-          <Li label="Test types running" value={d.assessments.testTypes} />
-          <Li label="Not attempted any test" value={d.assessments.notAttempted} />
-          <Li label="Last attempt left" value={d.assessments.lastAttemptLeft} tone={d.assessments.lastAttemptLeft ? AMB : undefined} />
-          <Li label="Result reports verified by PMs" value={d.assessments.verified} last />
-        </section>
-        <section className="ld-card" aria-label="Weekly feedback">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Weekly feedback{d.feedback.week ? ` · week of ${new Date(`${d.feedback.week}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</b><button type="button" className="ld-link" style={{ fontSize: 12 }} onClick={go('/support-mgr/feedback')}>Open →</button></div>
-          {d.feedback.rates.length === 0 && <div className="ld-empty">No batch has feedback yet.</div>}
-          {d.feedback.rates.map((r) => <Li key={r.batch} label={`${r.batch}${r.time ? ` ${r.time}` : ''}`} value={`${r.pct}%`} />)}
-          <Li label="Delivery failures (24h)" value={d.feedback.deliveryFailures} tone={d.feedback.deliveryFailures ? RED : undefined} last />
-        </section>
-        <section className="ld-card" aria-label="Projects">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Projects</b></div>
-          <Li label="Overdue milestones" value={d.projects.overdue} />
-          <Li label="Reviews pending > 3 din" value={d.projects.reviewsPending} />
-          <Li label="Blocked learners" value={d.projects.blocked} last />
-        </section>
-        <section className="ld-card" aria-label="Recording health">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Recording health</b><button type="button" className="ld-link" style={{ fontSize: 12 }} onClick={go('/support-mgr/recordings')}>Open →</button></div>
-          <Li label="Failed / retry queue" value={d.recordings.failed} tone={d.recordings.failed ? RED : undefined} />
-          <Li label="Processing" value={d.recordings.processing} />
-          <Li label="Deleted at source" value={d.recordings.deleted} />
-          <Li label="Available" value={d.recordings.available} last />
-        </section>
-        <section className="ld-card" aria-label="System and automation">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>System &amp; automation</b></div>
-          <Li label={`Meeting provider (${d.system.provider === 'bigbluebutton' ? 'BBB' : d.system.provider})`} value={d.system.provider === 'mock' ? 'Not live' : 'Healthy'} tone={d.system.provider === 'mock' ? AMB : GRN} />
-          <Li label="Webhook failures" value={d.system.webhookFails} />
-          <Li label="Email failures (24h)" value={d.system.mailFails} last />
-        </section>
-        <section className="ld-card" aria-label="Payment to provisioning">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Payment → provisioning</b></div>
-          <Li label="Paid, no LMS login yet" value={d.payments.paidNotProvisioned} tone={d.payments.paidNotProvisioned ? RED : undefined} last />
-        </section>
-        <section className="ld-card" aria-label="Tickets">
-          <div className="ld-hd"><b style={{ fontSize: 14 }}>Tickets</b><button type="button" className="ld-link" style={{ fontSize: 12 }} onClick={go('/support-mgr/tickets')}>Queue →</button></div>
-          <Li label="Unassigned" value={d.tickets.unassigned} />
-          <Li label="Waiting for learner / tech" value={d.tickets.waiting} last />
-        </section>
+      <div className="mg-kpis op-kpis">
+        {kpis.map(([Ic, g, v, label, sub, tone]) => (
+          <div className={`mg-k ${tone}`} key={label}>
+            <div className="mg-k-top"><span className={`mg-k-ic ${g}`}><Ic /></span></div>
+            <b className="mg-k-v">{v}</b>
+            <span className="mg-k-l">{label}</span>
+            {sub && <small className={`smx-sub ${tone}`}>{sub}</small>}
+          </div>
+        ))}
       </div>
-    </SMPage>
+
+      <div className="smx-grid">
+        {cards.map((c) => {
+          const Ic = c.icon;
+          const nf = flagged(c);
+          return (
+            <section key={c.key} className="mg-card smx-card" role="button" tabIndex={0} onClick={() => setOpen(c.key)} onKeyDown={(e) => { if (e.key === 'Enter') setOpen(c.key); }}>
+              <div className="mg-hd">
+                <span className={`mg-hd-ic ${c.g}`}><Ic /></span>
+                <div><b>{c.title}</b><small>{nf ? `${nf} need attention` : 'Nothing urgent'}</small></div>
+                <ExpandAltOutlined className="smx-exp" />
+              </div>
+              <div className="mg-card-body smx-body">
+                {c.rows.length === 0 && <div className="mg-empty">Nothing here yet.</div>}
+                {c.rows.slice(0, 5).map(([label, value, tone]) => (
+                  <div className={`smx-li ${tone || ''}`} key={label}><span>{label}</span><b>{value}</b></div>
+                ))}
+              </div>
+              {c.to && (
+                <div className="mg-foot smx-foot">
+                  <button type="button" className="smx-go" onClick={(e) => { e.stopPropagation(); navigate(c.to); }}>Open page <ArrowRightOutlined /></button>
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <Modal open={!!cur} onCancel={() => setOpen(null)} footer={null} width={560} centered destroyOnClose rootClassName="mg-modal">
+        {cur && (() => {
+          const Ic = cur.icon;
+          return (
+            <div className="mg-m">
+              <div className="mg-m-head smx-m-head"><span className="mg-act">{batch || 'All batches'}</span><h3><Ic /> {cur.title}</h3><span>{cur.desc}</span></div>
+              <div className="mg-m-body">
+                {cur.rows.map(([label, value, tone]) => (
+                  <div className={`smx-mrow ${tone || ''}`} key={label}>
+                    <i />
+                    <span>{label}</span>
+                    <b>{value}</b>
+                  </div>
+                ))}
+                <div className="mg-m-id">Live count · refreshed when the page loads or the batch changes</div>
+              </div>
+              <div className="mg-m-foot" style={{ gap: 8 }}>
+                <Button onClick={() => setOpen(null)}>Close</Button>
+                {cur.to && <Button type="primary" icon={<ArrowRightOutlined />} onClick={() => navigate(cur.to)}>Open {cur.title.split(' · ')[0].toLowerCase()}</Button>}
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+    </div>
   );
 }

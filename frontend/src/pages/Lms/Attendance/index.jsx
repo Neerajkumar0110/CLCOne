@@ -6,6 +6,7 @@ import {
   ReloadOutlined, DownloadOutlined, CheckSquareOutlined, EditOutlined, FileTextOutlined, CalendarOutlined,
   CheckOutlined, BookOutlined, TeamOutlined, ClockCircleOutlined, CheckCircleOutlined, LeftOutlined, RightOutlined,
   CodeOutlined, DatabaseOutlined, ExperimentOutlined, ApiOutlined, ThunderboltOutlined,
+  CloseCircleOutlined, PercentageOutlined, FilterOutlined,
 } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
 import { LMS_TEACHER_ROLES } from '@/config/roles';
@@ -13,7 +14,12 @@ import lmsApi from '../api';
 import KpiTile from '../components/KpiTile';
 import StudentReport from './StudentReport';
 import './Attendance.css';
+import '../AdminOps/mgmt.css';
+import '../AdminOps/opsPages.css';
+import '../AdminOps/reports.css';
+import '../SMBoards/smDesign.css';
 import '../components/LearnerDesign.css';
+import { tablePagination } from '../components/ui';
 
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 const SC = { PRESENT: 'green', LATE: 'gold', PARTIAL: 'orange', ABSENT: 'default', EXCUSED: 'blue' };
@@ -72,18 +78,30 @@ function Dashboard({ role }) {
   const courses = useMemo(() => [...new Set(rows.map((r) => r.course).filter(Boolean))], [rows]);
   const batches = useMemo(() => [...new Set(rows.map((r) => r.batch).filter(Boolean))], [rows]);
 
-  return (
-    <div>
-      <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
-        <KPI label="Candidates" value={k.totalStudents || 0} tone="blue" />
-        <KPI label="Present" value={k.present || 0} tone="green" />
-        <KPI label="Partial" value={k.partial || 0} tone="amber" />
-        <KPI label="Absent" value={k.absent || 0} tone="red" />
-        <KPI label="Avg attendance" value={k.avgAttendancePct || 0} suffix="%" tone="cyan" />
-        <KPI label="Classes" value={`${k.completedClasses || 0}/${k.totalClasses || 0}`} tone="slate" />
-      </Row>
+  const avg = k.avgAttendancePct || 0;
+  const tiles = [
+    [TeamOutlined, 'g1', k.totalStudents || 0, 'Candidates', 'none'],
+    [CheckCircleOutlined, 'g3', k.present || 0, 'Present', 'ok'],
+    [ClockCircleOutlined, 'g4', k.partial || 0, 'Partial', k.partial ? 'mid' : 'none'],
+    [CloseCircleOutlined, 'g6', k.absent || 0, 'Absent', k.absent ? 'bad' : 'none'],
+    [PercentageOutlined, 'g2', `${avg}%`, 'Avg attendance', avg >= 80 ? 'ok' : avg >= 50 ? 'mid' : 'bad'],
+    [CalendarOutlined, 'g5', `${k.completedClasses || 0}/${k.totalClasses || 0}`, 'Classes held', 'none'],
+  ];
 
-      <Space wrap className="lms-toolbar" style={{ marginBottom: 12 }}>
+  return (
+    <div className="mg op attx">
+      <div className="mg-kpis op-kpis">
+        {tiles.map(([Ic, g, v, label, tone]) => (
+          <div className={`mg-k ${tone}`} key={label}>
+            <div className="mg-k-top"><span className={`mg-k-ic ${g}`}><Ic /></span></div>
+            <b className="mg-k-v">{v}</b>
+            <span className="mg-k-l">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <Space wrap className="rp-filters attx-filters">
+        <span className="mg-hd-ic g3"><FilterOutlined /></span>
         <Select allowClear placeholder="Internship" style={{ width: 190 }} value={f.courseTitle || undefined}
           onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))} options={courses.map((c) => ({ value: c, label: c }))} />
         <Select allowClear placeholder="Batch" style={{ width: 170 }} value={f.batchName || undefined}
@@ -98,27 +116,35 @@ function Dashboard({ role }) {
           onChange={(v) => setF((x) => ({ ...x, status: v }))}
           options={['PRESENT', 'LATE', 'PARTIAL', 'ABSENT', 'EXCUSED'].map((s) => ({ value: s, label: s }))} />
         <DatePicker.RangePicker onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))} />
-        <Button icon={<ReloadOutlined />} onClick={load}>Apply</Button>
+        <Button type="primary" icon={<ReloadOutlined />} onClick={load}>Apply</Button>
         <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'csv' })}>CSV</Button>
         <Button icon={<DownloadOutlined />} onClick={() => lmsApi.attendanceExport(role, { ...f, from: f.from?.toISOString(), to: f.to?.toISOString(), format: 'xlsx' })}>Excel</Button>
       </Space>
 
+      <section className="mg-card attx-card">
+      <div className="mg-hd">
+        <span className="mg-hd-ic g2"><CheckSquareOutlined /></span>
+        <div><b>Attendance records · {rows.length}</b><small>Auto-captured from join/leave events · click a row for the candidate&apos;s full report</small></div>
+      </div>
       <Table
+        className="attx-table"
         rowKey={(r, i) => `${r.email || r.studentName}-${r.className}-${i}`}
         size="small"
         loading={loading}
         dataSource={rows}
-        pagination={{ pageSize: 25, showSizeChanger: true }}
-        scroll={{ x: 1100 }}
+        pagination={tablePagination({ defaultPageSize: 25 })}
+        scroll={{ x: 1500 }}
         rowClassName={() => 'att-row-click'}
         onRow={(r) => ({ onClick: () => setReport(r), title: 'Open full attendance report' })}
         columns={[
-          { title: 'Candidate', dataIndex: 'studentName', fixed: 'left', width: 150 },
-          { title: 'Email', dataIndex: 'email', width: 190 },
-          { title: 'Batch', dataIndex: 'batch', width: 130 },
-          { title: 'Internship', dataIndex: 'course', width: 150 },
-          { title: 'Class', dataIndex: 'className', width: 150 },
-          { title: 'Date', dataIndex: 'date', width: 110, render: (v) => (v ? new Date(v).toLocaleDateString() : '—') },
+          {
+            title: 'Candidate', dataIndex: 'studentName', fixed: 'left', width: 220,
+            render: (v, r) => <span className="attx-cand"><i>{String(v || '?')[0]}</i><span><b>{v}</b><small>{r.email}</small></span></span>,
+          },
+          { title: 'Batch', dataIndex: 'batch', width: 130, render: (v) => <span className="attx-batch">{v}</span> },
+          { title: 'Internship', dataIndex: 'course', width: 200, ellipsis: { showTitle: true } },
+          { title: 'Class', dataIndex: 'className', width: 240, ellipsis: { showTitle: true } },
+          { title: 'Date', dataIndex: 'date', width: 110, render: (v) => (v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—') },
           {
             title: <Tooltip title="How long this class was scheduled to run"><span>Scheduled</span></Tooltip>,
             dataIndex: 'scheduledDurationMin',
@@ -154,28 +180,15 @@ function Dashboard({ role }) {
             : []),
         ]}
       />
+      </section>
 
       {report && <StudentReport role={role} target={report} onClose={() => setReport(null)} />}
 
-      <Modal
-        className="crud-modal"
-        open={!!correcting}
-        title={
-          <span className="crud-modal-title">
-            <span className="crud-modal-title-icon"><EditOutlined /></span>
-            <span>
-              <span className="crud-modal-title-kicker">Correct attendance</span>
-              <span className="crud-modal-title-main">{correcting ? correcting.studentName : ''}</span>
-            </span>
-          </span>
-        }
-        onCancel={() => setCorrecting(null)}
-        onOk={submitCorrection}
-        confirmLoading={correctBusy}
-        okText="Save correction"
-        destroyOnClose
-        maskClosable={false}
-      >
+      <Modal open={!!correcting} onCancel={() => setCorrecting(null)} footer={null} width={540} centered destroyOnClose maskClosable={false} rootClassName="mg-modal">
+        {correcting && (
+          <div className="mg-m">
+            <div className="mg-m-head smx-m-head"><span className="mg-act">Correct attendance</span><h3><EditOutlined /> {correcting.studentName}</h3><span>{correcting.className} · {correcting.date ? new Date(correcting.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · now {correcting.status}</span></div>
+            <div className="mg-m-body">
         <Form form={correctForm} layout="vertical" className="crud-form" preserve={false}>
           <div className="crud-form-grid">
             <Form.Item name="status" label={<span className="crud-lbl"><span className="crud-lbl-icon"><CheckSquareOutlined /></span>Corrected status</span>} rules={[{ required: true }]} className="crud-form-full">
@@ -191,6 +204,14 @@ function Dashboard({ role }) {
             </Form.Item>
           </div>
         </Form>
+              <div className="mg-m-id">Old value, new value and reason are saved in the audit log</div>
+            </div>
+            <div className="mg-m-foot" style={{ gap: 8 }}>
+              <Button onClick={() => setCorrecting(null)}>Cancel</Button>
+              <Button type="primary" icon={<CheckOutlined />} loading={correctBusy} onClick={submitCorrection}>Save correction</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

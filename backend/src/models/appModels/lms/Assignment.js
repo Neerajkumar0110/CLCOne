@@ -34,6 +34,9 @@ const schema = new mongoose.Schema({
   submissionType: { type: String, enum: ['pdf', 'doc', 'image', 'text', 'file', 'link'], default: 'file' },
   allowResubmission: { type: Boolean, default: true },
   published: { type: Boolean, default: true },
+  // empty = the whole batch; else only these learners (LMS testing report #9)
+  assignedTo: { type: [{ type: mongoose.Schema.ObjectId, ref: 'Admin' }], default: undefined },
+  assignedToNames: { type: [String], default: undefined },
 
   created: { type: Date, default: Date.now },
   updated: { type: Date, default: Date.now },
