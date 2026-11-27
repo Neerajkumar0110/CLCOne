@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
 import { C, I, Chip, Btn, Bar, Card, Row, Col, KPI, Table, Leg, KV, Note, Screen, Loading, ErrorBox, useData, ago } from './ui';
+import './contentProgress.css';
 
 // Figma 3B "Content reading & video progress" (Learner).
 
@@ -59,7 +60,7 @@ export default function ContentProgress() {
   })() : 0;
 
   return (
-    <Screen crumb="LMS / Content Progress" title="Content Progress">
+    <Screen className="cpx" crumb="LMS / Content Progress" title="Content Progress">
       <Row className="g-rs">
         <KPI i="layers" label="Modules opened" val={k.totalModules ? `${k.modulesOpened} / ${k.totalModules}` : String(k.modulesOpened)} sub={k.totalModules ? `${Math.max(0, k.totalModules - k.modulesOpened)} not started` : 'modules with activity'} tone="pri" bar={k.totalModules ? (k.modulesOpened / k.totalModules) * 100 : undefined} style={{ flex: 1 }} />
         <KPI i="reading" label="Pages read" val={k.pagesRead} sub={k.avgPageSec != null ? `avg ${Math.floor(k.avgPageSec / 60)}m ${String(k.avgPageSec % 60).padStart(2, '0')}s per page` : 'no reading yet'} tone="ind" style={{ flex: 1 }} />
@@ -69,7 +70,7 @@ export default function ContentProgress() {
 
       <Row className="g-rm" style={{ alignItems: 'flex-start' }}>
         <Card
-          title={d.module || 'Recently opened'}
+          title={<span className="cpx-ttl" title={d.module || ''}>{d.module || 'Recently opened'}</span>}
           i="book"
           sub={`${d.rows.length} item${d.rows.length === 1 ? '' : 's'}${d.moduleCompletion != null ? ` · ${d.moduleCompletion}% complete` : ''}`}
           style={{ flex: 1 }}
@@ -100,10 +101,11 @@ export default function ContentProgress() {
             onRow={(i) => setSel(d.rows[i].id)}
             rows={d.rows.map((r) => {
               const [ic, l] = TYPE[r.kind] || ['file', r.kind];
+              const lesson = <span className="cpx-lesson" title={r.title}>{r.title}</span>;
               const p = r.kind === 'video' || r.kind === 'recording' ? r.videoPct : r.scrollDepth;
               const [sl, st] = ST[r.status];
               return [
-                r.title,
+                lesson,
                 <>
                   <I n={ic} c={C.mut} s={15} />
                   <span style={{ fontSize: 12, color: C.sub }}>{l}</span>
@@ -123,8 +125,8 @@ export default function ContentProgress() {
           />
         </Card>
 
-        <Col style={{ width: 400, flexShrink: 0 }}>
-          <Card title={vid ? `Video analytics · ${vid.title}` : 'Video analytics'} i="video">
+        <Col className="cpx-side">
+          <Card title="Video analytics" sub={vid ? <span className="cpx-sub" title={vid.title}>{vid.title}</span> : undefined} i="video" tone="pu">
             {!vid ? (
               <span className="g-s12 g-fa">Watch a recording or video lesson to see its analytics.</span>
             ) : (
@@ -143,9 +145,9 @@ export default function ContentProgress() {
                     ['Rewatches', String(vid.rewatches)],
                     ['Length', vid.durationSec ? clock(vid.durationSec) : '—'],
                   ].map(([a, b]) => (
-                    <Col key={a} g={2} style={{ flex: 1, background: C.bg, borderRadius: 10, padding: '8px 10px' }}>
-                      <span className="g-s11 g-mut">{a}</span>
-                      <b style={{ fontSize: 13 }}>{b}</b>
+                    <Col key={a} g={2} className="cpx-stat">
+                      <span>{a}</span>
+                      <b>{b}</b>
                     </Col>
                   ))}
                 </Row>
@@ -157,7 +159,7 @@ export default function ContentProgress() {
               </>
             )}
           </Card>
-          <Card title={read ? `Reading · ${read.title}` : 'Reading'} i="reading">
+          <Card title="Reading" sub={read ? <span className="cpx-sub" title={read.title}>{read.title}</span> : undefined} i="reading" tone="ind">
             {!read ? (
               <span className="g-s12 g-fa">Open a lesson or study material to see reading progress.</span>
             ) : (

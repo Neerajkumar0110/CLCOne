@@ -1890,3 +1890,11 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
   border-color: #0f172a !important;
   color: #ffffff !important;
 }
+
+
+/* 2026-11-27: the light-mode learner text rules above paint EVERY text dark
+   (!important). Blocks that sit on a dark gradient keep white text. */
+:root[data-theme='light']:root .ld-root:not(.ld-certificates-route) :is(.tix-hero, .tix-start.sm, .tix-hd-ic, .tix-rules > span > .anticon, .tix-res-empty > span, .spv-hero, .spv-card-ic, .spv-empty > .anticon, .pcm-head, .pcm-step.on, .rcl-hero, .rcl-pill.on, .rcl-play, .rcl-full, .lms-recording-player-modal .ant-modal-title .ant-btn-primary, .pol-hero-ic, .pjx-f-ic, .pjx-m-head, .pjx-links a, .sr-head, .attendance-refresh-btn, .announcement-tab.active, .pagination-button.active, .join-now-btn, .cl-av, .cur-head, .cur-card-go, .asx-hero-ic) { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+:root[data-theme='light']:root .ld-root:not(.ld-certificates-route) :is(.tix-hero, .tix-start.sm, .tix-hd-ic, .tix-rules > span > .anticon, .tix-res-empty > span, .spv-hero, .spv-card-ic, .spv-empty > .anticon, .pcm-head, .pcm-step.on, .rcl-hero, .rcl-pill.on, .rcl-play, .rcl-full, .lms-recording-player-modal .ant-modal-title .ant-btn-primary, .pol-hero-ic, .pjx-f-ic, .pjx-m-head, .pjx-links a, .sr-head, .attendance-refresh-btn, .announcement-tab.active, .pagination-button.active, .join-now-btn, .cl-av, .cur-head, .cur-card-go, .asx-hero-ic) :where(h1, h2, h3, h4, p, span, b, strong, label, small, em, div, a, li, code, .anticon, svg) { color: inherit !important; -webkit-text-fill-color: inherit !important; }
+:root[data-theme='light']:root .ld-root:not(.ld-certificates-route) .tix-hero .tix-start, :root[data-theme='light']:root .ld-root:not(.ld-certificates-route) .tix-hero .tix-start :where(span, .anticon) { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+:root[data-theme='light']:root .ld-root:not(.ld-certificates-route) .tix-hero :is(p, .tix-eyebrow, small) { opacity: .88; }

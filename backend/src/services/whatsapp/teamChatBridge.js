@@ -155,13 +155,21 @@ async function teamChatToWa(message) {
 async function studentContactIds(student) {
   const Admin = M('Admin');
   const ids = new Set();
-  (await Admin.find({ role: 'Support', removed: false, enabled: true }).select('_id').lean()).forEach((x) => ids.add(String(x._id)));
+  // Support + Admin + Super Admin are always reachable (2026-11-27)
+  (await Admin.find({ role: { $in: ['Support', 'Admin', 'Super Admin'] }, removed: false, enabled: true }).select('_id').lean()).forEach((x) => ids.add(String(x._id)));
   const roster = await M('Student').findOne({ email: rxEq(student.email), removed: { $ne: true } }).select('batch').lean();
   if (roster && roster.batch) {
-    const batches = await M('Batch').find({ removed: { $ne: true }, $or: [{ name: roster.batch }, { code: roster.batch }] }).select('trainer').lean();
+    const batches = await M('Batch').find({ removed: { $ne: true }, $or: [{ name: roster.batch }, { code: roster.batch }] }).select('name code trainer').lean();
     const names = [...new Set(batches.flatMap((b) => (Array.isArray(b.trainer) ? b.trainer : b.trainer ? [b.trainer] : [])).filter(Boolean))];
     if (names.length) {
       (await Admin.find({ role: 'Teacher', removed: false, name: { $in: names.map(rxEq) } }).select('_id').lean()).forEach((x) => ids.add(String(x._id)));
+    }
+    // every learner of the same batch (roster may store the batch by name or code)
+    const keys = [...new Set([roster.batch, ...batches.flatMap((b) => [b.name, b.code])].filter(Boolean))];
+    const mates = await M('Student').find({ batch: { $in: keys }, removed: { $ne: true } }).select('email').lean();
+    const emails = [...new Set(mates.map((s) => String(s.email || '').trim()).filter(Boolean).flatMap((e) => [e, e.toLowerCase()]))];
+    if (emails.length) {
+      (await Admin.find({ role: 'Student', removed: false, enabled: true, email: { $in: emails } }).select('_id').lean()).forEach((x) => ids.add(String(x._id)));
     }
   }
   const me = String(student._id);
