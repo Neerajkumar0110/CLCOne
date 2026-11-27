@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Empty, Skeleton, Alert } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import lmsApi from '../api';
@@ -21,14 +21,6 @@ const TEST_TYPE_LABELS = { BASIC: 'Basic Test', MAJOR: 'Major Test', MICRO: 'Mic
 // aggregates eligibility, attendance, assessments, projects, policies
 // and notifications) plus GET /api/lms/my/tickets — no mock data.
 
-const fmtDate = (v) => {
-  if (!v) return '';
-  try {
-    return new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  } catch (e) {
-    return '';
-  }
-};
 const fmtTime = (v) => {
   if (!v) return '';
   try {
@@ -40,7 +32,6 @@ const fmtTime = (v) => {
 const fmtDay = (v) => (v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 const fmtClock = (v) => (v ? new Date(v).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '');
 const asList = (v) => (Array.isArray(v) ? v : (v && v.result) || []);
-const settledResult = (s) => (s.status === 'fulfilled' && s.value && s.value.result) || null;
 
 function gateChip(item) {
   if (!item.applicable) return <span className="ld-chip gray">N/A</span>;
@@ -56,25 +47,60 @@ export default function StudentDashboard() {
   const [tickets, setTickets] = useState([]);
   const [onboarding, setOnboarding] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
+    let secondaryLoadTimer;
+    const loadOptional = (request, apply, setPending, fallback) => {
+      request
+        .then((response) => {
+          if (alive) apply((response && response.result) || fallback);
+        })
+        .catch(() => {
+          if (alive) apply(fallback);
+        })
+        .finally(() => {
+          if (alive) setPending(false);
+        });
+    };
     (async () => {
-      // Each source is optional except the dashboard itself — a failure in
-      // one (say tickets) just leaves its card empty instead of blanking Home.
-      const [dash, overview, tk, ob, fb] = await Promise.allSettled([lmsApi.studentDashboard(), lmsApi.myOverview(), lmsApi.myTickets(), lmsApi.myOnboarding(), lmsApi.myFeedback()]);
+      let dash;
+      try {
+        dash = await lmsApi.studentDashboard();
+      } catch (e) {
+        if (alive) {
+          setErr('Could not load your dashboard.');
+          setLoading(false);
+        }
+        return;
+      }
       if (!alive) return;
-      if (dash.status !== 'fulfilled') setErr('Could not load your dashboard.');
-      setD(settledResult(dash));
-      setOv(settledResult(overview));
-      setTickets((settledResult(tk) || {}).tickets || []);
-      setOnboarding(settledResult(ob));
-      setFeedback(settledResult(fb));
+      setD((dash && dash.result) || null);
       setLoading(false);
+      if (!dash || !dash.result) return;
+
+      secondaryLoadTimer = setTimeout(() => {
+        if (!alive) return;
+        // These sections are optional and should not delay the first render.
+        loadOptional(lmsApi.myOverview(), setOv, setOverviewLoading, null);
+        loadOptional(
+          lmsApi.myTickets(),
+          (result) => setTickets((result && result.tickets) || []),
+          setTicketsLoading,
+          { tickets: [] },
+        );
+        loadOptional(lmsApi.myOnboarding(), setOnboarding, setOnboardingLoading, null);
+        loadOptional(lmsApi.myFeedback(), setFeedback, setFeedbackLoading, null);
+      }, 0);
     })();
     return () => {
       alive = false;
+      clearTimeout(secondaryLoadTimer);
     };
   }, []);
 
@@ -126,14 +152,15 @@ export default function StudentDashboard() {
   const latestNotif = (notif.notifications || []).slice(0, 3);
   const doneGates = elig ? (elig.items || []).filter((i) => i.applicable && i.passed).length : 0;
   const totalGates = elig ? (elig.items || []).filter((i) => i.applicable).length : 0;
+  const courseProgress = Math.max(0, Math.min(Number(k.courseProgress) || 0, 100));
 
   const feedbackWin = feedback && feedback.enrolled ? feedback.window || {} : null;
   const feedbackPending = feedbackWin && (feedbackWin.open || feedbackWin.late) && !(feedback.submitted && feedback.submitted.weekly);
   const go = (to) => () => navigate(to);
 
   return (
-    <div className="ld-page">
-      <div className="ld-hd">
+    <div className="ld-page ld-dashboard-page">
+      <div className="ld-hd ld-dashboard-head">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1>Namaste, {(d.student?.name || 'there').split(' ')[0]}</h1>
           <div className="ld-muted" style={{ fontSize: 14 }}>
@@ -145,10 +172,49 @@ export default function StudentDashboard() {
         )}
       </div>
 
-      <div className="ld-grid" style={{ gridTemplateColumns: '1.3fr 1fr 1fr' }}>
+      <div className="ld-dashboard-overview">
+        <section className="ld-profile-card" aria-label="Student summary">
+          <div className="ld-profile-avatar" aria-hidden="true">
+            {(d.student?.name || 'Student').charAt(0).toUpperCase()}
+          </div>
+          <div className="ld-profile-copy">
+            <span className="ld-profile-name">{d.student?.name || 'Student'}</span>
+            <span className="ld-muted">{d.student?.email || ''}</span>
+            <span className="ld-profile-status"><i /> Active · live sync</span>
+          </div>
+          <div className="ld-profile-progress">
+            <span className="ld-profile-progress-ring" style={{ '--progress': `${courseProgress}%` }}>
+              <b>{courseProgress}%</b>
+            </span>
+            <span className="ld-muted">Course progress</span>
+          </div>
+        </section>
+
+        <section className="ld-summary-card" aria-label="Dashboard summary">
+          <div><span className="ld-muted">Courses enrolled</span><b>{k.enrolledCourses ?? d.courses?.length ?? 0}</b></div>
+          <div><span className="ld-muted">Live now</span><b>{k.liveNow || 0}</b></div>
+          <div><span className="ld-muted">Upcoming</span><b>{(d.todaysClasses || []).length}</b></div>
+          <div><span className="ld-muted">Open requests</span><b>{ticketsLoading ? '…' : openTickets.length}</b></div>
+        </section>
+      </div>
+
+      {actions.length > 0 && (
+        <section className="ld-insight-banner" aria-label="AI insights">
+          <div className="ld-insight-icon" aria-hidden="true">✦</div>
+          <div>
+            <b>AI insights</b>
+            <p>{actions[0].label}</p>
+          </div>
+          <button type="button" className="ld-btn md" onClick={go(actions[0].to)}>View action</button>
+        </section>
+      )}
+
+      <div className="ld-grid ld-dashboard-main-grid" style={{ gridTemplateColumns: '1.3fr 1fr 1fr', alignItems: 'stretch' }}>
         <section className="ld-card" aria-label="Overall eligibility">
           <div className="ld-hd"><b>Overall eligibility</b>{elig && <span className={`ld-chip ${elig.eligible ? 'hai' : 'adh'}`}>{elig.score}%</span>}</div>
-          {elig ? (
+          {overviewLoading ? (
+            <Skeleton active title={false} paragraph={{ rows: 4 }} />
+          ) : elig ? (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <span className="ld-big" style={{ color: elig.eligible ? '#166534' : '#9a3412' }}>{elig.eligible ? 'Eligible' : 'Not yet eligible'}</span>
@@ -172,10 +238,11 @@ export default function StudentDashboard() {
           )}
         </section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="ld-dashboard-stack">
           <section className="ld-card" aria-label="Attendance">
             <div className="ld-hd"><b>Attendance</b></div>
-            <div className="ld-big">{att ? `${att.attendancePct}%` : '—'}</div>
+            <div className="ld-big">{att ? `${att.attendancePct}%` : overviewLoading ? '…' : '—'}</div>
+            {overviewLoading && <Skeleton active title={false} paragraph={{ rows: 1 }} />}
             {att && (
               <>
                 <div className="ld-muted" style={{ fontSize: 13 }}>{att.present + att.late} / {att.totalClasses} sessions · {att.partial} partial · {att.absent} absent</div>
@@ -186,7 +253,9 @@ export default function StudentDashboard() {
           </section>
           <section className="ld-card" aria-label="Assessments">
             <div className="ld-hd"><b>Assessments</b></div>
-            {testTypes.length === 0 ? (
+            {overviewLoading ? (
+              <Skeleton active title={false} paragraph={{ rows: 3 }} />
+            ) : testTypes.length === 0 ? (
               <div className="ld-muted" style={{ fontSize: 13 }}>No assessment unlocked yet.</div>
             ) : (
               <div>
@@ -209,11 +278,11 @@ export default function StudentDashboard() {
           </section>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="ld-dashboard-stack">
           <section className="ld-card" aria-label="Next actions">
             <div className="ld-hd"><b>Next actions</b></div>
             {actions.length === 0 ? (
-              <div className="ld-muted" style={{ fontSize: 13 }}>All up to date.</div>
+              <div className="ld-muted" style={{ fontSize: 13 }}>{overviewLoading || ticketsLoading ? 'Loading actions…' : 'All up to date.'}</div>
             ) : (
               <div>
                 {actions.slice(0, 5).map((a) => (
@@ -225,45 +294,54 @@ export default function StudentDashboard() {
               </div>
             )}
           </section>
-          {onboarding && onboarding.steps && (
+          {(onboardingLoading || (onboarding && onboarding.steps)) && (
             <section className="ld-card" aria-label="Onboarding checklist">
-              <div className="ld-hd"><b>Onboarding checklist</b><span className={`ld-chip ${onboarding.done === onboarding.total ? 'hai' : 'gray'}`}>{onboarding.done} / {onboarding.total}</span></div>
-              <div>
-                {onboarding.steps.slice(0, 4).map((s) => (
-                  <div className="ld-li" key={s.key}>
-                    <span>{s.title}</span>
-                    <span className={`ld-chip ${s.state === 'done' ? 'hai' : s.state === 'blocked' ? 'red' : 'gray'}`}>{s.state === 'done' ? 'Done' : s.state === 'blocked' ? 'Blocked' : 'Pending'}</span>
-                  </div>
-                ))}
+              <div className="ld-hd">
+                <b>Onboarding checklist</b>
+                {!onboardingLoading && <span className={`ld-chip ${onboarding.done === onboarding.total ? 'hai' : 'gray'}`}>{onboarding.done} / {onboarding.total}</span>}
               </div>
-              <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/onboarding')}>Open checklist →</button>
+              {onboardingLoading ? (
+                <Skeleton active title={false} paragraph={{ rows: 2 }} />
+              ) : (
+                <>
+                  <div>
+                    {onboarding.steps.slice(0, 4).map((s) => (
+                      <div className="ld-li" key={s.key}>
+                        <span>{s.title}</span>
+                        <span className={`ld-chip ${s.state === 'done' ? 'hai' : s.state === 'blocked' ? 'red' : 'gray'}`}>{s.state === 'done' ? 'Done' : s.state === 'blocked' ? 'Blocked' : 'Pending'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/onboarding')}>Open checklist →</button>
+                </>
+              )}
             </section>
           )}
         </div>
       </div>
 
-      <div className="ld-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+      <div className="ld-grid ld-dashboard-mini-row" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
         <section className="ld-card" aria-label="Project">
           <div className="ld-hd"><b>Project</b>{project && <span className={`ld-chip ${project.status === 'approved' ? 'hai' : 'gray'}`}>{project.status}</span>}</div>
-          <div style={{ fontSize: 14 }}>{project ? project.title : 'No project assigned yet'}</div>
+          <div style={{ fontSize: 14 }}>{project ? project.title : overviewLoading ? 'Loading project…' : 'No project assigned yet'}</div>
           {project && <div className="ld-muted" style={{ fontSize: 13 }}>{[project.mentor && `Mentor: ${project.mentor}`, project.dueDate && `Due ${fmtDay(project.dueDate)}`].filter(Boolean).join(' · ')}</div>}
           <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/projects')}>Open →</button>
         </section>
         <section className="ld-card" aria-label="Feedback and policies">
           <div className="ld-hd"><b>Feedback &amp; policies</b></div>
-          <div style={{ fontSize: 14 }}>{!feedbackWin ? 'Weekly feedback not open' : feedbackPending ? `Week of ${feedbackWin.weekKey} pending` : feedback.submitted && feedback.submitted.weekly ? 'This week submitted' : 'Next window opens Friday'}</div>
-          <div className="ld-muted" style={{ fontSize: 13 }}>{policies.length ? `${policies.length - pendingPolicies.length} / ${policies.length} policies accepted` : 'No policies published yet'}</div>
+          <div style={{ fontSize: 14 }}>{feedbackLoading ? 'Loading feedback…' : !feedbackWin ? 'Weekly feedback not open' : feedbackPending ? `Week of ${feedbackWin.weekKey} pending` : feedback.submitted && feedback.submitted.weekly ? 'This week submitted' : 'Next window opens Friday'}</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>{overviewLoading ? 'Loading policies…' : policies.length ? `${policies.length - pendingPolicies.length} / ${policies.length} policies accepted` : 'No policies published yet'}</div>
           <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go(pendingPolicies.length ? '/learn/policies' : '/learn/feedback')}>{pendingPolicies.length ? 'Accept policies →' : feedbackPending ? 'Fill now →' : 'Open →'}</button>
         </section>
         <section className="ld-card" aria-label="Notifications">
           <div className="ld-hd"><b>Notifications</b></div>
-          <div style={{ fontSize: 14 }}>{notif.unread || 0} unread</div>
-          <div className="ld-muted" style={{ fontSize: 13 }}>{latestNotif.length ? latestNotif.map((n) => n.title).join(' · ') : 'No notifications'}</div>
+          <div style={{ fontSize: 14 }}>{overviewLoading ? 'Loading notifications…' : `${notif.unread || 0} unread`}</div>
+          <div className="ld-muted" style={{ fontSize: 13 }}>{overviewLoading ? '' : latestNotif.length ? latestNotif.map((n) => n.title).join(' · ') : 'No notifications'}</div>
           <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/notifications')}>View all →</button>
         </section>
         <section className="ld-card" aria-label="Support requests">
           <div className="ld-hd"><b>Support requests</b></div>
-          <div style={{ fontSize: 14 }}>{openTickets[0] ? `${openTickets[0].ticketNo} · ${openTickets[0].status}` : 'No open requests'}</div>
+          <div style={{ fontSize: 14 }}>{ticketsLoading ? 'Loading requests…' : openTickets[0] ? `${openTickets[0].ticketNo} · ${openTickets[0].status}` : 'No open requests'}</div>
           {openTickets[0] && <div className="ld-muted" style={{ fontSize: 13 }}>{openTickets[0].subject}</div>}
           <button type="button" className="ld-link" style={{ fontSize: 13 }} onClick={go('/learn/support')}>{openTickets.length ? 'Track →' : 'Raise a request →'}</button>
         </section>
