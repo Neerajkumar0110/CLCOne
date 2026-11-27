@@ -1393,3 +1393,39 @@ tbody tr:hover {
     transition: none !important;
   }
 }
+
+/* Dark mode support for Dashboard.css */
+:root[data-theme='dark'] body:has(.dashboard) {
+  background: #0b0f17 !important;
+}
+
+:root[data-theme='dark'] .dashboard {
+  background: #0b0f17 !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .topbar {
+  background: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:root[data-theme='dark'] .topbar h1 {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .topbar p {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .kpi-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .kpi-label {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .kpi-value {
+  color: #f8fafc !important;
+}

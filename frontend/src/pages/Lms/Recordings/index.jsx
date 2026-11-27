@@ -10,6 +10,7 @@ import {
   SoundOutlined, CaretRightOutlined, BookOutlined, RightOutlined,
 } from '@ant-design/icons';
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
 import DriveImportModal from './DriveImportModal';
@@ -93,8 +94,11 @@ export default function Recordings() {
     navigate('/learn/support', {
       state: { raise: { category: 'Recording / material', subject: 'Recording missing or wrong topic', description: 'Class date / batch:\nWhat is wrong:' } },
     });
+  const canFilterStatus = isManager || LMS_TEACHER_ROLES.includes(admin.role);
 
   const [rows, setRows] = useState([]);
+  const [recordingCourseOptions, setRecordingCourseOptions] = useState([]);
+  const [recordingBatchOptions, setRecordingBatchOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [f, setF] = useState({ status: undefined, courseTitle: '', batchName: '', student: '', from: null, to: null });
@@ -191,7 +195,10 @@ export default function Recordings() {
         from: f.from ? f.from.toISOString() : undefined,
         to: f.to ? f.to.toISOString() : undefined,
       });
-      setRows((res && res.result) || []);
+      const nextRows = (res && res.result) || [];
+      setRows(nextRows);
+      setRecordingCourseOptions((current) => [...new Set([...current, ...nextRows.map((r) => r.courseTitle).filter(Boolean)])]);
+      setRecordingBatchOptions((current) => [...new Set([...current, ...nextRows.map((r) => r.batchName).filter(Boolean)])]);
     } catch (e) {
       setErr('Could not load recordings.');
     } finally {
@@ -203,20 +210,21 @@ export default function Recordings() {
     load();
   }, [load]);
 
-  const courses = useMemo(() => [...new Set(rows.map((r) => r.courseTitle).filter(Boolean))], [rows]);
-  const batches = useMemo(() => [...new Set(rows.map((r) => r.batchName).filter(Boolean))], [rows]);
-
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) =>
-      [recTitle(r), r.courseTitle, r.teacherName].some((v) => (v || '').toLowerCase().includes(q))
+      [recTitle(r), r.courseTitle, r.batchName, r.teacherName].some((v) => (v || '').toLowerCase().includes(q))
     );
   }, [rows, search]);
 
   useEffect(() => {
     setPage(1);
   }, [search, f]);
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+    setPage((current) => Math.min(current, lastPage));
+  }, [filteredRows.length, pageSize]);
 
   const pagedRows = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -522,16 +530,16 @@ export default function Recordings() {
           <Input allowClear prefix={<SearchOutlined />} placeholder="Search topic or batch…" aria-label="Search recordings" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 240 }} />
           <select className="ld-inp" aria-label="Module" value={f.courseTitle} onChange={(e) => setF((x) => ({ ...x, courseTitle: e.target.value }))}>
             <option value="">All modules</option>
-            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+            {recordingCourseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <select className="ld-inp" aria-label="Date" value={lMonth} onChange={(e) => setLMonth(e.target.value)}>
             <option value="">All dates</option>
             {months.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
           </select>
-          {batches.length > 1 && (
+          {recordingBatchOptions.length > 1 && (
             <select className="ld-inp" aria-label="Batch" value={f.batchName} onChange={(e) => setF((x) => ({ ...x, batchName: e.target.value }))}>
               <option value="">All batches</option>
-              {batches.map((b) => <option key={b} value={b}>{b}</option>)}
+              {recordingBatchOptions.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
           )}
           <span className="rcl-pills">
@@ -733,15 +741,15 @@ export default function Recordings() {
             className="rec-filter-box"
             allowClear placeholder="Internship" style={{ width: 200 }} value={f.courseTitle || undefined}
             onChange={(v) => setF((x) => ({ ...x, courseTitle: v || '' }))}
-            options={courses.map((c) => ({ value: c, label: c }))}
+            options={recordingCourseOptions.map((c) => ({ value: c, label: c }))}
           />
           <Select
             className="rec-filter-box"
             allowClear placeholder="Batch" style={{ width: 180 }} value={f.batchName || undefined}
             onChange={(v) => setF((x) => ({ ...x, batchName: v || '' }))}
-            options={batches.map((c) => ({ value: c, label: c }))}
+            options={recordingBatchOptions.map((c) => ({ value: c, label: c }))}
           />
-          {isManager && (
+          {canFilterStatus && (
             <Select
               className="rec-filter-box"
               allowClear placeholder="Status" style={{ width: 160 }} value={f.status}
@@ -751,6 +759,7 @@ export default function Recordings() {
           )}
           <DatePicker.RangePicker
             className="rec-daterange"
+            value={f.from || f.to ? [f.from, f.to] : null}
             onChange={(v) => setF((x) => ({ ...x, from: v && v[0], to: v && v[1] }))}
           />
         </div>
@@ -1120,4 +1129,3 @@ export default function Recordings() {
     </div>
   );
 }
-

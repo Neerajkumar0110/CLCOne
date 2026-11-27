@@ -13,6 +13,7 @@ import { LMS_TEACHER_ROLES } from '@/config/roles';
 import { request } from '@/request';
 import lmsApi from '../api';
 import MaterialViewer from '../Growth/MaterialViewer';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 // Same "New record" modal look used everywhere else in the LMS (Announcements,
 // Assignments, Projects) — see .crud-modal / .crud-form-grid in featureHub.css.
@@ -100,12 +101,13 @@ function StatCard({ icon, color, label, value, active, onClick }) {
       onClick={onClick}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick && onClick()}
       title={active ? 'Showing only these — click to show all' : `Show only ${label.toLowerCase()}`}
-      style={{ flex: '1 1 150px', background: active ? `${color}0f` : '#fff', border: `1px solid ${active ? color : '#e5e7eb'}`, boxShadow: active ? `0 0 0 2px ${color}33` : '0 4px 18px rgba(15,23,42,.04)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s' }}
+      className={`material-stat${active ? ' active' : ''}`}
+      style={{ borderColor: active ? color : undefined, boxShadow: active ? `0 0 0 2px ${color}33` : undefined }}
     >
-      <div style={{ width: 42, height: 42, borderRadius: 11, background: `${color}1a`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .3 }}>{label}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>{value}</div>
+      <div className="material-stat-icon" style={{ color }}>{icon}</div>
+      <div className="material-stat-body">
+        <div className="material-stat-label">{label}</div>
+        <div className="material-stat-value">{value}</div>
       </div>
     </div>
   );
@@ -685,14 +687,15 @@ function StudentStudyMaterial() {
   const [viewing, setViewing] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.subject, r.course, r.description].filter(Boolean).join(' '),
+    getFilterValue: viewKind,
+  });
 
   useEffect(() => {
     lmsApi.myMaterials().then((r) => setRows((r && r.result) || [])).catch(() => message.error('Load failed')).finally(() => setLoading(false));
   }, []);
 
-  const filtered = useFilteredRows(rows, search, typeFilter, 'all');
   const stats = useMemo(() => ({
     total: rows.length,
     pdf: rows.filter((r) => viewKind(r) === 'pdf').length,
@@ -728,8 +731,8 @@ function StudentStudyMaterial() {
             color={color}
             label={label}
             value={value}
-            active={k !== 'all' && typeFilter === k}
-            onClick={() => setTypeFilter(k === 'all' || typeFilter === k ? 'all' : k)}
+            active={k !== 'all' && list.filter === k}
+            onClick={() => list.setFilter(k === 'all' || list.filter === k ? 'all' : k)}
           />
         ))}
       </div>
@@ -744,11 +747,11 @@ function StudentStudyMaterial() {
                 <input
                   className="material-input"
                   placeholder="Search files by name or subject…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={list.search}
+                  onChange={(e) => list.setSearch(e.target.value)}
                 />
               </div>
-              <select className="material-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <select className="material-select-sm" value={list.filter} onChange={(e) => list.setFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 <option value="pdf">PDF</option>
                 <option value="text">Text (TXT)</option>
@@ -756,16 +759,25 @@ function StudentStudyMaterial() {
                 <option value="image">Image</option>
                 <option value="other">Other</option>
               </select>
-              <span className="uploaded-count">{filtered.length} file{filtered.length === 1 ? '' : 's'}</span>
+              <span className="uploaded-count">{list.total} file{list.total === 1 ? '' : 's'}</span>
             </div>
           </div>
 
-          {filtered.length === 0 ? (
+          {list.total === 0 ? (
             rows.length === 0
               ? <Empty description="No study material has been shared yet." />
               : <div className="material-empty-state"><p>No files match your search.</p></div>
           ) : (
-            <CurriculumList rows={filtered} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} onView={setViewing} />} />
+            <>
+              <CurriculumList rows={list.pageRows} renderCard={(m) => <FileCard key={m.id} m={m} canManage={false} onView={setViewing} />} />
+              <LearnerListControls
+                total={list.total}
+                page={list.page}
+                pageSize={list.pageSize}
+                onPageChange={list.setPage}
+                onPageSizeChange={list.setPageSize}
+              />
+            </>
           )}
         </div>
       </div>

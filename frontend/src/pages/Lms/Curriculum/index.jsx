@@ -11,6 +11,7 @@ import { LMS_TEACHER_ROLES, LMS_FULL_ACCESS_ROLES } from '@/config/roles';
 import lmsApi from '@/pages/Lms/api';
 import '../Policies/policyDesign.css';
 import './cur.css';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 
 // Wired to GET /api/lms/assessments/admin/curriculum/sessions?batch&track and
 // PATCH .../admin/curriculum/sessions/:id/delivery (ported from the
@@ -484,6 +485,10 @@ function StudentCurriculum() {
   const [sessions, setSessions] = useState([]);
   const [resolvedTrack, setResolvedTrack] = useState(null);
   const [loading, setLoading] = useState(true);
+  const list = useLearnerList(sessions, {
+    getSearchText: (s) => [s.unit, s.chapter, s.topic, s.title, s.className, s.status].filter(Boolean).join(' '),
+    getFilterValue: (s) => s.status,
+  });
 
   useEffect(() => {
     (async () => {
@@ -521,7 +526,19 @@ function StudentCurriculum() {
               </>
             )}
           />
-          <SessionsList sessions={sessions} loading={loading} />
+          <LearnerListControls
+            search={list.search}
+            onSearchChange={list.setSearch}
+            searchPlaceholder="Search curriculum sessions…"
+            filter={list.filter}
+            onFilterChange={list.setFilter}
+            filterPlaceholder="All delivery statuses"
+            filterOptions={[...new Set(sessions.map((s) => s.status).filter(Boolean))].map((value) => ({
+              value,
+              label: value.charAt(0) + value.slice(1).toLowerCase(),
+            }))}
+          />
+          <SessionsList sessions={list.filteredRows} loading={loading} />
         </>
       )}
     </div>

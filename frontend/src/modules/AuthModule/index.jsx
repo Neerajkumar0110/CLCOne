@@ -4,6 +4,7 @@ import AuthLayout from '@/layout/AuthLayout';
 // Transparent PNG with a light wordmark — sits on the dark liquid-glass
 // card with no white box behind it.
 import useBrandLogo from '@/hooks/useBrandLogo';
+import { logoSlot } from '@/config/logoSlots';
 
 // AUTH_TITLE is a short phrase like "Sign in" or "Enter your code" — split
 // on the first word so it renders two-tone like the reference design
@@ -25,7 +26,16 @@ const AuthModule = ({ authContent, AUTH_TITLE }) => {
   return (
     <AuthLayout>
       <div className="auth-form-panel">
-        <img src={logo} alt="Career Lab Consulting" className="auth-logo" />
+        <img
+          src={logo}
+          alt="Career Lab Consulting"
+          className="auth-logo"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            const slot = logoSlot('logo_login');
+            if (slot?.fallback) e.currentTarget.src = slot.fallback;
+          }}
+        />
         <AuthTitle text={translate(AUTH_TITLE)} />
 
         <div className="site-layout-content">{authContent}</div>

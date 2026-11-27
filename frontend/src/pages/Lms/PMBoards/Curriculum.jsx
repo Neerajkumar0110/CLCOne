@@ -24,9 +24,9 @@ function recCell(r) {
   if (!r.recording) return <span className="ld-muted">{r.state === 'DELIVERED' ? '—' : ''}</span>;
   const { enabled, status, classStatus } = r.recording;
   if (['live', 'starting'].includes(classStatus)) return <span className="ld-muted">after class</span>;
-  if (!enabled) return <span style={{ color: '#9a3412' }}>Recording was off</span>;
-  if (status === 'AVAILABLE') return <span style={{ color: '#166534' }}>Ready</span>;
-  if (status === 'FAILED') return <span style={{ color: '#9a3412' }}>Source unavailable</span>;
+  if (!enabled) return <span className="rec-off">Recording was off</span>;
+  if (status === 'AVAILABLE') return <span className="rec-ready">Ready</span>;
+  if (status === 'FAILED') return <span className="rec-off">Source unavailable</span>;
   if (status === 'PROCESSING' || classStatus === 'recording_processing') return <span>Processing</span>;
   return <span className="ld-muted">{status ? status.toLowerCase() : '—'}</span>;
 }

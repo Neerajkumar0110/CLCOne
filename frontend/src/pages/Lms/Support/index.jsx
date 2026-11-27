@@ -119,11 +119,17 @@ export default function SupportTickets() {
   }, [location.state, location.pathname, navigate]);
 
   const load = useCallback(async () => {
-    const r = await lmsApi.myTickets();
-    if (r?.success) {
-      setTickets(r.result.tickets || []);
-      setCategories(r.result.categories || []);
-      setPaymentCategories(r.result.paymentCategories || []);
+    try {
+      const r = await lmsApi.myTickets();
+      if (r?.success) {
+        setTickets(r.result.tickets || []);
+        setCategories(r.result.categories || []);
+        setPaymentCategories(r.result.paymentCategories || []);
+      } else {
+        message.error(r?.message || 'Could not load your tickets.');
+      }
+    } catch (e) {
+      message.error('Could not load your tickets. Please try again.');
     }
     setLoading(false);
   }, []);
@@ -153,7 +159,10 @@ export default function SupportTickets() {
     if (!f.category) return message.error('Pick a category.');
     if (!f.subject.trim()) return message.error('Add a short subject.');
     setSaving(true);
-    const r = await lmsApi.createTicket({ ...f, attachments: shots, payment: needsPayment && f.payment ? f.payment : undefined });
+    const r = await lmsApi.createTicket({ ...f, attachments: shots, payment: needsPayment && f.payment ? f.payment : undefined }).catch((e) => {
+      message.error('Something went wrong while raising the ticket. Please try again.');
+      return null;
+    });
     setSaving(false);
     if (r?.success) {
       message.success(r.message || 'Ticket raised.');
@@ -161,7 +170,7 @@ export default function SupportTickets() {
       setShots([]);
       if (r.result && r.result._id) setViewingId(r.result._id);
       load();
-    } else {
+    } else if (r) {
       message.error(r?.message || 'Could not raise the ticket.');
     }
     return undefined;

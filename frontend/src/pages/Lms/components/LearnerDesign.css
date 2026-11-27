@@ -433,6 +433,262 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .ld-page.sm .ld-btn { height: 36px; padding: 0 14px; font-size: 13px; }
 .ld-page.sm .ld-btn.sm { height: 32px; padding: 0 12px; font-size: 12px; }
 .ld-page.sm .ld-btn2 { height: 36px; font-size: 13px; }
+
+/* ══ 2026 student-panel glass theme ═══════════════════════════════════════
+   Ultra-thin black canvas for DARK MODE only — restrained transparent surfaces
+   and crisp 1px borders. Applied only to learner routes in dark theme.
+   Light mode uses standard white surfaces (defined in the light-theme block
+   at the bottom of this file, ~line 1219+).
+
+   FIX (black-screen on load/refresh/module-change):
+   - Removed backdrop-filter from .ld-root — it caused a pure-black flash
+     while Suspense/PageLoader was rendering.
+   - Removed unconditional #080808 background — it was making light mode
+     also appear black. Dark/light backgrounds are now ONLY set by the
+     [data-theme='dark'] / [data-theme='light'] scoped rules at the bottom.
+   - CSS variable --ld-card-radius is the single source of truth for all
+     card border-radii so they are uniform across breakpoints. */
+.ld-root:not(.ld-certificates-route) {
+  --hub-text: #0f172a;
+  --hub-text-soft: #334155;
+  --hub-muted: #475569;
+  --hub-border: #e2e8f0;
+  --hub-border-strong: #cbd5e1;
+  --hub-bg-soft: #f8fafc;
+  --hub-page-bg: #f4f6f8;
+  --hub-surface: #ffffff;
+  --hub-surface-2: #f8fafc;
+  --hub-blue: #0e7490;
+  --hub-blue-dark: #155e75;
+  --hub-blue-soft: #ecfeff;
+  --hub-card-blue: #ffffff;
+  --hub-card-yellow: #ffffff;
+  --hub-card-green: #ffffff;
+  --hub-card-hover: #f8fafc;
+  --hub-card-text: #0f172a;
+  --hub-card-muted: #475569;
+  /* ── card radius token (single source of truth) ── */
+  --ld-card-radius: 14px;
+  color: #0f172a;
+  /* NO background here — set by [data-theme] rules to avoid light/dark clash */
+}
+
+.ld-root:not(.ld-certificates-route) .ld-page,
+.ld-root:not(.ld-certificates-route).ld-page {
+  background: #f4f6f8;
+  color: #0f172a;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-topbar.app-header,
+.ld-root:not(.ld-certificates-route).ld-topbar.app-header {
+  background: rgba(8, 8, 8, 0.82) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.ld-root:not(.ld-certificates-route) .ld-card,
+.ld-root:not(.ld-certificates-route).ld-card,
+.ld-root:not(.ld-certificates-route) .ant-card,
+.ld-root:not(.ld-certificates-route) .lms-portal .ant-card,
+.ld-root:not(.ld-certificates-route) .ld-legacy .ant-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  /* Uniform radius via token — single value for all cards at all breakpoints */
+  border-radius: var(--ld-card-radius) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-card,
+.ld-root:not(.ld-certificates-route).ld-card {
+  padding: 20px;
+  /* Uniform min-height so grid rows stay level */
+  min-height: 120px;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-card:hover,
+.ld-root:not(.ld-certificates-route).ld-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10) !important;
+  transform: translateY(-1px);
+}
+
+.ld-root:not(.ld-certificates-route) h1,
+.ld-root:not(.ld-certificates-route) h2,
+.ld-root:not(.ld-certificates-route) h3,
+.ld-root:not(.ld-certificates-route) .ld-hd > b,
+.ld-root:not(.ld-certificates-route) .ld-big,
+.ld-root:not(.ld-certificates-route) .ld-card {
+  color: #0f172a;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-muted,
+.ld-root:not(.ld-certificates-route) .ant-typography-secondary,
+.ld-root:not(.ld-certificates-route) .ant-card-meta-description {
+  color: #475569 !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-link,
+.ld-root:not(.ld-certificates-route) a,
+.ld-root:not(.ld-certificates-route) .ant-btn-link {
+  color: #0e7490 !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-btn,
+.ld-root:not(.ld-certificates-route) .ant-btn-primary {
+  background: #0e7490 !important;
+  border: 1px solid #0e7490 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-btn2,
+.ld-root:not(.ld-certificates-route) .ant-btn-default {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-li,
+.ld-root:not(.ld-certificates-route) .ld-gate,
+.ld-root:not(.ld-certificates-route) .ld-pol,
+.ld-root:not(.ld-certificates-route) .ant-card-head,
+.ld-root:not(.ld-certificates-route) .ant-table-thead > tr > th,
+.ld-root:not(.ld-certificates-route) .ant-table-tbody > tr > td {
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-track,
+.ld-root:not(.ld-certificates-route) .ld-stp,
+.ld-root:not(.ld-certificates-route) .ld-soft,
+.ld-root:not(.ld-certificates-route) .ld-kv {
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: #d4d4d8;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-track > div,
+.ld-root:not(.ld-certificates-route) .ld-stp.on {
+  background: #fafafa !important;
+  color: #090909 !important;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-chip {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-chip.hai {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.ld-root:not(.ld-certificates-route) .ld-chip.adh,
+.ld-root:not(.ld-certificates-route) .ld-chip.red {
+  background: rgba(244, 63, 94, 0.12);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.18);
+}
+
+.ld-root:not(.ld-certificates-route) .ld-chip.naya {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.ld-root:not(.ld-certificates-route) .ld-dashboard-head {
+  min-height: 82px;
+  align-items: center;
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 18px;
+  background: rgba(18, 18, 18, 0.58);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.ld-root:not(.ld-certificates-route) .ld-dashboard-page > .ld-grid {
+  gap: 14px;
+  /* Stretch so columns are equal height — cards inside fill with height:100% */
+  align-items: stretch;
+}
+
+/* Keep the dashboard's paired cards equal in size within their columns. */
+.ld-root:not(.ld-certificates-route) .ld-dashboard-main-grid > .ld-card,
+.ld-root:not(.ld-certificates-route) .ld-dashboard-main-grid .ld-dashboard-stack > .ld-card {
+  box-sizing: border-box;
+  width: 100%;
+  border-width: 1px !important;
+}
+.ld-root:not(.ld-certificates-route) .ld-dashboard-stack {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Mini cards row (bottom 4): equal height + same radius token */
+.ld-root:not(.ld-certificates-route) .ld-dashboard-mini-row {
+  align-items: stretch;
+}
+.ld-root:not(.ld-certificates-route) .ld-dashboard-mini-row .ld-card {
+  min-height: 110px;
+}
+
+.ld-root:not(.ld-certificates-route) .ld-me-route .ld-page,
+.ld-root:not(.ld-certificates-route).ld-me-route.ld-page {
+  /* Inherits solid #080808 background from base .ld-page rule — no override needed */
+  background: #080808;
+}
+
+.ld-root:not(.ld-certificates-route).ld-me-route .ld-card,
+.ld-root:not(.ld-certificates-route).ld-me-route.ld-card {
+  /* Use same token — no separate override */
+  border-radius: var(--ld-card-radius);
+}
+
+/* Keep certificates visually unchanged by explicitly returning to its prior
+   light white-card design whenever the learner visits that route. */
+.ld-root.ld-certificates-route {
+  background: #f4f6f8;
+  color: #0f172a;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ld-root.ld-certificates-route .ld-card,
+.ld-root.ld-certificates-route .ant-card {
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 760px) {
+  .ld-root:not(.ld-certificates-route) .ld-page,
+  .ld-root:not(.ld-certificates-route).ld-page {
+    background: #080808;
+  }
+  .ld-root:not(.ld-certificates-route) .ld-card,
+  .ld-root:not(.ld-certificates-route).ld-card {
+    /* Keep same token on mobile — no radius jump between breakpoints */
+    border-radius: var(--ld-card-radius) !important;
+    min-height: 0;
+  }
+  .ld-root:not(.ld-certificates-route) .ld-dashboard-head {
+    min-height: 0;
+    align-items: flex-start;
+  }
+}
 .ld-page.sm .ld-btn2.sm { height: 30px; font-size: 12px; }
 .ld-page.sm .ld-btn2.xs { height: 28px; padding: 0 10px; font-size: 12px; }
 .ld-page.sm .ld-seg { height: 32px; padding: 0 12px; font-size: 12px; font-weight: 700; }
@@ -479,6 +735,9 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 /* uploaded company logo in the LMS sidebars (Settings > Logo) */
 .ld-brand .ld-logo { display: block; height: 40px; width: auto; max-width: 100%; object-fit: contain; }
 .ld-brand .ld-logo.mini { height: 36px; margin: 0 auto; }
+.ld-brand.mini .sidebar-logo-expanded,
+.ld-brand.mini .ld-role { display: none; }
+.ld-brand:not(.mini) .sidebar-logo-collapsed { display: none; }
 .ld-brand .ld-role { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #67e8f9; }
 .ld-sider.pm .ld-brand .ld-role { color: #a5b4fc; }
 
@@ -783,3 +1042,851 @@ textarea.ld-inp { height: 90px; padding: 8px 10px; resize: vertical; }
 .tk-shot .ant-image { display: block; width: 100%; }
 .tk-shot .ant-image-img { width: 100%; height: 120px; object-fit: cover; display: block; cursor: zoom-in; }
 .tk-shot figcaption { font-size: 12px; color: #475569; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #e2e8f0; background: #fff; }
+
+/* ══ DARK MODE (teacher panel + any ld page) ══════════════════════════════
+   Learners are forced to light (LmsPanelApp), so these rules only surface for
+   Project Managers who switch dark on. Same palette discipline as light:
+   #0b1220 page, #151e31 cards, indigo accents for the pm board, and
+   white bold headings/KPI text. All key properties use !important so they
+   override inline styles and competing theme CSS. */
+:root[data-theme='dark'] .ld-page { background: #0b1220 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page.pm { background: #0b1020 !important; }
+:root[data-theme='dark'] .ld-page h1 { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-eyebrow { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-muted { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page a { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page a:hover { color: #22d3ee !important; }
+:root[data-theme='dark'] .ld-link { color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-link:hover { color: #22d3ee !important; }
+
+/* cards, KPI tiles, class rows — forced dark with white text */
+:root[data-theme='dark'] .ld-card,
+:root[data-theme='dark'] .ld-k,
+:root[data-theme='dark'] .pm-cls,
+:root[data-theme='dark'] .pm-k { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-k b,
+:root[data-theme='dark'] .pm-k b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .ld-k span,
+:root[data-theme='dark'] .pm-k span,
+:root[data-theme='dark'] .pm-k .cap { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-k .cap { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-cls.next { background: rgba(79, 70, 229, 0.18) !important; border-color: #4f46e5 !important; }
+:root[data-theme='dark'] .pm-legacy { border-top-color: #263350 !important; }
+
+/* soft surfaces, list rows, dividers */
+:root[data-theme='dark'] .ld-kv,
+:root[data-theme='dark'] .ld-soft { background: #0f172a !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-chip { background: #1e293b !important; border: 1px solid #334155 !important; color: #c7d2fe !important; }
+:root[data-theme='dark'] .ld-chip.hai { background: rgba(22, 101, 52, 0.18) !important; color: #4ade80 !important; }
+:root[data-theme='dark'] .ld-chip.adh { background: rgba(194, 65, 12, 0.18) !important; color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-chip.naya { background: rgba(30, 64, 175, 0.18) !important; color: #a5b4fc !important; }
+:root[data-theme='dark'] .ld-chip.gray { background: rgba(30, 41, 59, 0.6) !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-chip.red { background: rgba(127, 29, 29, 0.18) !important; color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-warn { background: rgba(249, 115, 22, 0.14) !important; color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-li,
+:root[data-theme='dark'] .ld-gate,
+:root[data-theme='dark'] .ld-pol,
+:root[data-theme='dark'] .ld-q { border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .ld-empty { color: #94a3b8 !important; }
+
+/* 2026 Student Dashboard — theme-aware glass cards */
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route).ld-page {
+  background: #080808 !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route).ld-card,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-dashboard-overview,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-insight-banner {
+  background: rgba(18, 18, 18, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #f4f4f5 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 18px 45px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card b,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card h1,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card h2,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card h3,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-dashboard-overview b {
+  color: #fafafa !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-card .ld-muted,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-muted {
+  color: #a1a1aa !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-dashboard-head,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-profile-card,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-summary-card {
+  background: rgba(18, 18, 18, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route).ld-page {
+  background: #f4f6f8 !important;
+  color: #0f172a !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-card,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route).ld-card,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-dashboard-overview,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-insight-banner,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-dashboard-head,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-profile-card,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-summary-card {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ld-dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+  gap: 14px;
+}
+.ld-profile-card,
+.ld-summary-card,
+.ld-insight-banner {
+  border-radius: var(--ld-card-radius, 14px);
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(22,22,22,.80);
+  /* Contained glass effect only on these featured cards */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.ld-profile-card {
+  min-height: 128px;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 132px;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+.ld-profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #27272a, #09090b);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fafafa;
+  font-size: 28px;
+  font-weight: 800;
+}
+.ld-profile-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ld-profile-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: inherit;
+}
+.ld-profile-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ld-profile-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34,197,94,.10);
+}
+.ld-profile-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.ld-profile-progress-ring {
+  --progress: 75%;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(#fafafa var(--progress), rgba(255,255,255,.08) 0);
+  position: relative;
+}
+.ld-profile-progress-ring::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: #121212;
+}
+.ld-profile-progress-ring b {
+  position: relative;
+  z-index: 1;
+  font-size: 16px;
+}
+.ld-summary-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px;
+}
+.ld-summary-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-right: 1px solid rgba(255,255,255,.07);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.ld-summary-card > div:nth-child(2n) { border-right: 0; }
+.ld-summary-card > div:nth-child(n+3) { border-bottom: 0; }
+.ld-summary-card b {
+  font-size: 22px;
+  line-height: 1;
+}
+.ld-insight-banner {
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-left: 3px solid #d4d4d8 !important;
+}
+.ld-insight-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.07);
+  color: #fafafa;
+  font-size: 20px;
+}
+.ld-insight-banner p {
+  margin: 4px 0 0;
+  color: var(--hub-muted);
+  font-size: 13px;
+}
+
+:root[data-theme='light'] .ld-profile-avatar { background: #e2e8f0; border-color: #cbd5e1; color: #0f172a; }
+:root[data-theme='light'] .ld-profile-progress-ring { background: conic-gradient(#0f172a var(--progress), #e2e8f0 0); }
+:root[data-theme='light'] .ld-profile-progress-ring::before { background: #ffffff; }
+:root[data-theme='light'] .ld-summary-card > div { border-color: #eef2f6; }
+:root[data-theme='light'] .ld-insight-icon { background: #f1f5f9; color: #0f172a; }
+
+@media (max-width: 1100px) {
+  .ld-dashboard-overview { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .ld-profile-card { grid-template-columns: 56px minmax(0, 1fr); padding: 14px; }
+  .ld-profile-avatar { width: 56px; height: 56px; }
+  .ld-profile-progress { display: none; }
+  .ld-insight-banner { grid-template-columns: 40px minmax(0, 1fr); }
+  .ld-insight-banner .ld-btn { grid-column: 1 / -1; width: 100%; }
+}
+
+/* controls */
+:root[data-theme='dark'] .ld-inp { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-inp::placeholder { color: #64748b !important; }
+:root[data-theme='dark'] .ld-label { color: #cbd5e1 !important; }
+:root[data-theme='dark'] .ld-btn2 { background: #151e31 !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-btn2:hover { background: #1e293b !important; }
+:root[data-theme='dark'] .ld-pill,
+:root[data-theme='dark'] .ld-seg { background: #151e31 !important; color: #cbd5e1 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-pill.on,
+:root[data-theme='dark'] .ld-seg.on { background: #4f46e5 !important; border-color: #4f46e5 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-r { background: #151e31 !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+:root[data-theme='dark'] .ld-r.on { background: #0e7490 !important; border-color: #0e7490 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-btn:disabled { background: #334155 !important; color: #94a3b8 !important; }
+
+/* tables */
+:root[data-theme='dark'] .ld-table th { color: #94a3b8 !important; border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-table td { border-bottom-color: #1e293b !important; color: #e2e8f0 !important; }
+
+/* steps / tabs */
+:root[data-theme='dark'] .ld-stp { background: #1e293b !important; color: #cbd5e1 !important; }
+:root[data-theme='dark'] .ld-stp.past { background: #1e293b !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-stp.done { background: rgba(79, 70, 229, 0.25) !important; color: #c7d2fe !important; }
+:root[data-theme='dark'] .ld-stp.on { background: #0e7490 !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-stp.live { background: #b91c1c !important; color: #fff !important; }
+:root[data-theme='dark'] .ld-tabs { border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-tab { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-tab.on { color: #67e8f9 !important; border-bottom-color: #67e8f9 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-tab.on { color: #a5b4fc !important; border-bottom-color: #a5b4fc !important; }
+
+/* track / weeks */
+:root[data-theme='dark'] .ld-track { background: #263350 !important; }
+:root[data-theme='dark'] .ld-page.pm .ld-pill.on { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+
+/* status text written inline in dark-red / dark-green hexes gets a readable
+   dark-mode variant (React inlines them as rgb(), so catch that form) */
+:root[data-theme='dark'] .ld-page b[style*="rgb(153, 27, 27)"] { color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-page b[style*="rgb(154, 52, 18)"] { color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-page b[style*="rgb(22, 101, 52)"] { color: #4ade80 !important; }
+:root[data-theme='dark'] .ld-page span[style*="rgb(153, 27, 27)"] { color: #fca5a5 !important; }
+:root[data-theme='dark'] .ld-page span[style*="rgb(71, 85, 105)"] { color: #94a3b8 !important; }
+
+/* antd pieces the pm boards use — force dark surfaces + white text */
+:root[data-theme='dark'] .ld-page .ant-card,
+:root[data-theme='dark'] .ld-page .ant-table,
+:root[data-theme='dark'] .ld-page .ant-table-container { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-card-head,
+:root[data-theme='dark'] .ld-page .ant-card-body { background: #151e31 !important; border-color: #263350 !important; }
+:root[data-theme='dark'] .ld-page .ant-table-thead > tr > th { background: #0f172a !important; color: #cbd5e1 !important; border-bottom-color: #263350 !important; }
+:root[data-theme='dark'] .ld-page .ant-table-tbody > tr > td { background: #151e31 !important; color: #e2e8f0 !important; border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .ld-page .ant-table-tbody > tr:hover > td { background: #1e293b !important; }
+:root[data-theme='dark'] .ld-page .ant-table-placeholder .ant-table-cell { background: #151e31 !important; color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page .ant-empty-description { color: #94a3b8 !important; }
+:root[data-theme='dark'] .ld-page .ant-tag { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-progress-text { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page .ant-select-selector,
+:root[data-theme='dark'] .ld-page .ant-input,
+:root[data-theme='dark'] .ld-page .ant-picker { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PM-BOARD COMPONENTS — DARK MODE (Doubts / Curriculum / Candidates)
+   ═════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='dark'] .pm-f,
+:root[data-theme='dark'] .pm-q,
+:root[data-theme='dark'] .pm-k,
+:root[data-theme='dark'] .pm-a,
+:root[data-theme='dark'] .pm-msg,
+:root[data-theme='dark'] .pm-drop,
+:root[data-theme='dark'] .pm-mat { background: #151e31 !important; border-color: #263350 !important; color: #e2e8f0 !important; }
+:root[data-theme='dark'] .pm-f.on,
+:root[data-theme='dark'] .pm-q.on,
+:root[data-theme='dark'] .pm-a.on { border-color: #6366f1 !important; background: rgba(99, 102, 241, 0.15) !important; }
+:root[data-theme='dark'] .pm-drop.over { border-color: #6366f1 !important; background: rgba(99, 102, 241, 0.15) !important; }
+
+:root[data-theme='dark'] .pm-f b,
+:root[data-theme='dark'] .pm-q b,
+:root[data-theme='dark'] .pm-k b,
+:root[data-theme='dark'] .pm-a b { color: #fff !important; font-weight: 700 !important; }
+:root[data-theme='dark'] .pm-f span,
+:root[data-theme='dark'] .pm-f .cap,
+:root[data-theme='dark'] .pm-k .cap,
+:root[data-theme='dark'] .pm-a span { color: #94a3b8 !important; }
+:root[data-theme='dark'] .pm-tip { background: #0f172a !important; color: #94a3b8 !important; border-color: #263350 !important; }
+
+:root[data-theme='dark'] .pm-msg { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .pm-msg.reply { background: #1e293b !important; }
+:root[data-theme='dark'] .pm-mat { border-bottom-color: #1e293b !important; }
+:root[data-theme='dark'] .pm-drop { border-color: #334155 !important; color: #c7d2fe !important; }
+
+:root[data-theme='dark'] .pm-msg.reply b,
+:root[data-theme='dark'] .pm-msg b { color: #fff !important; }
+:root[data-theme='dark'] .pm-mat b { color: #fff !important; }
+
+/* inline hardcoded colours on replies / recording status → readable dark variants */
+:root[data-theme='dark'] .ld-page b[style*="#9a3412"],
+:root[data-theme='dark'] .ld-page span[style*="#9a3412"] { color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-page b[style*="#166534"],
+:root[data-theme='dark'] .ld-page span[style*="#166534"] { color: #4ade80 !important; }
+
+:root[data-theme='dark'] .rec-off { color: #fdba74 !important; }
+:root[data-theme='dark'] .rec-ready { color: #4ade80 !important; }
+
+.pm-msg.student { background: #f8fafc; }
+:root[data-theme='dark'] .pm-msg.student { background: #1e293b !important; }
+
+/* ── Support Manager boards (S1–S9) ───────────────────────────────────────
+   These .sm-* tiles were only ever styled for light mode. The boards render
+   as a bare .ld-page.sm (no .ld-root), so the late student-only dark rules
+   never reach them — without this block the KPI tiles, calendar, mail pane
+   and selected rows stay white inside the dark section shell. */
+:root[data-theme='dark'] .ld-page.sm .sm-kpi,
+:root[data-theme='dark'] .ld-page.sm .sm-st,
+:root[data-theme='dark'] .ld-page.sm .sm-b,
+:root[data-theme='dark'] .ld-page.sm .sm-mail {
+  background: #151e31 !important;
+  border-color: #263350 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme='dark'] .ld-page.sm .sm-kpi .lab,
+:root[data-theme='dark'] .ld-page.sm .sm-kpi .sub,
+:root[data-theme='dark'] .ld-page.sm .sm-st span,
+:root[data-theme='dark'] .ld-page.sm .sm-cap,
+:root[data-theme='dark'] .ld-page.sm .sm-cal .h,
+:root[data-theme='dark'] .ld-page.sm .sm-cal .t {
+  color: #94a3b8 !important;
+}
+:root[data-theme='dark'] .ld-page.sm .sm-tp { color: #e2e8f0 !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-tp.on,
+:root[data-theme='dark'] .ld-page.sm .sm-b.on {
+  background: #134e4a !important;
+  border-color: #0e7490 !important;
+  color: #ffffff !important;
+}
+:root[data-theme='dark'] .ld-page.sm .sm-var { background: #0f172a !important; color: #93c5fd !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-var.bad { background: #3f1d24 !important; color: #fda4af !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-cal .slot { background: #0f172a !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-cal .ev.done { background: #134e4a !important; color: #99f6e4 !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-cal .ev.live { background: #3f1d24 !important; color: #fda4af !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-cal .ev.next { background: #1e293b !important; color: #c7d2fe !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-cal .ev.off { background: #1e293b !important; color: #64748b !important; }
+:root[data-theme='dark'] .ld-page.sm .sm-rowsel,
+:root[data-theme='dark'] .ld-page.sm .ld-table tbody tr.click:hover { background: #1e293b !important; }
+
+/* The recording drop zone is a white inline-styled button. */
+:root[data-theme='dark'] .ld-page.sm .pm-drop {
+  background: #151e31 !important;
+  border-color: #3f3f46 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Inline status colours on spans/table cells were not covered by the older
+   b-only rules. Match React's rgb() serialization as well as raw hex. */
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='rgb(153, 27, 27)'],
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='#991b1b'] { color: #fda4af !important; }
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='rgb(154, 52, 18)'],
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='#9a3412'] { color: #fdba74 !important; }
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='rgb(22, 101, 52)'],
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='#166534'] { color: #4ade80 !important; }
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='rgb(30, 64, 175)'],
+:root[data-theme='dark'] .ld-page.sm :where(span, td)[style*='#1e40af'] { color: #93c5fd !important; }
+
+/* Theme finalization: scoped after legacy overrides so every learner route
+   (including older hard-coded pages) has readable text and matching surfaces. */
+:root[data-theme='dark'] .lms-panel-layout.student,
+:root[data-theme='dark'] .lms-panel-layout.student .ant-layout,
+:root[data-theme='dark'] .lms-panel-layout.student .ant-layout-content,
+:root[data-theme='dark'] .lms-panel-layout.student .ld-root:not(.ld-certificates-route),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) {
+  --hub-text: #f4f4f5;
+  --hub-text-soft: #d4d4d8;
+  --hub-muted: #a1a1aa;
+  --hub-border: rgba(255,255,255,.12);
+  --hub-border-strong: rgba(255,255,255,.2);
+  --hub-bg-soft: #1a1a1a;
+  --hub-page-bg: #080808;
+  --hub-surface: #151515;
+  --hub-surface-2: #1b1b1b;
+  --hub-blue: #e4e4e7;
+  --hub-blue-dark: #fafafa;
+  --hub-blue-soft: #252525;
+  color: #f4f4f5 !important;
+  background-color: #080808 !important;
+}
+
+:root[data-theme='dark'] .lms-panel-layout.student {
+  background: #080808 !important;
+}
+
+:root[data-theme='dark'] .lms-panel-layout.student .ld-topbar.app-header {
+  background: rgba(8,8,8,.92) !important;
+  border-bottom-color: rgba(255,255,255,.09) !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .lms-panel-layout.student .ld-topbar.app-header :where(span, button, .ant-btn, .anticon) {
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='dark'] .lms-panel-layout.student .ld-root:not(.ld-certificates-route) .ld-page,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route).ld-page {
+  background: #080808 !important;
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(
+  h1, h2, h3, h4, p, span, b, strong, label, th, td, li, small, em,
+  div, section, summary, dt, dd, legend, code, button, a
+) {
+  color: #e4e4e7 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(
+  h1, h2, h3, h4, p, span, b, strong, label, th, td, li, small, em,
+  div, section, summary, dt, dd, legend, code, button, a
+) {
+  color: #e4e4e7 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(h1, h2, h3, h4, b, strong) {
+  color: #fafafa !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, .ant-select-selection-placeholder, input::placeholder, textarea::placeholder) {
+  color: #a1a1aa !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(a, .ld-link, .ant-btn-link) {
+  color: #e4e4e7 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-chip.hai, .ant-tag-green, .ant-tag-success, .ant-badge-status-success, .ant-steps-item-finish .ant-steps-item-icon) {
+  color: #86efac !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-chip.adh, .ld-chip.red, .ant-tag-red, .ant-tag-error, .ant-badge-status-error) {
+  color: #fda4af !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-chip.naya, .ant-tag-blue, .ant-badge-status-processing) {
+  color: #93c5fd !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-chip.gray, .ant-tag-default, .ant-badge-status-default) {
+  color: #d4d4d8 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-card, .ant-card, .ant-card-head, .ant-card-body, .ant-table, .ant-table-container, .ant-table-tbody > tr > td, .ant-table-thead > tr > th) {
+  background-color: rgba(20,20,20,.96) !important;
+  border-color: rgba(255,255,255,.1) !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(
+  [class*='card'], [class*='Card'], [class*='panel'], [class*='Panel'],
+  [class*='stat'], [class*='Stat'],
+  [style*='#fff'], [style*='#ffffff'], [style*='rgb(255, 255, 255)'], [style*='rgb(255,255,255)']
+) {
+  background-color: #151515 !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ant-input, .ant-input-affix-wrapper, .ant-input-number, .ant-picker, .ant-select-selector, .ant-select-dropdown, .ant-picker-dropdown, .ant-modal-content, .ant-drawer-content, .ant-popover-inner, .ant-dropdown-menu, .ant-collapse, .ant-collapse-content) {
+  background-color: #171717 !important;
+  border-color: rgba(255,255,255,.16) !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(input, textarea, select, option) {
+  background-color: #171717 !important;
+  border-color: rgba(255,255,255,.16) !important;
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ant-btn-default, .ld-btn2) {
+  background: #1b1b1b !important;
+  border-color: rgba(255,255,255,.18) !important;
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ant-btn-primary, .ld-btn) {
+  background: #f4f4f5 !important;
+  border-color: #f4f4f5 !important;
+  color: #090909 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ant-btn-primary, .ld-btn, .ant-btn-default, .ld-btn2) :where(span, b, strong) {
+  color: inherit !important;
+}
+
+:root[data-theme='light'] .lms-panel-layout.student,
+:root[data-theme='light'] .lms-panel-layout.student .ant-layout,
+:root[data-theme='light'] .lms-panel-layout.student .ant-layout-content,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) {
+  --hub-text: #0f172a;
+  --hub-text-soft: #334155;
+  --hub-muted: #475569;
+  --hub-border: #e2e8f0;
+  --hub-border-strong: #cbd5e1;
+  --hub-bg-soft: #f8fafc;
+  --hub-page-bg: #f4f6f8;
+  --hub-surface: #ffffff;
+  --hub-surface-2: #f8fafc;
+  --hub-blue: #0e7490;
+  --hub-blue-dark: #155e75;
+  --hub-blue-soft: #ecfeff;
+  color: #0f172a;
+}
+
+:root[data-theme='light'] .lms-panel-layout.student,
+:root[data-theme='light'] .lms-panel-layout.student .ant-layout,
+:root[data-theme='light'] .lms-panel-layout.student .ant-layout-content {
+  background: #f4f6f8 !important;
+}
+
+:root[data-theme='light'] .lms-panel-layout.student .ld-topbar.app-header {
+  background: rgba(255,255,255,.96) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route).ld-page {
+  background: #f4f6f8 !important;
+  color: #0f172a !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(h1, h2, h3, h4, p, span, b, strong, label, th, td, li, small, em, div, section, summary, dt, dd, legend, code, button, a) {
+  color: #0f172a !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, .ant-select-selection-placeholder, input::placeholder, textarea::placeholder) {
+  color: #475569 !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-link, a, .ant-btn-link) {
+  color: #0e7490 !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ant-input, .ant-input-affix-wrapper, .ant-input-number, .ant-picker, .ant-select-selector) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .ld-root.ld-certificates-route {
+  background: #080808 !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route .ld-page {
+  background: #080808 !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route .ld-card:not([aria-label='Certificate preview']) {
+  background: #151515 !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route .ld-card:not([aria-label='Certificate preview']) :where(h1, h2, h3, h4, p, span, b, strong, label, th, td, li, small, em, div, section) {
+  color: #e4e4e7 !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route .ld-card:not([aria-label='Certificate preview']) :where(b, strong) {
+  color: #fafafa !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route :where(.ld-muted, .ld-empty) {
+  color: #a1a1aa !important;
+}
+:root[data-theme='dark'] .ld-root.ld-certificates-route .ant-card {
+  background: #151515 !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: #e4e4e7 !important;
+}
+
+/* The general learner text rule above also matches button labels. Give every
+   learner button an explicit surface and label color so nested Ant spans,
+   icons and custom text cannot inherit a low-contrast color. */
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn) {
+  background-color: #202020 !important;
+  border-color: rgba(255,255,255,.18) !important;
+  color: #f4f4f5 !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn) :where(span, b, strong, .anticon) {
+  color: inherit !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) {
+  background-color: #d4d4d8 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) :where(span, b, strong, .anticon) {
+  color: #09090b !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-link, .ld-tab, .ant-btn-link, .ant-btn-text, .ld-tabbar button) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #e4e4e7 !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-pill.on, .ld-seg.on, .ld-r.on) {
+  background-color: #d4d4d8 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn):disabled,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn).ant-btn-disabled {
+  background-color: #292929 !important;
+  border-color: #383838 !important;
+  color: #a1a1aa !important;
+  cursor: not-allowed;
+}
+
+:root[data-theme='dark'] .ld-root.ld-certificates-route :where(button, .ant-btn) {
+  background-color: #202020 !important;
+  border-color: rgba(255,255,255,.18) !important;
+  color: #f4f4f5 !important;
+}
+
+:root[data-theme='dark'] .ld-root.ld-certificates-route :where(.ld-btn, .ant-btn-primary) {
+  background-color: #d4d4d8 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+
+:root[data-theme='dark'] .ld-root.ld-certificates-route :where(button, .ant-btn) :where(span, b, strong, .anticon) {
+  color: inherit !important;
+}
+
+/* Keep learner copy readable after the broad legacy theme rules above. */
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(
+  p, span, label, th, td, li, small, em, code, .ant-statistic-title, .ant-statistic-content
+),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(
+  p, span, label, th, td, li, small, em, code, .ant-statistic-title, .ant-statistic-content
+) {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(h1, h2, h3, h4, b, strong, .ant-statistic-content-value),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(h1, h2, h3, h4, b, strong, .ant-statistic-content-value) {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, input::placeholder, textarea::placeholder),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, input::placeholder, textarea::placeholder) {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-link, a, .ant-btn-link),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-link, a, .ant-btn-link) {
+  color: #67e8f9 !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(button, .ant-btn),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn) {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) {
+  background: #d4d4d8 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary) :where(span, b, strong, .anticon),
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) :where(span, b, strong, .anticon) {
+  color: #09090b !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page :where(button, .ant-btn):disabled,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn):disabled {
+  background: #292929 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile {
+  background: #151515 !important;
+  color: #ffffff !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile .ant-statistic-title,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile .ant-statistic-title {
+  color: #e5e7eb !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile .ant-statistic-content,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile .ant-statistic-content {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-page .ld-table tbody tr.on > td {
+  background: #164e63 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(
+  p, span, label, th, td, li, small, em, code, .ant-statistic-title, .ant-statistic-content
+),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(
+  p, span, label, th, td, li, small, em, code, .ant-statistic-title, .ant-statistic-content
+) {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(h1, h2, h3, h4, b, strong, .ant-statistic-content-value),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(h1, h2, h3, h4, b, strong, .ant-statistic-content-value) {
+  color: #0b1220 !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, input::placeholder, textarea::placeholder),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-muted, .ant-typography-secondary, .ant-empty-description, .ant-form-item-explain, input::placeholder, textarea::placeholder) {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-link, a, .ant-btn-link),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-link, a, .ant-btn-link) {
+  color: #0e7490 !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(button, .ant-btn),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(button, .ant-btn) {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) {
+  background: #0e7490 !important;
+  border-color: #0e7490 !important;
+  color: #ffffff !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary) :where(span, b, strong, .anticon),
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary) :where(span, b, strong, .anticon) {
+  color: #ffffff !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary):disabled,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) :where(.ld-btn, .ant-btn-primary):disabled {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page :where(.ld-btn, .ant-btn-primary):disabled :where(span, b, strong, .anticon) {
+  color: #334155 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile .ant-statistic-title,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile .ant-statistic-title {
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page .lms-kpi-tile .ant-statistic-content,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .lms-kpi-tile .ant-statistic-content {
+  color: #0b1220 !important;
+  font-weight: 700 !important;
+}
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-page .ld-table tbody tr.on > td {
+  background: #ecfeff !important;
+  color: #0f172a !important;
+}
+
+/* The class-room tiles use a dark video surface in both app themes. */
+.ld-root:not(.ld-certificates-route) .ld-page .cd-stage :where(*) {
+  color: #f4f4f5 !important;
+  font-weight: 600 !important;
+}
+
+/* Recording/status filter pills keep their label readable in both themes.
+   The generic dark-theme button rule is more specific later in this file,
+   so selected pills need an explicit final override. */
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-pill.on,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-seg.on,
+:root[data-theme='dark'] .ld-root:not(.ld-certificates-route) .ld-r.on {
+  background: #d4d4d8 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+}
+
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-pill.on,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-seg.on,
+:root[data-theme='light'] .ld-root:not(.ld-certificates-route) .ld-r.on {
+  background: #0f172a !important;
+  border-color: #0f172a !important;
+  color: #ffffff !important;
+}

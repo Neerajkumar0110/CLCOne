@@ -67,6 +67,20 @@ import useSidebarLogo from '@/hooks/useSidebarLogo';
 // one LMS design system (radius / type / tables / modals / tooltip) — look only
 import LmsUi from '@/components/LmsUi';
 import PolicyConsentModal from '@/pages/Lms/Policies/PolicyConsentModal';
+import { logoSlot } from '@/config/logoSlots';
+import { settingsAction } from '@/redux/settings/actions';
+
+// The uploaded logo lives on the server that ran the upload — a dev machine
+// pointing at the shared settings DB can 404 on the file. Never let the brand
+// go blank: on a load error swap back to the bundled logo (once).
+const logoFallback = (slotKey) => (e) => {
+  const slot = logoSlot(slotKey);
+  const img = e.currentTarget;
+  if (slot && slot.fallback && img.getAttribute('src') !== slot.fallback && !img.dataset.fellBack) {
+    img.dataset.fellBack = '1';
+    img.src = slot.fallback;
+  }
+};
 
 const { Sider, Header, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -303,6 +317,8 @@ function AccessHoldScreen({ info, onRequested }) {
     if (r?.success) {
       message.success(r.message || 'Request sent to Support.');
       onRequested();
+    } else {
+      message.error(r?.message || 'Could not send your request. Please try again.');
     }
   };
   return (
@@ -344,7 +360,11 @@ function AccessHoldScreen({ info, onRequested }) {
           </div>
         ) : (
           <>
+            <label htmlFor="reactivation-note" style={{ display: 'block', fontSize: 13, fontWeight: 600, textAlign: 'left', marginBottom: 6 }}>
+              Message to Support (optional)
+            </label>
             <textarea
+              id="reactivation-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Anything you'd like Support to know? (optional)"
@@ -619,9 +639,13 @@ export default function LmsPanelApp() {
   // serverless, where the socket layer doesn't run at all).
   const [updates, setUpdates] = useState({ unread: 0, notifications: [], liveNow: [] });
   const lastTopId = useRef(null);
+  const pollFailures = useRef(0);
+  const [connLost, setConnLost] = useState(false);
   const pollUpdates = useCallback(async () => {
     try {
       const res = await lmsApi.updates();
+      pollFailures.current = 0;
+      setConnLost(false);
       const u = (res && res.result) || { unread: 0, notifications: [], liveNow: [] };
       setUpdates(u);
       const top = u.notifications && u.notifications[0];
@@ -630,10 +654,14 @@ export default function LmsPanelApp() {
       }
       if (top) lastTopId.current = top.id;
     } catch (e) {
-      /* silent */
+      /* silent — but after 3 straight failures tell the user why the bell
+         and hold-screens aren't updating, instead of failing invisibly */
+      pollFailures.current += 1;
+      if (pollFailures.current >= 3) setConnLost(true);
     }
   }, []);
   useEffect(() => {
+    dispatch(settingsAction.list({ entity: 'setting' }));
     pollUpdates();
     const iv = setInterval(pollUpdates, 180000); // 3-min safety net, not the primary trigger
     const onVis = () => document.visibilityState === 'visible' && pollUpdates();
@@ -721,7 +749,7 @@ export default function LmsPanelApp() {
       inlineCollapsed={isMobile ? false : collapsed}
       onClick={({ key }) => key.startsWith('group:') || go(key)}
       items={buildMenuItems(nav, unreadPaths)}
-      style={{ borderRight: 0, background: 'transparent', width: '100%' }}
+      style={{ borderRight: 0, background: 'transparent', width: '100%', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     />
   );
 
@@ -748,8 +776,48 @@ export default function LmsPanelApp() {
   // 2026-11-27: pending mandatory policies open PolicyConsentModal over every
   // page (below) instead of redirecting; the server still refuses gated data.
   const gate = (path, element) => shell(path, element);
+  const connBanner = connLost && !accessHold && !financeHold && (
+    <div
+      style={{
+        margin: '4px 16px 0',
+        padding: '8px 14px',
+        borderRadius: 10,
+        fontSize: 13,
+        fontWeight: 600,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        background: '#fff7e6',
+        border: '1px solid #ffd591',
+        color: '#ad6800',
+      }}
+    >
+      <span>⚠ Live updates are not connecting — data on screen may be outdated.</span>
+      <button
+        type="button"
+        onClick={() => {
+          pollFailures.current = 0;
+          setConnLost(false);
+          pollUpdates();
+        }}
+        style={{
+          border: '1px solid #ffd591',
+          background: 'transparent',
+          color: '#ad6800',
+          fontWeight: 700,
+          borderRadius: 8,
+          padding: '4px 12px',
+          cursor: 'pointer',
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  );
   const routes = (
     <Suspense fallback={<PageLoader />}>
+      {connBanner}
       {policyGate && (
         <PolicyConsentModal
           open
@@ -784,10 +852,10 @@ export default function LmsPanelApp() {
       {/* uploaded company logo (Settings > Logo) + the panel's role, as on the boards */}
       <div className={`ld-brand${!isDrawer && collapsed ? ' mini' : ''}`} onClick={() => go(base)} title={isTeacher ? 'Career Lab · Project Manager' : 'Career Lab · InternX-AI'}>
         {!isDrawer && collapsed ? (
-          <img className="ld-logo mini" src={logoMini} alt="Career Lab Consulting" />
+          <img className="ld-logo mini" src={logoMini} alt="Career Lab Consulting" onError={logoFallback('logo_sidebar_collapsed')} />
         ) : (
           <>
-            <img className="ld-logo" src={logoWide} alt="Career Lab Consulting" />
+            <img className="ld-logo" src={logoWide} alt="Career Lab Consulting" onError={logoFallback('logo_sidebar_expanded')} />
             <span className="ld-role">{isTeacher ? 'Project Manager' : 'InternX-AI'}</span>
           </>
         )}

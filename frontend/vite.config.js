@@ -30,6 +30,21 @@ export default ({ mode }) => {
         },
       },
     },
+    build: {
+      // Split the big third-party libraries into their own cached chunks:
+      // they change far less often than app code, so repeat visits load them
+      // from browser cache and the app chunks download in parallel instead of
+      // one huge bundle.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            antd: ['antd', '@ant-design/icons'],
+            charts: ['chart.js'],
+          },
+        },
+      },
+    },
   };
   return defineConfig(config);
 };

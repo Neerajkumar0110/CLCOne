@@ -62,27 +62,64 @@
   flex-shrink: 0;
 }
 
+/* Hide scrollbar completely across all browsers while keeping smooth scrolling */
+.navigation,
+.navigation *,
+.navigation.ant-layout-sider,
+.navigation .ant-layout-sider-children,
+.navigation .ant-menu,
+.navigation .ant-menu-root,
+.navigation .ant-menu-inline,
+.navigation .ant-menu-sub,
+.navigation-drawer,
+.navigation-drawer *,
+.navigation-drawer .ant-drawer-body,
+.navigation-drawer .ant-drawer-content {
+  scrollbar-width: none !important; /* Firefox, modern Chrome, Safari, Edge */
+  -ms-overflow-style: none !important; /* IE & Edge */
+}
+
+.navigation::-webkit-scrollbar,
+.navigation *::-webkit-scrollbar,
+.navigation.ant-layout-sider::-webkit-scrollbar,
+.navigation .ant-layout-sider-children::-webkit-scrollbar,
+.navigation .ant-menu::-webkit-scrollbar,
+.navigation .ant-menu *::-webkit-scrollbar,
+.navigation-drawer::-webkit-scrollbar,
+.navigation-drawer *::-webkit-scrollbar,
+.navigation-drawer .ant-drawer-body::-webkit-scrollbar,
+.navigation-drawer .ant-drawer-content::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.navigation::-webkit-scrollbar-thumb,
+.navigation *::-webkit-scrollbar-thumb,
+.navigation::-webkit-scrollbar-track,
+.navigation *::-webkit-scrollbar-track,
+.navigation-drawer::-webkit-scrollbar-thumb,
+.navigation-drawer *::-webkit-scrollbar-thumb {
+  display: none !important;
+  background: transparent !important;
+}
+
 /* Menu overrides */
 .navigation .ant-menu {
   background: transparent !important;
   border-inline-end: none !important;
 
-  /* Menu available height lega */
+  /* Menu available height */
   flex: 1;
 
   /* Vertical scroll */
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 
   padding-inline: 0 !important;
-
-  /* Firefox — hide scrollbar */
-  scrollbar-width: none;
-}
-
-.navigation .ant-menu::-webkit-scrollbar {
-  /* Chrome/Safari/Edge — hide scrollbar */
-  display: none;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .navigation .ant-menu-item {
@@ -121,12 +158,14 @@
   margin: 8px 10px !important;
   width: calc(100% - 20px) !important;
   font-weight: 600;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
 }
 
 .navigation .ant-menu-submenu-title:hover {
   background: var(--nav-accent-soft) !important;
   color: #fff !important;
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.28);
+  transform: translateX(2px);
 }
 
 .navigation .ant-menu-submenu-arrow {
@@ -190,6 +229,14 @@
 .ant-menu-submenu-popup .ant-menu-item:hover {
   background: var(--nav-accent-soft) !important;
   color: #fff !important;
+}
+
+/* Collapsed sidebar: the section headers themselves (LMS, HRMS, …) open the
+   flyout — give them the same hover as the expanded sidebar's titles. */
+.ant-menu-submenu-popup .ant-menu-submenu-title:hover {
+  background: var(--nav-accent-soft) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.28);
 }
 
 .ant-menu-submenu-popup .ant-menu-item-selected {

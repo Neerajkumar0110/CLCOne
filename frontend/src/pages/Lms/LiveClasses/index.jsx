@@ -43,6 +43,7 @@ import lmsApi from '../api';
 // requireManager → LMS_FULL_ACCESS_ROLES: Admin, Super Admin, owner, Support).
 const MANAGER_ROLES = ['owner', 'Super Admin', 'Admin', 'Support'];
 import BatchStudentsPanel from '../components/BatchStudentsPanel';
+import { LearnerListControls, useLearnerList } from '../components/LearnerListControls';
 import DevicePreflightModal from '../components/DevicePreflightModal';
 import ClassDetailDrawer, { ClassBoard, classTitle } from './ClassDetailDrawer';
 
@@ -186,6 +187,12 @@ export default function LiveClasses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rows, setRows] = useState([]);
+  // staff card grid: search / status filter / paging (frontend-only branch, 2026-11-27 merge)
+  const list = useLearnerList(rows, {
+    getSearchText: (r) => [r.title, r.className, r.batchName, r.courseTitle, r.teacherName].filter(Boolean).join(' '),
+    getFilterValue: (r) => r.status,
+    pageSize: 12,
+  });
   const [busyId, setBusyId] = useState(null);
   const [attFor, setAttFor] = useState(null);
   const [att, setAtt] = useState([]);
@@ -740,8 +747,27 @@ export default function LiveClasses() {
           />
         </Card>
       ) : (
+        <>
+        <LearnerListControls
+          search={list.search}
+          onSearchChange={list.setSearch}
+          searchPlaceholder="Search classes…"
+          filter={list.filter}
+          onFilterChange={list.setFilter}
+          filterPlaceholder="All class statuses"
+          filterOptions={[...new Set(rows.map((r) => r.status).filter(Boolean))].map((value) => ({
+            value,
+            label: STATUS_META[value]?.label || value,
+          }))}
+          total={list.total}
+          page={list.page}
+          pageSize={list.pageSize}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+        />
+        {list.total === 0 ? <Empty description="No classes match these filters." /> : (
         <div className="live-classes-grid">
-          {rows.map((r) => {
+          {list.pageRows.map((r) => {
             const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
             const busy = busyId === r.id;
             const isLive = r.status === 'LIVE' || r.status === 'STARTING';
@@ -880,6 +906,8 @@ export default function LiveClasses() {
             );
           })}
         </div>
+        )}
+        </>
       )}
 
       <Modal

@@ -46,7 +46,7 @@ function Thread({ id, onChanged }) {
       <div className="ld-muted" style={{ fontSize: 13 }}>{d.studentName}{d.course ? ` · ${d.course}` : ''}{d.lessonTitle ? ` · ${d.lessonTitle}` : ''} · {fmtDayTime(d.created)}{d.pinned ? ' · 📌 pinned for batch' : ''}</div>
       {d.body && <div className="pm-msg">{d.body}</div>}
       {(d.replies || []).map((r, i) => (
-        <div key={i} className="pm-msg reply" style={r.byRole === 'student' ? { background: '#f8fafc' } : undefined}>
+        <div key={i} className={`pm-msg reply${r.byRole === 'student' ? ' student' : ''}`}>
           <b>{r.byName} ({ROLE[r.byRole] || r.byRole}):</b> {r.body}
           <div className="ld-muted" style={{ fontSize: 11 }}>{fmtDayTime(r.at)}</div>
         </div>

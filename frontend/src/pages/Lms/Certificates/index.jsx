@@ -19,6 +19,11 @@ import lmsApi from '../api';
 import '../components/LearnerDesign.css';
 import { tablePagination } from '../components/ui';
 
+// Every PDF download helper can fail (expired token, revoked certificate…) —
+// surface it as a toast instead of a silent dead button.
+const dl = (promise) =>
+  promise.catch((e) => message.error(e?.userMessage || e?.message || 'Download failed. Please try again.'));
+
 const { Text, Paragraph, Title } = Typography;
 const MGR = ['owner', 'Super Admin', 'Admin', 'Sales Manager', 'Support'];
 

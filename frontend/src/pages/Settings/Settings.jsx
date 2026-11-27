@@ -16,8 +16,7 @@ import {
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import { request } from "@/request";
-import { BASE_URL } from "@/config/serverApiConfig";
-import { LOGO_SLOTS, LOGO_SLOT_KEYS } from '@/config/logoSlots';
+import { LOGO_SLOTS, LOGO_SLOT_KEYS, resolveLogoUrl } from '@/config/logoSlots';
 import { useDispatch } from 'react-redux';
 import { settingsAction } from '@/redux/settings/actions';
 import { BorderTrail } from "@/components/ui/border-trail";
@@ -269,16 +268,28 @@ function LogoSection() {
       <div className="hub-logo-slots">
         {LOGO_SLOTS.map((slot) => {
           const stored = paths[slot.key];
-          const src = stored ? BASE_URL + stored : slot.fallback;
+          const src = resolveLogoUrl(stored, slot.fallback);
           return (
             <div className="hub-logo-slot" key={slot.key}>
               <div className={`hub-logo-slot-preview is-${slot.shape}`}>
-                {loading ? "…" : <img src={src} alt={slot.label} />}
+                {loading ? "…" : (
+                  <img
+                    src={src}
+                    alt={slot.label}
+                    onError={(e) => {
+                      if (e.currentTarget.getAttribute("src") !== slot.fallback) {
+                        setPaths((current) => ({ ...current, [slot.key]: "" }));
+                      }
+                    }}
+                  />
+                )}
               </div>
               <div className="hub-logo-slot-main">
                 <div className="hub-logo-slot-label">{slot.label}</div>
                 <div className="hub-logo-slot-desc">{slot.description}</div>
-                {!stored && !loading && <div className="hub-logo-slot-default">Using the built-in logo</div>}
+                {!stored && !loading && (
+                  <div className="hub-logo-slot-default">Using the built-in logo</div>
+                )}
               </div>
               <label className="hub-btn hub-btn-primary hub-logo-slot-btn" style={{ cursor: busyKey === slot.key ? "wait" : "pointer" }}>
                 {busyKey === slot.key ? "Uploading…" : "Upload"}

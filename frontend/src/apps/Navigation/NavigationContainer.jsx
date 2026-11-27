@@ -561,6 +561,8 @@ function Sidebar({ collapsible, isMobile = false }) {
         {...(collapsedNow ? {} : { openKeys, onOpenChange: setOpenKeys })}
         style={{
           width: '100%',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       />
     </Sider>

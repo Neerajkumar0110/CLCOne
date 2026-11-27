@@ -736,3 +736,33 @@ h1, h2, h3, h4, h5, h6,
 .dash-kpi.hub-fade-up {
   animation-delay: var(--d, 0ms);
 }
+
+
+/* General dark mode styling for DashboardShell (.dash-shell) */
+:root[data-theme='dark'] .dash-shell .dash-header,
+:root[data-theme='dark'] .dash-shell .dash-filter-card,
+:root[data-theme='dark'] .dash-shell .dash-ratio,
+:root[data-theme='dark'] .dash-shell .dash-chart-card > .hub-card,
+:root[data-theme='dark'] .dash-shell .dash-kpi {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .dash-shell .dash-header h2,
+:root[data-theme='dark'] .dash-shell .dash-kpi-value,
+:root[data-theme='dark'] .dash-shell .dash-ratio-value {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .dash-shell .dash-header p,
+:root[data-theme='dark'] .dash-shell .dash-kpi-label,
+:root[data-theme='dark'] .dash-shell .dash-ratio-label,
+:root[data-theme='dark'] .dash-shell .dash-scope-note {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .dash-shell .hub-btn:not(.hub-btn-primary) {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}

@@ -1,0 +1,183 @@
+/* Home dashboard — matching the "Namaste" reference mockup:
+   airy light canvas, white rounded cards with hairline borders,
+   tiny uppercase status chips, and blue inline links. All colours
+   ride the --hub-* theme variables (with light fallbacks) so dark
+   mode keeps working. */
+
+.sdb-page {
+  --sdb-text: var(--hub-text, #1f2937);
+  --sdb-muted: var(--hub-muted, #6b7280);
+  --sdb-surface: var(--hub-surface, #ffffff);
+  --sdb-border: var(--hub-border, #eef2f6);
+  --sdb-link: #2563eb;
+  padding: 4px;
+}
+
+.sdb-page a,
+.sdb-page .sdb-link {
+  color: var(--sdb-link);
+  font-weight: 600;
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.sdb-page a:hover,
+.sdb-page .sdb-link:hover { text-decoration: underline; }
+
+/* ── header ─────────────────────────────────────────────── */
+.sdb-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sdb-head h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--sdb-text);
+}
+.sdb-head-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sdb-muted);
+}
+
+/* ── chips (HAi / NAYA / ADHOORA / DONE…) ────────────────── */
+.sdb-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sdb-chip.is-green { background: #ecfdf5; color: #047857; }
+.sdb-chip.is-blue  { background: #eff6ff; color: #1d4ed8; }
+.sdb-chip.is-amber { background: #fff7e6; color: #ad6800; }
+.sdb-chip.is-red   { background: #fef2f2; color: #b91c1c; }
+.sdb-chip.is-gray  { background: var(--sdb-bg-soft, #f1f5f9); color: var(--sdb-muted, #64748b); }
+
+/* ── card shell ─────────────────────────────────────────── */
+.sdb-card {
+  background: var(--sdb-surface);
+  border: 1px solid var(--sdb-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  height: 100%;
+  min-width: 0;
+}
+.sdb-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.sdb-card-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--sdb-text);
+}
+
+/* ── eligibility gate card ──────────────────────────────── */
+.sdb-gates-state {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  margin: 2px 0 14px;
+  color: var(--sdb-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sdb-gates-state.is-eligible { color: #047857; }
+.sdb-gates-count { font-size: 12.5px; font-weight: 600; color: var(--sdb-muted); }
+
+.sdb-gate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px dashed var(--sdb-border);
+  font-size: 13.5px;
+  color: var(--sdb-text);
+}
+.sdb-gate-row .sdb-gate-label { min-width: 0; }
+.sdb-gate-row .sdb-gate-detail { color: var(--sdb-muted); font-size: 12px; }
+.sdb-gate-review { margin-top: 10px; }
+
+/* ── stat cards (attendance / assessments) ───────────────── */
+.sdb-stat-big {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--sdb-text);
+  margin: 0 0 4px;
+}
+.sdb-stat-sub { font-size: 12.5px; color: var(--sdb-muted); margin: 0 0 10px; }
+.sdb-stat-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sdb-bg-soft, #eef2f6);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.sdb-stat-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0e7490, #06b6d4);
+}
+
+.sdb-assess-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px dashed var(--sdb-border);
+  font-size: 13px;
+  color: var(--sdb-text);
+}
+.sdb-assess-row:first-of-type { border-top: 0; }
+.sdb-assess-row strong { font-weight: 700; }
+.sdb-assess-row .is-qualified { color: #047857; font-weight: 700; font-size: 12px; }
+.sdb-assess-row .is-pending { color: var(--sdb-muted); font-size: 12px; }
+
+/* ── list cards (next actions / checklist) ───────────────── */
+.sdb-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px dashed var(--sdb-border);
+  font-size: 13px;
+}
+.sdb-action-row:first-of-type { border-top: 0; }
+.sdb-action-row a { font-size: 13px; }
+.sdb-action-row .sdb-when { color: var(--sdb-muted); font-size: 12px; white-space: nowrap; }
+.sdb-action-row .is-live {
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+}
+.sdb-empty { font-size: 13px; color: var(--sdb-muted); padding: 6px 0; }
+
+/* ── bottom row of small cards ───────────────────────────── */
+.sdb-mini-title { font-size: 14px; font-weight: 700; color: var(--sdb-text); margin: 0 0 6px; }
+.sdb-mini-sub { font-size: 12.5px; color: var(--sdb-muted); margin: 0 0 10px; }
+
+@media (max-width: 768px) {
+  .sdb-head h1 { font-size: 21px; }
+  .sdb-card { padding: 14px; }
+}

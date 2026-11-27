@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Skeleton, Empty, Tag, Space, Typography, Collapse, message } from 'antd';
 import { ReadOutlined, ClockCircleOutlined, BookOutlined, CheckCircleFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import DOMPurify from 'dompurify';
 import lmsApi from '../api';
 
 const { Text, Paragraph } = Typography;
@@ -35,7 +36,7 @@ function SessionCard({ chapter }) {
         ) : null}
       </div>
       {lesson && lesson.content && (
-        <div className="curriculum-session-body" dangerouslySetInnerHTML={{ __html: lesson.content }} />
+        <div className="curriculum-session-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content) }} />
       )}
     </div>
   );

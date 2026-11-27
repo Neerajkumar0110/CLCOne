@@ -1,0 +1,43 @@
+:root[data-theme='dark'] .lms-teacher-dashboard .lms-portal-head,
+:root[data-theme='dark'] .lms-teacher-dashboard .lms-kpi-tile,
+:root[data-theme='dark'] .lms-teacher-dashboard .hub-card,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-card-head,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-card-body {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .lms-teacher-dashboard .lms-portal-head h2,
+:root[data-theme='dark'] .lms-teacher-dashboard .lms-portal-head p,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-statistic-title,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-statistic-content,
+:root[data-theme='dark'] .lms-teacher-dashboard .hub-card-header h3,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-card-head-title,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-cell,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-empty-description,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-progress-text,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-tag {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-container,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-thead > tr > th,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-tbody > tr > td,
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-placeholder .ant-table-cell {
+  background: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+:root[data-theme='dark'] .lms-teacher-dashboard .ant-table-tbody > tr:hover > td {
+  background: #334155 !important;
+}
