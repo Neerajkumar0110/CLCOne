@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { login, verifyOtp, resendOtp, cancelOtp } from '@/redux/auth/actions';
 import { selectAuth } from '@/redux/auth/selectors';
 import '../erp.css';
+import portalLogo from '@/style/images/Horizontal-1-transparent.png';
 
 // E0 · /employee/login — same CRM account, same single-login rule
 // (issueSession): signing in here signs any other device out, and today's
@@ -54,11 +55,8 @@ export default function EmployeeLogin() {
     <div className="erp" style={{ display: 'flex', flexWrap: 'wrap', minHeight: '100vh', background: 'var(--e-card)' }}>
       <aside style={{ flex: '1 1 480px', background: '#0B1020', padding: 56, display: 'flex', flexDirection: 'column', gap: 28, minWidth: 0 }}>
         <div className="e-row" style={{ gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#4F46E5', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>CL</div>
-          <div>
-            <div style={{ color: '#fff', fontWeight: 700 }}>CLC One</div>
-            <div style={{ color: '#94A3B8', fontSize: 12 }}>Employee Portal</div>
-          </div>
+          <img src={portalLogo} alt="Career Lab Consulting" style={{ height: 40, maxWidth: 180, objectFit: 'contain' }} />
+          <div style={{ color: '#94A3B8', fontSize: 12, borderLeft: '1px solid #1F2937', paddingLeft: 10 }}>Employee Portal</div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20, maxWidth: 460 }}>
           <h1 style={{ margin: 0, color: '#fff', fontSize: 36, lineHeight: '44px' }}>Your day, your hours, your leaves. In one place.</h1>

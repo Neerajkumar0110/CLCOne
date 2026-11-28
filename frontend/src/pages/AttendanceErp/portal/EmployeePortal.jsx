@@ -9,6 +9,7 @@ import { setTrackerConfig } from '../tracker';
 import { Av, Ic, Skeleton, ToastProvider, Modal, ModalHead, hm } from '../ui';
 import '../erp.css';
 import AgentSetup from './AgentSetup';
+import portalLogo from '@/style/images/Horizontal-1-transparent.png';
 
 // /employee — the Employee Portal (design E0–E9). Own layout (no CRM
 // sidebar, no admin menus). Every API it calls is /attendance-erp/me/*,
@@ -49,6 +50,9 @@ export default function EmployeePortal() {
       setToday(r.result);
       setFetchedAt(Date.now());
       setTrackerConfig(r.result.settings);
+    } else {
+      // no endless loading: not in the ERP (403) → a clear message; else → retry
+      setToday((t) => (t && !t.error ? t : { error: true, noAccess: r.status === 403 || /portal|access/i.test(r.message || ''), message: r.message || 'Could not load your day.' }));
     }
     return r;
   }, []);
@@ -81,7 +85,7 @@ export default function EmployeePortal() {
   // First sign-in: ask for the desktop agent once (Allow → download → connect).
   const [agentAsk, setAgentAsk] = useState(false);
   useEffect(() => {
-    api.get('me/agent/consent').then((r) => r.success && !r.result.consent && !r.result.paired && setAgentAsk(true));
+    api.get('me/agent/consent').then((r) => r && r.success && !r.result.consent && !r.result.paired && setAgentAsk(true));
   }, []);
 
   const doLogout = async () => {
@@ -107,10 +111,9 @@ export default function EmployeePortal() {
         <div className="erp ep">
           <nav className={`ep-side${open ? ' open' : ''}`} aria-label="Employee portal">
             <div className="e-row" style={{ gap: 10, padding: '4px 8px 20px', flexWrap: 'nowrap' }}>
-              <div style={{ width: 34, height: 34, borderRadius: 9, background: '#4F46E5', color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>CL</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>CLC One</div>
-                <div style={{ fontSize: 11, color: '#94A3B8' }}>Employee Portal</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <img src={portalLogo} alt="Career Lab Consulting" style={{ height: 34, maxWidth: 150, objectFit: 'contain', display: 'block' }} />
+                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, letterSpacing: 0.3 }}>Employee Portal</div>
               </div>
               <button type="button" className="ep-burger e-btn sm" style={{ background: 'transparent', color: '#94A3B8', borderColor: '#1F2937' }} onClick={() => setOpen(false)} aria-label="Close menu">
                 ✕
@@ -129,7 +132,7 @@ export default function EmployeePortal() {
                 <Av name={name} size={34} photo={me && me.photo} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-                  <div style={{ fontSize: 11, color: '#94A3B8' }}>{[today && today.profile.employeeCode, today && today.profile.department].filter(Boolean).join(' · ') || (me && me.role)}</div>
+                  <div style={{ fontSize: 11, color: '#94A3B8' }}>{[today && today.profile && today.profile.employeeCode, today && today.profile && today.profile.department].filter(Boolean).join(' · ') || (me && me.role)}</div>
                 </div>
               </div>
               <button type="button" onClick={askLogout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 36, borderRadius: 8, background: '#1F2937', color: '#FCA5A5', fontSize: 13, fontWeight: 600, border: 0, cursor: 'pointer' }}>
@@ -157,7 +160,7 @@ export default function EmployeePortal() {
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--e-mut)' }}>
                       {new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                      {today && ` · General shift ${today.settings.workStart}–${today.settings.workEnd}`}
+                      {today && today.settings && ` · General shift ${today.settings.workStart}–${today.settings.workEnd}`}
                     </div>
                   </>
                 ) : (
@@ -181,19 +184,41 @@ export default function EmployeePortal() {
               </div>
             )}
             <main className="ep-body">
-              <Suspense fallback={<Skeleton kpis={4} />}>
-                <Routes>
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="attendance" element={<MyAttendance />} />
-                  <Route path="leaves" element={<MyLeaves />} />
-                  <Route path="apply-leave" element={<ApplyLeave />} />
-                  <Route path="calendar" element={<MyCalendar />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="notifications" element={<Profile focus="notifications" />} />
-                  <Route path="agent" element={<Agent />} />
-                  <Route path="*" element={<Navigate to="/employee/dashboard" replace />} />
-                </Routes>
-              </Suspense>
+              {today && today.noAccess ? (
+                <section className="e-card pad" style={{ maxWidth: 560, margin: '40px auto', textAlign: 'center', padding: 32 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--e-priS)', color: 'var(--e-pri)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                    <Ic n="user" s={24} />
+                  </div>
+                  <h2 className="e-ct" style={{ fontSize: 18 }}>
+                    Your attendance is not tracked here
+                  </h2>
+                  <p className="e-cs" style={{ margin: '8px 0 18px', lineHeight: '20px' }}>
+                    {today.message}
+                  </p>
+                  <div className="e-row" style={{ justifyContent: 'center' }}>
+                    <a className="e-btn p" href="/">
+                      Open the CRM
+                    </a>
+                    <button type="button" className="e-btn" onClick={doLogout}>
+                      Sign out
+                    </button>
+                  </div>
+                </section>
+              ) : (
+                <Suspense fallback={<Skeleton kpis={4} />}>
+                  <Routes>
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="attendance" element={<MyAttendance />} />
+                    <Route path="leaves" element={<MyLeaves />} />
+                    <Route path="apply-leave" element={<ApplyLeave />} />
+                    <Route path="calendar" element={<MyCalendar />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="notifications" element={<Profile focus="notifications" />} />
+                    <Route path="agent" element={<Agent />} />
+                    <Route path="*" element={<Navigate to="/employee/dashboard" replace />} />
+                  </Routes>
+                </Suspense>
+              )}
             </main>
             <nav className="ep-nav" aria-label="Quick menu">
               {[

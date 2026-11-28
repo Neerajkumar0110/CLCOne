@@ -16,7 +16,7 @@ async function wrap(p, { quiet = true } = {}) {
     // expired / replaced session → the app's normal logout flow
     if (e?.response?.status === 401 && d?.jwtExpired) return errorHandler(e);
     if (!quiet) errorHandler(e);
-    return { success: false, result: null, message: d?.message || e.message || 'Something went wrong' };
+    return { success: false, result: null, status: e?.response?.status || 0, message: d?.message || e.message || 'Something went wrong' };
   }
 }
 

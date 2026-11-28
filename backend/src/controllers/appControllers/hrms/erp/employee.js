@@ -10,7 +10,7 @@ const bad = (res, message, status = 400) => res.status(status).json({ success: f
 const me = (req) => req.admin;
 // Portal access = in the ERP (Sales, or staff sent the ERP login email).
 const tracked = (fn) => async (req, res) =>
-  (await E.trackedAdmin(req.admin)) ? fn(req, res) : bad(res, E.isTrackedRole(req.admin.role) ? 'Your Employee Portal access is not on yet. Ask HR to send you the Attendance ERP login email.' : 'The employee portal is for staff accounts.', 403);
+  (await E.trackedAdmin(req.admin)) ? fn(req, res) : bad(res, E.isTrackedRole(req.admin.role) ? 'Your Employee Portal access is not on yet. Ask HR to send you the Attendance ERP login email.' : 'The owner and Super Admin are not tracked in the Attendance ERP — use HRMS › Work & Leave Tracker › Attendance ERP to see everyone.', 403);
 
 const profileOf = async (adminId) => mongoose.model('ErpProfile').findOne({ admin: adminId }).lean();
 
