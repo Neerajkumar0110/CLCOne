@@ -481,3 +481,88 @@
 [data-theme='dark'] .rp-scope button.on b {
   color: #5eead4;
 }
+
+/* Work & Leave Tracker — top switch (360° Performance | Attendance ERP) */
+.wt-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 5px;
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  border-radius: 14px;
+  max-width: 100%;
+  overflow-x: auto;
+  align-self: flex-start;
+}
+.wt-seg button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hub-text);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.wt-seg button:hover {
+  background: var(--hub-border);
+}
+.wt-seg-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  background: rgba(79, 70, 229, 0.1);
+  color: #4f46e5;
+  flex: none;
+}
+.wt-seg-txt b {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.2;
+}
+.wt-seg-txt small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hub-muted);
+  margin-top: 1px;
+}
+.wt-seg button.on {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(79, 70, 229, 0.7);
+}
+.wt-seg button.on .wt-seg-ico {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.wt-seg button.on small {
+  color: rgba(255, 255, 255, 0.82);
+}
+@media (max-width: 640px) {
+  .wt-seg-txt small {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .wt-seg {
+    display: flex;
+    width: 100%;
+  }
+  .wt-seg button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-right: 10px;
+  }
+  .wt-seg-txt b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

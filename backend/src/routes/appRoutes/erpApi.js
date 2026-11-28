@@ -34,6 +34,8 @@ router.post('/me/review-note', catchErrors(me.reviewNote));
 router.post('/me/report', catchErrors(me.report));
 router.get('/me/agent', catchErrors(me.agent));
 router.post('/me/agent/pair-code', catchErrors(ag.pairCode));
+router.get('/me/agent/consent', catchErrors(me.agentConsentGet));
+router.post('/me/agent/consent', catchErrors(me.agentConsentSet));
 
 // admin (HRMS › Work & Leave Tracker › Attendance ERP) — each handler checks access
 router.get('/admin/dashboard', catchErrors(ad.dashboard));
@@ -51,6 +53,8 @@ router.get('/admin/export', catchErrors(ad.exportFile));
 router.get('/admin/employees', catchErrors(ad.employees));
 router.get('/admin/employees-lite', catchErrors(ad.employeesLite));
 router.put('/admin/employees/:id', catchErrors(ad.employeeUpdate));
+router.post('/admin/invite/:id', catchErrors(ad.invite));
+router.get('/admin/invites', catchErrors(ad.invites));
 router.get('/admin/audit', catchErrors(ad.auditList));
 router.get('/admin/notifications', catchErrors(ad.notifications));
 router.post('/admin/notifications/read-all', catchErrors(ad.notificationsReadAll));
@@ -68,5 +72,6 @@ agentAuthed.post('/register', catchErrors(ag.register));
 const agentPublic = express.Router();
 agentPublic.post('/beat', catchErrors(ag.beat));
 agentPublic.post('/pair', catchErrors(ag.pair));
+agentPublic.get('/download/:os', catchErrors(ag.download));
 
 module.exports = { router, agentAuthed, agentPublic };

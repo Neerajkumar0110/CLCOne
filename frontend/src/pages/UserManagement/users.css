@@ -1,0 +1,39 @@
+/* User Management › All Users — icon-only row actions (name in a tooltip) */
+.um-actions .hub-btn.um-ico {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  border-radius: 10px;
+  flex: none;
+}
+.um-actions .hub-btn.um-ico:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+/* every cell on one line — "Active — can log in", names, emails never wrap */
+.um-row td,
+.um-row .hub-badge,
+.um-row .hub-person {
+  white-space: nowrap;
+}
+.um-row .hub-person {
+  flex-wrap: nowrap;
+}
+.um-row .hub-avatar {
+  flex: none;
+}
+/* action tooltips — same dark look, rounded corners */
+.um-tip .ant-tooltip-inner {
+  border-radius: 10px !important;
+  padding: 7px 12px !important;
+  font-size: 12.5px;
+  line-height: 1.35;
+  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.35);
+}
+.um-tip .ant-tooltip-arrow::before {
+  border-radius: 0 0 2px 0;
+}

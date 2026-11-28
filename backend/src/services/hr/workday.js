@@ -18,8 +18,8 @@ const { SALES_ROLES } = require('../../config/roles');
 
 const W = shiftSchedule.workday;
 const APPROVER_EMAIL = () => process.env.LEAVE_APPROVER_EMAIL || 'neeraj@careerlabconsulting.com';
-const PUBLIC_BASE = () =>
-  (process.env.PUBLIC_API_BASE_URL || process.env.PLIVO_PUBLIC_BASE_URL || 'https://clcone.careerlabconsulting.com').replace(/\/+$/, '');
+// never a localhost / IP link in an email (utils/publicUrl)
+const PUBLIC_BASE = () => require('../../utils/publicUrl').publicUrl(process.env.PUBLIC_API_BASE_URL, process.env.PLIVO_PUBLIC_BASE_URL);
 
 const Session = () => mongoose.model('WorkSession');
 const Leave = () => mongoose.model('LeaveRequest');
@@ -280,6 +280,16 @@ async function logout(admin) {
 // `auto`: the scheduled start (autoBreakTick) — also covers a dialer that was
 // auto-started without a Login, and never cuts into a live call (it waits
 // for the call to end; the next minute's tick tries again).
+// Attendance ERP sees the same break (so it is Break/Lunch there, not
+// Inactive). A side effect only — never changes or fails the Sales flow.
+function erpMirror(fn) {
+  try {
+    Promise.resolve(fn()).catch((e) => console.error('[erp] workday break mirror failed:', e.message));
+  } catch (e) {
+    /* attendance is a side effect */
+  }
+}
+
 async function startBreak(admin, key, { auto = false } = {}) {
   const def = shiftSchedule.breaks.find((b) => b.key === key);
   if (!def) return { ok: false, error: 'Unknown break.' };
@@ -305,6 +315,7 @@ async function startBreak(admin, key, { auto = false } = {}) {
     );
   }
   logActivity(admin, 'break_start', { by: auto ? null : admin, detail: `${def.label} · ${def.durationMin} min${auto ? ' · automatic' : ''}` });
+  erpMirror(() => require('./erpAttendance').breakStart(admin, { kind: key === 'lunch' ? 'LUNCH' : 'BREAK', auto, now, mirror: { key: `wd-${key}`, label: def.label, min: def.durationMin } }));
   return { ok: true, session: s.toObject(), label: def.label, until: new Date(now.getTime() + def.durationMin * 60000) };
 }
 
@@ -347,6 +358,7 @@ async function endBreak(admin) {
   s.updated = now;
   await s.save();
   logActivity(admin, 'break_end', { by: admin, detail: `${open.label} ended early` });
+  erpMirror(() => require('./erpAttendance').breakEnd(admin, { now }));
   await resumeDialer(admin, open.key);
   return { ok: true, session: s.toObject() };
 }
@@ -489,7 +501,7 @@ async function applyLeave(admin, b) {
     type: 'leave.applied',
     title: `${fullName(admin)} applied for leave`,
     body: `${leave.leaveType} · ${durationLabel(leave)}${leave.reason ? ` — ${leave.reason.slice(0, 120)}` : ''}`,
-    link: '/hr/work-tracker',
+    link: '/hr/work-tracker?erp=leaves',
   });
   return { ok: true, leave };
 }
@@ -540,7 +552,8 @@ async function sendLeaveEmail(admin, leave) {
   const m = leaveEmail(vars);
   await sendMailWithRetry({
     from: `"CLC One" <${process.env.GMAIL_USER}>`,
-    to: APPROVER_EMAIL(),
+    // Same people as an /employee portal leave (LEAVE_ADMIN_EMAIL + LEAVE_NOTIFICATION_EMAIL), else the old approver.
+    to: require('./erpLeave').recipients().join(', ') || APPROVER_EMAIL(),
     subject: m.subject,
     html: m.html,
     templateKey: 'hr-leave-request',
@@ -575,7 +588,7 @@ async function decideLeave(leaveId, action, by, note) {
       type: approved ? 'leave.approved' : 'leave.rejected',
       title: `Your leave was ${approved ? 'approved' : 'rejected'}`,
       body: `${durationLabel(leave)}${leave.decisionNote ? ` — ${leave.decisionNote}` : ''}`,
-      link: '/',
+      link: '/employee/leaves',
     });
     if (approved) await enforceLeave(applicant).catch(() => {});
   }
@@ -600,7 +613,7 @@ async function cancelLeave(admin, leaveId) {
     type: 'leave.cancelled',
     title: `${fullName(admin)} cancelled a${wasApproved ? 'n approved' : ' pending'} leave`,
     body: `${leave.leaveType} · ${durationLabel(leave)}`,
-    link: '/hr/work-tracker',
+    link: '/hr/work-tracker?erp=leaves',
   });
   return { ok: true, leave };
 }
@@ -670,6 +683,7 @@ module.exports = {
   endBreak,
   applyLeave,
   decideLeave,
+  APPROVER_EMAIL,
   cancelLeave,
   durationLabel,
   policyApplies,

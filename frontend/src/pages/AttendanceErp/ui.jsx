@@ -179,6 +179,9 @@ const P = {
   chevL: 'm15 18-6-6 6-6',
   chevR: 'm9 18 6-6-6-6',
   refresh: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
+  chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  ext: 'M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
 };
 export function Ic({ n, s = 16, style }) {
   return (
@@ -463,7 +466,7 @@ export function Modal({ open, onClose, children, wide, label }) {
     document.body
   );
 }
-export function Drawer({ open, onClose, children, label }) {
+export function Drawer({ open, onClose, children, label, wide }) {
   useEffect(() => {
     if (!open) return undefined;
     const k = (e) => e.key === 'Escape' && onClose && onClose();
@@ -474,7 +477,7 @@ export function Drawer({ open, onClose, children, label }) {
   return createPortal(
     <div className="erp">
       <div className="e-drawer-back" onMouseDown={onClose} />
-      <aside className="e-drawer" role="dialog" aria-modal="true" aria-label={label}>
+      <aside className={`e-drawer${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={label}>
         {children}
       </aside>
     </div>,

@@ -17,3 +17,5 @@ notes.md
 # local disk (src/public/uploads/) and are never meant to ship through git —
 # see deploy/vps/README.md's "Uploaded files" note. Back this up separately.
 src/public/uploads/
+# desktop agent installer (served by /api/erp-agent-public/download)
+downloads/

@@ -2,9 +2,10 @@ import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, Dropdown, Layout, Badge, Button } from 'antd';
 
-import { LogoutOutlined, ToolOutlined, UserOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
+import { LogoutOutlined, ToolOutlined, UserOutlined, MoonOutlined, SunOutlined, FieldTimeOutlined } from '@ant-design/icons';
 
 import { selectCurrentAdmin } from '@/redux/auth/selectors';
+import { LMS_PANEL_ROLES } from '@/config/roles';
 
 import { FILE_BASE_URL } from '@/config/serverApiConfig';
 
@@ -75,6 +76,18 @@ export default function HeaderContent() {
       key: 'settingApp',
       label: <Link to={'/settings'}>{translate('app_settings')}</Link>,
     },
+    // Attendance ERP — every staff user's own panel (attendance, leaves, hours).
+    // Staff only (not the owner / Super Admin / LMS). Non-Sales staff get access
+    // once they are sent the ERP login email; the portal says so otherwise.
+    ...(!currentAdmin || ['owner', 'Super Admin'].includes(currentAdmin.role) || LMS_PANEL_ROLES.includes(currentAdmin.role)
+      ? []
+      : [
+          {
+            icon: <FieldTimeOutlined />,
+            key: 'employeePortal',
+            label: <Link to={'/employee/dashboard'}>Employee Portal (my attendance &amp; leaves)</Link>,
+          },
+        ]),
 
     {
       type: 'divider',

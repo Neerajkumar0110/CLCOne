@@ -8,6 +8,7 @@ import api from '../api';
 import { setTrackerConfig } from '../tracker';
 import { Av, Ic, Skeleton, ToastProvider, Modal, ModalHead, hm } from '../ui';
 import '../erp.css';
+import AgentSetup from './AgentSetup';
 
 // /employee — the Employee Portal (design E0–E9). Own layout (no CRM
 // sidebar, no admin menus). Every API it calls is /attendance-erp/me/*,
@@ -77,6 +78,11 @@ export default function EmployeePortal() {
     };
   }, [reload]);
   useEffect(() => setOpen(false), [loc.pathname]);
+  // First sign-in: ask for the desktop agent once (Allow → download → connect).
+  const [agentAsk, setAgentAsk] = useState(false);
+  useEffect(() => {
+    api.get('me/agent/consent').then((r) => r.success && !r.result.consent && !r.result.paired && setAgentAsk(true));
+  }, []);
 
   const doLogout = async () => {
     setConfirm(false);
@@ -204,6 +210,7 @@ export default function EmployeePortal() {
             </nav>
           </div>
         </div>
+        <AgentSetup open={agentAsk} onClose={() => setAgentAsk(false)} start="ask" />
         <Modal open={confirm} onClose={() => setConfirm(false)} label="Log out">
           <ModalHead title="Log out now?" onClose={() => setConfirm(false)} />
           {d && (

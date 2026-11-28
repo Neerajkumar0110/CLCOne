@@ -779,6 +779,10 @@ button.e-kpi {
 .e-modal.wide {
   max-width: 640px;
 }
+.erp .e-drawer.wide {
+  width: min(980px, 100vw);
+  background: var(--e-bg);
+}
 .e-drawer-back {
   position: fixed;
   inset: 0;
@@ -867,28 +871,94 @@ button.e-kpi {
 
 /* ── ERP header (admin, inside the Work & Leave Tracker) ── */
 .e-erphead {
+  position: relative;
   background: var(--e-card);
   border: 1px solid var(--e-line);
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -18px rgba(79, 70, 229, 0.35);
+}
+/* soft brand wash behind the title row */
+.e-erphead::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 100px;
+  background: linear-gradient(120deg, rgba(79, 70, 229, 0.11), rgba(124, 58, 237, 0.06) 45%, rgba(37, 99, 235, 0.02) 75%, transparent);
+  pointer-events: none;
 }
 .e-erptop {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 20px 0;
+  padding: 18px 20px 16px;
   flex-wrap: wrap;
 }
 .e-erpicon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--e-priS);
-  color: var(--e-pri);
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
+  box-shadow: 0 6px 16px -6px rgba(79, 70, 229, 0.6);
+}
+.e-erptitle {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.erp .e-erptitle h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--e-ink);
+  line-height: 1.2;
+}
+.e-erpmeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.e-erpmeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--e-ink2);
+  background: var(--e-card);
+  border: 1px solid var(--e-line);
+  border-radius: 999px;
+  padding: 3px 10px 3px 8px;
+  white-space: nowrap;
+}
+.e-erpmeta span svg {
+  color: var(--e-mut);
+}
+.e-erpmeta span.now {
+  color: var(--e-priD);
+  background: var(--e-priS);
+  border-color: transparent;
+  font-variant-numeric: tabular-nums;
+  padding-left: 10px;
+}
+.erp .e-erpsearch {
+  width: 260px;
+  max-width: 100%;
+}
+.erp .e-portalbtn {
+  gap: 6px;
+  color: var(--e-pri);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+[data-theme='dark'] .erp .e-portalbtn {
+  color: var(--e-priD);
 }
 .e-live {
   display: inline-flex;
@@ -940,38 +1010,89 @@ button.e-kpi {
   border: 2px solid var(--e-card);
 }
 .e-subtabs {
-  display: flex;
-  gap: 4px;
-  padding: 12px 20px 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.e-subtabs button {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  margin: 0 12px 12px;
+  padding: 5px;
+  background: var(--e-soft);
+  border: 1px solid var(--e-line2);
+  border-radius: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.e-subtabs::-webkit-scrollbar {
+  display: none;
+}
+.e-subtabs .sep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: var(--e-line);
+  margin: 0 4px;
+}
+.e-subtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
   white-space: nowrap;
-  padding: 10px 12px;
+  padding: 8px 12px;
   font: 500 13px Inter, system-ui, sans-serif;
   color: var(--e-mut);
-  border: 0;
+  border: 1px solid transparent;
   background: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 9px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.e-subtabs button svg {
+  opacity: 0.75;
+}
+.e-subtabs button:hover {
+  color: var(--e-ink);
+  background: var(--e-line2);
+}
+.e-subtabs button:focus-visible {
+  outline: 2px solid var(--e-pri);
+  outline-offset: 1px;
 }
 .e-subtabs button.on {
-  border-bottom-color: var(--e-pri);
-  color: var(--e-priD);
+  background: var(--e-card);
+  border-color: var(--e-line);
+  color: var(--e-pri);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+[data-theme='dark'] .erp .e-subtabs button.on {
+  color: var(--e-priD);
+}
+.e-subtabs button.on svg {
+  opacity: 1;
 }
 .e-subtabs button em {
   font-style: normal;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(217, 119, 6, 0.15);
-  color: #b45309;
+  min-width: 18px;
+  text-align: center;
+  background: #dc2626;
+  color: #fff;
   border-radius: 999px;
   padding: 1px 6px;
+}
+@media (max-width: 640px) {
+  .e-erptop {
+    padding: 14px;
+  }
+  .erp .e-erpsearch {
+    width: 100%;
+    order: 5;
+  }
+  .e-erpmeta span:not(.now):nth-child(n + 3) {
+    display: none;
+  }
 }
 
 /* timeline (A4) */
@@ -1502,4 +1623,149 @@ button.e-kpi {
   .erp .e-card {
     border-color: #ccc;
   }
+}
+.erp .e-bell.on {
+  color: var(--e-pri);
+  border-color: var(--e-pri);
+  background: var(--e-priS);
+}
+/* one row always: tabs share the width, nothing wraps (scrolls only on very narrow screens) */
+.e-subtabs {
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+.e-subtabs .sep {
+  margin: 0 2px;
+}
+.e-subtabs button {
+  flex: 1 0 auto;
+  justify-content: center;
+  padding: 8px 10px;
+  gap: 6px;
+}
+/* laptops: drop the tab icons so all sections still fit on one line */
+@media (min-width: 641px) and (max-width: 1400px) {
+  .e-subtabs button svg {
+    display: none;
+  }
+  .e-subtabs button {
+    padding: 8px 8px;
+    font-size: 12.5px;
+  }
+}
+
+/* Sales users — Workday + calls line under the name */
+.e-salesline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 5px 0 0 0;
+  font-size: 11px;
+  color: var(--e-mut);
+}
+.e-salesline .tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #0e7490;
+  background: rgba(8, 145, 178, 0.12);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.e-salesline b {
+  color: var(--e-ink);
+}
+
+/* Desktop agent setup modal (portal/AgentSetup.jsx) */
+.e-agsteps {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.e-agsteps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--e-mut);
+  background: var(--e-line2);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+}
+.e-agsteps span i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--e-card);
+  color: var(--e-mut);
+}
+.e-agsteps span.on {
+  color: var(--e-priD);
+  background: var(--e-priS);
+}
+.e-agsteps span.on i {
+  background: var(--e-pri);
+  color: #fff;
+}
+.e-agsteps span.done {
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.12);
+}
+.e-agsteps span.done i {
+  background: #16a34a;
+  color: #fff;
+}
+.e-agrec {
+  border: 1px solid var(--e-line);
+  border-radius: 12px;
+  padding: 6px 14px;
+  background: var(--e-soft);
+}
+.e-agrec div {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--e-ink2);
+  padding: 6px 0;
+}
+.e-agrec i {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.e-agrec i.y {
+  background: rgba(22, 163, 74, 0.13);
+  color: #15803d;
+}
+.e-agrec i.n {
+  background: rgba(220, 38, 38, 0.11);
+  color: #b91c1c;
+}
+.e-agcode {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-align: center;
+  padding: 16px 0;
+  background: var(--e-priS);
+  color: var(--e-priD);
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
 }

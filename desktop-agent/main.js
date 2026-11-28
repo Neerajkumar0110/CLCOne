@@ -9,9 +9,11 @@
 // PRIVACY: it never reads WHICH key was pressed, never typed text, screens,
 // files, app names or browser history. Only timestamps of "an input happened".
 //
-// Pairing: the employee opens /employee › Desktop agent › "Connect this laptop"
-// and types the 6-digit code here. No CRM login happens on the laptop, so the
-// one-device login rule never logs the browser out.
+// Pairing: the employee opens /employee › Desktop agent › "Connect this laptop".
+// That button opens clcagent://pair?code=123456&server=… and this app pairs on
+// its own; typing the 6-digit code in the setup window still works too. No CRM
+// login happens on the laptop, so the one-device login rule never logs the
+// browser out.
 const { app, Tray, Menu, BrowserWindow, powerMonitor, ipcMain, nativeImage, safeStorage } = require('electron');
 const os = require('os');
 const fs = require('fs');
@@ -143,8 +145,39 @@ function openSetup() {
   });
 }
 
-ipcMain.handle('pair', async (_e, { code, server }) => {
-  cfg.server = server || DEFAULT_SERVER;
+// Only our own server (or a local dev server) may be paired with — a web page
+// can open clcagent:// links, so the server in the link is checked.
+function allowedServer(u) {
+  try {
+    const x = new URL(u);
+    if (x.origin === new URL(DEFAULT_SERVER).origin) return x.origin;
+    if (x.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(x.hostname)) return x.origin;
+  } catch (e) {
+    /* bad url */
+  }
+  return null;
+}
+
+ipcMain.handle('pair', async (_e, { code, server }) => doPair(code, server));
+
+// clcagent://pair?code=123456&server=https://clcone.careerlabconsulting.com
+async function handleLink(link) {
+  try {
+    const u = new URL(link);
+    if (u.protocol !== 'clcagent:') return;
+    const code = String(u.searchParams.get('code') || '').replace(/\D/g, '');
+    const server = allowedServer(u.searchParams.get('server') || DEFAULT_SERVER);
+    if (code.length !== 6 || !server) return;
+    const r = await doPair(code, server);
+    const { Notification } = require('electron');
+    if (Notification.isSupported()) new Notification({ title: 'CLC Desktop Agent', body: r.ok ? `Connected${cfg.employee ? ` — ${cfg.employee}` : ''}. Your laptop activity is now counted.` : r.message }).show();
+  } catch (e) {
+    /* ignore a bad link */
+  }
+}
+
+async function doPair(code, server) {
+  cfg.server = allowedServer(server || DEFAULT_SERVER) || DEFAULT_SERVER;
   try {
     const r = await post('/api/erp-agent-public/pair', { code, deviceId: cfg.deviceId, hostname: os.hostname(), os: `${os.type()} ${os.release()}`, version: VERSION });
     if (!r.success) return { ok: false, message: r.message || 'Could not connect' };
@@ -157,13 +190,27 @@ ipcMain.handle('pair', async (_e, { code, server }) => {
   } catch (e) {
     return { ok: false, message: 'Server not reachable. Check the internet and the server address.' };
   }
+}
+
+// one copy only; a clcagent:// link opened while running arrives here
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+app.on('second-instance', (_e, argv) => {
+  const link = argv.find((a) => String(a).startsWith('clcagent://'));
+  if (link) handleLink(link);
+});
+app.on('open-url', (e, link) => {
+  e.preventDefault();
+  if (app.isReady()) handleLink(link);
+  else app.once('ready', () => handleLink(link));
 });
 
 app.whenReady().then(() => {
-  if (!app.requestSingleInstanceLock()) return app.quit();
+  if (!gotLock) return;
   load();
   save();
   app.setLoginItemSettings({ openAtLogin: true }); // starts with Windows / macOS
+  app.setAsDefaultProtocolClient('clcagent'); // "Connect this laptop" in the portal
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
   const icon = fs.existsSync(path.join(__dirname, 'icon.png')) ? nativeImage.createFromPath(path.join(__dirname, 'icon.png')) : nativeImage.createEmpty();
   tray = new Tray(icon);
@@ -176,7 +223,9 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => ev('wake', 'on'));
   powerMonitor.on('shutdown', () => ev('shutdown', 'off'));
   updateTray();
-  if (!cfg.token) openSetup();
+  const startLink = process.argv.find((a) => String(a).startsWith('clcagent://'));
+  if (startLink) handleLink(startLink);
+  else if (!cfg.token) openSetup();
   const loop = () => {
     beat().finally(() => setTimeout(loop, hbSec * 1000));
   };

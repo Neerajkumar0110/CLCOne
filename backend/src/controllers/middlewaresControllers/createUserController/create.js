@@ -185,6 +185,10 @@ const create = async (userModel, req, res) => {
     console.error('department welcome email failed:', e.message);
   }
 
+  // Attendance ERP: a new Sales user is in the ERP at once (the ERP lists every
+  // Sales role) — their login comes with the welcome email above. Other staff
+  // get the ERP login email from User Management › All Users ✉.
+
   return res.status(200).json({
     success: true,
     result: {

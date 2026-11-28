@@ -216,7 +216,98 @@ const attendance = guard(async (req, res) => {
     const lb = b.session && b.session.loginAt ? new Date(b.session.loginAt).getTime() : Infinity;
     return la - lb;
   });
+  const sales = await salesDay(rows.map((r) => r.employee._id), dk).catch(() => ({}));
+  rows = rows.map((r) => (sales[String(r.employee._id)] ? { ...r, sales: sales[String(r.employee._id)] } : r));
   return ok(res, { dayKey: dk, rows, summary, settings: { workStart: S.workStart, workEnd: S.workEnd, lateAfter: S.lateAfter, requiredMin: S.requiredMin }, departments: S.departments });
+});
+
+// ── Sales users: their Workday (header Login / breaks / dialer) + calls ──────
+// Read-only view of the data the Sales flow already writes (services/hr/workday,
+// CallRecord) — the Sales login is unchanged; the ERP only shows it.
+async function salesDay(adminIds, dk) {
+  const wd = require('../../../../services/hr/workday');
+  const ids = adminIds.map((x) => oid(x)).filter(Boolean);
+  if (!ids.length) return {};
+  const admins = await mongoose.model('Admin').find({ _id: { $in: ids } }).select('name surname role').lean();
+  const sales = admins.filter((a) => wd.isSales(a)).map((a) => a._id);
+  if (!sales.length) return {};
+  const start = E.dayStart(dk);
+  const end = E.dayEnd(dk);
+  const isToday = dk === E.todayKey();
+  const now = new Date();
+  const until = isToday ? now : end;
+  const [sessions, states, calls] = await Promise.all([
+    mongoose.model('WorkSession').find({ dayKey: dk, admin: { $in: sales } }).lean(),
+    isToday ? mongoose.model('AgentCallState').find({ agent: { $in: sales } }).select('agent status campaign breakKey').lean() : [],
+    mongoose.model('CallRecord').aggregate([
+      { $match: { removed: false, agent: { $in: sales }, created: { $gte: start, $lte: end } } },
+      {
+        $group: {
+          _id: '$agent',
+          calls: { $sum: 1 },
+          connected: { $sum: { $cond: [{ $and: [{ $ne: ['$answeredAt', null] }, { $ne: ['$agentLegAnswered', false] }, { $gt: ['$duration', 0] }] }, 1, 0] } },
+          talkSec: { $sum: { $ifNull: ['$duration', 0] } },
+          inbound: { $sum: { $cond: [{ $eq: ['$direction', 'Inbound'] }, 1, 0] } },
+        },
+      },
+    ]),
+  ]);
+  const out = {};
+  for (const id of sales) {
+    const k = String(id);
+    const s = sessions.find((x) => String(x.admin) === k);
+    const st = states.find((x) => String(x.agent) === k);
+    const c = calls.find((x) => String(x._id) === k) || { calls: 0, connected: 0, talkSec: 0, inbound: 0 };
+    const breaks = ((s && s.breaks) || []).map((b) => {
+      const e = b.endAt || (until >= wd.plannedEnd(b) ? wd.plannedEnd(b) : null);
+      return { label: b.label, startAt: b.startAt, endAt: e, min: Math.max(0, Math.round((new Date(e || until) - new Date(b.startAt)) / 60000)), open: !e, auto: !!b.auto };
+    });
+    out[k] = {
+      loginAt: (s && s.loginAt) || null,
+      autoStartedAt: (s && s.autoStartedAt) || null,
+      logoutAt: (s && s.logoutAt) || null,
+      lateMin: s && s.loginAt ? wd.lateMinutes(dk, s.loginAt) : null,
+      breaks,
+      breakMin: breaks.reduce((t, b) => t + b.min, 0),
+      dialer: st ? { on: !!(st.campaign && st.status !== 'Offline'), status: st.status, breakKey: st.breakKey || null } : null,
+      calls: c.calls,
+      connected: c.connected,
+      inbound: c.inbound,
+      talkSec: c.talkSec,
+    };
+  }
+  return out;
+}
+
+// ── "Attendance ERP login" email (User Management › All Users ✉) ─────────────
+// Everyone except Sales (they get their login with the account email and use
+// the header Login), the owner and Super Admin — Candidates / Teachers too.
+// Sending it puts the person in the ERP as an employee. Sign-in is by OTP to
+// that same email.
+const invite = guard(async (req, res) => {
+  const id = oid(req.params.id);
+  if (!id) return bad(res, 'Bad user.');
+  const a = await mongoose.model('Admin').findOne({ _id: id, removed: false }).select('name surname email role enabled').lean();
+  if (!a) return bad(res, 'User not found.', 404);
+  if (!E.isTrackedRole(a.role)) return bad(res, 'The owner and Super Admin are never tracked in the Attendance ERP.');
+  if (E.isSalesRole(a.role)) return bad(res, 'Sales users already get their login with the account email and use the header Login — no ERP email needed.');
+  if (!a.enabled) return bad(res, 'This user is deactivated — activate them first.');
+  const r = await require('../../../../services/hr/erpInvite').sendErpInvite(a);
+  if (!r || !r.sent) return bad(res, r && r.skipped ? `Email not sent: ${r.skipped}.` : 'Email could not be sent. Try again.');
+  const by = E.fullName(req.admin);
+  await mongoose.model('ErpProfile').updateOne({ admin: a._id }, { $set: { invitedAt: new Date(), invitedBy: by, updated: new Date() }, $setOnInsert: { admin: a._id } }, { upsert: true });
+  E.forgetTracked(a._id); // now in the ERP
+  await E.audit(req, { action: 'Sent ERP login email', employee: a._id, employeeName: E.fullName(a), oldValue: '', newValue: a.email, reason: '' });
+  return ok(res, { sentAt: new Date(), to: a.email }, `Login email sent to ${a.email}.`);
+});
+// last invite per Sales user — { adminId: { at, by } } for the ✉ tooltip
+const invites = guard(async (req, res) => {
+  const rows = await mongoose.model('ErpProfile').find({ invitedAt: { $ne: null } }).select('admin invitedAt invitedBy').lean();
+  const out = {};
+  rows.forEach((p) => {
+    out[String(p.admin)] = { at: p.invitedAt, by: p.invitedBy };
+  });
+  return ok(res, out);
 });
 
 // ── Attendance detail (A4) ───────────────────────────────────────────────────
@@ -235,7 +326,8 @@ const detail = guard(async (req, res) => {
   const totalBeats = d.session && d.session.loginAt ? Math.round((E.minsBetween(d.session.loginAt, d.session.logoutAt || new Date()) * 60) / S.heartbeatSec) : 0;
   const device = await mongoose.model('ErpDevice').findOne({ admin: adminId, revoked: false }).sort({ lastSeenAt: -1 }).select('-tokenHash').lean();
   const history = await mongoose.model('ErpAudit').find({ employee: adminId, dayKey: dk }).sort({ at: -1 }).lean();
-  return ok(res, { employee: emp, ...d, signals: { kbBeats, msBeats, totalBeats, kbMin: Math.round((kbBeats * S.heartbeatSec) / 60), msMin: Math.round((msBeats * S.heartbeatSec) / 60) }, device, history, settings: { workStart: S.workStart, workEnd: S.workEnd, lateAfter: S.lateAfter } });
+  const sales = (await salesDay([adminId], dk).catch(() => ({})))[String(adminId)] || null;
+  return ok(res, { employee: emp, ...d, sales, signals: { kbBeats, msBeats, totalBeats, kbMin: Math.round((kbBeats * S.heartbeatSec) / 60), msMin: Math.round((msBeats * S.heartbeatSec) / 60) }, device, history, settings: { workStart: S.workStart, workEnd: S.workEnd, lateAfter: S.lateAfter } });
 });
 
 // cut [from, to) out of a session's periods; optionally put a new period there
@@ -571,6 +663,8 @@ const employees = guard(async (req, res) => {
   const q = req.query;
   const S = await E.getSettings();
   let { list } = await empMap();
+  // only people with an ERP login: tracked ones, plus Sales / switched-off ones so they can be switched back on
+  list = list.filter((e) => e.tracked || e.trackingOff || E.isSalesRole(e.role));
   list = list.filter((e) => matchEmp(e, q.q));
   if (q.dept && q.dept !== 'All') list = list.filter((e) => e.department === q.dept);
   if (q.role && q.role !== 'All') list = list.filter((e) => e.role === q.role);
@@ -612,6 +706,7 @@ const employeeUpdate = guard(async (req, res) => {
   if (typeof b.tracked === 'boolean' && b.tracked !== E.isTracked(a, p)) {
     changes.push({ label: 'Track attendance', old: E.isTracked(a, p) ? 'On' : 'Off', nv: b.tracked ? 'On' : 'Off' });
     p.trackingEnabled = b.tracked;
+    E.forgetTracked(a._id);
   }
   let balChange = null;
   if (b.leaveAdjust && typeof b.leaveAdjust === 'object') {
@@ -956,6 +1051,8 @@ const employeesLite = guard(async (req, res) => {
 });
 
 module.exports = {
+  invite,
+  invites,
   isErpAdmin,
   dashboard,
   live,

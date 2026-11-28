@@ -38,6 +38,17 @@ router.route('/admin/read/:id').get(catchErrors(adminController.read));
 router.route('/admin/overview/:id').get(catchErrors(require('../../controllers/coreControllers/adminController/overview')));
 router.route('/admin/update/:id').patch(catchErrors(adminController.update));
 router.route('/admin/delete/:id').delete(catchErrors(adminController.delete));
+// Deleted Users › "Delete permanently" — owner / Super Admin / Admin only.
+// GET = what would be deleted (dry run), DELETE = delete it for good.
+const purgeRoute = (dryRun) =>
+  catchErrors(async (req, res) => {
+    const { CRM_ADMIN_ROLES } = require('../../config/roles');
+    if (!req.admin || !CRM_ADMIN_ROLES.includes(req.admin.role)) return res.status(403).json({ success: false, result: null, message: 'Only owner / Super Admin / Admin can delete permanently.' });
+    const r = await require('../../services/users/purgeUser').purgeUser(req.params.id, { by: req.admin, dryRun });
+    if (!r.ok) return res.status(400).json({ success: false, result: null, message: r.error });
+    return res.status(200).json({ success: true, result: r, message: dryRun ? 'Preview ready.' : 'User deleted permanently.' });
+  });
+router.route('/admin/purge/:id').get(purgeRoute(true)).delete(purgeRoute(false));
 router.route('/admin/set-enabled/:id').patch(catchErrors(adminController.setEnabled));
 
 // Advanced Reporting → User Activity (screen + PDF) — controllers/appControllers/core/userActivityReport.js

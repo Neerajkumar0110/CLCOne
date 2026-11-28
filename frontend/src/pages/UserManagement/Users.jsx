@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { Tooltip, message } from "antd";
 import HubModal from "@/components/HubModal";
+import "./users.css";
 import UserDetailModal from "./UserDetailModal";
 import CandidateDetailModal from "@/pages/Lms/components/CandidateDetailModal";
 import { request } from "@/request";
 import { usePermission } from "@/context/permissionContext";
 import {
   SafetyCertificateOutlined,
+  MailOutlined,
   ReloadOutlined,
   UserAddOutlined,
   EditOutlined,
@@ -398,6 +401,10 @@ function ReportsToField({ role, value, onChange, allUsers, excludeEmail }) {
 }
 
 const isSalesDept = (role) => ROLE_DEPARTMENT[role] === "Sales";
+// Who gets the ✉ "Attendance ERP login" email: everyone except Sales (they get
+// their login with the account email and use the header Login) and the owner /
+// Super Admin — Candidates and Teachers included. It makes them an ERP employee.
+const erpInviteable = (role) => !!role && !isSalesDept(role) && !["owner", "Super Admin"].includes(role);
 // Row click opens a detail modal only for Sales users (UserDetailModal) and
 // Candidates (the LMS CandidateDetailModal) — no detail view for other roles.
 const hasDetail = (u) => isSalesDept(u.role) || u.role === "Student";
@@ -1240,6 +1247,25 @@ export default function Users({
 
   // Deactivate / Activate (PATCH /api/admin/set-enabled/:id) — a deactivated
   // user gets no login OTP, can't log in, and is logged out everywhere.
+  // Attendance ERP login email (everyone except Sales, the owner and Super
+  // Admin — Sales get their login with the account email) — POST
+  // /api/attendance-erp/admin/invite/:id; the tooltip shows the last send.
+  const [erpInvites, setErpInvites] = useState({});
+  const [invitingId, setInvitingId] = useState(null);
+  useEffect(() => {
+    request.get({ entity: "attendance-erp/admin/invites" }).then((r) => r?.success && setErpInvites(r.result || {}));
+  }, []);
+  const sendErpInvite = async (user) => {
+    if (!window.confirm(`Send the Attendance ERP login email to ${user.email}?`)) return;
+    setInvitingId(user._id);
+    const r = await request.post({ entity: `attendance-erp/admin/invite/${user._id}`, jsonData: {} });
+    setInvitingId(null);
+    if (r?.success) {
+      setErpInvites((p) => ({ ...p, [user._id]: { at: r.result.sentAt, by: "you" } }));
+      message.success(r.message || "Login email sent.");
+    } else message.error(r?.message || "Could not send the email.");
+  };
+
   const [enablingId, setEnablingId] = useState(null);
   const toggleEnabled = async (user) => {
     const next = !user.enabled;
@@ -1373,6 +1399,7 @@ export default function Users({
               {visibleUsers.map((u) => (
                 <tr
                   key={u._id}
+                  className="um-row"
                   style={hasDetail(u) ? { cursor: "pointer" } : undefined}
                   title={hasDetail(u) ? "Click for full details" : undefined}
                   onClick={hasDetail(u) ? () => setDetailUser(u) : undefined}
@@ -1402,45 +1429,81 @@ export default function Users({
                     </span>
                   </td>
                   <td onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                    <div className="hub-row" style={{ gap: 8, flexWrap: "nowrap" }}>
+                    {/* Icon-only actions; the name shows in a tooltip on hover/focus (user ask 2026-11-28). */}
+                    <div className="hub-row um-actions" style={{ gap: 6, flexWrap: "nowrap", justifyContent: "center" }}>
                       {!NO_EDIT_ROLES.includes(u.role) && (
-                        <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEditUserEmail(u._id)}>
-                          <EditOutlined /> Edit
-                        </button>
+                        <Tooltip overlayClassName="um-tip" title="Edit">
+                          <button type="button" className="hub-btn um-ico" aria-label={`Edit ${u.name || u.email}`} onClick={() => setEditUserEmail(u._id)}>
+                            <EditOutlined />
+                          </button>
+                        </Tooltip>
                       )}
                       {MANAGER_TEAM_ROLES.includes(u.role) &&
                         !teams.some((t) => t.lead === u.name || t.members.includes(u.name)) && (
+                          <Tooltip overlayClassName="um-tip" title="Create Team">
+                            <button type="button" className="hub-btn um-ico" aria-label={`Create a team for ${u.name || u.email}`} onClick={() => setTeamsOpen(true)}>
+                              <TeamOutlined />
+                            </button>
+                          </Tooltip>
+                        )}
+                      <Tooltip overlayClassName="um-tip" title="Permissions">
+                        <button type="button" className="hub-btn um-ico" aria-label={`Permissions of ${u.name || u.email}`} onClick={() => setPermUserEmail(u._id)}>
+                          <SafetyCertificateOutlined />
+                        </button>
+                      </Tooltip>
+                      {erpInviteable(u.role) && (
+                        <Tooltip overlayClassName="um-tip"
+                          title={
+                            <>
+                              Send ERP login email
+                              <div style={{ fontSize: 11, opacity: 0.8 }}>
+                                {erpInvites[u._id]
+                                  ? `Last sent ${new Date(erpInvites[u._id].at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}${erpInvites[u._id].by ? ` · ${erpInvites[u._id].by}` : ""}`
+                                  : "Not sent yet"}
+                              </div>
+                            </>
+                          }
+                        >
+                          <span style={{ display: "inline-flex" }}>
+                            <button
+                              type="button"
+                              className="hub-btn um-ico"
+                              aria-label={`Send ERP login email to ${u.email}`}
+                              disabled={invitingId === u._id || !u.enabled}
+                              style={{ color: "#4f46e5", borderColor: erpInvites[u._id] ? "#c7d2fe" : "#a5b4fc" }}
+                              onClick={() => sendErpInvite(u)}
+                            >
+                              <MailOutlined />
+                            </button>
+                          </span>
+                        </Tooltip>
+                      )}
+                      <Tooltip overlayClassName="um-tip" title={u.enabled ? "Deactivate — block login, logged out everywhere" : "Activate — allow login again"}>
+                        {/* span: a disabled button fires no hover, the tooltip still needs one */}
+                        <span style={{ display: "inline-flex" }}>
                           <button
                             type="button"
-                            className="hub-btn"
-                            style={{ whiteSpace: "nowrap" }}
-                            title="Create a team — opens the same Teams panel as the button up top"
-                            onClick={() => setTeamsOpen(true)}
+                            className="hub-btn um-ico"
+                            aria-label={`${u.enabled ? "Deactivate" : "Activate"} ${u.name || u.email}`}
+                            disabled={enablingId === u._id}
+                            style={u.enabled ? { color: "#b45309", borderColor: "#fde68a" } : { color: "#16a34a", borderColor: "#bbf7d0" }}
+                            onClick={() => toggleEnabled(u)}
                           >
-                            <TeamOutlined /> Create Team
+                            {u.enabled ? <StopOutlined /> : <CheckCircleOutlined />}
                           </button>
-                        )}
-                      <button type="button" className="hub-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setPermUserEmail(u._id)}>
-                        <SafetyCertificateOutlined /> Permissions
-                      </button>
-                      <button
-                        type="button"
-                        className="hub-btn"
-                        disabled={enablingId === u._id}
-                        style={{ whiteSpace: "nowrap", ...(u.enabled ? { color: "#b45309", borderColor: "#fde68a" } : { color: "#16a34a", borderColor: "#bbf7d0" }) }}
-                        title={u.enabled ? "Block login — no OTP, logged out everywhere" : "Allow login again"}
-                        onClick={() => toggleEnabled(u)}
-                      >
-                        {u.enabled ? <StopOutlined /> : <CheckCircleOutlined />} {u.enabled ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        type="button"
-                        className="hub-btn"
-                        style={{ whiteSpace: "nowrap", color: "#e11d48", borderColor: "#fecdd3" }}
-                        onClick={() => deleteUser(u)}
-                      >
-                        <DeleteOutlined /> Delete
-                      </button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip overlayClassName="um-tip" title="Delete">
+                        <button
+                          type="button"
+                          className="hub-btn um-ico"
+                          aria-label={`Delete ${u.name || u.email}`}
+                          style={{ color: "#e11d48", borderColor: "#fecdd3" }}
+                          onClick={() => deleteUser(u)}
+                        >
+                          <DeleteOutlined />
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>

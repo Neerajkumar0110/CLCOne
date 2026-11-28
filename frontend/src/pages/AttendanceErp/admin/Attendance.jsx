@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../api';
 import { B, Bar, Card, DateInp, Empty, ErrorState, Modal, ModalHead, Name, Search, Select, Skeleton, StatusBadges, clock, hm, todayKey, useErpLive, useLoad, usePager, useToast, workColor } from '../ui';
-import { ExportMenu, deptOptions, empOptions, useLite } from './shared';
+import { ExportMenu, deptOptions, empOptions, useLite, SalesLine } from './shared';
 
 // A3 · Attendance (daily)
 const STATUSES = ['All', 'Present', 'Online', 'Inactive', 'Late', 'Short', 'Half Day', 'Leave', 'Absent', 'Needs review', 'Early Logout', 'Not logged in'];
@@ -18,7 +18,7 @@ const SUM = [
 export function ManualModal({ open, onClose, onDone, preset }) {
   const lite = useLite();
   const toast = useToast();
-  const [f, setF] = useState({ adminId: '', date: todayKey(), login: '09:30', logout: '18:30', lunch: '13:00-14:00', reason: '' });
+  const [f, setF] = useState({ adminId: '', date: todayKey(), login: '10:00', logout: '20:30', lunch: '13:00-14:00', reason: '' });
   const [busy, setBusy] = useState(false);
   React.useEffect(() => {
     if (open) setF((x) => ({ ...x, adminId: (preset && preset.adminId) || x.adminId || '', date: (preset && preset.date) || x.date }));
@@ -301,6 +301,7 @@ export default function Attendance({ openDetail, globalQ }) {
                         </td>
                         <td>
                           <Name name={r.employee.name} sub={[r.employee.employeeCode, r.employee.department].filter(Boolean).join(' · ') || r.employee.role} photo={r.employee.photo} />
+                          <SalesLine s={r.sales} />
                         </td>
                         <td style={r.tags.includes('Late') ? { color: '#B91C1C', fontWeight: 600 } : undefined}>{s ? clock(s.loginAt) : '—'}</td>
                         <td style={r.tags.includes('Early Logout') ? { color: '#B91C1C', fontWeight: 600 } : undefined}>{s ? (s.logoutAt ? clock(s.logoutAt) : lost ? `— lost ${clock(s.lastHeartbeatAt)}` : r.live === 'offline' ? `— lost ${clock(s.since)}` : r.live ? 'Online' : '—') : '—'}</td>
@@ -333,6 +334,7 @@ export default function Attendance({ openDetail, globalQ }) {
                   <div className="e-row" style={{ flexWrap: 'nowrap' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Name name={r.employee.name} sub={`${r.employee.department || r.employee.role} · ${hm(r.totals.work)} / ${Math.round(r.required / 60)}h`} />
+                      <SalesLine s={r.sales} />
                     </div>
                     <B>{r.status}</B>
                   </div>

@@ -33,8 +33,9 @@ export function setTrackerConfig({ heartbeatSec, inactivitySec } = {}) {
   if (inactivitySec) idleSec = Number(inactivitySec);
 }
 
+let notTracked = false;
 async function beat(force) {
-  if (!storePersist.get('auth')?.current?.token) return;
+  if (!storePersist.get('auth')?.current?.token || notTracked) return;
   const now = Date.now();
   const prev = num(K.beat);
   if (!force && now - prev < hbSec * 1000 - 500) return; // another tab beat recently
@@ -44,6 +45,10 @@ async function beat(force) {
   const last = Math.max(kb, ms);
   const body = { kb: kb > prev, mouse: ms > prev, agoMs: last > prev ? now - last : 0 };
   const r = await api.post('me/heartbeat', body);
+  if (r && r.success && r.result && r.result.tracked === false) {
+    notTracked = true; // not in the ERP (e.g. staff not sent the ERP login email) — stop pinging
+    return;
+  }
   if (r && r.success) window.dispatchEvent(new CustomEvent('erp:beat', { detail: r.result }));
   else if (!navigator.onLine) window.dispatchEvent(new CustomEvent('erp:beat', { detail: { offline: true } }));
 }

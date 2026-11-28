@@ -211,6 +211,10 @@ const P = {
     const s = L('../sales/salesWelcomeEmail');
     return { subject: 'Your CRM account is ready — login details inside', html: s.salesWelcomeEmailHtml({ name: NAME, email: EMAIL }), vars: { name: NAME, loginEmail: EMAIL, loginLink: s.loginUrl() } };
   },
+  'hr-erp-invite': async () => {
+    const m = await L('../hr/erpInvite').buildErpInvite({ name: NAME, email: EMAIL });
+    return { subject: m.subject, html: m.html, vars: m.vars };
+  },
   'hr-no-logout': () => {
     const vars = { name: NAME, loginTime: '11:02 am', shiftEnd: '19:00', day: '2026-11-17' };
     return { ...L('../hr/workday')._emailHtml.noLogoutEmail(vars), vars };
@@ -220,7 +224,7 @@ const P = {
     return { ...L('../hr/workday')._emailHtml.leaveEmail(vars), vars };
   },
   'hr-erp-leave-request': () => {
-    const vars = { employee: NAME, leaveType: 'Casual Leave', from: '28 Nov 2026', to: '28 Nov 2026', duration: '1 day', reason: 'Personal work', link: `${BASE}/hr/work-tracker` };
+    const vars = { employee: NAME, leaveType: 'Casual Leave', from: '28 Nov 2026', to: '28 Nov 2026', duration: '1 day', reason: 'Personal work', link: `${BASE}/hr/work-tracker?erp=leaves` };
     return { ...L('../hr/erpLeave').requestEmail(vars), vars };
   },
   'hr-erp-leave-approved': () => {

@@ -14,15 +14,19 @@ const E = require('./erpAttendance');
 const Leave = () => mongoose.model('LeaveRequest');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' });
-const PUBLIC_BASE = () => (process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || 'https://clcone.careerlabconsulting.com').replace(/\/+$/, '');
+// never a localhost / IP link in an email (utils/publicUrl)
+const PUBLIC_BASE = () => require('../../utils/publicUrl').publicUrl(process.env.PUBLIC_APP_URL, process.env.FRONTEND_URL);
 
+// Who gets "new leave request" (user, 2026-11-28: neeraj@careerlabconsulting.com).
+// Backend env first (LEAVE_ADMIN_EMAIL + LEAVE_NOTIFICATION_EMAIL, then
+// LEAVE_APPROVER_EMAIL); with none set, the approver default in workday.js.
 function recipients() {
   const list = [process.env.LEAVE_ADMIN_EMAIL, process.env.LEAVE_NOTIFICATION_EMAIL]
     .join(',')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  if (!list.length && process.env.LEAVE_APPROVER_EMAIL) list.push(process.env.LEAVE_APPROVER_EMAIL);
+  if (!list.length) list.push(require('./workday').APPROVER_EMAIL());
   return [...new Set(list)];
 }
 
@@ -147,7 +151,7 @@ async function apply(admin, b, file) {
     attachmentName,
     source: 'erp-portal',
   });
-  const vars = { employee: E.fullName(admin), leaveType: `${type} Leave`, from: fmtDate(fromDate), to: fmtDate(toDate), duration: `${days} day${days === 1 ? '' : 's'}`, reason, link: `${PUBLIC_BASE()}/hr/work-tracker` };
+  const vars = { employee: E.fullName(admin), leaveType: `${type} Leave`, from: fmtDate(fromDate), to: fmtDate(toDate), duration: `${days} day${days === 1 ? '' : 's'}`, reason, link: `${PUBLIC_BASE()}/hr/work-tracker?erp=leaves` };
   send(recipients(), requestEmail(vars), 'hr-erp-leave-request', vars).catch((e) => console.error('[erp-leave] email failed:', e.message));
   require('../../notify').notify({
     audience: 'management',
@@ -157,7 +161,7 @@ async function apply(admin, b, file) {
     type: 'leave.applied',
     title: 'New leave request',
     body: `${E.fullName(admin)} · ${type} Leave · ${leaveLabel(leave)}`,
-    link: '/hr/work-tracker',
+    link: '/hr/work-tracker?erp=leaves',
   });
   return { ok: true, leave };
 }
@@ -179,14 +183,25 @@ async function decide(req, leaveId, action, reason, { email = true } = {}) {
     newValue: l.status,
     reason: reason || '',
   });
-  const S = await E.getSettings();
-  if (email && S.emailEmployee && emp && emp.email) {
-    const bal = (await E.leaveBalance(emp._id, new Date(l.fromDate).getUTCFullYear(), S, await mongoose.model('ErpProfile').findOne({ admin: emp._id }).lean())).find((x) => x.type === l.leaveType);
-    const vars = { first: emp.name, leaveType: `${l.leaveType} Leave`, dates: leaveLabel(l), from: fmtDate(l.fromDate), by: `${E.fullName(req.admin)} · ${fmtDate(new Date())}`, balance: bal ? `${bal.left} ${l.leaveType} left` : '—', reason: reason || '', link: `${PUBLIC_BASE()}/employee/${action === 'approve' ? 'leaves' : 'apply-leave'}` };
-    const approved = action === 'approve';
-    send(emp.email, decisionEmail(vars, approved), approved ? 'hr-erp-leave-approved' : 'hr-erp-leave-rejected', vars).catch((e) => console.error('[erp-leave] decision email failed:', e.message));
-  }
+  if (email) sendDecision(l, { byName: E.fullName(req.admin), reason }).catch((e) => console.error('[erp-leave] decision email failed:', e.message));
   return { ok: true, leave: l };
 }
 
-module.exports = { apply, decide, leaveLabel, countDays, requestEmail, decisionEmail, recipients, fmtDate };
+// "Your leave is approved / not approved" → the person who applied. Used by
+// every way a leave is decided: Attendance ERP, the one-click Approve / Reject
+// link in the request email, and the old Work-tracker API.
+async function sendDecision(l, { byName, reason } = {}) {
+  if (!l || !['Approved', 'Rejected'].includes(l.status)) return false;
+  const S = await E.getSettings();
+  if (!S.emailEmployee) return false;
+  const emp = l.adminId && mongoose.isValidObjectId(l.adminId) ? await mongoose.model('Admin').findById(l.adminId).select('name surname email').lean() : null;
+  if (!emp || !emp.email) return false;
+  const approved = l.status === 'Approved';
+  const bal = (await E.leaveBalance(emp._id, new Date(l.fromDate).getUTCFullYear(), S, await mongoose.model('ErpProfile').findOne({ admin: emp._id }).lean())).find((x) => x.type === l.leaveType);
+  const why = reason || l.decisionNote || '';
+  const vars = { first: emp.name, leaveType: `${l.leaveType} Leave`, dates: leaveLabel(l), from: fmtDate(l.fromDate), by: `${byName || l.decisionBy || 'HR'} · ${fmtDate(new Date())}`, balance: bal ? `${bal.left} ${l.leaveType} left` : '—', reason: why, link: `${PUBLIC_BASE()}/employee/${approved ? 'leaves' : 'apply-leave'}` };
+  await send(emp.email, decisionEmail(vars, approved), approved ? 'hr-erp-leave-approved' : 'hr-erp-leave-rejected', vars);
+  return true;
+}
+
+module.exports = { apply, decide, sendDecision, leaveLabel, countDays, requestEmail, decisionEmail, recipients, fmtDate };

@@ -6,6 +6,24 @@ import { Modal, ModalHead, useToast, Ic } from '../ui';
 
 let liteCache = null;
 let liteAt = 0;
+// Sales users: one line with their Workday shift login + today's calls
+// (the Sales flow's own data — header Login, dialer, CallRecord).
+export const talkLabel = (sec) => (sec >= 3600 ? `${Math.floor(sec / 3600)}h ${Math.round((sec % 3600) / 60)}m` : `${Math.round((sec || 0) / 60)}m`);
+export function SalesLine({ s }) {
+  if (!s) return null;
+  const login = s.loginAt || s.autoStartedAt;
+  const t = (d) => new Date(d).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="e-salesline" title="Sales Workday (header Login) and dialer calls">
+      <span className="tag">Sales</span>
+      <span>{login ? `Shift ${s.loginAt ? '' : 'auto '}${t(login)}${s.logoutAt ? `–${t(s.logoutAt)}` : ''}` : 'Shift not started'}</span>
+      <span>
+        📞 <b>{s.calls}</b> · {s.connected} conn · {talkLabel(s.talkSec)}
+      </span>
+    </div>
+  );
+}
+
 export function useLite() {
   const [lite, setLite] = useState(liteCache);
   useEffect(() => {

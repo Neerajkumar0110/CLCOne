@@ -192,6 +192,12 @@ const LoginPage = () => {
                       {translate('Login with a password instead')}
                     </Button>
                   </div>
+                  {/* Attendance ERP — the employees' own panel */}
+                  <div className="auth-link-row">
+                    <Button type="link" href="/employee/login" disabled={isLoading}>
+                      Employee Portal login (attendance &amp; leaves) →
+                    </Button>
+                  </div>
                 </Loading>
               </div>
             )

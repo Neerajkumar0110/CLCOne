@@ -10,7 +10,7 @@ const fromHM = (s) => {
 };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function Settings({ onSaved }) {
+export default function Settings({ onSaved, onAudit }) {
   const toast = useToast();
   const { data, loading, error, reload } = useLoad(() => api.get('admin/settings'), []);
   const [s, setS] = useState(null);
@@ -64,6 +64,11 @@ export default function Settings({ onSaved }) {
           <p className="e-sub">Nothing is hard-coded. Changes apply from now and are saved in the audit log.</p>
         </div>
         <div className="e-row">
+          {onAudit && (
+            <button type="button" className="e-btn" onClick={onAudit}>
+              Audit log
+            </button>
+          )}
           <button type="button" className="e-btn" onClick={() => setS(JSON.parse(JSON.stringify(data.settings)))}>
             Discard
           </button>

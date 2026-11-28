@@ -283,6 +283,7 @@ const decide = guard(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return bad(res, 'Leave request not found.', 404);
   const action = req.body && req.body.action === 'reject' ? 'reject' : 'approve';
   const r = await wd.decideLeave(req.params.id, action, { id: req.admin._id, name: wd.fullName(req.admin) }, req.body && req.body.note);
+  if (r.ok) require('../../../services/hr/erpLeave').sendDecision(r.leave, { byName: wd.fullName(req.admin), reason: req.body && req.body.note }).catch((e) => console.error('[leave] decision email failed:', e.message));
   return done(res, r, `Leave ${action === 'approve' ? 'approved' : 'rejected'}.`);
 });
 
@@ -591,6 +592,8 @@ const publicDecision = async (req, res) => {
   const approverName = process.env.LEAVE_APPROVER_NAME || 'Neeraj (email)';
   const r = await wd.decideLeave(id, action, { name: approverName }, null);
   if (!r.ok) return page('Could not update', r.error, '#dc2626');
+  // the person who applied gets the approved / rejected email (same as from Attendance ERP)
+  require('../../../services/hr/erpLeave').sendDecision(r.leave, { byName: approverName }).catch((e) => console.error('[leave] decision email failed:', e.message));
   const approved = action === 'approve';
   return page(approved ? 'Leave approved' : 'Leave rejected', `${leave.employee} — ${wd.durationLabel(leave)}. They have been notified in CLC One.`, approved ? '#16a34a' : '#dc2626');
 };

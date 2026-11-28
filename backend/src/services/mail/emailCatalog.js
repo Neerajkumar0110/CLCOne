@@ -66,6 +66,7 @@ const CATALOG = [
   // ── HR & accounts ─────────────────────────────────────────────────────────
   { key: 'hr-account-welcome', group: G.hr, name: 'Account ready (department staff)', to: 'New staff user', when: 'When a staff account is created', vars: ['name', 'department', 'loginEmail', 'loginLink'] },
   { key: 'hr-sales-welcome', group: G.hr, name: 'CRM account ready (sales)', to: 'New sales user', when: 'When a sales account is created', vars: ['name', 'loginEmail', 'loginLink'] },
+  { key: 'hr-erp-invite', group: G.hr, name: 'Attendance ERP login (Employee Portal)', to: 'Sales user', when: 'All Users › envelope button, and when a sales account is created', vars: ['name', 'loginEmail', 'loginLink', 'shift', 'target'] },
   { key: 'hr-no-logout', group: G.hr, name: 'You didn’t log out today', to: 'Sales user who did not log out', when: 'End of the work day', vars: ['name', 'day'] },
   { key: 'hr-leave-request', group: G.hr, name: 'Leave request (for approval)', to: 'Leave approver', when: 'When a user applies for leave', vars: ['employee', 'duration'] },
   { key: 'hr-erp-leave-request', group: G.hr, name: 'New leave request (Employee Portal)', to: 'LEAVE_ADMIN_EMAIL + LEAVE_NOTIFICATION_EMAIL', when: 'When an employee applies for leave in /employee', vars: ['employee', 'leaveType', 'from', 'to', 'duration', 'reason', 'link'] },

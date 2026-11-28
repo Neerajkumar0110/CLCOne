@@ -21,6 +21,12 @@ const schema = new mongoose.Schema({
   // typed into the agent (no login on the laptop, so the browser session stays).
   pairCode: String,
   pairExpires: Date,
+  // Last "Attendance ERP login" email (User Management › All Users ✉ / on account create)
+  invitedAt: Date,
+  invitedBy: String,
+  // Desktop agent permission asked on the first portal sign-in (allowed → download)
+  agentConsent: { type: String, enum: ['allowed', 'declined'] },
+  agentConsentAt: Date,
   updated: { type: Date, default: Date.now },
 });
 

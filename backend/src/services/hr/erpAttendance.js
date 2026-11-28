@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { istDateKey } = require('../calling/shiftHelpers');
-const { LMS_PANEL_ROLES } = require('../../config/roles');
+const { SALES_ROLES } = require('../../config/roles');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Attendance ERP engine (HRMS › Work & Leave Tracker › Attendance ERP and the
@@ -32,11 +32,12 @@ const Activity = () => mongoose.model('ErpActivity');
 const Setting = () => mongoose.model('ErpSetting');
 const Leave = () => mongoose.model('LeaveRequest');
 
+// Real CLC shift (user, 2026-11-28): 10:00 – 20:30, late after 10:15. Settings › Working hours overrides.
 const DEFAULTS = {
-  workStart: '09:30',
-  workEnd: '18:30',
+  workStart: '10:00',
+  workEnd: '20:30',
   requiredMin: 480,
-  lateAfter: '09:45',
+  lateAfter: '10:15',
   lunchMin: 60,
   lunchWindowStart: '13:00',
   lunchWindowEnd: '14:30',
@@ -78,7 +79,33 @@ const slotOf = (d) => {
   return `${hm.slice(0, 2)}:${String(Math.floor(Number(hm.slice(3)) / 10) * 10).padStart(2, '0')}`;
 };
 const fullName = (a) => (a ? `${a.name || ''} ${a.surname || ''}`.trim() || a.email : '');
-const isTrackedRole = (role) => !LMS_PANEL_ROLES.includes(role);
+// Who is in the ERP (user, 2026-11-28) — only people who have a login to it:
+//   • Sales roles: always (they get their login with the account welcome email
+//     and use the header Login / Logout).
+//   • Everyone else — Admin, Support, Finance, and also Candidates / Teachers:
+//     only once they were sent the "Attendance ERP login" email (User
+//     Management › All Users ✉ → ErpProfile.invitedAt) or "Track attendance"
+//     was switched on — and tracking starts when they sign in (same email + OTP).
+//   • Never: the owner and Super Admin.
+// isTrackedRole = the role may be in the ERP at all; trackedAdmin = this person is.
+const NEVER_TRACKED_ROLES = ['owner', 'Super Admin'];
+const isTrackedRole = (role) => !!role && !NEVER_TRACKED_ROLES.includes(role);
+const isSalesRole = (role) => SALES_ROLES.includes(role);
+const trackCache = new Map(); // adminId → { v, at }
+function forgetTracked(adminId) {
+  if (adminId) trackCache.delete(String(adminId));
+  else trackCache.clear();
+}
+async function trackedAdmin(admin) {
+  if (!admin || !isTrackedRole(admin.role)) return false;
+  const k = String(admin._id);
+  const c = trackCache.get(k);
+  if (c && Date.now() - c.at < 60000) return c.v;
+  const p = await mongoose.model('ErpProfile').findOne({ admin: admin._id }).select('trackingEnabled invitedAt').lean();
+  const v = isTracked(admin, p);
+  trackCache.set(k, { v, at: Date.now() });
+  return v;
+}
 
 // ── settings ─────────────────────────────────────────────────────────────────
 let cache = null;
@@ -242,7 +269,7 @@ async function closeStale(session, S) {
     type: 'erp.review',
     title: 'Session needs review',
     body: `${session.adminName} — ${session.dayKey}: never logged out (last activity ${hmOf(session.lastHeartbeatAt) || '—'}).`,
-    link: '/hr/work-tracker',
+    link: '/hr/work-tracker?erp=attendance',
   });
   return true;
 }
@@ -265,7 +292,7 @@ function parseUa(ua = '') {
 // nothing new is created. After a logout the same day it is a re-login: the
 // gap is kept as OFFLINE and the session continues.
 async function startSession(admin, { source = 'login', ua, now = new Date() } = {}) {
-  if (!admin || !isTrackedRole(admin.role)) return null;
+  if (!admin || !(await trackedAdmin(admin))) return null;
   return withLock(admin._id, async () => {
     const S = await getSettings();
     await closeStaleFor(admin._id, S, now);
@@ -365,7 +392,7 @@ async function applyBeat(s, now, f, S) {
 
 // f: { kb, mouse, touch, scroll, input, agoMs } — flags only, never key data.
 async function heartbeat(admin, f = {}, { source = 'browser', ua, now = new Date() } = {}) {
-  if (!admin || !isTrackedRole(admin.role)) return { tracked: false };
+  if (!admin || !(await trackedAdmin(admin))) return { tracked: false };
   return withLock(admin._id, async () => {
     const S = await getSettings();
     await closeStaleFor(admin._id, S, now);
@@ -396,6 +423,12 @@ async function heartbeat(admin, f = {}, { source = 'browser', ua, now = new Date
       return { session: s };
     }
     if (['logged_out', 'needs_review'].includes(s.status)) return { session: s };
+    // A Sales user talking on a dialer call doesn't touch the mouse — the call
+    // itself counts as activity, so a long call is never marked Inactive.
+    if (!(f.input || f.kb || f.mouse || f.touch || f.scroll)) {
+      const cs = await mongoose.model('AgentCallState').findOne({ agent: admin._id }).select('status').lean().catch(() => null);
+      if (cs && ['Ringing', 'OnCall'].includes(cs.status)) f = { ...f, input: true, call: true };
+    }
     const before = s.status;
     await advance(s, now, S);
     await applyBeat(s, now, f, S);
@@ -408,7 +441,9 @@ async function heartbeat(admin, f = {}, { source = 'browser', ua, now = new Date
 }
 
 // ── lunch / breaks ───────────────────────────────────────────────────────────
-async function breakStart(admin, { kind = 'BREAK', key, auto = false, now = new Date() } = {}) {
+// `mirror` = { key, label, min }: a Sales Workday break (header widget / its
+// auto breaks) copied as-is — no ERP break list or lunch rule applies.
+async function breakStart(admin, { kind = 'BREAK', key, auto = false, now = new Date(), mirror } = {}) {
   return withLock(admin._id, async () => {
     const S = await getSettings();
     const s = await Session().findOne({ admin: admin._id, dayKey: todayKey(now) });
@@ -418,7 +453,11 @@ async function breakStart(admin, { kind = 'BREAK', key, auto = false, now = new 
     let label;
     let min;
     let k;
-    if (kind === 'LUNCH') {
+    if (mirror) {
+      k = mirror.key;
+      label = mirror.label;
+      min = mirror.min;
+    } else if (kind === 'LUNCH') {
       k = 'lunch';
       label = 'Lunch';
       min = S.lunchMin;
@@ -571,12 +610,15 @@ async function totalsByAdminDay(fromKey, toKey, adminIds) {
   return out;
 }
 
-// Is this account in the attendance lists? "Track attendance" in Employees;
-// the owner account is left out unless switched on there.
-const isTracked = (a, p) => (p && typeof p.trackingEnabled === 'boolean' ? p.trackingEnabled : a.role !== 'owner');
+// Is this account in the attendance lists? (see trackedAdmin above)
+function isTracked(a, p) {
+  if (!a || !isTrackedRole(a.role)) return false;
+  if (p && typeof p.trackingEnabled === 'boolean') return p.trackingEnabled;
+  return isSalesRole(a.role) || !!(p && p.invitedAt);
+}
 
 async function trackedEmployees({ includeDisabled = false, includeUntracked = false } = {}) {
-  const q = { removed: false, role: { $nin: LMS_PANEL_ROLES } };
+  const q = { removed: false, role: { $nin: NEVER_TRACKED_ROLES } };
   if (!includeDisabled) q.enabled = true;
   const admins = await mongoose.model('Admin').find(q).select('name surname email role enabled photo phone created reportsTo').lean();
   const profiles = await mongoose.model('ErpProfile').find({ admin: { $in: admins.map((a) => a._id) } }).lean();
@@ -603,6 +645,7 @@ async function trackedEmployees({ includeDisabled = false, includeUntracked = fa
       reportsTo: p.reportsTo || a.reportsTo || null,
       erpRole: p.erpRole || 'employee',
       tracked: isTracked(a, pmap[String(a._id)]),
+      trackingOff: p.trackingEnabled === false,
       leaveAdjust: p.leaveAdjust || {},
     };
   });
@@ -655,7 +698,7 @@ async function tick(now = new Date()) {
       const we = istAt(tk, S.lunchWindowEnd);
       if (now >= ws && now < we) {
         const a = await mongoose.model('Admin').findById(s.admin).select('name surname role').lean();
-        if (a) await breakStart(a, { kind: 'LUNCH', auto: true, now });
+        if (a && !require('./workday').isSales(a)) await breakStart(a, { kind: 'LUNCH', auto: true, now });
       }
     }
   }
@@ -692,6 +735,10 @@ module.exports = {
   ms,
   fullName,
   isTrackedRole,
+  isSalesRole,
+  trackedAdmin,
+  forgetTracked,
+  NEVER_TRACKED_ROLES,
   getSettings,
   saveSettings,
   withLock,

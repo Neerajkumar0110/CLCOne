@@ -108,7 +108,8 @@ const config = {
     // of the VPS's bare IP leaking into student-facing links. Only
     // LMS_CRM_BASE_URL is a real override for this; otherwise always the
     // real public domain.
-    crmBaseUrl: clean(process.env.LMS_CRM_BASE_URL || 'https://clcone.careerlabconsulting.com'),
+    // + never a localhost / IP value (utils/publicUrl) — these links go to people
+    crmBaseUrl: require('../utils/publicUrl').publicUrl(process.env.LMS_CRM_BASE_URL),
   },
 
   // Outbound sync queue (services/lms/queue.js + jobs/lmsSyncTick.js).

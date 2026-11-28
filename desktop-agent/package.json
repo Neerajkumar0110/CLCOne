@@ -21,9 +21,34 @@
   "build": {
     "appId": "com.careerlab.clcagent",
     "productName": "CLC Desktop Agent",
-    "files": ["main.js", "setup.html", "icon.png"],
-    "win": { "target": "nsis" },
-    "nsis": { "oneClick": true, "perMachine": false },
-    "mac": { "category": "public.app-category.productivity" }
+    "files": [
+      "main.js",
+      "setup.html",
+      "icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "artifactName": "CLC-Desktop-Agent-Setup.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "protocols": [
+      {
+        "name": "CLC Desktop Agent",
+        "schemes": [
+          "clcagent"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    }
   }
 }

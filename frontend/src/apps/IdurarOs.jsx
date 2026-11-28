@@ -34,12 +34,17 @@ const DefaultApp = () => {
   const location = useLocation();
   // Teacher / Student accounts get their own LMS panel — never the CRM shell.
   const isLmsPanel = !!current && LMS_PANEL_ROLES.includes(current.role);
-  const isEmployeePortal = !isLmsPanel && location.pathname.startsWith('/employee');
+  // /employee is the Employee Portal for anyone signed in — Candidates / Teachers
+  // sent the ERP login email too (the portal itself checks access).
+  const isEmployeePortal = location.pathname.startsWith('/employee');
   // Attendance ERP: presence heartbeat (mouse / keyboard used yes-no only)
   // from every CRM and portal tab of a staff account.
+  // Staff roles may be in the ERP (Sales always; others once sent the ERP login
+  // email). The tracker stops itself when the server says this user isn't tracked.
+  const erpTracked = !!current && !['owner', 'Super Admin'].includes(current.role);
   useEffect(() => {
-    if (current && !isLmsPanel) import('@/pages/AttendanceErp/tracker').then((m) => m.startErpTracker()).catch(() => {});
-  }, [current, isLmsPanel]);
+    if (erpTracked) import('@/pages/AttendanceErp/tracker').then((m) => m.startErpTracker()).catch(() => {});
+  }, [erpTracked]);
 
   return (
     <Localization>
@@ -50,12 +55,12 @@ const DefaultApp = () => {
               <NotificationsProvider>
                 <TicketsProvider>
                   <Suspense fallback={<PageLoader />}>
-                    {isLmsPanel ? (
-                      <LmsPanelApp />
-                    ) : isEmployeePortal ? (
+                    {isEmployeePortal ? (
                       <Routes>
                         <Route path="/employee/*" element={<EmployeePortal />} />
                       </Routes>
+                    ) : isLmsPanel ? (
+                      <LmsPanelApp />
                     ) : (
                       <ErpApp />
                     )}

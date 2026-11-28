@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import api from '../api';
 import { B, Modal, ModalHead, Skeleton, ago, clock, hmShort, todayKey, useLoad, useNow, useToast } from '../ui';
+import AgentSetup, { startAgentDownload } from './AgentSetup';
 
 // E9 · Desktop agent + my inactivity records (Profile › Desktop agent)
-const RELEASE = 'https://github.com/'; // replaced by the real installer link once the agent is published (desktop-agent/README.md)
 
 export default function Agent() {
   const toast = useToast();
@@ -15,15 +15,13 @@ export default function Agent() {
   const devices = ag.data || [];
   const dev = devices.find((d) => d.online) || devices[0];
   const running = dev && dev.online;
-  const download = (os) => {
-    const url = (import.meta.env.VITE_AGENT_DOWNLOAD_URL || RELEASE).replace('{os}', os);
-    window.open(url, '_blank', 'noopener');
-  };
-  const [pair, setPair] = useState(null);
-  const getCode = async () => {
-    const r = await api.post('me/agent/pair-code');
-    if (r.success) setPair(r.result);
-    else toast.err(r.message || 'Could not make a code');
+  // Download → the installer + the setup steps; Connect → one-click pairing
+  const [setup, setSetup] = useState(null); // 'install' | 'connect'
+  const download = async (os) => {
+    await api.post('me/agent/consent', { allow: true });
+    const r = await startAgentDownload(os);
+    if (!r.ok) return toast.err('Download not available', r.message);
+    setSetup('install');
   };
   const sendNote = async () => {
     const r = await api.post(`me/idle/${noteFor._id}/note`, { note });
@@ -65,12 +63,12 @@ export default function Agent() {
                   <b style={{ fontSize: 15 }}>{running && dev.lastMouseAt ? ago(dev.lastMouseAt, now) : '—'}</b>
                 </div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--e-mut)', lineHeight: '18px' }}>It starts with Windows and sits in the tray. Click “Connect this laptop” and type the 6-digit code into the agent — no sign-in on the laptop, so this browser stays logged in. If it is closed or removed, HR gets an alert and your time falls back to browser-only tracking.</div>
+              <div style={{ fontSize: 12, color: 'var(--e-mut)', lineHeight: '18px' }}>It starts with Windows and sits in the tray. After installing, click “Connect this laptop” — it connects in one click (or type the 6-digit code into the agent). No sign-in on the laptop, so this browser stays logged in. If it is closed or removed, HR gets an alert and your time falls back to browser-only tracking.</div>
               <div className="e-row" style={{ marginTop: 'auto' }}>
-                <button type="button" className="e-btn ok" onClick={getCode}>
+                <button type="button" className="e-btn ok" onClick={() => setSetup('connect')}>
                   Connect this laptop
                 </button>
-                <button type="button" className="e-btn p" onClick={() => download('windows')}>
+                <button type="button" className="e-btn p" onClick={() => download('win')}>
                   Download for Windows
                 </button>
                 <button type="button" className="e-btn" onClick={() => download('mac')}>
@@ -140,29 +138,15 @@ export default function Agent() {
           </button>
         </section>
       )}
-      <Modal open={!!pair} onClose={() => setPair(null)} label="Connect this laptop">
-        <ModalHead title="Connect this laptop" sub="Open the CLC Desktop Agent on your laptop and type this code. It works once and expires in 10 minutes." onClose={() => setPair(null)} />
-        {pair && (
-          <>
-            <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: 10, textAlign: 'center', padding: '18px 0', background: 'var(--e-priS)', color: 'var(--e-priD)', borderRadius: 12 }}>{pair.code}</div>
-            <div className="e-note info" style={{ marginTop: 12 }}>
-              Valid till {clock(pair.expiresAt)}. You don't sign in on the laptop, so this browser stays logged in.
-            </div>
-          </>
-        )}
-        <div className="e-row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-          <button
-            type="button"
-            className="e-btn p"
-            onClick={() => {
-              setPair(null);
-              ag.reload(true);
-            }}
-          >
-            Done
-          </button>
-        </div>
-      </Modal>
+      <AgentSetup
+        open={!!setup}
+        start={setup || 'install'}
+        onClose={() => {
+          setSetup(null);
+          ag.reload(true);
+        }}
+        onDone={() => ag.reload(true)}
+      />
       <Modal open={!!noteFor} onClose={() => setNoteFor(null)} label="Add note">
         <ModalHead title="Add a note for HR" sub={noteFor ? `${clock(noteFor.startAt)} – ${clock(noteFor.endAt)} · ${noteFor.minutes} min` : ''} onClose={() => setNoteFor(null)} />
         <textarea className="e-fld" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Team stand-up in the meeting room" autoFocus />

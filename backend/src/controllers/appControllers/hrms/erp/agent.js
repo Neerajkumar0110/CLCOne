@@ -111,4 +111,20 @@ const beat = async (req, res) => {
   return ok(res, { power: dev.power, heartbeatSec: S.heartbeatSec });
 };
 
-module.exports = { register, beat, pairCode, pair };
+// GET /api/erp-agent-public/download/:os — the installer. AGENT_DOWNLOAD_URL
+// (e.g. a release link) wins; else the file in AGENT_INSTALLER_DIR (default
+// backend/downloads, kept out of git). Public: the installer holds no secret —
+// a laptop is only counted after the signed-in employee connects it.
+const download = async (req, res) => {
+  const os = req.params.os === 'mac' ? 'mac' : 'win';
+  if (process.env.AGENT_DOWNLOAD_URL) return res.redirect(process.env.AGENT_DOWNLOAD_URL.replace('{os}', os));
+  const path = require('path');
+  const fsx = require('fs');
+  const dir = process.env.AGENT_INSTALLER_DIR || path.join(__dirname, '../../../../../downloads');
+  const file = path.join(dir, os === 'mac' ? 'CLC-Desktop-Agent.dmg' : 'CLC-Desktop-Agent-Setup.exe');
+  if (!fsx.existsSync(file)) return res.status(404).json({ success: false, result: null, message: 'The desktop agent installer is not uploaded yet. Ask HR.' });
+  return res.download(file, path.basename(file));
+};
+
+module.exports = {
+  download, register, beat, pairCode, pair };

@@ -1,11 +1,53 @@
 import React, { useState } from 'react';
 import api from '../api';
 import { Av, B, Bar, Card, ErrorState, Skeleton, StatusBadges, addDays, clock, dateLabel, hm, todayKey, useErpLive, useLoad, useToast } from '../ui';
+import { talkLabel } from './shared';
 
 // A4 · Attendance detail — day bar, timeline, totals, signals, correction.
 const COLORS = { ACTIVE: '#16A34A', INACTIVE: '#F59E0B', LUNCH: '#8B5CF6', BREAK: '#8B5CF6', OFFLINE: '#CBD5E1' };
 const BADGE = { ACTIVE: 'g', INACTIVE: 'a', LUNCH: 'v', BREAK: 'v', OFFLINE: 'o' };
 const TITLE = { ACTIVE: 'Active', INACTIVE: 'Inactive', LUNCH: 'Lunch', BREAK: 'Break', OFFLINE: 'Offline' };
+
+// Sales users: their Workday (header Login / breaks / dialer) and calls for the
+// day — read from the Sales flow, which the ERP never changes.
+function SalesCard({ s }) {
+  const login = s.loginAt || s.autoStartedAt;
+  const tiles = [
+    ['Shift login', login ? `${s.loginAt ? '' : 'auto '}${clock(login)}` : '—', s.lateMin > 0 ? `late ${hm(s.lateMin)}` : 'header Login', s.lateMin > 0 ? '#B91C1C' : null],
+    ['Shift logout', s.logoutAt ? clock(s.logoutAt) : login ? 'Working' : '—', 'header Logout'],
+    ['Calls', s.calls, `${s.connected} connected · ${s.inbound || 0} incoming`],
+    ['Talk time', talkLabel(s.talkSec), s.calls ? `avg ${Math.round(s.talkSec / Math.max(1, s.connected))}s / connected` : '—'],
+  ];
+  return (
+    <section className="e-card pad">
+      <div className="e-row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+        <h2 className="e-ct">Sales · Workday &amp; calls</h2>
+        {s.dialer && <B>{s.dialer.on ? (s.dialer.status === 'Paused' ? 'Paused' : s.dialer.status === 'OnCall' ? 'Online' : 'Active') : 'Off'}</B>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>
+        {tiles.map(([k, v, sub, c]) => (
+          <div key={k} style={{ background: 'var(--e-soft)', border: '1px solid var(--e-line2)', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, color: 'var(--e-mut)' }}>{k}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--e-ink)', marginTop: 2 }}>{v}</div>
+            <div style={{ fontSize: 11, color: c || 'var(--e-mut)', marginTop: 2 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--e-mut)', margin: '12px 0 6px' }}>Breaks ({hm(s.breakMin)})</div>
+      {s.breaks.length === 0 ? (
+        <p className="e-cs">No breaks yet.</p>
+      ) : (
+        <div className="e-row" style={{ gap: 6 }}>
+          {s.breaks.map((b, i) => (
+            <span key={i} style={{ fontSize: 11.5, padding: '3px 9px', borderRadius: 999, background: b.open ? 'rgba(217,119,6,.14)' : 'var(--e-line2)', color: b.open ? '#B45309' : 'var(--e-ink2)' }}>
+              ☕ {b.label} · {clock(b.startAt)}–{b.endAt ? clock(b.endAt) : 'now'} · {b.min}m{b.auto ? ' · auto' : ''}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 const durTxt = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`);
 
 export default function Detail({ adminId, date, onBack, onDate }) {
@@ -164,6 +206,7 @@ export default function Detail({ adminId, date, onBack, onDate }) {
               <span style={{ color: shortBy ? '#B91C1C' : '#15803D', fontWeight: 600 }}>{shortBy ? `Remaining ${hm(shortBy)}` : 'Target met ✓'}</span>
             </div>
           </section>
+          {d.sales && <SalesCard s={d.sales} />}
           <section className="e-card pad">
             <h2 className="e-ct">Session &amp; signals</h2>
             <p className="e-cs" style={{ marginBottom: 12 }}>

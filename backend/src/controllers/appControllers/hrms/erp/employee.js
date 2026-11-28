@@ -8,7 +8,9 @@ const L = require('../../../../services/hr/erpLeave');
 const ok = (res, result, message = 'ok') => res.status(200).json({ success: true, result, message });
 const bad = (res, message, status = 400) => res.status(status).json({ success: false, result: null, message });
 const me = (req) => req.admin;
-const tracked = (fn) => async (req, res) => (E.isTrackedRole(req.admin.role) ? fn(req, res) : bad(res, 'The employee portal is for staff accounts.', 403));
+// Portal access = in the ERP (Sales, or staff sent the ERP login email).
+const tracked = (fn) => async (req, res) =>
+  (await E.trackedAdmin(req.admin)) ? fn(req, res) : bad(res, E.isTrackedRole(req.admin.role) ? 'Your Employee Portal access is not on yet. Ask HR to send you the Attendance ERP login email.' : 'The employee portal is for staff accounts.', 403);
 
 const profileOf = async (adminId) => mongoose.model('ErpProfile').findOne({ admin: adminId }).lean();
 
@@ -63,7 +65,7 @@ const start = tracked(async (req, res) => {
 
 // POST /me/heartbeat { kb, mouse, touch, scroll, agoMs } — flags only.
 const heartbeat = async (req, res) => {
-  if (!E.isTrackedRole(req.admin.role)) return ok(res, { tracked: false });
+  if (!(await E.trackedAdmin(req.admin))) return ok(res, { tracked: false });
   const b = req.body || {};
   const r = await E.heartbeat(me(req), { kb: !!b.kb, mouse: !!b.mouse, touch: !!b.touch, scroll: !!b.scroll, agoMs: Number(b.agoMs) || 0 }, { source: 'browser', ua: req.headers['user-agent'] });
   const s = r.session;
@@ -265,7 +267,7 @@ const idleNote = tracked(async (req, res) => {
   if (!note) return bad(res, 'Write a note.');
   const p = await mongoose.model('ErpActivity').findOneAndUpdate({ _id: req.params.id, admin: req.admin._id, type: 'INACTIVE' }, { $set: { employeeNote: note } }, { new: true });
   if (!p) return bad(res, 'Record not found.', 404);
-  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.idle-note', title: 'Note on an inactive time', body: `${E.fullName(req.admin)} · ${E.hmOf(p.startAt)}–${E.hmOf(p.endAt) || 'now'}: ${note}`, link: '/hr/work-tracker' });
+  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.idle-note', title: 'Note on an inactive time', body: `${E.fullName(req.admin)} · ${E.hmOf(p.startAt)}–${E.hmOf(p.endAt) || 'now'}: ${note}`, link: '/hr/work-tracker?erp=idle' });
   return ok(res, p, 'Note sent to HR.');
 });
 
@@ -274,7 +276,7 @@ const reviewNote = tracked(async (req, res) => {
   if (!note) return bad(res, 'Write a note.');
   const s = await mongoose.model('ErpSession').findOneAndUpdate({ admin: req.admin._id, dayKey: String(req.body.dayKey || ''), status: 'needs_review' }, { $set: { reviewNote: note } }, { new: true });
   if (!s) return bad(res, 'Session not found.', 404);
-  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.review-note', title: 'Note on a session to review', body: `${E.fullName(req.admin)} · ${s.dayKey}: ${note}`, link: '/hr/work-tracker' });
+  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.review-note', title: 'Note on a session to review', body: `${E.fullName(req.admin)} · ${s.dayKey}: ${note}`, link: '/hr/work-tracker?erp=attendance' });
   return ok(res, true, 'Note sent to HR.');
 });
 
@@ -284,7 +286,7 @@ const report = tracked(async (req, res) => {
   const dk = String((req.body && req.body.dayKey) || '').slice(0, 10);
   if (!note || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return bad(res, 'Write what is wrong.');
   await mongoose.model('ErpSession').updateOne({ admin: req.admin._id, dayKey: dk }, { $set: { reviewNote: note } });
-  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.report', title: 'Attendance problem reported', body: `${E.fullName(req.admin)} · ${dk}: ${note}`, link: '/hr/work-tracker' });
+  require('../../../../notify').notify({ audience: 'management', actorId: req.admin._id, actorName: E.fullName(req.admin), module: 'HRMS', type: 'erp.report', title: 'Attendance problem reported', body: `${E.fullName(req.admin)} · ${dk}: ${note}`, link: '/hr/work-tracker?erp=attendance' });
   return ok(res, true, 'Sent to HR.');
 });
 
@@ -293,4 +295,22 @@ const agent = tracked(async (req, res) => {
   return ok(res, list.map((x) => ({ ...x, online: x.lastSeenAt && Date.now() - new Date(x.lastSeenAt) < 2 * 60000 })));
 });
 
-module.exports = { today, start, heartbeat, breakStart, breakEnd, logout, attendance, dayDetail, leaves, applyLeave, cancelLeave, attachment, calendar, profile, notifications, notificationsReadAll, idle, idleNote, reviewNote, report, agent };
+// GET /me/agent/consent — has this person answered the desktop-agent permission
+// (asked once, on the first portal sign-in)? + is a laptop already connected?
+const agentConsentGet = tracked(async (req, res) => {
+  const p = await profileOf(req.admin._id);
+  const paired = await mongoose.model('ErpDevice').exists({ admin: req.admin._id, revoked: false });
+  // codePending: a pair code was made and not used yet (it is cleared the moment the agent pairs)
+  return ok(res, { consent: (p && p.agentConsent) || null, at: (p && p.agentConsentAt) || null, paired: !!paired, codePending: !!(p && p.pairCode && p.pairExpires && new Date(p.pairExpires) > new Date()) });
+});
+// POST /me/agent/consent { allow } — saved, audited; "allowed" → the portal
+// starts the installer download and shows the one-click connect.
+const agentConsentSet = tracked(async (req, res) => {
+  const allow = !!(req.body && req.body.allow);
+  const v = allow ? 'allowed' : 'declined';
+  await mongoose.model('ErpProfile').updateOne({ admin: req.admin._id }, { $set: { agentConsent: v, agentConsentAt: new Date(), updated: new Date() }, $setOnInsert: { admin: req.admin._id } }, { upsert: true });
+  await E.audit(req, { action: allow ? 'Allowed desktop agent' : 'Declined desktop agent', employee: req.admin._id, employeeName: E.fullName(req.admin), oldValue: '', newValue: v, reason: 'Employee answered the permission prompt' });
+  return ok(res, { consent: v }, allow ? 'Thanks — the download is starting.' : 'Okay. You can install it later from Desktop agent.');
+});
+
+module.exports = { agentConsentGet, agentConsentSet, today, start, heartbeat, breakStart, breakEnd, logout, attendance, dayDetail, leaves, applyLeave, cancelLeave, attachment, calendar, profile, notifications, notificationsReadAll, idle, idleNote, reviewNote, report, agent };

@@ -18,6 +18,8 @@ import {
 import { fillMatrixDefaults } from "@/config/defaultPermissionMatrix";
 import { ROLE_COLORS } from "@/config/roles";
 import { usePermission } from "@/context/permissionContext";
+import { useSelector } from "react-redux";
+import { selectCurrentAdmin } from "@/redux/auth/selectors";
 import Users, {
   initialsOf,
   colorFor,
@@ -32,8 +34,10 @@ import Users, {
 } from "./Users";
 
 // Shows soft-deleted users (GET /api/admin/list?removed=true) with a Restore
-// action (PATCH /api/admin/update/:id { removed: false }) — nothing is ever
-// permanently gone from this screen.
+// action (PATCH /api/admin/update/:id { removed: false }) and, for owner /
+// Super Admin / Admin, "Delete permanently" (GET preview → DELETE
+// /api/admin/purge/:id, services/users/purgeUser.js) which removes the account
+// and its role's data from the DB for good.
 function DeletedUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +58,24 @@ function DeletedUsers() {
   useEffect(() => {
     load();
   }, []);
+
+  const currentAdmin = useSelector(selectCurrentAdmin);
+  const canPurge = ["owner", "Super Admin", "Admin"].includes(currentAdmin?.role);
+  const [purge, setPurge] = useState(null); // { user, preview, busy, typed }
+  const openPurge = async (user) => {
+    setPurge({ user, preview: null, busy: true, typed: "" });
+    const r = await request.get({ entity: `admin/purge/${user._id}` });
+    setPurge((p) => (p ? { ...p, busy: false, preview: r?.success ? r.result : null, error: r?.success ? null : r?.message || "Could not load the preview." } : p));
+  };
+  const doPurge = async () => {
+    if (!purge) return;
+    setPurge((p) => ({ ...p, busy: true }));
+    const r = await request.del({ entity: `admin/purge/${purge.user._id}` });
+    if (r?.success) {
+      setUsers((prev) => prev.filter((u) => u._id !== purge.user._id));
+      setPurge(null);
+    } else setPurge((p) => ({ ...p, busy: false, error: r?.message || "Could not delete." }));
+  };
 
   const restoreUser = async (user) => {
     const res = await request.update({ entity: "admin", id: user._id, jsonData: { removed: false } });
@@ -110,15 +132,74 @@ function DeletedUsers() {
                   <span className="hub-badge hub-badge-blue">{roleDisplay(u.role)}</span>
                 </td>
                 <td>
-                  <button type="button" className="hub-btn" onClick={() => restoreUser(u)}>
-                    <UndoOutlined /> Restore
-                  </button>
+                  <div className="hub-row" style={{ gap: 8, flexWrap: "nowrap" }}>
+                    <button type="button" className="hub-btn" onClick={() => restoreUser(u)}>
+                      <UndoOutlined /> Restore
+                    </button>
+                    {canPurge && u.role !== "owner" && (
+                      <button type="button" className="hub-btn" style={{ color: "#e11d48", borderColor: "#fecdd3", whiteSpace: "nowrap" }} onClick={() => openPurge(u)}>
+                        <DeleteOutlined /> Delete permanently
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <HubModal
+        open={!!purge}
+        onClose={() => !purge?.busy && setPurge(null)}
+        title={purge ? `Delete ${purge.user.name || purge.user.email} permanently?` : ""}
+        footer={
+          <>
+            <button type="button" className="hub-btn" disabled={purge?.busy} onClick={() => setPurge(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="hub-btn"
+              style={{ background: "#e11d48", color: "#fff", borderColor: "#e11d48" }}
+              disabled={!purge?.preview || purge?.busy || purge?.typed !== "DELETE"}
+              onClick={doPurge}
+            >
+              <DeleteOutlined /> Delete permanently
+            </button>
+          </>
+        }
+      >
+        {purge && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ margin: 0, color: "#b91c1c", fontWeight: 600 }}>This cannot be undone. The account and its {roleDisplay(purge.user.role)} data are removed from the database.</p>
+            {purge.busy && !purge.preview && <div className="hub-empty">Checking what will be deleted…</div>}
+            {purge.error && <div className="hub-empty" style={{ color: "#b91c1c" }}>{purge.error}</div>}
+            {purge.preview && (
+              <>
+                {purge.preview.emailShared && (
+                  <p style={{ margin: 0, fontSize: 12.5, color: "#92400e", background: "#fffbeb", borderRadius: 8, padding: "8px 10px" }}>
+                    Another account uses the same email — only this account's own records are deleted; the other account is not touched.
+                  </p>
+                )}
+                <div style={{ fontSize: 13 }}>
+                  {Object.entries(purge.preview.counts).map(([k, n]) => (
+                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--hub-border)" }}>
+                      <span>{k.split(".").slice(1).join(".")}</span>
+                      <b>{n}</b>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--hub-muted)" }}>Kept: audit logs, tickets, emails sent and classes of live batches.</p>
+                <label style={{ fontSize: 13 }}>
+                  Type <b>DELETE</b> to confirm
+                  <input className="hub-input" style={{ width: "100%", marginTop: 6 }} value={purge.typed} onChange={(e) => setPurge({ ...purge, typed: e.target.value })} autoFocus />
+                </label>
+              </>
+            )}
+          </div>
+        )}
+      </HubModal>
     </div>
   );
 }
