@@ -34,7 +34,6 @@ export const LOGO_SLOTS = [
     label: 'Login page',
     description: 'Shown above the sign-in form.',
     fallback: horizontalLogo,
-    fallbackOnLight: horizontalLogoDark,
     shape: 'wide',
   },
   {
@@ -42,7 +41,6 @@ export const LOGO_SLOTS = [
     label: 'Public pages',
     description: 'Pages a candidate sees without signing in, such as the KYC form.',
     fallback: horizontalLogo,
-    fallbackOnLight: horizontalLogoDark,
     shape: 'wide',
   },
   {
